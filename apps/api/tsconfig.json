@@ -1,0 +1,20 @@
+{
+    "extends": "@repo/config-typescript/base.json",
+    "compilerOptions": {
+        "outDir": "./dist",
+        "rootDir": "./src",
+        // This is a runnable application, not a published library, so it emits no
+        // .d.ts files. Disabling declaration also avoids TS2883 "type cannot be
+        // named" portability errors on inferred router/context types.
+        "declaration": false,
+        "declarationMap": false,
+        "paths": {
+            "#src/*": ["./src/*"],
+            "#routes/*": ["./src/routes/*"],
+            "#modules/*": ["./src/modules/*"],
+            "#shared/*": ["./src/shared/*"]
+        }
+    },
+    "include": ["./src/**/*"],
+    "exclude": ["node_modules", "dist"]
+}

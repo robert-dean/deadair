@@ -1,0 +1,40 @@
+{
+    "camelCase": true,
+    "customImports": {
+        "DateTime": "luxon",
+        "Duration": "luxon"
+    },
+    "dateParser": "timestamp",
+    "defaultSchemas": [
+        "public"
+    ],
+    "dialect": "postgres",
+    "domains": true,
+    "envFile": ".env",
+    "excludePattern": "pgboss.*",
+    "includePattern": null,
+    "logLevel": "warn",
+    "numericParser": "string",
+    "outFile": "./src/modules/data/db.ts",
+    "overrides": {
+        "columns": {
+            "deadair.actors.type": "'user' | 'system' | 'vendor'",
+            "deadair.actors_authenticator_factors.type": "'totp' | 'hotp'",
+            "deadair.actors_authenticator_factors.algorithm": "'sha1' | 'sha256' | 'sha512'",
+            "deadair.actor_session_events.event_type": "'created' | 'refreshed' | 'revoked' | 'expired' | 'step_up' | 'validation_failed'"
+        }
+    },
+    "partitions": false,
+    "print": false,
+    "runtimeEnums": false,
+    "singularize": false,
+    "typeMapping": {
+        "date": "DateTime",
+        "timestamptz": "DateTime",
+        "interval": "Duration",
+        "int8": "bigint"
+    },
+    "typeOnlyImports": true,
+    "url": "env(DATABASE_URL)",
+    "verify": false
+}

@@ -1,0 +1,20 @@
+packages:
+    - apps/*
+    - packages/*
+
+allowBuilds:
+    '@swc/core': true
+    cbor-extract: true
+    esbuild: true
+    protobufjs: true
+
+minimumReleaseAgeExclude:
+    - injectkit
+    - '@maroonedsoftware/*'
+    - '@contractkit/*'
+
+confirmModulesPurge: false
+
+# See the workspace CLAUDE.md: pnpm's pre-run dependency check misfires in sandboxed
+# sessions (project-local .pnpm-store path drift). Warn instead of trying to reinstall.
+verifyDepsBeforeRun: warn

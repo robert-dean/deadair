@@ -1,0 +1,44 @@
+# Prod edge. Overlay on the base compose file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Adds the API container (the root Dockerfile image) and nginx in front of it,
+# icecast and the built SPA, so the whole instance is reachable on one origin.
+# TLS is expected to terminate upstream (edge/tunnel), which is why nginx binds
+# localhost only, matching how icecast is already published in the base file.
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: deadair-app
+        container_name: deadair-app
+        restart: unless-stopped
+        # No `ports`: nginx is the only way in. Runtime config (DATABASE_*,
+        # REDIS_*, KMS/JWT secrets, APP_BASE_URL, …) comes from this env file.
+        env_file:
+            - ./apps/api/.env
+        environment:
+            PORT: 3000
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_started
+
+    nginx:
+        image: nginx:1.27-alpine
+        container_name: deadair-nginx
+        restart: unless-stopped
+        ports:
+            - '127.0.0.1:8080:80'
+        volumes:
+            - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+            - ./nginx/snippets:/etc/nginx/snippets:ro
+            # Built SPA, served directly by nginx. Requires `pnpm --filter
+            # @app/web build` to have run on the host first.
+            - ./apps/web/dist:/srv/web:ro
+        depends_on:
+            app:
+                condition: service_started
+            icecast:
+                condition: service_started

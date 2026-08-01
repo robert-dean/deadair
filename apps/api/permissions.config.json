@@ -1,0 +1,10 @@
+{
+    "rootDir": "../../",
+    "patterns": ["apps/api/data/permissions/**/*.perm"],
+    "prettier": true,
+    "output": {
+        "baseDir": "apps/api/",
+        "namespace": "src/modules/permissions/generated/{filename}.ts",
+        "model": "src/modules/permissions/generated/index.ts"
+    }
+}

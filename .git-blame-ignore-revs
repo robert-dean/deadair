@@ -1,0 +1,7 @@
+# Revisions to skip when running git blame.
+#
+# Formatting-only commits go here so blame keeps pointing at whoever last
+# changed the code, not at the person who last ran the formatter.
+#
+# Honored automatically by GitHub. Locally, enable it once with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs

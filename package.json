@@ -1,0 +1,37 @@
+{
+    "name": "deadair",
+    "private": true,
+    "scripts": {
+        "build": "turbo run build",
+        "build:data": "turbo run build:data",
+        "rebuild:data": "turbo run rebuild:data",
+        "build:contracts": "turbo run build:contracts --",
+        "build:permissions": "turbo run build:permissions",
+        "dev": "turbo run dev",
+        "lint": "turbo run lint",
+        "format": "turbo run format",
+        "test": "turbo run test",
+        "build:datatypes": "turbo run build:datatypes",
+        "migrate:create": "turbo run migrate:create --",
+        "migrate:up": "turbo run migrate:up",
+        "migrate:down": "turbo run migrate:down",
+        "migrate:down:all": "turbo run migrate:down:all",
+        "wizard": "wizard"
+    },
+    "devDependencies": {
+        "@contractkit/prettier-plugin": "^0.12.2",
+        "@types/node": "^26.1.2",
+        "@vitest/coverage-v8": "^4.1.10",
+        "eslint": "^10.8.0",
+        "prettier": "^3.9.6",
+        "tsup": "^8.5.1",
+        "turbo": "^2.10.7",
+        "typescript": "6.0.3",
+        "unplugin-swc": "^1.5.9",
+        "vitest": "^4.1.10"
+    },
+    "packageManager": "pnpm@11.10.0",
+    "engines": {
+        "node": ">=26"
+    }
+}

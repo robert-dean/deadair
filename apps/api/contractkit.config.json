@@ -1,0 +1,28 @@
+{
+    "rootDir": "~/projects/deadair/",
+    "cache": ".contractkit/cache",
+    "prettier": true,
+    "patterns": ["apps/api/data/contracts/**/*.ck"],
+    "plugins": {
+        "@contractkit/plugin-typescript": {
+            "server": {
+                "baseDir": "apps/api/",
+                "zod": true,
+                "output": {
+                    "routes": "src/routes/{filename}.router.ts",
+                    "types": "src/modules/{area}/types/{filename}.ts"
+                },
+                "servicePathTemplate": "#modules/{module}/{module}.service.js"
+            },
+            "sdk": {
+                "baseDir": "packages/sdk/",
+                "name": "deadair",
+                "output": {
+                    "sdk": "src/{name}.sdk.ts",
+                    "types": "src/{area}/types/{filename}.ts",
+                    "clients": "src/{area}/{filename}.client.ts"
+                }
+            }
+        }
+    }
+}

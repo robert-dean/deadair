@@ -1,0 +1,22 @@
+# Dev edge. Overlay on the base compose file:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up nginx
+#
+# The API and Vite still run on the host (`pnpm dev`); this only adds the single
+# public origin in front of them and icecast, so the SPA, the API and the stream
+# all share http://localhost:8080 and there's no cross-origin cookie handling.
+services:
+    nginx:
+        image: nginx:1.27-alpine
+        container_name: deadair-nginx
+        restart: unless-stopped
+        ports:
+            - '127.0.0.1:8080:80'
+        volumes:
+            - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+            - ./nginx/snippets:/etc/nginx/snippets:ro
+        # Reach the host-run API (:3333) and Vite (:3002).
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        depends_on:
+            icecast:
+                condition: service_started

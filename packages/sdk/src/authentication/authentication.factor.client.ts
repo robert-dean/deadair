@@ -1,0 +1,86 @@
+import type {
+    AuthenticationFactor,
+    AuthenticationToken,
+    AuthenticationTokenOutput,
+    FactorChallengeStartRequest,
+    FactorChallengeStartResponse,
+    FactorChallengeStartResponseOutput,
+    StepUpStartRequest,
+    StepUpStartResponse,
+    StepUpStartResponseOutput,
+} from './types/authentication.types.js';
+import type {
+    AuthenticationFactorRegistration,
+    AuthenticationFactorRegistrationResponse,
+    AuthenticationFactorRegistrationVerification,
+} from './types/registration.types.js';
+import type { SdkFetch } from '../sdk-options.js';
+import { bigIntReplacer, parseJson } from '../sdk-options.js';
+
+/**
+ * generated from [authentication.factor.ck](file://./../../../../apps/api/data/contracts/authentication/authentication.factor.ck)
+ */
+export class AuthenticationFactorsClient {
+    constructor(private fetch: SdkFetch) {}
+
+    /**
+     * @name List factors
+     * @description List authentication factors
+     */
+    async listFactors(): Promise<AuthenticationFactor[]> {
+        const result = await this.fetch(`/auth/factors`, { method: 'GET' });
+        return await parseJson<AuthenticationFactor[]>(result);
+    }
+
+    /**
+     * @name Register factor
+     * @description Register an authentication factor
+     */
+    async registerFactor(body: AuthenticationFactorRegistration): Promise<AuthenticationFactorRegistrationResponse> {
+        const result = await this.fetch(`/auth/factors/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<AuthenticationFactorRegistrationResponse>(result);
+    }
+
+    /**
+     * @name Verify factor registration
+     * @description Verify an authentication factor registration
+     */
+    async verifyFactorRegistration(body: AuthenticationFactorRegistrationVerification): Promise<AuthenticationTokenOutput> {
+        const result = await this.fetch(`/auth/factors/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<AuthenticationTokenOutput>(result);
+    }
+
+    /**
+     * @name Start factor challenge
+     * @description Issue a factor verification challenge for a pending MFA round. Authenticated via the short-lived `mfa_challenge_id` in the body, not by session — this is the only /auth/factors/* route that does not require an authenticated session.
+     */
+    async startFactorChallenge(body: FactorChallengeStartRequest): Promise<FactorChallengeStartResponseOutput> {
+        const result = await this.fetch(`/auth/factors/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<FactorChallengeStartResponseOutput>(result);
+    }
+
+    /**
+     * @name Start MFA challenge
+     * @description Mint a fresh MFA challenge for the *current* authenticated session so the SPA can satisfy a `step_up_required` denial. Optionally filters eligible factors against an inbound `StepUpRequirement` hint. Returns `enrollment_required` when no enrolled factor matches the requirement so the SPA can route the user into enrollment instead of getting stuck.
+     */
+    async startMFAChallenge(body: StepUpStartRequest): Promise<StepUpStartResponseOutput> {
+        const result = await this.fetch(`/auth/mfa/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<StepUpStartResponseOutput>(result);
+    }
+}

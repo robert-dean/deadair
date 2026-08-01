@@ -1,0 +1,254 @@
+import { Registry } from 'injectkit';
+import {
+    Argon2idPasswordHashProvider,
+    AuthenticationHandlerMap,
+    AuthenticationSchemeHandler,
+    AuthenticationSessionService,
+    AuthenticationSessionServiceOptions,
+    AuthenticatorFactorRepository,
+    AuthenticatorFactorService,
+    AuthenticatorFactorServiceOptions,
+    EmailFactorRepository,
+    EmailFactorService,
+    EmailFactorServiceOptions,
+    FidoFactorRepository,
+    FidoFactorService,
+    FidoFactorServiceOptions,
+    HtmlRedirectProvider,
+    JwtAuthenticationHandler,
+    JwtAuthenticationIssuerMap,
+    JwtProvider,
+    MfaChallengeService,
+    MfaChallengeServiceOptions,
+    MfaOrchestrator,
+    OidcActorEmailLookup,
+    OidcFactorRepository,
+    OidcFactorService,
+    OidcFactorServiceOptions,
+    OidcProviderConfig,
+    OidcProviderRegistry,
+    OidcProviderRegistryConfig,
+    OtpProvider,
+    OtpProviderMock,
+    PasswordFactorRepository,
+    PasswordFactorService,
+    PasswordHashProvider,
+    PasswordStrengthProvider,
+    PhoneFactorRepository,
+    PhoneFactorService,
+    PhoneFactorServiceOptions,
+    PkceProvider,
+} from '@maroonedsoftware/authentication';
+import { PolicyService } from '@maroonedsoftware/policies';
+import { EncryptionProvider } from '@maroonedsoftware/encryption';
+import { Duration } from 'luxon';
+import { AppConfig } from '@maroonedsoftware/appconfig';
+import { Logger } from '@maroonedsoftware/logger';
+import { RateLimiterRedis } from 'rate-limiter-flexible';
+import { Redis } from 'ioredis';
+import { ServerKitModule } from '@maroonedsoftware/koa';
+import { DeadairPasswordFactorRepository } from './repositories/password.factor.repository.js';
+import { AuthenticationService } from './authentication.service.js';
+import { AuthenticationServiceOptions } from './authentication.options.js';
+import { SessionActivityService } from './session.activity.service.js';
+import { SessionEventRepository } from './repositories/session.event.repository.js';
+import { LoginActivityRepository } from './repositories/login.activity.repository.js';
+import { SessionsService } from './sessions.service.js';
+import { DeadairEmailFactorRepository } from './repositories/email.factor.repository.js';
+import { AuthenticationRegistrationService } from './authentication.registration.service.js';
+import { DeadairJwtAuthenticationIssuer } from './issuers/jwt.authentication.issuer.js';
+import { DeadairFidoFactorRepository } from './repositories/fido.factor.repository.js';
+import { DeadairAuthenticatorFactorRepository } from './repositories/authenticator.factor.repository.js';
+import { DeadairOidcFactorRepository } from './repositories/oidc.factor.repository.js';
+import { DeadairOidcActorEmailLookup } from './oidc.actor.email.lookup.js';
+import { CacheProvider } from '@maroonedsoftware/cache';
+import { DeadairPhoneFactorRepository } from './repositories/phone.factor.repository.js';
+import { ActorsRepository } from './repositories/actors.repository.js';
+import { ResponseCookieJar } from './response.cookie.jar.js';
+
+let otpDevBypassEnabled = false;
+
+export const AuthenticationModule: ServerKitModule = {
+    name: 'Authentication',
+    setup: async (registry: Registry, config: AppConfig) => {
+        registry.register(AuthenticationSchemeHandler).useClass(AuthenticationSchemeHandler).asScoped();
+
+        registry.register(AuthenticationHandlerMap).useMap(AuthenticationHandlerMap).set('bearer', JwtAuthenticationHandler);
+
+        registry.register(JwtAuthenticationHandler).useClass(JwtAuthenticationHandler).asScoped();
+
+        registry.register(JwtAuthenticationIssuerMap).useMap(JwtAuthenticationIssuerMap).set('deadair', DeadairJwtAuthenticationIssuer);
+
+        registry.register(DeadairJwtAuthenticationIssuer).useClass(DeadairJwtAuthenticationIssuer).asScoped();
+
+        registry
+            .register(JwtProvider)
+            .useFactory(container => {
+                return new JwtProvider(container.get(Logger), config.getString('AUTHENTICATION_SESSION_JWT_PRIVATE_KEY'));
+            })
+            .asScoped();
+
+        const otpDevBypass = config.getBoolean('OTP_DEV_BYPASS');
+        // Positive allowlist: the OTP bypass (accepts any submitted code) may ONLY run under an
+        // explicit development environment. An unset/'staging'/'test' NODE_ENV must not silently
+        // enable it — only 'development' does.
+        if (otpDevBypass && process.env.NODE_ENV !== 'development') {
+            throw new Error(`OTP_DEV_BYPASS may only be enabled when NODE_ENV=development (got ${process.env.NODE_ENV ?? 'undefined'})`);
+        }
+        otpDevBypassEnabled = otpDevBypass;
+        registry
+            .register(OtpProvider)
+            .useClass(otpDevBypass ? OtpProviderMock : OtpProvider)
+            .asSingleton();
+
+        registry.register(SessionEventRepository).useClass(SessionEventRepository).asScoped();
+        registry.register(LoginActivityRepository).useClass(LoginActivityRepository).asScoped();
+        registry.register(SessionActivityService).useClass(SessionActivityService).asScoped();
+        registry.register(SessionsService).useClass(SessionsService).asScoped();
+
+        registry
+            .register(AuthenticationSessionServiceOptions)
+            .useFactory(container => {
+                // Hooks delegate to the scoped SessionActivityService so each request's
+                // hook closure captures the per-request authorization context (IP, UA).
+                // The service swallows DB errors internally — hook failures must not
+                // break the auth flow.
+                return new AuthenticationSessionServiceOptions('deadair', 'deadair', Duration.fromMillis(1000 * 60 * 60 * 24 * 30), undefined, {
+                    onSessionCreated: session => container.get(SessionActivityService).onSessionCreated(session),
+                    onSessionRefreshed: session => container.get(SessionActivityService).onSessionRefreshed(session),
+                    onSessionRevoked: (session, meta) => container.get(SessionActivityService).onSessionRevoked(session, meta),
+                    onValidationFailed: (token, meta) => container.get(SessionActivityService).onValidationFailed(token, meta),
+                    onRefreshReuseDetected: meta => container.get(SessionActivityService).onRefreshReuseDetected(meta),
+                });
+            })
+            .asScoped();
+        registry.register(AuthenticationSessionService).useClass(AuthenticationSessionService).asScoped();
+
+        registry.register(PasswordStrengthProvider).useClass(PasswordStrengthProvider).asSingleton();
+        registry.register(PasswordHashProvider).useClass(Argon2idPasswordHashProvider).asSingleton();
+
+        registry.register(PasswordFactorRepository).useClass(DeadairPasswordFactorRepository).asScoped();
+        registry
+            .register(PasswordFactorService)
+            .useFactory(container => {
+                const rateLimiter = new RateLimiterRedis({
+                    storeClient: container.get(Redis),
+                    points: 5,
+                    duration: 30,
+                    blockDuration: 300,
+                });
+                return new PasswordFactorService(
+                    container.get(PasswordFactorRepository),
+                    rateLimiter,
+                    container.get(PasswordStrengthProvider),
+                    container.get(PasswordHashProvider),
+                    container.get(PolicyService),
+                    container.get(CacheProvider),
+                );
+            })
+            .asScoped();
+
+        registry
+            .register(EmailFactorServiceOptions)
+            .useFactory(() => {
+                return new EmailFactorServiceOptions();
+            })
+            .asScoped();
+
+        registry.register(EmailFactorRepository).useClass(DeadairEmailFactorRepository).asScoped();
+        registry.register(EmailFactorService).useClass(EmailFactorService).asScoped();
+
+        registry.register(PhoneFactorServiceOptions).useFactory(() => new PhoneFactorServiceOptions());
+        registry.register(PhoneFactorRepository).useClass(DeadairPhoneFactorRepository).asScoped();
+        registry.register(PhoneFactorService).useClass(PhoneFactorService).asScoped();
+
+        registry.register(PkceProvider).useClass(PkceProvider).asScoped();
+        registry.register(HtmlRedirectProvider).useClass(HtmlRedirectProvider).asScoped();
+
+        registry.register(FidoFactorRepository).useClass(DeadairFidoFactorRepository).asScoped();
+        registry
+            .register(FidoFactorServiceOptions)
+            .useFactory(() => new FidoFactorServiceOptions(Duration.fromMillis(60_000), 'deadair', 'deadair', 'deadair'))
+            .asScoped();
+        registry.register(FidoFactorService).useClass(FidoFactorService).asScoped();
+
+        registry
+            .register(EncryptionProvider)
+            .useFactory(() => new EncryptionProvider(Buffer.from(config.getString('KMS_LOCAL_ROOT_KEY'), 'hex')))
+            .asScoped();
+
+        registry.register(AuthenticatorFactorRepository).useClass(DeadairAuthenticatorFactorRepository).asScoped();
+        registry
+            .register(AuthenticatorFactorServiceOptions)
+            .useFactory(() => new AuthenticatorFactorServiceOptions('deadair'))
+            .asScoped();
+        registry.register(AuthenticatorFactorService).useClass(AuthenticatorFactorService).asScoped();
+
+        const spaBaseUrl = (() => {
+            try {
+                return config.getString('SPA_BASE_URL');
+            } catch {
+                return config.getString('APP_BASE_URL');
+            }
+        })();
+
+        registry
+            .register(AuthenticationServiceOptions)
+            .useFactory(() => new AuthenticationServiceOptions(config.getString('APP_BASE_URL'), 'deadair', 'https://deadair.com', spaBaseUrl))
+            .asScoped();
+
+        registry
+            .register(MfaChallengeServiceOptions)
+            .useFactory(() => new MfaChallengeServiceOptions())
+            .asScoped();
+        registry.register(MfaChallengeService).useClass(MfaChallengeService).asScoped();
+        registry.register(MfaOrchestrator).useClass(MfaOrchestrator).asScoped();
+
+        registry
+            .register(OidcProviderRegistryConfig)
+            .useFactory(() => {
+                const providers: OidcProviderConfig[] = [];
+                const googleClientId = config.get('GOOGLE_OIDC_CLIENT_ID', '');
+                const googleClientSecret = config.get('GOOGLE_OIDC_CLIENT_SECRET', '');
+                if (googleClientId && googleClientSecret) {
+                    // GOOGLE_OIDC_ISSUER lets local dev point this provider at a mock IdP
+                    // (e.g. http://localhost:3080/google via docker/mock-oidc) without
+                    // adding a separate provider name. Unset in production → real Google.
+                    const googleIssuer = config.get('GOOGLE_OIDC_ISSUER', 'https://accounts.google.com');
+                    const googleIssuerUrl = new URL(googleIssuer);
+                    providers.push({
+                        name: 'google',
+                        issuer: googleIssuerUrl,
+                        clientId: googleClientId,
+                        clientSecret: googleClientSecret,
+                        scopes: ['openid', 'email', 'profile'],
+                        redirectUri: new URL(`${config.getString('APP_BASE_URL')}/auth/login/oidc/callback`),
+                        // Only opt into insecure discovery when the issuer is explicitly http —
+                        // i.e. the dev-only mock IdP. Real Google stays https-only.
+                        allowInsecureIssuer: googleIssuerUrl.protocol === 'http:',
+                    });
+                }
+                return new OidcProviderRegistryConfig(providers);
+            })
+            .asSingleton();
+        registry.register(OidcProviderRegistry).useClass(OidcProviderRegistry).asSingleton();
+        registry.register(OidcFactorRepository).useClass(DeadairOidcFactorRepository).asScoped();
+        registry.register(OidcActorEmailLookup).useClass(DeadairOidcActorEmailLookup).asScoped();
+        registry
+            .register(OidcFactorServiceOptions)
+            .useFactory(() => new OidcFactorServiceOptions(Duration.fromObject({ minutes: 10 }), Duration.fromObject({ minutes: 15 })))
+            .asScoped();
+        registry.register(OidcFactorService).useClass(OidcFactorService).asScoped();
+
+        registry.register(AuthenticationService).useClass(AuthenticationService).asScoped();
+        registry.register(AuthenticationRegistrationService).useClass(AuthenticationRegistrationService).asScoped();
+
+        registry.register(ActorsRepository).useClass(ActorsRepository).asScoped();
+        registry.register(ResponseCookieJar).useClass(ResponseCookieJar).asScoped();
+    },
+    start: async container => {
+        if (otpDevBypassEnabled) {
+            container.get(Logger).warn('OTP_DEV_BYPASS is enabled — any submitted OTP code will be accepted. Do NOT enable in production.');
+        }
+    },
+};

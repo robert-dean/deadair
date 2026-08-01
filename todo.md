@@ -1,0 +1,28 @@
+# Deadair todo/idea list
+
+- [x] shows should use personas
+- [x] more voices, add phonetics
+- [ ] inject news/weather breaks
+- [ ] traffic breaks?
+- [ ] breaking news instant breaks
+- [ ] persona memory
+- [x] talkshows with callers (can we do real and fake like a conspiracy theories )
+- [ ] telegram bot for "requests"
+- [x] fix the tune-in album art, etc
+- [x] improve playlist generation, use similar artists to get related artists ect to help
+    - similarity comes from Last.fm (`artist.getSimilar` / `artist.getTopTracks`), not MusicBrainz — MB has no artist-similarity endpoint
+    - plus: durable play history (repeat window + artist cooldown), per-artist caps, palette from what aired instead of the pool
+- [ ] schedule builder (9-9:30 news, 9:30-12 music, 12-1 ?, etc)
+- [ ] generate fake ads and sponsors
+- [ ] more music sources (pandora, ?): youtube music and apple music appear to be hard to impossible
+- [ ] add foley, sounds, etc (especially useful for "callers" so you hear background noise like a dog barking)
+- [x] console/logs/activity feed
+- [x] offer multiple LLM options (chatgtp, claude, ect) along with models
+    - [x] Enable the breaks, shows, etc to be configured to use a specific one
+- [ ] plugin system for sources, renderers, streamers, ?
+- [ ] integrate with HA, similar?
+- [ ] daily snapshot from calendar integration?
+- [ ] have the talk shows (like conspiracy) keep a history so it can grow organically
+- [ ] view saved track metadata
+- [ ] like/dislike artist/song/album maybe genre
+- [ ] integrate with genuis for enrichment

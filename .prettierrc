@@ -1,0 +1,9 @@
+{
+    "plugins": ["@contractkit/prettier-plugin"],
+    "semi": true,
+    "singleQuote": true,
+    "arrowParens": "avoid",
+    "tabWidth": 4,
+    "useTabs": false,
+    "printWidth": 150
+}

@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.turbo
+.docvol
+.git
+.tanstack
+**/.env
+**/*.log
+apps/web/dist
+apps/api/public/spa

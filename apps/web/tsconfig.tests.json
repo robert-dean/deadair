@@ -1,0 +1,13 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        // Type-check only: this config exists to cover tests/ as well as src/,
+        // which the build tsconfig deliberately leaves out. Nothing is emitted,
+        // so rootDir is widened to the package root to admit tests/ without
+        // TS6059 and outDir is irrelevant.
+        "noEmit": true,
+        "rootDir": "."
+    },
+    "include": ["./src/**/*", "./tests/**/*", "./vite.config.ts", "./vitest.config.ts"],
+    "exclude": ["node_modules", "dist"]
+}

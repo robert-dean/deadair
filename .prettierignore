@@ -3,3 +3,4 @@ pnpm-lock.yaml
 yarn.lock
 **/node_modules/
 **/dist/
+**/routeTree.gen.ts

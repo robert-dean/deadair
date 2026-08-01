@@ -1,5 +1,8 @@
 {
     "$schema": "https://turborepo.com/schema.json",
+    // Turbo's strict env mode otherwise drops TMPDIR, so tooling that needs scratch space
+    // (vitest) falls back to /tmp, which is not writable under a sandboxed session.
+    "globalPassThroughEnv": ["TMPDIR"],
     "tasks": {
         "build": {
             "dependsOn": ["^build"],
@@ -17,6 +20,9 @@
             "persistent": true
         },
         "test": {
+            "dependsOn": ["^build"]
+        },
+        "typecheck": {
             "dependsOn": ["^build"]
         },
         "build:datatypes": {

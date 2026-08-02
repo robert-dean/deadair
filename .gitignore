@@ -39,4 +39,4 @@ yarn-error.log*
 
 # Docker volume data (bind-mounted host paths)
 .docvol/
-
+.claude/handoffs/

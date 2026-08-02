@@ -6,6 +6,8 @@ export * from './authentication/types/index.js';
 export * from './deadair.sdk.js';
 export * from './music/music.client.js';
 export * from './music/types/index.js';
+export * from './onboarding/onboarding.client.js';
+export * from './onboarding/types/index.js';
 export * from './sdk-options.js';
 export * from './shared/types/index.js';
 export * from './vendors/types/index.js';

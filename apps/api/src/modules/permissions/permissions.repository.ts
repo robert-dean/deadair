@@ -3,6 +3,8 @@ import { OnPostgresError } from '@maroonedsoftware/errors';
 import { OnKyselyError } from '@maroonedsoftware/kysely';
 import { ObjectRef, PermissionsTupleRepository, RelationTuple, SubjectRef } from '@maroonedsoftware/permissions';
 import { DataRepository } from '#modules/data/data.repository.js';
+import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID } from './platform.roles.js';
+import { sql } from 'kysely';
 
 type TupleRow = {
     objectNamespace: string;
@@ -156,5 +158,20 @@ export class DeadairPermissionsTupleRepository extends DataRepository implements
             .distinct()
             .execute();
         return rows.map(r => ({ id: r.objectId }));
+    }
+
+    async adminExists(): Promise<boolean> {
+        const row = await this.db
+            .selectFrom('deadair.permissionsRelationTuples')
+            .where('objectNamespace', '=', PLATFORM_NAMESPACE)
+            .where('objectId', '=', PLATFORM_OBJECT_ID)
+            .where('relation', '=', 'admin')
+            .where('subjectNamespace', '=', 'user')
+            .where('subjectRelation', '=', '')
+            .where('subjectId', '<>', '*')
+            .select(sql`1`.as('one'))
+            .limit(1)
+            .executeTakeFirst();
+        return row !== undefined;
     }
 }

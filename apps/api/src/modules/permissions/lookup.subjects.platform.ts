@@ -30,7 +30,7 @@ export const platformRoleSubjects = (namespace: string, permission: string): Raw
     const relationList = sql.join(matched.map(r => sql`${r}`));
     return sql<{ user_id: string }>`
         SELECT t.subject_id AS user_id
-        FROM permissions.relation_tuples t
+        FROM deadair.permissions_relation_tuples t
         WHERE t.object_namespace = ${PLATFORM_NAMESPACE}
           AND t.object_id = ${PLATFORM_OBJECT_ID}
           AND t.relation IN (${relationList})

@@ -12,16 +12,18 @@
         "test": "vitest run"
     },
     "dependencies": {
-        "@mantine/core": "9.5.0",
-        "@mantine/hooks": "9.5.0",
-        "@tanstack/react-router": "1.170.18",
-        "react": "19.2.8",
-        "react-dom": "19.2.8"
+        "@deadair/sdk": "workspace:*",
+        "@mantine/core": "^9.5.0",
+        "@mantine/hooks": "^9.5.0",
+        "@mantine/form": "^9.5.0",
+        "@tanstack/react-router": "^1.170.18",
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8"
     },
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
-        "@tanstack/router-plugin": "1.168.23",
+        "@tanstack/router-plugin": "^1.168.23",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/jest-dom": "^7.0.0",
         "@testing-library/react": "^16.3.2",
@@ -34,7 +36,7 @@
         "postcss-preset-mantine": "^1.18.0",
         "postcss-simple-vars": "^7.0.1",
         "prettier": "^3.9.6",
-        "typescript": "^6.0.3",
+        "typescript": "6.0.3",
         "vite": "^8.2.0",
         "vitest": "^4.1.10"
     }

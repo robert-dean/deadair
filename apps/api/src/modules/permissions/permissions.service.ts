@@ -1,22 +1,15 @@
 import { Injectable } from 'injectkit';
-import {
-    AuthorizationModel,
-    CheckMetricsSink,
-    PermissionsTupleRepository,
-    check,
-    type ObjectRef,
-    type RelationTuple,
-    type SubjectRef,
-} from '@maroonedsoftware/permissions';
+import { AuthorizationModel, CheckMetricsSink, check, type ObjectRef, type RelationTuple, type SubjectRef } from '@maroonedsoftware/permissions';
 //import type { BatchCheckRequest, BatchCheckResponse, CheckRequest, CheckResponse } from './types/permissions.js';
 import { listObjects, type ListObjectsOptions, type ListObjectsResult, type ReverseExpandTupleRepo } from './list.objects.js';
 import { AuthorizationContext } from './authorization.context.js';
+import { DeadairPermissionsTupleRepository } from './permissions.repository.js';
 
 @Injectable()
 export class PermissionsService {
     constructor(
         private readonly model: AuthorizationModel,
-        private readonly repo: PermissionsTupleRepository,
+        private readonly repo: DeadairPermissionsTupleRepository,
         private readonly metricsSink: CheckMetricsSink,
         private readonly authorizationContext: AuthorizationContext,
     ) {}
@@ -64,7 +57,7 @@ export class PermissionsService {
     // Reverse expand: which objects in `namespace` does `subject` reach via
     // `permission`? Powers permission-aware list endpoints. The injected repo
     // must implement the reverse-lookup methods declared on
-    // ReverseExpandTupleRepo — crescenda's CrescendaPermissionsTupleRepository
+    // ReverseExpandTupleRepo — deadair's DeadairPermissionsTupleRepository
     // does. Throws on non-concrete subjects.
     async listObjects(namespace: string, permission: string, subject: SubjectRef, options: ListObjectsOptions = {}): Promise<ListObjectsResult> {
         return listObjects(this.model, this.repo as ReverseExpandTupleRepo, namespace, permission, subject, {
@@ -81,5 +74,9 @@ export class PermissionsService {
 
     async deleteDirect(tuples: RelationTuple[]): Promise<void> {
         await this.repo.delete(tuples);
+    }
+
+    async adminExists(): Promise<boolean> {
+        return await this.repo.adminExists();
     }
 }

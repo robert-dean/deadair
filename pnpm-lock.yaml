@@ -87,8 +87,8 @@ importers:
         specifier: ^1.11.0
         version: 1.11.0
       '@maroonedsoftware/zod':
-        specifier: ^0.4.4
-        version: 0.4.4
+        specifier: ^0.5.0
+        version: 0.5.0
       '@spotify/web-api-ts-sdk':
         specifier: ^1.2.0
         version: 1.2.0
@@ -174,20 +174,26 @@ importers:
 
   apps/web:
     dependencies:
+      '@deadair/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@mantine/core':
-        specifier: 9.5.0
+        specifier: ^9.5.0
         version: 9.5.0(@mantine/hooks@9.5.0(react@19.2.8))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@mantine/form':
+        specifier: ^9.5.0
+        version: 9.5.0(react@19.2.8)
       '@mantine/hooks':
-        specifier: 9.5.0
+        specifier: ^9.5.0
         version: 9.5.0(react@19.2.8)
       '@tanstack/react-router':
-        specifier: 1.170.18
+        specifier: ^1.170.18
         version: 1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
-        specifier: 19.2.8
+        specifier: ^19.2.8
         version: 19.2.8
       react-dom:
-        specifier: 19.2.8
+        specifier: ^19.2.8
         version: 19.2.8(react@19.2.8)
     devDependencies:
       '@repo/config-eslint':
@@ -197,7 +203,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/config-typescript
       '@tanstack/router-plugin':
-        specifier: 1.168.23
+        specifier: ^1.168.23
         version: 1.168.23(@tanstack/react-router@1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(esbuild@0.27.7)(rolldown@1.2.1)(rollup@4.62.3)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       '@testing-library/dom':
         specifier: ^10.4.1
@@ -236,7 +242,7 @@ importers:
         specifier: ^3.9.6
         version: 3.9.6
       typescript:
-        specifier: ^6.0.3
+        specifier: 6.0.3
         version: 6.0.3
       vite:
         specifier: ^8.2.0
@@ -826,6 +832,11 @@ packages:
       react: ^19.2.0
       react-dom: ^19.2.0
 
+  '@mantine/form@9.5.0':
+    resolution: {integrity: sha512-sYlWMfh2F8L3vBAWhXg597JM06lu4/ermmjC/31ftcl91pjp3vvQxwbIHd3wyQVbTV3f3kgTFqPlrR6BuBYOpw==}
+    peerDependencies:
+      react: ^19.2.0
+
   '@mantine/hooks@9.5.0':
     resolution: {integrity: sha512-d67+7dQW0ZJFiWXqZgwcPrZK0KxKMzAX+Sv663g40xhISseiUoK0f8k/Ss2amOA09IhFayeeaqprVRc4Fp5yEw==}
     peerDependencies:
@@ -933,8 +944,8 @@ packages:
     resolution: {integrity: sha512-POIShnd7i/EP3ErJ4kXGk9gXMYdbV8SxswOQ/YxVm3vYpHTg3CvIBm66VSiCvTCTcYOM+uvEC7iwcg6b2e3Xjw==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/zod@0.4.4':
-    resolution: {integrity: sha512-btSS8L7SyI0IXBT21uWGhIJkeHg6YD5n0vLq1Vi4jTmQcTTA8ESvFIRc9r8kR7Uaavbb+lZPE7eRtYE/leKfmQ==}
+  '@maroonedsoftware/zod@0.5.0':
+    resolution: {integrity: sha512-jQtL2bMtxc/L+n7WWueci64BONlLMP5CQv33Q8IOrk76xDmj2qwuV9U8xuDnva6seCasTpoCfko9ktqf5sSyuQ==}
     engines: {node: '>=22'}
 
   '@napi-rs/wasm-runtime@0.2.12':
@@ -2283,6 +2294,7 @@ packages:
   cron-parser@5.6.2:
     resolution: {integrity: sha512-yJ/G1LVir6CnlkLI40CsampPLKl1SprGGlUagWtGJxewytRVYezv5xVyzzbT+Pvzx+VIRvZVF7/a0eEMTxdnTA==}
     engines: {node: '>=18'}
+    deprecated: 'Published tarball was built from a stale dist/ and is missing the fixes from #414 and #415 — its contents are effectively v5.6.1. Upgrade to v5.7.0.'
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -3029,6 +3041,10 @@ packages:
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
+
+  klona@2.0.6:
+    resolution: {integrity: sha512-dhG34DXATL5hSxJbIexCft8FChFXtmskoZYnoPWjXQuebWYCNkVeV3KkGegCK9CP1oswI/vQibS2GY7Em/sJJA==}
+    engines: {node: '>= 8'}
 
   koa-compose@4.1.0:
     resolution: {integrity: sha512-8ODW8TrDuMYvXRwra/Kh7/rJo9BtOfPc6qO8eAfC80CnCvSjSl0bkRM24X6/XBBEyj0v1nRUQ1LyOy3dbqOWXw==}
@@ -4823,6 +4839,13 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
+  '@mantine/form@9.5.0(react@19.2.8)':
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      fast-deep-equal: 3.1.3
+      klona: 2.0.6
+      react: 19.2.8
+
   '@mantine/hooks@9.5.0(react@19.2.8)':
     dependencies:
       react: 19.2.8
@@ -4972,7 +4995,7 @@ snapshots:
 
   '@maroonedsoftware/utilities@1.11.0': {}
 
-  '@maroonedsoftware/zod@0.4.4':
+  '@maroonedsoftware/zod@0.5.0':
     dependencies:
       '@maroonedsoftware/errors': 1.8.0
       zod: 4.4.3
@@ -7086,6 +7109,8 @@ snapshots:
   keyv@4.5.4:
     dependencies:
       json-buffer: 3.0.1
+
+  klona@2.0.6: {}
 
   koa-compose@4.1.0: {}
 

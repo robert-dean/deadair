@@ -6,10 +6,10 @@ import type { Context } from 'koa';
 // endpoints read/clear it. Non-web clients (mobile, server-to-server) omit the header and keep the
 // body-token behavior unchanged.
 
-export const REFRESH_COOKIE_NAME = 'crescenda.rt';
+export const REFRESH_COOKIE_NAME = 'deadair.rt';
 
 // Presence of this header (any value) on a request signals the client wants cookie-based refresh.
-export const REFRESH_COOKIE_OPT_IN_HEADER = 'x-crescenda-refresh-cookie';
+export const REFRESH_COOKIE_OPT_IN_HEADER = 'x-deadair-refresh-cookie';
 
 // Refresh cookie lifetime. Should be >= the refresh token's own TTL so the browser doesn't drop a
 // still-valid token; the token itself remains the authority (an expired token is rejected on refresh).

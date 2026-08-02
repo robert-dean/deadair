@@ -3,6 +3,8 @@
     "private": true,
     "scripts": {
         "build": "turbo run build",
+        "build:all": "turbo run codegen && turbo run build",
+        "codegen": "turbo run codegen",
         "build:data": "turbo run build:data",
         "rebuild:data": "turbo run rebuild:data",
         "build:contracts": "turbo run build:contracts --",

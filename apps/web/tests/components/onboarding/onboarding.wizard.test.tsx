@@ -4,20 +4,23 @@ import { SdkError } from '@deadair/sdk';
 import type { OnboardingRequirement } from '@deadair/sdk';
 
 import { OnboardingWizard } from '../../../src/components/onboarding/onboarding.wizard';
-import { invalidateOnboardingRequirements, setOnboardingRequirements, submitRequirement } from '../../../src/api/onboarding';
-import { render, screen, waitFor } from '../../utils/render';
+import { queryKeys } from '../../../src/api/query.keys';
+import { createTestQueryClient, render, screen, waitFor } from '../../utils/render';
 
 const invalidate = vi.fn().mockResolvedValue(undefined);
+const submitOnboardingRequirement = vi.fn();
 
 vi.mock('@tanstack/react-router', () => ({
     useRouter: () => ({ invalidate }),
 }));
 
-vi.mock('../../../src/api/onboarding');
-
-const submitRequirementMock = vi.mocked(submitRequirement);
-const setOnboardingRequirementsMock = vi.mocked(setOnboardingRequirements);
-const invalidateOnboardingRequirementsMock = vi.mocked(invalidateOnboardingRequirements);
+vi.mock('../../../src/api/client', () => ({
+    sdk: {
+        onboarding: {
+            submitOnboardingRequirement: (...args: unknown[]) => submitOnboardingRequirement(...args),
+        },
+    },
+}));
 
 async function completeAdminStep() {
     const user = userEvent.setup();
@@ -28,7 +31,6 @@ async function completeAdminStep() {
 }
 
 afterEach(() => {
-    // Call history only: the mocked module's implementations are set per test.
     vi.clearAllMocks();
 });
 
@@ -38,17 +40,18 @@ const ADMIN_ACCOUNT: OnboardingRequirement = {
     optional: false,
 };
 
-const UNKNOWN_REQUIREMENT: OnboardingRequirement = {
-    key: 'some.unrecognised.key',
-    title: 'Mystery setting',
-    optional: false,
-};
+/**
+ * A key outside the generated union, which is the whole point: the wizard has to survive an API
+ * that has learned a requirement this build has never heard of. The contract type cannot express
+ * that by construction, so the cast is the test, not a shortcut around it.
+ */
+function unknownRequirement(key: string, optional: boolean): OnboardingRequirement {
+    return { key, title: 'Mystery setting', optional } as unknown as OnboardingRequirement;
+}
 
-const OPTIONAL_UNKNOWN: OnboardingRequirement = {
-    key: 'another.unrecognised.key',
-    title: 'Optional mystery setting',
-    optional: true,
-};
+const UNKNOWN_REQUIREMENT = unknownRequirement('some.unrecognised.key', false);
+
+const OPTIONAL_UNKNOWN = unknownRequirement('another.unrecognised.key', true);
 
 describe('OnboardingWizard', () => {
     it('renders the admin.account step for that requirement', () => {
@@ -76,35 +79,40 @@ describe('OnboardingWizard', () => {
         expect(screen.queryByRole('button', { name: 'Skip' })).not.toBeInTheDocument();
     });
 
-    it('seeds the cache from the list a completed step returns, then invalidates the router', async () => {
+    it('leaves the cache the step already seeded alone, and invalidates the router', async () => {
         const remaining: OnboardingRequirement[] = [OPTIONAL_UNKNOWN];
-        submitRequirementMock.mockResolvedValue(remaining);
-        render(<OnboardingWizard requirements={[ADMIN_ACCOUNT]} />);
+        submitOnboardingRequirement.mockResolvedValue(remaining);
+        const queryClient = createTestQueryClient();
+        const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+        render(<OnboardingWizard requirements={[ADMIN_ACCOUNT]} />, { queryClient });
 
         await completeAdminStep();
 
         await waitFor(() => {
-            expect(setOnboardingRequirementsMock).toHaveBeenCalledWith(remaining);
+            expect(invalidate).toHaveBeenCalledTimes(1);
         });
-        expect(invalidateOnboardingRequirementsMock).not.toHaveBeenCalled();
-        expect(invalidate).toHaveBeenCalledTimes(1);
+        // The mutation wrote the authoritative list, so re-asking the API would be a wasted round trip.
+        expect(queryClient.getQueryData(queryKeys.onboarding.requirements())).toBe(remaining);
+        expect(invalidateQueries).not.toHaveBeenCalled();
     });
 
-    it('invalidates the cache instead of seeding it when the step completes without a list', async () => {
-        submitRequirementMock.mockRejectedValue(new SdkError(409, 'Conflict', { statusCode: 409, message: 'Already exists' }, new Headers()));
-        render(<OnboardingWizard requirements={[ADMIN_ACCOUNT]} />);
+    it('invalidates the cached list when the step completes without reporting one', async () => {
+        submitOnboardingRequirement.mockRejectedValue(new SdkError(409, 'Conflict', { statusCode: 409, message: 'Already exists' }, new Headers()));
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(queryKeys.onboarding.requirements(), [ADMIN_ACCOUNT]);
+        const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+        render(<OnboardingWizard requirements={[ADMIN_ACCOUNT]} />, { queryClient });
 
         await completeAdminStep();
 
         await waitFor(() => {
-            expect(invalidateOnboardingRequirementsMock).toHaveBeenCalledTimes(1);
+            expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.onboarding.requirements() });
         });
-        expect(setOnboardingRequirementsMock).not.toHaveBeenCalled();
         expect(invalidate).toHaveBeenCalledTimes(1);
     });
 
     it('stays finished rather than re-rendering the step when the reloaded list comes back empty', async () => {
-        submitRequirementMock.mockResolvedValue([]);
+        submitOnboardingRequirement.mockResolvedValue([]);
         const { rerender } = render(<OnboardingWizard requirements={[ADMIN_ACCOUNT]} />);
 
         await completeAdminStep();

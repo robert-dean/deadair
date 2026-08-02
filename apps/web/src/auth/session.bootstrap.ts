@@ -1,42 +1,37 @@
-import { SdkError } from '@deadair/sdk';
+import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
 import { sdk } from '../api/client';
+import { queryKeys } from '../api/query.keys';
+import { isClientError } from '../api/sdk.error';
 import { clearSession, isAuthenticated, sessionEpoch, setSession } from './session.store';
 
 /**
- * What a redeem concluded about the refresh cookie.
+ * A settled answer about the refresh cookie, stamped with the session epoch it was reached at.
  *
- * - `restored`: the cookie yielded a token, which is now in the store.
- * - `rejected`: the server answered, and its answer was that this cookie buys no session.
- *   A verdict about the cookie itself, so it is worth remembering.
- * - `unavailable`: we never got an answer. Says nothing about the cookie, so it is not.
+ * The epoch travels with the verdict because the query key cannot: see `sessionRestoreOptions`.
  */
-type RefreshOutcome = 'restored' | 'rejected' | 'unavailable';
-
-interface Attempt {
-    /** The session epoch this attempt answers for. Re-read when it settles; see `restoreSession`. */
+interface RestoreVerdict {
+    restored: boolean;
     epoch: number;
-    /** Undefined until the attempt settles. */
-    outcome?: RefreshOutcome;
-    result: Promise<RefreshOutcome>;
 }
-
-let attempt: Attempt | undefined;
 
 /**
- * Whether a rejection is the server's verdict on the cookie rather than a failure to ask.
+ * Exchanges the httpOnly refresh cookie for an access token.
  *
- * A 4xx is an answer: the cookie is missing, expired, malformed, or revoked, and asking again with
- * the same cookie will get the same 4xx. Anything else means the question never landed. A `TypeError`
- * from `fetch` (offline, DNS, the dev API not up yet) or a 5xx (the API is up but its dependencies
- * are not) leaves the cookie's fate genuinely unknown, and caching "unknown" as "anonymous" is what
- * strands a perfectly valid session at /login until a hard reload.
+ * Resolves a verdict about the cookie; throws when it never got one. That split is the whole
+ * design, and it is what the query cache is built on:
+ *
+ * - resolves `true` — the cookie yielded a token, which is now in the store.
+ * - resolves `false` — the server answered, and its answer was that this cookie buys no session.
+ *   A 4xx means the cookie is missing, expired, malformed or revoked, and asking again with the
+ *   same cookie gets the same 4xx. Worth caching, and caching it is the loop guard: a page whose
+ *   cookie cannot be redeemed asks once, not once per redirect.
+ * - throws — the question never landed. A `TypeError` from `fetch` (offline, DNS, the dev API not
+ *   up yet) or a 5xx (the API is up but its dependencies are not) says nothing about the cookie,
+ *   and caching "unknown" as "anonymous" is what strands a valid session at /login until a hard
+ *   reload. Query holds no data for a rejected fetch, so the next caller asks again.
  */
-function isDefinitiveRejection(error: unknown): boolean {
-    return error instanceof SdkError && error.status >= 400 && error.status < 500;
-}
-
-async function refresh(): Promise<RefreshOutcome> {
+async function redeemRefreshCookie(): Promise<boolean> {
     try {
         // No body token: the httpOnly refresh cookie carries it.
         const response = await sdk.authentication.requestToken({ grant_type: 'refresh_token' });
@@ -44,75 +39,88 @@ async function refresh(): Promise<RefreshOutcome> {
             // A refresh that lands on an MFA challenge cannot be completed silently. The server did
             // answer, though, so this is as settled as a 401: the caller is anonymous until they log in.
             clearSession();
-            return 'rejected';
+            return false;
         }
         setSession(response.access_token, response.expires_in);
-        return 'restored';
+        return true;
     } catch (error) {
-        if (!isDefinitiveRejection(error)) {
-            // The API is unreachable or broken. Leave the store untouched: a live token stays usable,
-            // and an expired one already reads as anonymous through `isAuthenticated`, so nothing
-            // downstream can send it either way. Clearing here would only manufacture a logout out of
-            // someone else's outage.
-            return 'unavailable';
+        if (!isClientError(error)) {
+            // Leave the store untouched: a live token stays usable, and an expired one already reads
+            // as anonymous through `isAuthenticated`, so nothing downstream can send it either way.
+            // Clearing here would only manufacture a logout out of someone else's outage.
+            throw error;
         }
         // No cookie, or a dead one. Drop whatever token remains so nothing downstream tries to use it.
         clearSession();
-        return 'rejected';
+        return false;
     }
 }
 
 /**
- * Whether the cached attempt still answers the question being asked.
+ * The redeem, as a query.
  *
- * Loop guard: **at most one redeem per session epoch.** A definitive rejection is cached exactly like
- * a success, so a page whose cookie cannot be redeemed asks once and then answers every further gate
- * evaluation from cache instead of hammering the API on each redirect. It is only re-armed when
- * something actually changed: the epoch moved (a 401 killed a live session, or a sign-in stored a
- * token and with it a fresh refresh cookie the cached verdict never saw), the token it handed back
- * has since expired, or `resetSessionBootstrap()` was called outright (logout).
+ * **Deliberately not keyed on the session epoch.** The redeem moves the epoch itself — `clearSession`
+ * on a refusal, `setSession` on a success — so an epoch-keyed query would invalidate the very key it
+ * had just written and redeem forever. A query key cannot be rewritten once a fetch is under way,
+ * so the epoch is stamped onto the *value* instead, read back after the redeem settles, and compared
+ * in `restoreSession` below. Same guard as the hand-rolled cache this replaced; different hiding place.
+ *
+ * `retry: false` against the app-wide default. This runs on the root route's gate, in front of first
+ * paint, and an unreachable API is exactly the case where backing off three times would hold the
+ * whole app on a blank screen. Failing fast is right here: `restoreSession` reports `false`, the gate
+ * renders anyway, and the next navigation asks again because nothing was cached.
  */
-function answersNow(cached: Attempt): boolean {
-    if (cached.epoch !== sessionEpoch()) {
+const sessionRestoreOptions = queryOptions({
+    queryKey: queryKeys.session.restore(),
+    queryFn: async (): Promise<RestoreVerdict> => ({ restored: await redeemRefreshCookie(), epoch: sessionEpoch() }),
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+});
+
+/**
+ * Whether a cached verdict still answers the question being asked.
+ *
+ * It stops answering when something actually changed. Either the epoch moved since it settled — a
+ * 401 killed a live session, or a sign-in stored a token and with it a fresh refresh cookie this
+ * verdict never saw — or the token it handed back has since expired, which makes a `restored` no
+ * longer a session.
+ */
+function stillAnswers(verdict: RestoreVerdict): boolean {
+    if (verdict.epoch !== sessionEpoch()) {
         return false;
     }
-    if (cached.outcome === undefined) {
-        // Still in flight. Every concurrent caller waits on this one redeem rather than starting another.
+    return !(verdict.restored && !isAuthenticated());
+}
+
+/**
+ * Exchanges the refresh cookie for an access token, at most once per settled verdict.
+ * Resolves false rather than throwing when there is no usable session: the root route awaits this
+ * outside its try, and a rejection there would take the whole gate down.
+ */
+export async function restoreSession(queryClient: QueryClient): Promise<boolean> {
+    if (isAuthenticated()) {
+        // A live token needs no redeem. This is also what keeps a cached success honest as the token
+        // ages: the moment it expires we fall through and the cookie gets another go.
         return true;
     }
-    // An attempt that never reached the server answers nothing, so it is not allowed to stand in for a
-    // 401. It is retained only until it settles (above), which is what keeps the retry to one redeem
-    // per gate evaluation instead of one per caller.
-    if (cached.outcome === 'unavailable') {
+    const cached = queryClient.getQueryData<RestoreVerdict>(queryKeys.session.restore());
+    if (cached && !stillAnswers(cached)) {
+        // Synchronous, and before the first await: a second caller arriving after this sees no cached
+        // verdict and joins the fetch below rather than cancelling it.
+        queryClient.removeQueries({ queryKey: queryKeys.session.restore() });
+    }
+    try {
+        const verdict = await queryClient.ensureQueryData(sessionRestoreOptions);
+        return verdict.restored;
+    } catch {
+        // The API never answered. Says nothing about the cookie, and nothing was cached, so the
+        // next gate evaluation will ask again.
         return false;
     }
-    // A success whose token has since expired is no longer an answer: the cookie deserves another go
-    // before the gate concludes the user is anonymous and strands them at /login.
-    return !(cached.outcome === 'restored' && !isAuthenticated());
 }
 
-/**
- * Exchanges the refresh cookie for an access token, at most once per session epoch.
- * Resolves false rather than throwing when there is no usable session.
- */
-export function restoreSession(): Promise<boolean> {
-    if (attempt && answersNow(attempt)) {
-        return attempt.result.then(outcome => outcome === 'restored');
-    }
-    const record: Attempt = { epoch: sessionEpoch(), result: refresh() };
-    attempt = record;
-    // The epoch is re-read on settle rather than kept from the call: a redeem moves the epoch itself
-    // either way, clearing the dead token when it fails and storing a new one when it succeeds, and
-    // neither self-inflicted bump may count as "something changed" or the attempt would re-arm itself
-    // on the next gate evaluation. `refresh` never rejects.
-    void record.result.then(outcome => {
-        record.outcome = outcome;
-        record.epoch = sessionEpoch();
-    });
-    return record.result.then(outcome => outcome === 'restored');
-}
-
-/** Clears the cached attempt so the next `restoreSession()` hits the API again. */
-export function resetSessionBootstrap(): void {
-    attempt = undefined;
+/** Drops the cached verdict so the next `restoreSession()` hits the API again. */
+export function resetSessionBootstrap(queryClient: QueryClient): void {
+    queryClient.removeQueries({ queryKey: queryKeys.session.restore() });
 }

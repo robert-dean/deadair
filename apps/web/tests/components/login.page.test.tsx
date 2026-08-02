@@ -78,4 +78,37 @@ describe('LoginPage', () => {
         expect(await screen.findByText('Invalid email or password')).toBeInTheDocument();
         expect(navigate).not.toHaveBeenCalled();
     });
+
+    it('puts server-side validation messages on the matching fields', async () => {
+        requestToken.mockRejectedValue(
+            new SdkError(422, 'Unprocessable Entity', { statusCode: 422, message: 'Invalid', details: { email: 'Not a known address' } }, new Headers()),
+        );
+        render(<LoginPage />);
+
+        await fillAndSubmit('admin@example.com', 'hunter2');
+
+        expect(await screen.findByText('Not a known address')).toBeInTheDocument();
+    });
+
+    it("reports the server's own wait rather than retrying a rate-limited sign-in", async () => {
+        requestToken.mockRejectedValue(
+            new SdkError(429, 'Too Many Requests', { statusCode: 429, message: 'Slow down' }, new Headers({ 'retry-after': '12' })),
+        );
+        render(<LoginPage />);
+
+        await fillAndSubmit('admin@example.com', 'hunter2');
+
+        expect(await screen.findByText('Too many attempts. Try again in 12 seconds.')).toBeInTheDocument();
+        // Replaying a sign-in behind the user's back is worse than telling them to wait.
+        expect(requestToken).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to a generic message when a rate limit carries no retry-after', async () => {
+        requestToken.mockRejectedValue(new SdkError(429, 'Too Many Requests', { statusCode: 429, message: 'Slow down' }, new Headers()));
+        render(<LoginPage />);
+
+        await fillAndSubmit('admin@example.com', 'hunter2');
+
+        expect(await screen.findByText('Too many attempts. Wait a moment and try again.')).toBeInTheDocument();
+    });
 });

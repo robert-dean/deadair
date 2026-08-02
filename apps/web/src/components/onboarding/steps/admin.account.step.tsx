@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { Alert, Button, Group, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { SdkError } from '@deadair/sdk';
 
-import { submitAdminAccountRequirement } from '../../../api/onboarding';
-import { apiErrorDetails, apiErrorMessage } from '../../../api/sdk.error';
+import { useSubmitAdminAccount } from '../../../api/onboarding.queries';
+import { isRateLimited, retryAfterMs } from '../../../api/retry.policy';
+import { apiErrorDetails, apiErrorMessage, sdkError } from '../../../api/sdk.error';
 import type { OnboardingStepProps } from '../onboarding.steps';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -18,10 +17,20 @@ interface AdminAccountValues {
     confirmPassword: string;
 }
 
+function setupError(error: unknown): string | undefined {
+    if (isRateLimited(error)) {
+        const wait = retryAfterMs(error);
+        return wait === undefined ? 'Too many attempts. Wait a moment and try again.' : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
+    }
+    if (apiErrorDetails(error)) {
+        return undefined;
+    }
+    return apiErrorMessage(error, 'Could not create the administrator account. Try again.');
+}
+
 /** Creates the first administrator, which is what the `admin.account` requirement is waiting on. */
 export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProps) {
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | undefined>(undefined);
+    const submitAdminAccount = useSubmitAdminAccount();
 
     const form = useForm<AdminAccountValues>({
         mode: 'uncontrolled',
@@ -34,13 +43,11 @@ export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProp
     });
 
     async function submit(values: AdminAccountValues): Promise<void> {
-        setSubmitting(true);
-        setError(undefined);
         try {
-            const remaining = await submitAdminAccountRequirement({ email: values.email, password: values.password });
+            const remaining = await submitAdminAccount.mutateAsync({ email: values.email, password: values.password });
             onComplete(remaining);
         } catch (caught) {
-            if (caught instanceof SdkError && caught.status === 409) {
+            if (sdkError(caught)?.status === 409) {
                 // An administrator already exists: let the wizard re-check and route onward.
                 onComplete();
                 return;
@@ -48,13 +55,13 @@ export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProp
             const details = apiErrorDetails(caught);
             if (details) {
                 form.setErrors(details);
-                return;
             }
-            setError(apiErrorMessage(caught, 'Could not create the administrator account. Try again.'));
-        } finally {
-            setSubmitting(false);
         }
     }
+
+    // A 409 is handled by moving on, so it must not also be reported as a failure.
+    const failure = submitAdminAccount.error;
+    const error = failure && sdkError(failure)?.status !== 409 ? setupError(failure) : undefined;
 
     return (
         <form
@@ -74,26 +81,26 @@ export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProp
                     placeholder="you@example.com"
                     type="email"
                     autoComplete="username"
-                    disabled={submitting}
+                    disabled={submitAdminAccount.isPending}
                     key={form.key('email')}
                     {...form.getInputProps('email')}
                 />
                 <PasswordInput
                     label="Password"
                     autoComplete="new-password"
-                    disabled={submitting}
+                    disabled={submitAdminAccount.isPending}
                     key={form.key('password')}
                     {...form.getInputProps('password')}
                 />
                 <PasswordInput
                     label="Confirm password"
                     autoComplete="new-password"
-                    disabled={submitting}
+                    disabled={submitAdminAccount.isPending}
                     key={form.key('confirmPassword')}
                     {...form.getInputProps('confirmPassword')}
                 />
                 <Group justify="flex-end">
-                    <Button type="submit" loading={submitting}>
+                    <Button type="submit" loading={submitAdminAccount.isPending}>
                         Create administrator
                     </Button>
                 </Group>

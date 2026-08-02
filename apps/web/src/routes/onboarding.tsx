@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { loadOnboardingRequirements } from '../api/onboarding';
+import { onboardingRequirementsOptions } from '../api/onboarding.queries';
 import { OnboardingWizard } from '../components/onboarding/onboarding.wizard';
 
 function OnboardingRoute() {
@@ -9,7 +9,7 @@ function OnboardingRoute() {
 }
 
 export const Route = createFileRoute('/onboarding')({
-    // Shares the cached promise with the root gate, so landing here costs no extra request.
-    loader: () => loadOnboardingRequirements(),
+    // Shares the cache with the root gate, so landing here costs no extra request.
+    loader: ({ context }) => context.queryClient.ensureQueryData(onboardingRequirementsOptions),
     component: OnboardingRoute,
 });

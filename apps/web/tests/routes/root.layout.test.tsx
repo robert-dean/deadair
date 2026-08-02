@@ -5,14 +5,15 @@ import { SdkError } from '@deadair/sdk';
 
 import { RootLayout } from '../../src/routes/__root';
 import { clearSession, isAuthenticated, setSession } from '../../src/auth/session.store';
-import { render, screen, waitFor } from '../utils/render';
+import { createTestQueryClient, render, screen, waitFor } from '../utils/render';
 
 const navigate = vi.fn().mockResolvedValue(undefined);
 const logout = vi.fn();
 
 // The layout is exercised on its own: the router is stubbed down to the three pieces it renders with.
 vi.mock('@tanstack/react-router', () => ({
-    createRootRoute: () => ({}),
+    // Curried: `createRootRouteWithContext<T>()(options)`.
+    createRootRouteWithContext: () => () => ({}),
     Link: ({ to, children, ...props }: { to?: string; children?: ReactNode }) => (
         <a href={to} {...props}>
             {children}
@@ -91,6 +92,34 @@ describe('RootLayout', () => {
         expect(screen.getByText(/Revoke exploded/)).toBeInTheDocument();
         expect(isAuthenticated()).toBe(false);
         expect(navigate).toHaveBeenCalledWith({ to: '/login' });
+    });
+
+    it('empties the query cache on sign-out so the next user inherits nothing', async () => {
+        logout.mockResolvedValue(undefined);
+        setSession('token-123', 3600);
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(['onboarding', 'requirements'], [{ key: 'admin.account' }]);
+        render(<RootLayout />, { queryClient });
+
+        await userEvent.setup().click(logoutButton());
+
+        await waitFor(() => {
+            expect(queryClient.getQueryData(['onboarding', 'requirements'])).toBeUndefined();
+        });
+    });
+
+    it('empties the cache even when the revoke itself failed', async () => {
+        logout.mockRejectedValue(new Error('offline'));
+        setSession('token-123', 3600);
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(['onboarding', 'requirements'], [{ key: 'admin.account' }]);
+        render(<RootLayout />, { queryClient });
+
+        await userEvent.setup().click(logoutButton());
+
+        await waitFor(() => {
+            expect(queryClient.getQueryData(['onboarding', 'requirements'])).toBeUndefined();
+        });
     });
 
     it('lets the sign-out warning be dismissed', async () => {

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Alert, Box, Button, Container, Group, LoadingOverlay, Stack, Stepper, Text, Title } from '@mantine/core';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import type { OnboardingRequirement } from '@deadair/sdk';
 
-import { invalidateOnboardingRequirements, setOnboardingRequirements } from '../../api/onboarding';
+import { invalidateOnboardingRequirements } from '../../api/onboarding.queries';
 import { ONBOARDING_STEPS } from './onboarding.steps';
 
 export interface OnboardingWizardProps {
@@ -18,6 +19,7 @@ export interface OnboardingWizardProps {
  */
 export function OnboardingWizard({ requirements }: OnboardingWizardProps) {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [skipped, setSkipped] = useState<string[]>([]);
     const [rechecking, setRechecking] = useState(false);
 
@@ -26,10 +28,11 @@ export function OnboardingWizard({ requirements }: OnboardingWizardProps) {
 
     async function handleComplete(remaining?: OnboardingRequirement[]): Promise<void> {
         setRechecking(true);
-        if (remaining) {
-            setOnboardingRequirements(remaining);
-        } else {
-            invalidateOnboardingRequirements();
+        // A step that reported a list has already written it to the cache through its mutation.
+        // One that did not (an `admin.account` that turned out to exist already) leaves the cached
+        // list stale, so it has to be re-asked before the gates run again.
+        if (!remaining) {
+            await invalidateOnboardingRequirements(queryClient);
         }
         try {
             await router.invalidate();

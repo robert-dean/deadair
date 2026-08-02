@@ -16,6 +16,7 @@
         "@mantine/core": "^9.5.0",
         "@mantine/hooks": "^9.5.0",
         "@mantine/form": "^9.5.0",
+        "@tanstack/react-query": "^5.101.4",
         "@tanstack/react-router": "^1.170.18",
         "react": "^19.2.8",
         "react-dom": "^19.2.8"
@@ -23,6 +24,7 @@
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
+        "@tanstack/react-query-devtools": "^5.101.4",
         "@tanstack/router-plugin": "^1.168.23",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/jest-dom": "^7.0.0",

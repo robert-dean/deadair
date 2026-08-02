@@ -4,5 +4,14 @@ import { AuthenticationSessionsRouter } from './authentication.sessions.router.j
 import { MusicRouter } from './music.router.js';
 import { VendorsRouter } from './vendors.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
+import { SettingsRouter } from './settings.router.js';
 
-export const routers = [AuthenticationRouter, AuthenticationFactorRouter, AuthenticationSessionsRouter, MusicRouter, VendorsRouter, OnboardingRouter];
+export const routers = [
+    AuthenticationRouter,
+    AuthenticationFactorRouter,
+    AuthenticationSessionsRouter,
+    MusicRouter,
+    VendorsRouter,
+    OnboardingRouter,
+    SettingsRouter,
+];

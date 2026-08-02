@@ -9,6 +9,8 @@ export * from './music/types/index.js';
 export * from './onboarding/onboarding.client.js';
 export * from './onboarding/types/index.js';
 export * from './sdk-options.js';
+export * from './settings/settings.client.js';
+export * from './settings/types/index.js';
 export * from './shared/types/index.js';
 export * from './vendors/types/index.js';
 export * from './vendors/vendors.client.js';

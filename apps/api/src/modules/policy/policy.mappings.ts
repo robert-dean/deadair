@@ -24,6 +24,7 @@ import {
     SupportVerificationAllowedPolicy,
     SupportVerificationAllowedPolicyContext,
 } from '@maroonedsoftware/authentication';
+import { AlwaysAllowPolicy, AlwaysDenyPolicy } from '@maroonedsoftware/policies';
 
 export const ServerPolicyMappings: Record<AuthenticationPolicyNames, Constructor<Policy>> = {
     'auth.factor.email.allowed': EmailAllowedPolicy,
@@ -32,8 +33,8 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames, Constructor
     'auth.factor.oidc.profile.allowed': OidcProfileAllowedPolicy,
     'auth.factor.oauth2.profile.allowed': OAuth2ProfileAllowedPolicy,
     'auth.session.recent.factor': AuthRecentFactorPolicy,
-    'auth.session.mfa.required': DefaultMfaRequiredPolicy,
-    'auth.session.mfa.satisfied': AuthMfaSatisfiedPolicy,
+    'auth.session.mfa.required': AlwaysDenyPolicy,
+    'auth.session.mfa.satisfied': AlwaysAllowPolicy,
     'auth.recovery.allowed': RecoveryAllowedPolicy,
     'auth.support.verification.allowed': SupportVerificationAllowedPolicy,
     'auth.session.assurance.level': DefaultAssuranceLevelPolicy,

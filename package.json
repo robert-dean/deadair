@@ -18,6 +18,7 @@
         "migrate:up": "turbo run migrate:up",
         "migrate:down": "turbo run migrate:down",
         "migrate:down:all": "turbo run migrate:down:all",
+        "db:reset": "docker compose rm -sfv db && docker compose up -d --wait db && turbo run migrate:up",
         "wizard": "wizard"
     },
     "devDependencies": {

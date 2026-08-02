@@ -3,7 +3,7 @@ import { Alert, Button, Group, PasswordInput, Stack, Text, TextInput } from '@ma
 import { useForm } from '@mantine/form';
 import { SdkError } from '@deadair/sdk';
 
-import { submitRequirement } from '../../../api/onboarding';
+import { submitAdminAccountRequirement } from '../../../api/onboarding';
 import { apiErrorDetails, apiErrorMessage } from '../../../api/sdk.error';
 import type { OnboardingStepProps } from '../onboarding.steps';
 
@@ -37,7 +37,7 @@ export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProp
         setSubmitting(true);
         setError(undefined);
         try {
-            const remaining = await submitRequirement('admin.account', { email: values.email, password: values.password });
+            const remaining = await submitAdminAccountRequirement({ email: values.email, password: values.password });
             onComplete(remaining);
         } catch (caught) {
             if (caught instanceof SdkError && caught.status === 409) {

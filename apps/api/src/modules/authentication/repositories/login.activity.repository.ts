@@ -65,7 +65,10 @@ export class LoginActivityRepository extends DataRepository {
             })
             .onConflict(oc =>
                 oc.columns(['bucketStart', 'identifierHash', 'factorType', 'ip']).doUpdateSet({
-                    attemptCount: sql`identity.login_failure_counters.attempt_count + 1`,
+                    // The conflict target is referenced by its bare table name here. Postgres
+                    // exposes the insert target to DO UPDATE unqualified, so any schema prefix
+                    // (`deadair.` included) resolves to a relation that isn't in scope.
+                    attemptCount: sql`login_failure_counters.attempt_count + 1`,
                     lastReason: input.lastReason ?? null,
                     actorId: input.actorId ?? null,
                     lastSeenAt: sql`now()`,

@@ -1,12 +1,15 @@
-import type { JsonValue } from '../../sdk-options.js';
+/**
+ * generated from [OnboardingRequirementKey](file://./../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L7)
+ */
+export type OnboardingRequirementKey = 'admin.account';
 
 /**
  * A single onboarding requirement
- * generated from [OnboardingRequirement](file://./../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L7)
+ * generated from [CoreOnboardingRequirement](file://./../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L9)
  */
-export interface OnboardingRequirement {
-    /** Stable dot-notation key, e.g. instance.base.url */
-    key: string;
+export interface CoreOnboardingRequirement {
+    /** The key of the requirement */
+    key: OnboardingRequirementKey;
     /** Human-readable label for the onboarding checklist */
     title: string;
     /** Optional longer explanation */
@@ -15,9 +18,25 @@ export interface OnboardingRequirement {
     optional: boolean;
 }
 
-export interface OnboardingRequirementInput {
-    /** Stable dot-notation key, e.g. instance.base.url */
-    key: string;
-    /** The value of the requirement */
-    value: JsonValue;
+export interface CoreOnboardingRequirementInput {
+    /** The key of the requirement */
+    key: OnboardingRequirementKey;
 }
+
+/**
+ * generated from [AdminAccountOnboardingRequirement](file://./../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L16)
+ */
+export interface AdminAccountOnboardingRequirement extends Omit<CoreOnboardingRequirement, 'key'> {
+    key: 'admin.account';
+}
+
+export interface AdminAccountOnboardingRequirementInput extends Omit<CoreOnboardingRequirementInput, 'key'> {
+    key: 'admin.account';
+    value: { email: string; password: string };
+}
+
+/**
+ * generated from [OnboardingRequirement](file://./../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L24)
+ */
+export type OnboardingRequirement = AdminAccountOnboardingRequirement;
+export type OnboardingRequirementInput = AdminAccountOnboardingRequirementInput;

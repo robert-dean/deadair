@@ -3,13 +3,12 @@ import { computed, defineNamespace, union } from '@maroonedsoftware/permissions'
 
 export const platform = defineNamespace('platform', {
     relations: {
-        viewer: { subjects: ['user'] },
+        listener: { subjects: ['user'] },
         admin: { subjects: ['user'] },
-        owner: { subjects: ['user'] },
     },
     permissions: {
-        view: union(computed('viewer'), computed('admin'), computed('owner')),
-        edit: union(computed('admin'), computed('owner')),
-        manage: computed('owner'),
+        view: union(computed('listener'), computed('admin')),
+        edit: computed('admin'),
+        manage: computed('admin'),
     },
 });

@@ -1,4 +1,4 @@
-import type { JsonValue, OnboardingRequirement } from '@deadair/sdk';
+import type { JsonValue, OnboardingRequirement, AdminAccountOnboardingRequirementInput } from '@deadair/sdk';
 
 import { sdk } from './client';
 
@@ -26,8 +26,8 @@ export function setOnboardingRequirements(requirements: OnboardingRequirement[])
 }
 
 /** Submits one requirement and returns whatever is still outstanding afterwards. */
-export async function submitRequirement(key: string, value: JsonValue): Promise<OnboardingRequirement[]> {
-    const remaining = await sdk.onboarding.submitOnboardingRequirement({ key, value });
+export async function submitAdminAccountRequirement(value: AdminAccountOnboardingRequirementInput['value']): Promise<OnboardingRequirement[]> {
+    const remaining = await sdk.onboarding.submitOnboardingRequirement({ key: 'admin.account', value });
     setOnboardingRequirements(remaining);
     return remaining;
 }

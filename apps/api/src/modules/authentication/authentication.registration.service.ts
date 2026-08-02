@@ -129,6 +129,22 @@ export class AuthenticationRegistrationService {
         await this.cacheProvider.delete(this.getRegistrationKey(`${actorId}:${method}`));
     }
 
+    // Creates a login without the email round-trip — the account is trusted because
+    // the caller has already established it may exist (onboarding proves no admin is
+    // present yet). Deliberately grants nothing: the caller owns whatever platform
+    // role the new actor should hold, and mints it against the returned actor id.
+    async bootstrapLogin(request: Required<AuthenticationRegistrationInput>) {
+        await this.passwordFactorService.ensurePasswordStrength(request.password);
+
+        const actor = await this.actorsRepository.create('user');
+
+        await this.emailFactorService.createFactor(actor.id, request.email);
+
+        await this.passwordFactorService.createPasswordFactor(actor.id, request.password);
+
+        return actor;
+    }
+
     async registerLogin(request: AuthenticationRegistrationInput): Promise<AuthenticationRegistration> {
         if (request.password) {
             await this.passwordFactorService.ensurePasswordStrength(request.password);

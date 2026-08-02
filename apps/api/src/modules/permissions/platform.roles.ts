@@ -12,10 +12,16 @@
 // Patterns are `<namespace>:<permission>`; either side may be `*`. Matching is
 // exact-or-wildcard, no globs.
 //
-// `admin` retains `'*:*'` for now — customer-only operations (e.g. creating
-// transfers) are blocked at the Policy layer rather than the Zanzibar layer,
-// so admin's broad permission coverage does not bypass those guards. Phase 3
-// of the staff-to-roles migration tightens this distinction further.
+// `admin` holds `'*:*'`. Operations that even an admin must not perform are
+// blocked at the Policy layer rather than the Zanzibar layer, so the broad
+// permission coverage here does not bypass those guards.
+//
+// INVARIANT: every name below must be a relation declared on the `platform`
+// namespace in data/permissions/core.perm. The DSL is the source of truth — a
+// role with no matching relation can never be held (nothing can write a tuple
+// check() would walk), and a relation with no matching role here is dropped by
+// `isPlatformRoleName` when the middleware builds the actor's role set. Adding
+// a tier means editing both files.
 
 export type PlatformRoleName = 'admin' | 'listener';
 

@@ -1,19 +1,20 @@
 // Foundational namespaces. `user` is a leaf — it only appears as the namespace
 // of subjects in other tuples.
 //
-// `platform` has three role tiers: viewer (view-only), admin
-// (view + edit), owner (view + edit + manage). Adding further relations later
-// is non-breaking — existing tuples keep working.
+// `platform` has two role tiers: listener (view-only) and admin (view + edit +
+// manage). These relation names are the source of truth — PlatformRoleName in
+// platform.roles.ts mirrors them, and a tuple whose relation isn't declared here
+// is invisible to check(). Adding further relations later is non-breaking:
+// existing tuples keep working.
 
 namespace user {
 }
 
 namespace platform {
-  relation viewer: user
-  relation admin:  user
-  relation owner:  user
+  relation listener: user
+  relation admin:    user
 
-  permission view   = viewer | admin | owner
-  permission edit   = admin | owner
-  permission manage = owner
+  permission view   = listener | admin
+  permission edit   = admin
+  permission manage = admin
 }

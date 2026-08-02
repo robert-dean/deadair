@@ -103,11 +103,13 @@ const buildDirect = (ctx: BuildCtx, namespace: string, relation: string): Subjec
     const subjectTypes = (relDef?.subjects ?? []).map(parseSubjectType);
 
     // Concrete-user subjects (the common case): a stored tuple with
-    // subject_namespace='user' carries a person id directly.
+    // subject_namespace='user' carries an actor id directly.
     const hasUserConcrete = subjectTypes.some(s => s.kind === 'concrete' && s.namespace === 'user');
 
     // Wildcard-user subjects: a stored tuple {subject_id='*', subject_namespace='user'}
-    // grants any concrete user. Expand to every persons row when present.
+    // grants any concrete user. Expand to every active user actor when present —
+    // `deadair.actors` also holds system and vendor rows, which are not users and
+    // never appear as `user`-namespace subjects.
     const hasUserWildcard = subjectTypes.some(s => s.kind === 'wildcard' && s.namespace === 'user');
 
     // Userset subjects (e.g. ['org.member']): a stored tuple {subject_namespace=ns,
@@ -127,7 +129,7 @@ const buildDirect = (ctx: BuildCtx, namespace: string, relation: string): Subjec
         if (hasUserConcrete) {
             parts.push(sql<{ user_id: string }>`
                 SELECT t.subject_id AS user_id
-                FROM permissions.relation_tuples t
+                FROM deadair.permissions_relation_tuples t
                 WHERE t.object_namespace = ${namespace}
                   AND t.object_id = ${objectId}
                   AND t.relation = ${relation}
@@ -140,10 +142,12 @@ const buildDirect = (ctx: BuildCtx, namespace: string, relation: string): Subjec
         if (hasUserWildcard) {
             // EXISTS gate avoids the cross-product when no wildcard tuple is stored.
             parts.push(sql<{ user_id: string }>`
-                SELECT p.id::text AS user_id
-                FROM identity.persons p
-                WHERE EXISTS (
-                    SELECT 1 FROM permissions.relation_tuples w
+                SELECT a.id::text AS user_id
+                FROM deadair.actors a
+                WHERE a.type = 'user'
+                  AND a.active
+                  AND EXISTS (
+                    SELECT 1 FROM deadair.permissions_relation_tuples w
                     WHERE w.object_namespace = ${namespace}
                       AND w.object_id = ${objectId}
                       AND w.relation = ${relation}
@@ -156,7 +160,7 @@ const buildDirect = (ctx: BuildCtx, namespace: string, relation: string): Subjec
         for (const us of usersetBranches) {
             parts.push(sql<{ user_id: string }>`
                 SELECT inner_us.user_id
-                FROM permissions.relation_tuples us_walk
+                FROM deadair.permissions_relation_tuples us_walk
                 JOIN LATERAL (${us.builder(sql.ref<string>('us_walk.subject_id'))}) inner_us ON TRUE
                 WHERE us_walk.object_namespace = ${namespace}
                   AND us_walk.object_id = ${objectId}
@@ -199,7 +203,7 @@ const buildTupleToUserset = (
         const parts = branches.map(
             b => sql<{ user_id: string }>`
                 SELECT inner_t.user_id
-                FROM permissions.relation_tuples walk
+                FROM deadair.permissions_relation_tuples walk
                 JOIN LATERAL (${b.builder(sql.ref<string>('walk.subject_id'))}) inner_t ON TRUE
                 WHERE walk.object_namespace = ${childNamespace}
                   AND walk.object_id = ${objectId}
@@ -255,12 +259,12 @@ type CteAttacher = (qb: any) => any;
  * exposing one column `user_id text` for the caller to JOIN against.
  *
  * Usage:
- *   const attach = buildLookupSubjectsComposer(model, 'document', docId, 'read');
- *   const rows = await attach(db.selectFrom('identity.persons'))
- *       .innerJoin('lookup_subjects', 'lookup_subjects.user_id', 'identity.persons.id')
- *       .orderBy('identity.persons.id')
+ *   const attach = buildLookupSubjectsComposer(model, 'show', showId, 'edit');
+ *   const rows = await attach(db.selectFrom('deadair.actors'))
+ *       .innerJoin('lookup_subjects', 'lookup_subjects.user_id', 'deadair.actors.id')
+ *       .orderBy('deadair.actors.id')
  *       .limit(20).offset(40)
- *       .selectAll('identity.persons')
+ *       .selectAll('deadair.actors')
  *       .execute();
  */
 export const buildLookupSubjectsComposer = (
@@ -276,15 +280,15 @@ export const buildLookupSubjectsComposer = (
 };
 
 /**
- * All-persons composer used for system/vendor actors that bypass the
+ * All-users composer used for system/vendor actors that bypass the
  * authorization gate. Produces the same `(user_id text)` shape as the real
- * lookup so callers can JOIN identically — but every persons row is yielded.
- * Use only when the caller is trusted (system/vendor); otherwise this leaks
- * the full user population.
+ * lookup so callers can JOIN identically — but every active user actor is
+ * yielded. Use only when the caller is trusted (system/vendor); otherwise this
+ * leaks the full user population.
  */
-export const buildAllPersonsComposer = (options: LookupSubjectsOptions = {}): CteAttacher => {
+export const buildAllUserActorsComposer = (options: LookupSubjectsOptions = {}): CteAttacher => {
     const alias = options.alias ?? 'lookup_subjects';
-    const sqlBody = sql<{ user_id: string }>`SELECT id::text AS user_id FROM identity.persons`;
+    const sqlBody = sql<{ user_id: string }>`SELECT id::text AS user_id FROM deadair.actors WHERE type = 'user' AND active`;
     return qb => qb.with(alias, () => sqlBody);
 };
 

@@ -548,7 +548,12 @@ export type PasswordAuthenticationRequest = z.infer<typeof PasswordAuthenticatio
  */
 export const RefreshTokenAuthenticationRequest = BaseAuthenticationRequest.extend({
     grant_type: z.literal('refresh_token').describe('The grant type for the request'),
-    refresh_token: z.string().describe('The refresh token issued by the authorization server'),
+    refresh_token: z
+        .string()
+        .optional()
+        .describe(
+            'The refresh token issued by the authorization server. Optional: browser clients omit it and present the httpOnly refresh cookie instead',
+        ),
 });
 export type RefreshTokenAuthenticationRequest = z.infer<typeof RefreshTokenAuthenticationRequest>;
 

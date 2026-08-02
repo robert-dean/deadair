@@ -43,7 +43,7 @@ contract PasswordAuthenticationRequest: BaseAuthenticationRequest & { # Represen
 
 contract RefreshTokenAuthenticationRequest: BaseAuthenticationRequest & { # Represents an authentication refresh request
     grant_type: literal("refresh_token") # The grant type for the request
-    refresh_token: string # The refresh token issued by the authorization server
+    refresh_token?: string # The refresh token issued by the authorization server. Optional: browser clients omit it and present the httpOnly refresh cookie instead
 }
 
 contract LinkAuthenticationRequest: BaseAuthenticationRequest & { # Represents an authentication magic link request

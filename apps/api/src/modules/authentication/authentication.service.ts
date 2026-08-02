@@ -1,4 +1,4 @@
-import { httpError, unauthorizedError } from '@maroonedsoftware/errors';
+import { httpError, IsHttpError, unauthorizedError } from '@maroonedsoftware/errors';
 import {
     AuthenticationFactor,
     AuthenticationFactorKind,
@@ -55,6 +55,8 @@ import {
 import { DateTime } from 'luxon';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { SessionActivityService } from './session.activity.service.js';
+import { RequestCookieJar } from './request.cookie.jar.js';
+import { ResponseCookieJar } from './response.cookie.jar.js';
 
 // Internal-handler unions: camelCase pre-transform shape (matches the `z.input` side of the
 // `format(output=snake)` schemas). The public methods `requestToken` and `startFactorChallenge`
@@ -79,6 +81,26 @@ type ActorType = 'user' | 'system' | 'vendor';
 const DUMMY_VERIFY_PASSWORD = 'timing-equalization-dummy-password';
 let dummyPasswordHashPromise: Promise<{ hash: string; salt: string }> | undefined;
 
+/**
+ * Whether a `refreshSession` rejection is a verdict on the *token* rather than on the
+ * infrastructure behind it.
+ *
+ * The predicate is "an HttpError with a 4xx status", because that is the only signal the session
+ * service gives us that is reliable in both directions. `AuthenticationSessionService.refreshSession`
+ * raises 401 for every token-validity failure it recognises (invalid signature, malformed, expired,
+ * wrong kind, replayed jti, revoked family, session gone), so a 4xx means "this token is dead and
+ * will stay dead". Everything else is not about the token at all: a 5xx is the service telling us
+ * its own dependency failed, and a non-HttpError (a driver-level throw from an exhausted DB pool, a
+ * Redis socket error, a programming fault) never got far enough to judge the token. Treating those
+ * as auth failures would delete a perfectly good 30-day cookie for every user who happened to
+ * refresh during a blip, silently logging them all out for an infrastructure hiccup that resolved
+ * in seconds. When we cannot tell, we keep the cookie: the cost of guessing wrong that way is one
+ * more doomed 401 on the next boot, versus a forced re-login for the whole active user base.
+ */
+function isAuthSemanticRefreshRejection(error: unknown): boolean {
+    return IsHttpError(error) && error.statusCode >= 400 && error.statusCode < 500;
+}
+
 @Injectable()
 export class AuthenticationService {
     private readonly authenticateHandlerMap: Map<AuthenticationGrantType, AuthenticationHandlers>;
@@ -98,6 +120,8 @@ export class AuthenticationService {
         private readonly sessionActivity: SessionActivityService,
         private readonly htmlRedirectProvider: HtmlRedirectProvider,
         private readonly oidcFactorService: OidcFactorService,
+        private readonly requestCookieJar: RequestCookieJar,
+        private readonly responseCookieJar: ResponseCookieJar,
     ) {
         this.authenticateHandlerMap = new Map<AuthenticationGrantType, AuthenticationHandlers>();
         this.authenticateHandlerMap.set('client_credentials', {
@@ -422,15 +446,41 @@ export class AuthenticationService {
         // whole token family and fires onRefreshReuseDetected. Do NOT reimplement this with
         // lookupSessionFromJwt + issueTokenForSession: that path skips jti consumption and
         // rotation, leaving refresh tokens indefinitely replayable.
-        const token = await this.sessionService.refreshSession(request.refresh_token);
-        return {
-            result: 'token',
-            accessToken: token.accessToken,
-            refreshToken: token.refreshToken,
-            expiresIn: token.expiresIn,
-            tokenType: token.tokenType,
-            scope: token.scope,
-        };
+        //
+        // A browser client holds the refresh token only as the httpOnly cookie, so it sends no
+        // body token; refreshCookieMiddleware stashed the presented cookie in the RequestCookieJar.
+        const bodyToken = request.refresh_token;
+        const refreshToken = bodyToken ?? this.requestCookieJar.getRefreshToken();
+        if (!refreshToken) {
+            throw unauthorizedError('Bearer error="invalid_request"');
+        }
+        // Which half presented the token decides whether the cookie is implicated at all. An API
+        // client posting a stale token in the body says nothing about the browser cookie sitting
+        // alongside it, so clearing on that path would log the browser out over someone else's
+        // dead token.
+        const presentedByCookie = bodyToken === undefined;
+        try {
+            const token = await this.sessionService.refreshSession(refreshToken);
+            return {
+                result: 'token',
+                accessToken: token.accessToken,
+                refreshToken: token.refreshToken,
+                expiresIn: token.expiresIn,
+                tokenType: token.tokenType,
+                scope: token.scope,
+            };
+        } catch (error) {
+            // Only when the cookie itself presented a token the session service judged dead
+            // (expired, replayed, part of a revoked family) do we drop it: otherwise the browser
+            // keeps presenting it on every boot until the 30-day cookie expires, paying a doomed
+            // 401 each time. See isAuthSemanticRefreshRejection for why a 5xx or a non-HTTP throw
+            // deliberately leaves the cookie in place. refreshCookieMiddleware drains this flag
+            // even on the error path.
+            if (presentedByCookie && isAuthSemanticRefreshRejection(error)) {
+                this.responseCookieJar.clearRefreshToken();
+            }
+            throw error;
+        }
     }
 
     private async handleFido(request: FidoAuthenticationRequest): Promise<AuthenticationTokenInternal> {

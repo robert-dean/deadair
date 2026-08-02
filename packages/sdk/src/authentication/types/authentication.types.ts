@@ -599,8 +599,8 @@ export interface PasswordAuthenticationRequest extends Omit<BaseAuthenticationRe
 export interface RefreshTokenAuthenticationRequest extends Omit<BaseAuthenticationRequest, 'grant_type'> {
     /** The grant type for the request */
     grant_type: 'refresh_token';
-    /** The refresh token issued by the authorization server */
-    refresh_token: string;
+    /** The refresh token issued by the authorization server. Optional: browser clients omit it and present the httpOnly refresh cookie instead */
+    refresh_token?: string;
 }
 
 /**

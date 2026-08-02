@@ -12,11 +12,12 @@ export class OnboardingClient {
     }
 
     /** @name Submit Onboarding Requirement */
-    async submitOnboardingRequirement(body: OnboardingRequirementInput): Promise<void> {
-        await this.fetch(`/onboarding`, {
+    async submitOnboardingRequirement(body: OnboardingRequirementInput): Promise<OnboardingRequirement[]> {
+        const result = await this.fetch(`/onboarding`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
+        return await parseJson<OnboardingRequirement[]>(result);
     }
 }

@@ -29,7 +29,9 @@ OnboardingRouter.post('/onboarding', bodyParserMiddleware(['json']), async ctx =
     const body = await parseAndValidate(ctx.parsedBody, OnboardingRequirementInput);
 
     const service = ctx.container.get(OnboardingService);
-    await service.submitOnboardingRequirement(body);
+    const result: OnboardingRequirement[] = await service.submitOnboardingRequirement(body);
 
-    ctx.status = 204;
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
 });

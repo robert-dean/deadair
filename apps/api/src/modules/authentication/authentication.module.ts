@@ -65,6 +65,7 @@ import { CacheProvider } from '@maroonedsoftware/cache';
 import { DeadairPhoneFactorRepository } from './repositories/phone.factor.repository.js';
 import { ActorsRepository } from './repositories/actors.repository.js';
 import { ResponseCookieJar } from './response.cookie.jar.js';
+import { RequestCookieJar } from './request.cookie.jar.js';
 
 let otpDevBypassEnabled = false;
 
@@ -245,6 +246,7 @@ export const AuthenticationModule: ServerKitModule = {
 
         registry.register(ActorsRepository).useClass(ActorsRepository).asScoped();
         registry.register(ResponseCookieJar).useClass(ResponseCookieJar).asScoped();
+        registry.register(RequestCookieJar).useClass(RequestCookieJar).asScoped();
     },
     start: async container => {
         if (otpDevBypassEnabled) {

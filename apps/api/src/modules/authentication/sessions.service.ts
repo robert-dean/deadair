@@ -5,12 +5,14 @@ import { parseAndValidate } from '@maroonedsoftware/zod';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { SessionActivityService, ListedSession } from './session.activity.service.js';
 import { Session } from '#modules/authentication/types/authentication.types.js';
+import { ResponseCookieJar } from './response.cookie.jar.js';
 
 @Injectable()
 export class SessionsService {
     constructor(
         private readonly activity: SessionActivityService,
         private readonly authz: AuthorizationContext,
+        private readonly responseCookieJar: ResponseCookieJar,
     ) {}
 
     async listForActor(actorId: string): Promise<{ data: Session[] }> {
@@ -33,12 +35,29 @@ export class SessionsService {
         return { data: await Promise.all(sessions.map(s => this.toContract(s))) };
     }
 
-    async revokeMySession(sessionToken: string): Promise<void> {
-        const { actorId } = this.authz.requireAuthentication();
-        // Authorize: a user can only revoke their own sessions. Fetch the target
-        // and confirm it belongs to the caller. We use the package's own per-subject
-        // index via SessionActivityService — anything not on that index is either
-        // someone else's session or already gone.
+    /**
+     * Self sign-out for the caller's current session.
+     *
+     * Tolerates an unauthenticated caller by design (the route carries `security: none`, so no
+     * policy gate runs). Signing out must always mean signed out: if an expired access token got a
+     * 401 here, the httpOnly refresh cookie would survive for its full 30 days and the next page
+     * load would silently redeem it back into a session. So the cookie is dropped unconditionally,
+     * and the session is revoked only when there is an authenticated actor to revoke it for.
+     */
+    async revokeCurrentSession(): Promise<void> {
+        // Unconditional, and first: whatever else happens, the browser stops holding a refresh
+        // token. refreshCookieMiddleware drains this on the way out, error paths included.
+        this.responseCookieJar.clearRefreshToken();
+
+        // No human actor (expired/absent/invalid bearer) means there is no session to revoke.
+        // The cookie is already cleared, so report success rather than 401.
+        const actor = this.authz.actor;
+        if (actor.kind !== 'user') return;
+
+        const { actorId, sessionToken } = actor;
+        // Authorize: a user can only revoke their own sessions. Confirm the session still belongs
+        // to the caller. We use the package's own per-subject index via SessionActivityService.
+        // Anything not on that index is either someone else's session or already gone.
         const mine = await this.activity.listSessionsForActor(actorId);
         const owns = mine.some(s => s.sessionToken === sessionToken);
         if (!owns) {

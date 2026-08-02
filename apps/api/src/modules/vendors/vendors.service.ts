@@ -15,7 +15,7 @@ export class VendorsService {
     }
 
     async spotifyCallback(query: SpotifyCallbackQuery) {
-        let outcome = 'connected';
+        const outcome = 'connected';
 
         this.logger.info('Spotify callback', { query });
         // if (query.error || !query.code || !query.state) {

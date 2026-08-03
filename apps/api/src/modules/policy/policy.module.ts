@@ -14,6 +14,9 @@ export const PolicyModule: ServerKitModule = {
         const policyRegistry = new PolicyRegistryMap();
         for (const [name, policy] of Object.entries(ServerPolicyMappings)) {
             policyRegistry.set(name, policy);
+            if (registry.isRegistered(policy)) {
+                continue;
+            }
             registry.register(policy).useClass(policy).asTransient();
         }
         registry.register(PolicyRegistryMap).useInstance(policyRegistry);

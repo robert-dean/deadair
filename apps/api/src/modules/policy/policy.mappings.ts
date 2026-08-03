@@ -89,7 +89,7 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
     'auth.factor.oidc.profile.allowed': OidcProfileAllowedPolicy,
     'auth.factor.oauth2.profile.allowed': OAuth2ProfileAllowedPolicy,
     'auth.session.recent.factor': AuthRecentFactorPolicy,
-    'auth.session.mfa.required': AlwaysDenyPolicy,
+    'auth.session.mfa.required': AlwaysAllowPolicy,
     'auth.session.mfa.satisfied': AlwaysAllowPolicy,
     'auth.recovery.allowed': RecoveryAllowedPolicy,
     'auth.support.verification.allowed': SupportVerificationAllowedPolicy,

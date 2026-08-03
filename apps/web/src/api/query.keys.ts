@@ -16,4 +16,8 @@ export const queryKeys = {
         list: (kind?: string) => ['plugins', 'list', kind ?? 'all'] as const,
         detail: (id: string) => ['plugins', 'detail', id] as const,
     },
+    playlists: {
+        list: () => ['playlists', 'list'] as const,
+        tracks: (pluginId: string, playlistId: string) => ['playlists', 'tracks', pluginId, playlistId] as const,
+    },
 } as const;

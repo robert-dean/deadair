@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
+import { Route as PlaylistsPluginIdPlaylistIdRouteImport } from './routes/playlists/$pluginId/$playlistId'
 import { Route as PluginsIdIndexRouteImport } from './routes/plugins/$id/index'
 import { Route as PluginsIdOauthCallbackRouteImport } from './routes/plugins/$id/oauth.callback'
 
@@ -37,11 +39,22 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlaylistsIndexRoute = PlaylistsIndexRouteImport.update({
+  id: '/playlists/',
+  path: '/playlists/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PluginsIndexRoute = PluginsIndexRouteImport.update({
   id: '/plugins/',
   path: '/plugins/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlaylistsPluginIdPlaylistIdRoute =
+  PlaylistsPluginIdPlaylistIdRouteImport.update({
+    id: '/playlists/$pluginId/$playlistId',
+    path: '/playlists/$pluginId/$playlistId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PluginsIdIndexRoute = PluginsIdIndexRouteImport.update({
   id: '/plugins/$id/',
   path: '/plugins/$id/',
@@ -58,7 +71,9 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
+  '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
   '/plugins/$id/': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
 }
@@ -67,7 +82,9 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
+  '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
   '/plugins/$id': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
 }
@@ -77,7 +94,9 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
+  '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
   '/plugins/$id/': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
 }
@@ -88,7 +107,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/onboarding'
+    | '/playlists/'
     | '/plugins/'
+    | '/playlists/$pluginId/$playlistId'
     | '/plugins/$id/'
     | '/plugins/$id/oauth/callback'
   fileRoutesByTo: FileRoutesByTo
@@ -97,7 +118,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/onboarding'
+    | '/playlists'
     | '/plugins'
+    | '/playlists/$pluginId/$playlistId'
     | '/plugins/$id'
     | '/plugins/$id/oauth/callback'
   id:
@@ -106,7 +129,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/onboarding'
+    | '/playlists/'
     | '/plugins/'
+    | '/playlists/$pluginId/$playlistId'
     | '/plugins/$id/'
     | '/plugins/$id/oauth/callback'
   fileRoutesById: FileRoutesById
@@ -116,7 +141,9 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
+  PlaylistsPluginIdPlaylistIdRoute: typeof PlaylistsPluginIdPlaylistIdRoute
   PluginsIdIndexRoute: typeof PluginsIdIndexRoute
   PluginsIdOauthCallbackRoute: typeof PluginsIdOauthCallbackRoute
 }
@@ -151,11 +178,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/playlists/': {
+      id: '/playlists/'
+      path: '/playlists'
+      fullPath: '/playlists/'
+      preLoaderRoute: typeof PlaylistsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/plugins/': {
       id: '/plugins/'
       path: '/plugins'
       fullPath: '/plugins/'
       preLoaderRoute: typeof PluginsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playlists/$pluginId/$playlistId': {
+      id: '/playlists/$pluginId/$playlistId'
+      path: '/playlists/$pluginId/$playlistId'
+      fullPath: '/playlists/$pluginId/$playlistId'
+      preLoaderRoute: typeof PlaylistsPluginIdPlaylistIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plugins/$id/': {
@@ -180,7 +221,9 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,
+  PlaylistsPluginIdPlaylistIdRoute: PlaylistsPluginIdPlaylistIdRoute,
   PluginsIdIndexRoute: PluginsIdIndexRoute,
   PluginsIdOauthCallbackRoute: PluginsIdOauthCallbackRoute,
 }

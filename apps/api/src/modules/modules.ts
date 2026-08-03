@@ -8,6 +8,7 @@ import { MusicModule } from './music/music.module.js';
 import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
+import { PlaylistsModule } from './playlists/playlists.module.js';
 
 // Registered in dependency order: infrastructure (data, shared, messaging,
 // events) first, then the single-actor identity/auth foundation. IdentityModule
@@ -25,4 +26,7 @@ export const modules: ServerKitModule[] = [
     // Last: a plugin's host reaches into the chassis (data, crypto, logging),
     // so everything it depends on must already be registered.
     PluginsModule,
+    // After PluginsModule: it resolves PluginRegistry and PluginInvoker, which
+    // PluginsModule registers.
+    PlaylistsModule,
 ];

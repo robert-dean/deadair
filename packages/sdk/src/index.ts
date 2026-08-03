@@ -8,6 +8,8 @@ export * from './music/music.client.js';
 export * from './music/types/index.js';
 export * from './onboarding/onboarding.client.js';
 export * from './onboarding/types/index.js';
+export * from './playlists/playlists.client.js';
+export * from './playlists/types/index.js';
 export * from './plugins/plugins.client.js';
 export * from './plugins/types/index.js';
 export * from './sdk-options.js';

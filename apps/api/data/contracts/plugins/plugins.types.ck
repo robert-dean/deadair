@@ -77,8 +77,9 @@ contract PluginListQuery: {
     kind?: string(min=1, max=100) # Narrows the list to one plugin kind, e.g. `music-provider`
 }
 
-contract PluginOAuthCallbackQuery: {
+contract mode(strip) PluginOAuthCallbackQuery: {
     code?: string(max=2048)
     state?: string(max=400)
     error?: string(max=400)
+    ubi?: string(max=400)
 }

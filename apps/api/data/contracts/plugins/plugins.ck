@@ -178,7 +178,7 @@ operation /plugins/{id}/oauth/callback: {
     get: { # Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
         name: Complete plugin OAuth authorization
         service: PluginsService.completeOAuthCallback
-        query: PluginOAuthCallbackQuery
+        query: PluginOAuthCallbackQuery 
         security: none
         response: {
             200: {

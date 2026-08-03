@@ -74,10 +74,11 @@ export type PluginListQuery = z.infer<typeof PluginListQuery>;
 /**
  * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L80)
  */
-export const PluginOAuthCallbackQuery = z.strictObject({
+export const PluginOAuthCallbackQuery = z.object({
     code: z.string().max(2048).optional(),
     state: z.string().max(400).optional(),
     error: z.string().max(400).optional(),
+    ubi: z.string().max(400).optional(),
 });
 export type PluginOAuthCallbackQuery = z.infer<typeof PluginOAuthCallbackQuery>;
 

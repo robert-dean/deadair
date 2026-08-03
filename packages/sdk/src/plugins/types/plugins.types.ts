@@ -69,6 +69,7 @@ export interface PluginOAuthCallbackQuery {
     code?: string;
     state?: string;
     error?: string;
+    ubi?: string;
 }
 
 /**

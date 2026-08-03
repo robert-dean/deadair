@@ -42,8 +42,8 @@ export const setupMiddleware = (container: Container) => {
     // a credentialed response missing that header is blocked by the browser, which surfaced as
     // "We couldn't verify your session" when /me/sessions failed the CORS check. Credentialed CORS
     // forbids the `*` wildcard origin, so we allow explicit origins: the SPA and API base URLs.
-    // (config.getString returns the literal string "undefined" for an absent key — filter it out.)
-    const allowedOrigins = [config.getString('SPA_BASE_URL'), config.getString('APP_BASE_URL')].filter(o => o && o !== 'undefined');
+    // An unset (or blank) base URL falls back to the empty default and drops out of the list.
+    const allowedOrigins = [config.get<string, string>('SPA_BASE_URL', ''), config.get<string, string>('APP_BASE_URL', '')].filter(Boolean);
     middlewares.push(corsMiddleware({ origin: allowedOrigins, credentials: true, exposeHeaders: ['WWW-Authenticate'] }));
     middlewares.push(authenticationMiddleware());
     middlewares.push(auditContextMiddleware());

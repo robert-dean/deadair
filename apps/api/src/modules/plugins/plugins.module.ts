@@ -25,19 +25,11 @@ const DEFAULT_PLUGINS_DIR = './data/plugins';
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
- * An optional env value. `AppConfig.getString` returns the literal string
- * "undefined" for an absent key (and throws in some configurations), so both
- * outcomes fall back.
+ * An optional env value. An absent key falls back to the empty default, and an
+ * env var that is present but blank counts as unset too.
  */
-const optionalString = (config: AppConfig, key: string): string | undefined => {
-    let value: string;
-    try {
-        value = config.getString(key);
-    } catch {
-        return undefined;
-    }
-    return value && value !== 'undefined' ? value : undefined;
-};
+const optionalString = (config: AppConfig, key: string): string | undefined =>
+    config.get<string, string>(key, '') || undefined;
 
 /**
  * The plugin subsystem.

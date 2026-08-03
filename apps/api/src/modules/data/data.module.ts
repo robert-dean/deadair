@@ -17,10 +17,9 @@ export const DataModule: ServerKitModule = {
         // actually enforce (the table owner bypasses RLS). dbmate (migrations)
         // and pg-boss (queue-schema management, see JobsModule) keep their own
         // owner connections via DATABASE_USER. Falls back to the owner when
-        // app_user isn't configured — AppConfig.getString returns the literal
-        // string "undefined" for an absent key, so guard against that.
-        const appUser = config.getString('DATABASE_APP_USER');
-        const useAppUser = !!appUser && appUser !== 'undefined';
+        // app_user isn't configured.
+        const appUser = config.get<string, string>('DATABASE_APP_USER', '');
+        const useAppUser = !!appUser;
         // The owner connection details (DATABASE_USER). When app_user is
         // configured the runtime pool uses app_user; the MaintenanceDb pool
         // always uses these owner details for privileged ops.
@@ -29,7 +28,7 @@ export const DataModule: ServerKitModule = {
         // slow requests queues forever with no signal. Cap the pool and time out acquisition.
         // KyselyPool extends pg.Pool, so these are standard pg.PoolConfig options.
         const numberOr = (key: string, fallback: number): number => {
-            const raw = config.get(key, '');
+            const raw = config.get<string, string>(key, '');
             const parsed = raw ? Number(raw) : NaN;
             return Number.isFinite(parsed) ? parsed : fallback;
         };

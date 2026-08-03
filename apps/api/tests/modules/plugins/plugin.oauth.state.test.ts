@@ -171,6 +171,18 @@ describe('PluginOAuthStateStore', () => {
 });
 
 describe('PluginsService OAuth state enforcement', () => {
+    // The console navigates to this itself, so the URL has to come back in the
+    // body: a redirect from this route is unreachable from a browser, which
+    // sends no Authorization header on a top-level navigation.
+    it('reports the plugin authorize URL rather than redirecting to it', async () => {
+        const h = harness();
+
+        const started = await h.service.startOAuthAuthorization(PLUGIN_ID);
+        const state = h.getAuthorizeUrl.mock.calls.at(-1)?.[0] as string;
+
+        expect(started).toEqual({ url: `https://provider.example/authorize?state=${state}` });
+    });
+
     it('hands the plugin a state the host remembers', async () => {
         const h = harness();
         const state = await authorize(h);

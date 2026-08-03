@@ -55,6 +55,9 @@ export function RootLayout() {
                             <Anchor component={Link} to="/" size="sm">
                                 Home
                             </Anchor>
+                            <Anchor component={Link} to="/plugins" size="sm">
+                                Plugins
+                            </Anchor>
                             <Anchor component={Link} to="/about" size="sm">
                                 About
                             </Anchor>

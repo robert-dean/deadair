@@ -7,9 +7,15 @@ import { z } from 'zod';
  */
 export interface PluginPermissions {
     /**
-     * Hostname allowlist for `host.fetch()`. This is the ONLY way a plugin
-     * reaches the internet: any request to a host not listed here is rejected
-     * by the host before it leaves the process.
+     * Hostname allowlist for `host.fetch()`: any request to a host not listed
+     * here is rejected before it leaves the process.
+     *
+     * This describes what a plugin says it needs, and it is enforced on every
+     * call (and every redirect hop) that goes through `host.fetch`. It is not
+     * yet enforced against a plugin that reaches for global `fetch` instead,
+     * because the host still imports plugin code into its own realm. Read this
+     * field as a disclosure an operator can weigh before installing, not as a
+     * containment guarantee.
      *
      * Entries are bare hostnames (`api.spotify.com`), no scheme and no path.
      * A leading `*.` marks a wildcard subdomain match (`*.example.com`).

@@ -11,4 +11,9 @@ export const queryKeys = {
     onboarding: {
         requirements: () => ['onboarding', 'requirements'] as const,
     },
+    plugins: {
+        /** The catalogue. `kind` is the API's own filter; 'all' stands in for an unfiltered list. */
+        list: (kind?: string) => ['plugins', 'list', kind ?? 'all'] as const,
+        detail: (id: string) => ['plugins', 'detail', id] as const,
+    },
 } as const;

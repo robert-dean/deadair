@@ -136,19 +136,18 @@ operation /plugins/{id}/oauth/authorize: {
     params: {
         id: string(min=1, max=200)
     }
-    get: { # Redirects the operator to the provider's consent screen
+    get: { # Reports where to send the operator for the provider's consent screen
         name: Start plugin OAuth authorization
         service: PluginsService.startOAuthAuthorization
         security: {
             policy: none
         }
         response: {
-            302: {
-                headers: {
-                    # Optional in the contract only because the generated SDK models a missing
-                    # response header as `undefined`; the service always sets it.
-                    Location?: url
-                }
+            200: {
+                # The URL is reported rather than redirected to. This route sits behind the
+                # authenticated floor, and a browser navigating to it top-level sends no
+                # Authorization header, so the console asks for the URL and redirects itself.
+                application/json: PluginOAuthStart
             }
         }
     }

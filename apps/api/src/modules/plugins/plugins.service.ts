@@ -17,6 +17,7 @@ import type {
     PluginListQuery,
     PluginOAuthCallbackQuery,
     PluginOAuthResult,
+    PluginOAuthStart,
     PluginSummary,
     PluginTestResult,
 } from './types/plugins.types.js';
@@ -189,8 +190,13 @@ export class PluginsService {
     }
 
     /**
-     * Starts the plugin's OAuth flow. The generated router turns the returned
-     * header into a 302.
+     * Starts the plugin's OAuth flow by reporting where the operator has to go.
+     *
+     * The URL is returned rather than redirected to because this route is
+     * behind the authenticated floor: a browser sent here top-level carries no
+     * `Authorization` header, and a `fetch` that follows a cross-origin 302
+     * fails CORS. So the console asks for the URL and performs the navigation
+     * itself, where it does have the session.
      *
      * The `state` is minted and remembered by the HOST, then handed to the
      * plugin to put in the authorize URL. The plugin may do what it likes with
@@ -201,7 +207,7 @@ export class PluginsService {
      * @throws 404 unknown id, 409 quarantined plugin, 501 no OAuth capability,
      *   503 the plugin is installed but not running.
      */
-    async startOAuthAuthorization(id: string): Promise<{ headers: { location?: string } }> {
+    async startOAuthAuthorization(id: string): Promise<PluginOAuthStart> {
         await this.requirePluginPermission(id, 'oauth');
         const { record, manifest } = this.requireLoaded(id);
         const oauth = this.requireOAuth(record, manifest);
@@ -210,8 +216,8 @@ export class PluginsService {
         // in a 404/409/501/503 does not supersede a live authorization.
         const state = this.pluginOAuthStateStore.issue(id);
 
-        const location = await this.pluginInvoker.invoke(id, 'oauth.getAuthorizeUrl', async () => oauth.getAuthorizeUrl(state));
-        return { headers: { location } };
+        const url = await this.pluginInvoker.invoke(id, 'oauth.getAuthorizeUrl', async () => oauth.getAuthorizeUrl(state));
+        return { url };
     }
 
     /**

@@ -7,6 +7,7 @@ import {
     PluginListQuery,
     PluginOAuthCallbackQuery,
     PluginOAuthResult,
+    PluginOAuthStart,
     PluginSummary,
     PluginTestResult,
 } from '../modules/plugins/types/plugins.types.js';
@@ -148,7 +149,7 @@ PluginsRouter.post('/plugins/:id/test', requirePolicy({ policy: false }), async 
 });
 
 /**
- * Redirects the operator to the provider's consent screen
+ * Reports where to send the operator for the provider's consent screen
  * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L139)
  */
 PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: false }), async ctx => {
@@ -160,15 +161,16 @@ PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: false 
     );
 
     const service = ctx.container.get(PluginsService);
-    const result: { headers: { location?: string } } = await service.startOAuthAuthorization(id);
+    const result: PluginOAuthStart = await service.startOAuthAuthorization(id);
 
-    ctx.status = 302;
-    if (result.headers['location'] !== undefined) ctx.set('Location', String(result.headers['location']));
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
 });
 
 /**
  * Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L161)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L160)
  * anonymous access, no security required
  */
 PluginsRouter.get('/plugins/:id/oauth/callback', async ctx => {

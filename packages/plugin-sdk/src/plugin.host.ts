@@ -87,16 +87,32 @@ export interface PluginEvents {
 }
 
 /**
- * The single object handed to a plugin at init. A plugin gets at the outside
- * world through this and nothing else: no `fetch`, no `fs`, no direct DB.
+ * The single object handed to a plugin at init, and the sanctioned way to get
+ * at the outside world: network, persistence, secrets, tokens.
+ *
+ * NOT YET A SANDBOX. The host imports plugins into its own realm today, so
+ * global `fetch`, `fs`, and `process.env` are all still reachable and nothing
+ * stops a plugin from using them. What this interface buys right now is a
+ * manifest that honestly describes a well-behaved plugin's blast radius, plus
+ * a set of guarantees (rate limiting, timeouts, SSRF-safe redirects) that no
+ * plugin has to reimplement. It becomes an enforceable boundary only once
+ * plugins move into an isolate; the JSON-safe shape of everything here is what
+ * keeps that move from breaking every plugin.
  */
 export interface PluginHost {
     logger: PluginLogger;
 
     /**
-     * The only network egress. The host enforces the manifest's hostname
-     * allowlist, a timeout, a rate limit, and `Retry-After` back-off. Rejects
-     * if `url`'s hostname is not in `permissions.network`.
+     * The sanctioned network egress. Enforces the manifest's hostname
+     * allowlist, a timeout, a rate limit, and `Retry-After` back-off, and
+     * re-checks the allowlist on every redirect hop so an upstream cannot
+     * bounce a plugin somewhere its manifest never asked for. Rejects if
+     * `url`'s hostname is not in `permissions.network`.
+     *
+     * The allowlist is advisory against a plugin that simply calls global
+     * `fetch` instead (see the note on {@link PluginHost}). It is not advisory
+     * against a hostile *server*: the redirect and credential-stripping rules
+     * protect an honest plugin, and it gains nothing by going around them.
      */
     fetch(url: string, init?: HostFetchInit): Promise<HostFetchResponse>;
 

@@ -13,6 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
+import { Route as PluginsIdIndexRouteImport } from './routes/plugins/$id/index'
+import { Route as PluginsIdOauthCallbackRouteImport } from './routes/plugins/$id/oauth.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +37,39 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PluginsIndexRoute = PluginsIndexRouteImport.update({
+  id: '/plugins/',
+  path: '/plugins/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PluginsIdIndexRoute = PluginsIdIndexRouteImport.update({
+  id: '/plugins/$id/',
+  path: '/plugins/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PluginsIdOauthCallbackRoute = PluginsIdOauthCallbackRouteImport.update({
+  id: '/plugins/$id/oauth/callback',
+  path: '/plugins/$id/oauth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/plugins/': typeof PluginsIndexRoute
+  '/plugins/$id/': typeof PluginsIdIndexRoute
+  '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/plugins': typeof PluginsIndexRoute
+  '/plugins/$id': typeof PluginsIdIndexRoute
+  '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +77,38 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/plugins/': typeof PluginsIndexRoute
+  '/plugins/$id/': typeof PluginsIdIndexRoute
+  '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/login' | '/onboarding'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/login'
+    | '/onboarding'
+    | '/plugins/'
+    | '/plugins/$id/'
+    | '/plugins/$id/oauth/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/login' | '/onboarding'
-  id: '__root__' | '/' | '/about' | '/login' | '/onboarding'
+  to:
+    | '/'
+    | '/about'
+    | '/login'
+    | '/onboarding'
+    | '/plugins'
+    | '/plugins/$id'
+    | '/plugins/$id/oauth/callback'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/login'
+    | '/onboarding'
+    | '/plugins/'
+    | '/plugins/$id/'
+    | '/plugins/$id/oauth/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +116,9 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  PluginsIndexRoute: typeof PluginsIndexRoute
+  PluginsIdIndexRoute: typeof PluginsIdIndexRoute
+  PluginsIdOauthCallbackRoute: typeof PluginsIdOauthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +151,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/plugins/': {
+      id: '/plugins/'
+      path: '/plugins'
+      fullPath: '/plugins/'
+      preLoaderRoute: typeof PluginsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plugins/$id/': {
+      id: '/plugins/$id/'
+      path: '/plugins/$id'
+      fullPath: '/plugins/$id/'
+      preLoaderRoute: typeof PluginsIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plugins/$id/oauth/callback': {
+      id: '/plugins/$id/oauth/callback'
+      path: '/plugins/$id/oauth/callback'
+      fullPath: '/plugins/$id/oauth/callback'
+      preLoaderRoute: typeof PluginsIdOauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +180,9 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  PluginsIndexRoute: PluginsIndexRoute,
+  PluginsIdIndexRoute: PluginsIdIndexRoute,
+  PluginsIdOauthCallbackRoute: PluginsIdOauthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

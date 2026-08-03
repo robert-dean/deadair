@@ -6,6 +6,7 @@ import type {
     PluginListQuery,
     PluginOAuthCallbackQuery,
     PluginOAuthResult,
+    PluginOAuthStart,
     PluginSummary,
     PluginTestResult,
 } from './types/plugins.types.js';
@@ -85,11 +86,11 @@ export class PluginsClient {
 
     /**
      * @name Start plugin OAuth authorization
-     * @description Redirects the operator to the provider's consent screen
+     * @description Reports where to send the operator for the provider's consent screen
      */
-    async startPluginOAuthAuthorization(id: string): Promise<{ headers: { location?: string } }> {
+    async startPluginOAuthAuthorization(id: string): Promise<PluginOAuthStart> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/oauth/authorize`, { method: 'GET' });
-        return { headers: { location: result.headers.get('Location') ?? undefined } };
+        return await parseJson<PluginOAuthStart>(result);
     }
 
     /**

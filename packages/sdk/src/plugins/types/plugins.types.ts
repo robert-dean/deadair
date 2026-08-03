@@ -36,8 +36,17 @@ export interface PluginTestResult {
 }
 
 /**
+ * Where the console should send the browser to obtain the operator's consent. Reported rather than
+ * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
+ * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L64)
+ */
+export interface PluginOAuthStart {
+    url: string;
+}
+
+/**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L63)
+ * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L69)
  */
 export interface PluginOAuthResult {
     pluginId: string;
@@ -46,7 +55,7 @@ export interface PluginOAuthResult {
 }
 
 /**
- * generated from [PluginListQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L69)
+ * generated from [PluginListQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L75)
  */
 export interface PluginListQuery {
     /** Narrows the list to one plugin kind, e.g. `music-provider` */
@@ -54,7 +63,7 @@ export interface PluginListQuery {
 }
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L73)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L79)
  */
 export interface PluginOAuthCallbackQuery {
     code?: string;

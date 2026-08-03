@@ -38,10 +38,15 @@ your package is just a package.
 
 ## The rules
 
-1. **No ambient I/O.** You get at the world through the `PluginHost` handed to
-   `init()`. There is no `fetch`, no `fs`, no socket. `host.fetch()` is your
-   only egress and it will refuse any hostname you did not declare in
-   `permissions.network`.
+1. **No ambient I/O.** Get at the world through the `PluginHost` handed to
+   `init()`. `host.fetch()` is your egress, and it will refuse any hostname you
+   did not declare in `permissions.network`.
+
+   This is a rule, not a cage. The host imports you into its own process today,
+   so global `fetch` and `fs` are technically within reach. Use them and you
+   opt out of the rate limiting, timeouts, redirect checks, and audit logging
+   the host does on your behalf, you make your manifest a lie to the operator
+   who installed you, and you break the day plugins move into an isolate.
 2. **Everything crossing the boundary is JSON-safe.** No `Date`, no `Response`,
    no class instances, no functions in payloads. Durations are integers in
    milliseconds; dates are ISO-8601 strings. The host runs plugins in-process

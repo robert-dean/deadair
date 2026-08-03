@@ -132,9 +132,17 @@ const rateLimitWaitMs = (rejection: unknown): number | undefined => {
  *
  * Everything a plugin could otherwise reach directly (the network, the database,
  * the environment, the encryption key) is behind a method here, and every method
- * is gated on the manifest permission that covers it. A plugin holding a
- * `PluginHost` can do exactly what its manifest declared and nothing else, which
- * is what makes the manifest an honest description of the blast radius.
+ * is gated on the manifest permission that covers it. So a plugin that goes
+ * through its `PluginHost` does exactly what its manifest declared, which is
+ * what makes the manifest an honest description of a well-behaved plugin's
+ * blast radius.
+ *
+ * It is not what stops a badly-behaved one. `PluginLoader` imports plugin code
+ * into this process with a plain dynamic `import()`, so a plugin that wants
+ * global `fetch`, `fs`, or `process.env` has them, and gating the methods here
+ * does not take them away. Treat this factory as the reliability and
+ * disclosure layer it currently is; containment needs an isolate, and the
+ * JSON-safe boundary below is what leaves room for one.
  *
  * Nothing that crosses back to the plugin is anything but JSON-safe: no
  * `Response`, no `Buffer`, no kysely row objects. That keeps the boundary
@@ -304,7 +312,8 @@ export class PluginHostFactory {
     }
 
     /**
-     * The only network egress a plugin has.
+     * The sanctioned network egress: the path a plugin is meant to take, and
+     * the one every first-party plugin does take.
      *
      * Order matters: the allowlist check happens before anything touches the
      * network stack, so a denied request costs a DNS lookup of exactly zero and

@@ -59,6 +59,12 @@ contract PluginTestResult: {
     message?: string(max=4000)
 }
 
+# Where the console should send the browser to obtain the operator's consent. Reported rather than
+# redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
+contract PluginOAuthStart: {
+    url: url
+}
+
 # Outcome of an OAuth callback
 contract PluginOAuthResult: {
     pluginId: string(min=1, max=200)

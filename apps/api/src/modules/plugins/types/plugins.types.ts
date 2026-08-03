@@ -43,8 +43,18 @@ export const PluginTestResult = z.strictObject({
 export type PluginTestResult = z.infer<typeof PluginTestResult>;
 
 /**
+ * Where the console should send the browser to obtain the operator's consent. Reported rather than
+ * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
+ * generated from [PluginOAuthStart](file://./../../../../data/contracts/plugins/plugins.types.ck#L64)
+ */
+export const PluginOAuthStart = z.strictObject({
+    url: z.url(),
+});
+export type PluginOAuthStart = z.infer<typeof PluginOAuthStart>;
+
+/**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L63)
+ * generated from [PluginOAuthResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L69)
  */
 export const PluginOAuthResult = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -54,7 +64,7 @@ export const PluginOAuthResult = z.strictObject({
 export type PluginOAuthResult = z.infer<typeof PluginOAuthResult>;
 
 /**
- * generated from [PluginListQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L69)
+ * generated from [PluginListQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L75)
  */
 export const PluginListQuery = z.strictObject({
     kind: z.string().min(1).max(100).optional().describe('Narrows the list to one plugin kind, e.g. `music-provider`'),
@@ -62,7 +72,7 @@ export const PluginListQuery = z.strictObject({
 export type PluginListQuery = z.infer<typeof PluginListQuery>;
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L73)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L79)
  */
 export const PluginOAuthCallbackQuery = z.strictObject({
     code: z.string().max(2048).optional(),

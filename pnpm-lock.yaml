@@ -44,6 +44,9 @@ importers:
       '@deadair/error-codes':
         specifier: workspace:*
         version: link:../../packages/error-codes
+      '@deadair/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
       '@maroonedsoftware/appconfig':
         specifier: ^2.3.0
         version: 2.3.0(pg@8.22.0)(yaml@2.9.0)
@@ -119,6 +122,9 @@ importers:
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -129,6 +135,9 @@ importers:
       '@contractkit/plugin-typescript':
         specifier: ^0.28.2
         version: 0.28.2
+      '@deadair/plugin-spotify':
+        specifier: workspace:*
+        version: link:../../plugins/spotify
       '@maroonedsoftware/permissions-dsl':
         specifier: ^0.5.0
         version: 0.5.0
@@ -159,6 +168,9 @@ importers:
       '@types/pg':
         specifier: ^8.20.3
         version: 8.20.3
+      '@types/semver':
+        specifier: ^7.8.0
+        version: 7.8.0
       dbmate:
         specifier: ^2.34.1
         version: 2.34.1
@@ -301,6 +313,21 @@ importers:
         specifier: workspace:*
         version: link:../config-typescript
 
+  packages/plugin-sdk:
+    devDependencies:
+      '@repo/config-eslint':
+        specifier: workspace:*
+        version: link:../config-eslint
+      '@repo/config-typescript':
+        specifier: workspace:*
+        version: link:../config-typescript
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
   packages/sdk:
     devDependencies:
       '@repo/config-eslint':
@@ -309,6 +336,22 @@ importers:
       '@repo/config-typescript':
         specifier: workspace:*
         version: link:../config-typescript
+
+  plugins/spotify:
+    dependencies:
+      '@deadair/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+    devDependencies:
+      '@repo/config-eslint':
+        specifier: workspace:*
+        version: link:../../packages/config-eslint
+      '@repo/config-typescript':
+        specifier: workspace:*
+        version: link:../../packages/config-typescript
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
 packages:
 
@@ -1888,6 +1931,9 @@ packages:
 
   '@types/react@19.2.18':
     resolution: {integrity: sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==}
+
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
   '@types/send@1.2.1':
     resolution: {integrity: sha512-arsCikDvlU99zl1g69TcAB3mzZPpxgw0UQnaHeC1Nwb015xp8bknZv5rIfri9xTOcMuaVgvabfIRA7PSZVuZIQ==}
@@ -5770,6 +5816,8 @@ snapshots:
   '@types/react@19.2.18':
     dependencies:
       csstype: 3.2.3
+
+  '@types/semver@7.8.0': {}
 
   '@types/send@1.2.1':
     dependencies:

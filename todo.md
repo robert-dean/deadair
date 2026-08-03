@@ -19,7 +19,7 @@
 - [x] console/logs/activity feed
 - [x] offer multiple LLM options (chatgtp, claude, ect) along with models
     - [x] Enable the breaks, shows, etc to be configured to use a specific one
-- [ ] plugin system for sources, renderers, streamers, ?
+- [ ] plugin system for sources, renderers, streamers, enrichment, discovery, breaks?
 - [ ] integrate with HA, similar?
 - [ ] daily snapshot from calendar integration?
 - [ ] have the talk shows (like conspiracy) keep a history so it can grow organically

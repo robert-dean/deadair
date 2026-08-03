@@ -40,7 +40,6 @@ import {
     PkceProvider,
 } from '@maroonedsoftware/authentication';
 import { PolicyService } from '@maroonedsoftware/policies';
-import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { Duration } from 'luxon';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
@@ -172,11 +171,6 @@ export const AuthenticationModule: ServerKitModule = {
             .useFactory(() => new FidoFactorServiceOptions(Duration.fromMillis(60_000), 'deadair', 'deadair', 'deadair'))
             .asScoped();
         registry.register(FidoFactorService).useClass(FidoFactorService).asScoped();
-
-        registry
-            .register(EncryptionProvider)
-            .useFactory(() => new EncryptionProvider(Buffer.from(config.getString('KMS_LOCAL_ROOT_KEY'), 'hex')))
-            .asScoped();
 
         registry.register(AuthenticatorFactorRepository).useClass(DeadairAuthenticatorFactorRepository).asScoped();
         registry

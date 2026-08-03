@@ -17,6 +17,11 @@
             "cache": false,
             "persistent": true
         },
+        "@deadair/api#dev": {
+            "cache": false,
+            "persistent": true,
+            "dependsOn": ["^build"]
+        },
         "test": {
             "dependsOn": ["^build"]
         },

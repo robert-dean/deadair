@@ -1,0 +1,5 @@
+{
+    "name": "test-fixture-not-a-plugin",
+    "private": true,
+    "type": "module"
+}

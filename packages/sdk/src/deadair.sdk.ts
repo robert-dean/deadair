@@ -3,22 +3,19 @@ import { createSdkFetch } from './sdk-options.js';
 import { AuthenticationClient } from './authentication/authentication.client.js';
 import { MusicClient } from './music/music.client.js';
 import { OnboardingClient } from './onboarding/onboarding.client.js';
-import { SettingsClient } from './settings/settings.client.js';
-import { VendorsClient } from './vendors/vendors.client.js';
+import { PluginsClient } from './plugins/plugins.client.js';
 
 export class DeadairSdk {
     readonly authentication: AuthenticationClient;
     readonly music: MusicClient;
     readonly onboarding: OnboardingClient;
-    readonly settings: SettingsClient;
-    readonly vendors: VendorsClient;
+    readonly plugins: PluginsClient;
 
     constructor(options: SdkOptions) {
         const sdkFetch = options.fetch ?? createSdkFetch(options);
         this.authentication = new AuthenticationClient(sdkFetch);
         this.music = new MusicClient(sdkFetch);
         this.onboarding = new OnboardingClient(sdkFetch);
-        this.settings = new SettingsClient(sdkFetch);
-        this.vendors = new VendorsClient(sdkFetch);
+        this.plugins = new PluginsClient(sdkFetch);
     }
 }

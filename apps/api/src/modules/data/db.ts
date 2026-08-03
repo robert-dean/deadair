@@ -184,6 +184,25 @@ export interface DeadairPlaylistTracks {
   trackId: string;
 }
 
+export interface DeadairPluginConfigs {
+  config: Generated<Json>;
+  createdAt: Generated<DateTime>;
+  enabled: Generated<boolean>;
+  lastError: string | null;
+  pluginId: string;
+  secrets: Generated<Json>;
+  status: string | null;
+  updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairPluginStorage {
+  createdAt: Generated<DateTime>;
+  key: string;
+  pluginId: string;
+  updatedAt: Generated<DateTime>;
+  value: Json | null;
+}
+
 export interface DeadairSettings {
   createdAt: Generated<DateTime>;
   key: string;
@@ -231,6 +250,8 @@ export interface DB {
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
   "deadair.playlists": DeadairPlaylists;
   "deadair.playlistTracks": DeadairPlaylistTracks;
+  "deadair.pluginConfigs": DeadairPluginConfigs;
+  "deadair.pluginStorage": DeadairPluginStorage;
   "deadair.settings": DeadairSettings;
   "deadair.tracks": DeadairTracks;
   schemaMigrations: SchemaMigrations;

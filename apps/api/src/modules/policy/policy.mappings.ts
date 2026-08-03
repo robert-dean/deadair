@@ -35,7 +35,7 @@ import { ServerPolicyEnvelope } from './policy.envelope.js';
  * A generated router opts a route in by naming one in its contract's
  * `security: { policy: ... }` block, which becomes `requirePolicy({ policy })`.
  */
-export type DeadairPolicyNames = 'platform.manage';
+export type DeadairPolicyNames = 'platform.manage' | 'platform.view';
 
 /** `requirePolicy` always asserts with `{ session }`, whatever the policy needs. */
 export interface RequirePolicyContext {
@@ -61,8 +61,28 @@ export class PlatformManagePolicy extends Policy<RequirePolicyContext, ServerPol
     }
 }
 
+/**
+ * Gate for the read floor: the `platform:view` permission, which every
+ * signed-in platform role (`listener` or `admin`) grants (see
+ * `data/permissions/core.perm` and `platform.roles.ts`).
+ *
+ * It reads the actor off the envelope rather than the session because the roles
+ * were already resolved once per request by `authorizationContextMiddleware`;
+ * re-walking the tuple store per gated route would be the same answer at the
+ * cost of a query.
+ */
+@Injectable()
+export class PlatformViewPolicy extends Policy<RequirePolicyContext, ServerPolicyEnvelope> {
+    async evaluate(_context: RequirePolicyContext, envelope: ServerPolicyEnvelope): Promise<PolicyResult> {
+        const actor = envelope.actor;
+        if (actor.kind === 'user' && rolesGrant(actor.platformRoles, PLATFORM_NAMESPACE, 'view')) return this.allow();
+        return this.deny('platform_view_required', { kind: 'permission_required', permission: 'platform:view' });
+    }
+}
+
 export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPolicyNames, Constructor<Policy>> = {
     'platform.manage': PlatformManagePolicy,
+    'platform.view': PlatformViewPolicy,
     'auth.factor.email.allowed': EmailAllowedPolicy,
     'auth.factor.phone.allowed': PhoneAllowedPolicy,
     'auth.factor.password.allowed': PasswordAllowedPolicy,
@@ -78,6 +98,7 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
 
 export type ServerPolicyContexts = {
     'platform.manage': RequirePolicyContext;
+    'platform.view': RequirePolicyContext;
     'auth.factor.email.allowed': EmailAllowedPolicyContext;
     'auth.factor.phone.allowed': PhoneAllowedPolicyContext;
     'auth.factor.password.allowed': PasswordAllowedPolicyContext;

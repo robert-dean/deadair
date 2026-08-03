@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 
+import type { AccessControlService } from '../../../src/modules/permissions/access.control.service.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PLUGIN_OAUTH_STATE_TTL_MS, PluginOAuthStateStore } from '../../../src/modules/plugins/plugin.oauth.state.store.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
@@ -62,7 +63,11 @@ function harness(): Harness {
     const store = new PluginOAuthStateStore();
     const logger = stubLogger();
     const unused = {} as never;
-    const service = new PluginsService(registry, unused, new PluginInvoker(registry, stubLogger()), unused, unused, store, logger);
+    // Always-allow stub: this file exercises the OAuth state machinery, not
+    // authorization. The permission checks themselves are covered by
+    // plugins.service.authorization.test.ts.
+    const accessControl = { require: vi.fn(async () => {}) } as unknown as AccessControlService;
+    const service = new PluginsService(registry, unused, new PluginInvoker(registry, stubLogger()), unused, unused, store, accessControl, logger);
 
     return { service, store, logger, getAuthorizeUrl, handleCallback };
 }

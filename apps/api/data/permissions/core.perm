@@ -18,3 +18,16 @@ namespace platform {
   permission edit   = admin
   permission manage = admin
 }
+
+// A plugin instance (e.g. `deadair.spotify`). `operator` is view-only on
+// purpose: it is the grant you hand someone who should see whether Spotify
+// is connected without being able to rewrite its credentials.
+namespace plugin {
+  relation owner:    user
+  relation operator: user
+
+  permission view      = owner | operator
+  permission configure = owner
+  permission enable    = owner
+  permission oauth     = owner
+}

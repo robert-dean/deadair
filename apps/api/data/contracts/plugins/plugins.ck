@@ -5,15 +5,15 @@ options {
     services: {
         PluginsService: "#src/modules/plugins/plugins.service.js"
     }
-    security: {
-        policy: platform.manage
-    }
 }
 
 operation /plugins: {
     get: { # Lists every plugin the host knows about, optionally narrowed to one kind
         name: List plugins
         service: PluginsService.listPlugins
+        security: {
+            policy: platform.view
+        }
         query: PluginListQuery
         response: {
             200: {
@@ -28,6 +28,9 @@ operation /plugins/rescan: {
     post: { # Rescans the mounted plugin directory: registers new plugins, unloads removed ones
         name: Rescan plugins
         service: PluginsService.rescanPlugins
+        security: {
+            policy: platform.manage
+        }
         response: {
             200: {
                 application/json: array(PluginSummary)
@@ -43,6 +46,9 @@ operation /plugins/{id}: {
     get: { # One plugin, including its stored non-secret configuration and last error
         name: Get plugin
         service: PluginsService.getPlugin
+        security: {
+            policy: platform.view
+        }
         response: {
             200: {
                 application/json: PluginDetail
@@ -58,6 +64,9 @@ operation /plugins/{id}/config: {
     put: { # Validates against the plugin's own config schema, encrypts secrets, persists, and reinitializes
         name: Update plugin configuration
         service: PluginsService.updatePluginConfig
+        security: {
+            policy: platform.manage
+        }
         request: {
             application/json: PluginConfigInput
         }
@@ -76,6 +85,9 @@ operation /plugins/{id}/enable: {
     post: { # Enables a plugin without resubmitting its configuration
         name: Enable plugin
         service: PluginsService.enablePlugin
+        security: {
+            policy: platform.manage
+        }
         response: {
             200: {
                 application/json: PluginDetail
@@ -91,6 +103,9 @@ operation /plugins/{id}/disable: {
     post: { # Disables a plugin and tears its instance down, keeping its configuration
         name: Disable plugin
         service: PluginsService.disablePlugin
+        security: {
+            policy: platform.manage
+        }
         response: {
             200: {
                 application/json: PluginDetail
@@ -106,6 +121,9 @@ operation /plugins/{id}/test: {
     post: { # Runs the plugin's own `testConnection()` through the invoker
         name: Test plugin connection
         service: PluginsService.testPlugin
+        security: {
+            policy: platform.manage
+        }
         response: {
             200: {
                 application/json: PluginTestResult
@@ -121,6 +139,9 @@ operation /plugins/{id}/oauth/authorize: {
     get: { # Redirects the operator to the provider's consent screen
         name: Start plugin OAuth authorization
         service: PluginsService.startOAuthAuthorization
+        security: {
+            policy: platform.manage
+        }
         response: {
             302: {
                 headers: {

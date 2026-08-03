@@ -32,7 +32,7 @@ export const PLATFORM_OBJECT_ID = 'main';
 
 export const PLATFORM_ROLES: Readonly<Record<PlatformRoleName, ReadonlyArray<string>>> = {
     admin: ['*:*'],
-    listener: ['platform:view'],
+    listener: ['platform:view', 'plugin:view'],
 };
 
 export const isPlatformRoleName = (value: string): value is PlatformRoleName => (PLATFORM_ROLE_NAMES as ReadonlyArray<string>).includes(value);

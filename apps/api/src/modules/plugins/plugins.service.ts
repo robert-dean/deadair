@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type PluginManifest } from '@deadair/plugin-sdk';
+import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
 import { PLUGIN_OAUTH_SECRET_KEY } from './plugin.host.factory.js';
 import { PluginConfigService, type PluginConfigReadModel } from './plugin.config.service.js';
 import { PluginEchoTracker } from './plugin.echo.tracker.js';
@@ -71,17 +72,39 @@ export class PluginsService {
         private readonly pluginLifecycleManager: PluginLifecycleManager,
         private readonly pluginEchoTracker: PluginEchoTracker,
         private readonly pluginOAuthStateStore: PluginOAuthStateStore,
+        private readonly accessControl: AccessControlService,
         private readonly logger: Logger,
     ) {}
 
-    /** Every known plugin, optionally narrowed to one kind. Quarantined ones are included. */
+    /**
+     * Narrows on top of the route policy's authentication floor: a caller who
+     * is signed in but does not hold `permission` on this specific plugin is
+     * denied here, per-object, before any lookup runs.
+     */
+    private async requirePluginPermission(id: string, permission: string): Promise<void> {
+        await this.accessControl.require({ namespace: 'plugin', id }, permission);
+    }
+
+    /**
+     * Every known plugin, optionally narrowed to one kind, filtered to the
+     * ones the current actor may view. Quarantined ones are included.
+     */
     async listPlugins(query: PluginListQuery): Promise<PluginSummary[]> {
+        const visible = await this.accessControl.listVisibleIds('plugin', 'view');
         const records = this.pluginRegistry.list(query.kind === undefined ? undefined : { kind: query.kind });
-        return Promise.all(records.map(async record => this.toSummary(record, await this.readModelOf(record))));
+        // Admins and listeners both hit the `{ all: true }` path via role
+        // coverage, so the tuple walk only runs for a user who holds neither role.
+        let narrowed = records;
+        if (!isAllVisible(visible)) {
+            const visibleIds = new Set(visible.ids);
+            narrowed = records.filter(record => visibleIds.has(record.id));
+        }
+        return Promise.all(narrowed.map(async record => this.toSummary(record, await this.readModelOf(record))));
     }
 
     /** @throws 404 when no plugin with that id is installed. */
     async getPlugin(id: string): Promise<PluginDetail> {
+        await this.requirePluginPermission(id, 'view');
         return this.detailOf(this.requireRecord(id));
     }
 
@@ -98,6 +121,7 @@ export class PluginsService {
      *   rejected the result.
      */
     async updatePluginConfig(id: string, body: PluginConfigInput): Promise<PluginDetail> {
+        await this.requirePluginPermission(id, 'configure');
         const { record, manifest } = this.requireLoaded(id);
 
         await this.validateSubmission(manifest, body.config);
@@ -113,6 +137,7 @@ export class PluginsService {
 
     /** @throws 404 unknown id, 409 quarantined plugin. */
     async enablePlugin(id: string): Promise<PluginDetail> {
+        await this.requirePluginPermission(id, 'enable');
         const { record } = this.requireLoaded(id);
         return this.setEnabled(record, true);
     }
@@ -125,6 +150,7 @@ export class PluginsService {
      * @throws 404 when no plugin with that id is installed.
      */
     async disablePlugin(id: string): Promise<PluginDetail> {
+        await this.requirePluginPermission(id, 'enable');
         return this.setEnabled(this.requireRecord(id), false);
     }
 
@@ -138,6 +164,7 @@ export class PluginsService {
      * @throws 404 when no plugin with that id is installed.
      */
     async testPlugin(id: string): Promise<PluginTestResult> {
+        await this.requirePluginPermission(id, 'configure');
         const record = this.requireRecord(id);
         const instance = record.instance;
 
@@ -175,6 +202,7 @@ export class PluginsService {
      *   503 the plugin is installed but not running.
      */
     async startOAuthAuthorization(id: string): Promise<{ headers: { location?: string } }> {
+        await this.requirePluginPermission(id, 'oauth');
         const { record, manifest } = this.requireLoaded(id);
         const oauth = this.requireOAuth(record, manifest);
 

@@ -8,6 +8,23 @@ export interface PluginListFilter {
 }
 
 /**
+ * Collapses a discovery result to one record per id, keyed by id, first record
+ * wins. This is the loader's own duplicate rule: the copy that claimed an id
+ * keeps it, and every later claimant comes back quarantined, so a quarantined
+ * duplicate must never displace the copy it lost to.
+ *
+ * Exported so every consumer of a `discover()` result applies the same rule.
+ */
+export function firstWinsById(records: readonly PluginRecord[]): Map<string, PluginRecord> {
+    const byId = new Map<string, PluginRecord>();
+    for (const record of records) {
+        if (byId.has(record.id)) continue;
+        byId.set(record.id, record);
+    }
+    return byId;
+}
+
+/**
  * The in-memory catalogue of everything the host knows about plugins: one
  * record per plugin id, its current status, and its live instance once the
  * lifecycle manager has initialized it.
@@ -28,9 +45,8 @@ export class PluginRegistry {
      */
     setAll(records: readonly PluginRecord[]): void {
         this.records.clear();
-        for (const record of records) {
-            if (this.records.has(record.id)) continue;
-            this.records.set(record.id, record);
+        for (const [id, record] of firstWinsById(records)) {
+            this.records.set(id, record);
         }
     }
 

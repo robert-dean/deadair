@@ -10,7 +10,7 @@ import { PluginEchoTracker } from './plugin.echo.tracker.js';
 import { PLUGIN_OAUTH_SECRET_KEY, PluginHostFactory } from './plugin.host.factory.js';
 import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLoader } from './plugin.loader.js';
-import { PluginRegistry } from './plugin.registry.js';
+import { PluginRegistry, firstWinsById } from './plugin.registry.js';
 import type { PluginRecord, PluginStatus } from './types/plugin.record.js';
 
 const errorText = (error: unknown): string => {
@@ -89,7 +89,11 @@ export class PluginLifecycleManager {
             return;
         }
 
-        const found = new Map(records.map(record => [record.id, record]));
+        // Same first-wins rule discovery and `setAll` use. Without it a second
+        // copy of an installed plugin (a symlinked dev checkout, say) comes back
+        // quarantined as a duplicate id and would be upserted over the copy that
+        // won the id, orphaning its live instance.
+        const found = firstWinsById(records);
 
         for (const existing of this.pluginRegistry.list()) {
             if (found.has(existing.id)) continue;
@@ -98,7 +102,7 @@ export class PluginLifecycleManager {
             this.pluginRegistry.remove(existing.id);
         }
 
-        for (const record of records) {
+        for (const record of found.values()) {
             const existing = this.pluginRegistry.get(record.id);
             // A running plugin keeps its instance: re-registering the record
             // would orphan it with no way left to call dispose.

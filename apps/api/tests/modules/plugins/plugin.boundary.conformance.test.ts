@@ -64,10 +64,10 @@ describe('PluginHostFactory boundary conformance', () => {
         const manifest = conformanceManifest({ permissions: { network: ['api.example.com'], storage: true, oauth: true } });
         const host = h.factory.createHost(manifest);
 
-        const response = new Response(JSON.stringify({ ok: true }), {
-            status: 200,
-            headers: { 'content-type': 'application/json', 'x-request-id': 'req-1' },
-        });
+        const headers = new Headers({ 'content-type': 'application/json', 'x-request-id': 'req-1' });
+        headers.append('set-cookie', 'a=1');
+        headers.append('set-cookie', 'b=2');
+        const response = new Response(JSON.stringify({ ok: true }), { status: 200, headers });
         vi.stubGlobal('fetch', vi.fn(async () => response));
 
         const result = await host.fetch('https://api.example.com/tracks');
@@ -75,9 +75,13 @@ describe('PluginHostFactory boundary conformance', () => {
         expect(() => assertCrossesBoundary(result, 'host.fetch result')).not.toThrow();
         expect(result).toEqual({
             status: 200,
+            statusText: '',
             headers: { 'content-type': 'application/json', 'x-request-id': 'req-1' },
+            setCookie: ['a=1', 'b=2'],
             body: JSON.stringify({ ok: true }),
             ok: true,
+            url: 'https://api.example.com/tracks',
+            redirected: false,
         });
     });
 

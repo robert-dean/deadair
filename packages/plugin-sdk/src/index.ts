@@ -5,6 +5,7 @@ export * from './define.plugin.js';
 export * from './plugin.api.version.js';
 export * from './plugin.config.fields.js';
 export * from './plugin.host.js';
+export * from './plugin.host.response.js';
 export * from './plugin.lifecycle.js';
 export * from './plugin.manifest.js';
 export * from './plugin.permissions.js';

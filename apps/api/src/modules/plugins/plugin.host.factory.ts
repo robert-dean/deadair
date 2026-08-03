@@ -33,6 +33,13 @@ export interface PluginFetchLimits {
     maxRetryAfterMs?: number;
     /** Longest the host will park a call waiting for rate-limit headroom. */
     maxRateLimitWaitMs?: number;
+    /**
+     * Largest response body the host will buffer, in bytes. Bodies cross the
+     * boundary as one string, so without this an upstream that streams
+     * indefinitely is an OOM with extra steps: the deadline bounds how long a
+     * body takes to arrive, not how big it is.
+     */
+    maxBodyBytes?: number;
 }
 
 export const PLUGIN_FETCH_DEFAULTS: Required<PluginFetchLimits> = {
@@ -42,6 +49,10 @@ export const PLUGIN_FETCH_DEFAULTS: Required<PluginFetchLimits> = {
     maxTimeoutMs: 60_000,
     maxRetryAfterMs: 30_000,
     maxRateLimitWaitMs: 5_000,
+    // Generous for the catalog JSON these plugins actually fetch (a 50-track
+    // Spotify page is low hundreds of KB), small enough that a runaway body
+    // fails fast rather than eating the process.
+    maxBodyBytes: 5 * 1024 * 1024,
 };
 
 /**
@@ -146,7 +157,8 @@ const rateLimitWaitMs = (rejection: unknown): number | undefined => {
  *
  * Nothing that crosses back to the plugin is anything but JSON-safe: no
  * `Response`, no `Buffer`, no kysely row objects. That keeps the boundary
- * movable to `worker_threads` later without touching a signature.
+ * movable behind a subprocess later without touching a signature; see
+ * `docs/decisions/plugin-isolation.md` for why a subprocess and not a worker.
  */
 @Injectable()
 export class PluginHostFactory {
@@ -333,7 +345,7 @@ export class PluginHostFactory {
         const timeoutMs = Math.min(init?.timeoutMs ?? limits.timeoutMs, limits.maxTimeoutMs);
 
         await this.consumeRateLimit(manifest, limiter, limits);
-        const first = await this.send(manifest, logger, target, init, timeoutMs);
+        const first = await this.send(manifest, logger, target, init, timeoutMs, limits.maxBodyBytes);
 
         // One retry, and only when the server itself asked for one. Anything
         // more belongs to the plugin, which knows whether the call is idempotent.
@@ -344,7 +356,7 @@ export class PluginHostFactory {
         logger.info('plugin fetch backing off on Retry-After', { hostname, status: first.status, retryAfterMs });
         await sleep(retryAfterMs);
         await this.consumeRateLimit(manifest, limiter, limits);
-        return this.send(manifest, logger, target, init, timeoutMs);
+        return this.send(manifest, logger, target, init, timeoutMs, limits.maxBodyBytes);
     }
 
     /**
@@ -452,6 +464,7 @@ export class PluginHostFactory {
         target: URL,
         init: HostFetchInit | undefined,
         timeoutMs: number,
+        maxBodyBytes: number,
     ): Promise<HostFetchResponse> {
         // A controller on a plain timer rather than `AbortSignal.timeout`: that
         // one's timer is unref'd and invisible to fake timers, so the deadline
@@ -466,12 +479,12 @@ export class PluginHostFactory {
             let body = init?.body;
 
             for (let hop = 0; ; hop++) {
-                const response = await this.roundTrip(manifest, current, method, headers, body, controller, timeoutMs);
+                const response = await this.roundTrip(manifest, current, method, headers, body, controller, timeoutMs, maxBodyBytes);
 
                 const location = response.headers.location;
                 // A 3xx with nothing to follow is just a response; hand it back
                 // and let the plugin decide what it means.
-                if (!REDIRECT_STATUSES.has(response.status) || location === undefined) return response;
+                if (!REDIRECT_STATUSES.has(response.status) || location === undefined) return { ...response, redirected: hop > 0 };
 
                 if (hop >= MAX_PLUGIN_FETCH_REDIRECTS) {
                     const hostname = current.hostname.toLowerCase();
@@ -514,6 +527,7 @@ export class PluginHostFactory {
         body: string | undefined,
         controller: AbortController,
         timeoutMs: number,
+        maxBodyBytes: number,
     ): Promise<HostFetchResponse> {
         const hostname = target.hostname.toLowerCase();
 
@@ -528,18 +542,77 @@ export class PluginHostFactory {
                 redirect: 'manual',
             });
 
+            // `set-cookie` is the one header iteration does not join, so it
+            // would otherwise arrive here as whichever cookie happened to be
+            // last. It gets its own array instead of silently losing the rest.
             const responseHeaders: Record<string, string> = {};
             response.headers.forEach((value, key) => {
-                responseHeaders[key.toLowerCase()] = value;
+                const name = key.toLowerCase();
+                if (name !== 'set-cookie') responseHeaders[name] = value;
             });
 
-            // Read the body under the same deadline: a stalled stream is just
-            // as effective a hang as a stalled connect.
-            return { status: response.status, headers: responseHeaders, body: await response.text(), ok: response.ok };
+            return {
+                status: response.status,
+                statusText: response.statusText,
+                headers: responseHeaders,
+                setCookie: response.headers.getSetCookie(),
+                body: await this.readBody(response, maxBodyBytes),
+                ok: response.ok,
+                url: target.toString(),
+                // `send` overwrites this once it knows how many hops it took.
+                redirected: false,
+            };
         } catch (error) {
             const reason = controller.signal.aborted ? `timed out after ${timeoutMs}ms` : errorText(error);
             this.logger.warn('plugin fetch failed', { plugin: manifest.id, hostname, method, error: reason });
             throw httpError(502).withDetails({ message: `plugin "${manifest.id}" fetch to "${hostname}" failed: ${reason}` });
         }
+    }
+
+    /**
+     * The body as text, capped at `maxBodyBytes`.
+     *
+     * Two checks, because either alone is wrong: `content-length` refuses an
+     * oversized body before a byte of it is read, and the running count catches
+     * a server that understates the header or omits it entirely (chunked
+     * encoding, which is exactly what a server streaming forever would use).
+     *
+     * Read under the caller's deadline, and incrementally: a stalled stream is
+     * just as effective a hang as a stalled connect, and a body that only
+     * reveals its size as it arrives has to be measured as it arrives.
+     *
+     * Over-budget cancels the stream rather than aborting the controller. Both
+     * kill the connection, but aborting would make {@link roundTrip} report the
+     * failure as a timeout, which it is not.
+     */
+    private async readBody(response: Response, maxBodyBytes: number): Promise<string> {
+        const tooLarge = (bytes: number): Error => new Error(`response body is ${bytes} bytes, over the ${maxBodyBytes} byte limit`);
+
+        const declared = Number(response.headers.get('content-length'));
+        if (Number.isFinite(declared) && declared > maxBodyBytes) {
+            await response.body?.cancel();
+            throw tooLarge(declared);
+        }
+
+        // 204s and HEAD responses have no stream at all.
+        if (response.body === null) return '';
+
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let total = 0;
+
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            total += value.byteLength;
+            if (total > maxBodyBytes) {
+                await reader.cancel();
+                throw tooLarge(total);
+            }
+            chunks.push(value);
+        }
+
+        return Buffer.concat(chunks).toString('utf8');
     }
 }

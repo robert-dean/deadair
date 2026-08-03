@@ -9,6 +9,7 @@ import {
     type ProviderPlaylist,
     type ProviderTrack,
     type SearchTracksOptions,
+    tryJsonBody,
 } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 
@@ -146,14 +147,6 @@ function errorText(error: unknown): string {
     return String(error);
 }
 
-function parseJson<T>(body: string): T | undefined {
-    try {
-        return JSON.parse(body) as T;
-    } catch {
-        return undefined;
-    }
-}
-
 /** Basic-auth header value. `btoa` is fine here: client credentials are ASCII. */
 function basicAuth(clientId: string, clientSecret: string): string {
     return `Basic ${btoa(`${clientId}:${clientSecret}`)}`;
@@ -261,7 +254,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
             const response = await this.apiFetch('/me');
             if (!response.ok) return { ok: false, message: `Spotify replied HTTP ${response.status}.` };
 
-            const profile = parseJson<SpotifyProfile>(response.body);
+            const profile = tryJsonBody<SpotifyProfile>(response);
             const who = profile?.display_name ?? profile?.id;
             return { ok: true, message: who ? `Connected as ${who}.` : 'Connected.' };
         } catch (error) {
@@ -314,7 +307,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
         if (response.status === 404) return undefined;
         if (!response.ok) throw new Error(`Spotify track lookup failed (HTTP ${response.status})`);
 
-        return mapTrack(parseJson<SpotifyTrack>(response.body));
+        return mapTrack(tryJsonBody<SpotifyTrack>(response));
     }
 
     async listPlaylists(options?: ListPlaylistsOptions): Promise<ProviderPlaylist[]> {
@@ -390,7 +383,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
     private async apiJson<T>(path: string, what: string): Promise<T | undefined> {
         const response = await this.apiFetch(path);
         if (!response.ok) throw new Error(`Spotify ${what} failed (HTTP ${response.status})`);
-        return parseJson<T>(response.body);
+        return tryJsonBody<T>(response);
     }
 
     /** The current access token, refreshed when it is stale or `force` is set. */
@@ -457,7 +450,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
         // Deliberately not echoing the response body: it carries tokens.
         if (!response.ok) throw new Error(`Spotify token request failed (HTTP ${response.status})`);
 
-        const payload = parseJson<SpotifyTokenResponse>(response.body);
+        const payload = tryJsonBody<SpotifyTokenResponse>(response);
         const accessToken = payload?.access_token;
         if (!accessToken) throw new Error('Spotify token response carried no access token');
 

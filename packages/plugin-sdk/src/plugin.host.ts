@@ -40,14 +40,40 @@ export interface HostFetchInit {
 export interface HostFetchResponse {
     status: number;
 
-    /** Lowercased header names. */
+    /** The reason phrase, e.g. `"Not Found"`. Empty when the server sent none. */
+    statusText: string;
+
+    /**
+     * Lowercased header names. A header the server repeated arrives joined with
+     * `", "`, per the Fetch spec, with one exception: `set-cookie` is NOT here,
+     * because joining cookies corrupts them. See
+     * {@link HostFetchResponse.setCookie}.
+     */
     headers: Record<string, string>;
 
-    /** Raw response body as text. Parse it yourself. */
+    /**
+     * Every `set-cookie` header, one entry each, unparsed. Split out of
+     * {@link HostFetchResponse.headers} because a `Record` holds one value per
+     * name and `Set-Cookie` is the header servers routinely repeat. Empty when
+     * the server set none.
+     */
+    setCookie: string[];
+
+    /** Raw response body as text. Parse it yourself, or see `jsonBody`. */
     body: string;
 
     /** True for 2xx. */
     ok: boolean;
+
+    /**
+     * The URL this response actually came from: the last hop of the redirect
+     * chain, which is not necessarily the URL that was requested. Use it to
+     * resolve relative links out of the body.
+     */
+    url: string;
+
+    /** True when at least one redirect was followed to get here. */
+    redirected: boolean;
 }
 
 /**
@@ -118,6 +144,10 @@ export interface PluginHost {
      * `fetch` instead (see the note on {@link PluginHost}). It is not advisory
      * against a hostile *server*: the redirect and credential-stripping rules
      * protect an honest plugin, and it gains nothing by going around them.
+     *
+     * The body is fully buffered, under the same deadline as the request and
+     * under a host-configured size cap. A response over the cap fails the call
+     * rather than arriving truncated, so a `body` you get back is always whole.
      */
     fetch(url: string, init?: HostFetchInit): Promise<HostFetchResponse>;
 

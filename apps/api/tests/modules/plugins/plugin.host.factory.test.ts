@@ -412,6 +412,162 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
         expect(fetchMock).toHaveBeenCalledTimes(3);
         expect(response.body).toBe('final');
     });
+
+    it('reports the final hop as the response url, and flags that it redirected', async () => {
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce(redirect(302, 'https://cdn.example.com/asset'))
+            .mockResolvedValueOnce(new Response('final', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(allowlisted('api.example.com', 'cdn.example.com'));
+
+        const response = await host.fetch('https://api.example.com/x');
+
+        expect(response.url).toBe('https://cdn.example.com/asset');
+        expect(response.redirected).toBe(true);
+    });
+
+    it('reports the requested url and no redirect when the chain was one hop', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('hello', { status: 200 })));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const response = await host.fetch('https://api.example.com/x?q=1');
+
+        expect(response.url).toBe('https://api.example.com/x?q=1');
+        expect(response.redirected).toBe(false);
+    });
+});
+
+describe('PluginHostFactory.createHost fetch response shape', () => {
+    const allowlisted = (...network: string[]): PluginManifest => manifest({ permissions: { network, storage: false, oauth: false } });
+
+    it('hands back every set-cookie separately instead of the last one winning', async () => {
+        const headers = new Headers({ 'content-type': 'text/plain' });
+        headers.append('set-cookie', 'session=abc; Path=/; HttpOnly');
+        headers.append('set-cookie', 'csrf=def; Path=/');
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200, headers })));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const response = await host.fetch('https://api.example.com/login');
+
+        expect(response.setCookie).toEqual(['session=abc; Path=/; HttpOnly', 'csrf=def; Path=/']);
+        // Kept out of `headers` on purpose: a Record can only hold one, and a
+        // half-truth there is worse than an absence.
+        expect(response.headers['set-cookie']).toBeUndefined();
+        expect(response.headers['content-type']).toBe('text/plain');
+    });
+
+    it('is an empty array, not a missing field, when the server set no cookies', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        await expect(host.fetch('https://api.example.com/x')).resolves.toMatchObject({ setCookie: [] });
+    });
+
+    it('joins a repeated non-cookie header rather than dropping one', async () => {
+        const headers = new Headers();
+        headers.append('warning', '199 - "first"');
+        headers.append('warning', '199 - "second"');
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200, headers })));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const response = await host.fetch('https://api.example.com/x');
+
+        expect(response.headers.warning).toBe('199 - "first", 199 - "second"');
+    });
+
+    it('passes the status text through', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 404, statusText: 'Not Found' })));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        await expect(host.fetch('https://api.example.com/x')).resolves.toMatchObject({ status: 404, statusText: 'Not Found', ok: false });
+    });
+});
+
+describe('PluginHostFactory.createHost fetch body limit', () => {
+    const allowlisted = (...network: string[]): PluginManifest => manifest({ permissions: { network, storage: false, oauth: false } });
+
+    /** A chunked body with no `content-length`: the shape only the running count can catch. */
+    const streamOf = (chunks: string[]): Response =>
+        new Response(
+            new ReadableStream<Uint8Array>({
+                start(controller) {
+                    for (const chunk of chunks) controller.enqueue(new TextEncoder().encode(chunk));
+                    controller.close();
+                },
+            }),
+        );
+
+    it('refuses an oversized body on content-length alone, and tears the stream down instead of draining it', async () => {
+        let cancelled = false;
+        const body = new ReadableStream<Uint8Array>({
+            pull(controller) {
+                controller.enqueue(new TextEncoder().encode('x'));
+            },
+            cancel() {
+                cancelled = true;
+            },
+        });
+        // The declared length is a lie the counter could never catch: the real
+        // body is one byte at a time, so a 10000 in the message can only have
+        // come from the header.
+        const response = new Response(body, { status: 200, headers: { 'content-length': '10000' } });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+        const host = factory({ maxBodyBytes: 100 }).createHost(allowlisted('api.example.com'));
+
+        await expectDetailMessage(host.fetch('https://api.example.com/big'), /response body is 10000 bytes, over the 100 byte limit/);
+        expect(cancelled).toBe(true);
+    });
+
+    it('refuses a body that only reveals its size as it streams, and calls it a failure rather than a timeout', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(['x'.repeat(60), 'y'.repeat(60)])));
+        const host = factory({ maxBodyBytes: 100 }).createHost(allowlisted('api.example.com'));
+
+        await expectDetailMessage(host.fetch('https://api.example.com/chunked'), /failed: response body is 120 bytes, over the 100 byte limit/);
+    });
+
+    it('lets a body exactly at the limit through', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(['x'.repeat(100)])));
+        const host = factory({ maxBodyBytes: 100 }).createHost(allowlisted('api.example.com'));
+
+        await expect(host.fetch('https://api.example.com/exact')).resolves.toMatchObject({ body: 'x'.repeat(100) });
+    });
+
+    it('measures bytes, not characters, so multi-byte text cannot slip past the cap', async () => {
+        // 40 characters, 120 bytes in UTF-8.
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(['あ'.repeat(40)])));
+        const host = factory({ maxBodyBytes: 100 }).createHost(allowlisted('api.example.com'));
+
+        await expectDetailMessage(host.fetch('https://api.example.com/utf8'), /response body is 120 bytes/);
+    });
+
+    it('decodes a multi-byte character split across two chunks', async () => {
+        const encoded = new TextEncoder().encode('あ');
+        const split = new Response(
+            new ReadableStream<Uint8Array>({
+                start(controller) {
+                    controller.enqueue(encoded.slice(0, 1));
+                    controller.enqueue(encoded.slice(1));
+                    controller.close();
+                },
+            }),
+        );
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(split));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        await expect(host.fetch('https://api.example.com/utf8')).resolves.toMatchObject({ body: 'あ' });
+    });
+
+    it('handles a bodyless response', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        await expect(host.fetch('https://api.example.com/x')).resolves.toMatchObject({ status: 204, body: '' });
+    });
+
+    it('defaults to a cap rather than to unlimited', () => {
+        expect(PLUGIN_FETCH_DEFAULTS.maxBodyBytes).toBeGreaterThan(0);
+    });
 });
 
 describe('PluginHostFactory.createHost storage', () => {

@@ -72,6 +72,7 @@ year and genres.
 import {
     definePlugin,
     type EnrichmentPluginInstance,
+    jsonBody,
     type PluginHost,
     type PluginManifest,
     type TrackEnrichment,
@@ -146,7 +147,7 @@ class RecordBinPlugin implements EnrichmentPluginInstance {
             return {};
         }
 
-        const body = JSON.parse(response.body) as { year?: number; genres?: string[]; label?: string };
+        const body = jsonBody<{ year?: number; genres?: string[]; label?: string }>(response);
 
         return {
             year: body.year,
@@ -171,6 +172,30 @@ class RecordBinPlugin implements EnrichmentPluginInstance {
 
 export default definePlugin(manifest, () => new RecordBinPlugin());
 ```
+
+## What `host.fetch` gives back
+
+A `HostFetchResponse` is a POJO, not a `Response`, per rule 2. Most of it maps
+one-for-one; the parts that do not:
+
+- **`body` is always a string, always whole.** The host buffers it under the
+  request's deadline and under a size cap, so an oversized response fails the
+  call rather than arriving truncated. There is no streaming and no binary: a
+  body that is not UTF-8 text will not survive.
+- **`setCookie` is a separate array.** `headers` is a `Record`, which can only
+  hold one value per name, and `Set-Cookie` is the header servers routinely
+  repeat. It is absent from `headers` entirely so there is no half-truth to
+  read. Other repeated headers arrive joined with `", "`.
+- **`url` is where the response came from,** the last hop of the redirect
+  chain, which is not necessarily what you asked for. `redirected` tells you
+  whether it moved.
+
+`jsonBody(response)` parses the body and throws with the status, the URL and
+the start of the body when it will not parse, which beats
+`Unexpected token < in JSON at position 0` when an API answers a 200 with an
+HTML error page. `tryJsonBody(response)` returns `undefined` instead of
+throwing. Both are ordinary functions rather than methods on the response,
+because a method would make the payload itself unserializable.
 
 ## Music providers
 

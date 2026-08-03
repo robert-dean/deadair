@@ -154,9 +154,13 @@ export const hostFetchInitFixture: HostFetchInit = {
 
 export const hostFetchResponseFixture: HostFetchResponse = {
     status: 200,
+    statusText: 'OK',
     headers: { 'content-type': 'application/json', 'x-rate-limit-remaining': '9' },
+    setCookie: ['session=abc; Path=/; HttpOnly', 'csrf=def; Path=/'],
     body: '{"ok":true}',
     ok: true,
+    url: 'https://api.example.com/v1/tracks',
+    redirected: true,
 };
 
 /** The `meta` argument accepted by every `PluginLogger` method. */

@@ -6,6 +6,7 @@ import type { ConfigField } from '@deadair/plugin-sdk';
 
 import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
 import type { PluginConfigRecord, PluginConfigRepository, PluginConfigUpsert } from '../../../src/modules/plugins/plugin.config.repository.js';
+import { PLUGIN_OAUTH_SECRET_KEY } from '../../../src/modules/plugins/plugin.oauth.secret.js';
 
 /** In-memory stand-in for {@link PluginConfigRepository}: same merge semantics, no Postgres. */
 class FakeConfigRepository {
@@ -117,6 +118,49 @@ describe('PluginConfigService.getReadModel', () => {
         const readModel = await svc.getReadModel('plugin.never', fields);
 
         expect(readModel).toMatchObject({ pluginId: 'plugin.never', enabled: false, config: {}, configured: { apiKey: false } });
+    });
+
+    it('reports oauthConnected: false when the OAuth vault key holds no value', async () => {
+        const { service: svc } = service();
+
+        await svc.saveConfig('plugin.a', fields, { apiUrl: 'https://api.example.com', apiKey: 'super-secret' });
+        const readModel = await svc.getReadModel('plugin.a', fields);
+
+        expect(readModel.oauthConnected).toBe(false);
+    });
+
+    it('reports oauthConnected: true when the OAuth vault key holds a non-empty value, without leaking it', async () => {
+        const { service: svc, repo } = service();
+        const oauthTokenBlob = 'ciphertext-for-oauth-tokens';
+
+        await svc.saveConfig('plugin.a', fields, { apiUrl: 'https://api.example.com' });
+        const record = await repo.get('plugin.a');
+        await repo.upsert({ pluginId: 'plugin.a', secrets: { ...record?.secrets, [PLUGIN_OAUTH_SECRET_KEY]: oauthTokenBlob } });
+
+        const readModel = await svc.getReadModel('plugin.a', fields);
+
+        expect(readModel.oauthConnected).toBe(true);
+        expect(JSON.stringify(readModel)).not.toContain(oauthTokenBlob);
+    });
+
+    it('reports oauthConnected: false for a plugin that was never configured', async () => {
+        const { service: svc } = service();
+
+        const readModel = await svc.getReadModel('plugin.never', fields);
+
+        expect(readModel.oauthConnected).toBe(false);
+    });
+
+    it('treats an empty-string OAuth vault value as not connected', async () => {
+        const { service: svc, repo } = service();
+
+        await svc.saveConfig('plugin.a', fields, { apiUrl: 'https://api.example.com' });
+        const record = await repo.get('plugin.a');
+        await repo.upsert({ pluginId: 'plugin.a', secrets: { ...record?.secrets, [PLUGIN_OAUTH_SECRET_KEY]: '' } });
+
+        const readModel = await svc.getReadModel('plugin.a', fields);
+
+        expect(readModel.oauthConnected).toBe(false);
     });
 });
 

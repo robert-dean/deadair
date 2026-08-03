@@ -3,7 +3,6 @@ import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import type {
-    ConfigField,
     HostFetchInit,
     HostFetchMethod,
     HostFetchResponse,
@@ -18,7 +17,10 @@ import type {
 } from '@deadair/plugin-sdk';
 import { PluginConfigService } from './plugin.config.service.js';
 import { PluginEchoTracker } from './plugin.echo.tracker.js';
+import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
+
+export { PLUGIN_OAUTH_SECRET_KEY, OAUTH_SECRET_FIELD } from './plugin.oauth.secret.js';
 
 /** Tunables for `host.fetch`. Every field has a default; the module may override any of them. */
 export interface PluginFetchLimits {
@@ -56,24 +58,11 @@ export const PLUGIN_FETCH_DEFAULTS: Required<PluginFetchLimits> = {
 };
 
 /**
- * Reserved secret key the OAuth token vault lives under. The `oauth.` prefix is
- * off limits to manifests, so a plugin cannot declare a config field that
- * collides with (or reads back) its own token blob through the settings form.
- */
-export const PLUGIN_OAUTH_SECRET_KEY = 'oauth.tokens';
-
-/**
  * How many server-directed hops a single `host.fetch` will follow before giving
  * up. Redirects are not charged against the plugin's rate limit, so this cap is
  * the only thing bounding a redirect loop.
  */
 export const MAX_PLUGIN_FETCH_REDIRECTS = 5;
-
-const OAUTH_SECRET_FIELD: ConfigField = {
-    key: PLUGIN_OAUTH_SECRET_KEY,
-    label: 'OAuth tokens',
-    type: 'secret',
-};
 
 /**
  * Where the host's own OAuth redirect endpoint lives, plus the fetch tunables.

@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { ConfigField } from '@deadair/plugin-sdk';
 import { PluginConfigRecord, PluginConfigRepository } from './plugin.config.repository.js';
+import { PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 
 /**
  * What the settings UI is allowed to see. Secret fields are reduced to a
@@ -15,6 +16,8 @@ export interface PluginConfigReadModel {
     config: Record<string, unknown>;
     /** One entry per `secret` field: whether a value is currently stored. */
     configured: Record<string, boolean>;
+    /** Whether the reserved OAuth vault key holds a value. */
+    oauthConnected: boolean;
     status?: string;
     lastError?: string;
 }
@@ -121,11 +124,15 @@ export class PluginConfigService {
             configured[field.key] = typeof ciphertext === 'string' && ciphertext.length > 0;
         }
 
+        const oauthTokens = record.secrets[PLUGIN_OAUTH_SECRET_KEY];
+        const oauthConnected = typeof oauthTokens === 'string' && oauthTokens.length > 0;
+
         return {
             pluginId: record.pluginId,
             enabled: record.enabled,
             config,
             configured,
+            oauthConnected,
             status: record.status,
             lastError: record.lastError,
         };

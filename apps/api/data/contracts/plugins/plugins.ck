@@ -153,6 +153,24 @@ operation /plugins/{id}/oauth/authorize: {
     }
 }
 
+operation /plugins/{id}/oauth: {
+    params: {
+        id: string(min=1, max=200)
+    }
+    delete: { # Forgets the plugin's stored OAuth tokens and reinitializes it
+        name: Disconnect plugin OAuth
+        service: PluginsService.disconnectOAuth
+        security: {
+            policy: none
+        }
+        response: {
+            200: {
+                application/json: PluginDetail
+            }
+        }
+    }
+}
+
 operation /plugins/{id}/oauth/callback: {
     params: {
         id: string(min=1, max=200)

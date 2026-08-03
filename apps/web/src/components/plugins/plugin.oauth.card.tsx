@@ -1,7 +1,8 @@
-import { Alert, Button, Card, Code, CopyButton, Group, Stack, Text, Title } from '@mantine/core';
+import { useState } from 'react';
+import { Alert, Button, Card, Code, CopyButton, Group, Modal, Stack, Text, Title } from '@mantine/core';
 import type { PluginDetail } from '@deadair/sdk';
 
-import { useStartPluginOAuth } from '../../api/plugins.queries';
+import { useDisconnectPluginOAuth, useStartPluginOAuth } from '../../api/plugins.queries';
 import { apiErrorMessage, sdkError } from '../../api/sdk.error';
 
 /** Where the provider should send the operator back to. The console completes the flow, not the API. */
@@ -18,6 +19,14 @@ function connectError(error: unknown): string {
     return apiErrorMessage(error, 'The authorization could not be started.');
 }
 
+/** The failure an operator can act on, rather than the status code that produced it. */
+function disconnectError(error: unknown): string {
+    const status = sdkError(error)?.status;
+    if (status === 403) return 'Disconnecting this plugin is not something your account is allowed to do.';
+    if (status === 501) return 'This plugin declares OAuth but does not implement it.';
+    return apiErrorMessage(error, 'The connection could not be removed.');
+}
+
 export interface PluginOAuthCardProps {
     plugin: PluginDetail;
 }
@@ -31,7 +40,10 @@ export interface PluginOAuthCardProps {
  */
 export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
     const start = useStartPluginOAuth(plugin.id);
+    const disconnect = useDisconnectPluginOAuth(plugin.id);
+    const [confirmOpen, setConfirmOpen] = useState(false);
     const callbackUrl = consoleCallbackUrl(plugin.id);
+    const connected = plugin.oauthConnected === true;
 
     async function connect(): Promise<void> {
         try {
@@ -39,6 +51,25 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
             window.location.assign(url);
         } catch {
             // Reported from `start.error` below.
+        }
+    }
+
+    /**
+     * Closing discards the failure along with the modal. Without the reset, a
+     * dismissed error is still in the mutation when the operator reopens, so a
+     * stale Alert greets them before they have pressed anything.
+     */
+    function closeConfirm(): void {
+        setConfirmOpen(false);
+        disconnect.reset();
+    }
+
+    async function disconnectConfirmed(): Promise<void> {
+        try {
+            await disconnect.mutateAsync();
+            setConfirmOpen(false);
+        } catch {
+            // The modal stays open and reports the failure via `disconnect.error` in the Alert inside it.
         }
     }
 
@@ -73,6 +104,12 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                     </Text>
                 </Stack>
 
+                {connected ? (
+                    <Text size="sm" fw={500} c="teal">
+                        Connected
+                    </Text>
+                ) : undefined}
+
                 {start.error ? (
                     <Alert color="red" title="Could not start the authorization">
                         {connectError(start.error)}
@@ -80,6 +117,17 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                 ) : undefined}
 
                 <Group justify="flex-end">
+                    {connected ? (
+                        <Button
+                            variant="subtle"
+                            color="red"
+                            onClick={() => {
+                                setConfirmOpen(true);
+                            }}
+                        >
+                            Disconnect
+                        </Button>
+                    ) : undefined}
                     <Button
                         variant="default"
                         loading={start.isPending}
@@ -87,10 +135,40 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                             void connect();
                         }}
                     >
-                        Connect
+                        {connected ? 'Reconnect' : 'Connect'}
                     </Button>
                 </Group>
             </Stack>
+
+            {connected ? (
+                <Modal opened={confirmOpen} onClose={closeConfirm} title={`Disconnect ${plugin.name}?`} centered>
+                    <Stack gap="md">
+                        <Text size="sm">
+                            {plugin.name} will lose access to its provider until it is connected again. Anything it does that depends on that
+                            connection will stop working until then.
+                        </Text>
+                        {disconnect.error ? (
+                            <Alert color="red" title="Could not disconnect">
+                                {disconnectError(disconnect.error)}
+                            </Alert>
+                        ) : undefined}
+                        <Group justify="flex-end">
+                            <Button variant="default" onClick={closeConfirm}>
+                                Cancel
+                            </Button>
+                            <Button
+                                color="red"
+                                loading={disconnect.isPending}
+                                onClick={() => {
+                                    void disconnectConfirmed();
+                                }}
+                            >
+                                Disconnect
+                            </Button>
+                        </Group>
+                    </Stack>
+                </Modal>
+            ) : undefined}
         </Card>
     );
 }

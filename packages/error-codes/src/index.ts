@@ -23,6 +23,16 @@ export const ErrorCodes = {
     INVALID_SHOW_SLUG: 'E20003',
     INVALID_SHOW_KIND: 'E20004',
     INVALID_SCRIPT_FORMAT: 'E20005',
+
+    // Plugins (E300xx). Mapped from a `PluginErrorCode` by `plugin.error.http.ts`
+    PLUGIN_AUTH_REQUIRED: 'E30001',
+    PLUGIN_MISCONFIGURED: 'E30002',
+    PLUGIN_RATE_LIMITED: 'E30003',
+    PLUGIN_TIMED_OUT: 'E30004',
+    PLUGIN_UNAVAILABLE: 'E30005',
+    PLUGIN_UNSUPPORTED: 'E30006',
+    PLUGIN_UPSTREAM_FAILED: 'E30007',
+    PLUGIN_FAILED: 'E30008',
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

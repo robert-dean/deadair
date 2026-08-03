@@ -94,6 +94,15 @@ export class PluginsClient {
     }
 
     /**
+     * @name Disconnect plugin OAuth
+     * @description Forgets the plugin's stored OAuth tokens and reinitializes it
+     */
+    async disconnectPluginOAuth(id: string): Promise<PluginDetail> {
+        const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/oauth`, { method: 'DELETE' });
+        return await parseJson<PluginDetail>(result);
+    }
+
+    /**
      * @name Complete plugin OAuth authorization
      * @description Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
      */

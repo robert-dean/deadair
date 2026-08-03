@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { PluginError, toPluginError } from '@deadair/plugin-sdk';
 import { PluginRegistry } from './plugin.registry.js';
 
 /** How long a single call into plugin code may run before it is abandoned. */
@@ -44,7 +45,7 @@ const deadline = (timeoutMs: number, message: string): InvokeDeadline => {
     let onAbort: () => void = () => {};
 
     const expiry = new Promise<never>((_resolve, reject) => {
-        onAbort = () => reject(new Error(message));
+        onAbort = () => reject(new PluginError('timeout', message));
         controller.signal.addEventListener('abort', onAbort, { once: true });
     });
 
@@ -72,8 +73,12 @@ const deadline = (timeoutMs: number, message: string): InvokeDeadline => {
  * On top of that sits a consecutive-failure breaker. A plugin whose upstream is
  * down would otherwise be retried on every request forever, burning latency on
  * calls that cannot succeed; after {@link PLUGIN_FAILURE_THRESHOLD} failures in
- * a row it is quarantined and further calls fail immediately with the reason,
- * until something (a config change, a reinit) calls {@link PluginInvoker.reset}.
+ * a row (or one failure the plugin itself declared non-retryable) it is
+ * quarantined and further calls fail immediately with the reason, until
+ * something (a config change, a reinit) calls {@link PluginInvoker.reset}.
+ *
+ * Everything thrown from here is a `PluginError`, so a caller can map the
+ * failure to a response without parsing a message string.
  */
 @Injectable()
 export class PluginInvoker {
@@ -95,14 +100,15 @@ export class PluginInvoker {
      * `fn` receives the abort signal so well-behaved plugin code can bail early;
      * the call is abandoned at the timeout either way.
      *
-     * @throws when the plugin's breaker is open, when the call times out, or
-     *   when `fn` rejects. Never throws for any other reason: a plugin failure
-     *   is data, not a crash.
+     * @throws {PluginError} when the plugin's breaker is open (`unavailable`),
+     *   when the call times out (`timeout`), or when `fn` rejects (the code the
+     *   plugin gave, or `internal`). Never throws for any other reason: a
+     *   plugin failure is data, not a crash.
      */
     async invoke<T>(pluginId: string, op: string, fn: (signal: AbortSignal) => Promise<T>, opts?: PluginInvokeOptions): Promise<T> {
         const openReason = this.openBreakers.get(pluginId);
         if (openReason !== undefined) {
-            throw new Error(`plugin ${pluginId} is failed: ${openReason}`);
+            throw new PluginError('unavailable', `plugin ${pluginId} is failed: ${openReason}`);
         }
 
         const timeoutMs = opts?.timeoutMs ?? PLUGIN_INVOKE_TIMEOUT_MS;
@@ -141,26 +147,46 @@ export class PluginInvoker {
         this.consecutiveFailures.delete(pluginId);
     }
 
-    /** Records the failure on the registry record and returns the error to throw. */
-    private recordFailure(pluginId: string, op: string, error: unknown): Error {
+    /**
+     * Records the failure on the registry record and returns the error to throw.
+     *
+     * The classification is preserved rather than flattened into a message: the
+     * whole reason {@link PluginError} exists is that "expired token" and
+     * "Spotify is down" have to still be distinguishable by the time the
+     * service decides what to answer. A plugin that threw a bare `Error` is
+     * classified `internal`, which behaves exactly as this did before.
+     */
+    private recordFailure(pluginId: string, op: string, error: unknown): PluginError {
+        const pluginError = toPluginError(error);
         const message = errorText(error);
         const reason = `${op}: ${message}`;
         const failures = (this.consecutiveFailures.get(pluginId) ?? 0) + 1;
         this.consecutiveFailures.set(pluginId, failures);
 
-        if (failures >= PLUGIN_FAILURE_THRESHOLD) {
+        // A non-retryable failure will not become a success on attempt two, so
+        // waiting for the count is two round trips spent proving what the
+        // plugin already told us. Nothing is stranded by tripping early:
+        // `reset` runs on every reinit, which is what a config or credential
+        // fix triggers anyway.
+        const quarantine = failures >= PLUGIN_FAILURE_THRESHOLD || !pluginError.retryable;
+
+        if (quarantine) {
             this.openBreakers.set(pluginId, reason);
             this.pluginRegistry.setStatus(pluginId, 'failed', reason);
-            this.logger.error('plugin quarantined after consecutive failures', { plugin: pluginId, op, failures, error: message });
+            this.logger.error('plugin quarantined', { plugin: pluginId, op, failures, code: pluginError.code, retryable: pluginError.retryable, error: message });
         } else {
             // Keep the current status (the plugin may still recover) but surface
             // the last error, so the settings UI can show what just went wrong.
             const record = this.pluginRegistry.get(pluginId);
             if (record) this.pluginRegistry.setStatus(pluginId, record.status, reason);
-            this.logger.warn('plugin call failed', { plugin: pluginId, op, failures, error: message });
+            this.logger.warn('plugin call failed', { plugin: pluginId, op, failures, code: pluginError.code, error: message });
         }
 
-        const wrapped = new Error(`plugin ${pluginId} failed during ${op}: ${message}`, { cause: error });
-        return wrapped;
+        return new PluginError(pluginError.code, `plugin ${pluginId} failed during ${op}: ${message}`, {
+            retryable: pluginError.retryable,
+            retryAfterMs: pluginError.retryAfterMs,
+            upstreamStatus: pluginError.upstreamStatus,
+            cause: error,
+        });
     }
 }

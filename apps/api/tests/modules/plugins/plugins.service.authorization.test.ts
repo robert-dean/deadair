@@ -9,15 +9,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import { IsHttpError } from '@maroonedsoftware/errors';
-import type { PluginManifest } from '@deadair/plugin-sdk';
+import { PluginError, type PluginManifest } from '@deadair/plugin-sdk';
+import { ErrorCodes } from '@deadair/error-codes';
 
 import { AccessControlService } from '../../../src/modules/permissions/access.control.service.js';
 import { AuthorizationContext, type Actor, type UserActor } from '../../../src/modules/permissions/authorization.context.js';
 import type { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
-import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
+import { PluginConfigService, type PluginConfigReadModel } from '../../../src/modules/plugins/plugin.config.service.js';
 import { PluginEchoTracker } from '../../../src/modules/plugins/plugin.echo.tracker.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginLifecycleManager } from '../../../src/modules/plugins/plugin.lifecycle.manager.js';
+import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from '../../../src/modules/plugins/plugin.oauth.secret.js';
 import { PluginOAuthStateStore } from '../../../src/modules/plugins/plugin.oauth.state.store.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import { PluginsService } from '../../../src/modules/plugins/plugins.service.js';
@@ -141,10 +143,23 @@ interface Harness {
     requireSpy: ReturnType<typeof vi.fn>;
     canAccessSpy: ReturnType<typeof vi.fn>;
     listVisibleIdsSpy: ReturnType<typeof vi.fn>;
+    configService: PluginConfigService;
+    lifecycleManager: PluginLifecycleManager;
+    echoTracker: PluginEchoTracker;
+    registry: PluginRegistry;
 }
 
-/** Builds a `PluginsService` around a real `AccessControlService`/`AuthorizationContext`, with everything else a bare stub. */
-function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePermissionsFixture()): Harness {
+/**
+ * Builds a `PluginsService` around a real `AccessControlService`/`AuthorizationContext`,
+ * with everything else a bare stub. `readModels` lets a test override the
+ * per-plugin `getReadModel` result (e.g. `oauthConnected`) without touching
+ * the other tests' default.
+ */
+function makeService(
+    actor: Actor,
+    fixture: FakePermissionsFixture = new FakePermissionsFixture(),
+    readModels: Record<string, Partial<PluginConfigReadModel>> = {},
+): Harness {
     const registry = new PluginRegistry();
     registry.upsert(record(SPOTIFY_ID));
     registry.upsert(record(OTHER_ID, { manifest: manifest({ id: OTHER_ID, capabilities: ['catalog'] }) }));
@@ -155,7 +170,14 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePer
     const listVisibleIdsSpy = vi.spyOn(accessControl, 'listVisibleIds');
 
     const configService = {
-        getReadModel: vi.fn(async (pluginId: string) => ({ pluginId, enabled: true, config: {}, configured: {} })),
+        getReadModel: vi.fn(async (pluginId: string) => ({
+            pluginId,
+            enabled: true,
+            config: {},
+            configured: {},
+            oauthConnected: false,
+            ...readModels[pluginId],
+        })),
         getConfig: vi.fn(async () => ({})),
         getSecrets: vi.fn(async () => ({})),
         saveConfig: vi.fn(async () => {}),
@@ -182,12 +204,17 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePer
         stubLogger(),
     );
 
-    return { service, accessControl, requireSpy, canAccessSpy, listVisibleIdsSpy };
+    return { service, accessControl, requireSpy, canAccessSpy, listVisibleIdsSpy, configService, lifecycleManager, echoTracker, registry };
 }
 
 /** Asserts the rejection is a 403 `HttpError`. */
 async function expectForbidden(promise: Promise<unknown>): Promise<void> {
     await expect(promise).rejects.toSatisfy(error => IsHttpError(error) && error.statusCode === 403);
+}
+
+/** Asserts the rejection is an `HttpError` with the given status code. */
+async function expectHttpStatus(promise: Promise<unknown>, statusCode: number): Promise<void> {
+    await expect(promise).rejects.toSatisfy(error => IsHttpError(error) && error.statusCode === statusCode);
 }
 
 describe('PluginsService authorization: admin', () => {
@@ -330,5 +357,159 @@ describe('PluginsService authorization: HTTP system actor', () => {
 
         await expect(service.listPlugins({})).resolves.toEqual([]);
         await expectForbidden(service.getPlugin(SPOTIFY_ID));
+    });
+});
+
+describe('PluginsService: oauthConnected on PluginDetail', () => {
+    it('is true when the read model reports a connected vault, for a plugin that declares oauth', async () => {
+        const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
+        const { service } = makeService(userActor('u-owner', []), fixture, { [SPOTIFY_ID]: { oauthConnected: true } });
+
+        const detail = await service.getPlugin(SPOTIFY_ID);
+
+        expect(detail.oauthConnected).toBe(true);
+    });
+
+    it('is false when the read model reports no connected vault, for a plugin that declares oauth', async () => {
+        const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
+        const { service } = makeService(userActor('u-owner', []), fixture, { [SPOTIFY_ID]: { oauthConnected: false } });
+
+        const detail = await service.getPlugin(SPOTIFY_ID);
+
+        expect(detail.oauthConnected).toBe(false);
+    });
+
+    it('is absent for a plugin whose manifest does not declare the oauth capability', async () => {
+        const fixture = new FakePermissionsFixture().grantOwner(OTHER_ID, 'u-owner');
+        const { service } = makeService(userActor('u-owner', []), fixture, { [OTHER_ID]: { oauthConnected: true } });
+
+        const detail = await service.getPlugin(OTHER_ID);
+
+        expect(detail).not.toHaveProperty('oauthConnected');
+    });
+});
+
+describe('PluginsService: disconnectOAuth', () => {
+    it('clears the OAuth vault via saveConfig, announces the write once, and reinitializes the plugin', async () => {
+        const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
+        const { service, configService, lifecycleManager, echoTracker } = makeService(userActor('u-owner', []), fixture);
+
+        const detail = await service.disconnectOAuth(SPOTIFY_ID);
+
+        expect(detail).toBeDefined();
+        expect(configService.saveConfig).toHaveBeenCalledWith(
+            SPOTIFY_ID,
+            [...manifest().configFields, OAUTH_SECRET_FIELD],
+            { [PLUGIN_OAUTH_SECRET_KEY]: '' },
+        );
+        expect(echoTracker.expectEcho).toHaveBeenCalledTimes(1);
+        expect(echoTracker.expectEcho).toHaveBeenCalledWith(SPOTIFY_ID);
+        expect(lifecycleManager.reinitPlugin).toHaveBeenCalledWith(SPOTIFY_ID);
+    });
+
+    it('is denied for an actor without the oauth permission on the plugin', async () => {
+        const fixture = new FakePermissionsFixture().grantOperator(SPOTIFY_ID, 'u-operator');
+        const { service, configService, lifecycleManager } = makeService(userActor('u-operator', []), fixture);
+
+        await expectForbidden(service.disconnectOAuth(SPOTIFY_ID));
+
+        expect(configService.saveConfig).not.toHaveBeenCalled();
+        expect(lifecycleManager.reinitPlugin).not.toHaveBeenCalled();
+    });
+
+    it('throws 501 for a plugin whose manifest does not declare the oauth capability', async () => {
+        const fixture = new FakePermissionsFixture().grantOwner(OTHER_ID, 'u-owner');
+        const { service, configService, lifecycleManager } = makeService(userActor('u-owner', []), fixture);
+
+        await expectHttpStatus(service.disconnectOAuth(OTHER_ID), 501);
+
+        expect(configService.saveConfig).not.toHaveBeenCalled();
+        expect(lifecycleManager.reinitPlugin).not.toHaveBeenCalled();
+    });
+
+    // The behaviour this run added: disconnectOAuth checks the manifest
+    // capability only, not requireOAuth(), so a plugin that declares oauth
+    // but has no live instance (stopped or crashed) is still disconnectable
+    // rather than 503ing.
+    it('succeeds for a plugin that declares oauth but has no live instance (stopped)', async () => {
+        const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
+        const { service, configService, lifecycleManager, echoTracker, registry } = makeService(userActor('u-owner', []), fixture);
+        registry.upsert(record(SPOTIFY_ID, { status: 'discovered', instance: undefined }));
+
+        const detail = await service.disconnectOAuth(SPOTIFY_ID);
+
+        expect(detail).toBeDefined();
+        expect(configService.saveConfig).toHaveBeenCalledWith(
+            SPOTIFY_ID,
+            [...manifest().configFields, OAUTH_SECRET_FIELD],
+            { [PLUGIN_OAUTH_SECRET_KEY]: '' },
+        );
+        expect(echoTracker.expectEcho).toHaveBeenCalledWith(SPOTIFY_ID);
+        expect(lifecycleManager.reinitPlugin).toHaveBeenCalledWith(SPOTIFY_ID);
+    });
+
+    it('succeeds for a plugin that declares oauth but has no live instance (crashed, with an error reason)', async () => {
+        const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
+        const { service, configService, lifecycleManager, registry } = makeService(userActor('u-owner', []), fixture);
+        registry.upsert(record(SPOTIFY_ID, { status: 'misconfigured', instance: undefined, error: 'boom' }));
+
+        await expect(service.disconnectOAuth(SPOTIFY_ID)).resolves.toBeDefined();
+        expect(configService.saveConfig).toHaveBeenCalledTimes(1);
+    });
+});
+
+/**
+ * The plugin has already passed every host-side gate by the time its own code
+ * runs, so anything that goes wrong from here is the plugin's failure, not the
+ * request's. Before `PluginError` these all rendered as a 500 with a sentence,
+ * which told the console nothing it could act on.
+ */
+describe('PluginsService: startOAuthAuthorization translates a plugin failure', () => {
+    const failing = (error: unknown): PluginRecord =>
+        record(SPOTIFY_ID, {
+            instance: {
+                getAuthorizeUrl: vi.fn(async () => {
+                    throw error;
+                }),
+                handleCallback: vi.fn(async () => {}),
+            } as never,
+        });
+
+    const startFor = (error: unknown): Promise<unknown> => {
+        const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
+        const { service, registry } = makeService(userActor('u-owner', []), fixture);
+        registry.upsert(failing(error));
+        return service.startOAuthAuthorization(SPOTIFY_ID);
+    };
+
+    it('answers 422 with the misconfigured code when the plugin has no client id', async () => {
+        const promise = startFor(new PluginError('config', 'Spotify client ID is not configured'));
+
+        await expectHttpStatus(promise, 422);
+        await expect(promise).rejects.toSatisfy(error => IsHttpError(error) && error.details?.code === ErrorCodes.PLUGIN_MISCONFIGURED);
+    });
+
+    it('answers 502 with the auth code when the plugin cannot authenticate', async () => {
+        const promise = startFor(new PluginError('auth', 'token expired'));
+
+        await expectHttpStatus(promise, 502);
+        await expect(promise).rejects.toSatisfy(error => IsHttpError(error) && error.details?.code === ErrorCodes.PLUGIN_AUTH_REQUIRED);
+    });
+
+    it('answers 429 with Retry-After when the provider is throttling', async () => {
+        const promise = startFor(new PluginError('rate_limited', 'slow down', { retryAfterMs: 30_000 }));
+
+        await expectHttpStatus(promise, 429);
+        await expect(promise).rejects.toSatisfy(error => IsHttpError(error) && error.headers?.['Retry-After'] === '30');
+    });
+
+    it('still answers 500 for a plugin that throws a bare Error, so adopting PluginError is per-plugin', async () => {
+        await expectHttpStatus(startFor(new Error('boom')), 500);
+    });
+
+    it('reports the plugin id in details, so a console showing several plugins knows which one failed', async () => {
+        const promise = startFor(new PluginError('unavailable', 'provider is down'));
+
+        await expect(promise).rejects.toSatisfy(error => IsHttpError(error) && error.details?.plugin === SPOTIFY_ID);
     });
 });

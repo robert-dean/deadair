@@ -46,6 +46,7 @@ contract PluginSummary: {
 contract PluginDetail: PluginSummary & {
     config: record(string, unknown)
     lastError?: string(max=4000)
+    oauthConnected?: boolean
 }
 
 # A submitted settings form. Secret values arrive in here and are never echoed back

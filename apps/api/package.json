@@ -40,7 +40,6 @@
         "@maroonedsoftware/serverfeed": "^0.1.0",
         "@maroonedsoftware/utilities": "^1.11.0",
         "@maroonedsoftware/zod": "^0.5.0",
-        "@spotify/web-api-ts-sdk": "^1.2.0",
         "injectkit": "^1.6.0",
         "ioredis": "^6.0.0",
         "koa": "^3.2.1",

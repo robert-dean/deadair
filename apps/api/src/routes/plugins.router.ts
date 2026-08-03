@@ -169,8 +169,28 @@ PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: false 
 });
 
 /**
- * Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
+ * Forgets the plugin's stored OAuth tokens and reinitializes it
  * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L160)
+ */
+PluginsRouter.delete('/plugins/:id/oauth', requirePolicy({ policy: false }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(200),
+        }),
+    );
+
+    const service = ctx.container.get(PluginsService);
+    const result: PluginDetail = await service.disconnectOAuth(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L178)
  * anonymous access, no security required
  */
 PluginsRouter.get('/plugins/:id/oauth/callback', async ctx => {

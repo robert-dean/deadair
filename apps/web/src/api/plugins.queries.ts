@@ -112,6 +112,20 @@ export function useStartPluginOAuth(id: string) {
     });
 }
 
+/**
+ * Revokes a plugin's stored OAuth connection. Mirrors `useSetPluginEnabled`'s shape: the API hands
+ * back the plugin as it now stands, which is written straight into the cache rather than refetched.
+ */
+export function useDisconnectPluginOAuth(id: string) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => sdk.plugins.disconnectPluginOAuth(id),
+        onSuccess: detail => {
+            writePluginDetail(queryClient, detail);
+        },
+    });
+}
+
 /** What came back from the callback leg: the API's verdict, or why it never gave one. */
 export interface PluginOAuthOutcome {
     result?: PluginOAuthResult;

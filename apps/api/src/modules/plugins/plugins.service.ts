@@ -3,9 +3,10 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type PluginManifest } from '@deadair/plugin-sdk';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
-import { PLUGIN_OAUTH_SECRET_KEY } from './plugin.host.factory.js';
+import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginConfigService, type PluginConfigReadModel } from './plugin.config.service.js';
 import { PluginEchoTracker } from './plugin.echo.tracker.js';
+import { pluginHttpError } from './plugin.error.http.js';
 import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
@@ -190,6 +191,38 @@ export class PluginsService {
     }
 
     /**
+     * Forgets a plugin's stored OAuth tokens, then reinitializes it.
+     *
+     * There is no plugin-side `disconnect()` hook: Spotify has no
+     * token-revocation endpoint, and inventing one on `MusicProviderOAuth` for
+     * a single provider is not worth it. Disconnecting means "the host forgets
+     * the tokens" — clearing the vault secret is the same blank-clears-a-secret
+     * path {@link PluginConfigService.saveConfig} already gives every other
+     * secret field, reused rather than duplicated here.
+     *
+     * @throws 404 unknown id, 409 quarantined plugin, 501 no OAuth capability.
+     */
+    async disconnectOAuth(id: string): Promise<PluginDetail> {
+        await this.requirePluginPermission(id, 'oauth');
+        const { record, manifest } = this.requireLoaded(id);
+
+        // Capability check only, not requireOAuth(): a plugin that is
+        // connected but stopped or crashed must still be disconnectable, and
+        // requireOAuth would 503 it for lacking a live instance.
+        if (!manifest.capabilities.includes(PLUGIN_CAPABILITY_OAUTH)) {
+            throw httpError(501).withDetails({ message: `plugin "${record.id}" does not support OAuth` });
+        }
+
+        await this.announceWrite(id, async () => {
+            await this.pluginConfigService.saveConfig(id, [...manifest.configFields, OAUTH_SECRET_FIELD], { [PLUGIN_OAUTH_SECRET_KEY]: '' });
+        });
+        // The tokens would otherwise keep working from the plugin's in-memory
+        // cache until the next reload; the reinit is what drops it.
+        await this.pluginLifecycleManager.reinitPlugin(id);
+        return this.detailOf(record);
+    }
+
+    /**
      * Starts the plugin's OAuth flow by reporting where the operator has to go.
      *
      * The URL is returned rather than redirected to because this route is
@@ -205,7 +238,9 @@ export class PluginsService {
      * and cannot be left to third-party code to remember to implement.
      *
      * @throws 404 unknown id, 409 quarantined plugin, 501 no OAuth capability,
-     *   503 the plugin is installed but not running.
+     *   503 the plugin is installed but not running. If the plugin itself
+     *   fails, whatever {@link pluginHttpError} makes of its `PluginError`
+     *   (429/500/502/503/504), carrying an `E300xx` code in `details`.
      */
     async startOAuthAuthorization(id: string): Promise<PluginOAuthStart> {
         await this.requirePluginPermission(id, 'oauth');
@@ -216,8 +251,17 @@ export class PluginsService {
         // in a 404/409/501/503 does not supersede a live authorization.
         const state = this.pluginOAuthStateStore.issue(id);
 
-        const url = await this.pluginInvoker.invoke(id, 'oauth.getAuthorizeUrl', async () => oauth.getAuthorizeUrl(state));
-        return { url };
+        try {
+            const url = await this.pluginInvoker.invoke(id, 'oauth.getAuthorizeUrl', async () => oauth.getAuthorizeUrl(state));
+            return { url };
+        } catch (error) {
+            // Without this the invoker's error reaches the middleware as a plain
+            // throw and every plugin-side failure renders as a 500, which tells
+            // the console nothing it can act on. `pluginHttpError` is what turns
+            // "the token expired" into a status and a code it can branch on.
+            this.logger.warn('plugin oauth authorize failed', { plugin: id, error: errorText(error) });
+            throw pluginHttpError(id, error);
+        }
     }
 
     /**
@@ -417,12 +461,17 @@ export class PluginsService {
 
     private async detailOf(record: PluginRecord): Promise<PluginDetail> {
         const readModel = await this.readModelOf(record);
+        // Only reported for a manifest that actually declares the capability,
+        // so the console never renders a connection state for a plugin that
+        // has no connection to have.
+        const supportsOAuth = record.manifest?.capabilities.includes(PLUGIN_CAPABILITY_OAUTH) ?? false;
         return {
             ...this.toSummary(record, readModel),
             config: readModel.config,
             // The in-memory record is the fresher of the two: it carries the
             // reason for a status the database has not been told about yet.
             lastError: record.error ?? readModel.lastError,
+            ...(supportsOAuth ? { oauthConnected: readModel.oauthConnected } : {}),
         };
     }
 

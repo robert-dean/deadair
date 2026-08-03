@@ -17,10 +17,12 @@
         "build": "tsup src/index.ts --format esm --sourcemap && tsc --emitDeclarationOnly --declaration",
         "build:ci": "eslint --max-warnings=0 && pnpm run build",
         "lint": "eslint --fix",
-        "format": "prettier --write ."
+        "format": "prettier --write .",
+        "test": "vitest run"
     },
     "dependencies": {
-        "@deadair/plugin-sdk": "workspace:*"
+        "@deadair/plugin-sdk": "workspace:*",
+        "@spotify/web-api-ts-sdk": "^1.2.0"
     },
     "peerDependencies": {
         "zod": "^4.0.0"
@@ -28,6 +30,7 @@
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
+        "vitest": "^4.1.10",
         "zod": "^4.4.3"
     }
 }

@@ -20,7 +20,7 @@ export interface ConfigFieldOption {
 
 /**
  * A submitted settings form. Secret values arrive in here and are never echoed back
- * generated from [PluginConfigInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L52)
+ * generated from [PluginConfigInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L53)
  */
 export interface PluginConfigInput {
     config: Record<string, unknown>;
@@ -28,7 +28,7 @@ export interface PluginConfigInput {
 
 /**
  * Outcome of the plugin's own `testConnection()`
- * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L57)
+ * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L58)
  */
 export interface PluginTestResult {
     ok: boolean;
@@ -38,7 +38,7 @@ export interface PluginTestResult {
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L64)
+ * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L65)
  */
 export interface PluginOAuthStart {
     url: string;
@@ -46,7 +46,7 @@ export interface PluginOAuthStart {
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L69)
+ * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L70)
  */
 export interface PluginOAuthResult {
     pluginId: string;
@@ -55,7 +55,7 @@ export interface PluginOAuthResult {
 }
 
 /**
- * generated from [PluginListQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L75)
+ * generated from [PluginListQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L76)
  */
 export interface PluginListQuery {
     /** Narrows the list to one plugin kind, e.g. `music-provider` */
@@ -63,7 +63,7 @@ export interface PluginListQuery {
 }
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L79)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L80)
  */
 export interface PluginOAuthCallbackQuery {
     code?: string;
@@ -114,4 +114,5 @@ export interface PluginSummary {
 export interface PluginDetail extends PluginSummary {
     config: Record<string, unknown>;
     lastError?: string;
+    oauthConnected?: boolean;
 }

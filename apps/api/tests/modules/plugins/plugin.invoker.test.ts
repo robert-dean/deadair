@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
+import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 
 import { PLUGIN_FAILURE_THRESHOLD, PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
@@ -107,6 +108,38 @@ describe('PluginInvoker.invoke', () => {
         expect(invoker.isBreakerOpen('p')).toBe(false);
     });
 
+    it('quarantines on the first failure the plugin declared non-retryable, without spending two more round trips', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubLogger());
+
+        const throwing = vi.fn(() => {
+            throw new PluginError('auth', 'token expired');
+        });
+
+        await expect(invoker.invoke('p', 'oauth.getAuthorizeUrl', throwing)).rejects.toThrow(/token expired/);
+
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+        expect(registry.get('p')?.status).toBe('failed');
+        expect(throwing.mock.calls.length).toBe(1);
+    });
+
+    it('still gives a retryable PluginError the full threshold', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubLogger());
+
+        const throwing = () => {
+            throw new PluginError('upstream', 'bad gateway');
+        };
+
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD - 1; i++) {
+            await expect(invoker.invoke('p', 'op', throwing)).rejects.toThrow();
+        }
+
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+    });
+
     it('reset() closes the breaker and forgets the failure count', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
@@ -124,5 +157,93 @@ describe('PluginInvoker.invoke', () => {
 
         expect(invoker.isBreakerOpen('p')).toBe(false);
         await expect(invoker.invoke('p', 'op', async () => 'ok')).resolves.toBe('ok');
+    });
+});
+
+/**
+ * The classification is the whole point of routing plugin failures through
+ * `PluginError`: if it does not survive the invoker, the service can only
+ * answer 500 and a message string.
+ */
+describe('PluginInvoker error classification', () => {
+    const codeOf = async (promise: Promise<unknown>): Promise<string | undefined> => {
+        try {
+            await promise;
+            return undefined;
+        } catch (error) {
+            return isPluginError(error) ? error.code : `not a PluginError: ${String(error)}`;
+        }
+    };
+
+    it('carries the plugin\'s own code out through the wrapper', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubLogger());
+
+        const code = await codeOf(
+            invoker.invoke('p', 'op', () => {
+                throw new PluginError('rate_limited', 'slow down', { retryAfterMs: 30_000 });
+            }),
+        );
+
+        expect(code).toBe('rate_limited');
+    });
+
+    it('keeps the retry advice attached, so a 429 can be answered with a Retry-After', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubLogger());
+
+        await invoker
+            .invoke('p', 'op', () => {
+                throw new PluginError('rate_limited', 'slow down', { retryAfterMs: 30_000, upstreamStatus: 429 });
+            })
+            .catch((error: unknown) => {
+                expect(isPluginError(error)).toBe(true);
+                const pluginError = error as PluginError;
+                expect(pluginError.retryAfterMs).toBe(30_000);
+                expect(pluginError.upstreamStatus).toBe(429);
+                expect(pluginError.cause).toBeInstanceOf(PluginError);
+            });
+    });
+
+    it('classifies a bare Error as internal', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubLogger());
+
+        expect(
+            await codeOf(
+                invoker.invoke('p', 'op', () => {
+                    throw new Error('boom');
+                }),
+            ),
+        ).toBe('internal');
+    });
+
+    it('classifies a timeout as timeout', async () => {
+        vi.useFakeTimers();
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubLogger());
+
+        const promise = codeOf(invoker.invoke('p', 'op', async () => new Promise<void>(() => {}), { timeoutMs: 1_000 }));
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        expect(await promise).toBe('timeout');
+    });
+
+    it('classifies the open-breaker short circuit as unavailable', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubLogger());
+
+        await expect(
+            invoker.invoke('p', 'op', () => {
+                throw new PluginError('config', 'no client id');
+            }),
+        ).rejects.toThrow();
+
+        expect(await codeOf(invoker.invoke('p', 'op', async () => 'never runs'))).toBe('unavailable');
     });
 });

@@ -1,0 +1,325 @@
+import { z } from 'zod';
+
+import type { HostFetchInit, HostFetchResponse, PluginOAuth } from '../src/plugin.host.js';
+import type { PlaybackState, ProviderPlaylist, ProviderStream, ProviderTrack } from '../src/capabilities/music.provider.js';
+import type { ExternalId, ExternalLink, TrackEnrichment, TrackRef } from '../src/capabilities/enrichment.js';
+import type { PluginConnectionResult } from '../src/plugin.lifecycle.js';
+import type { PluginManifest } from '../src/plugin.manifest.js';
+import type { ConfigField } from '../src/plugin.config.fields.js';
+
+/**
+ * Throws with the offending property path when `value` is not JSON-safe.
+ *
+ * JSON-safe is strictly narrower than structured-clone-safe: no `Date`,
+ * `Map`, `Set`, `RegExp`, `BigInt`, `ArrayBuffer`, typed array, or any object
+ * whose prototype is neither `Object.prototype` nor `null` nor
+ * `Array.prototype`. `undefined` is allowed as an object property value
+ * (means "not set") but forbidden as an array element, since
+ * `JSON.stringify` silently drops the former and turns the latter into
+ * `null`.
+ */
+export function assertJsonSafe(value: unknown, path = '$'): void {
+    if (value === null) return;
+    if (value === undefined) {
+        // Callers of assertJsonSafe from an array element pass a path that
+        // already flags the context; the array walker below never lets an
+        // `undefined` element reach this branch without failing first.
+        return;
+    }
+
+    const type = typeof value;
+    if (type === 'string' || type === 'boolean') return;
+
+    if (type === 'number') {
+        if (!Number.isFinite(value as number)) {
+            throw new Error(`boundary payload not JSON-safe: non-finite number at ${path} (${String(value)})`);
+        }
+        return;
+    }
+
+    if (type === 'function') {
+        throw new Error(`boundary payload not JSON-safe: function at ${path}`);
+    }
+    if (type === 'symbol') {
+        throw new Error(`boundary payload not JSON-safe: symbol at ${path}`);
+    }
+    if (type === 'bigint') {
+        throw new Error(`boundary payload not JSON-safe: bigint at ${path}`);
+    }
+
+    if (Array.isArray(value)) {
+        value.forEach((element, index) => {
+            if (element === undefined) {
+                throw new Error(`boundary payload not JSON-safe: undefined array element at ${path}[${index}]`);
+            }
+            assertJsonSafe(element, `${path}[${index}]`);
+        });
+        return;
+    }
+
+    // Anything left is an object. Only a plain object (or a null-prototype
+    // one) is allowed; anything else is a class instance, and this is the
+    // single check that catches Date, Map, Set, RegExp and typed arrays
+    // without a special case for each.
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) {
+        const named = namedClassCheck(value, path);
+        throw new Error(named ?? `boundary payload not JSON-safe: object at ${path} is not a plain object (prototype is ${describeProto(value)})`);
+    }
+
+    for (const [key, propertyValue] of Object.entries(value as Record<string, unknown>)) {
+        // undefined is legal here: an optional field explicitly set to
+        // undefined is indistinguishable from one never set, and both are
+        // legal per the repo's `?:` convention.
+        if (propertyValue === undefined) continue;
+        assertJsonSafe(propertyValue, `${path}.${key}`);
+    }
+}
+
+/** Names the common offenders explicitly so the failure message is legible. */
+function namedClassCheck(value: object, path: string): string | undefined {
+    if (value instanceof Date) return `boundary payload not JSON-safe: Date at ${path}`;
+    if (value instanceof Map) return `boundary payload not JSON-safe: Map at ${path}`;
+    if (value instanceof Set) return `boundary payload not JSON-safe: Set at ${path}`;
+    if (value instanceof RegExp) return `boundary payload not JSON-safe: RegExp at ${path}`;
+    if (value instanceof ArrayBuffer) return `boundary payload not JSON-safe: ArrayBuffer at ${path}`;
+    if (ArrayBuffer.isView(value)) return `boundary payload not JSON-safe: typed array at ${path}`;
+    return undefined;
+}
+
+function describeProto(value: object): string {
+    const proto = Object.getPrototypeOf(value) as { constructor?: { name?: string } } | null;
+    return proto?.constructor?.name ?? 'unknown';
+}
+
+/**
+ * `structuredClone` round-trip plus {@link assertJsonSafe}. `structuredClone`
+ * catches functions, class instances with behaviour, getters and symbols
+ * (it throws on those); `assertJsonSafe` catches the narrower JSON-only rule
+ * that `structuredClone` alone would happily pass (Date, Map, Set, typed
+ * arrays all survive a structured clone but are still forbidden here).
+ */
+export function assertCrossesBoundary(value: unknown, label: string): void {
+    let cloned: unknown;
+    try {
+        cloned = structuredClone(value);
+    } catch (error) {
+        throw new Error(`boundary payload "${label}" failed structuredClone: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!deepEqual(cloned, value)) {
+        throw new Error(`boundary payload "${label}" changed shape across structuredClone`);
+    }
+
+    try {
+        assertJsonSafe(value, '$');
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`boundary payload "${label}" ${message}`);
+    }
+}
+
+/** Structural equality good enough for the fixture shapes here: no cycles, no exotic types expected post-clone. */
+function deepEqual(a: unknown, b: unknown): boolean {
+    if (Object.is(a, b)) return true;
+    if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+
+    if (Array.isArray(a) || Array.isArray(b)) {
+        if (!Array.isArray(a) || !Array.isArray(b)) return false;
+        if (a.length !== b.length) return false;
+        return a.every((element, index) => deepEqual(element, b[index]));
+    }
+
+    const aRecord = a as Record<string, unknown>;
+    const bRecord = b as Record<string, unknown>;
+    const keys = new Set([...Object.keys(aRecord), ...Object.keys(bRecord)]);
+    for (const key of keys) {
+        if (!deepEqual(aRecord[key], bRecord[key])) return false;
+    }
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// Fixtures: one realistic value per boundary shape, every optional field
+// populated. See plugin.host.ts, capabilities/music.provider.ts,
+// capabilities/enrichment.ts, plugin.lifecycle.ts, plugin.manifest.ts and
+// plugin.config.fields.ts for the shapes these mirror.
+// ---------------------------------------------------------------------------
+
+export const hostFetchInitFixture: HostFetchInit = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer token' },
+    body: '{"q":"radiohead"}',
+    timeoutMs: 5000,
+};
+
+export const hostFetchResponseFixture: HostFetchResponse = {
+    status: 200,
+    headers: { 'content-type': 'application/json', 'x-rate-limit-remaining': '9' },
+    body: '{"ok":true}',
+    ok: true,
+};
+
+/** The `meta` argument accepted by every `PluginLogger` method. */
+export const pluginLoggerMetaFixture: Record<string, unknown> = {
+    plugin: 'test.conformance',
+    attempt: 2,
+    nested: { hostname: 'api.example.com', retryable: true },
+};
+
+/** A nested POJO, the kind of value a plugin actually stores via `host.storage`. */
+export const pluginStorageValueFixture: Record<string, unknown> = {
+    lastSyncedAt: '2026-01-01T00:00:00.000Z',
+    cursor: 'abc123',
+    counts: { imported: 42, skipped: 0 },
+    tags: ['a', 'b'],
+};
+
+export const pluginStorageListFixture: string[] = ['playlist:1', 'playlist:2', 'cursor'];
+
+export const pluginSecretsGetFixture: string | undefined = 'sk-live-example';
+
+export const pluginConfigGetFixture: Record<string, unknown> = {
+    region: 'us',
+    pageSize: 50,
+    verbose: false,
+};
+
+export const pluginOAuthTokensFixture: Record<string, string> | undefined = {
+    accessToken: 'access-token-value',
+    refreshToken: 'refresh-token-value',
+};
+
+/** `PluginEvents.emit`'s payload argument. */
+export const pluginEventsEmitPayloadFixture: Record<string, unknown> = {
+    trackId: 'trk_1',
+    status: 'playing',
+};
+
+export const providerTrackFixture: ProviderTrack = {
+    id: 'trk_1',
+    title: 'Everything In Its Right Place',
+    artists: ['Radiohead'],
+    album: 'Kid A',
+    durationMs: 249_000,
+    isrc: 'GBAYE0000351',
+    artworkUrl: 'https://images.example.com/kid-a.jpg',
+};
+
+export const providerPlaylistFixture: ProviderPlaylist = {
+    id: 'pl_1',
+    name: 'Late Night',
+    description: 'Slow songs for slow nights',
+    trackCount: 12,
+    artworkUrl: 'https://images.example.com/late-night.jpg',
+};
+
+export const providerStreamFixture: ProviderStream = {
+    url: 'https://stream.example.com/trk_1.mp3?sig=abc',
+    expiresAt: 1_893_456_000_000,
+    mimeType: 'audio/mpeg',
+};
+
+export const searchTracksOptionsFixture = { limit: 20, offset: 40 };
+export const listPlaylistsOptionsFixture = { limit: 20, offset: 0 };
+export const getPlaylistTracksOptionsFixture = { limit: 20, offset: 0 };
+
+export const playbackStateFixture: PlaybackState = {
+    status: 'playing',
+    trackId: 'trk_1',
+    positionMs: 12_345,
+    durationMs: 249_000,
+};
+
+export const trackRefFixture: TrackRef = {
+    isrc: 'GBAYE0000351',
+    artist: 'Radiohead',
+    title: 'Everything In Its Right Place',
+    album: 'Kid A',
+    durationMs: 249_000,
+    year: 2000,
+};
+
+const externalIdFixture: ExternalId = { source: 'musicbrainz', id: 'mb-123' };
+const externalLinkFixture: ExternalLink = { label: 'MusicBrainz', url: 'https://musicbrainz.org/recording/mb-123' };
+
+/**
+ * `releaseDate` is an ISO-8601 string, never a `Date`. This is the
+ * positive counterpart to the negative case in the conformance test that
+ * proves a `Date` there fails.
+ */
+export const trackEnrichmentFixture: Partial<TrackEnrichment> = {
+    artist: 'Radiohead',
+    title: 'Everything In Its Right Place',
+    album: 'Kid A',
+    year: 2000,
+    releaseDate: '2000-10-02',
+    genres: ['electronic', 'art rock'],
+    moods: ['melancholic'],
+    biography: 'Recorded during the sessions that also produced Amnesiac.',
+    facts: ['Built around a Prophet-5 synthesizer riff.'],
+    bpm: 128,
+    musicalKey: 'A minor',
+    label: 'Parlophone',
+    isrc: 'GBAYE0000351',
+    artworkUrl: 'https://images.example.com/kid-a.jpg',
+    externalIds: [externalIdFixture],
+    links: [externalLinkFixture],
+};
+
+export const pluginConnectionResultFixture: PluginConnectionResult = {
+    ok: true,
+    message: 'Connected as user@example.com',
+};
+
+const configFieldFixture: ConfigField = {
+    key: 'region',
+    label: 'Region',
+    type: 'select',
+    required: true,
+    default: 'us',
+    placeholder: 'Pick a region',
+    help: 'Where the provider should route requests from.',
+    options: [{ value: 'us', label: 'US' }],
+    dependsOn: 'enabled',
+};
+
+/**
+ * `configSchema` is host-side metadata read at load time, not a payload
+ * passed to a plugin method, so it is intentionally excluded from the
+ * boundary check: it is a zod schema (a class instance) and correctly fails
+ * the plain-object check on purpose.
+ */
+export const pluginManifestFixtureWithoutConfigSchema: Omit<PluginManifest, 'configSchema'> = {
+    id: 'deadair.conformance',
+    name: 'Conformance Fixture',
+    version: '1.2.3',
+    kind: 'enrichment',
+    capabilities: ['enrichment'],
+    apiVersion: '^1.0.0',
+    description: 'A fixture manifest exercising every optional field.',
+    homepage: 'https://example.com/plugins/conformance',
+    icon: 'https://example.com/plugins/conformance/icon.png',
+    permissions: { network: ['api.example.com', '*.example.org'], storage: true, oauth: true },
+    configFields: [configFieldFixture],
+};
+
+export const pluginManifestConfigSchemaFixture = z.object({});
+
+/** A minimal manifest used to drive `PluginHostFactory` in the apps/api conformance test. */
+export function conformanceManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
+    return {
+        id: 'test.conformance',
+        name: 'Conformance',
+        version: '0.0.1',
+        kind: 'enrichment',
+        capabilities: ['enrichment'],
+        apiVersion: '^1.0.0',
+        permissions: { network: ['api.example.com'], storage: true, oauth: true },
+        configFields: [],
+        configSchema: z.object({}),
+        ...overrides,
+    };
+}
+
+/** `saveTokens`'s argument / `getTokens`'s return type. */
+export type PluginOAuthTokens = Awaited<ReturnType<PluginOAuth['getTokens']>>;

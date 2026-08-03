@@ -50,8 +50,11 @@ your package is just a package.
 2. **Everything crossing the boundary is JSON-safe.** No `Date`, no `Response`,
    no class instances, no functions in payloads. Durations are integers in
    milliseconds; dates are ISO-8601 strings. The host runs plugins in-process
-   today and may move them behind `worker_threads` tomorrow, and your code
-   should not notice.
+   today and may move them behind a subprocess tomorrow, and your code should
+   not notice. That target is a subprocess over IPC rather than
+   `worker_threads`, which is why the rule is JSON-safe and not merely
+   structured-clone-safe: a `Uint8Array` would survive a `worker_threads` move
+   but not a subprocess one.
 3. **Ask for what you need and no more.** `permissions` is shown to the
    operator before they install you.
 4. **`undefined`, never `null`,** for "not set".
@@ -176,8 +179,12 @@ ones it implements in `manifest.capabilities`:
 
 - **`catalog`** — `searchTracks`, `getTrack`, `listPlaylists`,
   `getPlaylistTracks`, and optionally `resolveStreamUrl`. Implement
-  `resolveStreamUrl` when you can hand the host a playable URL; omit it when
-  your provider plays audio itself and only takes instructions.
+  `resolveStreamUrl` when you can hand the host a playable URL that the audio
+  consumer can fetch directly; omit it and implement `playout` instead when
+  your provider plays audio itself and only takes instructions. A byte-level
+  streaming protocol for the rare case where no such URL can be minted is
+  specified in `docs/decisions/plugin-streaming.md`, but it is not implemented
+  and there is no `host.streams` to call.
 - **`playout`** — `enqueue`, `play`, `pause`, `skip`, `getPlaybackState`. This
   is the "steer" half: the provider owns the audio output.
 - **`oauth`** — `getAuthorizeUrl(state)` and `handleCallback(params)`. The host

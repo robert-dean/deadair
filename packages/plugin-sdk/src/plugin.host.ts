@@ -1,11 +1,16 @@
 /**
  * Everything in this file crosses the plugin boundary. Every argument and
- * return value is JSON-safe (structured-clone-friendly) on purpose: the host
- * currently calls plugins in-process, but the boundary is shaped so it can be
- * moved behind `worker_threads` without changing a single signature.
+ * return value is JSON-safe on purpose, and deliberately narrower than
+ * structured-clone-safe: the deferred isolation target (see
+ * `docs/decisions/plugin-isolation.md`) is a subprocess over IPC, not
+ * `worker_threads`, and a subprocess boundary is framing plus a serialization
+ * format, in practice JSON. So no `Uint8Array`, `Map`, `Set` or `Date`, even
+ * though `structuredClone` would carry all four.
  *
  * That means: no `Request`/`Response`/`Headers`, no streams, no `Date`, no
- * class instances, no functions in payloads.
+ * class instances, no functions in payloads. See
+ * `docs/decisions/plugin-streaming.md` for how bytes cross this boundary when
+ * they have to.
  */
 
 /** Structured logging. Goes to the host's logger, tagged with the plugin id. */

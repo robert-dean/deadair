@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Anchor, Badge, Card, Divider, Group, Stack, Switch, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import type { PluginSummary } from '@deadair/sdk';
@@ -5,6 +6,7 @@ import type { PluginSummary } from '@deadair/sdk';
 import { useSetPluginEnabled } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { PluginStatusLamp, statusOf } from './plugin.status';
+import { PluginTrustDialog } from './plugin.trust.dialog';
 
 export interface PluginCardProps {
     plugin: PluginSummary;
@@ -15,6 +17,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
     const setEnabled = useSetPluginEnabled();
     const { color } = statusOf(plugin.status);
     const pending = setEnabled.isPending && setEnabled.variables?.id === plugin.id;
+    const [trustDialogOpen, setTrustDialogOpen] = useState(false);
 
     return (
         <Card withBorder padding="lg" radius="sm" style={{ borderLeft: `2px solid var(--mantine-color-${color}-5)` }}>
@@ -62,7 +65,11 @@ export function PluginCard({ plugin }: PluginCardProps) {
                         label={plugin.enabled ? 'Enabled' : 'Disabled'}
                         aria-label={`Enable ${plugin.name}`}
                         onChange={event => {
-                            setEnabled.mutate({ id: plugin.id, enabled: event.currentTarget.checked });
+                            if (event.currentTarget.checked) {
+                                setTrustDialogOpen(true);
+                            } else {
+                                setEnabled.mutate({ id: plugin.id, enabled: false });
+                            }
                         }}
                     />
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
@@ -71,6 +78,16 @@ export function PluginCard({ plugin }: PluginCardProps) {
                         Configure
                     </Anchor>
                 </Group>
+
+                <PluginTrustDialog
+                    plugin={plugin}
+                    opened={trustDialogOpen}
+                    onCancel={() => setTrustDialogOpen(false)}
+                    onConfirm={() => {
+                        setTrustDialogOpen(false);
+                        setEnabled.mutate({ id: plugin.id, enabled: true });
+                    }}
+                />
             </Stack>
         </Card>
     );

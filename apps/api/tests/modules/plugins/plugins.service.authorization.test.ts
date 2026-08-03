@@ -1,3 +1,11 @@
+// These are service-level unit tests standing behind an "authenticated, any
+// actor" route floor (see `apps/api/data/contracts/plugins/plugins.ck`):
+// every route below `rescan` and the OAuth callback requires only that the
+// caller be authenticated, and everything past that is decided here. The
+// 401 for an unauthenticated request is handled in
+// `authorization.context.middleware.ts` and is deliberately not covered in
+// this file.
+
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import { IsHttpError } from '@maroonedsoftware/errors';
@@ -26,6 +34,10 @@ const stubLogger = (): Logger => ({
     trace: vi.fn(),
 });
 
+// Mirrors the `UserActor` shape `authorization.context.middleware.ts` builds
+// for `claims.actorType === 'user'`: `rolePermissions` is always empty on
+// that path, and `platformRoles` is a subset of `{'admin', 'listener'}` that
+// may be empty (a roleless authenticated user is a real, ordinary state).
 const userActor = (actorId: string, roles: ReadonlyArray<'admin' | 'listener'>): UserActor => ({
     kind: 'user',
     sessionToken: 'test-session',
@@ -35,7 +47,11 @@ const userActor = (actorId: string, roles: ReadonlyArray<'admin' | 'listener'>):
     platformRoles: new Set(roles),
 });
 
-const systemActor: Actor = { kind: 'system', sessionToken: '', source: 'test' };
+// This is the actor `authorization.context.middleware.ts` builds for an
+// unauthenticated request (the non-webhook path). It is the only actor shape
+// that reaches the anonymous OAuth callback, and after this run it is no
+// longer trusted by `AccessControlService`.
+const httpSystemActor: Actor = { kind: 'system', sessionToken: '', source: 'http' };
 
 function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
     return {
@@ -81,6 +97,29 @@ class FakePermissionsFixture {
     setVisible(namespace: string, permission: string, userId: string, ids: string[]): this {
         this.visibility.set(`${namespace}:${permission}:${userId}`, ids);
         return this;
+    }
+
+    /**
+     * Encodes the resolved result of a `plugin:<id>#owner@user:<userId>`
+     * tuple: per `permission view = owner | operator; configure = owner;
+     * enable = owner; oauth = owner`, an owner passes all four checks and is
+     * included in the `view` visibility set.
+     */
+    grantOwner(pluginId: string, userId: string): this {
+        for (const permission of ['view', 'configure', 'enable', 'oauth']) {
+            this.grant('plugin', pluginId, permission, userId);
+        }
+        return this.setVisible('plugin', 'view', userId, [pluginId]);
+    }
+
+    /**
+     * Encodes the resolved result of a `plugin:<id>#operator@user:<userId>`
+     * tuple: `view` follows `operator` in the relation graph, but
+     * `configure`/`enable`/`oauth` do not, so only `view` is granted.
+     */
+    grantOperator(pluginId: string, userId: string): this {
+        this.grant('plugin', pluginId, 'view', userId);
+        return this.setVisible('plugin', 'view', userId, [pluginId]);
     }
 
     asPermissionsService(): PermissionsService {
@@ -152,6 +191,9 @@ async function expectForbidden(promise: Promise<unknown>): Promise<void> {
 }
 
 describe('PluginsService authorization: admin', () => {
+    // Guard that this run did not change admin behaviour: `plugin:view` was
+    // dropped from `listener`, not from `admin`, and admin still covers
+    // every plugin operation via its `*:*` role pattern.
     it('passes every per-plugin operation and lists every seeded plugin', async () => {
         const { service } = makeService(userActor('u-admin', ['admin']));
 
@@ -167,19 +209,90 @@ describe('PluginsService authorization: admin', () => {
     });
 });
 
-describe('PluginsService authorization: listener', () => {
-    it('can read but is denied on every mutating operation', async () => {
+describe('PluginsService authorization: listener, no plugin tuples', () => {
+    // Coverage for removing `plugin:view` from the `listener` role: a
+    // listener with no per-plugin tuple now sees nothing and is denied
+    // everywhere, the same as any other roleless user.
+    it('sees no plugins and is denied on every operation', async () => {
         const { service } = makeService(userActor('u-listener', ['listener']));
 
-        await expect(service.getPlugin(SPOTIFY_ID)).resolves.toBeDefined();
-        const list = await service.listPlugins({});
-        expect(list.map(p => p.id).sort()).toEqual([OTHER_ID, SPOTIFY_ID]);
-
+        await expect(service.listPlugins({})).resolves.toEqual([]);
+        await expectForbidden(service.getPlugin(SPOTIFY_ID));
         await expectForbidden(service.updatePluginConfig(SPOTIFY_ID, { config: {} }));
         await expectForbidden(service.enablePlugin(SPOTIFY_ID));
         await expectForbidden(service.disablePlugin(SPOTIFY_ID));
         await expectForbidden(service.testPlugin(SPOTIFY_ID));
         await expectForbidden(service.startOAuthAuthorization(SPOTIFY_ID));
+    });
+});
+
+describe('PluginsService authorization: listener holding operator on one plugin', () => {
+    // The scoped list that was unreachable over HTTP before this run: with
+    // `plugin:view` gone from the role, `listVisibleIds` falls through to
+    // the tuple walk exactly like a roleless user, even though this actor
+    // also carries the `listener` role.
+    it('sees exactly the granted plugin, can view it, and is denied on mutations', async () => {
+        const fixture = new FakePermissionsFixture().grantOperator(SPOTIFY_ID, 'u-listener-op');
+        const { service } = makeService(userActor('u-listener-op', ['listener']), fixture);
+
+        const list = await service.listPlugins({});
+        expect(list.map(p => p.id)).toEqual([SPOTIFY_ID]);
+
+        await expect(service.getPlugin(SPOTIFY_ID)).resolves.toBeDefined();
+        await expectForbidden(service.getPlugin(OTHER_ID));
+
+        await expectForbidden(service.updatePluginConfig(SPOTIFY_ID, { config: {} }));
+        await expectForbidden(service.enablePlugin(SPOTIFY_ID));
+        await expectForbidden(service.startOAuthAuthorization(SPOTIFY_ID));
+    });
+});
+
+describe('PluginsService authorization: roleless user with an owner grant', () => {
+    // Proves the `owner` grant now decides rather than being inert: every
+    // operation on the granted plugin resolves, and every one of them is
+    // still denied on a plugin this actor holds no tuple for.
+    it('sees exactly the granted plugin and passes every operation on it', async () => {
+        const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
+        const { service } = makeService(userActor('u-owner', []), fixture);
+
+        const list = await service.listPlugins({});
+        expect(list.map(p => p.id)).toEqual([SPOTIFY_ID]);
+
+        await expect(service.getPlugin(SPOTIFY_ID)).resolves.toBeDefined();
+        await expect(service.updatePluginConfig(SPOTIFY_ID, { config: {} })).resolves.toBeDefined();
+        await expect(service.enablePlugin(SPOTIFY_ID)).resolves.toBeDefined();
+        await expect(service.disablePlugin(SPOTIFY_ID)).resolves.toBeDefined();
+        await expect(service.testPlugin(SPOTIFY_ID)).resolves.toBeDefined();
+        await expect(service.startOAuthAuthorization(SPOTIFY_ID)).resolves.toBeDefined();
+
+        await expectForbidden(service.getPlugin(OTHER_ID));
+        await expectForbidden(service.updatePluginConfig(OTHER_ID, { config: {} }));
+        await expectForbidden(service.enablePlugin(OTHER_ID));
+        await expectForbidden(service.disablePlugin(OTHER_ID));
+        await expectForbidden(service.testPlugin(OTHER_ID));
+        await expectForbidden(service.startOAuthAuthorization(OTHER_ID));
+    });
+});
+
+describe('PluginsService authorization: roleless user with an operator grant', () => {
+    // Together with the owner case above, this pins `view = owner |
+    // operator` against `configure/enable/oauth = owner`: the list outcome
+    // matches the owner case exactly, but every mutation is denied.
+    it('sees exactly the granted plugin, can view it, and is denied on every mutation', async () => {
+        const fixture = new FakePermissionsFixture().grantOperator(SPOTIFY_ID, 'u-operator');
+        const { service } = makeService(userActor('u-operator', []), fixture);
+
+        const list = await service.listPlugins({});
+        expect(list.map(p => p.id)).toEqual([SPOTIFY_ID]);
+
+        await expect(service.getPlugin(SPOTIFY_ID)).resolves.toBeDefined();
+        await expectForbidden(service.updatePluginConfig(SPOTIFY_ID, { config: {} }));
+        await expectForbidden(service.enablePlugin(SPOTIFY_ID));
+        await expectForbidden(service.disablePlugin(SPOTIFY_ID));
+        await expectForbidden(service.testPlugin(SPOTIFY_ID));
+        await expectForbidden(service.startOAuthAuthorization(SPOTIFY_ID));
+
+        await expectForbidden(service.getPlugin(OTHER_ID));
     });
 });
 
@@ -192,29 +305,13 @@ describe('PluginsService authorization: roleless user, no tuples', () => {
     });
 });
 
-describe('PluginsService authorization: roleless user with an operator grant', () => {
-    // The fixture below encodes the *resolved* result of a `plugin:deadair.spotify#operator@user:u-operator`
-    // tuple: `view` follows `operator` in the relation graph, so the tuple grants view but not configure.
-    it('sees exactly the granted plugin, can view it, and cannot configure it', async () => {
-        const fixture = new FakePermissionsFixture()
-            .grant('plugin', SPOTIFY_ID, 'view', 'u-operator')
-            .setVisible('plugin', 'view', 'u-operator', [SPOTIFY_ID]);
-        const { service } = makeService(userActor('u-operator', []), fixture);
-
-        const list = await service.listPlugins({});
-        expect(list.map(p => p.id)).toEqual([SPOTIFY_ID]);
-
-        await expect(service.getPlugin(SPOTIFY_ID)).resolves.toBeDefined();
-        await expectForbidden(service.updatePluginConfig(SPOTIFY_ID, { config: {} }));
-    });
-});
-
-describe('PluginsService authorization: completeOAuthCallback', () => {
-    // Regression guard: the OAuth callback is anonymous by design (the provider redirects a
-    // browser here with no session of ours), so it must never reach AccessControlService,
-    // regardless of whether the state check inside it passes or fails.
-    it('resolves for a system actor without ever calling AccessControlService', async () => {
-        const { service, requireSpy, canAccessSpy, listVisibleIdsSpy } = makeService(systemActor);
+describe('PluginsService authorization: HTTP system actor', () => {
+    // Regression guard: the OAuth callback is anonymous by design (the
+    // provider redirects a browser here with no session of ours), so it must
+    // never reach AccessControlService, regardless of whether the state
+    // check inside it passes or fails.
+    it('completes the OAuth callback without ever calling AccessControlService', async () => {
+        const { service, requireSpy, canAccessSpy, listVisibleIdsSpy } = makeService(httpSystemActor);
 
         const result = await service.completeOAuthCallback(SPOTIFY_ID, { state: 'not-a-real-state' });
 
@@ -223,5 +320,15 @@ describe('PluginsService authorization: completeOAuthCallback', () => {
         expect(requireSpy).not.toHaveBeenCalled();
         expect(canAccessSpy).not.toHaveBeenCalled();
         expect(listVisibleIdsSpy).not.toHaveBeenCalled();
+    });
+
+    // The new guard: an untrusted `system`/`http` actor reaching any other
+    // plugin operation gets nothing, proving the untrusted-HTTP-actor rule
+    // in `AccessControlService` reaches through the service.
+    it('sees no plugins and is denied on getPlugin', async () => {
+        const { service } = makeService(httpSystemActor);
+
+        await expect(service.listPlugins({})).resolves.toEqual([]);
+        await expectForbidden(service.getPlugin(SPOTIFY_ID));
     });
 });

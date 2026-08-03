@@ -5,6 +5,7 @@ import { AuthorizationContext } from './authorization.context.js';
 import { model as authorizationModel } from './generated/index.js';
 import { permissionsGrantedByRoles, rolesGrant, rolesGrantingPermission } from './platform.roles.js';
 import type { ObjectRef, SubjectRef } from '@maroonedsoftware/permissions';
+import type { Actor } from './authorization.context.js';
 import type { ListObjectsOptions, ListObjectsResult } from './list.objects.js';
 
 // Visibility result. `{ all: true }` means the actor bypasses filtering at this
@@ -21,6 +22,14 @@ export interface PermissionsForResourceOpts {
     // (resource serializers) decide what's trivial for their namespace.
     excludeTrivial?: ReadonlyArray<string>;
 }
+
+// A `system` actor sourced from `http` is not a trusted subsystem call. It
+// means the authorization middleware could not resolve the request to a
+// user (unauthenticated, or an authenticated session with an unrecognized
+// `actorType`), and is falling back to a shape that satisfies the `Actor`
+// union rather than vouching for the caller. Every other system source
+// (`pg-boss`, `cli`, `startup`, `test`) is code we run ourselves.
+const isTrustedSystemActor = (actor: Actor): boolean => actor.kind === 'system' && actor.source !== 'http';
 
 const denied = (object: ObjectRef, permission: string): never => {
     throw httpError(403).withDetails({
@@ -47,6 +56,7 @@ export class AccessControlService {
         const actor = this.authz.actor;
         switch (actor.kind) {
             case 'system':
+                return isTrustedSystemActor(actor);
             case 'vendor':
                 return true;
             case 'user':
@@ -75,6 +85,7 @@ export class AccessControlService {
         const actor = this.authz.actor;
         switch (actor.kind) {
             case 'system':
+                return isTrustedSystemActor(actor) ? { all: true } : { ids: [], truncated: false };
             case 'vendor':
                 return { all: true };
             case 'user': {
@@ -100,6 +111,13 @@ export class AccessControlService {
                 // Trusted code path (jobs, CLI, startup, tests). The dispatcher
                 // bypass is appropriate because the job dispatcher is responsible
                 // for picking the right actor when invoking on behalf of a user.
+                // An `http`-sourced system actor is not one of those callers
+                // (see `isTrustedSystemActor`), so it is denied object-level
+                // access instead of falling through to this bypass.
+                if (!isTrustedSystemActor(actor)) {
+                    denied(object, permission);
+                    return;
+                }
                 return;
 
             case 'vendor':
@@ -152,8 +170,11 @@ export class AccessControlService {
 
         const actor = this.authz.actor;
 
-        if (actor.kind === 'system' || actor.kind === 'vendor') {
+        if (actor.kind === 'vendor' || (actor.kind === 'system' && isTrustedSystemActor(actor))) {
             return candidates;
+        }
+        if (actor.kind === 'system') {
+            return [];
         }
 
         // user actor

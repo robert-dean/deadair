@@ -83,7 +83,10 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
                 factors: auth.factors,
             };
         } else {
-            // Unknown actorType — treat as system to avoid silent allow.
+            // Unknown actorType. Classified as an `http`-sourced system actor,
+            // which `AccessControlService` denies object-level access rather
+            // than trusting: this is a request it could not resolve to a user,
+            // not a trusted subsystem call.
             actor = { kind: 'system', sessionToken, source: 'http', actorId: auth.subject };
         }
 

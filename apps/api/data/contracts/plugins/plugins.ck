@@ -12,7 +12,7 @@ operation /plugins: {
         name: List plugins
         service: PluginsService.listPlugins
         security: {
-            policy: platform.view
+            policy: none
         }
         query: PluginListQuery
         response: {
@@ -47,7 +47,7 @@ operation /plugins/{id}: {
         name: Get plugin
         service: PluginsService.getPlugin
         security: {
-            policy: platform.view
+            policy: none
         }
         response: {
             200: {
@@ -65,7 +65,7 @@ operation /plugins/{id}/config: {
         name: Update plugin configuration
         service: PluginsService.updatePluginConfig
         security: {
-            policy: platform.manage
+            policy: none
         }
         request: {
             application/json: PluginConfigInput
@@ -86,7 +86,7 @@ operation /plugins/{id}/enable: {
         name: Enable plugin
         service: PluginsService.enablePlugin
         security: {
-            policy: platform.manage
+            policy: none
         }
         response: {
             200: {
@@ -104,7 +104,7 @@ operation /plugins/{id}/disable: {
         name: Disable plugin
         service: PluginsService.disablePlugin
         security: {
-            policy: platform.manage
+            policy: none
         }
         response: {
             200: {
@@ -122,7 +122,7 @@ operation /plugins/{id}/test: {
         name: Test plugin connection
         service: PluginsService.testPlugin
         security: {
-            policy: platform.manage
+            policy: none
         }
         response: {
             200: {
@@ -140,7 +140,7 @@ operation /plugins/{id}/oauth/authorize: {
         name: Start plugin OAuth authorization
         service: PluginsService.startOAuthAuthorization
         security: {
-            policy: platform.manage
+            policy: none
         }
         response: {
             302: {

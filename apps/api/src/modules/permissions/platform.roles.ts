@@ -30,9 +30,15 @@ export const PLATFORM_ROLE_NAMES: ReadonlyArray<PlatformRoleName> = ['admin', 'l
 export const PLATFORM_NAMESPACE = 'platform';
 export const PLATFORM_OBJECT_ID = 'main';
 
+// `listener` carries only `platform:view`: read access to platform-level
+// state, not a blanket view over every plugin. Plugin visibility is granted
+// per-plugin instead, through `owner` or `operator` tuples in the `plugin`
+// namespace, so `listVisibleIds` falls through to the tuple walk for a
+// listener and returns only the plugins that actor actually holds a tuple
+// for.
 export const PLATFORM_ROLES: Readonly<Record<PlatformRoleName, ReadonlyArray<string>>> = {
     admin: ['*:*'],
-    listener: ['platform:view', 'plugin:view'],
+    listener: ['platform:view'],
 };
 
 export const isPlatformRoleName = (value: string): value is PlatformRoleName => (PLATFORM_ROLE_NAMES as ReadonlyArray<string>).includes(value);

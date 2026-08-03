@@ -92,8 +92,8 @@ export class PluginsService {
     async listPlugins(query: PluginListQuery): Promise<PluginSummary[]> {
         const visible = await this.accessControl.listVisibleIds('plugin', 'view');
         const records = this.pluginRegistry.list(query.kind === undefined ? undefined : { kind: query.kind });
-        // Admins and listeners both hit the `{ all: true }` path via role
-        // coverage, so the tuple walk only runs for a user who holds neither role.
+        // Only admins hit the `{ all: true }` path via role coverage, so the
+        // tuple walk runs for every other user, listeners included.
         let narrowed = records;
         if (!isAllVisible(visible)) {
             const visibleIds = new Set(visible.ids);

@@ -41,6 +41,12 @@ export type PluginErrorCode =
     | 'config'
     /** The upstream has no such resource. Often not an error at all to the caller. */
     | 'not_found'
+    /**
+     * The upstream understood, and refused for this specific resource. Distinct
+     * from `auth`: the credentials are fine and the next call for something
+     * else will succeed.
+     */
+    | 'forbidden'
     /** The upstream is throttling. Honour `retryAfterMs` when it is set. */
     | 'rate_limited'
     /** The call did not finish in time. */
@@ -55,7 +61,46 @@ export type PluginErrorCode =
     | 'internal';
 
 /** Every {@link PluginErrorCode}, for validating a code that arrived from third-party code. */
-export const PLUGIN_ERROR_CODES = ['auth', 'config', 'not_found', 'rate_limited', 'timeout', 'unavailable', 'unsupported', 'upstream', 'internal'] as const;
+export const PLUGIN_ERROR_CODES = [
+    'auth',
+    'config',
+    'not_found',
+    'forbidden',
+    'rate_limited',
+    'timeout',
+    'unavailable',
+    'unsupported',
+    'upstream',
+    'internal',
+] as const;
+
+/**
+ * Codes that describe the thing that was asked for rather than the health of
+ * the plugin that was asked.
+ *
+ * This is a separate question from {@link RETRYABLE_BY_CODE}, and conflating
+ * the two is a trap. "Retrying will not help" and "this plugin is sick" feel
+ * like the same statement and are not: asking Spotify for a playlist you do
+ * not own is refused every time, forever, while the connection it was asked
+ * over is in perfect health. A host that counts those refusals as failures
+ * eventually quarantines a working plugin for correctly answering the
+ * question it was asked.
+ *
+ * So a resource-scoped failure is reported to the caller and otherwise
+ * forgotten: it neither trips a circuit breaker nor clears one, because it is
+ * not evidence in either direction.
+ */
+const RESOURCE_SCOPED_CODES: ReadonlySet<PluginErrorCode> = new Set(['not_found', 'forbidden', 'unsupported']);
+
+/**
+ * Whether this failure is about the requested resource rather than the plugin.
+ *
+ * See {@link RESOURCE_SCOPED_CODES}. Hosts use this to decide whether a
+ * failure counts against a plugin's health.
+ */
+export function isResourceScopedCode(code: PluginErrorCode): boolean {
+    return RESOURCE_SCOPED_CODES.has(code);
+}
 
 /**
  * Whether repeating the identical call could plausibly succeed.
@@ -70,6 +115,7 @@ const RETRYABLE_BY_CODE: Record<PluginErrorCode, boolean> = {
     auth: false,
     config: false,
     not_found: false,
+    forbidden: false,
     unsupported: false,
     rate_limited: true,
     timeout: true,

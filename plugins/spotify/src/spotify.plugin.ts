@@ -14,7 +14,7 @@ import { SpotifyApi } from '@spotify/web-api-ts-sdk';
 
 import { HostVaultAuthStrategy } from './spotify.auth.js';
 import { createHostFetch, SpotifyRequestError, SpotifyResponseValidator } from './spotify.fetch.js';
-import { clampLimit, mapPlaybackState, mapPlaylist, mapTrack } from './spotify.mapping.js';
+import { clampLimit, mapPlaybackState, mapPlaylist, mapTrack, type SpotifyPlaylistedItem } from './spotify.mapping.js';
 
 export { spotifyManifest } from './spotify.manifest.js';
 
@@ -65,6 +65,14 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
 
     private deviceIdCache?: { id: string; expiresAt: number };
 
+    /**
+     * The connected account's own id, needed to tell an owned playlist from a
+     * merely-followed one. Cached for the life of the connection rather than
+     * per call: it cannot change without a reconnect, and `listPlaylists`
+     * would otherwise spend a second round trip on every listing.
+     */
+    private currentUserIdCache?: string;
+
     async init(host: PluginHost): Promise<void> {
         this.host = host;
 
@@ -89,6 +97,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
         this.deviceName = undefined;
         this.auth = undefined;
         this.api = undefined;
+        this.currentUserIdCache = undefined;
         this.deviceIdCache = undefined;
     }
 
@@ -140,18 +149,64 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
 
     async listPlaylists(options?: ListPlaylistsOptions): Promise<ProviderPlaylist[]> {
         const page = await this.getApi().currentUser.playlists.playlists(clampLimit(options?.limit), options?.offset);
+        const currentUserId = await this.getCurrentUserId();
 
         const playlists: ProviderPlaylist[] = [];
         for (const item of page.items) {
-            const mapped = mapPlaylist({ ...item, tracks: item.tracks ?? undefined });
+            const mapped = mapPlaylist({ ...item, tracks: item.tracks ?? undefined }, currentUserId);
             if (mapped) playlists.push(mapped);
         }
         return playlists;
     }
 
+    /**
+     * Reads `/playlists/{id}/items`, the February 2026 replacement for
+     * `/playlists/{id}/tracks`.
+     *
+     * Hand-rolled through `makeRequest` rather than `playlists.getPlaylistItems`
+     * because `@spotify/web-api-ts-sdk` predates the rename and only knows the
+     * old path. `makeRequest` is the same door every SDK endpoint goes through,
+     * so this still runs on `createHostFetch`: the host's allowlist, rate
+     * limiter, bearer refresh and `SpotifyResponseValidator` all keep applying.
+     *
+     * A 403 here is Spotify refusing a playlist the account neither owns nor
+     * collaborates on, and is expected rather than exceptional. `listPlaylists`
+     * marks those `importable: false` so a caller can avoid asking.
+     */
     async getPlaylistTracks(playlistId: string, options?: GetPlaylistTracksOptions): Promise<ProviderTrack[]> {
-        const page = await this.getApi().playlists.getPlaylistItems(playlistId, undefined, undefined, clampLimit(options?.limit), options?.offset);
-        return toProviderTracks(page.items.map(item => item.track));
+        const query = new URLSearchParams();
+        const limit = clampLimit(options?.limit);
+        if (limit !== undefined) query.set('limit', String(limit));
+        if (options?.offset !== undefined) query.set('offset', String(options.offset));
+
+        const suffix = query.size > 0 ? `?${query.toString()}` : '';
+        const path = `playlists/${encodeURIComponent(playlistId)}/items${suffix}`;
+        const page = await this.getApi().makeRequest<{ items?: SpotifyPlaylistedItem[] }>('GET', path);
+
+        // `item` is the new key and `track` the deprecated one; both are read
+        // so this works either side of the rename.
+        return toProviderTracks((page?.items ?? []).map(row => row.item ?? row.track));
+    }
+
+    /**
+     * The connected account's id, or `undefined` if asking for it fails.
+     *
+     * Deliberately swallows: this is only used to decide whether a playlist is
+     * worth offering, and failing the whole listing because the profile call
+     * blipped would be a worse answer than a listing whose playlists are
+     * unmarked. `mapPlaylist` treats a missing id as "no opinion".
+     */
+    private async getCurrentUserId(): Promise<string | undefined> {
+        if (this.currentUserIdCache !== undefined) return this.currentUserIdCache;
+
+        try {
+            const profile = await this.getApi().currentUser.profile();
+            this.currentUserIdCache = profile.id;
+            return profile.id;
+        } catch (error) {
+            this.host?.logger.warn('could not resolve the Spotify account id; playlists will not be marked importable', { error: errorText(error) });
+            return undefined;
+        }
     }
 
     // --- playout -------------------------------------------------------------

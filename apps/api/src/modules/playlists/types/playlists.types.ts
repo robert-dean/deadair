@@ -12,12 +12,18 @@ export const CatalogPlaylist = z.strictObject({
     description: z.string().max(2000).optional(),
     trackCount: z.coerce.number().optional(),
     artworkUrl: z.string().max(2000).optional(),
+    importable: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'False when the source will list this playlist but refuse its tracks, so importing it cannot succeed. Absent means no reason to think otherwise',
+        ),
 });
 export type CatalogPlaylist = z.infer<typeof CatalogPlaylist>;
 
 /**
  * Mirrors the plugin SDK's `ProviderTrack`
- * generated from [CatalogTrack](file://./../../../../data/contracts/playlists/playlists.types.ck#L19)
+ * generated from [CatalogTrack](file://./../../../../data/contracts/playlists/playlists.types.ck#L20)
  */
 export const CatalogTrack = z.strictObject({
     id: z.string().min(1).max(400),
@@ -32,7 +38,7 @@ export type CatalogTrack = z.infer<typeof CatalogTrack>;
 
 /**
  * One catalog-capable plugin that could not be listed
- * generated from [CatalogSourceError](file://./../../../../data/contracts/playlists/playlists.types.ck#L30)
+ * generated from [CatalogSourceError](file://./../../../../data/contracts/playlists/playlists.types.ck#L31)
  */
 export const CatalogSourceError = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -42,7 +48,7 @@ export const CatalogSourceError = z.strictObject({
 export type CatalogSourceError = z.infer<typeof CatalogSourceError>;
 
 /**
- * generated from [CatalogPlaylistTracks](file://./../../../../data/contracts/playlists/playlists.types.ck#L41)
+ * generated from [CatalogPlaylistTracks](file://./../../../../data/contracts/playlists/playlists.types.ck#L42)
  */
 export const CatalogPlaylistTracks = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -52,7 +58,7 @@ export const CatalogPlaylistTracks = z.strictObject({
 export type CatalogPlaylistTracks = z.infer<typeof CatalogPlaylistTracks>;
 
 /**
- * generated from [CatalogPlaylistPage](file://./../../../../data/contracts/playlists/playlists.types.ck#L36)
+ * generated from [CatalogPlaylistPage](file://./../../../../data/contracts/playlists/playlists.types.ck#L37)
  */
 export const CatalogPlaylistPage = z.strictObject({
     playlists: z.array(CatalogPlaylist),

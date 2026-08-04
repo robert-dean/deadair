@@ -30,6 +30,18 @@ export interface ProviderPlaylist {
     /** Number of tracks, when the provider reports it cheaply. */
     trackCount?: number;
     artworkUrl?: string;
+    /**
+     * `false` when the provider can list this playlist but will refuse to
+     * return its tracks, so the host can present it as unimportable instead of
+     * offering a `getPlaylistTracks` call that cannot succeed.
+     *
+     * Left `undefined` by providers that have no such split, which is most of
+     * them: absent means "no reason to think otherwise", not "unknown, go and
+     * find out". Spotify sets it because a listing there mixes playlists the
+     * user owns with playlists they merely follow, and only the owned half is
+     * readable (see the February 2026 Web API changes).
+     */
+    importable?: boolean;
 }
 
 /** A playable stream, plus how long the URL stays good for. */

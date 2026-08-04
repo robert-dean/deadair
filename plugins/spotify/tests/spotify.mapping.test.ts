@@ -99,6 +99,31 @@ describe('mapPlaylist', () => {
         });
     });
 
+    it('prefers the 2026 `items` total over the deprecated `tracks` total', () => {
+        const playlist = mapPlaylist({ id: 'playlist-1', name: 'My Playlist', items: { total: 42 }, tracks: { total: 7 } });
+
+        expect(playlist?.trackCount).toBe(42);
+    });
+
+    it('marks a playlist the user owns as readable and one they only follow as not', () => {
+        const owned = mapPlaylist({ id: 'pl-1', name: 'Mine', owner: { id: 'me-1' } }, 'me-1');
+        const followed = mapPlaylist({ id: 'pl-2', name: 'Discover Weekly', owner: { id: 'spotify' } }, 'me-1');
+
+        expect(owned?.importable).toBe(true);
+        expect(followed?.importable).toBe(false);
+    });
+
+    it('treats a collaborative playlist as readable even when someone else owns it', () => {
+        const playlist = mapPlaylist({ id: 'pl-1', name: 'Shared', owner: { id: 'friend' }, collaborative: true }, 'me-1');
+
+        expect(playlist?.importable).toBe(true);
+    });
+
+    it('has no opinion when the owner or the current user is unknown', () => {
+        expect(mapPlaylist({ id: 'pl-1', name: 'Mystery', owner: { id: 'someone' } })?.importable).toBeUndefined();
+        expect(mapPlaylist({ id: 'pl-1', name: 'Mystery' }, 'me-1')?.importable).toBeUndefined();
+    });
+
     it('returns undefined when id is missing', () => {
         expect(mapPlaylist({ name: 'No Id' })).toBeUndefined();
     });

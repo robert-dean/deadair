@@ -39,13 +39,49 @@ function headersToRecord(headers: Headers): Record<string, string> {
  * player endpoints use it for "no active device": this plugin already handles
  * that case by status (see `isNoActiveDevice`), and the code is what the HOST
  * sees, where "Spotify has no such thing" is the honest summary.
+ *
+ * 401 and 403 are deliberately NOT the same code. A 401 is the connection
+ * itself: `createHostFetch` has already refreshed the bearer and re-issued
+ * once by the time one is returned, so a 401 that survives that really does
+ * mean the credential is dead, and `auth` (non-retryable) quarantines the
+ * plugin on the spot. A 403 is per-resource: since the February 2026 Web API
+ * changes Spotify answers it for any playlist the account does not own or
+ * collaborate on, which is most of the playlists in a typical library.
+ * `forbidden` is resource-scoped on the host side, so those refusals are
+ * reported to the caller without counting against the plugin's health.
+ * Classifying them `auth` took the whole plugin down on the first one;
+ * `upstream` merely took three.
  */
 function pluginCodeForStatus(status: number): PluginErrorCode {
-    if (status === 401 || status === 403) return 'auth';
+    if (status === 401) return 'auth';
+    if (status === 403) return 'forbidden';
     if (status === 404) return 'not_found';
     if (status === 429) return 'rate_limited';
     if (status >= 500) return 'unavailable';
     return 'upstream';
+}
+
+/**
+ * Spotify's own sentence for the failure, out of `{"error":{"message":...}}`.
+ *
+ * Without this the operator gets `HTTP 403` and nothing else, which is the one
+ * status where the number alone does not say what to fix: "insufficient client
+ * scope", "the app is in development mode" and "premium required" are three
+ * different jobs. Truncated, because an upstream body is untrusted text that
+ * ends up in a log line and on the settings card.
+ */
+function upstreamReason(body: string | undefined): string | undefined {
+    if (!body) return undefined;
+
+    let message: unknown;
+    try {
+        message = (JSON.parse(body) as { error?: { message?: unknown } }).error?.message;
+    } catch {
+        return undefined;
+    }
+
+    if (typeof message !== 'string' || message.length === 0) return undefined;
+    return message.length > 200 ? `${message.slice(0, 200)}…` : message;
 }
 
 /**
@@ -164,9 +200,14 @@ export class SpotifyResponseValidator implements IValidateResponses {
             body = undefined;
         }
 
+        // `statusText` is empty over HTTP/2, which is every real call to
+        // Spotify, so it is joined rather than interpolated: otherwise the
+        // message ends in a dangling space where the status word should be.
+        const status = [`HTTP ${response.status}`, response.statusText, upstreamReason(body)].filter(part => part).join(' ');
+
         throw new SpotifyRequestError(
             response.status,
-            `Spotify API request failed: HTTP ${response.status} ${response.statusText}`,
+            `Spotify API request failed: ${status}`,
             body,
             retryAfterMs(response.headers.get('retry-after')),
         );

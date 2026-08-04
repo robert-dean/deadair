@@ -10,11 +10,13 @@ export interface CatalogPlaylist {
     description?: string;
     trackCount?: number;
     artworkUrl?: string;
+    /** False when the source will list this playlist but refuse its tracks, so importing it cannot succeed. Absent means no reason to think otherwise */
+    importable?: boolean;
 }
 
 /**
  * Mirrors the plugin SDK's `ProviderTrack`
- * generated from [CatalogTrack](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L19)
+ * generated from [CatalogTrack](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L20)
  */
 export interface CatalogTrack {
     id: string;
@@ -29,7 +31,7 @@ export interface CatalogTrack {
 
 /**
  * One catalog-capable plugin that could not be listed
- * generated from [CatalogSourceError](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L30)
+ * generated from [CatalogSourceError](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L31)
  */
 export interface CatalogSourceError {
     pluginId: string;
@@ -38,7 +40,7 @@ export interface CatalogSourceError {
 }
 
 /**
- * generated from [CatalogPlaylistTracks](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L41)
+ * generated from [CatalogPlaylistTracks](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L42)
  */
 export interface CatalogPlaylistTracks {
     pluginId: string;
@@ -47,7 +49,7 @@ export interface CatalogPlaylistTracks {
 }
 
 /**
- * generated from [CatalogPlaylistPage](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L36)
+ * generated from [CatalogPlaylistPage](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L37)
  */
 export interface CatalogPlaylistPage {
     playlists: CatalogPlaylist[];

@@ -23,6 +23,11 @@ interface PluginErrorHttpMapping {
  */
 const HTTP_BY_PLUGIN_CODE: Record<PluginErrorCode, PluginErrorHttpMapping> = {
     auth: { status: 502, code: ErrorCodes.PLUGIN_AUTH_REQUIRED },
+    // 502 rather than a forwarded 403 for the reason above: our own 403 on
+    // these routes already means "this actor may not view this plugin", and a
+    // client cannot act on the two being the same number. The code separates
+    // them, and it is the code clients branch on.
+    forbidden: { status: 502, code: ErrorCodes.PLUGIN_FORBIDDEN },
     config: { status: 422, code: ErrorCodes.PLUGIN_MISCONFIGURED },
     rate_limited: { status: 429, code: ErrorCodes.PLUGIN_RATE_LIMITED },
     timeout: { status: 504, code: ErrorCodes.PLUGIN_TIMED_OUT },

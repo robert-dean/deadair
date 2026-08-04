@@ -33,6 +33,7 @@ export const ErrorCodes = {
     PLUGIN_UNSUPPORTED: 'E30006',
     PLUGIN_UPSTREAM_FAILED: 'E30007',
     PLUGIN_FAILED: 'E30008',
+    PLUGIN_FORBIDDEN: 'E30009',
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

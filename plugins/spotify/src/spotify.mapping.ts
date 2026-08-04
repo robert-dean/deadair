@@ -31,12 +31,35 @@ interface SpotifyTrack {
     external_ids?: { isrc?: string };
 }
 
+/**
+ * `items` is the February 2026 name for what used to be `tracks`; the old key
+ * is still populated but documented as deprecated, so both are read and
+ * `items` wins. Same story one level down in {@link SpotifyPlaylistedItem}.
+ */
 interface SpotifyPlaylist {
     id?: string;
     name?: string;
     description?: string;
     images?: SpotifyImage[];
+    items?: { total?: number };
     tracks?: { total?: number };
+    owner?: { id?: string };
+    collaborative?: boolean;
+}
+
+/**
+ * One row of a playlist listing. `track` is the pre-2026 key for `item` and is
+ * marked deprecated on the current reference; reading `item` first means the
+ * day `track` stops being sent is a non-event.
+ *
+ * This one is worth being careful about: `mapTrack` answers `undefined` for
+ * anything falsy and `toProviderTracks` drops those without complaint, so
+ * reading only the key that went away would not throw. It would quietly hand
+ * back empty playlists.
+ */
+export interface SpotifyPlaylistedItem {
+    item?: SpotifyTrack | null;
+    track?: SpotifyTrack | null;
 }
 
 interface SpotifyPlaybackStateItem {
@@ -74,16 +97,39 @@ export function mapTrack(track: SpotifyTrack | null | undefined): ProviderTrack 
     };
 }
 
-export function mapPlaylist(playlist: SpotifyPlaylist | null | undefined): ProviderPlaylist | undefined {
+export function mapPlaylist(playlist: SpotifyPlaylist | null | undefined, currentUserId?: string): ProviderPlaylist | undefined {
     if (!playlist?.id || !playlist.name) return undefined;
 
     return {
         id: playlist.id,
         name: playlist.name,
         description: playlist.description && playlist.description.length > 0 ? playlist.description : undefined,
-        trackCount: playlist.tracks?.total,
+        trackCount: playlist.items?.total ?? playlist.tracks?.total,
         artworkUrl: pickArtwork(playlist.images),
+        importable: playlistImportable(playlist, currentUserId),
     };
+}
+
+/**
+ * Whether Spotify will hand over this playlist's tracks.
+ *
+ * Since February 2026 that is limited to playlists the user owns or
+ * collaborates on; everything else answers 403 by design. A listing is full of
+ * the other kind, because `GET /me/playlists` returns what the user *follows*:
+ * editorial playlists, Daily Mix, Discover Weekly, friends' playlists. Without
+ * this they all render as importable and 403 the moment one is opened.
+ *
+ * `collaborative` counts as readable even though it only says the playlist
+ * accepts collaborators rather than that this user is one. That errs
+ * permissive on purpose: the cost of being wrong is one handled 403, whereas
+ * being wrong the other way silently hides a playlist the user can really
+ * import. Answers `undefined` rather than guessing when the owner is unknown,
+ * which keeps a missing `owner` from turning into "unimportable".
+ */
+function playlistImportable(playlist: SpotifyPlaylist, currentUserId?: string): boolean | undefined {
+    if (playlist.collaborative) return true;
+    if (!currentUserId || !playlist.owner?.id) return undefined;
+    return playlist.owner.id === currentUserId;
 }
 
 /**

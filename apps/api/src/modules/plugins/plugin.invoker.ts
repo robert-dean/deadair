@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { PluginError, toPluginError } from '@deadair/plugin-sdk';
+import { PluginError, isResourceScopedCode, toPluginError } from '@deadair/plugin-sdk';
 import { PluginRegistry } from './plugin.registry.js';
 
 /** How long a single call into plugin code may run before it is abandoned. */
@@ -76,6 +76,11 @@ const deadline = (timeoutMs: number, message: string): InvokeDeadline => {
  * a row (or one failure the plugin itself declared non-retryable) it is
  * quarantined and further calls fail immediately with the reason, until
  * something (a config change, a reinit) calls {@link PluginInvoker.reset}.
+ *
+ * Resource-scoped failures are exempt from all of that (see
+ * `isResourceScopedCode`). "That playlist is not yours" is a correct answer
+ * from a healthy plugin, and counting correct answers as failures is how a
+ * working integration gets quarantined for being used normally.
  *
  * Everything thrown from here is a `PluginError`, so a caller can map the
  * failure to a response without parsing a message string.
@@ -160,6 +165,17 @@ export class PluginInvoker {
         const pluginError = toPluginError(error);
         const message = errorText(error);
         const reason = `${op}: ${message}`;
+
+        // A refusal about one resource says nothing about the plugin, so it is
+        // reported and forgotten: it must not move the failure count in either
+        // direction. Counting these quarantined a healthy Spotify connection
+        // after three clicks on playlists the account does not own, which is
+        // an entirely ordinary thing for someone to do.
+        if (isResourceScopedCode(pluginError.code)) {
+            this.logger.info('plugin refused a resource', { plugin: pluginId, op, code: pluginError.code, error: message });
+            return this.asPluginError(pluginId, op, pluginError, message, error);
+        }
+
         const failures = (this.consecutiveFailures.get(pluginId) ?? 0) + 1;
         this.consecutiveFailures.set(pluginId, failures);
 
@@ -182,11 +198,16 @@ export class PluginInvoker {
             this.logger.warn('plugin call failed', { plugin: pluginId, op, failures, code: pluginError.code, error: message });
         }
 
+        return this.asPluginError(pluginId, op, pluginError, message, error);
+    }
+
+    /** The outward-facing error, with the plugin and operation named in the message. */
+    private asPluginError(pluginId: string, op: string, pluginError: PluginError, message: string, cause: unknown): PluginError {
         return new PluginError(pluginError.code, `plugin ${pluginId} failed during ${op}: ${message}`, {
             retryable: pluginError.retryable,
             retryAfterMs: pluginError.retryAfterMs,
             upstreamStatus: pluginError.upstreamStatus,
-            cause: error,
+            cause,
         });
     }
 }

@@ -13,6 +13,7 @@ contract CatalogPlaylist: {
     description?: string(max=2000)
     trackCount?: number
     artworkUrl?: string(max=2000)
+    importable?: boolean # False when the source will list this playlist but refuse its tracks, so importing it cannot succeed. Absent means no reason to think otherwise
 }
 
 # Mirrors the plugin SDK's `ProviderTrack`

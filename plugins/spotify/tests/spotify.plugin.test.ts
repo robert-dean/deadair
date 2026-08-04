@@ -257,12 +257,83 @@ describe('SpotifyPlugin', () => {
                     ],
                 }),
             );
+            host.queueResponse(apiResponse({ id: 'me-1', display_name: 'DJ' }));
 
             const results = await plugin.listPlaylists({ limit: 20 });
 
             expect(results).toEqual([
                 { id: 'pl-1', name: 'Playlist One', description: 'desc', trackCount: 12, artworkUrl: 'https://img.test/pl.jpg' },
             ]);
+        });
+
+        it('listPlaylists marks the owned half readable and the followed half not', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(
+                apiResponse({
+                    items: [
+                        { id: 'mine', name: 'Mine', owner: { id: 'me-1' } },
+                        { id: 'editorial', name: 'Todays Top Hits', owner: { id: 'spotify' } },
+                        { id: 'shared', name: 'Shared', owner: { id: 'friend' }, collaborative: true },
+                    ],
+                }),
+            );
+            host.queueResponse(apiResponse({ id: 'me-1', display_name: 'DJ' }));
+
+            const results = await plugin.listPlaylists();
+
+            expect(results.map(playlist => [playlist.id, playlist.importable])).toEqual([
+                ['mine', true],
+                ['editorial', false],
+                ['shared', true],
+            ]);
+        });
+
+        it('still lists playlists when the account id cannot be resolved, leaving them unmarked', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ items: [{ id: 'pl-1', name: 'Playlist One', owner: { id: 'someone' } }] }));
+            host.queueResponse(apiResponse({ error: 'boom' }, { status: 500, statusText: 'Internal Server Error', ok: false }));
+
+            const results = await plugin.listPlaylists();
+
+            expect(results).toHaveLength(1);
+            expect(results[0]?.importable).toBeUndefined();
+        });
+
+        it('getPlaylistTracks reads the 2026 `item` key', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ items: [{ item: { id: 't-1', name: 'Track A', artists: [] } }] }));
+
+            const results = await plugin.getPlaylistTracks('pl-1');
+
+            expect(results).toHaveLength(1);
+            expect(results[0]).toMatchObject({ id: 't-1', title: 'Track A' });
+        });
+
+        it('getPlaylistTracks calls /items, not the replaced /tracks path', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ items: [] }));
+
+            await plugin.getPlaylistTracks('pl-1', { limit: 10, offset: 20 });
+
+            expect(host.calls).toHaveLength(1);
+            expect(host.calls[0].url).toContain('/playlists/pl-1/items');
+            expect(host.calls[0].url).not.toContain('/tracks');
+            expect(host.calls[0].url).toContain('limit=10');
+            expect(host.calls[0].url).toContain('offset=20');
+        });
+
+        it('getPlaylistTracks tolerates a response with no items at all', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            // Spotify returns playlist metadata without `items` for a playlist
+            // whose contents the account may not read.
+            host.queueResponse(apiResponse({ id: 'pl-1', name: 'Someone Elses' }));
+
+            await expect(plugin.getPlaylistTracks('pl-1')).resolves.toEqual([]);
         });
 
         it('getPlaylistTracks maps hits and drops null tracks', async () => {

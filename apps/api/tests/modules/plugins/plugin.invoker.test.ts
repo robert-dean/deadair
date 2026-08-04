@@ -124,6 +124,50 @@ describe('PluginInvoker.invoke', () => {
         expect(throwing.mock.calls.length).toBe(1);
     });
 
+    it('never quarantines on resource-scoped failures, however many arrive', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubLogger());
+
+        // Opening ten Spotify playlists the account does not own is ordinary
+        // use, not a sick plugin. Counting these took the whole integration
+        // down on the third click.
+        const throwing = () => {
+            throw new PluginError('forbidden', 'not your playlist');
+        };
+
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD * 3; i++) {
+            await expect(invoker.invoke('p', 'catalog.getPlaylistTracks', throwing)).rejects.toThrow(/not your playlist/);
+        }
+
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+        expect(registry.get('p')?.status).not.toBe('failed');
+    });
+
+    it('does not let a resource-scoped failure clear the count of real ones either', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubLogger());
+
+        const unavailable = () => {
+            throw new PluginError('unavailable', 'upstream down');
+        };
+        const forbidden = () => {
+            throw new PluginError('forbidden', 'not your playlist');
+        };
+
+        // A refusal is not evidence in either direction, so it must not act as
+        // a success and reset the breaker's progress toward tripping.
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD - 1; i++) {
+            await expect(invoker.invoke('p', 'op', unavailable)).rejects.toThrow();
+        }
+        await expect(invoker.invoke('p', 'op', forbidden)).rejects.toThrow();
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+
+        await expect(invoker.invoke('p', 'op', unavailable)).rejects.toThrow();
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+    });
+
     it('still gives a retryable PluginError the full threshold', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());

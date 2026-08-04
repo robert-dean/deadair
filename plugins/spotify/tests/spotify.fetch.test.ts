@@ -187,7 +187,6 @@ describe('SpotifyResponseValidator', () => {
         };
 
         expect(await classify(401)).toBe('auth');
-        expect(await classify(403)).toBe('auth');
         expect(await classify(404)).toBe('not_found');
         expect(await classify(429)).toBe('rate_limited');
         expect(await classify(500)).toBe('unavailable');
@@ -207,6 +206,38 @@ describe('SpotifyResponseValidator', () => {
 
         expect(await retryableFor(401)).toBe(false);
         expect(await retryableFor(503)).toBe(true);
+    });
+
+    it('treats a 403 as one refused resource, not a dead connection', async () => {
+        const validator = new SpotifyResponseValidator();
+
+        // A 403 on one playlist used to classify `auth`, which the host's
+        // breaker quarantines on the first failure: the whole Spotify plugin
+        // went `failed` and every later request answered 503. `forbidden` is
+        // resource-scoped, so the host does not count it against the plugin.
+        await expect(validator.validateResponse(new Response('nope', { status: 403 }))).rejects.toMatchObject({
+            code: 'forbidden',
+            status: 403,
+        });
+    });
+
+    it("puts Spotify's own explanation in the message, since the status alone does not say what to fix", async () => {
+        const validator = new SpotifyResponseValidator();
+        const body = JSON.stringify({ error: { status: 403, message: 'Insufficient client scope' } });
+
+        await expect(validator.validateResponse(new Response(body, { status: 403 }))).rejects.toMatchObject({
+            message: 'Spotify API request failed: HTTP 403 Insufficient client scope',
+        });
+    });
+
+    it('falls back to the bare status when the body is not a Spotify error envelope', async () => {
+        const validator = new SpotifyResponseValidator();
+
+        // No dangling space where `statusText` would be: over HTTP/2 it is
+        // always empty, which is every real call to Spotify.
+        await expect(validator.validateResponse(new Response('<html>gateway</html>', { status: 403 }))).rejects.toMatchObject({
+            message: 'Spotify API request failed: HTTP 403',
+        });
     });
 
     it('carries Spotify\'s Retry-After through as milliseconds', async () => {

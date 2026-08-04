@@ -23,6 +23,20 @@ export interface ProviderTrack {
     artworkUrl?: string;
 }
 
+/**
+ * What a source will let the connected account do with one playlist's items.
+ *
+ * Both values are item-scoped, mirroring the endpoint pair they describe
+ * (Spotify's `GET` and `PUT /playlists/{id}/items`). Neither says anything
+ * about the playlist's own name or description: on Spotify a collaborator may
+ * change the items and not the details.
+ */
+export type ProviderPlaylistPermission =
+    /** The source will return this playlist's items. */
+    | 'read'
+    /** The source will permit modifying this playlist's items. */
+    | 'edit';
+
 export interface ProviderPlaylist {
     id: string;
     name: string;
@@ -31,17 +45,25 @@ export interface ProviderPlaylist {
     trackCount?: number;
     artworkUrl?: string;
     /**
-     * `false` when the provider can list this playlist but will refuse to
-     * return its tracks, so the host can present it as unimportable instead of
-     * offering a `getPlaylistTracks` call that cannot succeed.
+     * What the SOURCE permits for the connected account on this playlist, so
+     * the host can avoid offering a call that cannot succeed. Not deadair's own
+     * authorization for the requesting actor, which is a separate question
+     * asked of the permission model, and not a claim that the plugin implements
+     * the action either, which is what the manifest's capabilities declare. All
+     * three have to hold before an action is worth offering.
      *
-     * Left `undefined` by providers that have no such split, which is most of
-     * them: absent means "no reason to think otherwise", not "unknown, go and
-     * find out". Spotify sets it because a listing there mixes playlists the
-     * user owns with playlists they merely follow, and only the owned half is
-     * readable (see the February 2026 Web API changes).
+     * Absent and empty mean different things, and the difference matters:
+     *
+     * - `undefined` — the source did not say. Providers with no such split (most
+     *   of them) leave it alone, and a host must read this as "no reason to
+     *   think otherwise" rather than hiding the playlist.
+     * - `[]` — the source was asked and permits nothing.
+     *
+     * Spotify populates it because a listing there mixes playlists the account
+     * owns with playlists it merely follows, and since the February 2026 Web
+     * API changes only the owned half can be read at all.
      */
-    importable?: boolean;
+    permissions?: ProviderPlaylistPermission[];
 }
 
 /** A playable stream, plus how long the URL stays good for. */

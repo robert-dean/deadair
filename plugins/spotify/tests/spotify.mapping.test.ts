@@ -105,23 +105,34 @@ describe('mapPlaylist', () => {
         expect(playlist?.trackCount).toBe(42);
     });
 
-    it('marks a playlist the user owns as readable and one they only follow as not', () => {
+    it('grants read and edit on a playlist the user owns, and nothing on one they only follow', () => {
         const owned = mapPlaylist({ id: 'pl-1', name: 'Mine', owner: { id: 'me-1' } }, 'me-1');
         const followed = mapPlaylist({ id: 'pl-2', name: 'Discover Weekly', owner: { id: 'spotify' } }, 'me-1');
 
-        expect(owned?.importable).toBe(true);
-        expect(followed?.importable).toBe(false);
+        expect(owned?.permissions).toEqual(['read', 'edit']);
+        expect(followed?.permissions).toEqual([]);
     });
 
-    it('treats a collaborative playlist as readable even when someone else owns it', () => {
+    it('treats a collaborative playlist as usable even when someone else owns it', () => {
         const playlist = mapPlaylist({ id: 'pl-1', name: 'Shared', owner: { id: 'friend' }, collaborative: true }, 'me-1');
 
-        expect(playlist?.importable).toBe(true);
+        expect(playlist?.permissions).toEqual(['read', 'edit']);
     });
 
     it('has no opinion when the owner or the current user is unknown', () => {
-        expect(mapPlaylist({ id: 'pl-1', name: 'Mystery', owner: { id: 'someone' } })?.importable).toBeUndefined();
-        expect(mapPlaylist({ id: 'pl-1', name: 'Mystery' }, 'me-1')?.importable).toBeUndefined();
+        expect(mapPlaylist({ id: 'pl-1', name: 'Mystery', owner: { id: 'someone' } })?.permissions).toBeUndefined();
+        expect(mapPlaylist({ id: 'pl-1', name: 'Mystery' }, 'me-1')?.permissions).toBeUndefined();
+    });
+
+    it('distinguishes "the source permits nothing" from "the source did not say"', () => {
+        const refused = mapPlaylist({ id: 'pl-1', name: 'Theirs', owner: { id: 'spotify' } }, 'me-1');
+        const unknown = mapPlaylist({ id: 'pl-2', name: 'Theirs', owner: { id: 'spotify' } });
+
+        // Collapsing these is the regression this shape exists to prevent: a
+        // host that reads `undefined` as "permits nothing" hides the entire
+        // library the first time the profile call fails.
+        expect(refused?.permissions).toEqual([]);
+        expect(unknown?.permissions).toBeUndefined();
     });
 
     it('returns undefined when id is missing', () => {

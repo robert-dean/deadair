@@ -282,10 +282,10 @@ describe('SpotifyPlugin', () => {
 
             const results = await plugin.listPlaylists();
 
-            expect(results.map(playlist => [playlist.id, playlist.importable])).toEqual([
-                ['mine', true],
-                ['editorial', false],
-                ['shared', true],
+            expect(results.map(playlist => [playlist.id, playlist.permissions])).toEqual([
+                ['mine', ['read', 'edit']],
+                ['editorial', []],
+                ['shared', ['read', 'edit']],
             ]);
         });
 
@@ -298,7 +298,7 @@ describe('SpotifyPlugin', () => {
             const results = await plugin.listPlaylists();
 
             expect(results).toHaveLength(1);
-            expect(results[0]?.importable).toBeUndefined();
+            expect(results[0]?.permissions).toBeUndefined();
         });
 
         it('getPlaylistTracks reads the 2026 `item` key', async () => {

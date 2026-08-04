@@ -171,7 +171,8 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
      *
      * A 403 here is Spotify refusing a playlist the account neither owns nor
      * collaborates on, and is expected rather than exceptional. `listPlaylists`
-     * marks those `importable: false` so a caller can avoid asking.
+     * omits `read` from those playlists' `permissions` so a caller can avoid
+     * asking.
      */
     async getPlaylistTracks(playlistId: string, options?: GetPlaylistTracksOptions): Promise<ProviderTrack[]> {
         const query = new URLSearchParams();
@@ -204,7 +205,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
             this.currentUserIdCache = profile.id;
             return profile.id;
         } catch (error) {
-            this.host?.logger.warn('could not resolve the Spotify account id; playlists will not be marked importable', { error: errorText(error) });
+            this.host?.logger.warn('could not resolve the Spotify account id; playlist permissions will be left unreported', { error: errorText(error) });
             return undefined;
         }
     }

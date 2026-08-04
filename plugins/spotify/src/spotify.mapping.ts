@@ -1,5 +1,5 @@
 import type { MaxInt } from '@spotify/web-api-ts-sdk';
-import type { PlaybackState, ProviderPlaylist, ProviderTrack } from '@deadair/plugin-sdk';
+import type { PlaybackState, ProviderPlaylist, ProviderPlaylistPermission, ProviderTrack } from '@deadair/plugin-sdk';
 
 /**
  * The SDK's own `Track` / `PlaylistedTrack` / `PlaybackState` types declare their
@@ -106,30 +106,38 @@ export function mapPlaylist(playlist: SpotifyPlaylist | null | undefined, curren
         description: playlist.description && playlist.description.length > 0 ? playlist.description : undefined,
         trackCount: playlist.items?.total ?? playlist.tracks?.total,
         artworkUrl: pickArtwork(playlist.images),
-        importable: playlistImportable(playlist, currentUserId),
+        permissions: playlistPermissions(playlist, currentUserId),
     };
 }
 
 /**
- * Whether Spotify will hand over this playlist's tracks.
+ * What Spotify will let this account do with the playlist's items.
  *
- * Since February 2026 that is limited to playlists the user owns or
- * collaborates on; everything else answers 403 by design. A listing is full of
- * the other kind, because `GET /me/playlists` returns what the user *follows*:
- * editorial playlists, Daily Mix, Discover Weekly, friends' playlists. Without
- * this they all render as importable and 403 the moment one is opened.
+ * Since February 2026 both reading and modifying items are limited to playlists
+ * the account owns or collaborates on; everything else answers 403 by design. A
+ * listing is full of the other kind, because `GET /me/playlists` returns what
+ * the account *follows*: editorial playlists, Daily Mix, Discover Weekly,
+ * friends' playlists. Without this they all render as usable and 403 the moment
+ * one is opened.
  *
- * `collaborative` counts as readable even though it only says the playlist
- * accepts collaborators rather than that this user is one. That errs
- * permissive on purpose: the cost of being wrong is one handled 403, whereas
- * being wrong the other way silently hides a playlist the user can really
- * import. Answers `undefined` rather than guessing when the owner is unknown,
- * which keeps a missing `owner` from turning into "unimportable".
+ * `read` and `edit` therefore travel together here. That is a fact about
+ * Spotify's rules rather than a rule other providers must follow, and the two
+ * are separate values precisely so a provider that splits them can say so.
+ *
+ * `collaborative` counts even though it only says the playlist accepts
+ * collaborators rather than that this account is one. That errs permissive on
+ * purpose: the cost of being wrong is one handled 403, whereas being wrong the
+ * other way silently hides a playlist the account can really use.
+ *
+ * Answers `undefined`, not `[]`, when the owner or the account id is unknown.
+ * Those are different claims: `[]` says Spotify permits nothing, while
+ * `undefined` says we never found out, and a host that conflates them hides the
+ * whole library the first time the profile call blips.
  */
-function playlistImportable(playlist: SpotifyPlaylist, currentUserId?: string): boolean | undefined {
-    if (playlist.collaborative) return true;
+function playlistPermissions(playlist: SpotifyPlaylist, currentUserId?: string): ProviderPlaylistPermission[] | undefined {
+    if (playlist.collaborative) return ['read', 'edit'];
     if (!currentUserId || !playlist.owner?.id) return undefined;
-    return playlist.owner.id === currentUserId;
+    return playlist.owner.id === currentUserId ? ['read', 'edit'] : [];
 }
 
 /**

@@ -1,22 +1,12 @@
 /**
- * A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable
- * generated from [CatalogPlaylist](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L8)
+ * An action a source will permit on one playlist's items. Item-scoped: neither value covers the playlist's own name or description
+ * generated from [PlaylistPermission](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L8)
  */
-export interface CatalogPlaylist {
-    pluginId: string;
-    pluginName: string;
-    id: string;
-    name: string;
-    description?: string;
-    trackCount?: number;
-    artworkUrl?: string;
-    /** False when the source will list this playlist but refuse its tracks, so importing it cannot succeed. Absent means no reason to think otherwise */
-    importable?: boolean;
-}
+export type PlaylistPermission = 'read' | 'edit';
 
 /**
  * Mirrors the plugin SDK's `ProviderTrack`
- * generated from [CatalogTrack](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L20)
+ * generated from [CatalogTrack](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L23)
  */
 export interface CatalogTrack {
     id: string;
@@ -31,7 +21,7 @@ export interface CatalogTrack {
 
 /**
  * One catalog-capable plugin that could not be listed
- * generated from [CatalogSourceError](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L31)
+ * generated from [CatalogSourceError](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L34)
  */
 export interface CatalogSourceError {
     pluginId: string;
@@ -40,7 +30,22 @@ export interface CatalogSourceError {
 }
 
 /**
- * generated from [CatalogPlaylistTracks](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L42)
+ * generated from [CatalogPlaylist](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L11)
+ */
+export interface CatalogPlaylist {
+    pluginId: string;
+    pluginName: string;
+    id: string;
+    name: string;
+    description?: string;
+    trackCount?: number;
+    artworkUrl?: string;
+    /** What the SOURCE permits on this playlist's items, not what this actor may do. Empty means the source permits nothing; absent means it did not say */
+    permissions?: PlaylistPermission[];
+}
+
+/**
+ * generated from [CatalogPlaylistTracks](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L45)
  */
 export interface CatalogPlaylistTracks {
     pluginId: string;
@@ -49,7 +54,7 @@ export interface CatalogPlaylistTracks {
 }
 
 /**
- * generated from [CatalogPlaylistPage](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L37)
+ * generated from [CatalogPlaylistPage](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L40)
  */
 export interface CatalogPlaylistPage {
     playlists: CatalogPlaylist[];

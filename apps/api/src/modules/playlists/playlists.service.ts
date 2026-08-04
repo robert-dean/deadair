@@ -75,7 +75,7 @@ export class PlaylistsService {
                         description: playlist.description,
                         trackCount: playlist.trackCount,
                         artworkUrl: playlist.artworkUrl,
-                        importable: playlist.importable,
+                        permissions: playlist.permissions,
                     });
                 }
                 return;

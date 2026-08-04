@@ -41,4 +41,31 @@ describe('PlaylistCard', () => {
         const link = screen.getByRole('link', { name: 'View tracks' });
         expect(link).toHaveAttribute('data-params', JSON.stringify({ pluginId: 'deadair.navidrome', playlistId: 'playlist-9' }));
     });
+
+    it('replaces the link with a reason when the source will not share the tracks', () => {
+        render(<PlaylistCard playlist={catalogPlaylist({ permissions: [] })} />);
+
+        expect(screen.queryByRole('link')).not.toBeInTheDocument();
+        expect(screen.getByText("Spotify won't share this playlist's tracks.")).toBeInTheDocument();
+    });
+
+    it('disables on any permission list without `read`, not just an empty one', () => {
+        render(<PlaylistCard playlist={catalogPlaylist({ permissions: ['edit'] })} />);
+
+        expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    });
+
+    it('keeps the link when the source granted read', () => {
+        render(<PlaylistCard playlist={catalogPlaylist({ permissions: ['read', 'edit'] })} />);
+
+        expect(screen.getByRole('link', { name: 'View tracks' })).toBeInTheDocument();
+    });
+
+    it('keeps the link when the source said nothing at all', () => {
+        // Absent is "did not say", not "refused". Treating it as a refusal
+        // would hide every playlist whenever the source cannot be asked.
+        render(<PlaylistCard playlist={catalogPlaylist({ permissions: undefined })} />);
+
+        expect(screen.getByRole('link', { name: 'View tracks' })).toBeInTheDocument();
+    });
 });

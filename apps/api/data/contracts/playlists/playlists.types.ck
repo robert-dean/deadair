@@ -4,6 +4,9 @@ options {
     }
 }
 
+# An action a source will permit on one playlist's items. Item-scoped: neither value covers the playlist's own name or description
+contract PlaylistPermission: enum(read, edit)
+
 # A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable
 contract CatalogPlaylist: {
     pluginId: string(min=1, max=200)
@@ -13,7 +16,7 @@ contract CatalogPlaylist: {
     description?: string(max=2000)
     trackCount?: number
     artworkUrl?: string(max=2000)
-    importable?: boolean # False when the source will list this playlist but refuse its tracks, so importing it cannot succeed. Absent means no reason to think otherwise
+    permissions?: array(PlaylistPermission) # What the SOURCE permits on this playlist's items, not what this actor may do. Empty means the source permits nothing; absent means it did not say
 }
 
 # Mirrors the plugin SDK's `ProviderTrack`

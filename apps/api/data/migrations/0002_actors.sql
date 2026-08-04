@@ -168,5 +168,3 @@ drop table if exists deadair.actors_password_factors_archive;
 drop table if exists deadair.actors_password_factors;
 drop table if exists deadair.actors_email_factors;
 drop table if exists deadair.actors;
-
-drop schema if exists deadair;

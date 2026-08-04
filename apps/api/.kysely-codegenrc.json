@@ -21,7 +21,8 @@
             "deadair.actors.type": "'user' | 'system' | 'vendor'",
             "deadair.actors_authenticator_factors.type": "'totp' | 'hotp'",
             "deadair.actors_authenticator_factors.algorithm": "'sha1' | 'sha256' | 'sha512'",
-            "deadair.actor_session_events.event_type": "'created' | 'refreshed' | 'revoked' | 'expired' | 'step_up' | 'validation_failed'"
+            "deadair.actor_session_events.event_type": "'created' | 'refreshed' | 'revoked' | 'expired' | 'step_up' | 'validation_failed'",
+            "deadair.plugin_configs.log_level": "Generated<'debug' | 'info' | 'warn' | 'error'>"
         }
     },
     "partitions": false,

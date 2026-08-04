@@ -15,7 +15,8 @@ create table deadair.plugin_configs (
     config jsonb not null default '{}',
     secrets jsonb not null default '{}',
     status text,
-    last_error text
+    last_error text,
+    log_level text not null default 'warn' check (log_level in ('debug', 'info', 'warn', 'error'))
 );
 select deadair.add_updated_at_trigger('deadair.plugin_configs');
 create trigger notify_plugins_changed

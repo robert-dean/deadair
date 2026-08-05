@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 import type { HostFetchInit, HostFetchResponse, PluginOAuth } from '../src/plugin.host.js';
-import type { PlaybackState, ProviderPlaylist, ProviderStream, ProviderTrack } from '../src/capabilities/music.provider.js';
+import type {
+    PlaybackState,
+    ProviderPlaylist,
+    ProviderSessionCredentials,
+    ProviderStream,
+    ProviderTrack,
+} from '../src/capabilities/music.provider.js';
 import type { ExternalId, ExternalLink, TrackEnrichment, TrackRef } from '../src/capabilities/enrichment.js';
 import type { PluginConnectionResult } from '../src/plugin.lifecycle.js';
 import type { PluginManifest } from '../src/plugin.manifest.js';
@@ -221,6 +227,12 @@ export const providerStreamFixture: ProviderStream = {
     url: 'https://stream.example.com/trk_1.mp3?sig=abc',
     expiresAt: 1_893_456_000_000,
     mimeType: 'audio/mpeg',
+};
+
+export const providerSessionCredentialsFixture: ProviderSessionCredentials = {
+    username: 'the-station',
+    accessToken: 'BQC_not_a_real_token',
+    expiresAt: 1_893_456_000_000,
 };
 
 export const searchTracksOptionsFixture = { limit: 20, offset: 40 };

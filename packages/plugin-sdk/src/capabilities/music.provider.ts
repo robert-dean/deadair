@@ -75,6 +75,30 @@ export interface ProviderStream {
     mimeType?: string;
 }
 
+/**
+ * Credentials for a station-side helper that opens its OWN session with the
+ * provider, rather than going through the plugin.
+ *
+ * This exists for one shape of provider: the audio is reachable, but only to a
+ * process speaking a protocol the plugin does not (Spotify's, whose tracks come
+ * off its CDN encrypted and are fetched by a separate binary beside
+ * Liquidsoap). The plugin still owns the account and the token refresh; it just
+ * lends the helper enough to log in.
+ *
+ * Do NOT implement this to hand out credentials for an ordinary HTTP fetch. A
+ * provider whose audio can be fetched with a URL should mint one in
+ * {@link MusicProviderCatalog.resolveStreamUrl} and keep its credentials to
+ * itself, which is both simpler and narrower.
+ */
+export interface ProviderSessionCredentials {
+    /** The account the helper should log in as. */
+    username: string;
+    /** A currently-valid access token. The plugin owns refreshing it. */
+    accessToken: string;
+    /** Unix epoch millis after which `accessToken` must be re-requested. */
+    expiresAt?: number;
+}
+
 export interface SearchTracksOptions {
     limit?: number;
     offset?: number;
@@ -107,6 +131,17 @@ export interface MusicProviderCatalog {
      * URL, e.g. a remote Spotify Connect device).
      */
     resolveStreamUrl?(trackId: string): Promise<ProviderStream | undefined>;
+
+    /**
+     * Lend a station-side helper a login for this provider. Omit unless the
+     * provider genuinely needs one; see {@link ProviderSessionCredentials} for
+     * when that is and, more importantly, when it is not.
+     *
+     * Resolves to `undefined` when the provider is not connected, which the host
+     * treats as "not available yet" rather than an error: the helper comes up
+     * with its container, long before an operator has authorised anything.
+     */
+    getSessionCredentials?(): Promise<ProviderSessionCredentials | undefined>;
 }
 
 export type PlaybackStatus = 'playing' | 'paused' | 'stopped';

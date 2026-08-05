@@ -6,6 +6,7 @@ import {
     type PluginConnectionResult,
     type PluginHost,
     type ProviderPlaylist,
+    type ProviderSessionCredentials,
     type ProviderTrack,
     type SearchTracksOptions,
     PluginError,
@@ -187,6 +188,35 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
         // `item` is the new key and `track` the deprecated one; both are read
         // so this works either side of the rename.
         return toProviderTracks((page?.items ?? []).map(row => row.item ?? row.track));
+    }
+
+    /**
+     * Lend the track shim a login.
+     *
+     * Spotify's audio is the case `ProviderSessionCredentials` exists for: the
+     * tracks come off the CDN encrypted, so they are fetched by a separate
+     * binary running beside Liquidsoap that speaks Spotify's own protocol. This
+     * plugin cannot hand out a URL for that, which is why it implements no
+     * `resolveStreamUrl` — but it does own the account, so it lends the helper a
+     * username and a live token and keeps the refresh.
+     *
+     * `undefined` rather than a throw when the plugin is unconfigured or
+     * unconnected: the shim asks on its first fetch, which can easily precede
+     * anyone authorising anything, and it retries on its own.
+     */
+    async getSessionCredentials(): Promise<ProviderSessionCredentials | undefined> {
+        if (!this.clientId || !this.auth) return undefined;
+
+        const tokens = await this.auth.sessionTokens();
+        if (!tokens) return undefined;
+
+        // The account id, which is what librespot logs in with. Not cheap to guess
+        // at: without it the accesspoint rejects the token, so this one failure is
+        // worth reporting rather than swallowing the way the playlist path does.
+        const username = await this.getCurrentUserId();
+        if (!username) return undefined;
+
+        return { username, accessToken: tokens.accessToken, expiresAt: tokens.expiresAt };
     }
 
     /**

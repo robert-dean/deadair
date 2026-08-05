@@ -203,13 +203,24 @@ A `music-provider` declares any subset of three sub-capabilities and lists the
 ones it implements in `manifest.capabilities`:
 
 - **`catalog`** — `searchTracks`, `getTrack`, `listPlaylists`,
-  `getPlaylistTracks`, and optionally `resolveStreamUrl`. Implement
+  `getPlaylistTracks`, and optionally `resolveStreamUrl` and
+  `getSessionCredentials`. Implement
   `resolveStreamUrl` when you can hand the host a playable URL that the audio
   consumer can fetch directly; omit it and implement `playout` instead when
   your provider plays audio itself and only takes instructions. A byte-level
   streaming protocol for the rare case where no such URL can be minted is
   specified in `docs/decisions/plugin-streaming.md`, but it is not implemented
   and there is no `host.streams` to call.
+
+  `getSessionCredentials` covers a third, narrower case: the audio is
+  reachable, but only to a process speaking a protocol the plugin does not, so
+  a station-side helper opens its own session with the provider. It returns a
+  `{ username, accessToken }` the helper logs in with, while the plugin keeps
+  the account and the token refresh. Spotify is the reason it exists — its
+  tracks come off the CDN encrypted and are fetched by a separate binary beside
+  Liquidsoap. **Do not implement it to hand out credentials for an ordinary
+  HTTP fetch**: mint a URL in `resolveStreamUrl` instead and keep the
+  credentials inside the plugin, which is both simpler and narrower.
 - **`playout`** — `enqueue`, `play`, `pause`, `skip`, `getPlaybackState`. This
   is the "steer" half: the provider owns the audio output.
 - **`oauth`** — `getAuthorizeUrl(state)` and `handleCallback(params)`. The host

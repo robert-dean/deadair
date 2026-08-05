@@ -17,6 +17,7 @@ import {
     pluginStorageListFixture,
     pluginStorageValueFixture,
     providerPlaylistFixture,
+    providerSessionCredentialsFixture,
     providerStreamFixture,
     providerTrackFixture,
     searchTracksOptionsFixture,
@@ -38,6 +39,7 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['ProviderTrack', providerTrackFixture],
         ['ProviderPlaylist', providerPlaylistFixture],
         ['ProviderStream', providerStreamFixture],
+        ['ProviderSessionCredentials', providerSessionCredentialsFixture],
         ['SearchTracksOptions', searchTracksOptionsFixture],
         ['ListPlaylistsOptions', listPlaylistsOptionsFixture],
         ['GetPlaylistTracksOptions', getPlaylistTracksOptionsFixture],
@@ -88,9 +90,7 @@ describe('plugin boundary conformance: negative cases', () => {
     });
 
     it('rejects an undefined array element', () => {
-        expect(() => assertCrossesBoundary({ items: ['a', undefined, 'b'] }, 'undefined array element payload')).toThrow(
-            /undefined array element/,
-        );
+        expect(() => assertCrossesBoundary({ items: ['a', undefined, 'b'] }, 'undefined array element payload')).toThrow(/undefined array element/);
     });
 
     it('names the offending property path in the failure message', () => {

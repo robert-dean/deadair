@@ -7,6 +7,7 @@ import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { CompositeTrackResolver, TrackResolver } from './playout.capability.js';
 import { PluginTrackResolver } from './providers/plugin.resolver.js';
+import { SpotifyShimResolver } from './providers/spotify.shim.resolver.js';
 import { PlayoutPusher } from './playout.pusher.js';
 import { PlayoutService } from './playout.service.js';
 import { Rundown } from './rundown.js';
@@ -29,13 +30,16 @@ export const PlayoutModule: ServerKitModule = {
         registry.register(LiquidsoapEndpoint).useClass(LiquidsoapEndpoint).asSingleton();
         registry.register(PlayoutControlClient).useClass(PlayoutControlClient).asSingleton();
 
-        // The resolver chain. Only the plugin-native path exists so far: a provider
-        // that hands out a stream URL needs nothing else, and one that does not
-        // (Spotify) gets a built-in resolver alongside this in a later phase.
+        // The resolver chain, asked in order. The plugin-native path goes first
+        // because it is the general one: any provider that can mint a stream URL
+        // answers for its own tracks and needs nothing here. The shim resolver is
+        // the exception behind it — Spotify's audio is encrypted on the CDN, so
+        // the URL points at our own binary rather than at Spotify.
         registry.register(PluginTrackResolver).useClass(PluginTrackResolver).asSingleton();
+        registry.register(SpotifyShimResolver).useClass(SpotifyShimResolver).asSingleton();
         registry
             .register(TrackResolver)
-            .useFactory(container => new CompositeTrackResolver([container.get(PluginTrackResolver)]))
+            .useFactory(container => new CompositeTrackResolver([container.get(PluginTrackResolver), container.get(SpotifyShimResolver)]))
             .asSingleton();
 
         registry.register(Rundown).useClass(Rundown).asSingleton();

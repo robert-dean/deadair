@@ -25,6 +25,7 @@ import type {
     ListPlaylistsOptions,
     PlaybackState,
     ProviderPlaylist,
+    ProviderSessionCredentials,
     ProviderStream,
     ProviderTrack,
     SearchTracksOptions,
@@ -111,6 +112,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ProviderTrack: IsJsonSafe<ProviderTrack>;
     ProviderPlaylist: IsJsonSafe<ProviderPlaylist>;
     ProviderStream: IsJsonSafe<ProviderStream>;
+    ProviderSessionCredentials: IsJsonSafe<ProviderSessionCredentials>;
     SearchTracksOptions: IsJsonSafe<SearchTracksOptions>;
     ListPlaylistsOptions: IsJsonSafe<ListPlaylistsOptions>;
     GetPlaylistTracksOptions: IsJsonSafe<GetPlaylistTracksOptions>;
@@ -137,6 +139,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ProviderTrack',
     'ProviderPlaylist',
     'ProviderStream',
+    'ProviderSessionCredentials',
     'SearchTracksOptions',
     'ListPlaylistsOptions',
     'GetPlaylistTracksOptions',

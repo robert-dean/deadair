@@ -138,6 +138,25 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
     /** `forceRefresh` for `createHostFetch`: always refreshes, for its one-shot 401 retry. */
     forceRefresh = (): Promise<string> => this.resolveBearer(true);
 
+    /**
+     * A live access token and its expiry, for the station-side helper that opens
+     * its own Spotify session (see `getSessionCredentials` on the plugin).
+     *
+     * Resolves to `undefined` when nothing is stored, rather than throwing the
+     * way {@link resolveBearer} does: the helper asks on its first fetch, which
+     * may well be before anyone has authorised the plugin, and "not connected
+     * yet" is an ordinary answer there rather than a failure.
+     *
+     * A stored-but-stale token is still refreshed, because handing the helper an
+     * expired one would fail inside a different process with no way back here.
+     */
+    sessionTokens = async (): Promise<{ accessToken: string; expiresAt: number } | undefined> => {
+        if (!(await this.loadTokens())) return undefined;
+
+        const { accessToken, expiresAt } = await this.resolveTokens(false);
+        return { accessToken, expiresAt };
+    };
+
     // --- oauth -----------------------------------------------------------
 
     async getAuthorizeUrl(state: string): Promise<string> {

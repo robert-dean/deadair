@@ -226,13 +226,18 @@ func (c loginCredentials) fetch(ctx context.Context, client *http.Client) (strin
 	switch resp.StatusCode {
 	case 200:
 	case 204:
-		// The route is mode-gated: it only mints a login while the station's playout mode reads
-		// 'spotify', which is how a source switch stops the Spotify bed with no restart.
-		return "", "", fmt.Errorf("login route answered 204: the station's playout mode is not 'spotify', so it will not mint a login")
+		// Kept as a valid "nothing to give you" answer. The app currently prefers a 503 for
+		// that case, which carries a reason a human can act on; this stays so an older or
+		// newer app answering 204 is still reported rather than falling to the default.
+		return "", "", fmt.Errorf("login route answered 204: the app has no Spotify login to mint")
 	case 401:
 		return "", "", fmt.Errorf("login route answered 401: the secret did not match stream.spotifyLoginSecret (it is SPOTIFY_LOGIN_SECRET in the materialized radio.env; rebuild the stream image if this container predates that rename)")
 	case 404:
 		return "", "", fmt.Errorf("login route answered 404: no login secret is seeded yet, so the endpoint is disabled")
+	case 503:
+		// The plugin is installed but not usable yet: not running, or nobody has authorised
+		// Spotify in the console. Retryable, which the caller's backoff already handles.
+		return "", "", fmt.Errorf("login route answered 503: Spotify is not connected in the console, so no login can be minted")
 	default:
 		return "", "", fmt.Errorf("login route returned %d", resp.StatusCode)
 	}

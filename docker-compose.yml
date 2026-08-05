@@ -120,13 +120,15 @@ services:
         restart: unless-stopped
         # Reach the host-run app (pnpm dev) for the Spotify login the shim opens its session with.
         # Override SPOTIFY_LOGIN_URL to http://app:3333/... when running the app in-container
-        # (--profile app). No SPOTIFY_LOGIN_SECRET here: the app seeds it in the DB and
+        # (--profile app). No /api prefix: the API mounts its routers at the root, and the prefix
+        # the SPA uses is added and stripped by the dev proxy in front of it.
+        # No SPOTIFY_LOGIN_SECRET here: the app seeds it in the DB and
         # materializes it into radio.env, which the entrypoint sources (`set -a`), so the shim
         # inherits it — no host export or compose env needed.
         extra_hosts:
             - 'host.docker.internal:host-gateway'
         environment:
-            SPOTIFY_LOGIN_URL: ${SPOTIFY_LOGIN_URL:-http://host.docker.internal:3333/api/music/spotify/session-login}
+            SPOTIFY_LOGIN_URL: ${SPOTIFY_LOGIN_URL:-http://host.docker.internal:3333/playout/spotify/session-login}
         # 8005 is the harbor voice input: the host-run app (pnpm dev) pushes rendered DJ
         # audio to http://127.0.0.1:8005/dj; the in-container app reaches it as liquidsoap:8005.
         # Must match HARBOR_PORT in radio.env. The playout control endpoints (/control/status,

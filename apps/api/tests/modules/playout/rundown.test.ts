@@ -1,0 +1,274 @@
+// The rundown exists to keep one distinction straight: handing an item to the
+// player is not the same as it airing. Liquidsoap downloads the next request while
+// the previous one is still playing, so an app that conflates the two is a full
+// item ahead of the listener — wrong for now-playing, for history, and for anything
+// that ever times a break.
+//
+// So these tests are mostly about the recovery paths, because those are the ones a
+// running station exercises and nobody watches: a dropped push, a notify that never
+// arrived, a Liquidsoap that restarted and forgot everything it was handed.
+
+import { describe, expect, it, vi } from 'vitest';
+
+import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
+import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
+import type { Logger } from '@maroonedsoftware/logger';
+
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+
+/** Resolves everything to a fake URL, except ids listed as unresolvable. */
+class StubResolver extends TrackResolver {
+    constructor(private readonly unresolvable = new Set<string>()) {
+        super();
+    }
+    async resolve(item: { externalId: string }): Promise<string | undefined> {
+        return this.unresolvable.has(item.externalId) ? undefined : `https://example.test/${item.externalId}.ogg`;
+    }
+}
+
+const track = (externalId: string): RundownTrack => ({
+    pluginId: 'deadair.spotify',
+    externalId,
+    title: `Track ${externalId}`,
+    artists: ['An Artist'],
+    durationMs: 200_000,
+});
+
+const rundownWith = (ids: string[], resolver: TrackResolver = new StubResolver()): Rundown => {
+    const rundown = new Rundown(resolver, logger);
+    rundown.load(ids.map(track));
+    return rundown;
+};
+
+describe('Rundown hand-over', () => {
+    it('hands items over in order and takes them out of the queue', async () => {
+        const rundown = rundownWith(['a', 'b']);
+
+        const first = await rundown.next();
+        expect(first?.item.externalId).toBe('a');
+        expect(first?.url).toBe('https://example.test/a.ogg');
+        expect(rundown.queuedCount()).toBe(1);
+    });
+
+    it('gives each item an id of our own rather than reusing the provider id', async () => {
+        // The id rides through Liquidsoap on the annotation and comes back on the
+        // notify; a provider id would collide the moment a playlist repeats a track.
+        const rundown = rundownWith(['a', 'a']);
+
+        const first = await rundown.next();
+        const second = await rundown.next();
+        expect(first!.item.id).not.toBe(second!.item.id);
+    });
+
+    it('skips an item nothing can resolve rather than stalling on it', async () => {
+        // One track whose plugin is disabled must not become dead air.
+        const rundown = rundownWith(['a', 'b'], new StubResolver(new Set(['a'])));
+
+        expect((await rundown.next())?.item.externalId).toBe('b');
+    });
+
+    it('runs out rather than repeating itself', async () => {
+        const rundown = rundownWith(['a']);
+        await rundown.next();
+
+        expect(await rundown.next()).toBeUndefined();
+    });
+
+    it('puts an unserved item back at the head of the queue', async () => {
+        // A push that did not land: nothing aired, so the next pass has to offer the
+        // same item again rather than skip it.
+        const rundown = rundownWith(['a', 'b']);
+        const pulled = await rundown.next();
+
+        expect(rundown.unserve(pulled!.item.id)).toBe(true);
+        expect((await rundown.next())?.item.externalId).toBe('a');
+    });
+});
+
+describe('Rundown airing', () => {
+    it('reports nothing on air until the player says so', async () => {
+        const rundown = rundownWith(['a']);
+        await rundown.next();
+
+        // Handed over and downloading; the listener is still hearing whatever came before.
+        expect(rundown.nowPlaying()).toBeUndefined();
+    });
+
+    it('puts an item on air when the notify names it', async () => {
+        const rundown = rundownWith(['a']);
+        const pulled = await rundown.next();
+
+        expect(rundown.markAired(pulled!.item.id)).toBe(true);
+        expect(rundown.nowPlaying()?.item.externalId).toBe('a');
+    });
+
+    it('drops items skipped over when a later one is named', async () => {
+        // An operator skip or a failed decode means the player moved past an item
+        // without ever airing it; it must not stay pending forever.
+        const rundown = rundownWith(['a', 'b']);
+        await rundown.next();
+        const second = await rundown.next();
+
+        rundown.markAired(second!.item.id);
+
+        expect(rundown.nowPlaying()?.item.externalId).toBe('b');
+        // Nothing is left pending, so a reading of an empty player re-queues nothing.
+        rundown.reconcile({ queued: 0, ready: true, onAir: second!.item.id });
+        expect(rundown.queuedCount()).toBe(0);
+    });
+
+    it('ignores a notify for an item it never handed over', async () => {
+        const rundown = rundownWith(['a']);
+
+        expect(rundown.markAired('an-id-from-a-previous-process')).toBe(false);
+        expect(rundown.nowPlaying()).toBeUndefined();
+    });
+});
+
+describe('Rundown.reconcile', () => {
+    it('believes nothing from a reading with no `ready` field', async () => {
+        // That field only exists in the radio.liq that reports the rest of the reading,
+        // so its absence means the container is on an older script.
+        const rundown = rundownWith(['a', 'b']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+
+        rundown.reconcile({ queued: 0 });
+
+        expect(rundown.nowPlaying()?.item.externalId).toBe('a');
+    });
+
+    it('takes the item off air when the player stops producing', async () => {
+        // The only positive "it ended" signal there is: a boundary only ever says a
+        // new item started, so an order that runs out otherwise stays on air forever.
+        const rundown = rundownWith(['a']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+
+        rundown.reconcile({ queued: 0, ready: false });
+
+        expect(rundown.nowPlaying()).toBeUndefined();
+    });
+
+    it('adopts an item the notify never reported', async () => {
+        // A dropped notify: the reading is the recovery path.
+        const rundown = rundownWith(['a']);
+        const pulled = await rundown.next();
+
+        rundown.reconcile({ queued: 0, ready: true, onAir: pulled!.item.id });
+
+        expect(rundown.nowPlaying()?.item.externalId).toBe('a');
+    });
+
+    it('stands the clock down when the player names an item this process never served', async () => {
+        // A Liquidsoap that outlived an app restart. Going on announcing the old item
+        // would be a claim the player has just disproved.
+        const rundown = rundownWith(['a']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+
+        rundown.reconcile({ queued: 0, ready: true, onAir: 'from-a-previous-session' });
+
+        expect(rundown.nowPlaying()).toBeUndefined();
+    });
+
+    it('re-queues items the player turns out not to be holding', async () => {
+        // A push that was accepted but lost, or a Liquidsoap restart. Left alone these
+        // items are believed delivered and the running order silently skips them.
+        const rundown = rundownWith(['a', 'b', 'c']);
+        await rundown.next();
+        await rundown.next();
+        expect(rundown.queuedCount()).toBe(1);
+
+        rundown.reconcile({ queued: 0, ready: false });
+
+        expect(rundown.queuedCount()).toBe(3);
+        expect((await rundown.next())?.item.externalId).toBe('a');
+    });
+
+    it('leaves the running order alone when the player holds what it was given', async () => {
+        const rundown = rundownWith(['a', 'b']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        await rundown.next();
+
+        // One on air, one queued behind it: exactly what was handed over.
+        rundown.reconcile({ queued: 1, ready: true, onAir: pulled!.item.id });
+
+        expect(rundown.queuedCount()).toBe(0);
+        expect(rundown.nowPlaying()?.item.externalId).toBe('a');
+    });
+
+    it('projects the playhead forward from the last measurement', async () => {
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a']);
+            const pulled = await rundown.next();
+            rundown.markAired(pulled!.item.id);
+            rundown.reconcile({ queued: 0, ready: true, onAir: pulled!.item.id, remainingMs: 10_000 });
+
+            vi.advanceTimersByTime(3_000);
+
+            expect(rundown.nowPlaying()?.remainingMs).toBe(7_000);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('never projects the playhead past the end of the item', async () => {
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a']);
+            const pulled = await rundown.next();
+            rundown.markAired(pulled!.item.id);
+            rundown.reconcile({ queued: 0, ready: true, onAir: pulled!.item.id, remainingMs: 1_000 });
+
+            vi.advanceTimersByTime(60_000);
+
+            expect(rundown.nowPlaying()?.remainingMs).toBe(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+});
+
+describe('Rundown.load and reset', () => {
+    it('announces a reset so the transport can take back what has not aired', async () => {
+        const rundown = rundownWith(['a']);
+        const onReset = vi.fn();
+        rundown.onReset(onReset);
+
+        rundown.load([track('b')]);
+
+        expect(onReset).toHaveBeenCalledOnce();
+        expect((await rundown.next())?.item.externalId).toBe('b');
+    });
+
+    it('forgets what was handed over, so a stale notify cannot resurrect it', async () => {
+        const rundown = rundownWith(['a']);
+        const pulled = await rundown.next();
+
+        rundown.load([track('b')]);
+
+        expect(rundown.markAired(pulled!.item.id)).toBe(false);
+    });
+
+    it('leaves what is on air alone: a new order is not a reason to cut the listener off', async () => {
+        const rundown = rundownWith(['a']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+
+        rundown.load([track('b')]);
+
+        expect(rundown.nowPlaying()?.item.externalId).toBe('a');
+    });
+
+    it('empties the running order on reset', async () => {
+        const rundown = rundownWith(['a', 'b']);
+
+        rundown.reset();
+
+        expect(rundown.queuedCount()).toBe(0);
+        expect(await rundown.next()).toBeUndefined();
+    });
+});

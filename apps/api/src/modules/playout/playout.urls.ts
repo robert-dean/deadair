@@ -14,8 +14,14 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
  * call is the confirmation this URL is for.
  */
 
-/** Default base for a host-run app (`pnpm dev`) reached from the compose network. */
-export const DEFAULT_PLAYOUT_BASE_URL = 'http://host.docker.internal:3333/api/playout';
+/**
+ * Default base for a host-run app (`pnpm dev`) reached from the compose network.
+ *
+ * No `/api` prefix: the API mounts its routers at the root, and the prefix the SPA
+ * uses is added and stripped by Vite's dev proxy (`apps/web/vite.config.ts`).
+ * Liquidsoap talks to the API directly, so it must not carry one.
+ */
+export const DEFAULT_PLAYOUT_BASE_URL = 'http://host.docker.internal:3333/playout';
 
 /** Base URL of the playout bridge, without a trailing slash. `PLAYOUT_BASE_URL` overrides. */
 export function resolvePlayoutBaseUrl(config: AppConfig): string {

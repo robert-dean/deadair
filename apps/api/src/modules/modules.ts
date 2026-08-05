@@ -10,6 +10,7 @@ import { SettingsModule } from './settings/settings.module.js';
 import { StreamModule } from './stream/stream.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
+import { PlayoutModule } from './playout/playout.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 
@@ -37,6 +38,10 @@ export const modules: ServerKitModule[] = [
     // After PluginsModule: it resolves PluginRegistry and PluginInvoker, which
     // PluginsModule registers.
     PlaylistsModule,
+    // After PlaylistsModule: its resolver reaches the plugin registry and invoker
+    // for a track's stream URL, and its ready() reads the bridge secret the
+    // StreamModule above has already seeded and materialized.
+    PlayoutModule,
     // Must stay last: its shutdown hook closes the process-level RotatingLogStore,
     // and every other module's shutdown logging has to be flushed through
     // FileTeeLogger before that happens.

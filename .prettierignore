@@ -1,8 +1,13 @@
-package-lock.json
-pnpm-lock.yaml
-yarn.lock
+# Every package's `format` script loads this file explicitly with --ignore-path,
+# because Prettier only auto-discovers a .prettierignore in its own CWD and never
+# walks up to the workspace root. Keep patterns `**/`-anchored so they match the
+# same way whether Prettier runs from here or from a package directory.
+
+**/package-lock.json
+**/pnpm-lock.yaml
+**/yarn.lock
 **/node_modules/
 **/dist/
 **/routeTree.gen.ts
-.kysely-codegenrc.json
-data/db.ts
+**/.kysely-codegenrc.json
+**/modules/data/db.ts

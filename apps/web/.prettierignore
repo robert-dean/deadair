@@ -1,4 +1,0 @@
-# Prettier resolves its ignore file relative to the CWD, so the root .prettierignore
-# does not apply when this package's format script runs here.
-dist/
-src/routeTree.gen.ts

@@ -14,7 +14,7 @@
         "build": "tsup src/index.ts --format esm --sourcemap && tsc --emitDeclarationOnly --declaration",
         "build:ci": "eslint --max-warnings=0 && pnpm run build",
         "lint": "eslint --fix",
-        "format": "prettier --write ."
+        "format": "prettier --write . --ignore-path ../../.prettierignore"
     },
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",

@@ -8,7 +8,7 @@
         "preview": "vite preview",
         "lint": "eslint --fix",
         "typecheck": "tsc --noEmit -p tsconfig.tests.json",
-        "format": "prettier --write .",
+        "format": "prettier --write . --ignore-path ../../.prettierignore",
         "test": "vitest run"
     },
     "dependencies": {

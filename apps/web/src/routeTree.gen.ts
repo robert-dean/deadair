@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
 import { Route as PlaylistsPluginIdPlaylistIdRouteImport } from './routes/playlists/$pluginId/$playlistId'
@@ -37,6 +38,11 @@ const LoginRoute = LoginRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogIndexRoute = CatalogIndexRouteImport.update({
+  id: '/catalog/',
+  path: '/catalog/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlaylistsIndexRoute = PlaylistsIndexRouteImport.update({
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/onboarding'
+    | '/catalog/'
     | '/playlists/'
     | '/plugins/'
     | '/playlists/$pluginId/$playlistId'
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/onboarding'
+    | '/catalog'
     | '/playlists'
     | '/plugins'
     | '/playlists/$pluginId/$playlistId'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/onboarding'
+    | '/catalog/'
     | '/playlists/'
     | '/plugins/'
     | '/playlists/$pluginId/$playlistId'
@@ -141,6 +153,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
   PlaylistsPluginIdPlaylistIdRoute: typeof PlaylistsPluginIdPlaylistIdRoute
@@ -176,6 +189,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/': {
+      id: '/catalog/'
+      path: '/catalog'
+      fullPath: '/catalog/'
+      preLoaderRoute: typeof CatalogIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/playlists/': {
@@ -221,6 +241,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,
   PlaylistsPluginIdPlaylistIdRoute: PlaylistsPluginIdPlaylistIdRoute,

@@ -47,6 +47,35 @@ export interface PulledItem {
     url: string;
 }
 
+/**
+ * An item the player has been given, and when.
+ *
+ * The timestamp exists for one reason: a pushed request is INVISIBLE for a while.
+ * Liquidsoap pops it off the queue to resolve it — for an http uri, to download
+ * the whole track — and during that window it is neither counted in `queued` nor
+ * reported as `onAir`. A reconcile that read that gap as a lost push would hand
+ * the same item over twice, and the listener would hear the track played twice.
+ * See {@link RESOLVE_GRACE_MS}.
+ */
+interface ServedItem {
+    item: RundownItem;
+    /** Epoch millis when it was handed to the player. */
+    servedAt: number;
+}
+
+/**
+ * How long a handed-over item may be unaccounted for before the rundown believes
+ * the push was lost.
+ *
+ * Generous on purpose, because the two ways of being wrong are not symmetrical.
+ * Too short and an item still downloading is re-queued and airs twice, which is
+ * audible and wrong. Too long and a genuinely lost push is recovered a few
+ * seconds late — during which the item on air is still playing, so nothing is
+ * heard at all. A Spotify track comes through the shim, which decrypts it from
+ * the CDN, so seconds rather than milliseconds is the normal case.
+ */
+const RESOLVE_GRACE_MS = 15_000;
+
 /** What is on air, as far as the player has told us. */
 export interface NowPlaying {
     item: RundownItem;
@@ -76,7 +105,7 @@ export class Rundown {
     /** Committed but not yet handed to the player. */
     private queue: RundownItem[] = [];
     /** Handed to the player, not yet confirmed on air. In hand-over order. */
-    private served: RundownItem[] = [];
+    private served: ServedItem[] = [];
     /** Confirmed on air by the player. */
     private airing?: AiringItem;
     /** The last unexplainable id the player named, so it is reported once rather than every tick. */
@@ -147,7 +176,7 @@ export class Rundown {
      * the two lists have to be answered together or the answer is wrong by one.
      */
     upcoming(): readonly RundownItem[] {
-        return [...this.served, ...this.queue];
+        return [...this.served.map(entry => entry.item), ...this.queue];
     }
 
     /**
@@ -191,7 +220,7 @@ export class Rundown {
                 this.logger.warn(`rundown: cannot resolve '${item.title}' (${item.pluginId}:${item.externalId}) — skipping it`);
                 continue;
             }
-            this.served.push(item);
+            this.served.push({ item, servedAt: Date.now() });
             this.emit();
             return { item, url };
         }
@@ -206,11 +235,11 @@ export class Rundown {
      * the same thing again rather than lose it.
      */
     unserve(id: string): boolean {
-        const index = this.served.findIndex(item => item.id === id);
+        const index = this.served.findIndex(entry => entry.item.id === id);
         if (index < 0) return false;
 
-        const [item] = this.served.splice(index, 1);
-        this.queue.unshift(item!);
+        const [entry] = this.served.splice(index, 1);
+        this.queue.unshift(entry!.item);
         this.emit();
         return true;
     }
@@ -226,11 +255,11 @@ export class Rundown {
     markAired(id: string): boolean {
         if (this.airing?.item.id === id) return true;
 
-        const index = this.served.findIndex(item => item.id === id);
+        const index = this.served.findIndex(entry => entry.item.id === id);
         if (index < 0) return false;
 
         const consumed = this.served.splice(0, index + 1);
-        this.setAiring(consumed[consumed.length - 1]!);
+        this.setAiring(consumed[consumed.length - 1]!.item);
         this.emit();
         return true;
     }
@@ -294,13 +323,37 @@ export class Rundown {
      * believed-delivered — the alternative is a running order that quietly skips
      * them. The tail is what goes back, because the player consumes from the
      * front.
+     *
+     * EXCEPT while an item is still being resolved. Liquidsoap takes a pushed
+     * request off the queue to fetch it, and until the first frame plays it is in
+     * neither `queued` nor `onAir` — so a short reading is the NORMAL state for
+     * the seconds it takes to download a track, not evidence of anything. Acting
+     * on it hands the same item over a second time and the listener hears the
+     * track twice. Only an item that has been unaccounted for longer than
+     * {@link RESOLVE_GRACE_MS} is treated as lost.
      */
     private reconcileServed(queued: number): void {
         if (queued >= this.served.length) return;
 
-        const missing = this.served.splice(queued);
-        this.queue.unshift(...missing);
-        this.logger.warn(`rundown: the player is holding ${queued} of ${queued + missing.length} handed over; re-queued ${missing.length}`);
+        // The player consumes from the front, so the first `queued` are the ones it
+        // is accounted for holding; everything past that is what has gone missing.
+        const handed = this.served.length;
+        const settledBy = Date.now() - RESOLVE_GRACE_MS;
+
+        const keep: ServedItem[] = [];
+        const lost: RundownItem[] = [];
+        this.served.forEach((entry, index) => {
+            if (index >= queued && entry.servedAt <= settledBy) lost.push(entry.item);
+            else keep.push(entry);
+        });
+
+        // Everything short is still within its grace: the player is fetching, which
+        // is the overwhelmingly common reason for a reading to be short at all.
+        if (lost.length === 0) return;
+
+        this.served = keep;
+        this.queue.unshift(...lost);
+        this.logger.warn(`rundown: the player never took ${lost.length} of ${handed} handed over; re-queued ${lost.length}`);
         this.emit();
     }
 

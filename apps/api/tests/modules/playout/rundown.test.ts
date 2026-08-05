@@ -188,15 +188,46 @@ describe('Rundown.reconcile', () => {
     it('re-queues items the player turns out not to be holding', async () => {
         // A push that was accepted but lost, or a Liquidsoap restart. Left alone these
         // items are believed delivered and the running order silently skips them.
-        const rundown = rundownWith(['a', 'b', 'c']);
-        await rundown.next();
-        await rundown.next();
-        expect(rundown.queuedCount()).toBe(1);
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b', 'c']);
+            await rundown.next();
+            await rundown.next();
+            expect(rundown.queuedCount()).toBe(1);
 
-        rundown.reconcile({ queued: 0, ready: false });
+            // Long enough that the player cannot still be fetching them.
+            vi.advanceTimersByTime(30_000);
+            rundown.reconcile({ queued: 0, ready: false });
 
-        expect(rundown.queuedCount()).toBe(3);
-        expect((await rundown.next())?.item.externalId).toBe('a');
+            expect(rundown.queuedCount()).toBe(3);
+            expect((await rundown.next())?.item.externalId).toBe('a');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('leaves a just-handed-over item alone, because the player is still fetching it', async () => {
+        // The bug this exists for: Liquidsoap takes a pushed request OFF the queue to
+        // resolve it, so for the seconds it spends downloading a track the item is in
+        // neither `queued` nor `onAir`. Reading that as a lost push hands the same item
+        // over twice, and the listener hears the track twice.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b']);
+            await rundown.next();
+            expect(rundown.queuedCount()).toBe(1);
+
+            // The reading the player gives while it is fetching: holding nothing,
+            // producing nothing, naming nothing.
+            vi.advanceTimersByTime(2_000);
+            rundown.reconcile({ queued: 0, ready: false });
+
+            // Still handed over, NOT back in the queue to be pushed a second time.
+            expect(rundown.queuedCount()).toBe(1);
+            expect(rundown.upcoming().map(entry => entry.externalId)).toEqual(['a', 'b']);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('leaves the running order alone when the player holds what it was given', async () => {

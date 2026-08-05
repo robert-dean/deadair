@@ -172,17 +172,24 @@ describe('PlayoutPusher.reconcile', () => {
     it('refills after a Liquidsoap restart, with no app restart', async () => {
         // The reading comes back empty and names nothing; the next pass simply pushes
         // again. This is the case the reconcile design exists for.
-        const { pusher, rundown, pushed } = setup(['a', 'b'], { queued: 0, ready: false });
+        vi.useFakeTimers();
+        try {
+            const { pusher, rundown, pushed } = setup(['a', 'b'], { queued: 0, ready: false });
 
-        await pusher.reconcile();
-        expect(pushed).toHaveLength(1);
+            await pusher.reconcile();
+            expect(pushed).toHaveLength(1);
 
-        // Everything handed over is forgotten by the player, so it comes back to us.
-        rundown.reconcile({ queued: 0, ready: false });
-        await pusher.reconcile();
+            // Past the point where the player could still be fetching it: everything
+            // handed over is forgotten by the player, so it comes back to us.
+            vi.advanceTimersByTime(30_000);
+            rundown.reconcile({ queued: 0, ready: false });
+            await pusher.reconcile();
 
-        expect(pushed).toHaveLength(2);
-        expect(pushed[1]).toContain('https://example.test/a.ogg');
+            expect(pushed).toHaveLength(2);
+            expect(pushed[1]).toContain('https://example.test/a.ogg');
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('takes a reading before deciding what to hand over', async () => {

@@ -35,7 +35,7 @@ createRoot(rootElement).render(
                 <RouterProvider router={router} />
             </MantineProvider>
             {/* Compiles to a stub component unless NODE_ENV is "development", so it needs no guard. */}
-            <ReactQueryDevtools initialIsOpen={false} />
+            <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-left" />
         </QueryClientProvider>
     </StrictMode>,
 );

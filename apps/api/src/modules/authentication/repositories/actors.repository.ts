@@ -20,6 +20,20 @@ export class ActorsRepository extends DataRepository {
             .executeTakeFirstOrThrow();
     }
 
+    // Cheap existence probe for callers that hold an id from outside Postgres — a session in
+    // Redis, a JWT subject — and need to know the actor is still real before trusting it. `get`
+    // throws and selects every column; this answers the only question those callers have.
+    async existsActive(id: string): Promise<boolean> {
+        const row = await this.db
+            .selectFrom('deadair.actors')
+            .select(sql`1`.as('one'))
+            .where('id', '=', id)
+            .where('active', '=', true)
+            .limit(1)
+            .executeTakeFirst();
+        return row !== undefined;
+    }
+
     async update(id: string, active: boolean) {
         return await this.db.updateTable('deadair.actors').set({ active }).where('id', '=', id).returningAll().executeTakeFirstOrThrow();
     }

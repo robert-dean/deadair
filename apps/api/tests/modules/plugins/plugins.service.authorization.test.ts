@@ -28,15 +28,14 @@ const SPOTIFY_ID = 'deadair.spotify';
 const OTHER_ID = 'deadair.other';
 
 // Mirrors the `UserActor` shape `authorization.context.middleware.ts` builds
-// for `claims.actorType === 'user'`: `rolePermissions` is always empty on
-// that path, and `platformRoles` is a subset of `{'admin', 'listener'}` that
-// may be empty (a roleless authenticated user is a real, ordinary state).
+// for `claims.actorType === 'user'`: `platformRoles` is a subset of
+// `{'admin', 'listener'}` that may be empty (a roleless authenticated user is
+// a real, ordinary state).
 const userActor = (actorId: string, roles: ReadonlyArray<'admin' | 'listener'>): UserActor => ({
     kind: 'user',
     sessionToken: 'test-session',
     actorId,
     factors: [],
-    rolePermissions: new Set<string>(),
     platformRoles: new Set(roles),
 });
 

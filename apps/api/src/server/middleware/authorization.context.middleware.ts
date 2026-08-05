@@ -1,20 +1,13 @@
 import { ErrorCodes } from '@deadair/error-codes';
 import type { ScopedContainer } from 'injectkit';
-import { Kysely, sql } from 'kysely';
 import { ServerKitMiddleware } from '@maroonedsoftware/koa';
 import { httpError } from '@maroonedsoftware/errors';
-import { invalidAuthenticationSession } from '@maroonedsoftware/authentication';
+import { AuthenticationSessionService, invalidAuthenticationSession } from '@maroonedsoftware/authentication';
+import { ActorsRepository } from '#modules/authentication/repositories/actors.repository.js';
+import { clearRefreshCookie } from '#modules/authentication/refresh.cookie.js';
 import { AuthorizationContext, type Actor } from '#modules/permissions/authorization.context.js';
-import { DB } from '#modules/data/db.js';
-import { PermissionsService } from '#modules/permissions/permissions.service.js';
 import { DeadairPermissionsTupleRepository } from '#modules/permissions/permissions.repository.js';
-import {
-    PLATFORM_NAMESPACE,
-    PLATFORM_OBJECT_ID,
-    isPlatformRoleName,
-    rolesGrant,
-    type PlatformRoleName,
-} from '#modules/permissions/platform.roles.js';
+import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID, isPlatformRoleName, type PlatformRoleName } from '#modules/permissions/platform.roles.js';
 
 // `@maroonedsoftware/authentication` exposes a flat `AuthenticationContext`:
 // `{ actorId, actorType, claims, roles, factors, ... }`. We collapse it into
@@ -22,20 +15,13 @@ import {
 // logins; everything else (jobs, CLI, webhooks) goes through the
 // unauthenticated branch and is classified as system or vendor.
 
-const stringClaim = (claims: Record<string, unknown> | undefined, key: string): string | undefined => {
-    if (!claims) return undefined;
-    const v = claims[key];
-    return typeof v === 'string' ? v : undefined;
-};
-
 const isWebhookPath = (p: string) => p.startsWith('/webhooks/');
 
-const deriveRolePermissions = (canManage: boolean, canEdit: boolean, canView: boolean): ReadonlySet<string> => {
-    if (canManage) return new Set(['platform:view', 'platform:edit', 'platform:manage']);
-    if (canEdit) return new Set(['platform:view', 'platform:edit']);
-    if (canView) return new Set(['platform:view']);
-    return new Set();
-};
+// Routes whose whole job is to establish or tear down a session. A stale token presented to one of
+// them must not be fatal: the browser attaches whatever it still holds to every request, so failing
+// the actor check here would 401 the very login that replaces the dead session, and the operator
+// could never talk their way back in without clearing storage by hand.
+const isSessionBootstrapPath = (p: string) => p === '/auth/token' || p === '/auth/logout' || p.startsWith('/auth/login/');
 
 export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
     return async (ctx, next) => {
@@ -60,9 +46,28 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
                   }
                 : { kind: 'system', sessionToken, source: 'http' };
         } else if (auth.claims.actorType === 'user') {
-            const permissions = container.get(PermissionsService);
             const tupleRepo = container.get(DeadairPermissionsTupleRepository);
             const actorId = auth.subject;
+
+            // Sessions live in Redis, actors live in Postgres, and the two can diverge: a database
+            // rebuild drops every actor while the browser's httpOnly refresh cookie and its Redis
+            // session sail straight through it. The resulting token still verifies and still names
+            // a subject, so without this check the request continues as a user who no longer
+            // exists — one that holds no tuples, and therefore silently fails every permission
+            // gate with a 403 instead of the 401 that would send the client to the login screen.
+            // Revoke the session rather than merely rejecting it, so the dead token stops coming
+            // back, and clear the cookie directly: refreshCookieMiddleware runs inside this one, so
+            // the ResponseCookieJar it drains never gets the chance when we throw here.
+            if (!isSessionBootstrapPath(ctx.path) && (!actorId || !(await container.get(ActorsRepository).existsActive(actorId)))) {
+                await container
+                    .get(AuthenticationSessionService)
+                    .deleteSession(sessionToken, 'expiry')
+                    .catch(() => undefined);
+                clearRefreshCookie(ctx);
+                throw httpError(401)
+                    .withDetails({ code: ErrorCodes.SESSION_ACTOR_MISSING, message: 'the session refers to an actor that no longer exists' })
+                    .withInternalDetails({ message: `session ${sessionToken} names missing or inactive actor ${actorId ?? '(none)'}` });
+            }
 
             let platformRoles: ReadonlySet<PlatformRoleName> = new Set();
             if (actorId) {
@@ -79,7 +84,6 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
                 sessionToken,
                 actorId,
                 platformRoles,
-                rolePermissions: new Set(),
                 factors: auth.factors,
             };
         } else {

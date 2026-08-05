@@ -460,6 +460,7 @@ export class AuthenticationService {
         // dead token.
         const presentedByCookie = bodyToken === undefined;
         try {
+            await this.revokeIfSubjectIsGone(refreshToken);
             const token = await this.sessionService.refreshSession(refreshToken);
             return {
                 result: 'token',
@@ -481,6 +482,34 @@ export class AuthenticationService {
             }
             throw error;
         }
+    }
+
+    /**
+     * Refuses to refresh a session whose subject no longer exists in Postgres.
+     *
+     * Sessions live in Redis and actors live in Postgres, so the two can diverge — a database
+     * rebuild wipes the actors while the browser's refresh cookie and its Redis session survive
+     * intact. `refreshSession` consults only the cache, so left alone it happily mints a fresh
+     * access token for a deleted user; every downstream permission check then finds no tuples and
+     * answers 403, and the audit hook fails its foreign key on the way past. Revoke the session
+     * instead, and let the 401 route the client to a real login.
+     *
+     * The lookup is read-only (no jti consumption, no rotation), so a token this rejects is left
+     * exactly as `refreshSession` would have found it. Anything the lookup itself refuses is not
+     * this method's verdict to render: fall through and let the refresh grant judge it, so replay
+     * detection and family revocation stay in one place.
+     */
+    private async revokeIfSubjectIsGone(refreshToken: string): Promise<void> {
+        const lookup = await this.sessionService.lookupSessionFromJwt(refreshToken, true).catch(() => undefined);
+        if (!lookup) return;
+
+        const { session } = lookup;
+        if (await this.actorsRepository.existsActive(session.subject)) return;
+
+        await this.sessionService.deleteSession(session.sessionToken, 'expiry');
+        throw unauthorizedError('Bearer error="invalid_grant"').withInternalDetails({
+            message: `refresh rejected: session ${session.sessionToken} names missing or inactive actor ${session.subject}`,
+        });
     }
 
     private async handleFido(request: FidoAuthenticationRequest): Promise<AuthenticationTokenInternal> {

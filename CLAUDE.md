@@ -45,6 +45,15 @@ source of truth; check it before assuming a subsystem exists.
 kysely-codegen). `pnpm rebuild:data` rolls the schema all the way down and back up. Never hand-edit
 any of it. Migrations are dbmate SQL under `apps/api/data/migrations`, schema `deadair`.
 
+**Sessions outlive the database.** Sessions and refresh-token families live in Redis, actors live in
+Postgres, so a schema rebuild wipes one store and not the other and leaves browsers holding tokens
+that verify against a user who no longer exists. The root `rebuild:data` and `db:reset` scripts
+therefore end in `pnpm flush:sessions` (`redis-cli FLUSHALL`); a reset that skips it hands the
+operator a session with no actor. The API rejects that state rather than trusting it, in
+`authorization.context.middleware` for authenticated requests and in
+`AuthenticationService.revokeIfSubjectIsGone` for the refresh grant, both of which revoke the
+session and answer 401 instead of letting it through as a user who holds no permissions.
+
 **The JSON-safe plugin boundary is strict, and structured-clone-safe is not the same thing.** No `Date`, no `Uint8Array`, no class instances, no functions, no live host objects in any payload crossing `PluginHost`. Durations are integer milliseconds, dates are ISO-8601 strings, bytes would be base64. The rule exists because the deferred isolation target is a subprocess over IPC, not `worker_threads`, and structured clone is a `worker_threads` affordance. `packages/plugin-sdk/tests/plugin.boundary.conformance.test.ts` enforces this with a `structuredClone` round-trip. If it fails, the payload is wrong, not the test.
 
 **Plugins are trusted code.** They load through a plain dynamic `import()` into the host realm and can reach `process.env`, `fs`, and the pg pool. `host.fetch` protects an honest plugin from a hostile upstream and protects the operator from a careless plugin. It does not contain a hostile one. Do not write docs, UI copy, or comments claiming otherwise.

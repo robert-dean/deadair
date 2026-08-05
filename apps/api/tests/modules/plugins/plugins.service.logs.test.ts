@@ -31,7 +31,6 @@ const userActor = (actorId: string, roles: ReadonlyArray<'admin' | 'listener'> =
     sessionToken: 'test-session',
     actorId,
     factors: [],
-    rolePermissions: new Set<string>(),
     platformRoles: new Set(roles),
 });
 

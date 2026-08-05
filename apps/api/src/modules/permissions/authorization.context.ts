@@ -15,10 +15,6 @@ interface HumanActor {
 
 export interface UserActor extends HumanActor {
     kind: 'user';
-    // Platform permissions precomputed from Zanzibar tuple checks at middleware time.
-    // Cheap-path checks like 'platform:edit' read from this set; per-resource
-    // checks go through AccessControlService.require.
-    rolePermissions: ReadonlySet<string>;
     // Platform-wide staff roles held by this user (e.g. admin, listener).
     // Loaded once per request from tuples on `platform:main`. AccessControlService
     // consults this set when a normal tuple check would deny.
@@ -71,13 +67,6 @@ export class AuthorizationContext {
             return { actorId: this.actor.actorId, sessionToken: this.actor.sessionToken };
         }
         throw httpError(403).withDetails({ message: `human authentication required (got ${this.actor.kind})` });
-    }
-
-    // Cheap role-permission check (set lookup) for org-scoped UI/route gating.
-    // Returns false for non-user actors. Use AccessControlService.require for
-    // per-resource checks.
-    has(rolePermission: string): boolean {
-        return this.actor.kind === 'user' && this.actor.rolePermissions.has(rolePermission);
     }
 
     // Returns true if the actor is a user holding any of the listed platform

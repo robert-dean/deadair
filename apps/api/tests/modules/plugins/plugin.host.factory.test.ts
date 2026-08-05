@@ -390,6 +390,43 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
         expect(headerOf(callArgs(fetchMock, 1).init, 'authorization')).toBe('Bearer spotify-token');
     });
 
+    it('identifies the plugin to the upstream when the plugin did not', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        await host.fetch('https://api.example.com/x');
+
+        // Undici's default gets a 403 from MusicBrainz and others, and says
+        // nothing about which plugin to turn off when an upstream complains.
+        expect(headerOf(callArgs(fetchMock, 0).init, 'user-agent')).toBe('test.plugin/1.0.0 (deadair)');
+    });
+
+    it('leaves a User-Agent the plugin set alone, whatever case it typed', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        // The escape hatch for an upstream whose policy wants a contact address.
+        await host.fetch('https://api.example.com/x', { headers: { 'User-Agent': 'deadair-mb/0.1 ( ops@example.org )' } });
+
+        expect(headerOf(callArgs(fetchMock, 0).init, 'user-agent')).toBe('deadair-mb/0.1 ( ops@example.org )');
+    });
+
+    it('keeps identifying itself across a redirect, not only on the first hop', async () => {
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce(redirect(302, 'https://other.example.com/y'))
+            .mockResolvedValueOnce(new Response('final', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(allowlisted('api.example.com', 'other.example.com'));
+
+        await host.fetch('https://api.example.com/x');
+
+        // A cross-origin hop strips credentials; identity is not one.
+        expect(headerOf(callArgs(fetchMock, 1).init, 'user-agent')).toBe('test.plugin/1.0.0 (deadair)');
+    });
+
     it('preserves method and body across a 307', async () => {
         const fetchMock = vi
             .fn()

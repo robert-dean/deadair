@@ -197,6 +197,12 @@ HTML error page. `tryJsonBody(response)` returns `undefined` instead of
 throwing. Both are ordinary functions rather than methods on the response,
 because a method would make the payload itself unserializable.
 
+The host sets a `User-Agent` for you (`<your plugin id>/<version> (deadair)`)
+when you do not set one yourself, because a number of APIs refuse the default
+one Node sends. Set the header yourself when the upstream's policy asks for
+more than that: MusicBrainz wants a contact address, which usually means a
+`contact` config field the operator fills in. Yours always wins.
+
 An upstream that answers is not a failure: a 404 or a 500 comes back as an
 ordinary `HostFetchResponse` with `ok: false`, and what it means is yours to
 decide. `host.fetch` only *rejects* when there is no response to give you, and

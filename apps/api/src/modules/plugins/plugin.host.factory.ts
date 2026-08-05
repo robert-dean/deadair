@@ -186,6 +186,26 @@ const BODY_HEADERS = ['content-type', 'content-length', 'content-encoding', 'con
 const withoutHeaders = (headers: Record<string, string>, drop: readonly string[]): Record<string, string> =>
     Object.fromEntries(Object.entries(headers).filter(([key]) => !drop.includes(key.toLowerCase())));
 
+/**
+ * Says who is calling, when the plugin has not said so itself.
+ *
+ * Without this the request goes out under undici's default, which a fair number
+ * of APIs refuse outright: MusicBrainz requires a User-Agent that identifies
+ * the application, and answers a generic one with a 403. Naming the plugin
+ * rather than just the station also means an upstream complaining about traffic
+ * can say which plugin to turn off.
+ *
+ * `baseUrl` is deliberately not in here. Some upstreams want a contact URL, and
+ * a plugin whose policy requires one should set the whole header itself (a
+ * `contact` config field is the usual shape), because the station's own base
+ * URL is frequently an internal or loopback address and does not belong in a
+ * header sent to every third party.
+ */
+const withUserAgent = (headers: Record<string, string>, manifest: PluginManifest): Record<string, string> => {
+    if (Object.keys(headers).some(key => key.toLowerCase() === 'user-agent')) return headers;
+    return { ...headers, 'user-agent': `${manifest.id}/${manifest.version} (deadair)` };
+};
+
 /** `Retry-After` is either delta-seconds or an HTTP-date. Unparseable values mean "do not retry". */
 const parseRetryAfter = (value: string | undefined, nowMs: number): number | undefined => {
     if (value === undefined) return undefined;
@@ -660,7 +680,9 @@ export class PluginHostFactory {
         try {
             let current = target;
             let method: HostFetchMethod = init?.method ?? 'GET';
-            let headers: Record<string, string> = { ...init?.headers };
+            // Set once, outside the hop loop, so every hop in the chain is
+            // identified the same way rather than only the first.
+            let headers: Record<string, string> = withUserAgent({ ...init?.headers }, manifest);
             let body = init?.body;
 
             for (let hop = 0; ; hop++) {

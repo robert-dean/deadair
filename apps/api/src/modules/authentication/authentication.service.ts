@@ -34,7 +34,7 @@ import {
     StepUpStartResponseOutput,
 } from '#modules/authentication/types/authentication.types.js';
 import { Injectable } from 'injectkit';
-import { parseAndValidate } from '@maroonedsoftware/zod';
+import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 import { AuthenticationServiceOptions } from './authentication.options.js';
 import { ActorsRepository } from '#modules/authentication/repositories/actors.repository.js';
 import {
@@ -171,7 +171,7 @@ export class AuthenticationService {
 
         const factors = await this.actorsRepository.listFactors(actorId, true);
 
-        return await Promise.all(factors.map(factor => parseAndValidate(factor, AuthenticationFactor)));
+        return await parseAndValidateArray(factors, AuthenticationFactor);
     }
 
     async startFactorChallenge(request: FactorChallengeStartRequest): Promise<FactorChallengeStartResponse> {

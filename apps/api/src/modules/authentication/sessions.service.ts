@@ -1,9 +1,9 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { ErrorCodes } from '@deadair/error-codes';
-import { parseAndValidate } from '@maroonedsoftware/zod';
+import { parseAndValidateArray } from '@maroonedsoftware/zod';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
-import { SessionActivityService, ListedSession } from './session.activity.service.js';
+import { SessionActivityService } from './session.activity.service.js';
 import { Session } from '#modules/authentication/types/authentication.types.js';
 import { ResponseCookieJar } from './response.cookie.jar.js';
 
@@ -32,7 +32,7 @@ export class SessionsService {
 
     private async list(actorId: string, currentSessionToken?: string): Promise<{ data: Session[] }> {
         const sessions = await this.activity.listSessionsForActor(actorId, currentSessionToken);
-        return { data: await Promise.all(sessions.map(s => this.toContract(s))) };
+        return { data: await parseAndValidateArray(sessions, Session) };
     }
 
     /**
@@ -69,9 +69,5 @@ export class SessionsService {
     async revokeMyOtherSessions(): Promise<void> {
         const { actorId, sessionToken } = this.authz.requireAuthentication();
         await this.activity.revokeAllOtherSessions(actorId, sessionToken);
-    }
-
-    private async toContract(s: ListedSession): Promise<Session> {
-        return parseAndValidate(s, Session);
     }
 }

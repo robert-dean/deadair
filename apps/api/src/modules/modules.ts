@@ -7,6 +7,7 @@ import { PolicyModule } from './policy/policy.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { SettingsModule } from './settings/settings.module.js';
+import { StreamModule } from './stream/stream.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
@@ -26,6 +27,10 @@ export const modules: ServerKitModule[] = [
     CatalogModule,
     OnboardingModule,
     SettingsModule,
+    // After SettingsModule: it renders the Icecast/Liquidsoap config from the
+    // `stream.*` settings, and seeds the secrets those settings hold. Nothing
+    // else depends on it.
+    StreamModule,
     // Last: a plugin's host reaches into the chassis (data, crypto, logging),
     // so everything it depends on must already be registered.
     PluginsModule,

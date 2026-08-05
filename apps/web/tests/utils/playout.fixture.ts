@@ -23,6 +23,7 @@ export function playoutItem(overrides: Partial<PlayoutItem> = {}): PlayoutItem {
 export function playoutStatus(overrides: Partial<PlayoutStatus> = {}): PlayoutStatus {
     return {
         streamUp: true,
+        onAir: true,
         mountPath: '/live.mp3',
         nowPlaying: {
             item: playoutItem(),

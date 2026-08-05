@@ -83,6 +83,10 @@ export class PlayoutService {
             // an address: a pinned LIQUIDSOAP_CONTROL_URL resolves without being
             // probed, so asking the endpoint would report any configured stream as up.
             streamUp: this.control.isUp(),
+            // Whether any of it is being HEARD. The rundown can be full and the stream
+            // reachable while the mount airs silence, because holding it is a lease the
+            // app renews — so this is the one field that answers "are we broadcasting".
+            onAir: this.control.isOnAir(),
             ...(nowPlaying
                 ? {
                       nowPlaying: {

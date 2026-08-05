@@ -48,7 +48,7 @@ Every one of them answers with the same **reading** of the queue, so a mutation'
 already the state it produced:
 
 ```json
-{ "queued": 1, "ready": true, "onAir": "b3f1…", "remainingMs": 92500 }
+{ "queued": 1, "ready": true, "onAir": "b3f1…", "remainingMs": 92500, "driving": true }
 ```
 
 | Field | Meaning |
@@ -56,6 +56,7 @@ already the state it produced:
 | `queued` | requests waiting, excluding the one on air (pending **and** prefetch-resolved) |
 | `ready` | whether the queue can produce audio at all; `false` means the mount has fallen through to another bed |
 | `onAir` | rundown item id of the request playing, `""` when not producing |
+| `driving` | whether deadair's lease is unexpired, i.e. whether any of this is reaching the mount. Every other field describes the **queue**; this one describes the **station** |
 | `remainingMs` | how much of it is left; `-1` when nothing is on air or the decoder can't say (never `0` — `remaining()` uses `0` for "no item", which the app would otherwise read as a real measurement) |
 
 Only `queued` used to be reported, and the app paid for that: it had to deduce whether an item had

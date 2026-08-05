@@ -36,6 +36,8 @@ interface Options {
     /** Whether the stream took a skip, and whether it is reachable at all. */
     skipLands?: boolean;
     streamUp?: boolean;
+    /** Whether the last reading said deadair's lease was holding the mount. */
+    onAir?: boolean;
 }
 
 const item = { id: 'item-1', pluginId: 'deadair.spotify', externalId: 'trk_1', title: 'A Track', artists: ['An Artist'], durationMs: 200_000 };
@@ -55,7 +57,10 @@ function build(options: Options = {}) {
         skipCurrent: vi.fn(async () => options.skipLands ?? true),
     } as unknown as PlayoutPusher;
 
-    const control = { isUp: vi.fn(() => options.streamUp ?? true) } as unknown as PlayoutControlClient;
+    const control = {
+        isUp: vi.fn(() => options.streamUp ?? true),
+        isOnAir: vi.fn(() => options.onAir ?? true),
+    } as unknown as PlayoutControlClient;
 
     const playlists = {
         getPlaylistTracks: vi.fn(async () => {
@@ -162,6 +167,18 @@ describe('PlayoutService.getStatus', () => {
         const { service } = build({ streamUp: false });
 
         expect((await service.getStatus()).streamUp).toBe(false);
+    });
+
+    it('tells a reachable stream apart from a station that is actually broadcasting', async () => {
+        // The distinction the lease creates, and the one an operator most needs: the
+        // control API answers, the mount is up, and what is going out is silence
+        // because nothing is driving it. "Up" is not "on air".
+        const { service } = build({ streamUp: true, onAir: false });
+
+        const status = await service.getStatus();
+
+        expect(status.streamUp).toBe(true);
+        expect(status.onAir).toBe(false);
     });
 
     it('caps how much of the running order it carries', async () => {

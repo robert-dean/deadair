@@ -191,6 +191,43 @@ def control_denied() =
   http.response(status_code=401, content_type="text/plain", data="denied")
 end
 
+# ── The dead-man switch ──────────────────────────────────────────────────────────────────────
+# deadair is the station. Nothing else here is allowed to be: this script owns a local music
+# library and a bundled ident, and without a gate BOTH of them keep the mount playing after the
+# app has stopped driving — a crash, a deploy, a restart that lost the running order. That is
+# sound nobody chose, coming out of a station whose entire premise is that the app chooses.
+#
+# So control is a LEASE, not a state. The app renews it by calling /control/onair (defined below,
+# with the other handlers), and everything it does not renew expires on its own. A dead app cannot
+# hold the station by inertia, and there is no failure mode where "the app stopped talking to us"
+# is mistaken for "carry on".
+#
+# The state lives up here rather than beside its endpoints because `playout_reading` reports it
+# and Liquidsoap is sequential: a predicate defined after its use does not resolve.
+#
+# CONTROL_TTL_S has to comfortably exceed the app's reconcile interval (2s), or an ordinary slow
+# tick would take the station off air. Six seconds is three ticks.
+control_ttl = max(1., env_float("CONTROL_TTL_S", 6.))
+
+# Seconds of lease left, counted DOWN by a thread rather than compared against a wall clock. Same
+# construct the duck ramp uses, and it cannot be fooled by the container's clock being stepped.
+# Starts at zero: a Liquidsoap that comes up before the app is not being driven by anything yet,
+# and must not pretend otherwise.
+lease_left = ref(0.)
+lease_tick = 0.5
+
+# A named def, not an inline lambda: a `:=` assignment is a statement rather than an expression, so
+# as a bare lambda body it does not parse and the error lands far downstream (see the note on
+# playout_note_on_air above, which is the same trap).
+def lease_countdown() =
+  lease_left := max(0., lease_left() - lease_tick)
+end
+thread.run(every=lease_tick, lease_countdown)
+
+def driving() =
+  lease_left() > 0.
+end
+
 # One reading of the playout queue, as JSON object FIELDS (no braces, so `push` can prepend its
 # rid). Four numbers, each of which the app previously had to guess:
 #
@@ -204,6 +241,8 @@ end
 #   onAir        rundown item id of the request on air, "" when not producing.
 #   remainingMs  how much of it is left; -1 when there is nothing on air, or when the decoder
 #                cannot say (an endless stream). Never 0 — see below.
+#   driving      whether deadair's lease is unexpired, i.e. whether ANY of this is reaching the
+#                mount. The others describe the queue; this one describes the station.
 #
 # Reported unconditionally. There is one playout path — the app pushes an item, this queue fetches
 # and plays it — for every source, so this reading always describes the running order rather than
@@ -227,7 +266,12 @@ def playout_reading() =
   # The ref keeps the last id it saw, so suppress it when the queue is not producing: a stale id
   # reported as on air is exactly the class of bug this reading exists to remove.
   item = if ready then on_air_item() else "" end
-  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}'
+  # Whether any of the above is actually being HEARD. Everything else in this reading describes
+  # the queue, which goes on producing whether or not the gate above it is open — so without this
+  # field "the queue is playing" and "the station is on air" are indistinguishable from outside,
+  # and the console can only guess which one it is looking at.
+  driving_json = if driving() then "true" else "false" end
+  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}'
 end
 
 def control_status(req) =
@@ -279,39 +323,9 @@ def control_skip(req) =
   end
 end
 
-# ── The dead-man switch ──────────────────────────────────────────────────────────────────────
-# deadair is the station. Nothing else here is allowed to be: this script owns a local music
-# library and a bundled ident, and without a gate BOTH of them keep the mount playing after the
-# app has stopped driving — a crash, a deploy, a restart that lost the running order. That is
-# sound nobody chose, coming out of a station whose entire premise is that the app chooses.
+# The lease's two endpoints. The state they move, and the `driving()` predicate that reads it,
+# are defined further up — `playout_reading` reports it, and Liquidsoap is sequential.
 #
-# So control is a LEASE, not a state. The app renews it by calling /control/onair, and everything
-# it does not renew expires on its own. A dead app cannot hold the station by inertia, and there
-# is no failure mode where "the app stopped talking to us" is mistaken for "carry on".
-#
-# CONTROL_TTL_S has to comfortably exceed the app's reconcile interval (2s), or an ordinary slow
-# tick would take the station off air. Six seconds is three ticks.
-control_ttl = max(1., env_float("CONTROL_TTL_S", 6.))
-
-# Seconds of lease left, counted DOWN by a thread rather than compared against a wall clock. Same
-# construct the duck ramp uses, and it cannot be fooled by the container's clock being stepped.
-# Starts at zero: a Liquidsoap that comes up before the app is not being driven by anything yet,
-# and must not pretend otherwise.
-lease_left = ref(0.)
-lease_tick = 0.5
-
-# A named def, not an inline lambda: a `:=` assignment is a statement rather than an expression, so
-# as a bare lambda body it does not parse and the error lands far downstream (see the note on
-# playout_note_on_air above, which is the same trap).
-def lease_countdown() =
-  lease_left := max(0., lease_left() - lease_tick)
-end
-thread.run(every=lease_tick, lease_countdown)
-
-def driving() =
-  lease_left() > 0.
-end
-
 # Renew, and answer with the reading like every other control call — so the app's own heartbeat
 # doubles as the poll it was already making, and the lease costs no extra request.
 def control_onair(req) =

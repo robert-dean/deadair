@@ -112,7 +112,7 @@ describe('TransportBar', () => {
         expect(screen.getByText('Xtal')).toBeInTheDocument();
         // The API caps what it sends; the shortfall is stated rather than hidden.
         expect(screen.getByText('+10 more in the running order')).toBeInTheDocument();
-        expect(screen.getByText('Stream up')).toBeInTheDocument();
+        expect(screen.getByText('on air')).toBeInTheDocument();
         expect(screen.getByText('/live.mp3')).toBeInTheDocument();
     });
 

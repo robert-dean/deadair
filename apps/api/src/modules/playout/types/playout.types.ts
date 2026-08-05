@@ -26,7 +26,7 @@ export type PlayoutItem = z.infer<typeof PlayoutItem>;
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L35)
+ * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L36)
  */
 export const PlayoutAiredQuery = z.strictObject({
     item: z.string().min(1).max(100).describe("The id the app put on the pushed uri's `annotate:` metadata"),
@@ -35,7 +35,7 @@ export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
  * The shared secret gating the internal playout bridge, in both directions
- * generated from [PlayoutBridgeHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L39)
+ * generated from [PlayoutBridgeHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L40)
  */
 export const PlayoutBridgeHeaders = z.strictObject({
     'x-playout-secret': z.string().min(1).max(200).describe('The shared secret gating the internal playout bridge, in both directions'),
@@ -44,7 +44,7 @@ export type PlayoutBridgeHeaders = z.infer<typeof PlayoutBridgeHeaders>;
 
 /**
  * The shared secret gating the track shim's login route
- * generated from [SpotifyLoginHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L43)
+ * generated from [SpotifyLoginHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L44)
  */
 export const SpotifyLoginHeaders = z.strictObject({
     'x-spotify-login-secret': z.string().min(1).max(200).describe("The shared secret gating the track shim's login route"),
@@ -53,7 +53,7 @@ export type SpotifyLoginHeaders = z.infer<typeof SpotifyLoginHeaders>;
 
 /**
  * A login for the track shim to open its own Spotify session with. Machine-to-machine: this never reaches a browser
- * generated from [SpotifySessionLogin](file://./../../../../data/contracts/playout/playout.types.ck#L47)
+ * generated from [SpotifySessionLogin](file://./../../../../data/contracts/playout/playout.types.ck#L48)
  */
 export const SpotifySessionLogin = z.strictObject({
     username: z.string().min(1).max(200).describe("The connected account's Spotify id, which is what librespot logs in with"),
@@ -83,6 +83,11 @@ export const PlayoutStatus = z.strictObject({
     streamUp: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .describe("Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds"),
+    onAir: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'Whether the station is actually broadcasting. deadair holds the mount on a lease it renews only while it has a programme, so a reachable stream with nothing to play is up and NOT on air: it is connected, and airing silence',
+        ),
     mountPath: z
         .string()
         .min(1)

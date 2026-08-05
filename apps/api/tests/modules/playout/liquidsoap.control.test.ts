@@ -48,6 +48,17 @@ describe('parseReading', () => {
         expect(parseReading({ queued: 0, ready: true, onAir: 'x', remainingMs: 0 }).remainingMs).toBeUndefined();
     });
 
+    it('reads whether the station is actually on air', () => {
+        expect(parseReading({ queued: 0, ready: true, driving: true }).driving).toBe(true);
+        expect(parseReading({ queued: 0, ready: true, driving: false }).driving).toBe(false);
+    });
+
+    it('leaves `driving` unreported by a script too old to have a gate', () => {
+        // Absent is not false: an older radio.liq has no lease at all, and the two
+        // states need telling apart by whatever decides what to claim.
+        expect(parseReading({ queued: 0, ready: true }).driving).toBeUndefined();
+    });
+
     it('ignores a malformed field instead of failing the whole reading', () => {
         const reading = parseReading({ queued: 2, ready: 'yes', onAir: 42, remainingMs: 'soon' });
 
@@ -166,6 +177,41 @@ describe('PlayoutControlClient mutations', () => {
         const client = clientWith(async () => new Response(JSON.stringify({ queued: 0, ready: false, onAir: '' }), { status: 200 }));
         try {
             expect(await client.flush()).toEqual({ queued: 0, ready: false });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('remembers whether the station is on air, and forgets it when the stream goes', async () => {
+        // isOnAir has to be answerable without a round trip, because getStatus is
+        // polled — and it must not go stale into a claim that the station is
+        // broadcasting when nothing has answered since.
+        let driving = true;
+        const client = clientWith(async () => {
+            if (!driving) throw new Error('gone');
+            return new Response(JSON.stringify({ queued: 0, ready: true, driving: true }), { status: 200 });
+        });
+        try {
+            expect(client.isOnAir()).toBe(false);
+
+            await client.status();
+            expect(client.isOnAir()).toBe(true);
+
+            driving = false;
+            await client.status();
+            expect(client.isOnAir()).toBe(false);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not claim to be on air against a script that cannot say', async () => {
+        // An older radio.liq reports no `driving` at all. Silence on the question is
+        // not a yes: a console that cannot confirm must not claim.
+        const client = clientWith(async () => new Response(JSON.stringify({ queued: 1, ready: true }), { status: 200 }));
+        try {
+            await client.status();
+            expect(client.isOnAir()).toBe(false);
         } finally {
             vi.unstubAllGlobals();
         }

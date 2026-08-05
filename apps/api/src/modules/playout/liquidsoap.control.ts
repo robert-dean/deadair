@@ -59,12 +59,24 @@ export interface QueueStatus {
      * encoder and client buffers.
      */
     remainingMs?: number;
+    /**
+     * Whether deadair's lease is unexpired, so the programme is actually reaching
+     * the mount.
+     *
+     * Every other field describes the QUEUE, which keeps playing whether or not
+     * the gate above it is open. This one describes the STATION. Absent means an
+     * older `radio.liq` that has no gate at all, which is not the same as false —
+     * see {@link PlayoutControlClient.isOnAir}.
+     */
+    driving?: boolean;
 }
 
 @Injectable()
 export class PlayoutControlClient {
     /** Whether the last call to the stream actually got an answer. See {@link isUp}. */
     private up = false;
+    /** Whether the last reading said the station was on air. See {@link isOnAir}. */
+    private onAir = false;
 
     constructor(
         private readonly endpoint: LiquidsoapEndpoint,
@@ -87,9 +99,26 @@ export class PlayoutControlClient {
         return this.up;
     }
 
+    /**
+     * Whether the station was actually broadcasting deadair's programme as of the
+     * last reading.
+     *
+     * Different from {@link isUp} in the way that matters most: a reachable stream
+     * with an expired lease is up and NOT on air, playing silence to whoever is
+     * connected. It is also different from having something queued, because the
+     * lease is what turns a running order into audio.
+     *
+     * False before the first reading, and false against a `radio.liq` too old to
+     * report it. Both are the safe answer: a console that cannot confirm the
+     * station is on air should not claim it is.
+     */
+    isOnAir(): boolean {
+        return this.onAir;
+    }
+
     /** One reading of the queue, or `undefined` when the stream is not reachable. */
     async status(): Promise<QueueStatus | undefined> {
-        return parseReading(await this.call('GET', '/control/status'));
+        return this.read(await this.call('GET', '/control/status'));
     }
 
     /**
@@ -105,7 +134,7 @@ export class PlayoutControlClient {
      * would not have: a crashed app leaves a flag set.
      */
     async assertOnAir(): Promise<QueueStatus | undefined> {
-        return parseReading(await this.call('POST', '/control/onair'));
+        return this.read(await this.call('POST', '/control/onair'));
     }
 
     /**
@@ -117,7 +146,7 @@ export class PlayoutControlClient {
      * lag that makes a console feel like it is not really in charge.
      */
     async releaseOnAir(): Promise<QueueStatus | undefined> {
-        return parseReading(await this.call('POST', '/control/offair'));
+        return this.read(await this.call('POST', '/control/offair'));
     }
 
     /** Push one `annotate:` uri onto the queue. False when it did not land. */
@@ -136,7 +165,7 @@ export class PlayoutControlClient {
      * state it produced and the caller does not have to go and ask.
      */
     async flush(): Promise<QueueStatus | undefined> {
-        return parseReading(await this.call('POST', '/control/flush'));
+        return this.read(await this.call('POST', '/control/flush'));
     }
 
     /**
@@ -151,7 +180,21 @@ export class PlayoutControlClient {
      * {@link PlayoutPusher.skipCurrent}'s job.
      */
     async skip(): Promise<QueueStatus | undefined> {
-        return parseReading(await this.call('POST', '/control/skip'));
+        return this.read(await this.call('POST', '/control/skip'));
+    }
+
+    /**
+     * Parse one reading and remember what it said about the station.
+     *
+     * Every reading-returning call funnels through here, so {@link isOnAir} is as
+     * fresh as the last thing the app did — and a call that failed leaves it
+     * false rather than stale, because a stream we cannot reach is not a stream
+     * we can claim to be broadcasting on.
+     */
+    private read(body: unknown): QueueStatus | undefined {
+        const reading = parseReading(body);
+        this.onAir = reading?.driving ?? false;
+        return reading;
     }
 
     /** One control call. Resolves to the parsed JSON body, or `undefined` on any failure. */
@@ -217,6 +260,7 @@ export function parseReading(body: unknown): QueueStatus | undefined {
 
     const status: QueueStatus = { queued };
     if (typeof raw.ready === 'boolean') status.ready = raw.ready;
+    if (typeof raw.driving === 'boolean') status.driving = raw.driving;
     // "" is radio.liq's "nothing on air", not an id.
     if (typeof raw.onAir === 'string' && raw.onAir !== '') status.onAir = raw.onAir;
     // radio.liq sends -1 for "cannot say". A 0 would mean an item with no time left,

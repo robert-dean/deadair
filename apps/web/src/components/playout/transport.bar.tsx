@@ -1,8 +1,9 @@
-import { ActionIcon, Badge, Button, Divider, Group, Paper, Progress, Stack, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Button, Divider, Group, Paper, Progress, Stack, Text, Tooltip } from '@mantine/core';
 import type { PlayoutStatus } from '@deadair/sdk';
 
 import { useSkipCurrent, useStopPlayout } from '../../api/playout.queries';
 import { formatDuration } from '../shared/format.duration';
+import { OnAirBadge } from './on.air.badge';
 import { usePlayhead } from './playhead';
 import { TransportQueue } from './transport.queue';
 
@@ -155,9 +156,7 @@ export function TransportBar({ status, expanded, onToggleExpanded }: TransportBa
                         <Stack gap="xs" style={{ minHeight: 0, flex: 1 }}>
                             <TransportQueue upNext={upNext} queuedCount={queuedCount} />
                             <Group gap="xs" mt="auto">
-                                <Badge size="sm" variant="light" color={streamUp ? 'teal' : 'red'}>
-                                    {streamUp ? 'Stream up' : 'Stream unreachable'}
-                                </Badge>
+                                <OnAirBadge status={status} />
                                 <Text size="xs" c="dimmed" ff="monospace">
                                     {mountPath}
                                 </Text>

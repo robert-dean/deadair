@@ -22,6 +22,36 @@ Object.defineProperty(window, 'matchMedia', {
     })),
 });
 
+// `window.localStorage` is undefined here, not merely empty: Node's own experimental
+// localStorage global takes the name and then refuses to work without
+// --localstorage-file, so jsdom's implementation never reaches the window. Anything
+// that remembers a preference (the transport's open state, the monitor's level) would
+// otherwise be untestable, and Mantine's useLocalStorage would warn on every render.
+class MemoryStorage implements Storage {
+    private entries = new Map<string, string>();
+
+    get length(): number {
+        return this.entries.size;
+    }
+    key(index: number): string | null {
+        return [...this.entries.keys()][index] ?? null;
+    }
+    getItem(key: string): string | null {
+        return this.entries.get(key) ?? null;
+    }
+    setItem(key: string, value: string): void {
+        this.entries.set(key, String(value));
+    }
+    removeItem(key: string): void {
+        this.entries.delete(key);
+    }
+    clear(): void {
+        this.entries.clear();
+    }
+}
+
+Object.defineProperty(window, 'localStorage', { writable: true, value: new MemoryStorage() });
+
 class ResizeObserverStub {
     observe() {}
     unobserve() {}

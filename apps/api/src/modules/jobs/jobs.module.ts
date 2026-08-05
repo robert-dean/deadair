@@ -59,13 +59,7 @@ export const JobsModule: ServerKitModule = {
         //    non-transactional instance.
         registry.register(PgBossJobBroker).useClass(PgBossJobBroker).asSingleton();
         registry.register(JobBroker).useClass(PgBossJobBroker).asScoped();
-        registry
-            .register(JobRunner)
-            .useFactory(container => {
-                const runner = new PgBossJobRunner(container, container.get(PgBossJobRegistryMap), container.get(PgBoss), container.get(Logger));
-                return runner;
-            })
-            .asSingleton();
+        registry.register(JobRunner).useClass(PgBossJobRunner).asSingleton();
     },
     // `ready`, not `start`. Nothing the first request does depends on a worker
     // being up, so consuming belongs after the socket is bound. It also buys

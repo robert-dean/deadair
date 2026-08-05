@@ -85,42 +85,6 @@ describe('PluginRegistry', () => {
         });
     });
 
-    describe('byCapability', () => {
-        it('returns only active records of the given kind that declare the capability', () => {
-            const registry = new PluginRegistry();
-            const activeWithCapability = record({
-                id: 'a',
-                status: 'active',
-                manifest: manifest({ id: 'a', kind: 'music-provider', capabilities: ['catalog', 'playout'] }),
-            });
-            const activeWithoutCapability = record({
-                id: 'b',
-                status: 'active',
-                manifest: manifest({ id: 'b', kind: 'music-provider', capabilities: ['catalog'] }),
-            });
-            const discoveredWithCapability = record({
-                id: 'c',
-                status: 'discovered',
-                manifest: manifest({ id: 'c', kind: 'music-provider', capabilities: ['playout'] }),
-            });
-            const wrongKind = record({
-                id: 'd',
-                status: 'active',
-                manifest: manifest({ id: 'd', kind: 'enrichment', capabilities: ['playout'] }),
-            });
-            registry.setAll([activeWithCapability, activeWithoutCapability, discoveredWithCapability, wrongKind]);
-
-            expect(registry.byCapability('music-provider', 'playout')).toEqual([activeWithCapability]);
-        });
-
-        it('returns an empty array when nothing matches', () => {
-            const registry = new PluginRegistry();
-            registry.upsert(record({ id: 'a', status: 'active', manifest: manifest({ id: 'a', capabilities: ['catalog'] }) }));
-
-            expect(registry.byCapability('music-provider', 'oauth')).toEqual([]);
-        });
-    });
-
     describe('setStatus', () => {
         it('moves a record from discovered to active to failed, observable in list()', () => {
             const registry = new PluginRegistry();

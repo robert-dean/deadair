@@ -17,17 +17,6 @@
  */
 
 /**
- * Marker used for recognition instead of `instanceof`.
- *
- * `tsup` externalizes `dependencies`, so a workspace plugin resolves to the
- * same copy of this module the host loaded and `instanceof` would in fact work
- * today. A plugin installed from outside the workspace can carry its own copy,
- * and then `instanceof` quietly answers `false` for an error that is a
- * `PluginError` in every way that matters. A branded property survives that.
- */
-const PLUGIN_ERROR_BRAND = 'deadair.plugin-error/v1';
-
-/**
  * Why a plugin call failed, in terms the host can act on.
  *
  * These are semantic, not HTTP: an upstream's status code is a diagnostic
@@ -124,18 +113,24 @@ const RETRYABLE_BY_CODE: Record<PluginErrorCode, boolean> = {
     internal: true,
 };
 
-export interface PluginErrorOptions {
-    /** Overrides the default for this code. See {@link RETRYABLE_BY_CODE}. */
-    retryable?: boolean;
-    /** How long to wait before retrying, when the upstream said so (`Retry-After`). */
-    retryAfterMs?: number;
-    /**
-     * The upstream's HTTP status, for logs and for plugin-internal branching.
-     * Diagnostic only: the host never forwards it as its own response status.
-     */
-    upstreamStatus?: number;
-    cause?: unknown;
-}
+/**
+ * Marker that survives a plugin carrying its own copy of this module.
+ *
+ * `Symbol.for` reads from the global symbol registry, which is shared by every
+ * realm in the agent, so a second copy of this file computes the *identical*
+ * symbol rather than a private one. That is the whole trick: `instanceof`
+ * compares class identity and a second copy has its own class, while this
+ * compares a value two copies independently agree on.
+ *
+ * A symbol rather than a string property because it then stays out of
+ * `JSON.stringify`, `Object.keys` and log output, and because a plain object
+ * decoded off the wire cannot carry one by accident the way a well-guessed
+ * string field could.
+ *
+ * Only {@link toPluginError} reads it. See the note on {@link isPluginError}
+ * for why recognition and adoption are deliberately different questions.
+ */
+const PLUGIN_ERROR_BRAND = Symbol.for('deadair.plugin-error/v1');
 
 /**
  * A failure a plugin can describe well enough for the host to answer properly.
@@ -144,64 +139,136 @@ export interface PluginErrorOptions {
  * `internal` and behaves exactly as it did before this class existed. Reach
  * for `PluginError` when the caller can do something different with the answer:
  * reauthorize, wait, fix a setting, or give up.
+ *
+ * The classification is applied with the `with*` builders rather than through
+ * the constructor, so a subclass only has to forward `(message, options)` to
+ * `super` and can then say what it means on its own terms:
+ *
+ * ```ts
+ * throw new PluginError('slow down').withCode('rate_limited').withUpstreamStatus(429).withRetry(30_000);
+ * ```
+ *
+ * Call {@link withCode} first: it resets `retryable` to the default for the
+ * code, so a later `withCode` would undo an earlier {@link withRetry}.
  */
 export class PluginError extends Error {
-    /** @internal Recognition marker. Use {@link isPluginError}, not this field. */
-    readonly deadairPluginError: string = PLUGIN_ERROR_BRAND;
+    /** @internal Recognition marker for a foreign copy. See {@link PLUGIN_ERROR_BRAND}. */
+    readonly [PLUGIN_ERROR_BRAND] = true;
 
-    readonly code: PluginErrorCode;
-    readonly retryable: boolean;
-    readonly retryAfterMs?: number;
-    readonly upstreamStatus?: number;
+    /** What went wrong, in host vocabulary. Defaults to `internal`; set it with {@link withCode}. */
+    code: PluginErrorCode = 'internal';
+    /** Whether repeating the call could plausibly succeed. See {@link RETRYABLE_BY_CODE}. */
+    retryable: boolean = RETRYABLE_BY_CODE.internal;
+    /** How long to wait before retrying, when the upstream said so (`Retry-After`). */
+    retryAfterMs?: number;
+    /**
+     * The upstream's HTTP status, for logs and for plugin-internal branching.
+     * Diagnostic only: the host never forwards it as its own response status.
+     */
+    upstreamStatus?: number;
 
-    constructor(code: PluginErrorCode, message: string, options: PluginErrorOptions = {}) {
-        super(message, { cause: options.cause });
+    constructor(message: string, options?: { cause?: unknown }) {
+        super(message, options);
+
+        // Restore the prototype to the actual class used with `new` (workaround
+        // for the historic Error-subclass instanceof bug in transpilers / older
+        // V8). Using `new.target.prototype` means subclasses get correct `instanceof`
+        // behaviour without each one having to replicate this line.
+        Object.setPrototypeOf(this, new.target.prototype);
         this.name = 'PluginError';
+    }
+
+    /** Classifies the failure, and resets `retryable` to the default for that code. */
+    withCode(code: PluginErrorCode) {
         this.code = code;
-        this.retryable = options.retryable ?? RETRYABLE_BY_CODE[code];
-        this.retryAfterMs = options.retryAfterMs;
-        this.upstreamStatus = options.upstreamStatus;
+        this.retryable = RETRYABLE_BY_CODE[code];
+        return this;
+    }
+
+    /**
+     * Attaches the upstream's retry advice. Saying "wait this long and try
+     * again" is itself a statement that a retry is worth making, so this marks
+     * the failure retryable regardless of what the code defaults to.
+     */
+    withRetry(retryAfterMs: number) {
+        this.retryable = true;
+        this.retryAfterMs = retryAfterMs;
+        return this;
+    }
+
+    withUpstreamStatus(upstreamStatus: number) {
+        this.upstreamStatus = upstreamStatus;
+        return this;
     }
 }
 
 /**
- * Whether `value` carries the {@link PluginError} contract.
+ * Whether `value` is one of ours: an error this copy of the module built.
  *
- * Structural rather than `instanceof` for the reason on
- * {@link PLUGIN_ERROR_BRAND}, and it does not require `instanceof Error`
- * either: a plugin bundled with its own realm can produce something that is
- * not this realm's `Error` and is still the thing we mean.
+ * Deliberately `instanceof`, and deliberately NOT the same question
+ * {@link toPluginError} answers. Almost every caller asking this is host code
+ * downstream of the invoker, where the error has already been adopted and the
+ * honest question is "did we make this", to which `instanceof` is the exact,
+ * unforgeable answer. It also keeps subclasses (`SpotifyRequestError`) working
+ * for the plugin's own branching, via the constructor's `new.target` fix-up.
+ *
+ * Tolerating a foreign copy is the boundary's job, and the boundary is one
+ * function wide. Making this guard structural instead would spread that
+ * laxness across every call site that only ever sees host-built errors.
  */
-export function isPluginError(value: unknown): value is PluginError {
+export const isPluginError = (error: unknown): error is PluginError => {
+    return error instanceof PluginError;
+};
+
+/**
+ * Whether `value` is a `PluginError` from a *different* copy of this module.
+ *
+ * See {@link PLUGIN_ERROR_BRAND}. The brand proves the shape, not that the
+ * other copy agreed with this one about which codes exist, so
+ * {@link toPluginError} still validates every field it reads.
+ */
+function isForeignPluginError(value: unknown): value is Partial<PluginError> {
     if (typeof value !== 'object' || value === null) return false;
-    const candidate = value as Partial<PluginError>;
-    return candidate.deadairPluginError === PLUGIN_ERROR_BRAND && typeof candidate.message === 'string';
+    return (value as Partial<PluginError>)[PLUGIN_ERROR_BRAND] === true;
 }
 
 /**
- * Whatever a plugin threw, as a {@link PluginError}.
+ * Whatever a plugin threw, as a {@link PluginError} this copy owns.
  *
- * The `isPluginError` branch re-reads `code` and `retryable` rather than
- * trusting them: the guard proves the brand, not that a third-party copy of
- * this class agreed with ours about which codes exist. An unrecognized code
- * degrades to `fallback` instead of leaking a made-up string into the API's
- * error mapping.
+ * This is the boundary function, and the only place tolerant recognition
+ * belongs: the host funnels every call into plugin code through one door
+ * (`PluginInvoker.invoke`), so a foreign error is adopted exactly once and
+ * everything downstream deals only with errors the host itself constructed.
+ *
+ * Three cases, in order of how much is trusted:
+ *
+ * 1. Ours: passed straight through, keeping its identity so a `catch` further
+ *    up can still recognize the specific subclass that was thrown.
+ * 2. Branded but from another copy: rebuilt here, field by field, with the
+ *    code checked against {@link PLUGIN_ERROR_CODES}. An unrecognized code
+ *    degrades to `fallback` rather than leaking a made-up string into the
+ *    host's HTTP mapping, and a non-numeric `retryAfterMs` is dropped rather
+ *    than turned into a `Retry-After` header of `NaN`.
+ * 3. Anything else: adopted under `fallback`, original kept as the `cause`.
+ *
+ * The rebuild in case 2 is the same operation that will be needed when plugins
+ * move out of process and a failure arrives as JSON rather than as a live
+ * object: what changes then is how it is transported, not what it says.
  */
 export function toPluginError(error: unknown, fallback: PluginErrorCode = 'internal'): PluginError {
-    if (isPluginError(error)) {
-        const known = (PLUGIN_ERROR_CODES as readonly string[]).includes(error.code);
-        const code = known ? error.code : fallback;
-        // Already ours and already valid: keep the identity so a `catch` further
-        // up can still recognize the specific subclass that was thrown.
-        if (known && typeof error.retryable === 'boolean' && error instanceof PluginError) return error;
-        return new PluginError(code, error.message, {
-            retryable: typeof error.retryable === 'boolean' ? error.retryable : undefined,
-            retryAfterMs: error.retryAfterMs,
-            upstreamStatus: error.upstreamStatus,
-            cause: error,
-        });
+    if (isPluginError(error)) return error;
+
+    if (isForeignPluginError(error)) {
+        const known = typeof error.code === 'string' && (PLUGIN_ERROR_CODES as readonly string[]).includes(error.code);
+        const message = typeof error.message === 'string' ? error.message : String(error);
+        const adopted = new PluginError(message, { cause: error }).withCode(known ? (error.code as PluginErrorCode) : fallback);
+
+        if (typeof error.retryAfterMs === 'number' && Number.isFinite(error.retryAfterMs)) adopted.withRetry(error.retryAfterMs);
+        if (typeof error.upstreamStatus === 'number' && Number.isFinite(error.upstreamStatus)) adopted.withUpstreamStatus(error.upstreamStatus);
+
+        return adopted;
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    return new PluginError(fallback, message, { cause: error });
+    return new PluginError(message, { cause: error }).withCode(fallback);
 }

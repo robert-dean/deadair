@@ -5,6 +5,9 @@ import {
     PluginConfigInput,
     PluginDetail,
     PluginListQuery,
+    PluginLogLevelInput,
+    PluginLogPage,
+    PluginLogQuery,
     PluginOAuthCallbackQuery,
     PluginOAuthResult,
     PluginOAuthStart,
@@ -129,8 +132,28 @@ PluginsRouter.post('/plugins/:id/disable', requirePolicy({ policy: false }), asy
 });
 
 /**
- * Runs the plugin's own `testConnection()` through the invoker
+ * Reapplies the plugin's stored configuration: disposes the running instance and initializes it again
  * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L121)
+ */
+PluginsRouter.post('/plugins/:id/reload', requirePolicy({ policy: false }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(200),
+        }),
+    );
+
+    const service = ctx.container.get(PluginsService);
+    const result: PluginDetail = await service.reloadPlugin(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Runs the plugin's own `testConnection()` through the invoker
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L139)
  */
 PluginsRouter.post('/plugins/:id/test', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -149,8 +172,73 @@ PluginsRouter.post('/plugins/:id/test', requirePolicy({ policy: false }), async 
 });
 
 /**
+ * Returns the plugin's buffered log lines at or above the current log level
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L157)
+ */
+PluginsRouter.get('/plugins/:id/logs', requirePolicy({ policy: false }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(200),
+        }),
+    );
+
+    const query = await parseAndValidate(ctx.query, PluginLogQuery.strict());
+
+    const service = ctx.container.get(PluginsService);
+    const result: PluginLogPage = await service.getPluginLogs(id, query);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Streams the plugin's full retained log as a plain-text attachment
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L176)
+ */
+PluginsRouter.get('/plugins/:id/logs/download', requirePolicy({ policy: false }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(200),
+        }),
+    );
+
+    const service = ctx.container.get(PluginsService);
+    const result: { body: string; headers: { contentDisposition?: string } } = await service.downloadPluginLogs(id);
+
+    ctx.status = 200;
+    if (result.headers['contentDisposition'] !== undefined) ctx.set('Content-Disposition', String(result.headers['contentDisposition']));
+    ctx.type = 'text/plain';
+    ctx.body = result.body;
+});
+
+/**
+ * Sets the minimum severity the plugin's log store retains going forward
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L197)
+ */
+PluginsRouter.put('/plugins/:id/logs/level', requirePolicy({ policy: false }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(200),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, PluginLogLevelInput);
+
+    const service = ctx.container.get(PluginsService);
+    const result: PluginDetail = await service.setPluginLogLevel(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Reports where to send the operator for the provider's consent screen
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L139)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L218)
  */
 PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -170,7 +258,7 @@ PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: false 
 
 /**
  * Forgets the plugin's stored OAuth tokens and reinitializes it
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L160)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L239)
  */
 PluginsRouter.delete('/plugins/:id/oauth', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -190,7 +278,7 @@ PluginsRouter.delete('/plugins/:id/oauth', requirePolicy({ policy: false }), asy
 
 /**
  * Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L178)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L257)
  * anonymous access, no security required
  */
 PluginsRouter.get('/plugins/:id/oauth/callback', async ctx => {

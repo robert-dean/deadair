@@ -5,6 +5,7 @@ import { Link } from '@tanstack/react-router';
 import { pluginDetailOptions, useSetPluginEnabled, useTestPlugin } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { PluginConfigForm } from './plugin.config.form';
+import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
 import { hasConfigForm, hasOAuth, PluginStatusLamp, statusOf } from './plugin.status';
 
@@ -157,6 +158,8 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
             </Card>
 
             {hasOAuth(detail) ? <PluginOAuthCard plugin={detail} /> : undefined}
+
+            <PluginLogsCard plugin={detail} />
         </Stack>
     );
 }

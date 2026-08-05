@@ -2,22 +2,28 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Injectable } from 'injectkit';
-import { Logger } from '@maroonedsoftware/logger';
 import type { DeadairPlugin, PluginFactory, PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 import { PluginConfigRepository, type PluginConfigRecord } from './plugin.config.repository.js';
 import { PluginConfigService } from './plugin.config.service.js';
-import { PluginEchoTracker } from './plugin.echo.tracker.js';
 import { PLUGIN_OAUTH_SECRET_KEY, PluginHostFactory } from './plugin.host.factory.js';
 import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLoader } from './plugin.loader.js';
+import { PluginLog } from './plugin.log.js';
 import { PluginRegistry, firstWinsById } from './plugin.registry.js';
 import type { PluginRecord, PluginStatus } from './types/plugin.record.js';
+import { PluginLogLevel } from './types/plugins.types.js';
 
 const errorText = (error: unknown): string => {
     if (!(error instanceof Error)) return String(error);
     const details = (error as { details?: Record<string, unknown> }).details;
     const detail = details?.message;
     return typeof detail === 'string' && detail.length > 0 ? detail : error.message;
+};
+
+/** Narrows a stored `log_level` column (free text) to a legal level, or `undefined` for anything else. */
+const toPluginLogLevel = (value: string | undefined): PluginLogLevel | undefined => {
+    const parsed = PluginLogLevel.safeParse(value);
+    return parsed.success ? parsed.data : undefined;
 };
 
 /**
@@ -46,8 +52,7 @@ export class PluginLifecycleManager {
         private readonly pluginInvoker: PluginInvoker,
         private readonly pluginConfigService: PluginConfigService,
         private readonly pluginConfigRepository: PluginConfigRepository,
-        private readonly pluginEchoTracker: PluginEchoTracker,
-        private readonly logger: Logger,
+        private readonly pluginLog: PluginLog,
     ) {}
 
     /**
@@ -62,16 +67,16 @@ export class PluginLifecycleManager {
         } catch (error) {
             // The loader is written not to throw, so this is belt and braces:
             // discovery failing wholesale must still leave a bootable server.
-            this.logger.error('plugin discovery failed', { error: errorText(error) });
+            this.pluginLog.error('plugin discovery failed', { error: errorText(error) });
         }
 
         this.pluginRegistry.setAll(records);
         await this.applyStoredState();
 
         const failed = records.filter(record => record.status === 'failed');
-        this.logger.info('plugin discovery complete', { discovered: records.length, quarantined: failed.length });
+        this.pluginLog.info('plugin discovery complete', { discovered: records.length, quarantined: failed.length });
         for (const record of failed) {
-            this.logger.warn('plugin quarantined at discovery', { plugin: record.id, dir: record.dir, error: record.error });
+            this.pluginLog.for(record.id).warn('plugin quarantined at discovery', { dir: record.dir, error: record.error });
         }
     }
 
@@ -85,7 +90,7 @@ export class PluginLifecycleManager {
         try {
             records = await this.pluginLoader.discover();
         } catch (error) {
-            this.logger.error('plugin rescan failed', { error: errorText(error) });
+            this.pluginLog.error('plugin rescan failed', { error: errorText(error) });
             return;
         }
 
@@ -97,7 +102,7 @@ export class PluginLifecycleManager {
 
         for (const existing of this.pluginRegistry.list()) {
             if (found.has(existing.id)) continue;
-            this.logger.info('plugin disappeared; unloading', { plugin: existing.id, dir: existing.dir });
+            this.pluginLog.for(existing.id).info('plugin disappeared; unloading', { dir: existing.dir });
             await this.disposePlugin(existing.id);
             this.pluginRegistry.remove(existing.id);
         }
@@ -118,7 +123,7 @@ export class PluginLifecycleManager {
         const configs = await this.listConfigs();
         const enabled = this.pluginRegistry.list().filter(record => record.manifest !== undefined && configs.get(record.id)?.enabled === true);
 
-        this.logger.info('initializing enabled plugins', { count: enabled.length });
+        this.pluginLog.info('initializing enabled plugins', { count: enabled.length });
         await Promise.all(enabled.map(record => this.initPlugin(record.id)));
     }
 
@@ -138,7 +143,7 @@ export class PluginLifecycleManager {
 
     /**
      * Dispose then init, as one unit of queued work. This is what a config
-     * change (from the reload listener or the settings PUT) applies.
+     * change (the settings PUT, an enable/disable, an explicit reload) applies.
      */
     async reinitPlugin(pluginId: string): Promise<void> {
         return this.enqueue(pluginId, async () => {
@@ -152,7 +157,7 @@ export class PluginLifecycleManager {
         const running = this.pluginRegistry.list().filter(record => record.instance !== undefined);
         if (running.length === 0) return;
 
-        this.logger.info('disposing plugins', { count: running.length });
+        this.pluginLog.info('disposing plugins', { count: running.length });
         await Promise.all(running.map(record => this.disposePlugin(record.id)));
     }
 
@@ -164,6 +169,13 @@ export class PluginLifecycleManager {
      */
     private async applyStoredState(): Promise<void> {
         const configs = await this.listConfigs();
+
+        // Pushed for every row, including one whose status the loop below
+        // leaves untouched: an already-active plugin still has to pick up a
+        // level change made while it was running.
+        for (const [pluginId, config] of configs) {
+            this.pluginLog.setLevel(pluginId, toPluginLogLevel(config.logLevel));
+        }
 
         for (const record of this.pluginRegistry.list()) {
             if (record.status === 'active' || record.status === 'failed') continue;
@@ -182,7 +194,7 @@ export class PluginLifecycleManager {
             const rows = await this.pluginConfigRepository.list();
             return new Map(rows.map(row => [row.pluginId, row]));
         } catch (error) {
-            this.logger.error('could not read plugin configuration', { error: errorText(error) });
+            this.pluginLog.error('could not read plugin configuration', { error: errorText(error) });
             return new Map();
         }
     }
@@ -190,7 +202,7 @@ export class PluginLifecycleManager {
     private async initNow(pluginId: string): Promise<void> {
         const record = this.pluginRegistry.get(pluginId);
         if (!record) {
-            this.logger.warn('init requested for an unknown plugin', { plugin: pluginId });
+            this.pluginLog.for(pluginId).warn('init requested for an unknown plugin');
             return;
         }
         // No manifest means the loader quarantined it; nothing about it is
@@ -205,9 +217,11 @@ export class PluginLifecycleManager {
         try {
             config = await this.pluginConfigRepository.get(pluginId);
         } catch (error) {
-            this.logger.error('could not read plugin configuration', { plugin: pluginId, error: errorText(error) });
+            this.pluginLog.for(pluginId).error('could not read plugin configuration', { error: errorText(error) });
             return;
         }
+
+        this.pluginLog.setLevel(pluginId, toPluginLogLevel(config?.logLevel));
 
         if (!config?.enabled) {
             this.pluginRegistry.setStatus(pluginId, config ? 'disabled' : 'discovered');
@@ -217,7 +231,7 @@ export class PluginLifecycleManager {
         const invalid = await this.validateConfig(record.manifest, config);
         if (invalid !== undefined) {
             await this.setStatus(pluginId, 'misconfigured', invalid);
-            this.logger.warn('plugin is misconfigured', { plugin: pluginId, error: invalid });
+            this.pluginLog.for(pluginId).warn('plugin is misconfigured', { error: invalid });
             return;
         }
 
@@ -236,11 +250,11 @@ export class PluginLifecycleManager {
 
             record.instance = instance;
             await this.setStatus(pluginId, 'active');
-            this.logger.info('plugin active', { plugin: pluginId, version: record.manifest.version, kind: record.manifest.kind });
+            this.pluginLog.for(pluginId).info('plugin active', { version: record.manifest.version, kind: record.manifest.kind });
         } catch (error) {
             record.instance = undefined;
             await this.setStatus(pluginId, 'failed', errorText(error));
-            this.logger.error('plugin failed to initialize', { plugin: pluginId, error: errorText(error) });
+            this.pluginLog.for(pluginId).error('plugin failed to initialize', { error: errorText(error) });
         }
     }
 
@@ -256,7 +270,7 @@ export class PluginLifecycleManager {
         } catch (error) {
             // A plugin that cannot clean up still has to be let go of, or a
             // reinit would run forever against a corpse.
-            this.logger.warn('plugin dispose failed; dropping the instance anyway', { plugin: pluginId, error: errorText(error) });
+            this.pluginLog.for(pluginId).warn('plugin dispose failed; dropping the instance anyway', { error: errorText(error) });
         }
 
         record.instance = undefined;
@@ -324,18 +338,16 @@ export class PluginLifecycleManager {
     /**
      * Records a status in memory and in the database.
      *
-     * The write trips the `plugin_configs` notify trigger once (a single-row
-     * upsert), so it is announced to the echo tracker first; without that, every
-     * init would notify itself into another init.
+     * The in-memory registry is written first and unconditionally: the status is
+     * what the HTTP layer reports, and an unreachable database must not cost the
+     * process its own view of what is running.
      */
     private async setStatus(pluginId: string, status: PluginStatus, error?: string): Promise<void> {
         this.pluginRegistry.setStatus(pluginId, status, error);
-        this.pluginEchoTracker.expectEcho(pluginId);
         try {
             await this.pluginConfigService.setStatus(pluginId, status, error);
         } catch (writeError) {
-            this.pluginEchoTracker.retractEcho(pluginId);
-            this.logger.warn('could not persist plugin status', { plugin: pluginId, status, error: errorText(writeError) });
+            this.pluginLog.for(pluginId).warn('could not persist plugin status', { status, error: errorText(writeError) });
         }
     }
 

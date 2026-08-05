@@ -18,7 +18,7 @@ export const DataModule: ServerKitModule = {
         // and pg-boss (queue-schema management, see JobsModule) keep their own
         // owner connections via DATABASE_USER. Falls back to the owner when
         // app_user isn't configured.
-        const appUser = config.get<string, string>('DATABASE_APP_USER', '');
+        const appUser = config.get('DATABASE_APP_USER', '');
         const useAppUser = !!appUser;
         // The owner connection details (DATABASE_USER). When app_user is
         // configured the runtime pool uses app_user; the MaintenanceDb pool
@@ -28,7 +28,7 @@ export const DataModule: ServerKitModule = {
         // slow requests queues forever with no signal. Cap the pool and time out acquisition.
         // KyselyPool extends pg.Pool, so these are standard pg.PoolConfig options.
         const numberOr = (key: string, fallback: number): number => {
-            const raw = config.get<string, string>(key, '');
+            const raw = config.get(key, fallback);
             const parsed = raw ? Number(raw) : NaN;
             return Number.isFinite(parsed) ? parsed : fallback;
         };
@@ -40,18 +40,18 @@ export const DataModule: ServerKitModule = {
         };
 
         const ownerConfig = {
-            host: config.getString('DATABASE_HOST'),
-            port: config.getNumber('DATABASE_PORT'),
-            user: config.getString('DATABASE_USER'),
-            password: config.getString('DATABASE_PASSWORD'),
-            database: config.getString('DATABASE_NAME'),
+            host: config.get('DATABASE_HOST', ''),
+            port: config.get('DATABASE_PORT', 55432),
+            user: config.get('DATABASE_USER', ''),
+            password: config.get('DATABASE_PASSWORD', ''),
+            database: config.get('DATABASE_NAME', ''),
             types: KyselyPgTypeOverrides,
         };
         const dbConfig = {
             ...ownerConfig,
             ...poolTuning,
             user: useAppUser ? appUser : ownerConfig.user,
-            password: useAppUser ? config.getString('DATABASE_APP_PASSWORD') : ownerConfig.password,
+            password: useAppUser ? config.get('DATABASE_APP_PASSWORD', '') : ownerConfig.password,
         };
 
         registry
@@ -89,8 +89,8 @@ export const DataModule: ServerKitModule = {
             .useFactory(container => {
                 const logger = container.get(Logger);
                 const redis = new Redis({
-                    host: config.getString('REDIS_HOST'),
-                    port: config.getNumber('REDIS_PORT'),
+                    host: config.get('REDIS_HOST', 'localhost'),
+                    port: config.get('REDIS_PORT', 6379),
                     enableOfflineQueue: false,
                 });
                 redis.on('error', err => {

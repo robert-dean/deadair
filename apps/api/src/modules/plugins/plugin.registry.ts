@@ -77,20 +77,6 @@ export class PluginRegistry {
     }
 
     /**
-     * Active plugins of `kind` that declare `capability` in their manifest.
-     *
-     * Filtering on `active` rather than on the manifest alone is the point: a
-     * declared capability is only a promise, and callers of this method are
-     * about to invoke the instance. A disabled, misconfigured, or quarantined
-     * plugin has no instance to invoke.
-     */
-    byCapability(kind: string, capability: string): PluginRecord[] {
-        return [...this.records.values()].filter(
-            record => record.status === 'active' && record.manifest?.kind === kind && record.manifest.capabilities.includes(capability),
-        );
-    }
-
-    /**
      * Moves a plugin to a new status. Passing no `error` clears any previous
      * error text, so a plugin that recovers does not keep advertising a stale
      * failure.

@@ -61,7 +61,12 @@ async function createPkcePair(): Promise<{ verifier: string; challenge: string }
 }
 
 function isStoredVerifier(value: unknown): value is StoredVerifier {
-    return typeof value === 'object' && value !== null && typeof (value as StoredVerifier).verifier === 'string' && typeof (value as StoredVerifier).createdAt === 'number';
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        typeof (value as StoredVerifier).verifier === 'string' &&
+        typeof (value as StoredVerifier).createdAt === 'number'
+    );
 }
 
 function verifierKey(state: string): string {
@@ -155,14 +160,17 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
 
     async handleCallback(params: Record<string, string>): Promise<void> {
         const denied = params.error;
-        if (denied) throw new PluginError('auth', `Spotify authorisation was refused: ${denied}`);
+        if (denied) throw new PluginError(`Spotify authorisation was refused: ${denied}`).withCode('auth');
 
         const code = params.code;
-        if (!code) throw new PluginError('auth', 'Spotify callback carried no authorization code');
+        if (!code) throw new PluginError('Spotify callback carried no authorization code').withCode('auth');
 
         const state = params.state;
         const verifier = state ? await this.takeVerifier(state) : undefined;
-        if (!verifier) throw new PluginError('auth', 'Spotify callback arrived with no matching PKCE verifier; the authorisation attempt may have expired, retry connecting');
+        if (!verifier)
+            throw new PluginError(
+                'Spotify callback arrived with no matching PKCE verifier; the authorisation attempt may have expired, retry connecting',
+            ).withCode('auth');
 
         const tokens = await this.requestTokens(
             new URLSearchParams({
@@ -208,7 +216,7 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
 
     private async resolveTokens(force: boolean): Promise<StoredTokens> {
         const tokens = await this.loadTokens();
-        if (!tokens) throw new PluginError('auth', NOT_CONNECTED_ERROR);
+        if (!tokens) throw new PluginError(NOT_CONNECTED_ERROR).withCode('auth');
 
         const stale = force || tokens.expiresAt - TOKEN_EXPIRY_SKEW_MS <= Date.now();
         if (!stale) return tokens;
@@ -236,7 +244,7 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
 
     private async refreshTokens(current: StoredTokens): Promise<StoredTokens> {
         if (!current.refreshToken) {
-            throw new PluginError('auth', 'Spotify access token has expired and no refresh token is stored; re-authorise the plugin');
+            throw new PluginError('Spotify access token has expired and no refresh token is stored; re-authorise the plugin').withCode('auth');
         }
 
         this.refreshInFlight ??= this.performRefresh(current.refreshToken).finally(() => {
@@ -275,12 +283,12 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
         // reconnecting; 5xx is Spotify having a bad day and worth a retry.
         if (!response.ok) {
             const code = response.status >= 500 ? 'unavailable' : 'auth';
-            throw new PluginError(code, `Spotify token request failed (HTTP ${response.status})`, { upstreamStatus: response.status });
+            throw new PluginError(`Spotify token request failed (HTTP ${response.status})`).withCode(code).withUpstreamStatus(response.status);
         }
 
         const payload = tryJsonBody<SpotifyTokenResponse>(response);
         const accessToken = payload?.access_token;
-        if (!accessToken) throw new PluginError('upstream', 'Spotify token response carried no access token');
+        if (!accessToken) throw new PluginError('Spotify token response carried no access token').withCode('upstream');
 
         return {
             accessToken,

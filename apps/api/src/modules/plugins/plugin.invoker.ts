@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
-import { Logger } from '@maroonedsoftware/logger';
 import { PluginError, isResourceScopedCode, toPluginError } from '@deadair/plugin-sdk';
+import { PluginLog } from './plugin.log.js';
 import { PluginRegistry } from './plugin.registry.js';
 
 /** How long a single call into plugin code may run before it is abandoned. */
@@ -45,7 +45,7 @@ const deadline = (timeoutMs: number, message: string): InvokeDeadline => {
     let onAbort: () => void = () => {};
 
     const expiry = new Promise<never>((_resolve, reject) => {
-        onAbort = () => reject(new PluginError('timeout', message));
+        onAbort = () => reject(new PluginError(message).withCode('timeout'));
         controller.signal.addEventListener('abort', onAbort, { once: true });
     });
 
@@ -95,7 +95,7 @@ export class PluginInvoker {
 
     constructor(
         private readonly pluginRegistry: PluginRegistry,
-        private readonly logger: Logger,
+        private readonly pluginLog: PluginLog,
     ) {}
 
     /**
@@ -113,7 +113,7 @@ export class PluginInvoker {
     async invoke<T>(pluginId: string, op: string, fn: (signal: AbortSignal) => Promise<T>, opts?: PluginInvokeOptions): Promise<T> {
         const openReason = this.openBreakers.get(pluginId);
         if (openReason !== undefined) {
-            throw new PluginError('unavailable', `plugin ${pluginId} is failed: ${openReason}`);
+            throw new PluginError(`plugin ${pluginId} is failed: ${openReason}`).withCode('unavailable');
         }
 
         const timeoutMs = opts?.timeoutMs ?? PLUGIN_INVOKE_TIMEOUT_MS;
@@ -160,6 +160,12 @@ export class PluginInvoker {
      * "Spotify is down" have to still be distinguishable by the time the
      * service decides what to answer. A plugin that threw a bare `Error` is
      * classified `internal`, which behaves exactly as this did before.
+     *
+     * This is the one place in the host that adopts an error from plugin code,
+     * which is why `toPluginError` is called here and nowhere downstream: past
+     * this line every `PluginError` in flight is one the host built itself.
+     * Only its classification is read; the outward message is rebuilt from
+     * `errorText` either way.
      */
     private recordFailure(pluginId: string, op: string, error: unknown): PluginError {
         const pluginError = toPluginError(error);
@@ -172,7 +178,7 @@ export class PluginInvoker {
         // after three clicks on playlists the account does not own, which is
         // an entirely ordinary thing for someone to do.
         if (isResourceScopedCode(pluginError.code)) {
-            this.logger.info('plugin refused a resource', { plugin: pluginId, op, code: pluginError.code, error: message });
+            this.pluginLog.for(pluginId).info('plugin refused a resource', { op, code: pluginError.code, error: message });
             return this.asPluginError(pluginId, op, pluginError, message, error);
         }
 
@@ -189,25 +195,34 @@ export class PluginInvoker {
         if (quarantine) {
             this.openBreakers.set(pluginId, reason);
             this.pluginRegistry.setStatus(pluginId, 'failed', reason);
-            this.logger.error('plugin quarantined', { plugin: pluginId, op, failures, code: pluginError.code, retryable: pluginError.retryable, error: message });
+            this.pluginLog.for(pluginId).error('plugin quarantined', { op, failures, error: message });
         } else {
             // Keep the current status (the plugin may still recover) but surface
             // the last error, so the settings UI can show what just went wrong.
             const record = this.pluginRegistry.get(pluginId);
             if (record) this.pluginRegistry.setStatus(pluginId, record.status, reason);
-            this.logger.warn('plugin call failed', { plugin: pluginId, op, failures, code: pluginError.code, error: message });
+            this.pluginLog.for(pluginId).warn('plugin call failed', { op, failures, error: message });
         }
 
         return this.asPluginError(pluginId, op, pluginError, message, error);
     }
 
-    /** The outward-facing error, with the plugin and operation named in the message. */
+    /**
+     * The outward-facing error, with the plugin and operation named in the
+     * message.
+     *
+     * The classification is copied across rather than re-derived: this wrapper
+     * exists to name who failed, not to have an opinion about what the failure
+     * was. The optional detail is only applied when the plugin actually
+     * supplied it, because `withRetry` also asserts the failure is retryable
+     * and an absent `Retry-After` is not that assertion.
+     */
     private asPluginError(pluginId: string, op: string, pluginError: PluginError, message: string, cause: unknown): PluginError {
-        return new PluginError(pluginError.code, `plugin ${pluginId} failed during ${op}: ${message}`, {
-            retryable: pluginError.retryable,
-            retryAfterMs: pluginError.retryAfterMs,
-            upstreamStatus: pluginError.upstreamStatus,
-            cause,
-        });
+        const wrapped = new PluginError(`plugin ${pluginId} failed during ${op}: ${message}`, { cause }).withCode(pluginError.code);
+
+        if (pluginError.retryAfterMs !== undefined) wrapped.withRetry(pluginError.retryAfterMs);
+        if (pluginError.upstreamStatus !== undefined) wrapped.withUpstreamStatus(pluginError.upstreamStatus);
+
+        return wrapped;
     }
 }

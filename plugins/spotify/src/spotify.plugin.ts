@@ -123,7 +123,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
         // An empty `clientId` would otherwise mint an authorize URL with
         // `client_id=` and a PKCE verifier the operator can never redeem;
         // fail before either happens.
-        if (!this.clientId) throw new PluginError('config', 'Spotify client ID is not configured');
+        if (!this.clientId) throw new PluginError('Spotify client ID is not configured').withCode('config');
         return auth.getAuthorizeUrl(state);
     }
 
@@ -205,7 +205,9 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
             this.currentUserIdCache = profile.id;
             return profile.id;
         } catch (error) {
-            this.host?.logger.warn('could not resolve the Spotify account id; playlist permissions will be left unreported', { error: errorText(error) });
+            this.host?.logger.warn('could not resolve the Spotify account id; playlist permissions will be left unreported', {
+                error: errorText(error),
+            });
             return undefined;
         }
     }
@@ -231,8 +233,8 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
                 continue;
             } catch (error) {
                 if (!this.isNoActiveDevice(error)) throw error;
-                if (hasRetried) throw new PluginError('unavailable', NO_ACTIVE_DEVICE_MESSAGE, { cause: error });
-                if (!this.deviceName) throw new PluginError('unavailable', NO_ACTIVE_DEVICE_MESSAGE, { cause: error });
+                if (hasRetried) throw new PluginError(NO_ACTIVE_DEVICE_MESSAGE, { cause: error }).withCode('unavailable');
+                if (!this.deviceName) throw new PluginError(NO_ACTIVE_DEVICE_MESSAGE, { cause: error }).withCode('unavailable');
             }
 
             hasRetried = true;
@@ -240,7 +242,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
             try {
                 await this.queueTrack(trackId, deviceId);
             } catch (retryError) {
-                if (this.isNoActiveDevice(retryError)) throw new PluginError('unavailable', NO_ACTIVE_DEVICE_MESSAGE, { cause: retryError });
+                if (this.isNoActiveDevice(retryError)) throw new PluginError(NO_ACTIVE_DEVICE_MESSAGE, { cause: retryError }).withCode('unavailable');
                 throw retryError;
             }
         }
@@ -251,7 +253,9 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
     }
 
     async play(trackId?: string): Promise<void> {
-        await this.withDevice(deviceId => this.getApi().player.startResumePlayback(deviceId, undefined, trackId ? [`spotify:track:${trackId}`] : undefined));
+        await this.withDevice(deviceId =>
+            this.getApi().player.startResumePlayback(deviceId, undefined, trackId ? [`spotify:track:${trackId}`] : undefined),
+        );
     }
 
     async pause(): Promise<void> {
@@ -286,13 +290,13 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
             return await action(deviceId);
         } catch (error) {
             if (!this.isNoActiveDevice(error)) throw error;
-            if (!this.deviceName) throw new PluginError('unavailable', NO_ACTIVE_DEVICE_MESSAGE, { cause: error });
+            if (!this.deviceName) throw new PluginError(NO_ACTIVE_DEVICE_MESSAGE, { cause: error }).withCode('unavailable');
 
             const retryDeviceId = await this.resolveDeviceId(true);
             try {
                 return await action(retryDeviceId);
             } catch (retryError) {
-                if (this.isNoActiveDevice(retryError)) throw new PluginError('unavailable', NO_ACTIVE_DEVICE_MESSAGE, { cause: retryError });
+                if (this.isNoActiveDevice(retryError)) throw new PluginError(NO_ACTIVE_DEVICE_MESSAGE, { cause: retryError }).withCode('unavailable');
                 throw retryError;
             }
         }
@@ -313,7 +317,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
         const deviceName = this.deviceName;
         const { devices } = await this.getApi().player.getAvailableDevices();
         const match = devices.find(device => device.id && device.name.toLowerCase() === deviceName.toLowerCase());
-        if (!match?.id) throw new PluginError('unavailable', NO_ACTIVE_DEVICE_MESSAGE);
+        if (!match?.id) throw new PluginError(NO_ACTIVE_DEVICE_MESSAGE).withCode('unavailable');
 
         this.deviceIdCache = { id: match.id, expiresAt: Date.now() + DEVICE_ID_CACHE_TTL_MS };
         return match.id;

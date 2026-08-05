@@ -1,30 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Logger } from '@maroonedsoftware/logger';
 import { httpError, IsServerkitError } from '@maroonedsoftware/errors';
 import type { PluginManifest } from '@deadair/plugin-sdk';
 
 import {
     MAX_PLUGIN_FETCH_REDIRECTS,
-    PLUGIN_FETCH_DEFAULTS,
-    PluginFetchLimits,
+    PLUGIN_FETCH_MAX_BODY_BYTES,
+    PLUGIN_FETCH_REQUESTS_PER_WINDOW,
+    PLUGIN_FETCH_TIMEOUT_MS,
     PluginHostFactory,
     PluginHostFactoryOptions,
 } from '../../../src/modules/plugins/plugin.host.factory.js';
+import { PLUGIN_INVOKE_TIMEOUT_MS } from '../../../src/modules/plugins/plugin.invoker.js';
 import {
     PLUGIN_STORAGE_MAX_KEYS,
     PLUGIN_STORAGE_MAX_VALUE_BYTES,
     PluginStorageRepository,
 } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
-import { PluginEchoTracker } from '../../../src/modules/plugins/plugin.echo.tracker.js';
-
-const stubLogger = (): Logger => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-});
+import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
 function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
     return {
@@ -103,12 +96,10 @@ const unusedConfigService = (): PluginConfigService =>
     }) as unknown as PluginConfigService;
 
 function factory(
-    fetchLimits: PluginFetchLimits = {},
     storage: PluginStorageRepository = new FakeStorageRepository() as unknown as PluginStorageRepository,
     configService: PluginConfigService = unusedConfigService(),
-    echoTracker: PluginEchoTracker = new PluginEchoTracker(),
 ) {
-    return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example', fetchLimits), configService, storage, echoTracker, stubLogger());
+    return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), configService, storage, stubPluginLog().log);
 }
 
 /**
@@ -151,29 +142,45 @@ describe('PluginHostFactory.createHost fetch', () => {
         expect(response.headers['content-type']).toBe('text/plain');
     });
 
-    it('spaces a burst according to the rate limit policy', async () => {
+    it('spaces a burst that exceeds the per-window quota instead of failing it', async () => {
         vi.useFakeTimers();
         const fetchMock = vi.fn().mockImplementation(async () => new Response('ok', { status: 200 }));
         vi.stubGlobal('fetch', fetchMock);
-        const host = factory({ requestsPerWindow: 1, windowSeconds: 1 }).createHost(
-            manifest({ permissions: { network: ['api.example.com'], storage: false, oauth: false } }),
-        );
+        const host = factory().createHost(manifest({ permissions: { network: ['api.example.com'], storage: false, oauth: false } }));
 
-        await host.fetch('https://api.example.com/first');
-        expect(fetchMock).toHaveBeenCalledTimes(1);
+        // Exactly the quota, all of which should pass straight through.
+        for (let i = 0; i < PLUGIN_FETCH_REQUESTS_PER_WINDOW; i++) {
+            await host.fetch(`https://api.example.com/${i}`);
+        }
+        expect(fetchMock).toHaveBeenCalledTimes(PLUGIN_FETCH_REQUESTS_PER_WINDOW);
 
-        let secondResolved = false;
-        const second = host.fetch('https://api.example.com/second').then(() => {
-            secondResolved = true;
+        let parkedResolved = false;
+        const parked = host.fetch('https://api.example.com/over').then(() => {
+            parkedResolved = true;
         });
 
         await vi.advanceTimersByTimeAsync(500);
-        expect(secondResolved).toBe(false);
+        expect(parkedResolved).toBe(false);
 
         await vi.advanceTimersByTimeAsync(600);
-        await second;
-        expect(secondResolved).toBe(true);
-        expect(fetchMock).toHaveBeenCalledTimes(2);
+        await parked;
+        expect(parkedResolved).toBe(true);
+        expect(fetchMock).toHaveBeenCalledTimes(PLUGIN_FETCH_REQUESTS_PER_WINDOW + 1);
+    });
+
+    it('rejects rather than parks when the wait would outlast the call budget', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockImplementation(async () => new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(manifest({ permissions: { network: ['api.example.com'], storage: false, oauth: false } }));
+
+        for (let i = 0; i < PLUGIN_FETCH_REQUESTS_PER_WINDOW; i++) {
+            await host.fetch(`https://api.example.com/${i}`);
+        }
+
+        // 50ms of budget against a window that has most of a second left to run.
+        await expectDetailMessage(host.fetch('https://api.example.com/over', { timeoutMs: 50 }), /over its fetch rate limit/);
+        expect(fetchMock).toHaveBeenCalledTimes(PLUGIN_FETCH_REQUESTS_PER_WINDOW);
     });
 
     it('backs off once on a 429 with Retry-After, then retries', async () => {
@@ -183,9 +190,7 @@ describe('PluginHostFactory.createHost fetch', () => {
             .mockResolvedValueOnce(new Response('slow down', { status: 429, headers: { 'retry-after': '1' } }))
             .mockResolvedValueOnce(new Response('ok', { status: 200 }));
         vi.stubGlobal('fetch', fetchMock);
-        const host = factory({ requestsPerWindow: 100, windowSeconds: 1 }).createHost(
-            manifest({ permissions: { network: ['api.example.com'], storage: false, oauth: false } }),
-        );
+        const host = factory().createHost(manifest({ permissions: { network: ['api.example.com'], storage: false, oauth: false } }));
 
         const call = host.fetch('https://api.example.com/x');
         let settled: Awaited<ReturnType<typeof host.fetch>> | undefined;
@@ -398,19 +403,28 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
     });
 
     it('does not charge redirect hops against the plugin rate limit', async () => {
-        const fetchMock = vi
-            .fn()
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockImplementation(async () => new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        // Spend all but one of the window's points, so the chain below has
+        // exactly one to its name.
+        for (let i = 0; i < PLUGIN_FETCH_REQUESTS_PER_WINDOW - 1; i++) {
+            await host.fetch(`https://api.example.com/${i}`);
+        }
+
+        fetchMock
             .mockResolvedValueOnce(redirect(302, 'https://api.example.com/a'))
             .mockResolvedValueOnce(redirect(302, 'https://api.example.com/b'))
             .mockResolvedValueOnce(new Response('final', { status: 200 }));
-        vi.stubGlobal('fetch', fetchMock);
-        // One request per window: a chain that charged its hops would park here.
-        const host = factory({ requestsPerWindow: 1, windowSeconds: 60, maxRateLimitWaitMs: 0 }).createHost(allowlisted('api.example.com'));
 
+        // No timer is advanced: a chain that charged its hops would run out of
+        // points on the second one and park here forever.
         const response = await host.fetch('https://api.example.com/x');
 
-        expect(fetchMock).toHaveBeenCalledTimes(3);
         expect(response.body).toBe('final');
+        expect(fetchMock).toHaveBeenCalledTimes(PLUGIN_FETCH_REQUESTS_PER_WINDOW + 2);
     });
 
     it('reports the final hop as the response url, and flags that it redirected', async () => {
@@ -498,6 +512,14 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
             }),
         );
 
+    /** A chunk list that lands `over` bytes past the cap, without building one giant string. */
+    const chunksOverCap = (over: number): string[] => {
+        const chunk = 'x'.repeat(1024 * 1024);
+        const whole = Math.floor(PLUGIN_FETCH_MAX_BODY_BYTES / chunk.length);
+        const remainder = PLUGIN_FETCH_MAX_BODY_BYTES - whole * chunk.length + over;
+        return [...Array<string>(whole).fill(chunk), 'x'.repeat(remainder)];
+    };
+
     it('refuses an oversized body on content-length alone, and tears the stream down instead of draining it', async () => {
         let cancelled = false;
         const body = new ReadableStream<Uint8Array>({
@@ -509,36 +531,47 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
             },
         });
         // The declared length is a lie the counter could never catch: the real
-        // body is one byte at a time, so a 10000 in the message can only have
-        // come from the header.
-        const response = new Response(body, { status: 200, headers: { 'content-length': '10000' } });
+        // body is one byte at a time, so the declared size in the message can
+        // only have come from the header.
+        const declared = PLUGIN_FETCH_MAX_BODY_BYTES + 1;
+        const response = new Response(body, { status: 200, headers: { 'content-length': String(declared) } });
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
-        const host = factory({ maxBodyBytes: 100 }).createHost(allowlisted('api.example.com'));
+        const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectDetailMessage(host.fetch('https://api.example.com/big'), /response body is 10000 bytes, over the 100 byte limit/);
+        await expectDetailMessage(
+            host.fetch('https://api.example.com/big'),
+            new RegExp(`response body is ${declared} bytes, over the ${PLUGIN_FETCH_MAX_BODY_BYTES} byte limit`),
+        );
         expect(cancelled).toBe(true);
     });
 
     it('refuses a body that only reveals its size as it streams, and calls it a failure rather than a timeout', async () => {
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(['x'.repeat(60), 'y'.repeat(60)])));
-        const host = factory({ maxBodyBytes: 100 }).createHost(allowlisted('api.example.com'));
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(chunksOverCap(20))));
+        const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectDetailMessage(host.fetch('https://api.example.com/chunked'), /failed: response body is 120 bytes, over the 100 byte limit/);
+        await expectDetailMessage(
+            host.fetch('https://api.example.com/chunked'),
+            new RegExp(`failed: response body is ${PLUGIN_FETCH_MAX_BODY_BYTES + 20} bytes, over the ${PLUGIN_FETCH_MAX_BODY_BYTES} byte limit`),
+        );
     });
 
     it('lets a body exactly at the limit through', async () => {
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(['x'.repeat(100)])));
-        const host = factory({ maxBodyBytes: 100 }).createHost(allowlisted('api.example.com'));
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(chunksOverCap(0))));
+        const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expect(host.fetch('https://api.example.com/exact')).resolves.toMatchObject({ body: 'x'.repeat(100) });
+        const response = await host.fetch('https://api.example.com/exact');
+
+        expect(response.body).toHaveLength(PLUGIN_FETCH_MAX_BODY_BYTES);
     });
 
     it('measures bytes, not characters, so multi-byte text cannot slip past the cap', async () => {
-        // 40 characters, 120 bytes in UTF-8.
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(['あ'.repeat(40)])));
-        const host = factory({ maxBodyBytes: 100 }).createHost(allowlisted('api.example.com'));
+        // Three bytes per character in UTF-8, so this is one character (three
+        // bytes) past the cap while being a third of its length in characters.
+        const characters = Math.floor(PLUGIN_FETCH_MAX_BODY_BYTES / 3) + 1;
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(['あ'.repeat(characters)])));
+        const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectDetailMessage(host.fetch('https://api.example.com/utf8'), /response body is 120 bytes/);
+        await expectDetailMessage(host.fetch('https://api.example.com/utf8'), new RegExp(`response body is ${characters * 3} bytes`));
     });
 
     it('decodes a multi-byte character split across two chunks', async () => {
@@ -565,15 +598,62 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
         await expect(host.fetch('https://api.example.com/x')).resolves.toMatchObject({ status: 204, body: '' });
     });
 
-    it('defaults to a cap rather than to unlimited', () => {
-        expect(PLUGIN_FETCH_DEFAULTS.maxBodyBytes).toBeGreaterThan(0);
+    it('caps rather than allowing unlimited', () => {
+        expect(PLUGIN_FETCH_MAX_BODY_BYTES).toBeGreaterThan(0);
+    });
+});
+
+/**
+ * The budget knobs used to be independent of the invoker's deadline, which
+ * meant a limit could be written down that no call could ever reach. These
+ * pin the two together.
+ */
+describe('PluginHostFactory fetch budget', () => {
+    const allowlisted = (...network: string[]): PluginManifest => manifest({ permissions: { network, storage: false, oauth: false } });
+
+    it('never gives a fetch a default budget the invoker would not honour', () => {
+        expect(PLUGIN_FETCH_TIMEOUT_MS).toBeLessThanOrEqual(PLUGIN_INVOKE_TIMEOUT_MS);
+    });
+
+    it('clamps a plugin asking for longer than the invoke deadline down to it', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(
+                async (_url: URL, init: RequestInit) =>
+                    new Promise<Response>((_resolve, reject) => {
+                        init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+                    }),
+            ),
+        );
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const call = host.fetch('https://api.example.com/slow', { timeoutMs: 120_000 });
+        const assertion = expectDetailMessage(call, new RegExp(`timed out after ${PLUGIN_INVOKE_TIMEOUT_MS}ms`));
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_INVOKE_TIMEOUT_MS + 100);
+        await assertion;
+    });
+
+    it('skips a Retry-After back-off that would outlast the budget, handing the 429 back instead', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockResolvedValue(new Response('slow down', { status: 429, headers: { 'retry-after': '60' } }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const response = await host.fetch('https://api.example.com/x');
+
+        // One call, not two: sleeping 60s only to be abandoned at the deadline
+        // helps nobody, and the plugin can read `retry-after` itself.
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(response.status).toBe(429);
     });
 });
 
 describe('PluginHostFactory.createHost storage', () => {
     it('namespaces storage by plugin id: two hosts, same key, no cross-talk', async () => {
         const repo = new FakeStorageRepository() as unknown as PluginStorageRepository;
-        const f = factory({}, repo);
+        const f = factory(repo);
         const hostA = f.createHost(manifest({ id: 'plugin.a', permissions: { network: [], storage: true, oauth: false } }));
         const hostB = f.createHost(manifest({ id: 'plugin.b', permissions: { network: [], storage: true, oauth: false } }));
 
@@ -586,7 +666,7 @@ describe('PluginHostFactory.createHost storage', () => {
 
     it('rejects once the plugin exceeds its key quota', async () => {
         const repo = new FakeStorageRepository() as unknown as PluginStorageRepository;
-        const host = factory({}, repo).createHost(manifest({ id: 'plugin.quota', permissions: { network: [], storage: true, oauth: false } }));
+        const host = factory(repo).createHost(manifest({ id: 'plugin.quota', permissions: { network: [], storage: true, oauth: false } }));
 
         for (let i = 0; i < PLUGIN_STORAGE_MAX_KEYS; i++) {
             await host.storage.set(`key-${i}`, i);
@@ -614,54 +694,31 @@ describe('PluginHostFactory.createHost oauth', () => {
         await expectDetailMessage(host.oauth.getTokens(), /does not declare the "oauth" permission/);
     });
 
-    it('announces the echo before saving tokens, so the write cannot notify before the expectation is registered', async () => {
-        const calls: string[] = [];
-        const echoTracker = {
-            expectEcho: vi.fn(() => {
-                calls.push('expectEcho');
-            }),
-            retractEcho: vi.fn(() => {
-                calls.push('retractEcho');
-            }),
-        } as unknown as PluginEchoTracker;
-        const configService = {
-            saveConfig: vi.fn(async () => {
-                calls.push('saveConfig');
-            }),
-        } as unknown as PluginConfigService;
-        const host = factory({}, undefined, configService, echoTracker).createHost(
-            manifest({ permissions: { network: [], storage: false, oauth: true } }),
-        );
+    it('persists the tokens through saveConfig, carrying the manifest fields so stored settings survive a refresh', async () => {
+        const saveConfig = vi.fn(async () => {});
+        const configService = { saveConfig } as unknown as PluginConfigService;
+        const host = factory(undefined, configService).createHost(manifest({ permissions: { network: [], storage: false, oauth: true } }));
 
         await host.oauth.saveTokens({ access_token: 'abc' });
 
-        expect(calls).toEqual(['expectEcho', 'saveConfig']);
-        expect(echoTracker.retractEcho).not.toHaveBeenCalled();
+        expect(saveConfig).toHaveBeenCalledTimes(1);
+        expect(saveConfig.mock.calls[0]?.[0]).toBe('test.plugin');
     });
 
-    it('retracts the announced echo and propagates the error when saveConfig rejects', async () => {
-        const echoTracker = {
-            expectEcho: vi.fn(),
-            retractEcho: vi.fn(),
-        } as unknown as PluginEchoTracker;
+    it('propagates the error when saveConfig rejects', async () => {
         const failure = new Error('database is down');
         const configService = {
             saveConfig: vi.fn().mockRejectedValue(failure),
         } as unknown as PluginConfigService;
-        const host = factory({}, undefined, configService, echoTracker).createHost(
-            manifest({ permissions: { network: [], storage: false, oauth: true } }),
-        );
+        const host = factory(undefined, configService).createHost(manifest({ permissions: { network: [], storage: false, oauth: true } }));
 
         await expect(host.oauth.saveTokens({ access_token: 'abc' })).rejects.toThrow('database is down');
-
-        expect(echoTracker.expectEcho).toHaveBeenCalledExactlyOnceWith('test.plugin');
-        expect(echoTracker.retractEcho).toHaveBeenCalledExactlyOnceWith('test.plugin');
     });
 });
 
-// Sanity check that the defaults referenced by these tests match the source, per the package note.
-describe('PLUGIN_FETCH_DEFAULTS', () => {
-    it('defaults the fetch timeout to 10s', () => {
-        expect(PLUGIN_FETCH_DEFAULTS.timeoutMs).toBe(10_000);
+// Sanity check that the constant referenced by these tests matches the source, per the package note.
+describe('PLUGIN_FETCH_TIMEOUT_MS', () => {
+    it('defaults the fetch budget to 10s', () => {
+        expect(PLUGIN_FETCH_TIMEOUT_MS).toBe(10_000);
     });
 });

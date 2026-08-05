@@ -54,7 +54,7 @@ extensions.
    routers, then listens on `PORT`.
 
 Modules that do I/O the first request doesn't depend on do it in `ready()`, after the socket is up:
-plugin `init` and the plugin reload listener are the current examples.
+plugin `init` is the current example.
 
 ### DI scoping convention
 
@@ -63,7 +63,7 @@ plugin `init` and the plugin reload listener are the current examples.
   `OnboardingService`, `PlaylistsService`, `PluginsService`, `PluginConfigService`.
 - **Singleton** when there is exactly one of the thing for the process: `PluginRegistry`,
   `PluginInvoker` (its circuit breaker only means anything with shared failure counts), `PluginLog`,
-  `PluginEchoTracker`, `PluginOAuthStateStore`, `EnrichmentChain`, the Kysely pool and Redis client.
+  `PluginOAuthStateStore`, the Kysely pool and Redis client.
 
 ---
 
@@ -105,13 +105,10 @@ the boundary rationale is in [docs/decisions/plugin-isolation.md](../../docs/dec
 | `plugin.registry.ts` | The host's record of what is loaded and running. Singleton by necessity. |
 | `plugin.lifecycle.manager.ts` | `discoverAll()` in `start` (disk-only, and the HTTP surface needs the catalogue before it serves), `initAllEnabled()` in `ready` (where a plugin talks to its upstream, so an unreachable Spotify delays nothing and fails nobody but itself), `disposeAll()` on shutdown. |
 | `plugin.invoker.ts` | The only way host code calls plugin code: a 15s deadline per call and a circuit breaker that quarantines a plugin after 3 consecutive failures. |
-| `plugin.host.factory.ts` | Builds the `PluginHost` handed to each plugin (`fetch` with its own limits and redirect cap, storage, config, events, logger), scoped to that plugin. |
+| `plugin.host.factory.ts` | Builds the `PluginHost` handed to each plugin (`fetch` with its allowlist, budget and redirect cap, storage, config, events, logger), scoped to that plugin. One `host.fetch` runs against a single wall-clock budget, defaulting to `PLUGIN_FETCH_TIMEOUT_MS` and clamped to `PLUGIN_INVOKE_TIMEOUT_MS`: rate-limit parking, the request, a `Retry-After` back-off and the retry all spend from it. |
 | `plugin.log.ts` | Tees each plugin's output to the app logger and to its own rotating file, with a per-plugin verbosity gate that only applies to the file sink. |
 | `plugin.config.*`, `plugin.storage.repository.ts` | Per-plugin config and key/value storage, with secret fields envelope-encrypted. |
-| `plugin.reload.listener.ts` | `LISTEN deadair_plugins_changed` (trigger installed by migration 0005) on its own dedicated `pg.Client`, since `LISTEN` monopolises a connection for its lifetime. Applies config changes to the running process; `PluginEchoTracker` suppresses the notification a request's own write caused. Every failure path logs and retries with backoff: losing the listener costs live reloads, not the server. |
 | `plugin.oauth.state.store.ts` | Mints and redeems the OAuth `state`. The callback route is necessarily anonymous, so `state` is the only thing separating a real callback from a forged rebind of the station's music source. Deliberately the host's check, not the plugin's. |
-| `music.provider.resolver.ts` | Resolves the station's active music provider (from the `music.provider` setting) into host-owned capability wrappers, so callers never touch the plugin object directly. |
-| `enrichment.chain.ts` | Fans a track out to every enrichment plugin by priority and merges the partial results. Single-flights concurrent lookups, so it is a singleton. |
 | `plugin.error.http.ts` | Maps a `PluginError` onto an HTTP response without leaking host internals. |
 
 ---
@@ -130,7 +127,7 @@ Never hand-edit a router.
 | `music` | `GET /music/artists`, `/music/albums`, `/music/tracks` |
 | `onboarding` | `GET /onboarding`, `POST /onboarding` |
 | `playlists` | `GET /playlists`, `GET /playlists/:pluginId/:playlistId/tracks` |
-| `plugins` | `GET /plugins`, `/plugins/:id`, `POST /plugins/rescan`, `/plugins/:id/enable`, `/plugins/:id/disable`, `/plugins/:id/test`, `PUT /plugins/:id/config`; logs at `GET /plugins/:id/logs`, `/plugins/:id/logs/download`, `PUT /plugins/:id/logs/level`; OAuth at `GET /plugins/:id/oauth/authorize`, `GET /plugins/:id/oauth/callback`, `DELETE /plugins/:id/oauth` |
+| `plugins` | `GET /plugins`, `/plugins/:id`, `POST /plugins/rescan`, `/plugins/:id/enable`, `/plugins/:id/disable`, `/plugins/:id/reload`, `/plugins/:id/test`, `PUT /plugins/:id/config`; logs at `GET /plugins/:id/logs`, `/plugins/:id/logs/download`, `PUT /plugins/:id/logs/level`; OAuth at `GET /plugins/:id/oauth/authorize`, `GET /plugins/:id/oauth/callback`, `DELETE /plugins/:id/oauth` |
 
 There is no healthcheck router registered here yet, though `/` and `/healthcheck` are already listed
 as transaction-exempt paths.

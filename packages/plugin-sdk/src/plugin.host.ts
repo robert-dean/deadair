@@ -32,7 +32,12 @@ export interface HostFetchInit {
     /** Already-serialised body. Set `content-type` yourself. */
     body?: string;
 
-    /** Per-request timeout in ms. The host clamps this to its own ceiling. */
+    /**
+     * Budget in ms for the WHOLE call, clamped to the host's ceiling: waiting
+     * for rate-limit headroom, the request, any `Retry-After` back-off and the
+     * retry all come out of this one number. The ceiling is the host's own
+     * deadline for a call into plugin code, so asking for more buys nothing.
+     */
     timeoutMs?: number;
 }
 

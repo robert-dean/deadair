@@ -6,6 +6,9 @@ import { Settings } from 'luxon';
 import { modules } from '#src/modules/modules.js';
 import { ServerKitRouterType, ServerKitServerBuilder } from '@maroonedsoftware/koa';
 import { scrubProcessEnv } from './scrub.process.env.js';
+import { DeadairLogger } from '#src/logging/deadair.logger.js';
+import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
+import { setLogStore } from '#src/logging/log.store.js';
 
 export const setupServer = async () => {
     const serverBuilder = new ServerKitServerBuilder();
@@ -22,10 +25,22 @@ export const setupServer = async () => {
     // scrub.process.env.ts for what this does and does not buy.
     scrubProcessEnv();
 
-    await serverBuilder.setup(config, new ConsoleLogger(), modules);
+    // A present-but-malformed LOG_MAX_* value (e.g. `LOG_MAX_BYTES=2MB`) must fail loudly here,
+    // at boot, naming the offending variable and value — not flow through as NaN and surface
+    // later as a silently empty logs directory. See log.env.ts for why.
+    const logStore = new RotatingLogStore({
+        root: config.get('LOGS_DIR', './logs'),
+        maxBytes: config.get('LOG_MAX_BYTES', 2 * 1024 * 1024),
+        maxFiles: config.get('LOG_MAX_FILES', 3),
+        maxValueChars: config.get('LOG_MAX_VALUE_CHARS', 512),
+        maxLineBytes: config.get('LOG_MAX_LINE_BYTES', 8 * 1024),
+    });
+    setLogStore(logStore);
+
+    await serverBuilder.setup(config, new DeadairLogger(new ConsoleLogger(), logStore), modules);
     serverBuilder.setupMiddleware(setupMiddleware).setupRoutes(routers as ServerKitRouterType[]);
 
-    const port = config.getNumber('PORT');
+    const port = config.get('PORT', 3333);
 
     return await serverBuilder.start(port);
 };

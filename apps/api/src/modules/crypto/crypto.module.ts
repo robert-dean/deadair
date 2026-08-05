@@ -11,7 +11,7 @@ export const CryptoModule: ServerKitModule = {
     setup: async (registry: Registry, config: AppConfig) => {
         registry
             .register(EncryptionProvider)
-            .useFactory(() => new EncryptionProvider(Buffer.from(config.getString('KMS_LOCAL_ROOT_KEY'), 'hex')))
+            .useFactory(() => new EncryptionProvider(Buffer.from(config.get('KMS_LOCAL_ROOT_KEY', ''), 'hex')))
             .asScoped();
     },
 };

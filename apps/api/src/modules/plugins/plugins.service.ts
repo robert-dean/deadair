@@ -1,14 +1,14 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
-import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type PluginManifest } from '@deadair/plugin-sdk';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
+import { safeChannel } from '#src/logging/rotating.log.store.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginConfigService, type PluginConfigReadModel } from './plugin.config.service.js';
-import { PluginEchoTracker } from './plugin.echo.tracker.js';
 import { pluginHttpError } from './plugin.error.http.js';
 import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
+import { PluginLog } from './plugin.log.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
 import { PluginRegistry } from './plugin.registry.js';
 import type { PluginRecord } from './types/plugin.record.js';
@@ -16,6 +16,11 @@ import type {
     PluginConfigInput,
     PluginDetail,
     PluginListQuery,
+    PluginLogEntry,
+    PluginLogLevel,
+    PluginLogLevelInput,
+    PluginLogPage,
+    PluginLogQuery,
     PluginOAuthCallbackQuery,
     PluginOAuthResult,
     PluginOAuthStart,
@@ -52,6 +57,22 @@ const isClearedSecret = (value: unknown): boolean => value === undefined || valu
 
 const isCallable = (value: unknown): boolean => typeof value === 'function';
 
+const PLUGIN_LOG_LEVELS = new Set<string>(['debug', 'info', 'warn', 'error'] satisfies PluginLogLevel[]);
+
+/**
+ * `RotatingLogStore.tail()` reads its own lines back off disk as plain
+ * `{ level: string }` (upper-cased, or `''` for a line that failed to
+ * parse): its `LogEntry` is deliberately wider than the plugin-facing
+ * contract's `debug|info|warn|error` enum, per `LogLevel`'s own doc comment
+ * ("That narrowing is `PluginLog`'s job"). This is that narrowing, at the
+ * one place it turns into an HTTP response: an unrecognized or unparsed
+ * token falls back to `info` rather than failing the whole page.
+ */
+const toPluginLogLevel = (level: string): PluginLogLevel => {
+    const lowered = level.toLowerCase();
+    return PLUGIN_LOG_LEVELS.has(lowered) ? (lowered as PluginLogLevel) : 'info';
+};
+
 /**
  * The operator-facing plugin API.
  *
@@ -72,10 +93,9 @@ export class PluginsService {
         private readonly pluginConfigService: PluginConfigService,
         private readonly pluginInvoker: PluginInvoker,
         private readonly pluginLifecycleManager: PluginLifecycleManager,
-        private readonly pluginEchoTracker: PluginEchoTracker,
         private readonly pluginOAuthStateStore: PluginOAuthStateStore,
         private readonly accessControl: AccessControlService,
-        private readonly logger: Logger,
+        private readonly pluginLog: PluginLog,
     ) {}
 
     /**
@@ -115,10 +135,6 @@ export class PluginsService {
      * schema, secrets encrypted individually, then the plugin is reinitialized
      * so the change takes effect without a restart.
      *
-     * The reinit is requested here rather than left to the notify trigger, so
-     * the save is announced to {@link PluginEchoTracker} first: otherwise the
-     * listener would run a second, concurrent init off the same change.
-     *
      * @throws 404 unknown id, 409 quarantined plugin, 422 the plugin's schema
      *   rejected the result.
      */
@@ -127,11 +143,7 @@ export class PluginsService {
         const { record, manifest } = this.requireLoaded(id);
 
         await this.validateSubmission(manifest, body.config);
-        await this.announceWrite(id, async () => {
-            await this.pluginConfigService.saveConfig(id, manifest.configFields, body.config);
-        });
-        // The status writes this makes announce their own echoes; do not count
-        // them here.
+        await this.pluginConfigService.saveConfig(id, manifest.configFields, body.config);
         await this.pluginLifecycleManager.reinitPlugin(id);
 
         return this.detailOf(record);
@@ -184,10 +196,84 @@ export class PluginsService {
         }
     }
 
+    /**
+     * Reapplies whatever `plugin_configs` holds for this plugin right now:
+     * dispose, then init.
+     *
+     * Every route here that changes a plugin's configuration reinitializes it
+     * itself, so this covers the one case they cannot: a row edited out of
+     * band, by a psql session or a restored dump. Nothing watches the table for
+     * those, deliberately. The console also uses this as a plain "restart this
+     * plugin" button, which is worth having on its own.
+     *
+     * @throws 404 when no plugin with that id is installed.
+     */
+    async reloadPlugin(id: string): Promise<PluginDetail> {
+        await this.requirePluginPermission(id, 'configure');
+        const record = this.requireRecord(id);
+        await this.pluginLifecycleManager.reinitPlugin(id);
+        return this.detailOf(record);
+    }
+
     /** Rescans the mounted directory, then reports the catalogue as it now stands. */
     async rescanPlugins(): Promise<PluginSummary[]> {
         await this.pluginLifecycleManager.rescan();
         return this.listPlugins({});
+    }
+
+    /**
+     * The plugin's buffered log lines from its own rotating file, filtered to
+     * the requested minimum severity (or, absent one, its current in-memory
+     * level).
+     *
+     * Available for a quarantined or failed plugin too: those are exactly the
+     * ones an operator most needs a log tail for, so this checks only that the
+     * id is installed, not that it loaded.
+     *
+     * @throws 404 unknown id.
+     */
+    async getPluginLogs(id: string, query: PluginLogQuery): Promise<PluginLogPage> {
+        await this.requirePluginPermission(id, 'configure');
+        this.requireRecord(id);
+        const level = query.level ?? this.pluginLog.levelOf(id);
+        const raw = await this.pluginLog.tail(id, { limit: query.limit, level });
+        const entries: PluginLogEntry[] = raw.map(entry => ({ ts: entry.ts, level: toPluginLogLevel(entry.level), text: entry.text }));
+        return { pluginId: id, level, entries };
+    }
+
+    /**
+     * The plugin's full retained log as a downloadable attachment.
+     *
+     * The filename is built from the SANITIZED id, never the raw one: a
+     * plugin id is operator-supplied, and an unsanitized id could inject a
+     * quote or newline into the `Content-Disposition` header.
+     *
+     * @throws 404 unknown id.
+     */
+    async downloadPluginLogs(id: string): Promise<{ body: string; headers: { contentDisposition: string } }> {
+        await this.requirePluginPermission(id, 'configure');
+        this.requireRecord(id);
+        const body = await this.pluginLog.readAll(id);
+        return { body, headers: { contentDisposition: `attachment; filename="${safeChannel(id)}.log"` } };
+    }
+
+    /**
+     * Sets the plugin's file-log verbosity going forward.
+     *
+     * The in-memory level, which is what actually gates the file, is updated
+     * only after the write succeeds. Nothing is reinitialized: this is a
+     * logging toggle, not a configuration change the plugin can observe.
+     *
+     * @throws 404 unknown id.
+     */
+    async setPluginLogLevel(id: string, body: PluginLogLevelInput): Promise<PluginDetail> {
+        await this.requirePluginPermission(id, 'configure');
+        const record = this.requireRecord(id);
+
+        await this.pluginConfigService.setLogLevel(id, body.level);
+        this.pluginLog.setLevel(id, body.level);
+
+        return this.detailOf(record);
     }
 
     /**
@@ -213,9 +299,7 @@ export class PluginsService {
             throw httpError(501).withDetails({ message: `plugin "${record.id}" does not support OAuth` });
         }
 
-        await this.announceWrite(id, async () => {
-            await this.pluginConfigService.saveConfig(id, [...manifest.configFields, OAUTH_SECRET_FIELD], { [PLUGIN_OAUTH_SECRET_KEY]: '' });
-        });
+        await this.pluginConfigService.saveConfig(id, [...manifest.configFields, OAUTH_SECRET_FIELD], { [PLUGIN_OAUTH_SECRET_KEY]: '' });
         // The tokens would otherwise keep working from the plugin's in-memory
         // cache until the next reload; the reinit is what drops it.
         await this.pluginLifecycleManager.reinitPlugin(id);
@@ -259,7 +343,7 @@ export class PluginsService {
             // throw and every plugin-side failure renders as a 500, which tells
             // the console nothing it can act on. `pluginHttpError` is what turns
             // "the token expired" into a status and a code it can branch on.
-            this.logger.warn('plugin oauth authorize failed', { plugin: id, error: errorText(error) });
+            this.pluginLog.for(id).warn('plugin oauth authorize failed', { error: errorText(error) });
             throw pluginHttpError(id, error);
         }
     }
@@ -289,8 +373,7 @@ export class PluginsService {
         if (!this.pluginOAuthStateStore.consume(id, query.state)) {
             // The state value itself is never logged: it is a bearer token for
             // the rest of its (short) life.
-            this.logger.warn('plugin oauth callback rejected: state did not validate', {
-                plugin: id,
+            this.pluginLog.for(id).warn('plugin oauth callback rejected: state did not validate', {
                 reason: query.state === undefined ? 'absent' : 'unrecognized',
             });
             return { pluginId: id, ok: false, message: 'the authorization could not be completed' };
@@ -299,7 +382,7 @@ export class PluginsService {
         const { record, manifest } = this.requireLoaded(id);
 
         if (query.error !== undefined) {
-            this.logger.warn('plugin oauth callback reported an error', { plugin: id, error: query.error });
+            this.pluginLog.for(id).warn('plugin oauth callback reported an error', { error: query.error });
             return { pluginId: id, ok: false, message: 'the provider declined the authorization request' };
         }
 
@@ -313,45 +396,21 @@ export class PluginsService {
         try {
             await this.pluginInvoker.invoke(id, 'oauth.handleCallback', async () => oauth.handleCallback(params));
         } catch (error) {
-            this.logger.error('plugin oauth callback failed', { plugin: id, error: errorText(error) });
+            this.pluginLog.for(id).error('plugin oauth callback failed', { error: errorText(error) });
             return { pluginId: id, ok: false, message: 'the authorization could not be completed' };
         }
 
-        this.logger.info('plugin oauth callback completed', { plugin: id });
+        this.pluginLog.for(id).info('plugin oauth callback completed');
         return { pluginId: id, ok: true };
     }
 
     /** Flips the stored flag, then reinitializes so the running state matches it. */
     private async setEnabled(record: PluginRecord, enabled: boolean): Promise<PluginDetail> {
-        await this.announceWrite(record.id, async () => {
-            await this.pluginConfigService.setEnabled(record.id, enabled);
-        });
+        await this.pluginConfigService.setEnabled(record.id, enabled);
         // `reinitPlugin` covers both directions: its init step re-reads the flag
-        // and stops at a `disabled` status instead of instantiating. Its own
-        // status write announces its own echo.
+        // and stops at a `disabled` status instead of instantiating.
         await this.pluginLifecycleManager.reinitPlugin(record.id);
         return this.detailOf(record);
-    }
-
-    /**
-     * Runs a single-row write to `plugin_configs`, announced to the echo tracker
-     * so the notification it fires does not turn into a reinit on top of the one
-     * the caller performs itself.
-     *
-     * One upsert affects one row, and the trigger is per-row, so exactly one
-     * notification is expected. The expectation is registered before the write
-     * (a notification can land while the statement's promise is still settling)
-     * and withdrawn when the write throws, since then nothing was written and no
-     * notification is coming.
-     */
-    private async announceWrite(pluginId: string, write: () => Promise<void>): Promise<void> {
-        this.pluginEchoTracker.expectEcho(pluginId);
-        try {
-            await write();
-        } catch (error) {
-            this.pluginEchoTracker.retractEcho(pluginId);
-            throw error;
-        }
     }
 
     /**
@@ -390,7 +449,7 @@ export class PluginsService {
         try {
             secrets = await this.pluginConfigService.getSecrets(manifest.id);
         } catch (error) {
-            this.logger.error('stored plugin secrets could not be decrypted', { plugin: manifest.id, error: errorText(error) });
+            this.pluginLog.for(manifest.id).error('stored plugin secrets could not be decrypted', { error: errorText(error) });
             throw httpError(500).withDetails({ message: `stored secrets for "${manifest.id}" could not be decrypted` });
         }
         // The OAuth vault is the host's, not a declared config field; a strict
@@ -472,6 +531,10 @@ export class PluginsService {
             // reason for a status the database has not been told about yet.
             lastError: record.error ?? readModel.lastError,
             ...(supportsOAuth ? { oauthConnected: readModel.oauthConnected } : {}),
+            // `levelOf` resolves the nullable stored override to the same
+            // concrete value that actually gates the file, rather than
+            // reading `readModel.logLevel` (which may be undefined) directly.
+            logLevel: this.pluginLog.levelOf(record.id),
         };
     }
 

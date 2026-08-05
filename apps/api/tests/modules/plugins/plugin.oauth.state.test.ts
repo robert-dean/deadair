@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Logger } from '@maroonedsoftware/logger';
 import type { PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 
 import type { AccessControlService } from '../../../src/modules/permissions/access.control.service.js';
@@ -8,19 +7,12 @@ import { PLUGIN_OAUTH_STATE_TTL_MS, PluginOAuthStateStore } from '../../../src/m
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import { PluginsService } from '../../../src/modules/plugins/plugins.service.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
+import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
 const PLUGIN_ID = 'test.oauth';
 
 /** The neutral sentence every callback failure comes back with. */
 const NEUTRAL_FAILURE = 'the authorization could not be completed';
-
-const stubLogger = (): Logger => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-});
 
 function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
     return {
@@ -40,7 +32,7 @@ function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
 interface Harness {
     service: PluginsService;
     store: PluginOAuthStateStore;
-    logger: Logger;
+    pluginLog: ReturnType<typeof stubPluginLog>;
     getAuthorizeUrl: ReturnType<typeof vi.fn>;
     handleCallback: ReturnType<typeof vi.fn>;
 }
@@ -61,15 +53,23 @@ function harness(): Harness {
     registry.upsert(record);
 
     const store = new PluginOAuthStateStore();
-    const logger = stubLogger();
+    const pluginLog = stubPluginLog();
     const unused = {} as never;
     // Always-allow stub: this file exercises the OAuth state machinery, not
     // authorization. The permission checks themselves are covered by
     // plugins.service.authorization.test.ts.
     const accessControl = { require: vi.fn(async () => {}) } as unknown as AccessControlService;
-    const service = new PluginsService(registry, unused, new PluginInvoker(registry, stubLogger()), unused, unused, store, accessControl, logger);
+    const service = new PluginsService(
+        registry,
+        unused,
+        new PluginInvoker(registry, stubPluginLog().log),
+        unused,
+        store,
+        accessControl,
+        pluginLog.log,
+    );
 
-    return { service, store, logger, getAuthorizeUrl, handleCallback };
+    return { service, store, pluginLog, getAuthorizeUrl, handleCallback };
 }
 
 /** Runs the authorize leg and returns the `state` the host actually minted. */
@@ -311,10 +311,9 @@ describe('PluginsService OAuth state enforcement', () => {
 
         await h.service.completeOAuthCallback(PLUGIN_ID, { code: 'attacker-code', state: `${state}-tampered` });
 
-        const warn = vi.mocked(h.logger.warn);
-        expect(warn).toHaveBeenCalledTimes(1);
-        const logged = JSON.stringify(warn.mock.calls[0]);
-        expect(logged).toContain(PLUGIN_ID);
+        expect(h.pluginLog.log.for).toHaveBeenCalledWith(PLUGIN_ID);
+        expect(h.pluginLog.scoped.warn).toHaveBeenCalledTimes(1);
+        const logged = JSON.stringify(h.pluginLog.scoped.warn.mock.calls[0]);
         expect(logged).not.toContain(state);
         expect(logged).not.toContain('attacker-code');
     });
@@ -326,8 +325,7 @@ describe('PluginsService OAuth state enforcement', () => {
         await h.service.completeOAuthCallback(PLUGIN_ID, { code: 'c' });
         await h.service.completeOAuthCallback(PLUGIN_ID, { code: 'c', state: 'forged' });
 
-        const warn = vi.mocked(h.logger.warn);
-        expect(warn.mock.calls[0]?.[1]).toMatchObject({ plugin: PLUGIN_ID, reason: 'absent' });
-        expect(warn.mock.calls[1]?.[1]).toMatchObject({ plugin: PLUGIN_ID, reason: 'unrecognized' });
+        expect(h.pluginLog.scoped.warn.mock.calls[0]?.[1]).toMatchObject({ reason: 'absent' });
+        expect(h.pluginLog.scoped.warn.mock.calls[1]?.[1]).toMatchObject({ reason: 'unrecognized' });
     });
 });

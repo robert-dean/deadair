@@ -65,9 +65,13 @@ output to the app logger plus a per-plugin rotating file with its own verbosity 
 `AppConfigSourceDotenv` + `AppConfigResolverEnv`, then `scrubProcessEnv()` removes secrets from
 `process.env`. Module setups read the snapshot, never `process.env`. The DB-backed settings layer,
 the live `AppConfigStore` reload and `radio.env` materialization are planned, not built: today
-`deadair.settings` has only a repository, and the one live-reload path that exists is
-`PluginReloadListener` on `LISTEN deadair_plugins_changed` (a trigger on `deadair.plugin_configs`,
-migration 0005) on its own dedicated `pg.Client`, never a pooled connection.
+`deadair.settings` has only a repository.
+
+**Nothing watches `plugin_configs`.** A plugin's configuration changes only through
+`PluginsService`, and every route there that writes one reinitializes the plugin itself. There is no
+`LISTEN`/`NOTIFY` path and no trigger on the table (an earlier one was removed): a row edited out of
+band is applied by `POST /plugins/:id/reload`, or not at all. Anything that grows a second writer of
+that table has to call `PluginLifecycleManager.reinitPlugin` itself.
 
 **Two database pools.** The runtime pool connects as the non-owner `app_user` role so RLS actually enforces; a separate owner pool handles privileged maintenance.
 

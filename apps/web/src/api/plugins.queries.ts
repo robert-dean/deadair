@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { PluginDetail, PluginOAuthCallbackQuery, PluginOAuthResult, PluginSummary } from '@deadair/sdk';
+import type { PluginDetail, PluginLogLevel, PluginLogQuery, PluginOAuthCallbackQuery, PluginOAuthResult, PluginSummary } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -27,6 +27,24 @@ export function pluginDetailOptions(id: string) {
         queryKey: queryKeys.plugins.detail(id),
         queryFn: () => sdk.plugins.getPlugin(id),
         staleTime: PLUGIN_STALE_TIME,
+    });
+}
+
+/**
+ * How long a fetched log tail stays fresh.
+ *
+ * Unlike a plugin record, which only moves when an operator moves it, a plugin's log store fills
+ * continuously while it runs. A stale time anywhere near `PLUGIN_STALE_TIME` would show a tail
+ * that is seconds to tens of seconds behind the plugin's actual output, so this is kept short
+ * instead of reusing that constant.
+ */
+const PLUGIN_LOGS_STALE_TIME = 3_000;
+
+export function pluginLogsOptions(id: string, query?: PluginLogQuery) {
+    return queryOptions({
+        queryKey: queryKeys.plugins.logs(id, query),
+        queryFn: () => sdk.plugins.getPluginLogs(id, query),
+        staleTime: PLUGIN_LOGS_STALE_TIME,
     });
 }
 
@@ -74,6 +92,23 @@ export function useUpdatePluginConfig(id: string) {
         mutationFn: (config: Record<string, unknown>) => sdk.plugins.updatePluginConfiguration(id, { config }),
         onSuccess: detail => {
             writePluginDetail(queryClient, detail);
+        },
+    });
+}
+
+/**
+ * Sets the minimum severity the plugin's log store retains going forward. Writes the returned
+ * detail through `writePluginDetail` like the other plugin mutations, and refetches the logs
+ * query, since the level just changed means the next tail reads differently than the last one
+ * cached.
+ */
+export function useSetPluginLogLevel(id: string) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (level: PluginLogLevel) => sdk.plugins.setPluginLogLevel(id, { level }),
+        onSuccess: detail => {
+            writePluginDetail(queryClient, detail);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.logs(id) });
         },
     });
 }

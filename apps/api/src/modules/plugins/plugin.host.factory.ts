@@ -1,7 +1,6 @@
 import { Injectable } from 'injectkit';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { httpError } from '@maroonedsoftware/errors';
-import { Logger } from '@maroonedsoftware/logger';
 import type {
     HostFetchInit,
     HostFetchMethod,
@@ -16,46 +15,40 @@ import type {
     PluginStorage,
 } from '@deadair/plugin-sdk';
 import { PluginConfigService } from './plugin.config.service.js';
-import { PluginEchoTracker } from './plugin.echo.tracker.js';
+import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
+import { PluginLog } from './plugin.log.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
 
 export { PLUGIN_OAUTH_SECRET_KEY, OAUTH_SECRET_FIELD } from './plugin.oauth.secret.js';
 
-/** Tunables for `host.fetch`. Every field has a default; the module may override any of them. */
-export interface PluginFetchLimits {
-    /** Requests allowed per {@link PluginFetchLimits.windowSeconds}, per plugin. */
-    requestsPerWindow?: number;
-    windowSeconds?: number;
-    /** Applied when the plugin does not ask for a timeout. */
-    timeoutMs?: number;
-    /** Ceiling the plugin's own `timeoutMs` is clamped to. */
-    maxTimeoutMs?: number;
-    /** Longest `Retry-After` the host is willing to sit out before giving up on the retry. */
-    maxRetryAfterMs?: number;
-    /** Longest the host will park a call waiting for rate-limit headroom. */
-    maxRateLimitWaitMs?: number;
-    /**
-     * Largest response body the host will buffer, in bytes. Bodies cross the
-     * boundary as one string, so without this an upstream that streams
-     * indefinitely is an OOM with extra steps: the deadline bounds how long a
-     * body takes to arrive, not how big it is.
-     */
-    maxBodyBytes?: number;
-}
+/** Requests one plugin may start per {@link PLUGIN_FETCH_WINDOW_SECONDS} before `host.fetch` paces it. */
+export const PLUGIN_FETCH_REQUESTS_PER_WINDOW = 10;
+export const PLUGIN_FETCH_WINDOW_SECONDS = 1;
 
-export const PLUGIN_FETCH_DEFAULTS: Required<PluginFetchLimits> = {
-    requestsPerWindow: 10,
-    windowSeconds: 1,
-    timeoutMs: 10_000,
-    maxTimeoutMs: 60_000,
-    maxRetryAfterMs: 30_000,
-    maxRateLimitWaitMs: 5_000,
-    // Generous for the catalog JSON these plugins actually fetch (a 50-track
-    // Spotify page is low hundreds of KB), small enough that a runaway body
-    // fails fast rather than eating the process.
-    maxBodyBytes: 5 * 1024 * 1024,
-};
+/**
+ * The wall-clock budget for one `host.fetch`, used when the plugin does not ask
+ * for its own. Everything the call does spends from it: waiting for rate-limit
+ * headroom, the request itself, a `Retry-After` back-off, and the retry.
+ *
+ * A plugin may ask for less, or for more up to {@link PLUGIN_INVOKE_TIMEOUT_MS}.
+ * That ceiling is not arbitrary: every call into plugin code is already
+ * abandoned by `PluginInvoker` at that deadline, so a fetch budget above it
+ * describes time the plugin will never be given.
+ */
+export const PLUGIN_FETCH_TIMEOUT_MS = 10_000;
+
+/**
+ * Largest response body the host will buffer, in bytes. Bodies cross the
+ * boundary as one string, so without this an upstream that streams
+ * indefinitely is an OOM with extra steps: the deadline bounds how long a body
+ * takes to arrive, not how big it is.
+ *
+ * Generous for the catalog JSON these plugins actually fetch (a 50-track
+ * Spotify page is low hundreds of KB), small enough that a runaway body fails
+ * fast rather than eating the process.
+ */
+export const PLUGIN_FETCH_MAX_BODY_BYTES = 5 * 1024 * 1024;
 
 /**
  * How many server-directed hops a single `host.fetch` will follow before giving
@@ -65,16 +58,12 @@ export const PLUGIN_FETCH_DEFAULTS: Required<PluginFetchLimits> = {
 export const MAX_PLUGIN_FETCH_REDIRECTS = 5;
 
 /**
- * Where the host's own OAuth redirect endpoint lives, plus the fetch tunables.
- * Constructor-injected exactly like the loader's options so the factory never
- * touches `AppConfig`.
+ * Where the host's own OAuth redirect endpoint lives. Constructor-injected
+ * exactly like the loader's options so the factory never touches `AppConfig`.
  */
 @Injectable()
 export class PluginHostFactoryOptions {
-    constructor(
-        readonly baseUrl: string,
-        readonly fetchLimits: PluginFetchLimits = {},
-    ) {}
+    constructor(readonly baseUrl: string) {}
 }
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -155,39 +144,22 @@ export class PluginHostFactory {
         private readonly options: PluginHostFactoryOptions,
         private readonly pluginConfigService: PluginConfigService,
         private readonly pluginStorageRepository: PluginStorageRepository,
-        private readonly pluginEchoTracker: PluginEchoTracker,
-        private readonly logger: Logger,
+        private readonly pluginLog: PluginLog,
     ) {}
 
     /** One host per plugin. Cheap: the only per-host state is its rate limiter. */
     createHost(manifest: PluginManifest): PluginHost {
-        const limits = { ...PLUGIN_FETCH_DEFAULTS, ...this.options.fetchLimits };
-        const logger = this.createLogger(manifest.id);
-        const limiter = new RateLimiterMemory({ points: limits.requestsPerWindow, duration: limits.windowSeconds });
+        const logger = this.pluginLog.for(manifest.id);
+        const limiter = new RateLimiterMemory({ points: PLUGIN_FETCH_REQUESTS_PER_WINDOW, duration: PLUGIN_FETCH_WINDOW_SECONDS });
 
         return {
             logger,
-            fetch: (url, init) => this.hostFetch(manifest, limiter, limits, logger, url, init),
+            fetch: (url, init) => this.hostFetch(manifest, limiter, logger, url, init),
             storage: this.createStorage(manifest),
             secrets: this.createSecrets(manifest),
             config: this.createConfig(manifest),
             oauth: this.createOAuth(manifest),
             events: this.createEvents(manifest, logger),
-        };
-    }
-
-    /**
-     * The host `Logger` has no child-logger facility, so every line is stamped
-     * with `{ plugin: <id> }` here: plugin output is always attributable without
-     * the plugin being able to spoof (or omit) the tag.
-     */
-    private createLogger(pluginId: string): PluginLogger {
-        const meta = (extra?: Record<string, unknown>): Record<string, unknown> => ({ ...extra, plugin: pluginId });
-        return {
-            debug: (message, extra) => this.logger.debug(message, meta(extra)),
-            info: (message, extra) => this.logger.info(message, meta(extra)),
-            warn: (message, extra) => this.logger.warn(message, meta(extra)),
-            error: (message, extra) => this.logger.error(message, meta(extra)),
         };
     }
 
@@ -260,26 +232,17 @@ export class PluginHostFactory {
                     }
                     flat[key] = value;
                 }
-                // This is the hourly token-refresh path, and the write fires the
-                // `plugin_configs` notify trigger exactly once (one upsert, one
-                // row). Announcing it keeps the listener from reinitializing the
-                // plugin in the middle of its own refresh call, which would
-                // dispose the instance out from under it.
-                this.pluginEchoTracker.expectEcho(manifest.id);
-                try {
-                    // Passing the manifest's own fields alongside the reserved one is
-                    // deliberate: saveConfig rebuilds the whole `config` object from
-                    // the descriptors it is given, so omitting them would blank the
-                    // plugin's operator-entered settings on every token refresh.
-                    await this.pluginConfigService.saveConfig(manifest.id, [...manifest.configFields, OAUTH_SECRET_FIELD], {
-                        [PLUGIN_OAUTH_SECRET_KEY]: JSON.stringify(flat),
-                    });
-                } catch (error) {
-                    // No write happened, so no notification is coming; a left-over
-                    // expectation would swallow the next genuine config change.
-                    this.pluginEchoTracker.retractEcho(manifest.id);
-                    throw error;
-                }
+                // This is the hourly token-refresh path. Nothing reinitializes
+                // the plugin off this write: it is the plugin's own call, and
+                // reloading it here would dispose the instance mid-refresh.
+                //
+                // Passing the manifest's own fields alongside the reserved one is
+                // deliberate: saveConfig rebuilds the whole `config` object from
+                // the descriptors it is given, so omitting them would blank the
+                // plugin's operator-entered settings on every token refresh.
+                await this.pluginConfigService.saveConfig(manifest.id, [...manifest.configFields, OAUTH_SECRET_FIELD], {
+                    [PLUGIN_OAUTH_SECRET_KEY]: JSON.stringify(flat),
+                });
             },
             getTokens: async () => {
                 guard();
@@ -319,11 +282,16 @@ export class PluginHostFactory {
      * Order matters: the allowlist check happens before anything touches the
      * network stack, so a denied request costs a DNS lookup of exactly zero and
      * leaves an audit line behind.
+     *
+     * The whole call runs against ONE deadline, and every part of it spends
+     * from the same budget: parking for rate-limit headroom, the request, the
+     * `Retry-After` back-off, the retry. Separate caps per phase is how a call
+     * ends up promising a 10s timeout and taking 40s, and how a limit gets
+     * written down that the invoker's own deadline means can never be reached.
      */
     private async hostFetch(
         manifest: PluginManifest,
         limiter: RateLimiterMemory,
-        limits: Required<PluginFetchLimits>,
         logger: PluginLogger,
         url: string,
         init?: HostFetchInit,
@@ -331,21 +299,25 @@ export class PluginHostFactory {
         const target = this.assertAllowed(manifest, logger, url);
         const hostname = target.hostname.toLowerCase();
 
-        const timeoutMs = Math.min(init?.timeoutMs ?? limits.timeoutMs, limits.maxTimeoutMs);
+        const budgetMs = Math.min(init?.timeoutMs ?? PLUGIN_FETCH_TIMEOUT_MS, PLUGIN_INVOKE_TIMEOUT_MS);
+        const deadlineAt = Date.now() + budgetMs;
 
-        await this.consumeRateLimit(manifest, limiter, limits);
-        const first = await this.send(manifest, logger, target, init, timeoutMs, limits.maxBodyBytes);
+        await this.consumeRateLimit(manifest, limiter, deadlineAt);
+        const first = await this.send(manifest, logger, target, init, deadlineAt, budgetMs);
 
         // One retry, and only when the server itself asked for one. Anything
         // more belongs to the plugin, which knows whether the call is idempotent.
         if (first.status !== 429 && first.status !== 503) return first;
         const retryAfterMs = parseRetryAfter(first.headers['retry-after'], Date.now());
-        if (retryAfterMs === undefined || retryAfterMs > limits.maxRetryAfterMs) return first;
+        // A back-off longer than what is left would be slept through only to
+        // have the retry abandoned on arrival, so the first response is the
+        // answer: the plugin gets the 429 and its `Retry-After` to act on.
+        if (retryAfterMs === undefined || retryAfterMs >= deadlineAt - Date.now()) return first;
 
         logger.info('plugin fetch backing off on Retry-After', { hostname, status: first.status, retryAfterMs });
         await sleep(retryAfterMs);
-        await this.consumeRateLimit(manifest, limiter, limits);
-        return this.send(manifest, logger, target, init, timeoutMs, limits.maxBodyBytes);
+        await this.consumeRateLimit(manifest, limiter, deadlineAt);
+        return this.send(manifest, logger, target, init, deadlineAt, budgetMs);
     }
 
     /**
@@ -407,21 +379,23 @@ export class PluginHostFactory {
      * Waits for headroom rather than failing outright: a plugin that bursts is
      * usually doing something legitimate (a paged catalog walk), and pacing it
      * is friendlier to the upstream API than making the plugin implement its own
-     * back-off. Only a plugin that stays over budget past the parking limit gets
-     * a rejection.
+     * back-off. Parking is paid for out of the call's budget, so a plugin that
+     * is over quota by more time than it has left is rejected instead.
      */
-    private async consumeRateLimit(manifest: PluginManifest, limiter: RateLimiterMemory, limits: Required<PluginFetchLimits>): Promise<void> {
+    private async consumeRateLimit(manifest: PluginManifest, limiter: RateLimiterMemory, deadlineAt: number): Promise<void> {
+        const overQuota = (): never => {
+            throw httpError(429).withDetails({
+                message: `plugin "${manifest.id}" is over its fetch rate limit (${PLUGIN_FETCH_REQUESTS_PER_WINDOW} per ${PLUGIN_FETCH_WINDOW_SECONDS}s)`,
+            });
+        };
+
         try {
             await limiter.consume(manifest.id, 1);
             return;
         } catch (rejection) {
             const waitMs = rateLimitWaitMs(rejection);
             if (waitMs === undefined) throw rejection;
-            if (waitMs > limits.maxRateLimitWaitMs) {
-                throw httpError(429).withDetails({
-                    message: `plugin "${manifest.id}" is over its fetch rate limit (${limits.requestsPerWindow} per ${limits.windowSeconds}s)`,
-                });
-            }
+            if (waitMs >= deadlineAt - Date.now()) overQuota();
             await sleep(waitMs);
         }
 
@@ -429,9 +403,7 @@ export class PluginHostFactory {
             await limiter.consume(manifest.id, 1);
         } catch (rejection) {
             if (rateLimitWaitMs(rejection) === undefined) throw rejection;
-            throw httpError(429).withDetails({
-                message: `plugin "${manifest.id}" is over its fetch rate limit (${limits.requestsPerWindow} per ${limits.windowSeconds}s)`,
-            });
+            overQuota();
         }
     }
 
@@ -444,22 +416,25 @@ export class PluginHostFactory {
      * manifest forbids would already have been made. Following it here means
      * every hop clears {@link PluginHostFactory.assertAllowed} first.
      *
-     * The whole chain shares one deadline. A per-hop timer would let a server
-     * multiply the plugin's timeout by the hop cap just by redirecting slowly.
+     * The whole chain shares the call's remaining budget. A per-hop timer would
+     * let a server multiply the plugin's timeout by the hop cap just by
+     * redirecting slowly. `budgetMs` is carried alongside for the timeout
+     * message only: what the plugin asked for is what it should be told it
+     * exceeded, not whatever fraction of it this attempt was given.
      */
     private async send(
         manifest: PluginManifest,
         logger: PluginLogger,
         target: URL,
         init: HostFetchInit | undefined,
-        timeoutMs: number,
-        maxBodyBytes: number,
+        deadlineAt: number,
+        budgetMs: number,
     ): Promise<HostFetchResponse> {
         // A controller on a plain timer rather than `AbortSignal.timeout`: that
         // one's timer is unref'd and invisible to fake timers, so the deadline
         // would be neither reliable nor testable.
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        const timer = setTimeout(() => controller.abort(), Math.max(0, deadlineAt - Date.now()));
 
         try {
             let current = target;
@@ -468,7 +443,7 @@ export class PluginHostFactory {
             let body = init?.body;
 
             for (let hop = 0; ; hop++) {
-                const response = await this.roundTrip(manifest, current, method, headers, body, controller, timeoutMs, maxBodyBytes);
+                const response = await this.roundTrip(manifest, current, method, headers, body, controller, budgetMs);
 
                 const location = response.headers.location;
                 // A 3xx with nothing to follow is just a response; hand it back
@@ -515,8 +490,7 @@ export class PluginHostFactory {
         headers: Record<string, string>,
         body: string | undefined,
         controller: AbortController,
-        timeoutMs: number,
-        maxBodyBytes: number,
+        budgetMs: number,
     ): Promise<HostFetchResponse> {
         const hostname = target.hostname.toLowerCase();
 
@@ -545,21 +519,21 @@ export class PluginHostFactory {
                 statusText: response.statusText,
                 headers: responseHeaders,
                 setCookie: response.headers.getSetCookie(),
-                body: await this.readBody(response, maxBodyBytes),
+                body: await this.readBody(response),
                 ok: response.ok,
                 url: target.toString(),
                 // `send` overwrites this once it knows how many hops it took.
                 redirected: false,
             };
         } catch (error) {
-            const reason = controller.signal.aborted ? `timed out after ${timeoutMs}ms` : errorText(error);
-            this.logger.warn('plugin fetch failed', { plugin: manifest.id, hostname, method, error: reason });
+            const reason = controller.signal.aborted ? `timed out after ${budgetMs}ms` : errorText(error);
+            this.pluginLog.for(manifest.id).warn('plugin fetch failed', { hostname, method, error: reason });
             throw httpError(502).withDetails({ message: `plugin "${manifest.id}" fetch to "${hostname}" failed: ${reason}` });
         }
     }
 
     /**
-     * The body as text, capped at `maxBodyBytes`.
+     * The body as text, capped at {@link PLUGIN_FETCH_MAX_BODY_BYTES}.
      *
      * Two checks, because either alone is wrong: `content-length` refuses an
      * oversized body before a byte of it is read, and the running count catches
@@ -574,7 +548,8 @@ export class PluginHostFactory {
      * kill the connection, but aborting would make {@link roundTrip} report the
      * failure as a timeout, which it is not.
      */
-    private async readBody(response: Response, maxBodyBytes: number): Promise<string> {
+    private async readBody(response: Response): Promise<string> {
+        const maxBodyBytes = PLUGIN_FETCH_MAX_BODY_BYTES;
         const tooLarge = (bytes: number): Error => new Error(`response body is ${bytes} bytes, over the ${maxBodyBytes} byte limit`);
 
         const declared = Number(response.headers.get('content-length'));

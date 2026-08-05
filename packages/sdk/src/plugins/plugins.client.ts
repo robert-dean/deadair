@@ -4,6 +4,9 @@ import type {
     PluginConfigInput,
     PluginDetail,
     PluginListQuery,
+    PluginLogLevelInput,
+    PluginLogPage,
+    PluginLogQuery,
     PluginOAuthCallbackQuery,
     PluginOAuthResult,
     PluginOAuthStart,
@@ -76,12 +79,56 @@ export class PluginsClient {
     }
 
     /**
+     * @name Reload plugin
+     * @description Reapplies the plugin's stored configuration: disposes the running instance and initializes it again
+     */
+    async reloadPlugin(id: string): Promise<PluginDetail> {
+        const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/reload`, { method: 'POST' });
+        return await parseJson<PluginDetail>(result);
+    }
+
+    /**
      * @name Test plugin connection
      * @description Runs the plugin's own `testConnection()` through the invoker
      */
     async testPluginConnection(id: string): Promise<PluginTestResult> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/test`, { method: 'POST' });
         return await parseJson<PluginTestResult>(result);
+    }
+
+    /**
+     * @name Get plugin logs
+     * @description Returns the plugin's buffered log lines at or above the current log level
+     */
+    async getPluginLogs(id: string, query?: PluginLogQuery): Promise<PluginLogPage> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/logs${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<PluginLogPage>(result);
+    }
+
+    /**
+     * @name Download plugin logs
+     * @description Streams the plugin's full retained log as a plain-text attachment
+     */
+    async downloadPluginLogs(id: string): Promise<{ data: string; headers: { contentDisposition?: string } }> {
+        const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/logs/download`, { method: 'GET' });
+        const data = await result.text();
+        return { data, headers: { contentDisposition: result.headers.get('Content-Disposition') ?? undefined } };
+    }
+
+    /**
+     * @name Set plugin log level
+     * @description Sets the minimum severity the plugin's log store retains going forward
+     */
+    async setPluginLogLevel(id: string, body: PluginLogLevelInput): Promise<PluginDetail> {
+        const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/logs/level`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PluginDetail>(result);
     }
 
     /**

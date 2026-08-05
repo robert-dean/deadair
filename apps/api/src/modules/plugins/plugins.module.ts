@@ -1,35 +1,27 @@
 import { Container, Registry } from 'injectkit';
-import type { ClientConfig } from 'pg';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { Logger } from '@maroonedsoftware/logger';
-import { EnrichmentChain } from './enrichment.chain.js';
-import { MusicProviderResolver } from './music.provider.resolver.js';
+import { getLogStore } from '#src/logging/log.store.js';
+import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
 import { PluginConfigRepository } from './plugin.config.repository.js';
 import { PluginConfigService } from './plugin.config.service.js';
-import { PluginEchoTracker } from './plugin.echo.tracker.js';
 import { PluginHostFactory, PluginHostFactoryOptions } from './plugin.host.factory.js';
 import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginLoader, PluginLoaderOptions } from './plugin.loader.js';
+import { PluginLog, PluginLogOptions } from './plugin.log.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
 import { PluginRegistry } from './plugin.registry.js';
-import { PluginReloadListener, PluginReloadListenerOptions } from './plugin.reload.listener.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
 import { bundledPluginDirs } from './plugins.bundled.js';
 import { PluginsService } from './plugins.service.js';
+import { PluginLogLevel } from './types/plugins.types.js';
 
 /** Where operator-installed plugins are mounted when `PLUGINS_DIR` is unset. */
 const DEFAULT_PLUGINS_DIR = './data/plugins';
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
-
-/**
- * An optional env value. An absent key falls back to the empty default, and an
- * env var that is present but blank counts as unset too.
- */
-const optionalString = (config: AppConfig, key: string): string | undefined =>
-    config.get<string, string>(key, '') || undefined;
 
 /**
  * The plugin subsystem.
@@ -47,7 +39,23 @@ const optionalString = (config: AppConfig, key: string): string | undefined =>
 export const PluginsModule: ServerKitModule = {
     name: 'Plugins',
     setup: async (registry: Registry, config: AppConfig) => {
-        const pluginsDir = optionalString(config, 'PLUGINS_DIR') ?? DEFAULT_PLUGINS_DIR;
+        const pluginsDir = config.get('PLUGINS_DIR', DEFAULT_PLUGINS_DIR);
+
+        // `setup.server.ts` builds the one `RotatingLogStore` for the process, before this
+        // (or any) container exists, and stashes it in the process-level holder because
+        // `ServerKitModule.setup` has no way to receive it directly. Reaching for a fresh
+        // `new RotatingLogStore(...)` here instead would open a second writable stream onto
+        // the same channel files: two independent size counters, two rotations racing each
+        // other. If this ever fires it means a module ran ahead of server setup, which is a
+        // startup-order bug worth failing loudly for rather than quietly doubling the store.
+        const logStore = getLogStore();
+        if (!logStore) {
+            throw new Error('PluginsModule.setup: no RotatingLogStore set; setup.server.ts must call setLogStore first');
+        }
+
+        const rawPluginLogLevel = config.get('PLUGIN_LOG_LEVEL', 'info');
+        const pluginLogLevelResult = PluginLogLevel.safeParse(rawPluginLogLevel);
+        const defaultPluginLogLevel = pluginLogLevelResult.success ? pluginLogLevelResult.data : 'info';
 
         registry
             .register(PluginLoaderOptions)
@@ -60,15 +68,24 @@ export const PluginsModule: ServerKitModule = {
         // request a different (empty) view of the world.
         registry.register(PluginRegistry).useClass(PluginRegistry).asSingleton();
 
+        // Singleton for the same reason PluginRegistry is: it fronts the process-wide
+        // `RotatingLogStore` (a `Map<channel, WriteStream>`), and its writers below
+        // (PluginInvoker, PluginHostFactory, PluginLifecycleManager) are all singletons
+        // themselves, so a scoped copy would just be a second, empty view of a stream
+        // map the request never owns.
+        registry
+            .register(PluginLogOptions)
+            .useFactory(() => new PluginLogOptions(defaultPluginLogLevel))
+            .asSingleton();
+        registry
+            .register(RotatingLogStore)
+            .useFactory(() => logStore)
+            .asSingleton();
+        registry.register(PluginLog).useClass(PluginLog).asSingleton();
+
         // Likewise the invoker, whose circuit breaker only means anything if
         // every caller shares the same failure counts.
         registry.register(PluginInvoker).useClass(PluginInvoker).asSingleton();
-
-        // And the echo tracker: the writer that announces a `plugin_configs`
-        // write (a scoped service, on a request scope that is gone by the time
-        // the notification lands) and the listener that consumes it have to be
-        // looking at the same map.
-        registry.register(PluginEchoTracker).useClass(PluginEchoTracker).asSingleton();
 
         // And the OAuth state store: the authorize request and the callback that
         // redeems its state are two different requests, so a scoped instance
@@ -82,33 +99,11 @@ export const PluginsModule: ServerKitModule = {
 
         registry
             .register(PluginHostFactoryOptions)
-            .useFactory(() => new PluginHostFactoryOptions(config.getString('APP_BASE_URL')))
+            .useFactory(() => new PluginHostFactoryOptions(config.get('APP_BASE_URL', '')))
             .asSingleton();
         registry.register(PluginHostFactory).useClass(PluginHostFactory).asSingleton();
 
         registry.register(PluginLifecycleManager).useClass(PluginLifecycleManager).asSingleton();
-
-        // The listener's own connection, built from the same env DataModule's
-        // pool uses. LISTEN holds a connection for its whole lifetime, so it
-        // cannot come from the query pool.
-        const appUser = optionalString(config, 'DATABASE_APP_USER');
-        const listenerConnection: ClientConfig = {
-            host: config.getString('DATABASE_HOST'),
-            port: config.getNumber('DATABASE_PORT'),
-            database: config.getString('DATABASE_NAME'),
-            user: appUser ?? config.getString('DATABASE_USER'),
-            password: appUser ? config.getString('DATABASE_APP_PASSWORD') : config.getString('DATABASE_PASSWORD'),
-        };
-        registry
-            .register(PluginReloadListenerOptions)
-            .useFactory(() => new PluginReloadListenerOptions(listenerConnection))
-            .asSingleton();
-        registry.register(PluginReloadListener).useClass(PluginReloadListener).asSingleton();
-
-        registry.register(MusicProviderResolver).useClass(MusicProviderResolver).asScoped();
-        // Singleton so its single-flight map is actually shared between the
-        // callers that would otherwise duplicate a fan-out.
-        registry.register(EnrichmentChain).useClass(EnrichmentChain).asSingleton();
     },
 
     start: async (container: Container, signal: AbortSignal) => {
@@ -130,25 +125,10 @@ export const PluginsModule: ServerKitModule = {
         } catch (error) {
             logger.error('plugin initialization failed', { error: errorText(error) });
         }
-
-        if (signal.aborted) return;
-
-        try {
-            await container.get(PluginReloadListener).start();
-        } catch (error) {
-            // Losing the listener costs live config reloads, not the server.
-            logger.error('plugin reload listener could not start; config changes will need a restart', { error: errorText(error) });
-        }
     },
 
     shutdown: async (container: Container) => {
         const logger = container.get(Logger);
-
-        try {
-            await container.get(PluginReloadListener).stop();
-        } catch (error) {
-            logger.warn('plugin reload listener did not stop cleanly', { error: errorText(error) });
-        }
 
         try {
             await container.get(PluginLifecycleManager).disposeAll();

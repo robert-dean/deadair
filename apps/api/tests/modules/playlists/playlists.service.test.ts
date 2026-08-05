@@ -18,6 +18,7 @@ import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
+import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
 const SPOTIFY_ID = 'deadair.spotify';
 const OTHER_ID = 'deadair.other';
@@ -121,7 +122,7 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePer
     const accessControl = new AccessControlService(new AuthorizationContext(actor), fixture.asPermissionsService());
     const listVisibleIdsSpy = vi.spyOn(accessControl, 'listVisibleIds');
 
-    const service = new PlaylistsService(registry, new PluginInvoker(registry, stubLogger()), accessControl, stubLogger());
+    const service = new PlaylistsService(registry, new PluginInvoker(registry, stubPluginLog().log), accessControl, stubLogger());
 
     return { service, registry, listVisibleIdsSpy };
 }
@@ -187,7 +188,7 @@ describe('PlaylistsService.listPlaylists', () => {
                 manifest: manifest({ id: OTHER_ID, name: 'Other' }),
                 instance: catalogInstance({
                     listPlaylists: vi.fn(async () => {
-                        throw new PluginError('unavailable', 'provider is down');
+                        throw new PluginError('provider is down').withCode('unavailable');
                     }),
                 }) as never,
             }),
@@ -300,7 +301,7 @@ describe('PlaylistsService.getPlaylistTracks', () => {
             record(SPOTIFY_ID, {
                 instance: catalogInstance({
                     getPlaylistTracks: vi.fn(async () => {
-                        throw new PluginError('rate_limited', 'slow down', { retryAfterMs: 30_000 });
+                        throw new PluginError('slow down').withCode('rate_limited').withRetry(30_000);
                     }),
                 }) as never,
             }),

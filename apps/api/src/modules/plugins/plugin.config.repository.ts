@@ -2,6 +2,8 @@ import { Injectable } from 'injectkit';
 import { DateTime } from 'luxon';
 import { DataRepository } from '../data/data.repository.js';
 
+type PluginLogLevel = 'debug' | 'info' | 'warn' | 'error';
+
 /**
  * A plugin's persisted configuration row.
  *
@@ -18,13 +20,15 @@ export interface PluginConfigRecord {
     secrets: Record<string, string>;
     status?: string;
     lastError?: string;
+    /** Per-plugin override of the log level. Absent means "use the store's default". */
+    logLevel?: PluginLogLevel;
     createdAt: DateTime;
     updatedAt: DateTime;
 }
 
 /**
  * Fields to write. Anything left `undefined` is untouched by the upsert;
- * `null` explicitly clears `status` / `lastError`.
+ * `null` explicitly clears `status` / `lastError` / `logLevel`.
  */
 export interface PluginConfigPatch {
     enabled?: boolean;
@@ -32,6 +36,7 @@ export interface PluginConfigPatch {
     secrets?: Record<string, string>;
     status?: string | null;
     lastError?: string | null;
+    logLevel?: PluginLogLevel;
 }
 
 export type PluginConfigUpsert = PluginConfigPatch & { pluginId: string };
@@ -42,21 +47,7 @@ type PluginConfigColumns = {
     secrets?: null;
     status?: string | null;
     lastError?: string | null;
-};
-
-/** jsonb columns are typed as `Json` by kysely-codegen; pg wants the serialized form. */
-const toJsonb = (value: unknown): null => JSON.stringify(value) as unknown as null;
-
-const asRecord = (value: unknown): Record<string, unknown> =>
-    value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-
-const asSecrets = (value: unknown): Record<string, string> => {
-    const source = asRecord(value);
-    const secrets: Record<string, string> = {};
-    for (const [key, ciphertext] of Object.entries(source)) {
-        if (typeof ciphertext === 'string') secrets[key] = ciphertext;
-    }
-    return secrets;
+    logLevel?: PluginLogLevel;
 };
 
 @Injectable()
@@ -99,13 +90,19 @@ export class PluginConfigRepository extends DataRepository {
         return this.upsert({ pluginId, status, lastError: lastError ?? null });
     }
 
+    /** Sets the per-plugin log level override. `null` clears it back to "use the default". */
+    async setLogLevel(pluginId: string, level?: PluginLogLevel): Promise<PluginConfigRecord> {
+        return this.upsert({ pluginId, logLevel: level });
+    }
+
     private toColumns(patch: PluginConfigPatch): PluginConfigColumns {
         const columns: PluginConfigColumns = {};
         if (patch.enabled !== undefined) columns.enabled = patch.enabled;
-        if (patch.config !== undefined) columns.config = toJsonb(patch.config);
-        if (patch.secrets !== undefined) columns.secrets = toJsonb(patch.secrets);
+        if (patch.config !== undefined) columns.config = this.toJsonb(patch.config);
+        if (patch.secrets !== undefined) columns.secrets = this.toJsonb(patch.secrets);
         if (patch.status !== undefined) columns.status = patch.status;
         if (patch.lastError !== undefined) columns.lastError = patch.lastError;
+        if (patch.logLevel !== undefined) columns.logLevel = patch.logLevel;
         return columns;
     }
 
@@ -116,18 +113,38 @@ export class PluginConfigRepository extends DataRepository {
         secrets: unknown;
         status: string | null;
         lastError: string | null;
+        logLevel: PluginLogLevel;
         createdAt: DateTime;
         updatedAt: DateTime;
     }): PluginConfigRecord {
         return {
             pluginId: row.pluginId,
             enabled: row.enabled,
-            config: asRecord(row.config),
-            secrets: asSecrets(row.secrets),
+            config: this.asRecord(row.config),
+            secrets: this.asSecrets(row.secrets),
             status: row.status ?? undefined,
             lastError: row.lastError ?? undefined,
+            logLevel: row.logLevel,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         };
+    }
+
+    /** jsonb columns are typed as `Json` by kysely-codegen; pg wants the serialized form. */
+    private toJsonb(value: unknown): null {
+        return JSON.stringify(value) as unknown as null;
+    }
+
+    private asRecord(value: unknown): Record<string, unknown> {
+        return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+    }
+
+    private asSecrets(value: unknown): Record<string, string> {
+        const source = this.asRecord(value);
+        const secrets: Record<string, string> = {};
+        for (const [key, ciphertext] of Object.entries(source)) {
+            if (typeof ciphertext === 'string') secrets[key] = ciphertext;
+        }
+        return secrets;
     }
 }

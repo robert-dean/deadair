@@ -115,10 +115,13 @@ export class SpotifyRequestError extends PluginError {
     readonly body?: string;
 
     constructor(status: number, message: string, body?: string, retryAfterMs?: number) {
-        super(pluginCodeForStatus(status), message, { upstreamStatus: status, retryAfterMs });
+        super(message);
         this.name = 'SpotifyRequestError';
         this.status = status;
         this.body = body;
+
+        this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
+        if (retryAfterMs !== undefined) this.withRetry(retryAfterMs);
     }
 }
 

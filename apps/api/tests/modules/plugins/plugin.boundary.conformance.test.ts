@@ -1,21 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Logger } from '@maroonedsoftware/logger';
 
 import { assertCrossesBoundary, conformanceManifest } from '../../../../../packages/plugin-sdk/tests/boundary.payloads.fixture.js';
 import { PLUGIN_OAUTH_SECRET_KEY, PluginHostFactory, PluginHostFactoryOptions } from '../../../src/modules/plugins/plugin.host.factory.js';
 import type { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
-import type { PluginEchoTracker } from '../../../src/modules/plugins/plugin.echo.tracker.js';
 import type { PluginStorageRepository } from '../../../src/modules/plugins/plugin.storage.repository.js';
+import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
 const PLUGIN_ID = 'test.conformance';
-
-const stubLogger = (): Logger => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-});
 
 interface Harness {
     factory: PluginHostFactory;
@@ -46,10 +37,9 @@ function harness(): Harness {
         delete: vi.fn(async () => {}),
         listKeys: storageListKeys,
     } as unknown as PluginStorageRepository;
-    const pluginEchoTracker = { expectEcho: vi.fn(), retractEcho: vi.fn() } as unknown as PluginEchoTracker;
 
     const options = new PluginHostFactoryOptions('https://host.example.com');
-    const factory = new PluginHostFactory(options, pluginConfigService, pluginStorageRepository, pluginEchoTracker, stubLogger());
+    const factory = new PluginHostFactory(options, pluginConfigService, pluginStorageRepository, stubPluginLog().log);
 
     return { factory, getSecrets, getConfig, saveConfig, storageGet, storageListKeys };
 }

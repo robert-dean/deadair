@@ -21,6 +21,7 @@ export function pluginDetail(overrides: Partial<PluginDetail> = {}): PluginDetai
     return {
         ...pluginSummary(overrides),
         config: {},
+        logLevel: 'info',
         ...overrides,
     };
 }

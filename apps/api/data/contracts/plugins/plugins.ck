@@ -114,6 +114,24 @@ operation /plugins/{id}/disable: {
     }
 }
 
+operation /plugins/{id}/reload: {
+    params: {
+        id: string(min=1, max=200)
+    }
+    post: { # Reapplies the plugin's stored configuration: disposes the running instance and initializes it again
+        name: Reload plugin
+        service: PluginsService.reloadPlugin
+        security: {
+            policy: none
+        }
+        response: {
+            200: {
+                application/json: PluginDetail
+            }
+        }
+    }
+}
+
 operation /plugins/{id}/test: {
     params: {
         id: string(min=1, max=200)
@@ -127,6 +145,67 @@ operation /plugins/{id}/test: {
         response: {
             200: {
                 application/json: PluginTestResult
+            }
+        }
+    }
+}
+
+operation /plugins/{id}/logs: {
+    params: {
+        id: string(min=1, max=200)
+    }
+    get: { # Returns the plugin's buffered log lines at or above the current log level
+        name: Get plugin logs
+        service: PluginsService.getPluginLogs
+        security: {
+            policy: none
+        }
+        query: PluginLogQuery
+        response: {
+            200: {
+                application/json: PluginLogPage
+            }
+        }
+    }
+}
+
+operation /plugins/{id}/logs/download: {
+    params: {
+        id: string(min=1, max=200)
+    }
+    get: { # Streams the plugin's full retained log as a plain-text attachment
+        name: Download plugin logs
+        service: PluginsService.downloadPluginLogs
+        security: {
+            policy: none
+        }
+        response: {
+            200: {
+                headers: {
+                    Content-Disposition?: string
+                }
+                text/plain: string
+            }
+        }
+    }
+}
+
+operation /plugins/{id}/logs/level: {
+    params: {
+        id: string(min=1, max=200)
+    }
+    put: { # Sets the minimum severity the plugin's log store retains going forward
+        name: Set plugin log level
+        service: PluginsService.setPluginLogLevel
+        security: {
+            policy: none
+        }
+        request: {
+            application/json: PluginLogLevelInput
+        }
+        response: {
+            200: {
+                application/json: PluginDetail
             }
         }
     }

@@ -1,20 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Logger } from '@maroonedsoftware/logger';
 import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 
 import { PLUGIN_FAILURE_THRESHOLD, PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
-
-// No collaborator beyond the registry (pure in-memory bookkeeping, safe to use for real)
-// and a stub logger: the invoker's own timeout/breaker logic is what's under test.
-const stubLogger = (): Logger => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-});
+import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
 function record(overrides: Partial<PluginRecord> = {}): PluginRecord {
     return { id: 'p', dir: '/plugins/p', status: 'active', ...overrides };
@@ -29,7 +19,7 @@ describe('PluginInvoker.invoke', () => {
         vi.useFakeTimers();
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         let sawAbort = false;
         const hung = (signal: AbortSignal) =>
@@ -52,7 +42,7 @@ describe('PluginInvoker.invoke', () => {
     it('captures a synchronous throw: invoke rejects with a useful message, op name recorded, process unharmed', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         const throwing = () => {
             throw new Error('boom');
@@ -68,7 +58,7 @@ describe('PluginInvoker.invoke', () => {
     it('trips the breaker after threshold consecutive failures and short-circuits further invokes', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         const throwing = vi.fn(() => {
             throw new Error('down');
@@ -89,7 +79,7 @@ describe('PluginInvoker.invoke', () => {
     it('resets the failure count on a success before the threshold is reached', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         const throwing = () => {
             throw new Error('flaky');
@@ -111,10 +101,10 @@ describe('PluginInvoker.invoke', () => {
     it('quarantines on the first failure the plugin declared non-retryable, without spending two more round trips', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         const throwing = vi.fn(() => {
-            throw new PluginError('auth', 'token expired');
+            throw new PluginError('token expired').withCode('auth');
         });
 
         await expect(invoker.invoke('p', 'oauth.getAuthorizeUrl', throwing)).rejects.toThrow(/token expired/);
@@ -127,13 +117,13 @@ describe('PluginInvoker.invoke', () => {
     it('never quarantines on resource-scoped failures, however many arrive', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         // Opening ten Spotify playlists the account does not own is ordinary
         // use, not a sick plugin. Counting these took the whole integration
         // down on the third click.
         const throwing = () => {
-            throw new PluginError('forbidden', 'not your playlist');
+            throw new PluginError('not your playlist').withCode('forbidden');
         };
 
         for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD * 3; i++) {
@@ -147,13 +137,13 @@ describe('PluginInvoker.invoke', () => {
     it('does not let a resource-scoped failure clear the count of real ones either', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         const unavailable = () => {
-            throw new PluginError('unavailable', 'upstream down');
+            throw new PluginError('upstream down').withCode('unavailable');
         };
         const forbidden = () => {
-            throw new PluginError('forbidden', 'not your playlist');
+            throw new PluginError('not your playlist').withCode('forbidden');
         };
 
         // A refusal is not evidence in either direction, so it must not act as
@@ -171,10 +161,10 @@ describe('PluginInvoker.invoke', () => {
     it('still gives a retryable PluginError the full threshold', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         const throwing = () => {
-            throw new PluginError('upstream', 'bad gateway');
+            throw new PluginError('bad gateway').withCode('upstream');
         };
 
         for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD - 1; i++) {
@@ -187,7 +177,7 @@ describe('PluginInvoker.invoke', () => {
     it('reset() closes the breaker and forgets the failure count', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         const throwing = () => {
             throw new Error('down');
@@ -219,14 +209,49 @@ describe('PluginInvoker error classification', () => {
         }
     };
 
-    it('carries the plugin\'s own code out through the wrapper', async () => {
+    /**
+     * A plugin installed from outside the workspace can carry its own copy of
+     * the SDK, and then `instanceof` answers false for an error that is a
+     * `PluginError` in every way that matters. The invoker is the one place
+     * that has to tolerate it, so this is where it is proven.
+     */
+    it('adopts the classification from a plugin carrying its own copy of the SDK', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+
+        const fromAnotherCopy = {
+            [Symbol.for('deadair.plugin-error/v1')]: true,
+            name: 'PluginError',
+            message: 'not your playlist',
+            code: 'forbidden',
+            retryable: false,
+        };
+
+        // Without adoption this reads as an unclassified `internal` failure,
+        // which is both non-resource-scoped and (being unclassified) counted:
+        // ten ordinary refusals would quarantine a healthy plugin.
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD * 3; i++) {
+            expect(
+                await codeOf(
+                    invoker.invoke('p', 'catalog.getPlaylistTracks', () => {
+                        throw fromAnotherCopy;
+                    }),
+                ),
+            ).toBe('forbidden');
+        }
+
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+    });
+
+    it("carries the plugin's own code out through the wrapper", async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         const code = await codeOf(
             invoker.invoke('p', 'op', () => {
-                throw new PluginError('rate_limited', 'slow down', { retryAfterMs: 30_000 });
+                throw new PluginError('slow down').withCode('rate_limited').withRetry(30_000);
             }),
         );
 
@@ -236,11 +261,11 @@ describe('PluginInvoker error classification', () => {
     it('keeps the retry advice attached, so a 429 can be answered with a Retry-After', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         await invoker
             .invoke('p', 'op', () => {
-                throw new PluginError('rate_limited', 'slow down', { retryAfterMs: 30_000, upstreamStatus: 429 });
+                throw new PluginError('slow down').withCode('rate_limited').withUpstreamStatus(429).withRetry(30_000);
             })
             .catch((error: unknown) => {
                 expect(isPluginError(error)).toBe(true);
@@ -254,7 +279,7 @@ describe('PluginInvoker error classification', () => {
     it('classifies a bare Error as internal', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         expect(
             await codeOf(
@@ -269,7 +294,7 @@ describe('PluginInvoker error classification', () => {
         vi.useFakeTimers();
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         const promise = codeOf(invoker.invoke('p', 'op', async () => new Promise<void>(() => {}), { timeoutMs: 1_000 }));
         await vi.advanceTimersByTimeAsync(1_000);
@@ -280,11 +305,11 @@ describe('PluginInvoker error classification', () => {
     it('classifies the open-breaker short circuit as unavailable', async () => {
         const registry = new PluginRegistry();
         registry.upsert(record());
-        const invoker = new PluginInvoker(registry, stubLogger());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
         await expect(
             invoker.invoke('p', 'op', () => {
-                throw new PluginError('config', 'no client id');
+                throw new PluginError('no client id').withCode('config');
             }),
         ).rejects.toThrow();
 

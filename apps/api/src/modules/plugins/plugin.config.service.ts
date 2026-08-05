@@ -3,6 +3,7 @@ import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { ConfigField } from '@deadair/plugin-sdk';
 import { PluginConfigRecord, PluginConfigRepository } from './plugin.config.repository.js';
 import { PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
+import { PluginLogLevel } from './types/plugins.types.js';
 
 /**
  * What the settings UI is allowed to see. Secret fields are reduced to a
@@ -20,6 +21,8 @@ export interface PluginConfigReadModel {
     oauthConnected: boolean;
     status?: string;
     lastError?: string;
+    /** Per-plugin override of the log level. Absent means "use the configured default". */
+    logLevel?: string;
 }
 
 /** `note` fields are static help text, not inputs, so they never carry a value. */
@@ -109,8 +112,14 @@ export class PluginConfigService {
         await this.pluginConfigRepository.setStatus(pluginId, status, lastError);
     }
 
+    /** Sets the per-plugin log level override, returning the saved config record. */
+    async setLogLevel(pluginId: string, level?: PluginLogLevel): Promise<PluginConfigRecord> {
+        return this.pluginConfigRepository.setLogLevel(pluginId, level);
+    }
+
     private toReadModel(
-        record: Pick<PluginConfigRecord, 'pluginId' | 'enabled' | 'config' | 'secrets'> & Partial<Pick<PluginConfigRecord, 'status' | 'lastError'>>,
+        record: Pick<PluginConfigRecord, 'pluginId' | 'enabled' | 'config' | 'secrets'> &
+            Partial<Pick<PluginConfigRecord, 'status' | 'lastError' | 'logLevel'>>,
         fields: ConfigField[],
     ): PluginConfigReadModel {
         const config: Record<string, unknown> = {};
@@ -135,6 +144,7 @@ export class PluginConfigService {
             oauthConnected,
             status: record.status,
             lastError: record.lastError,
+            logLevel: record.logLevel,
         };
     }
 }

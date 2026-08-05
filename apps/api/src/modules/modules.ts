@@ -9,6 +9,7 @@ import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
+import { LoggingModule } from '#src/logging/logging.module.js';
 
 // Registered in dependency order: infrastructure (data, shared, messaging,
 // events) first, then the single-actor identity/auth foundation. IdentityModule
@@ -29,4 +30,8 @@ export const modules: ServerKitModule[] = [
     // After PluginsModule: it resolves PluginRegistry and PluginInvoker, which
     // PluginsModule registers.
     PlaylistsModule,
+    // Must stay last: its shutdown hook closes the process-level RotatingLogStore,
+    // and every other module's shutdown logging has to be flushed through
+    // FileTeeLogger before that happens.
+    LoggingModule,
 ];

@@ -42,11 +42,35 @@ contract PluginSummary: {
     secretsConfigured: record(string, boolean) # One entry per `secret` field: whether a value is currently stored. Never the value itself
 }
 
+contract PluginLogLevel: enum(debug, info, warn, error)
+
+contract PluginLogEntry: {
+    ts: string(max=40)
+    level: PluginLogLevel
+    text: string(max=65536) # Must match MAX_LINE_BYTES_CEILING in apps/api/src/logging/rotating.log.store.ts. Change both together
+}
+
+contract PluginLogPage: {
+    pluginId: string(min=1, max=200)
+    level: PluginLogLevel
+    entries: array(PluginLogEntry)
+}
+
+contract PluginLogQuery: {
+    limit?: number(min=1, max=2000)
+    level?: PluginLogLevel
+}
+
+contract PluginLogLevelInput: {
+    level: PluginLogLevel
+}
+
 # A summary plus the stored NON-SECRET configuration and the last recorded failure
 contract PluginDetail: PluginSummary & {
     config: record(string, unknown)
     lastError?: string(max=4000)
     oauthConnected?: boolean
+    logLevel: PluginLogLevel
 }
 
 # A submitted settings form. Secret values arrive in here and are never echoed back

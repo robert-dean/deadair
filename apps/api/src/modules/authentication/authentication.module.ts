@@ -84,11 +84,11 @@ export const AuthenticationModule: ServerKitModule = {
         registry
             .register(JwtProvider)
             .useFactory(container => {
-                return new JwtProvider(container.get(Logger), config.getString('AUTHENTICATION_SESSION_JWT_PRIVATE_KEY'));
+                return new JwtProvider(container.get(Logger), config.get('AUTHENTICATION_SESSION_JWT_PRIVATE_KEY', ''));
             })
             .asScoped();
 
-        const otpDevBypass = config.getBoolean('OTP_DEV_BYPASS');
+        const otpDevBypass = config.get('OTP_DEV_BYPASS', false);
         // Positive allowlist: the OTP bypass (accepts any submitted code) may ONLY run under an
         // explicit development environment. An unset/'staging'/'test' NODE_ENV must not silently
         // enable it — only 'development' does.
@@ -179,17 +179,11 @@ export const AuthenticationModule: ServerKitModule = {
             .asScoped();
         registry.register(AuthenticatorFactorService).useClass(AuthenticatorFactorService).asScoped();
 
-        const spaBaseUrl = (() => {
-            try {
-                return config.getString('SPA_BASE_URL');
-            } catch {
-                return config.getString('APP_BASE_URL');
-            }
-        })();
+        const spaBaseUrl = config.get('SPA_BASE_URL', '');
 
         registry
             .register(AuthenticationServiceOptions)
-            .useFactory(() => new AuthenticationServiceOptions(config.getString('APP_BASE_URL'), 'deadair', 'https://deadair.com', spaBaseUrl))
+            .useFactory(() => new AuthenticationServiceOptions(config.get('APP_BASE_URL', ''), 'deadair', 'https://deadair.com', spaBaseUrl))
             .asScoped();
 
         registry
@@ -217,7 +211,7 @@ export const AuthenticationModule: ServerKitModule = {
                         clientId: googleClientId,
                         clientSecret: googleClientSecret,
                         scopes: ['openid', 'email', 'profile'],
-                        redirectUri: new URL(`${config.getString('APP_BASE_URL')}/auth/login/oidc/callback`),
+                        redirectUri: new URL(`${config.get('APP_BASE_URL', '')}/auth/login/oidc/callback`),
                         // Only opt into insecure discovery when the issuer is explicitly http —
                         // i.e. the dev-only mock IdP. Real Google stays https-only.
                         allowInsecureIssuer: googleIssuerUrl.protocol === 'http:',

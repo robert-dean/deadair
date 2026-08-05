@@ -1,25 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
-import type { Logger } from '@maroonedsoftware/logger';
 import type { PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 
 import { PluginLifecycleManager } from '../../../src/modules/plugins/plugin.lifecycle.manager.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginConfigRecord, PluginConfigRepository } from '../../../src/modules/plugins/plugin.config.repository.js';
 import type { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
-import type { PluginEchoTracker } from '../../../src/modules/plugins/plugin.echo.tracker.js';
 import type { PluginHostFactory } from '../../../src/modules/plugins/plugin.host.factory.js';
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import type { PluginLoader } from '../../../src/modules/plugins/plugin.loader.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
-
-const stubLogger = (): Logger => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-});
+import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
 function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
     return {
@@ -69,8 +60,7 @@ function makeManager(registry: PluginRegistry, discovered: PluginRecord[], confi
         pluginInvoker,
         {} as PluginConfigService,
         pluginConfigRepository,
-        {} as PluginEchoTracker,
-        stubLogger(),
+        stubPluginLog().log,
     );
 
     return { manager, pluginLoader };
@@ -117,7 +107,6 @@ describe('PluginLifecycleManager.rescan', () => {
         // The instance is still reachable, so dispose is still callable and the
         // provider has not vanished from the playout path.
         expect(registry.instance('spotify')).toBe(instance);
-        expect(registry.byCapability('music-provider', 'playout')).toEqual([running]);
         expect(dispose).not.toHaveBeenCalled();
         expect(registry.list()).toHaveLength(1);
     });

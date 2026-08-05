@@ -6,16 +6,17 @@
 --                                   how many providers happen to carry it. Ratings,
 --                                   playlists and enrichment hang off these ids, so they
 --                                   survive swapping a provider out.
---   *_sources                       the binding. One row per (provider, provider id) that
---                                   can serve the work. A track legitimately has several:
---                                   two Navidrome files plus a Spotify id is normal.
+--   *_sources                       the binding. One row per (plugin_id, external_id)
+--                                   that can serve the work. A track legitimately has
+--                                   several: two Navidrome files plus a Spotify id.
 --   *_enrichment                    what an external metadata provider knows about the
 --                                   work. Different axis from *_sources: Spotify appears
 --                                   in both, with different rows.
 --
--- Ingest resolves an incoming item to a canonical row (mbid, then isrc for tracks, then
--- the fuzzy *_key columns) and writes a binding. Playout resolves the other way: canonical
--- track -> best available binding, by the operator's source preference order.
+-- Ingest resolves an incoming item to a canonical row (mbid, then for tracks the isrc
+-- claimed by any existing binding, then the fuzzy *_key columns) and writes a binding.
+-- Playout resolves the other way: canonical track -> best available binding, by the
+-- operator's plugin preference order.
 
 create table deadair.artists (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -84,10 +85,19 @@ create table deadair.artist_sources (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now() check (updated_at >= created_at),
     id uuid not null default gen_random_uuid() primary key,
     artist_id uuid not null references deadair.artists (id) on delete cascade,
-    -- Plugin id of the provider ('spotify', 'navidrome'). Text, not an enum: providers
-    -- arrive as plugins and the schema must not need a migration to learn a new one.
-    source text not null,
-    source_id text not null,
+    -- Manifest id of the providing plugin ('spotify', 'navidrome'). Text, not an enum:
+    -- providers arrive as plugins and the schema must not need a migration to learn one.
+    --
+    -- Deliberately NOT a foreign key to deadair.plugin_configs, matching plugin_storage.
+    -- That table is a sparse config overlay, not a plugin registry: rows appear lazily on
+    -- the first write, so a freshly installed plugin that is scanning has no row yet and
+    -- an FK would reject its first insert. The registry of installed plugins is in memory
+    -- (PluginRegistry, from discover()). The catalog also has to outlive the config, so
+    -- disabling a plugin leaves its bindings in place, unplayable, rather than cascading
+    -- them away and forcing a full rescan on re-enable.
+    plugin_id text not null,
+    -- The provider's own opaque handle for the item.
+    external_id text not null,
     uri text,
     image_url text,
     raw jsonb,
@@ -95,16 +105,17 @@ create table deadair.artist_sources (
     missing_at timestamptz
 );
 select deadair.add_updated_at_trigger('deadair.artist_sources');
-create unique index artist_sources_source_id_idx on deadair.artist_sources (source, source_id);
-create index artist_sources_artist_idx on deadair.artist_sources (artist_id, source);
+create unique index artist_sources_plugin_external_idx on deadair.artist_sources (plugin_id, external_id);
+create index artist_sources_artist_idx on deadair.artist_sources (artist_id, plugin_id);
 
 create table deadair.album_sources (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now() check (updated_at >= created_at),
     id uuid not null default gen_random_uuid() primary key,
     album_id uuid not null references deadair.albums (id) on delete cascade,
-    source text not null,
-    source_id text not null,
+    -- Soft reference. See artist_sources.plugin_id.
+    plugin_id text not null,
+    external_id text not null,
     uri text,
     -- Provider-scoped art handle. Only meaningful to the provider that issued it.
     cover_art_id text,
@@ -113,16 +124,17 @@ create table deadair.album_sources (
     missing_at timestamptz
 );
 select deadair.add_updated_at_trigger('deadair.album_sources');
-create unique index album_sources_source_id_idx on deadair.album_sources (source, source_id);
-create index album_sources_album_idx on deadair.album_sources (album_id, source);
+create unique index album_sources_plugin_external_idx on deadair.album_sources (plugin_id, external_id);
+create index album_sources_album_idx on deadair.album_sources (album_id, plugin_id);
 
 create table deadair.track_sources (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now() check (updated_at >= created_at),
     id uuid not null default gen_random_uuid() primary key,
     track_id uuid not null references deadair.tracks (id) on delete cascade,
-    source text not null,
-    source_id text not null,
+    -- Soft reference. See artist_sources.plugin_id.
+    plugin_id text not null,
+    external_id text not null,
     uri text,
     -- False when the provider still knows the track but will not serve it here
     -- (regional restriction, unplayable relink, tombstoned file).
@@ -142,10 +154,10 @@ create table deadair.track_sources (
     missing_at timestamptz
 );
 select deadair.add_updated_at_trigger('deadair.track_sources');
--- Deliberately (source, source_id) and not (track_id, source): one canonical track may
--- bind to several copies within the same provider.
-create unique index track_sources_source_id_idx on deadair.track_sources (source, source_id);
-create index track_sources_track_idx on deadair.track_sources (track_id, source);
+-- Deliberately (plugin_id, external_id) and not (track_id, plugin_id): one canonical
+-- track may bind to several copies within the same provider.
+create unique index track_sources_plugin_external_idx on deadair.track_sources (plugin_id, external_id);
+create index track_sources_track_idx on deadair.track_sources (track_id, plugin_id);
 create index track_sources_isrc_idx on deadair.track_sources (isrc) where isrc is not null;
 create index track_sources_playable_idx on deadair.track_sources (track_id) where playable and missing_at is null;
 
@@ -198,12 +210,30 @@ create table deadair.track_enrichment (
 );
 select deadair.add_updated_at_trigger('deadair.track_enrichment');
 
+-- A playlist deadair owns: canonical track ids plus the station intent in `prompt`. A
+-- provider's own playlists are never rows here. They are read live and pass through as
+-- CatalogPlaylist (PlaylistsService), so every row in this table is local and
+-- authoritative and there is nothing to distinguish by source.
+--
+-- An import is a clone, not a binding: a projection out of provider-id space into
+-- canonical-id space that then diverges freely. origin_plugin_id records where a clone
+-- came from purely so the console can badge it, and must not grow into a sync
+-- relationship. There is deliberately no dedup on re-import (importing the same upstream
+-- playlist twice is meant to yield two independent playlists), no upstream-drift
+-- detection, and no unique index on it. Provenance that is actually load-bearing lives
+-- on the unresolved placeholders in playlist_tracks, not here.
 create table deadair.playlists (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now() check (updated_at >= created_at),
     id uuid not null default gen_random_uuid() primary key,
     name text not null,
-    prompt text not null default ''
+    prompt text not null default '',
+    -- Manifest id of the plugin this was cloned from. Null means deadair made it, rather
+    -- than a 'deadair' sentinel: this column holds plugin manifest ids, and the console
+    -- resolves one to a display name ("Spotify") through PluginRegistry, which no
+    -- sentinel could ever resolve through. Null also cannot collide with a real plugin
+    -- that claims the id. Soft reference, as everywhere. See artist_sources.plugin_id.
+    origin_plugin_id text
 );
 select deadair.add_updated_at_trigger('deadair.playlists');
 
@@ -212,11 +242,31 @@ select deadair.add_updated_at_trigger('deadair.playlists');
 create table deadair.playlist_tracks (
     id uuid not null default gen_random_uuid() primary key,
     playlist_id uuid not null references deadair.playlists (id),
-    track_id uuid not null references deadair.tracks (id),
+    -- Nullable so an import is not lossy. Importing 200 tracks against a library that
+    -- resolves 150 keeps the other 50 as placeholders that can resolve later as the
+    -- library grows, instead of failing the import or silently dropping them.
+    track_id uuid references deadair.tracks (id),
+    -- A placeholder's upstream identity: which plugin's id space, the id itself, and the
+    -- CatalogTrack as imported so re-resolution can retry the match without refetching.
+    -- Scoped per row rather than per playlist because a playlist can gain unresolved
+    -- tracks from a different provider than the one it was originally imported from.
+    -- Soft reference, as everywhere. See artist_sources.plugin_id.
+    origin_plugin_id text,
+    origin_external_id text,
+    origin_snapshot jsonb,
     position integer not null,
-    constraint playlist_tracks_playlist_id_track_id_key unique (playlist_id, track_id),
+    -- A row is a resolved track or a fully identified placeholder, never neither and
+    -- never a placeholder whose id has no plugin to interpret it.
+    constraint playlist_tracks_resolved_check check (
+        track_id is not null or (origin_plugin_id is not null and origin_external_id is not null)
+    ),
+    -- No unique on (playlist_id, track_id): a playlist may legitimately hold the same
+    -- track twice (a reprise, a set bookend), and importing one that does must not fail.
+    -- Guarding against an accidental double-add is an app concern, not an invariant.
     constraint playlist_tracks_playlist_id_position_key unique (playlist_id, position)
 );
+create index playlist_tracks_track_idx on deadair.playlist_tracks (track_id) where track_id is not null;
+create index playlist_tracks_unresolved_idx on deadair.playlist_tracks (playlist_id) where track_id is null;
 
 
 -- migrate:down

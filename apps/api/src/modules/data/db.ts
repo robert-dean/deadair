@@ -141,12 +141,12 @@ export interface DeadairAlbumSources {
   albumId: string;
   coverArtId: string | null;
   createdAt: Generated<DateTime>;
+  externalId: string;
   id: Generated<string>;
   lastSeenAt: DateTime | null;
   missingAt: DateTime | null;
+  pluginId: string;
   raw: Json | null;
-  source: string;
-  sourceId: string;
   updatedAt: Generated<DateTime>;
   uri: string | null;
 }
@@ -178,13 +178,13 @@ export interface DeadairArtists {
 export interface DeadairArtistSources {
   artistId: string;
   createdAt: Generated<DateTime>;
+  externalId: string;
   id: Generated<string>;
   imageUrl: string | null;
   lastSeenAt: DateTime | null;
   missingAt: DateTime | null;
+  pluginId: string;
   raw: Json | null;
-  source: string;
-  sourceId: string;
   updatedAt: Generated<DateTime>;
   uri: string | null;
 }
@@ -230,15 +230,19 @@ export interface DeadairPlaylists {
   createdAt: Generated<DateTime>;
   id: Generated<string>;
   name: string;
+  originPluginId: string | null;
   prompt: Generated<string>;
   updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairPlaylistTracks {
   id: Generated<string>;
+  originExternalId: string | null;
+  originPluginId: string | null;
+  originSnapshot: Json | null;
   playlistId: string;
   position: number;
-  trackId: string;
+  trackId: string | null;
 }
 
 export interface DeadairPluginConfigs {
@@ -302,15 +306,15 @@ export interface DeadairTrackSources {
   coverArtId: string | null;
   createdAt: Generated<DateTime>;
   durationMs: number | null;
+  externalId: string;
   format: string | null;
   id: Generated<string>;
   isrc: string | null;
   lastSeenAt: DateTime | null;
   missingAt: DateTime | null;
   playable: Generated<boolean>;
+  pluginId: string;
   raw: Json | null;
-  source: string;
-  sourceId: string;
   trackId: string;
   updatedAt: Generated<DateTime>;
   uri: string | null;

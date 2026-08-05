@@ -160,7 +160,8 @@ services:
             - ./stream/station-id.mp3:/radio/station-id.mp3:ro
             # Rights-cleared music bed: liquidsoap loops these under the voice
             # (MUSIC_DIR=/music). Empty until you drop tracks in; falls back to the
-            # station ident so the mount is never silent.
+            # station ident, so a gap inside a programme never becomes dead air.
+            # Neither plays unless deadair holds the control lease (stream/README.md).
             - ./stream/music:/music:ro
             # Committed static boot default, read directly when the volume is empty.
             - ./stream/radio.default.env:/defaults/radio.env:ro

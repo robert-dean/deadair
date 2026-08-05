@@ -293,19 +293,30 @@ end
 # tick would take the station off air. Six seconds is three ticks.
 control_ttl = max(1., env_float("CONTROL_TTL_S", 6.))
 
-# When the lease runs out, as a unix time. Starts expired: a Liquidsoap that comes up before the
-# app is not yet being driven by anything, and should not pretend otherwise.
-on_air_until = ref(-1.)
+# Seconds of lease left, counted DOWN by a thread rather than compared against a wall clock. Same
+# construct the duck ramp uses, and it cannot be fooled by the container's clock being stepped.
+# Starts at zero: a Liquidsoap that comes up before the app is not being driven by anything yet,
+# and must not pretend otherwise.
+lease_left = ref(0.)
+lease_tick = 0.5
+
+# A named def, not an inline lambda: a `:=` assignment is a statement rather than an expression, so
+# as a bare lambda body it does not parse and the error lands far downstream (see the note on
+# playout_note_on_air above, which is the same trap).
+def lease_countdown() =
+  lease_left := max(0., lease_left() - lease_tick)
+end
+thread.run(every=lease_tick, lease_countdown)
 
 def driving() =
-  time() < on_air_until()
+  lease_left() > 0.
 end
 
 # Renew, and answer with the reading like every other control call — so the app's own heartbeat
 # doubles as the poll it was already making, and the lease costs no extra request.
 def control_onair(req) =
   if control_authorized(req) then
-    on_air_until := time() + control_ttl
+    lease_left := control_ttl
     control_json('{' ^ playout_reading() ^ '}')
   else
     control_denied()
@@ -318,7 +329,7 @@ end
 # abandoned must not still be sitting in the queue when the lease is next taken.
 def control_offair(req) =
   if control_authorized(req) then
-    on_air_until := -1.
+    lease_left := 0.
     playout_queue.set_queue([])
     playout_queue.skip()
     control_json('{' ^ playout_reading() ^ '}')

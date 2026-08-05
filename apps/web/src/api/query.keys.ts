@@ -28,6 +28,10 @@ export const queryKeys = {
         list: () => ['playlists', 'list'] as const,
         tracks: (pluginId: string, playlistId: string) => ['playlists', 'tracks', pluginId, playlistId] as const,
     },
+    playout: {
+        /** The transport. One key: there is only ever one station, and it is polled rather than paged. */
+        status: () => ['playout', 'status'] as const,
+    },
     /**
      * The station's own catalog, as opposed to `playlists`, which is whatever the enabled plugins
      * can offer right now.

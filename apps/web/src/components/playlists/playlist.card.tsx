@@ -1,6 +1,8 @@
-import { Anchor, Badge, Card, Divider, Stack, Text } from '@mantine/core';
+import { Anchor, Badge, Card, Divider, Group, Stack, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import type { CatalogPlaylist } from '@deadair/sdk';
+
+import { PlayPlaylistButton } from '../playout/play.playlist.button';
 
 export interface PlaylistCardProps {
     playlist: CatalogPlaylist;
@@ -46,16 +48,25 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
                 <Divider mt="auto" />
 
                 {canReadTracks(playlist) ? (
-                    /* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
-                       router's own types, and with them the check that `params` matches the path. */
-                    <Anchor
-                        renderRoot={props => (
-                            <Link to="/playlists/$pluginId/$playlistId" params={{ pluginId: playlist.pluginId, playlistId: playlist.id }} {...props} />
-                        )}
-                        size="sm"
-                    >
-                        View tracks
-                    </Anchor>
+                    <Group justify="space-between" wrap="nowrap">
+                        {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
+                            router's own types, and with them the check that `params` matches the path. */}
+                        <Anchor
+                            renderRoot={props => (
+                                <Link
+                                    to="/playlists/$pluginId/$playlistId"
+                                    params={{ pluginId: playlist.pluginId, playlistId: playlist.id }}
+                                    {...props}
+                                />
+                            )}
+                            size="sm"
+                        >
+                            View tracks
+                        </Anchor>
+                        {/* Gated on the same permission as the link: a playlist whose tracks the
+                            source will not hand over cannot be aired either. */}
+                        <PlayPlaylistButton pluginId={playlist.pluginId} playlistId={playlist.id} size="xs" />
+                    </Group>
                 ) : (
                     /* Deliberately not a disabled link: a card that says why is
                        less confusing than one whose only affordance quietly does

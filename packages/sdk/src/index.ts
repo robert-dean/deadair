@@ -10,6 +10,8 @@ export * from './onboarding/onboarding.client.js';
 export * from './onboarding/types/index.js';
 export * from './playlists/playlists.client.js';
 export * from './playlists/types/index.js';
+export * from './playout/playout.client.js';
+export * from './playout/types/index.js';
 export * from './plugins/plugins.client.js';
 export * from './plugins/types/index.js';
 export * from './sdk-options.js';

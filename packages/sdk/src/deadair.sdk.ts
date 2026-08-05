@@ -4,6 +4,7 @@ import { AuthenticationClient } from './authentication/authentication.client.js'
 import { CatalogClient } from './catalog/catalog.client.js';
 import { OnboardingClient } from './onboarding/onboarding.client.js';
 import { PlaylistsClient } from './playlists/playlists.client.js';
+import { PlayoutClient } from './playout/playout.client.js';
 import { PluginsClient } from './plugins/plugins.client.js';
 
 export class DeadairSdk {
@@ -11,6 +12,7 @@ export class DeadairSdk {
     readonly catalog: CatalogClient;
     readonly onboarding: OnboardingClient;
     readonly playlists: PlaylistsClient;
+    readonly playout: PlayoutClient;
     readonly plugins: PluginsClient;
 
     constructor(options: SdkOptions) {
@@ -19,6 +21,7 @@ export class DeadairSdk {
         this.catalog = new CatalogClient(sdkFetch);
         this.onboarding = new OnboardingClient(sdkFetch);
         this.playlists = new PlaylistsClient(sdkFetch);
+        this.playout = new PlayoutClient(sdkFetch);
         this.plugins = new PluginsClient(sdkFetch);
     }
 }

@@ -3,34 +3,153 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import type { MusicProviderPluginInstance } from '@deadair/plugin-sdk';
+import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import { pluginHttpError } from '#modules/plugins/plugin.error.http.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
-import { Rundown } from './rundown.js';
-import type { PlayoutAiredQuery, PlayoutBridgeHeaders, SpotifyLoginHeaders, SpotifySessionLogin } from './types/playout.types.js';
+import { PlayoutPusher } from './playout.pusher.js';
+import { Rundown, type RundownItem } from './rundown.js';
+import type {
+    PlayoutAiredQuery,
+    PlayoutBridgeHeaders,
+    PlayoutItem,
+    PlayoutPlaylistInput,
+    PlayoutStatus,
+    SpotifyLoginHeaders,
+    SpotifySessionLogin,
+} from './types/playout.types.js';
 
 /** The plugin the track shim borrows a session from. */
 const SPOTIFY_PLUGIN_ID = 'deadair.spotify';
 
 /**
- * The app's side of the playout bridge.
+ * How much of the running order a status answer carries.
  *
- * Two inbound calls, both from the stream container and neither from a browser:
- * Liquidsoap telling us which item actually started, and the track shim asking
- * for a login. The console-facing transport surface joins them in a later phase.
+ * The console shows what is coming, not the whole order: a playlist can be
+ * hundreds of tracks, and this is polled every couple of seconds.
+ */
+const UP_NEXT_LIMIT = 10;
+
+/**
+ * The playout surface: the console's transport, and the stream container's two
+ * inbound calls.
+ *
+ * The console half reads and drives the running order. The container half —
+ * Liquidsoap confirming what went on air, and the track shim asking for a login
+ * — never reaches a browser, and neither is in the SDK.
  */
 @Injectable()
 export class PlayoutService {
     constructor(
         private readonly rundown: Rundown,
+        private readonly pusher: PlayoutPusher,
+        private readonly playlists: PlaylistsService,
         private readonly endpoint: LiquidsoapEndpoint,
         private readonly registry: PluginRegistry,
         private readonly invoker: PluginInvoker,
         private readonly stream: StreamService,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * The transport, as one reading.
+     *
+     * `nowPlaying` is what the PLAYER reports, not what was last handed to it:
+     * an item is pushed and downloaded an item ahead of air, so the two differ
+     * by a whole track for most of a track's length.
+     */
+    async getStatus(): Promise<PlayoutStatus> {
+        const nowPlaying = this.rundown.nowPlaying();
+
+        return {
+            // Reachability is the honest answer to "can anything air right now".
+            // A running order with no stream to hand it to plays nothing, and a
+            // console that showed a queue without saying so would be lying by omission.
+            streamUp: Boolean(await this.endpoint.resolve()),
+            ...(nowPlaying
+                ? {
+                      nowPlaying: {
+                          item: toPlayoutItem(nowPlaying.item),
+                          startedAt: nowPlaying.startedAt,
+                          ...(nowPlaying.remainingMs === undefined ? {} : { remainingMs: nowPlaying.remainingMs }),
+                      },
+                  }
+                : {}),
+            upNext: this.rundown.upcoming().slice(0, UP_NEXT_LIMIT).map(toPlayoutItem),
+            queuedCount: this.rundown.queuedCount(),
+        };
+    }
+
+    /**
+     * Load a plugin playlist into the running order and start airing it.
+     *
+     * Reads the tracks through {@link PlaylistsService} rather than calling the
+     * plugin directly, so the same narrowing applies as when the console lists
+     * them: an actor who cannot see the plugin gets the same 403 whether or not
+     * it is installed, and a plugin that is not catalog-capable answers 501
+     * rather than failing halfway through a load.
+     *
+     * Replaces whatever was queued. What is on air finishes: changing the
+     * running order is not a reason to cut the listener off mid-track.
+     *
+     * @throws 422 when the playlist has no tracks. Loading an empty order would
+     *   report success and then silently play nothing.
+     */
+    async playPlaylist(input: PlayoutPlaylistInput): Promise<PlayoutStatus> {
+        const { tracks } = await this.playlists.getPlaylistTracks(input.pluginId, input.playlistId);
+        if (tracks.length === 0) {
+            throw httpError(422).withDetails({ message: 'that playlist has no tracks to play' });
+        }
+
+        this.rundown.load(
+            tracks.map(track => ({
+                pluginId: input.pluginId,
+                externalId: track.id,
+                title: track.title,
+                artists: track.artists,
+                ...(track.durationMs === undefined ? {} : { durationMs: track.durationMs }),
+            })),
+        );
+        this.logger.info('playout: loaded a playlist into the running order', {
+            plugin: input.pluginId,
+            playlist: input.playlistId,
+            tracks: tracks.length,
+        });
+
+        // Hand the first item over now rather than waiting out the reconcile tick,
+        // so the console's own response already reflects a station that is starting.
+        await this.pusher.reconcile();
+        return this.getStatus();
+    }
+
+    /**
+     * End the item on air so the next one starts at once.
+     *
+     * @throws 409 when the stream did not take the command, so a skip nobody
+     *   heard is never reported as one that happened.
+     */
+    async skip(): Promise<PlayoutStatus> {
+        if (!(await this.pusher.skipCurrent())) {
+            throw httpError(409).withDetails({ message: 'the stream did not take the skip; it may be down' });
+        }
+        return this.getStatus();
+    }
+
+    /**
+     * Drop the running order and take back everything queued but not airing.
+     *
+     * What is on air finishes, and then the mount falls through to the local
+     * music bed. Stopping the station's own programme is not the same as
+     * silence, and `radio.liq` has no way to produce silence anyway.
+     */
+    async stop(): Promise<PlayoutStatus> {
+        // The reset listener in the pusher is what flushes the player's queue.
+        this.rundown.reset();
+        this.logger.info('playout: running order dropped; the mount falls back to the local bed');
+        return this.getStatus();
+    }
 
     /**
      * Record the item Liquidsoap has just put on air.
@@ -141,6 +260,18 @@ export class PlayoutService {
             throw httpError(401).withDetails({ message: 'invalid playout bridge secret' });
         }
     }
+}
+
+/** The response view of a rundown item. Everything on it is already JSON-safe. */
+function toPlayoutItem(item: RundownItem): PlayoutItem {
+    return {
+        id: item.id,
+        pluginId: item.pluginId,
+        externalId: item.externalId,
+        title: item.title,
+        artists: item.artists,
+        ...(item.durationMs === undefined ? {} : { durationMs: item.durationMs }),
+    };
 }
 
 /** Constant-time compare that tolerates differing lengths. */

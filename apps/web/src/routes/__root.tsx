@@ -11,6 +11,11 @@ import { resolveAuthRedirect } from '../auth/auth.gate';
 import { restoreSession } from '../auth/session.bootstrap';
 import { apiErrorMessage } from '../api/sdk.error';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
+import { usePlayoutStatus } from '../api/playout.queries';
+import { hasTransportToShow, TransportBar } from '../components/playout/transport.bar';
+
+/** Height of the transport strip, reserved by the shell only while it is showing. */
+const TRANSPORT_HEIGHT = 56;
 
 /** Everything the router's gates need. Supplied once in `main.tsx`. */
 export interface RouterContext {
@@ -27,6 +32,11 @@ export function RootLayout() {
     const navigate = useNavigate();
     const logout = useLogoutMutation();
     const [logoutError, setLogoutError] = useState<string | undefined>(undefined);
+    // Polled here rather than inside the bar: AppShell reserves the footer's height
+    // whether or not its contents render, so the shell is what has to know whether
+    // the station has anything to say.
+    const playout = usePlayoutStatus(signedIn);
+    const transport = hasTransportToShow(playout.data) ? playout.data : undefined;
 
     async function handleLogout(): Promise<void> {
         let failure: string | undefined;
@@ -44,7 +54,7 @@ export function RootLayout() {
     }
 
     return (
-        <AppShell header={{ height: 56 }} padding="lg">
+        <AppShell header={{ height: 56 }} footer={transport ? { height: TRANSPORT_HEIGHT } : undefined} padding="lg">
             <AppShell.Header>
                 <Group h="100%" px="lg" justify="space-between">
                     <Text fw={700} tt="uppercase" style={{ letterSpacing: '0.12em' }}>
@@ -98,6 +108,11 @@ export function RootLayout() {
                 ) : undefined}
                 <Outlet />
             </AppShell.Main>
+            {transport ? (
+                <AppShell.Footer withBorder={false}>
+                    <TransportBar status={transport} />
+                </AppShell.Footer>
+            ) : undefined}
         </AppShell>
     );
 }

@@ -1,4 +1,4 @@
-import { Alert, Anchor, Card, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CatalogPlaylist, CatalogTrack } from '@deadair/sdk';
@@ -6,6 +6,7 @@ import type { CatalogPlaylist, CatalogTrack } from '@deadair/sdk';
 import { playlistTracksOptions } from '../../api/playlists.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { queryKeys } from '../../api/query.keys';
+import { PlayPlaylistButton } from '../playout/play.playlist.button';
 import { formatDuration } from '../shared/format.duration';
 
 export interface PlaylistTracksPageProps {
@@ -37,11 +38,18 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                 <Anchor renderRoot={props => <Link to="/playlists" {...props} />} size="sm">
                     Back to playlists
                 </Anchor>
-                <Title order={1}>{heading}</Title>
-                <Text c="dimmed" size="sm">
-                    {`From ${pluginId}`}
-                    {tracks.data ? ` • ${tracks.data.tracks.length} tracks` : ''}
-                </Text>
+                <Group justify="space-between" align="flex-end" wrap="nowrap">
+                    <Stack gap={4}>
+                        <Title order={1}>{heading}</Title>
+                        <Text c="dimmed" size="sm">
+                            {`From ${pluginId}`}
+                            {tracks.data ? ` • ${tracks.data.tracks.length} tracks` : ''}
+                        </Text>
+                    </Stack>
+                    {/* Only once the tracks are known to exist: airing a playlist that turned out
+                        to be empty is a 422, and offering the button first invites it. */}
+                    {tracks.data && tracks.data.tracks.length > 0 ? <PlayPlaylistButton pluginId={pluginId} playlistId={playlistId} /> : undefined}
+                </Group>
             </Stack>
 
             {tracks.error ? (

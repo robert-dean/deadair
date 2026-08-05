@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, Anchor, AppShell, Button, Group, Text } from '@mantine/core';
+import { useLocalStorage } from '@mantine/hooks';
 import { createRootRouteWithContext, Link, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type { OnboardingRequirement } from '@deadair/sdk';
@@ -12,11 +13,11 @@ import { restoreSession } from '../auth/session.bootstrap';
 import { apiErrorMessage } from '../api/sdk.error';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
 import { usePlayoutStatus } from '../api/playout.queries';
-import { hasTransportToShow, TransportBar } from '../components/playout/transport.bar';
+import { hasTransportToShow, TRANSPORT_HEIGHT, TRANSPORT_HEIGHT_EXPANDED, TransportBar } from '../components/playout/transport.bar';
 import { StreamMonitor } from '../components/playout/stream.monitor';
 
-/** Height of the transport strip, reserved by the shell only while it is showing. */
-const TRANSPORT_HEIGHT = 56;
+/** Where the transport's open/shut state is remembered between visits. */
+const TRANSPORT_EXPANDED_KEY = 'deadair.transport.expanded';
 
 /** Everything the router's gates need. Supplied once in `main.tsx`. */
 export interface RouterContext {
@@ -38,6 +39,11 @@ export function RootLayout() {
     // the station has anything to say.
     const playout = usePlayoutStatus(signedIn);
     const transport = hasTransportToShow(playout.data) ? playout.data : undefined;
+    // Here rather than in the bar for the same reason as the polling: the footer's
+    // height is reserved by the shell, so the shell is what has to know how much.
+    // Remembered, because an operator who wants the running order in front of them
+    // wants it there on the next page too.
+    const [transportExpanded, setTransportExpanded] = useLocalStorage({ key: TRANSPORT_EXPANDED_KEY, defaultValue: false });
 
     async function handleLogout(): Promise<void> {
         let failure: string | undefined;
@@ -55,7 +61,11 @@ export function RootLayout() {
     }
 
     return (
-        <AppShell header={{ height: 56 }} footer={transport ? { height: TRANSPORT_HEIGHT } : undefined} padding="lg">
+        <AppShell
+            header={{ height: 56 }}
+            footer={transport ? { height: transportExpanded ? TRANSPORT_HEIGHT_EXPANDED : TRANSPORT_HEIGHT } : undefined}
+            padding="lg"
+        >
             <AppShell.Header>
                 <Group h="100%" px="lg" justify="space-between">
                     <Text fw={700} tt="uppercase" style={{ letterSpacing: '0.12em' }}>
@@ -117,7 +127,13 @@ export function RootLayout() {
             </AppShell.Main>
             {transport ? (
                 <AppShell.Footer withBorder={false}>
-                    <TransportBar status={transport} />
+                    <TransportBar
+                        status={transport}
+                        expanded={transportExpanded}
+                        onToggleExpanded={() => {
+                            setTransportExpanded(open => !open);
+                        }}
+                    />
                 </AppShell.Footer>
             ) : undefined}
         </AppShell>

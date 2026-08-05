@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Pagination, PaginationInput } from '../shared/types/pagination.js';
-import { Track } from './types/music.types.js';
+import { Track } from '../music/types/music.types.js';
 import { TracksRepository } from './tracks.repository.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 

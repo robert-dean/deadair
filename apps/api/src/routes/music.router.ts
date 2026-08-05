@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware } from '@maroonedsoftware/koa';
-import { AlbumsService } from '#src/modules/music/albums.service.js';
-import { ArtistsService } from '#src/modules/music/artists.service.js';
-import { TracksService } from '#src/modules/music/tracks.service.js';
+import { AlbumsService } from '#src/modules/catalog/albums.service.js';
+import { ArtistsService } from '#src/modules/catalog/artists.service.js';
+import { TracksService } from '#src/modules/catalog/tracks.service.js';
 import { Album, Artist, Track } from '../modules/music/types/music.types.js';
 import { Pagination, PaginationInput } from '../modules/shared/types/pagination.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';

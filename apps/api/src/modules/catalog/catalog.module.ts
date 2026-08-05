@@ -7,14 +7,14 @@ import { TracksService } from './tracks.service.js';
 import { ArtistsRepository } from './artists.repository.js';
 import { AlbumsRepository } from './albums.repository.js';
 import { TracksRepository } from './tracks.repository.js';
-import { CatalogPlaceholderRepository } from './catalog/catalog.placeholder.repository.js';
-import { CatalogPlaceholderService } from './catalog/catalog.placeholder.service.js';
-import { CatalogResolverRepository } from './catalog/catalog.resolver.repository.js';
-import { CatalogResolverService } from './catalog/catalog.resolver.service.js';
-import { CatalogSyncService } from './catalog/catalog.sync.service.js';
+import { CatalogPlaceholderRepository } from './ingest/catalog.placeholder.repository.js';
+import { CatalogPlaceholderService } from './ingest/catalog.placeholder.service.js';
+import { CatalogResolverRepository } from './ingest/catalog.resolver.repository.js';
+import { CatalogResolverService } from './ingest/catalog.resolver.service.js';
+import { CatalogSyncService } from './ingest/catalog.sync.service.js';
 
-export const MusicModule: ServerKitModule = {
-    name: 'Music',
+export const CatalogModule: ServerKitModule = {
+    name: 'Catalog',
     setup: async (registry: Registry, _: AppConfig) => {
         registry.register(ArtistsService).useClass(ArtistsService).asScoped();
         registry.register(ArtistsRepository).useClass(ArtistsRepository).asScoped();
@@ -23,7 +23,7 @@ export const MusicModule: ServerKitModule = {
         registry.register(TracksService).useClass(TracksService).asScoped();
         registry.register(TracksRepository).useClass(TracksRepository).asScoped();
 
-        // `catalog/` — ingest, as opposed to the read side above. Scoped like
+        // `ingest/` — writes, as opposed to the read side above. Scoped like
         // its siblings: the job runner gives every execution its own scope, so
         // these are per-run there and per-request on the request path.
         registry.register(CatalogResolverRepository).useClass(CatalogResolverRepository).asScoped();

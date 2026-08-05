@@ -12,8 +12,8 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { PluginManifest, ProviderPlaylist, ProviderTrack } from '@deadair/plugin-sdk';
 import { PluginError } from '@deadair/plugin-sdk';
 
-import { CatalogSyncService } from '../../../../src/modules/music/catalog/catalog.sync.service.js';
-import type { CatalogResolverService, IngestResult } from '../../../../src/modules/music/catalog/catalog.resolver.service.js';
+import { CatalogSyncService } from '../../../../src/modules/catalog/ingest/catalog.sync.service.js';
+import type { CatalogResolverService, IngestResult } from '../../../../src/modules/catalog/ingest/catalog.resolver.service.js';
 import type { JobBroker } from '@maroonedsoftware/jobbroker';
 import { PluginInvoker } from '../../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../../src/modules/plugins/plugin.registry.js';

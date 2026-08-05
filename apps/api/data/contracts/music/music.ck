@@ -3,9 +3,9 @@ options {
         area: music
     }
     services: {
-        ArtistsService: "#src/modules/music/artists.service.js"
-        AlbumsService: "#src/modules/music/albums.service.js"
-        TracksService: "#src/modules/music/tracks.service.js"
+        ArtistsService: "#src/modules/catalog/artists.service.js"
+        AlbumsService: "#src/modules/catalog/albums.service.js"
+        TracksService: "#src/modules/catalog/tracks.service.js"
     }
 }
 

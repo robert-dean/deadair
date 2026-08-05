@@ -12,8 +12,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Kysely } from 'kysely';
 import type { ProviderTrack } from '@deadair/plugin-sdk';
 
-import { CatalogResolverService } from '../../../../src/modules/music/catalog/catalog.resolver.service.js';
-import type { CatalogResolverRepository } from '../../../../src/modules/music/catalog/catalog.resolver.repository.js';
+import { CatalogResolverService } from '../../../../src/modules/catalog/ingest/catalog.resolver.service.js';
+import type { CatalogResolverRepository } from '../../../../src/modules/catalog/ingest/catalog.resolver.repository.js';
 import type { DB } from '../../../../src/modules/data/db.js';
 
 const track = (overrides: Partial<ProviderTrack> = {}): ProviderTrack => ({

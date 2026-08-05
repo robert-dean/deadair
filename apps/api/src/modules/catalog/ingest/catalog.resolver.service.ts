@@ -3,7 +3,7 @@ import { Kysely } from 'kysely';
 import type { ProviderTrack } from '@deadair/plugin-sdk';
 import { DB } from '../../data/db.js';
 import { CatalogResolverRepository } from './catalog.resolver.repository.js';
-import { normalizeKey } from '../music.keys.js';
+import { normalizeKey } from '../catalog.keys.js';
 
 /** Why an item could not become a catalog row. */
 export type IngestSkipReason =

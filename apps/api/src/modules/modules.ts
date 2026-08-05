@@ -4,7 +4,7 @@ import { CryptoModule } from './crypto/crypto.module.js';
 import { AuthenticationModule } from './authentication/authentication.module.js';
 import { PermissionsModule } from './permissions/permissions.module.js';
 import { PolicyModule } from './policy/policy.module.js';
-import { MusicModule } from './music/music.module.js';
+import { CatalogModule } from './catalog/catalog.module.js';
 import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
@@ -23,7 +23,7 @@ export const modules: ServerKitModule[] = [
     PermissionsModule,
     PolicyModule,
     JobsModule,
-    MusicModule,
+    CatalogModule,
     OnboardingModule,
     SettingsModule,
     // Last: a plugin's host reaches into the chassis (data, crypto, logging),

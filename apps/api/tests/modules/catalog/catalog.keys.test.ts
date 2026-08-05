@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { normalizeKey } from '../../../src/modules/music/music.keys.js';
+import { normalizeKey } from '../../../src/modules/catalog/catalog.keys.js';
 
 describe('normalizeKey', () => {
     it('folds accents onto their base letters', () => {

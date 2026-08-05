@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AlbumsRepository } from './albums.repository.js';
 import { Pagination, PaginationInput } from '../shared/types/pagination.js';
-import { Album } from './types/music.types.js';
+import { Album } from '../music/types/music.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 @Injectable()

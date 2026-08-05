@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import type { ProviderTrack } from '@deadair/plugin-sdk';
 import { DataRepository } from '../../data/data.repository.js';
 import { DB } from '../../data/db.js';
-import { normalizeKey } from '../music.keys.js';
+import { normalizeKey } from '../catalog.keys.js';
 
 /**
  * How far two durations may differ and still be taken for the same recording.

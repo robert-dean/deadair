@@ -11,9 +11,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
-import { CatalogPlaceholderService } from '../../../../src/modules/music/catalog/catalog.placeholder.service.js';
-import type { CatalogPlaceholderRepository, PlaylistPlaceholder } from '../../../../src/modules/music/catalog/catalog.placeholder.repository.js';
-import type { CatalogResolverRepository } from '../../../../src/modules/music/catalog/catalog.resolver.repository.js';
+import { CatalogPlaceholderService } from '../../../../src/modules/catalog/ingest/catalog.placeholder.service.js';
+import type { CatalogPlaceholderRepository, PlaylistPlaceholder } from '../../../../src/modules/catalog/ingest/catalog.placeholder.repository.js';
+import type { CatalogResolverRepository } from '../../../../src/modules/catalog/ingest/catalog.resolver.repository.js';
 
 const stubLogger = (): Logger => ({
     debug: vi.fn(),

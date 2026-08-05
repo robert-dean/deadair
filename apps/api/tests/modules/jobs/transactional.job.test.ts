@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { Container } from 'injectkit';
 
 import { TransactionalJob } from '../../../src/modules/jobs/transactional.job.js';
-import { CatalogPlaceholderJob } from '../../../src/modules/music/catalog/catalog.placeholder.job.js';
+import { CatalogPlaceholderJob } from '../../../src/modules/catalog/ingest/catalog.placeholder.job.js';
 
 describe('TransactionalJob dependency metadata', () => {
     it('carries its own constructor metadata, naming Container', () => {

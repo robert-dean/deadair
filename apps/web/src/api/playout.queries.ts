@@ -36,11 +36,47 @@ export function usePlayoutStatus(enabled: boolean) {
 }
 
 /**
+ * When to look again after driving the transport, in milliseconds from the
+ * mutation's own answer.
+ *
+ * A transport action is the one moment the station moves BECAUSE of this browser,
+ * and the moving takes longer than the request: the API waits out the player's
+ * boundary within a budget, and Liquidsoap's `aired` notify can land just after
+ * the response goes out. Waiting a full poll interval to find out is most of what
+ * makes a skip feel like it did not take.
+ *
+ * Three reads over two and a half seconds, then the ordinary poll resumes. The
+ * poll itself stays at {@link PLAYOUT_POLL_MS}: it matches the API's reconcile
+ * tick, so running it faster all the time would only re-read a reading that has
+ * not been retaken.
+ */
+const FOLLOW_UP_MS = [400, 1_000, 2_500];
+
+/** Pending follow-ups, so a second action replaces the first one's schedule rather than stacking on it. */
+let followUps: ReturnType<typeof setTimeout>[] = [];
+
+/**
  * Every transport call answers with the status it produced, so the poll never has
  * to race the mutation to show the result.
  */
 function writeStatus(queryClient: QueryClient, status: PlayoutStatus): void {
     queryClient.setQueryData(queryKeys.playout.status(), status);
+}
+
+/**
+ * Take the status the action produced, then keep looking for a moment.
+ *
+ * Exported for tests; every transport mutation below goes through it.
+ */
+export function followTransport(queryClient: QueryClient, status: PlayoutStatus): void {
+    writeStatus(queryClient, status);
+
+    for (const timer of followUps.splice(0)) clearTimeout(timer);
+    followUps = FOLLOW_UP_MS.map(delay =>
+        setTimeout(() => {
+            void queryClient.refetchQueries({ queryKey: queryKeys.playout.status() });
+        }, delay),
+    );
 }
 
 /** Loads a plugin playlist into the running order and starts airing it. */
@@ -49,7 +85,7 @@ export function usePlayPlaylist() {
     return useMutation({
         mutationFn: ({ pluginId, playlistId }: { pluginId: string; playlistId: string }) => sdk.playout.playAPlaylist({ pluginId, playlistId }),
         onSuccess: status => {
-            writeStatus(queryClient, status);
+            followTransport(queryClient, status);
         },
     });
 }
@@ -60,7 +96,7 @@ export function useSkipCurrent() {
     return useMutation({
         mutationFn: () => sdk.playout.skipTheCurrentItem(),
         onSuccess: status => {
-            writeStatus(queryClient, status);
+            followTransport(queryClient, status);
         },
     });
 }
@@ -71,7 +107,7 @@ export function useStopPlayout() {
     return useMutation({
         mutationFn: () => sdk.playout.stopPlayout(),
         onSuccess: status => {
-            writeStatus(queryClient, status);
+            followTransport(queryClient, status);
         },
     });
 }

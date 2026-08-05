@@ -1,10 +1,10 @@
-# @app/api
+# @deadair/api
 
-The deadair API: a Koa server (via `@maroonedsoftware/koa` "ServerKit") that is also the radio
-station itself. It serves the console's JSON API and the SPA, and in the same process it runs the
-background actors that keep a stream on air: the director that decides what airs next, the render
-pipeline that generates and voices DJ segments, the rundown that hands items to Liquidsoap, and the
-now-playing reactor that publishes stream metadata.
+The deadair API: a Koa server (via `@maroonedsoftware/koa` "ServerKit") that will eventually be the
+radio station itself. Today it serves the console's JSON API and hosts the plugin system that music
+providers and enrichment sources plug into. The station actors (director, render pipeline, rundown,
+now-playing reactor) are not in this tree yet; audio never touches Node, and Liquidsoap and Icecast
+run as sibling containers from the repo-root compose files.
 
 Everything is assembled from **modules**. A module is a `ServerKitModule`: an object with optional
 `setup` / `start` / `ready` / `shutdown` hooks that registers its classes into the injectkit DI
@@ -19,130 +19,163 @@ placement).
 ```
 src/
   index.ts          entrypoint: reflect-metadata, then setupServer()
-  server/           builder wiring, middleware, cookies, dev proxies
-  routes/           routers (mostly ContractKit-generated) bound in routes.setup.ts
+  server/           builder wiring, middleware, env scrubbing
+  routes/           ContractKit-generated routers, bound in routes.setup.ts
   modules/          the app, one directory per module (below)
-  shared/           path helpers, config assertions, repository types
+  modules/shared/   cross-module types (pagination)
+  logging/          process-level rotating log store and the tee logger
 data/
   contracts/        .ck contract definitions; `pnpm build:contracts` generates routers/types
+  permissions/      core.perm authorization model; `pnpm build:permissions` generates src/modules/permissions/generated
   migrations/       dbmate SQL migrations (schema `deadair`)
-scripts/            provisioning + smoke scripts (render, rundown, station, musicgraph, …)
-tests/              vitest suites, mirroring src/modules
+scripts/            rollbackall.sh, enum-override sync
+tests/              vitest suites, mirroring src/
 ```
 
-Import aliases (from `package.json#imports`): `#src/*`, `#routes/*`, `#modules/*`, `#shared/*`.
+Import aliases are declared as `paths` in [tsconfig.json](tsconfig.json) (not `package.json#imports`)
+and mirrored for the runtime in [vitest.config.ts](vitest.config.ts): `#src/*`, `#routes/*`,
+`#modules/*`, `#shared/*`. Note that `#shared/*` maps to `src/shared`, which does not exist — shared
+types live under `src/modules/shared` and are imported by relative path. Local imports carry `.js`
+extensions.
 
 ### Boot sequence
 
-`setupServer()` ([src/server/setup.server.ts](src/server/setup.server.ts)) builds `AppConfig` from
-dotenv **plus** the DB settings source, constructs the monitoring bus (before DI exists, so boot
-logs already reach it), runs `serverBuilder.setup(config, logger, modules)`, mounts middleware and
-routers, then starts listening. Modules that do I/O the first request doesn't depend on (job runner,
-playout pusher, stream config materialization, health probes, show seeding) do it in `ready()`,
-after the socket is up.
+`setupServer()` ([src/server/setup.server.ts](src/server/setup.server.ts)):
+
+1. Builds one `AppConfig` snapshot from `AppConfigSourceDotenv` + `AppConfigResolverEnv`. There is
+   no DB-backed config source yet: everything is env at boot.
+2. Calls `scrubProcessEnv()`, which removes secret values from `process.env` now that module setups
+   read the snapshot instead. See [scrub.process.env.ts](src/server/scrub.process.env.ts) for what
+   this does and does not buy.
+3. Constructs the process-level `RotatingLogStore` (before any container exists) and publishes it
+   through `setLogStore`. A malformed `LOG_MAX_*` value fails loudly here rather than surfacing
+   later as a silently empty logs directory.
+4. Runs `serverBuilder.setup(config, new FileTeeLogger(...), modules)`, mounts middleware and
+   routers, then listens on `PORT`.
+
+Modules that do I/O the first request doesn't depend on do it in `ready()`, after the socket is up:
+plugin `init` and the plugin reload listener are the current examples.
 
 ### DI scoping convention
 
 - **Scoped** (per request) when the class reads the request's `AuthorizationContext` or the
-  per-request DB connection: auth services, `MusicService`, `SetupService`, repositories under
-  identity/authentication.
-- **Singleton** when there is exactly one of the thing for the process: the station has one rundown,
-  one director, one LLM gate, one rate guard per external API.
-- Singletons that need a scoped-but-context-free service (e.g. the director needing `MusicCatalog`)
-  hold one long-lived scope for the module's lifetime rather than faking a request.
+  per-request DB connection: auth services and factor repositories, `MusicService`s,
+  `OnboardingService`, `PlaylistsService`, `PluginsService`, `PluginConfigService`.
+- **Singleton** when there is exactly one of the thing for the process: `PluginRegistry`,
+  `PluginInvoker` (its circuit breaker only means anything with shared failure counts), `PluginLog`,
+  `PluginEchoTracker`, `PluginOAuthStateStore`, `EnrichmentChain`, the Kysely pool and Redis client.
 
 ---
 
 ## Modules
 
-### Infrastructure / chassis
+Registered in the order below (see [modules.ts](src/modules/modules.ts)).
+
+### Chassis
 
 | Module | Path | What it does |
 | --- | --- | --- |
-| **Data** | [modules/data](src/modules/data) | The Kysely/Postgres pools. The runtime pool connects as the non-owner `app_user` role (so RLS actually enforces) with tuned pool limits and an acquire timeout; a separate owner pool handles privileged maintenance. Also the generated DB types and the shared `DataRepository` base. |
-| **Shared** | [modules/shared](src/modules/shared) | `EncryptionService` (AES-GCM envelope encryption keyed from `ENCRYPTION_SERVICE_KEY`), `BootState` (the flag `/health` reads once `ready` finishes), and the request-scoped `ResponseCookieJar` used by server-rendered auth flows. |
-| **Messaging** | [modules/messaging](src/modules/messaging) | No-op outbound email/SMS: messages are logged, not sent. The auth flows call this interface, so swapping in SMTP/SES/Twilio is a body change here and nothing else. |
-| **Events** | [modules/events](src/modules/events) | The in-process `EventBus` plus an empty subscriber registry that contributor modules populate in their own `start()`, which is what breaks the events↔identity import cycle. |
-| **Monitor** | [modules/monitor](src/modules/monitor) | Registers the process-wide realtime `ServerFeed` (built in `setup.server.ts` so the app logger can bridge into it). Every producer, including render, jobs, the director and health probes, publishes progress/status/errors here; the console consumes it over the `/monitor/stream` SSE route. |
-| **Config** | [modules/config](src/modules/config) | Exposes the live `AppConfigStore` so modules that must *react* to a config change can subscribe. Also `app.config.source.db.ts`: an `AppConfigSource` over the `deadair.settings` table, layered over dotenv, holding the single `LISTEN deadair_settings_changed` that makes a console save reload config with no restart. `settings.keymap.ts` maps setting keys to `UPPER_SNAKE` config keys. |
-| **Settings** | [modules/settings](src/modules/settings) | The `deadair.settings` repository itself (read/write, with encrypted values where needed). |
+| **Data** | [modules/data](src/modules/data) | The Kysely/Postgres pool and the Redis client. When `DATABASE_APP_USER` is set the runtime pool connects as the non-owner `app_user` role so the org-isolation RLS policies actually enforce (the table owner bypasses RLS); dbmate and pg-boss keep their own owner connections via `DATABASE_USER`. Pool size and acquire/idle timeouts are tunable (`DATABASE_POOL_*`) because each request holds a connection for its whole lifetime. Also the generated DB types (`db.ts`) and the shared `DataRepository` base. |
+| **Crypto** | [modules/crypto](src/modules/crypto) | The `EncryptionProvider`, keyed from `KMS_LOCAL_ROOT_KEY`. Registered before authentication so anything needing envelope encryption (auth factors, plugin credentials) resolves it without depending on auth's setup order. |
+| **Authentication** | [modules/authentication](src/modules/authentication) | Wires `@maroonedsoftware/authentication`: the bearer/JWT scheme handler and deadair's JWT issuer, factor services and Kysely repositories (password, email, phone, OIDC, FIDO, authenticator), MFA challenge and orchestration, Redis-backed rate limiting on password attempts, sessions and login-activity tracking, and the request/response cookie jars used by refresh-cookie flows. Google OIDC registers only when its client id and secret are configured. `OTP_DEV_BYPASS` accepts any submitted code and hard-fails at boot unless `NODE_ENV=development`. |
+| **Permissions** | [modules/permissions](src/modules/permissions) | The Zanzibar-style tuple store and check path: `PermissionsService`, the Kysely `DeadairPermissionsTupleRepository`, the per-request `AuthorizationContext`, and `AccessControlService`. The authorization model in `generated/` is compiled from [data/permissions/core.perm](data/permissions/core.perm). `platform.roles.ts` holds the role → permission-pattern map that Zanzibar can't express per-object; its header documents the invariant that every role there must have a matching relation in the `.perm` file. |
+| **Policy** | [modules/policy](src/modules/policy) | The concrete `PolicyService` and the policy registry map (`policy.mappings.ts`), including the MFA-satisfied and recent-factor policies that gate step-up-sensitive routes. |
 
-### Identity and access
+### Domain
 
 | Module | Path | What it does |
 | --- | --- | --- |
-| **Authentication** | [modules/authentication](src/modules/authentication) | Wires `@maroonedsoftware/authentication`: scheme handlers (bearer JWT, basic), the app's JWT and basic issuers, factor services and repositories (password, email, phone, OIDC, FIDO, authenticator), OTP (with a development-only bypass that hard-fails outside `NODE_ENV=development`), Redis-backed rate limiting, sessions and login-activity services. |
-| **Identity** | [modules/identity](src/modules/identity) | Deliberately minimal: the only identity aggregate is the **actor** (a login plus its factors). The `types/` here are the chassis' broader identity vocabulary, unused by deadair. |
-| **Authorization** | [modules/authorization](src/modules/authorization) | The per-request `AuthorizationContext` (actor identity plus IP/user-agent for the audit log). A default anonymous instance is registered so routes that never hit the middleware (setup) still resolve. |
-| **Policies** | [modules/policies](src/modules/policies) | The concrete `PolicyService` and the bundled authentication policies. MFA is currently disabled by overriding the `mfa.required` / `mfa.satisfied` bindings with always-allow policies. |
-| **Setup** | [modules/setup](src/modules/setup) | First-run wizard backend: records connection details and provisions the genesis admin actor with an email + password factor. Database creation/migration is out of band via dbmate. |
+| **Music** | [modules/music](src/modules/music) | The local catalog: artists, albums and tracks, each a service over a Kysely repository. Provider integration is not here — providers are plugins. |
+| **Onboarding** | [modules/onboarding](src/modules/onboarding) | First-run requirements. Currently one: if no platform admin exists, `admin.account` is returned and satisfying it registers the genesis admin through `AuthenticationRegistrationService`. Database creation and migration stay out of band via dbmate. |
+| **Settings** | [modules/settings](src/modules/settings) | The `deadair.settings` key/value table. Deliberately thin right now: the music-provider surface that used to live here moved to the plugin config system, and the active provider is named by the `music.provider` setting key. |
+| **Plugins** | [modules/plugins](src/modules/plugins) | The plugin subsystem — see below. |
+| **Playlists** | [modules/playlists](src/modules/playlists) | A read-only, no-database view of what could be imported from a plugin: every catalog-capable plugin's playlists, aggregated, plus one plugin's playlist tracks on demand. Nothing is persisted; every answer is a live call through `PluginInvoker`, and a failing plugin degrades to a `CatalogSourceError` entry rather than failing the request. Registered after `PluginsModule` because it resolves `PluginRegistry` and `PluginInvoker`. |
+| **Logging** | [src/logging](src/logging) | Owns the shutdown of the process-level `RotatingLogStore`. Must stay **last** in `modules.ts`: every other module's shutdown logging has to flush through `FileTeeLogger` before the store closes. |
 
-### Station domain
+### The plugin subsystem
 
-| Module | Path | What it does |
-| --- | --- | --- |
-| **Station** | [modules/station](src/modules/station) | The station's memory: an append-only event log plus the snapshot a reducer folds it into. Anything that writes a script reads the snapshot instead of live playback state. `ready()` replays the tail of the log so a restart resumes its shift rather than starting cold. |
-| **Music** | [modules/music](src/modules/music) | Music-provider integration. Spotify: operator app credentials in settings, per-actor OAuth tokens envelope-encrypted in `deadair.provider_accounts`, a rate guard and a process-wide refresh coordinator that single-flights token refreshes. Navidrome: a Subsonic client and catalog, station-level and inert unless configured. `MusicCatalog` is the provider-agnostic seam consumers depend on. |
-| **Playout** | [modules/playout](src/modules/playout) | The station's own **Rundown** (the ordered list of what airs next, where an item is a track *or* a rendered DJ segment), the `TrackResolver` seam that turns an item into a fetchable URL (pre-signed Subsonic, signed Spotify shim), and `PlayoutPusher`, which drains the rundown into Liquidsoap's `request.queue`. The pusher reconciles against a fresh reading of the player on every pass, so a Liquidsoap restart is a non-event. Careful distinction throughout: an item handed over is *served*, not *airing*, until the player confirms it. |
-| **Director** | [modules/director](src/modules/director) | The rotation clock. A singleton reactor that keeps the rundown filled ahead of the player's pulls and commissions music-aware talk breaks on a cadence, either placed between two tracks or (with talk-over on) streamed to the harbor to duck over the bed. `director.clock.ts` is the pure, exhaustively testable decision core; `playlist.ts` is the ordered plan of intent (with breaks as first-class planned items) and its cursor, corrected from what actually aired. Also owns play history. |
-| **Enrichment** | [modules/enrichment](src/modules/enrichment) | External metadata (MusicBrainz + Cover Art Archive, Last.fm, Discogs) merged and cached in the DB, plus `MusicGraphService`, the similarity graph the DJ's pool builder expands from. Strictly best-effort: never throws, so the rotation clock is never at risk. Per-source rate guards are singletons; a coordinator single-flights concurrent lookups. |
-| **NowPlaying** | [modules/nowplaying](src/modules/nowplaying) | The always-on reaction to what is on air, running headless regardless of any open console. On a genuine track change it persists the authoritative snapshot (served by the public `GET /now-playing`), pushes metadata to every sink (Icecast, TuneIn AIR), and fires the DJ track-change hook. It also follows the DJ voice, so while a segment airs the sinks carry a station line instead of a song that isn't playing. Driven entirely by local events: zero Spotify Web API calls. |
+[modules/plugins](src/modules/plugins) is registered late, because a plugin's host reaches into the
+database, the encryption provider and the logger, and nothing in the chassis reaches back. The
+contract itself is documented in [packages/plugin-sdk/README.md](../../packages/plugin-sdk/README.md);
+the boundary rationale is in [docs/decisions/plugin-isolation.md](../../docs/decisions/plugin-isolation.md).
 
-### Generation and output
-
-| Module | Path | What it does |
-| --- | --- | --- |
-| **Engine** | [modules/engine](src/modules/engine) | Console-editable generation configuration. Operators register any number of LLM and TTS providers and assign a provider+model per *usage* (talk break, show, …); the resolvers here map usage → decrypted provider config. Includes voice profiles and cached voice previews. |
-| **Render** | [modules/render](src/modules/render) | The content pipeline: shows (recurring programs) → rendered episodes. Repositories for shows, episodes, transcripts, generation progress and resumable-generation checkpoints; `tts.renderer.ts` (OpenAI-compatible HTTP backend targeting Kokoro or cloud, with a macOS `say` fallback); `ffmpeg.ts`; `llm.gate.ts`, the process-wide LLM serializer that lets on-air work jump ahead of background renders; `GenerationControl` for hard-cancelling a running render; and `harbor.pusher.ts`, the on-air voice transport that streams each rendered segment to Liquidsoap's `input.harbor` mount (serialized, since a harbor mount accepts one source at a time). `ready()` seeds the default shows and starts a reconciler that fails episodes a killed process abandoned mid-render. |
-| **Search** | [modules/search](src/modules/search) | Web-search grounding (SearXNG by default, Tavily/Brave optional), mapped into the `NewsItem` shape the generators already narrate. Best-effort: resolves to `[]` when nothing is configured, so a `search` show degrades instead of failing. |
-| **Jobs** | [modules/jobs](src/modules/jobs) | Background work on pg-boss via `@maroonedsoftware/jobbroker`, run in-process in its own container with retry and dead-letter policy. Jobs: generate an episode (including draft generation, approved-draft rendering and answering a gate a parked run is waiting at), generate a music break, air the current daypart's cached station sign-on, and refresh the sign-on cache. Installs the recurring generation schedule from live config and re-registers it when an operator changes it, plus a daily sign-on rebuild. |
-| **Stream** | [modules/stream](src/modules/stream) | Materializes `radio.env` for the Icecast/Liquidsoap containers from DB settings (they can't read Postgres), re-rendering on every settings change via the config store. Carries the playout bridge wiring and the duck settings (`talkOverTracks`, `duckGainDb`, `duckFadeMs`). Also probes Icecast status and listener counts. Best-effort: skips quietly when the stream isn't configured or the config dir isn't writable. |
-| **Health** | [modules/health](src/modules/health) | A periodic (default 30s, `HEALTH_PROBE_MS`) reachability probe of Ollama and Kokoro feeding the console's health tiles. Starts in `ready()`, unref'd timer, stops the moment shutdown begins. |
+| Piece | What it does |
+| --- | --- |
+| `plugin.loader.ts` | Discovers plugin directories: the bundled ones (`plugins.bundled.ts`) plus operator-installed ones under `PLUGINS_DIR` (default `./data/plugins`). Validates manifests and API version. |
+| `plugin.registry.ts` | The host's record of what is loaded and running. Singleton by necessity. |
+| `plugin.lifecycle.manager.ts` | `discoverAll()` in `start` (disk-only, and the HTTP surface needs the catalogue before it serves), `initAllEnabled()` in `ready` (where a plugin talks to its upstream, so an unreachable Spotify delays nothing and fails nobody but itself), `disposeAll()` on shutdown. |
+| `plugin.invoker.ts` | The only way host code calls plugin code: a 15s deadline per call and a circuit breaker that quarantines a plugin after 3 consecutive failures. |
+| `plugin.host.factory.ts` | Builds the `PluginHost` handed to each plugin (`fetch` with its own limits and redirect cap, storage, config, events, logger), scoped to that plugin. |
+| `plugin.log.ts` | Tees each plugin's output to the app logger and to its own rotating file, with a per-plugin verbosity gate that only applies to the file sink. |
+| `plugin.config.*`, `plugin.storage.repository.ts` | Per-plugin config and key/value storage, with secret fields envelope-encrypted. |
+| `plugin.reload.listener.ts` | `LISTEN deadair_plugins_changed` (trigger installed by migration 0005) on its own dedicated `pg.Client`, since `LISTEN` monopolises a connection for its lifetime. Applies config changes to the running process; `PluginEchoTracker` suppresses the notification a request's own write caused. Every failure path logs and retries with backoff: losing the listener costs live reloads, not the server. |
+| `plugin.oauth.state.store.ts` | Mints and redeems the OAuth `state`. The callback route is necessarily anonymous, so `state` is the only thing separating a real callback from a forged rebind of the station's music source. Deliberately the host's check, not the plugin's. |
+| `music.provider.resolver.ts` | Resolves the station's active music provider (from the `music.provider` setting) into host-owned capability wrappers, so callers never touch the plugin object directly. |
+| `enrichment.chain.ts` | Fans a track out to every enrichment plugin by priority and merges the partial results. Single-flights concurrent lookups, so it is a singleton. |
+| `plugin.error.http.ts` | Maps a `PluginError` onto an HTTP response without leaking host internals. |
 
 ---
 
 ## Routes
 
-Routers are registered in [routes.setup.ts](src/routes/routes.setup.ts). Most are generated by
-ContractKit from the `.ck` contracts under [data/contracts](data/contracts) (`pnpm build:contracts`);
-a few are hand-written for browser-facing flows that aren't JSON APIs.
+Routers are registered in [routes.setup.ts](src/routes/routes.setup.ts) and are generated by
+ContractKit from the `.ck` contracts under [data/contracts](data/contracts) (`pnpm build:contracts`).
+Never hand-edit a router.
 
-| Router | Surface |
+| Router | Paths |
 | --- | --- |
-| `healthcheck` | liveness/readiness (reads `BootState`) |
-| `setup` | first-run wizard |
-| `authentication`, `.web`, `.sessions`, `.factor` | login/registration API, server-rendered web flows, session management, factor management |
-| `stream` | stream settings and status |
-| `render`, `render.audio` | shows/episodes console API; hand-written `GET /render/episodes/:slot/audio` streaming the rendered MP3 (binary, so outside the JSON-only codegen) |
-| `engine`, `engine.voices` | LLM/TTS provider config; voice list, previews and binary upload |
-| `music`, `music.internal` | console music API; a secret-gated route handing the Spotify track shim its login |
-| `spotify.oauth` | hand-written OAuth callback (stays anonymous) |
-| `playout.internal` | the Liquidsoap-facing playout bridge, gated on `PLAYOUT_BRIDGE_SECRET` in an `X-Playout-Secret` header (404 when the secret isn't seeded) |
-| `nowplaying.public` | public, unauthenticated `GET /now-playing` off the reactor's in-memory snapshot, with cover art proxied rather than linked (a Navidrome artwork URL carries credentials) |
-| `monitor` | polling fallback over the same in-memory bus, sharing the SSE route's filter grammar. `/monitor/stream` itself is added in `setup.server.ts`, since it needs the builder's lifecycle signal |
+| `authentication` | `POST /auth/login/start`, `/auth/login/verify`, `/auth/login/register`, `/auth/token`, `/auth/mfa/start`, `GET /auth/login/oidc/callback`, `GET /auth/login/link/redirect` |
+| `authentication.factor` | `GET /auth/factors`, `POST /auth/factors/register`, `/auth/factors/start`, `/auth/factors/verify` |
+| `authentication.sessions` | `POST /auth/logout` — anonymous by design: signing out must always clear the httpOnly refresh cookie, including for a caller whose access token has already expired |
+| `music` | `GET /music/artists`, `/music/albums`, `/music/tracks` |
+| `onboarding` | `GET /onboarding`, `POST /onboarding` |
+| `playlists` | `GET /playlists`, `GET /playlists/:pluginId/:playlistId/tracks` |
+| `plugins` | `GET /plugins`, `/plugins/:id`, `POST /plugins/rescan`, `/plugins/:id/enable`, `/plugins/:id/disable`, `/plugins/:id/test`, `PUT /plugins/:id/config`; logs at `GET /plugins/:id/logs`, `/plugins/:id/logs/download`, `PUT /plugins/:id/logs/level`; OAuth at `GET /plugins/:id/oauth/authorize`, `GET /plugins/:id/oauth/callback`, `DELETE /plugins/:id/oauth` |
+
+There is no healthcheck router registered here yet, though `/` and `/healthcheck` are already listed
+as transaction-exempt paths.
 
 ### Server middleware
 
-[src/server/middleware](src/server/middleware) holds the audit and authorization context middleware,
-refresh-cookie handling, the SPA fallback, and the proxies: the Icecast stream proxy, and in
-development a proxy to the Vite dev server (with a matching WebSocket HMR proxy attached to the
-HTTP server).
+Assembled in [setup.middleware.ts](src/server/setup.middleware.ts), in order: error handling,
+ServerKit context, Redis rate limiting (100 requests / 5s, with an in-memory `insuranceLimiter` so a
+Redis blip fails open rather than 429-ing the whole API), credentialed CORS against the explicit
+`SPA_BASE_URL` / `APP_BASE_URL` origins, authentication, audit context, authorization context, and
+the refresh-cookie hook.
+
+Two of those carry most of the weight:
+
+- **[audit.context](src/server/middleware/audit.context.middleware.ts)** opens the per-request
+  transaction, sets the `app.actor_*` GUCs on it, and overrides the scoped `Kysely` and pg-boss
+  connection provider so job enqueues commit atomically with the request. GETs run in a transaction
+  too, because the org-isolation GUC is set `is_local` and would otherwise expire after one
+  statement.
+- **[authorization.context](src/server/middleware/authorization.context.middleware.ts)** collapses
+  the auth package's flat context into deadair's `Actor` union and resolves the actor's platform
+  roles into a permission set.
+
+[transaction.exemptions.ts](src/server/middleware/transaction.exemptions.ts) makes the opt-out set
+declarative (OPTIONS preflight, `/`, `/healthcheck`, streaming responses). Its header documents the
+bar a new exemption has to clear: an exempt request has no transaction, so it must not rely on the
+org-isolation RLS policies.
 
 ---
 
 ## Common commands
 
 ```bash
-pnpm --filter @app/api dev
+pnpm --filter @deadair/api dev
 ```
 
 ```bash
-pnpm --filter @app/api test
+pnpm --filter @deadair/api test
 ```
 
 ```bash
-pnpm --filter @app/api migrate:up
+pnpm --filter @deadair/api migrate:up
 ```
 
-`build:contracts` regenerates routers/types from `data/contracts`; `build:datatypes` runs the enum
-override sync then `kysely-codegen`; `rebuild:data` rolls the schema all the way down and back up.
+`build:contracts` regenerates routers/types from `data/contracts`; `build:permissions` regenerates
+the authorization model from `data/permissions`; `build:datatypes` runs the enum override sync then
+`kysely-codegen`; `rebuild:data` rolls the schema all the way down and back up. `typecheck` uses
+`tsconfig.tests.json` so tests are checked too, while `build` (`tsc`) covers only shippable `src`.

@@ -6,7 +6,7 @@
  *
  * The job is to make two spellings of the same name collide: "Beyoncé" and
  * "Beyonce", "Sigur Rós" and "Sigur Ros", "Don't Stop Me Now" and "Dont Stop Me
- * Now", "Sæglópur" and "Saeglopur".
+ * Now", "Sæglópur" and "Saeglopur", "Hawaiʻi" and "Hawaii".
  *
  * It is deliberately NOT a similarity metric. It normalizes spelling, nothing
  * more: "The Beatles" and "Beatles" are different keys, and so are a track and
@@ -49,6 +49,28 @@ const LATIN_LETTERS: ReadonlyArray<readonly [RegExp, string]> = [
     [/þ/g, 'th'],
     [/ı/g, 'i'],
 ];
+
+/**
+ * Every character used as an apostrophe, which are deleted rather than spaced.
+ *
+ * "Don't Stop Me Now" and "Dont Stop Me Now" are the same title, and providers
+ * disagree about the apostrophe as freely as they disagree about accents.
+ * Replacing it with a space instead — as punctuation generally is — yields
+ * "don t stop me now", which matches neither spelling anyone actually types.
+ *
+ * The list is long because "apostrophe" is not one code point. Beyond the ASCII
+ * `'` and the typographic `’` that word processors substitute for it, two of
+ * these are letters as far as Unicode is concerned (`ʼ` and the Hawaiian ʻokina
+ * `ʻ` are category Lm) and so survive the `\p{L}` filter below untouched, and
+ * `´` decomposes under NFKD into a space plus a combining acute, which would
+ * strand a floating accent mid-word. Removing them all up front, before any
+ * decomposition, is what makes those three cases behave alike.
+ *
+ * This does fold Hawaiʻi into Hawaii. That is the intent: it is the same
+ * character-level disagreement as é versus e, which this function exists to
+ * settle.
+ */
+const APOSTROPHES = /['`´‘’‛ʹʻʼʽ′]/g;
 
 /**
  * An accent sitting on a Latin base letter, which NFKD has just split off — the
@@ -96,10 +118,13 @@ const WHITESPACE_RUN = /\s+/g;
  *   punctuation replaced by single spaces, trimmed.
  */
 export const normalizeKey = (value: string): string => {
-    // NFKD also folds compatibility forms, which is wanted: half-width katakana
+    // Apostrophes go first, before anything can decompose them into marks or
+    // hide them among the letters. Deleted, not spaced: see APOSTROPHES.
+    //
+    // NFKD then folds compatibility forms, which is wanted: half-width katakana
     // becomes full-width, ﬁ becomes fi, ① becomes 1. Lowercasing first lets both
     // the accent rule and the transliteration table name only lowercase forms.
-    let key = value.normalize('NFKD').toLowerCase().replace(LATIN_ACCENTS, '$1');
+    let key = value.replace(APOSTROPHES, '').normalize('NFKD').toLowerCase().replace(LATIN_ACCENTS, '$1');
 
     // Recompose whatever was decomposed and not stripped, so a non-Latin letter
     // is one code point again and its mark cannot be mistaken for punctuation

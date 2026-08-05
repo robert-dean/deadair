@@ -41,9 +41,43 @@ describe('normalizeKey', () => {
         expect(normalizeKey('THE NATIONAL')).toBe(normalizeKey('the national'));
     });
 
-    it('drops punctuation, including the typographic apostrophes providers mix with ASCII', () => {
-        expect(normalizeKey("Don't Stop Me Now")).toBe(normalizeKey('Don’t Stop Me Now'));
+    it('drops punctuation', () => {
         expect(normalizeKey('Godspeed You! Black Emperor')).toBe('godspeed you black emperor');
+    });
+
+    describe('apostrophes', () => {
+        it('deletes them rather than spacing them, so the elided spelling matches', () => {
+            // Spacing gives "don t stop me now", which is neither spelling
+            // anyone types — the whole point of folding it.
+            expect(normalizeKey("Don't Stop Me Now")).toBe('dont stop me now');
+            expect(normalizeKey('Dont Stop Me Now')).toBe('dont stop me now');
+        });
+
+        it.each([
+            ['ASCII', "Don't"],
+            ['typographic right single quote', 'Don’t'],
+            ['left single quote', 'Don‘t'],
+            ['modifier letter apostrophe', 'Donʼt'],
+            ['okina', 'Donʻt'],
+            ['grave accent', 'Don`t'],
+            ['acute accent', 'Don´t'],
+            ['prime', 'Don′t'],
+        ])('treats the %s form the same as every other', (_label, spelling) => {
+            // The last four are the interesting ones: `ʼ` and `ʻ` are Unicode
+            // letters and survive the \p{L} filter, and `´` decomposes into a
+            // space plus a combining acute that would strand mid-word.
+            expect(normalizeKey(spelling)).toBe('dont');
+        });
+
+        it('folds the okina, which is a letter in Hawaiian but a keystroke people skip', () => {
+            expect(normalizeKey('Hawaiʻi')).toBe('hawaii');
+            expect(normalizeKey("Hawai'i")).toBe(normalizeKey('Hawaii'));
+        });
+
+        it('leaves the words either side joined only where the apostrophe was', () => {
+            expect(normalizeKey("Rock 'n' Roll")).toBe('rock n roll');
+            expect(normalizeKey("L'Arc~en~Ciel")).toBe('larc en ciel');
+        });
     });
 
     it('collapses the whitespace punctuation removal leaves behind', () => {

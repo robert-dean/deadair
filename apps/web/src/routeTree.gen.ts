@@ -16,6 +16,8 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
+import { Route as CatalogAlbumsAlbumIdRouteImport } from './routes/catalog/albums/$albumId'
+import { Route as CatalogArtistsArtistIdRouteImport } from './routes/catalog/artists/$artistId'
 import { Route as PlaylistsPluginIdPlaylistIdRouteImport } from './routes/playlists/$pluginId/$playlistId'
 import { Route as PluginsIdIndexRouteImport } from './routes/plugins/$id/index'
 import { Route as PluginsIdOauthCallbackRouteImport } from './routes/plugins/$id/oauth.callback'
@@ -55,6 +57,16 @@ const PluginsIndexRoute = PluginsIndexRouteImport.update({
   path: '/plugins/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CatalogAlbumsAlbumIdRoute = CatalogAlbumsAlbumIdRouteImport.update({
+  id: '/catalog/albums/$albumId',
+  path: '/catalog/albums/$albumId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogArtistsArtistIdRoute = CatalogArtistsArtistIdRouteImport.update({
+  id: '/catalog/artists/$artistId',
+  path: '/catalog/artists/$artistId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlaylistsPluginIdPlaylistIdRoute =
   PlaylistsPluginIdPlaylistIdRouteImport.update({
     id: '/playlists/$pluginId/$playlistId',
@@ -80,6 +92,8 @@ export interface FileRoutesByFullPath {
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
+  '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
+  '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
   '/plugins/$id/': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
@@ -92,6 +106,8 @@ export interface FileRoutesByTo {
   '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
+  '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
+  '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
   '/plugins/$id': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
@@ -105,6 +121,8 @@ export interface FileRoutesById {
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
+  '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
+  '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
   '/plugins/$id/': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
@@ -119,6 +137,8 @@ export interface FileRouteTypes {
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
+    | '/catalog/albums/$albumId'
+    | '/catalog/artists/$artistId'
     | '/playlists/$pluginId/$playlistId'
     | '/plugins/$id/'
     | '/plugins/$id/oauth/callback'
@@ -131,6 +151,8 @@ export interface FileRouteTypes {
     | '/catalog'
     | '/playlists'
     | '/plugins'
+    | '/catalog/albums/$albumId'
+    | '/catalog/artists/$artistId'
     | '/playlists/$pluginId/$playlistId'
     | '/plugins/$id'
     | '/plugins/$id/oauth/callback'
@@ -143,6 +165,8 @@ export interface FileRouteTypes {
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
+    | '/catalog/albums/$albumId'
+    | '/catalog/artists/$artistId'
     | '/playlists/$pluginId/$playlistId'
     | '/plugins/$id/'
     | '/plugins/$id/oauth/callback'
@@ -156,6 +180,8 @@ export interface RootRouteChildren {
   CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
+  CatalogAlbumsAlbumIdRoute: typeof CatalogAlbumsAlbumIdRoute
+  CatalogArtistsArtistIdRoute: typeof CatalogArtistsArtistIdRoute
   PlaylistsPluginIdPlaylistIdRoute: typeof PlaylistsPluginIdPlaylistIdRoute
   PluginsIdIndexRoute: typeof PluginsIdIndexRoute
   PluginsIdOauthCallbackRoute: typeof PluginsIdOauthCallbackRoute
@@ -212,6 +238,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PluginsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/catalog/albums/$albumId': {
+      id: '/catalog/albums/$albumId'
+      path: '/catalog/albums/$albumId'
+      fullPath: '/catalog/albums/$albumId'
+      preLoaderRoute: typeof CatalogAlbumsAlbumIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/artists/$artistId': {
+      id: '/catalog/artists/$artistId'
+      path: '/catalog/artists/$artistId'
+      fullPath: '/catalog/artists/$artistId'
+      preLoaderRoute: typeof CatalogArtistsArtistIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/playlists/$pluginId/$playlistId': {
       id: '/playlists/$pluginId/$playlistId'
       path: '/playlists/$pluginId/$playlistId'
@@ -244,6 +284,8 @@ const rootRouteChildren: RootRouteChildren = {
   CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,
+  CatalogAlbumsAlbumIdRoute: CatalogAlbumsAlbumIdRoute,
+  CatalogArtistsArtistIdRoute: CatalogArtistsArtistIdRoute,
   PlaylistsPluginIdPlaylistIdRoute: PlaylistsPluginIdPlaylistIdRoute,
   PluginsIdIndexRoute: PluginsIdIndexRoute,
   PluginsIdOauthCallbackRoute: PluginsIdOauthCallbackRoute,

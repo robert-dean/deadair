@@ -1,12 +1,15 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, stripSearchParams, useNavigate } from '@tanstack/react-router';
 
 import { catalogArtistsOptions } from '../../api/catalog.queries';
 import { CatalogArtistsPage } from '../../components/catalog/catalog.artists.page';
-import { validateCatalogSearch } from '../../components/catalog/catalog.page.params';
+import { CATALOG_SEARCH_DEFAULTS, validateCatalogSearch } from '../../components/catalog/catalog.page.params';
 
 export const Route = createFileRoute('/catalog/')({
     component: CatalogArtistsRoute,
     validateSearch: validateCatalogSearch,
+    // The params stay required in the component and disappear from the URL when they hold their
+    // defaults, so the plain `/catalog` link does not immediately rewrite itself to `?page=0&search=`.
+    search: { middlewares: [stripSearchParams(CATALOG_SEARCH_DEFAULTS)] },
     loaderDeps: ({ search }) => ({ page: search.page, search: search.search }),
     // Warms the same cache the page's hook reads from, so the loader and the render are one
     // request rather than two. The rejection is swallowed on purpose: the failure stays in the

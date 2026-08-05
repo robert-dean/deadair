@@ -12,6 +12,17 @@ export interface CatalogPageParams {
     search: string;
 }
 
+/** What the routes strip back out of the URL, so a list at rest has no query string at all. */
+export const CATALOG_SEARCH_DEFAULTS: CatalogPageParams = { page: 0, search: '' };
+
+/** The same, for the detail routes, whose lists are one artist's albums or one album's tracks and carry no search box. */
+export const CATALOG_PAGE_DEFAULTS = { page: 0 };
+
+/** {@link validateCatalogSearch} without the search term. */
+export function validateCatalogPage(input: Record<string, unknown>): { page: number } {
+    return { page: validateCatalogSearch(input).page };
+}
+
 /**
  * Reads the two params out of whatever is in the URL.
  *

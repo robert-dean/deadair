@@ -1,4 +1,5 @@
-import { Alert, Card, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Card, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { CATALOG_PAGE_SIZE, catalogArtistsOptions } from '../../api/catalog.queries';
@@ -62,7 +63,13 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
                         <Table.Tbody>
                             {rows.map(artist => (
                                 <Table.Tr key={artist.id}>
-                                    <Table.Td>{artist.name}</Table.Td>
+                                    <Table.Td>
+                                        {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
+                                            the router's own types, and with them the check that `params` matches the path. */}
+                                        <Anchor renderRoot={props => <Link to="/catalog/artists/$artistId" params={{ artistId: artist.id }} {...props} />}>
+                                            {artist.name}
+                                        </Anchor>
+                                    </Table.Td>
                                     <Table.Td>{artist.albumCount}</Table.Td>
                                     <Table.Td>{artist.trackCount}</Table.Td>
                                 </Table.Tr>

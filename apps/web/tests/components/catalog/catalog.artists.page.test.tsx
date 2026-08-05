@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
@@ -9,6 +10,16 @@ const listArtists = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: { catalog: { listArtists: (...args: unknown[]) => listArtists(...args) } },
+}));
+
+// Rendering a real `Link` needs a router around it. What matters here is the page's own behaviour,
+// so the link becomes a plain anchor and the routing is covered by the route tests.
+vi.mock('@tanstack/react-router', () => ({
+    Link: ({ children, className }: { children?: ReactNode; className?: string }) => (
+        <a href="#" className={className}>
+            {children}
+        </a>
+    ),
 }));
 
 const artist = (overrides: Partial<{ id: string; name: string; albumCount: number; trackCount: number }> = {}) => ({
@@ -59,7 +70,7 @@ describe('CatalogArtistsPage', () => {
     });
 
     it('surfaces a failed read as an alert rather than an empty catalog', async () => {
-        listArtists.mockRejectedValue(new SdkError('the database is unreachable', 503));
+        listArtists.mockRejectedValue(new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'the database is unreachable' }, new Headers()));
 
         render(<CatalogArtistsPage page={0} search="" onPageChange={noop} onSearchChange={noop} />);
 

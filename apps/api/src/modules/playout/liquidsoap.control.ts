@@ -87,18 +87,29 @@ export class PlayoutControlClient {
      * Drop everything queued but not yet airing. What is on air finishes: the
      * station stops committing to a running order it has abandoned, it does not
      * cut the listener off mid-track.
+     *
+     * Answers with the reading the command produced, or `undefined` when the
+     * stream did not take it. Every `/control/*` endpoint returns the same
+     * reading as `/control/status`, so a mutation's own response is already the
+     * state it produced and the caller does not have to go and ask.
      */
-    async flush(): Promise<boolean> {
-        return !!(await this.call('POST', '/control/flush'));
+    async flush(): Promise<QueueStatus | undefined> {
+        return parseReading(await this.call('POST', '/control/flush'));
     }
 
     /**
      * End the item on air so the queue advances immediately — the operator skip.
      * The opposite of {@link flush}: this one is only about what is playing and
      * leaves the running order behind it untouched.
+     *
+     * Like {@link flush}, answers with the reading rather than a bare boolean.
+     * That reading may still name the item that was cut: `playout_queue.skip()`
+     * advances in Liquidsoap's streaming loop, not in the request that asked for
+     * it, so the boundary can land after the response is built. Confirming it is
+     * {@link PlayoutPusher.skipCurrent}'s job.
      */
-    async skip(): Promise<boolean> {
-        return !!(await this.call('POST', '/control/skip'));
+    async skip(): Promise<QueueStatus | undefined> {
+        return parseReading(await this.call('POST', '/control/skip'));
     }
 
     /** One control call. Resolves to the parsed JSON body, or `undefined` on any failure. */

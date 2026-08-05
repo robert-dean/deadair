@@ -28,6 +28,24 @@ const LEAD = 1;
 /** Safety net for anything that does not emit a change: a restart, a dropped push. */
 const TICK_MS = 2000;
 
+/**
+ * How long a skip waits for the player to actually cross the boundary, and how
+ * often it looks.
+ *
+ * `playout_queue.skip()` takes effect in Liquidsoap's streaming loop rather than
+ * in the request that asked for it, so the reading that comes back with the skip
+ * can still name the item that was cut. Without this the operator's own response
+ * describes the track they just removed, and the console shows it until the
+ * `aired` notify or the next reconcile tick corrects it — which is most of the
+ * "the skip took a second to happen" the console appears to have.
+ *
+ * A budget rather than a wait: the answer goes out either way, describing the
+ * best reading available. It is only ever spent on a human pressing a button,
+ * never on the reconcile loop.
+ */
+const SKIP_CONFIRM_BUDGET_MS = 1000;
+const SKIP_CONFIRM_INTERVAL_MS = 100;
+
 @Injectable()
 export class PlayoutPusher {
     private timer?: NodeJS.Timeout;
@@ -76,15 +94,27 @@ export class PlayoutPusher {
      * the playout source unavailable for a moment, and the mount audibly drops to
      * the local bed before the next push lands.
      *
+     * Then waits, briefly, for the boundary it just asked for — see
+     * {@link SKIP_CONFIRM_BUDGET_MS}. The caller is a request whose response is
+     * built from the rundown, so returning before the player has crossed over
+     * means answering with the track that was cut.
+     *
      * @returns whether the stream took the command. A skip nobody heard should
      *   not be reported as one that happened.
      */
     async skipCurrent(): Promise<boolean> {
         await this.reconcile();
-        const skipped = await this.control.skip();
+
+        const before = this.rundown.nowPlaying()?.item.id;
+        const reading = await this.control.skip();
+        if (!reading) return false;
+
+        this.rundown.reconcile(reading);
+        await this.confirmBoundary(before);
+
         // The skip consumed the lead, so refill it now rather than waiting out the tick.
-        if (skipped) this.tick();
-        return skipped;
+        this.tick();
+        return true;
     }
 
     /**
@@ -128,6 +158,48 @@ export class PlayoutPusher {
     }
 
     /**
+     * Re-read the player until something OTHER than `before` is on air, or the
+     * budget runs out.
+     *
+     * "Nothing on air" is not the answer being waited for, even though it is a
+     * change: the item behind the skip is resolving (for an http uri, still
+     * downloading) and the mount has fallen to the local bed for a moment. Coming
+     * back with that would report the station as idle a beat before it names the
+     * track it actually started.
+     *
+     * Deliberately not part of {@link reconcile}: that runs on a timer every
+     * couple of seconds and has to stay a single cheap pass. This is the operator
+     * path only, and it is bounded so a player that never crosses the boundary —
+     * a skip into an empty queue, a stream that went away mid-command — costs a
+     * second and then answers with what it does know.
+     *
+     * Each reading is reconciled on the way past, so the wait is not idle: it is
+     * the same pull the loop does, just sooner and more often.
+     */
+    private async confirmBoundary(before: string | undefined): Promise<void> {
+        if (before === undefined) return;
+
+        const deadline = Date.now() + SKIP_CONFIRM_BUDGET_MS;
+        while (Date.now() < deadline) {
+            await sleep(SKIP_CONFIRM_INTERVAL_MS);
+
+            const reading = await this.control.status();
+            // The stream went away. The next tick will re-probe; there is nothing
+            // left here to confirm against.
+            if (!reading) return;
+
+            this.rundown.reconcile(reading);
+            const onAir = this.rundown.nowPlaying()?.item.id;
+            if (onAir !== undefined && onAir !== before) return;
+        }
+
+        // Not a failure: the player took the command (it answered), it simply has
+        // not started anything this process handed it — most likely because the
+        // queue behind the skip was empty and the mount has fallen to the bed.
+        this.logger.info('playout: the skip landed but no new item was on air within the confirm budget');
+    }
+
+    /**
      * Fire a reconcile from a listener or the interval, swallowing anything it
      * throws. A failure here must never become an unhandled rejection: it runs
      * off a timer with nobody to await it, and the next pass is a tick away
@@ -138,3 +210,5 @@ export class PlayoutPusher {
         this.reconcile().catch(error => this.logger.warn(`playout: reconcile failed (${error instanceof Error ? error.message : String(error)})`));
     }
 }
+
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));

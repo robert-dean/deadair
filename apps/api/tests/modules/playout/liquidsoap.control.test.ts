@@ -134,6 +134,56 @@ describe('PlayoutControlClient.isUp', () => {
     });
 });
 
+describe('PlayoutControlClient mutations', () => {
+    // Every /control/* endpoint answers with the same reading as /control/status, so
+    // a mutation's own response is already the state it produced. Throwing that away
+    // and going back to ask is a round trip, and a round trip is a boundary missed.
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+
+    const pinnedEndpoint = {
+        resolve: async () => 'http://stream.test:8005',
+        secret: () => 'a-secret',
+        invalidate: vi.fn(),
+    } as unknown as LiquidsoapEndpoint;
+
+    const clientWith = (fetchImpl: typeof fetch) => {
+        vi.stubGlobal('fetch', fetchImpl);
+        return new PlayoutControlClient(pinnedEndpoint, logger);
+    };
+
+    it('answers a skip with the reading the command produced', async () => {
+        const client = clientWith(
+            async () => new Response(JSON.stringify({ queued: 0, ready: true, onAir: 'item-2', remainingMs: 1000 }), { status: 200 }),
+        );
+        try {
+            expect(await client.skip()).toEqual({ queued: 0, ready: true, onAir: 'item-2', remainingMs: 1000 });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('answers a flush the same way', async () => {
+        const client = clientWith(async () => new Response(JSON.stringify({ queued: 0, ready: false, onAir: '' }), { status: 200 }));
+        try {
+            expect(await client.flush()).toEqual({ queued: 0, ready: false });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('answers undefined when the stream did not take the command', async () => {
+        // Which is what the caller reads as "the skip did not happen": the same
+        // treatment a body that is not a reading gets, because a 401 page and an
+        // unreachable socket are equally not a confirmation.
+        const client = clientWith(async () => new Response('denied', { status: 401 }));
+        try {
+            expect(await client.skip()).toBeUndefined();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+});
+
 describe('annotateUri', () => {
     it('wraps a uri so the item id survives the round trip through Liquidsoap', () => {
         expect(annotateUri({ [ITEM_KEY]: 'item-1' }, 'https://example.test/a.ogg')).toBe('annotate:deadair_item="item-1":https://example.test/a.ogg');

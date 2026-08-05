@@ -36,10 +36,70 @@ function stubControl(reading: QueueStatus | undefined, options: { pushLands?: bo
             pushed.push(uri);
             return options.pushLands ?? true;
         }),
-        flush: vi.fn(async () => true),
-        skip: vi.fn(async () => true),
+        flush: vi.fn(async () => reading),
+        skip: vi.fn(async () => reading),
     };
     return { control: control as unknown as PlayoutControlClient, pushed, spy: control };
+}
+
+/** The rundown item id the pusher wrote onto a pushed uri. Nothing else exposes it. */
+const itemId = (uri: string): string => /deadair_item="([^"]+)"/.exec(uri)?.[1] ?? '';
+
+/**
+ * A control client whose reading the test moves, and which can be told to change
+ * it partway through a sequence of reads — which is the only way to stage a
+ * boundary that lands AFTER the command that asked for it.
+ */
+function scriptedControl() {
+    const pushed: string[] = [];
+    let reads = 0;
+    let switchAt: number | undefined;
+    let switchTo: QueueStatus | undefined;
+
+    const control = {
+        reading: { queued: 0, ready: false } as QueueStatus,
+        /** From the `nth` reading after this call onward, the player reports `next`. */
+        readingAfter(nth: number, next: QueueStatus) {
+            switchAt = reads + nth;
+            switchTo = next;
+        },
+        status: vi.fn(async () => {
+            reads += 1;
+            if (switchAt !== undefined && reads >= switchAt) control.reading = switchTo!;
+            return control.reading;
+        }),
+        push: vi.fn(async (uri: string) => {
+            pushed.push(uri);
+            return true;
+        }),
+        flush: vi.fn(async () => control.reading),
+        skip: vi.fn(async () => control.reading),
+    };
+
+    return { control, pushed };
+}
+
+/**
+ * A station with the first item ON AIR and the second already handed over: the
+ * state an operator skip actually happens in, and the only one where "which item
+ * does the answer name" is a question at all.
+ */
+async function onAirStation(ids: string[]) {
+    const rundown = new Rundown(new StubResolver(), logger);
+    rundown.load(ids.map(track));
+    const { control, pushed } = scriptedControl();
+    const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, logger);
+
+    // Hand the first item over…
+    await pusher.reconcile();
+    const first = itemId(pushed[0]!);
+
+    // …then let the player report it on air, which frees the lead for the second.
+    control.reading = { queued: 0, ready: true, onAir: first };
+    await pusher.reconcile();
+    const second = itemId(pushed[1]!);
+
+    return { rundown, pusher, control, pushed, first, second };
 }
 
 function setup(ids: string[], reading: QueueStatus | undefined, options: { pushLands?: boolean } = {}) {
@@ -142,10 +202,55 @@ describe('PlayoutPusher.skipCurrent', () => {
     });
 
     it('reports whether the stream actually took the command', async () => {
+        // No reading back means nothing answered. A skip nobody heard must not be
+        // reported as one that happened.
         const { pusher, spy } = setup(['a'], { queued: 0, ready: true, onAir: 'x' });
-        spy.skip.mockResolvedValueOnce(false);
+        spy.skip.mockResolvedValueOnce(undefined);
 
         expect(await pusher.skipCurrent()).toBe(false);
+    });
+
+    it('waits for the boundary, so the answer names the item that STARTED', async () => {
+        // The whole point of the confirm: `playout_queue.skip()` advances in
+        // Liquidsoap's streaming loop, so the reading that comes back with the
+        // command still names the track that was cut. Answering from that is how a
+        // skip reads as slow in the console.
+        const { pusher, rundown, control, first, second } = await onAirStation(['a', 'b', 'c']);
+
+        // The skip's own reading, and the first re-read after it, still name the
+        // item that was cut. Only the second one shows the boundary.
+        control.reading = { queued: 1, ready: true, onAir: first };
+        control.readingAfter(3, { queued: 0, ready: true, onAir: second });
+
+        vi.useFakeTimers();
+        try {
+            const skipped = pusher.skipCurrent();
+            await vi.advanceTimersByTimeAsync(500);
+
+            expect(await skipped).toBe(true);
+            expect(rundown.nowPlaying()?.item.id).toBe(second);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('gives up after the budget rather than holding the operator', async () => {
+        // A skip into a queue with nothing resolved behind it never produces a new
+        // boundary: the mount falls to the local bed. That is a normal outcome, and
+        // the answer still goes out.
+        const { pusher, rundown, control, first } = await onAirStation(['a', 'b']);
+        control.reading = { queued: 0, ready: true, onAir: first };
+
+        vi.useFakeTimers();
+        try {
+            const skipped = pusher.skipCurrent();
+            await vi.advanceTimersByTimeAsync(3000);
+
+            expect(await skipped).toBe(true);
+            expect(rundown.nowPlaying()?.item.id).toBe(first);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });
 

@@ -85,7 +85,7 @@ Registered in the order below (see [modules.ts](src/modules/modules.ts)).
 
 | Module | Path | What it does |
 | --- | --- | --- |
-| **Music** | [modules/music](src/modules/music) | The local catalog: artists, albums and tracks, each a service over a Kysely repository. Provider integration is not here — providers are plugins. |
+| **Catalog** | [modules/catalog](src/modules/catalog) | The local catalog: artists, albums and tracks, each a service over a Kysely repository, plus the ingest side under [ingest/](src/modules/catalog/ingest) (sync, resolution, placeholders). Reads join the display names in, exclude rows carrying `merged_into_id`, and order by name. Provider integration is not here — providers are plugins. |
 | **Onboarding** | [modules/onboarding](src/modules/onboarding) | First-run requirements. Currently one: if no platform admin exists, `admin.account` is returned and satisfying it registers the genesis admin through `AuthenticationRegistrationService`. Database creation and migration stay out of band via dbmate. |
 | **Settings** | [modules/settings](src/modules/settings) | The `deadair.settings` key/value table. Deliberately thin right now: the music-provider surface that used to live here moved to the plugin config system, and the active provider is named by the `music.provider` setting key. |
 | **Plugins** | [modules/plugins](src/modules/plugins) | The plugin subsystem — see below. |
@@ -124,7 +124,7 @@ Never hand-edit a router.
 | `authentication` | `POST /auth/login/start`, `/auth/login/verify`, `/auth/login/register`, `/auth/token`, `/auth/mfa/start`, `GET /auth/login/oidc/callback`, `GET /auth/login/link/redirect` |
 | `authentication.factor` | `GET /auth/factors`, `POST /auth/factors/register`, `/auth/factors/start`, `/auth/factors/verify` |
 | `authentication.sessions` | `POST /auth/logout` — anonymous by design: signing out must always clear the httpOnly refresh cookie, including for a caller whose access token has already expired |
-| `music` | `GET /music/artists`, `/music/albums`, `/music/tracks` |
+| `catalog` | `GET /catalog/artists`, `/catalog/artists/:id`, `/catalog/artists/:id/albums`, `/catalog/albums`, `/catalog/albums/:id`, `/catalog/albums/:id/tracks`, `/catalog/tracks` |
 | `onboarding` | `GET /onboarding`, `POST /onboarding` |
 | `playlists` | `GET /playlists`, `GET /playlists/:pluginId/:playlistId/tracks` |
 | `plugins` | `GET /plugins`, `/plugins/:id`, `POST /plugins/rescan`, `/plugins/:id/enable`, `/plugins/:id/disable`, `/plugins/:id/reload`, `/plugins/:id/test`, `PUT /plugins/:id/config`; logs at `GET /plugins/:id/logs`, `/plugins/:id/logs/download`, `PUT /plugins/:id/logs/level`; OAuth at `GET /plugins/:id/oauth/authorize`, `GET /plugins/:id/oauth/callback`, `DELETE /plugins/:id/oauth` |

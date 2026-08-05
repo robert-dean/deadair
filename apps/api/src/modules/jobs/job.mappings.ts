@@ -1,7 +1,9 @@
 import { JobNames } from '#src/modules/shared/job.names.js';
 import { Constructor, Injectable } from 'injectkit';
+import { Duration } from 'luxon';
 import { Job } from '@maroonedsoftware/jobbroker';
 import type { PgBossJobRegistration } from '@maroonedsoftware/jobbroker/pgboss';
+import { CatalogSyncJob } from '#modules/music/catalog.sync.job.js';
 
 /**
  * What a job name maps to. The bare constructor is the short form for an
@@ -23,4 +25,26 @@ export class FakeJob implements Job {
 
 export const JobMappings: Record<JobNames, JobMapping> = {
     fake: FakeJob,
+
+    // Hourly. A provider's library changes on human timescales, and the walk
+    // costs one rate-limited request per 50 items, so there is nothing to gain
+    // from asking more often and a rate-limit ban to lose.
+    //
+    // The policy is sized for the failure this actually has: a flaky upstream.
+    // Two retries with backoff outlast a blip; beyond that the next hourly run
+    // is the retry, so nothing is lost by giving up and letting the dead-letter
+    // queue keep the evidence. `expiresIn` is the ceiling on one walk, generous
+    // enough for a large library and short enough that a wedged run is
+    // reclaimed rather than blocking the queue until someone notices.
+    'catalog.sync': {
+        job: CatalogSyncJob,
+        cron: '0 * * * *',
+        policy: {
+            retryLimit: 2,
+            retryDelay: Duration.fromObject({ minutes: 1 }),
+            retryBackoff: true,
+            expiresIn: Duration.fromObject({ minutes: 30 }),
+            deadLetter: 'catalog.sync.dead',
+        },
+    },
 };

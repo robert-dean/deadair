@@ -8,6 +8,7 @@ import { ArtistsRepository } from './artists.repository.js';
 import { AlbumsRepository } from './albums.repository.js';
 import { TracksRepository } from './tracks.repository.js';
 import { CatalogResolverRepository } from './catalog.resolver.repository.js';
+import { CatalogSyncService } from './catalog.sync.service.js';
 
 export const MusicModule: ServerKitModule = {
     name: 'Music',
@@ -23,5 +24,6 @@ export const MusicModule: ServerKitModule = {
         // the job runner gives every execution its own scope, so this is
         // per-run there and per-request on the request path.
         registry.register(CatalogResolverRepository).useClass(CatalogResolverRepository).asScoped();
+        registry.register(CatalogSyncService).useClass(CatalogSyncService).asScoped();
     },
 };

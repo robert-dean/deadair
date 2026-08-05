@@ -3,13 +3,12 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_CATALOG, type MusicProviderPluginInstance, type PluginManifest } from '@deadair/plugin-sdk';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
+import { asCatalogPlugin, implementsCatalog } from '#modules/plugins/plugin.capabilities.js';
 import { pluginHttpError } from '#modules/plugins/plugin.error.http.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '#modules/plugins/types/plugin.record.js';
 import type { CatalogPlaylist, CatalogPlaylistPage, CatalogPlaylistTracks, CatalogSourceError, CatalogTrack } from './types/playlists.types.js';
-
-const CATALOG_METHODS = ['listPlaylists', 'getPlaylistTracks'] as const;
 
 /**
  * A `ServerkitError`'s `message` is the bare status text ("Forbidden") and the
@@ -139,9 +138,8 @@ export class PlaylistsService {
 
         const result: { record: PluginRecord; manifest: PluginManifest }[] = [];
         for (const record of narrowed) {
-            if (record.status !== 'active' || !record.manifest || !record.instance) continue;
-            if (!this.implementsCatalog(record.manifest, record.instance)) continue;
-            result.push({ record, manifest: record.manifest });
+            const catalog = asCatalogPlugin(record);
+            if (catalog) result.push({ record, manifest: catalog.manifest });
         }
         return result;
     }
@@ -177,22 +175,10 @@ export class PlaylistsService {
             throw httpError(503).withDetails({ message: `plugin "${pluginId}" is not running (status: ${record.status})${reason}` });
         }
 
-        if (!this.implementsCatalog(manifest, record.instance)) {
+        if (!implementsCatalog(manifest, record.instance)) {
             throw httpError(501).withDetails({ message: `plugin "${pluginId}" declares a catalog but does not implement it` });
         }
 
         return { record, manifest };
-    }
-
-    /**
-     * A capability counts as present only when the manifest declares it AND
-     * the instance actually implements every method of it. A manifest is a
-     * promise, and calling a method a plugin forgot to write is a
-     * `TypeError` in the middle of a request rather than an honest "not
-     * supported".
-     */
-    private implementsCatalog(manifest: PluginManifest, instance: unknown): boolean {
-        if (!manifest.capabilities.includes(PLUGIN_CAPABILITY_CATALOG)) return false;
-        return CATALOG_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
     }
 }

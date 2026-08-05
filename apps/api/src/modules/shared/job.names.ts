@@ -1,1 +1,1 @@
-export type JobNames = 'fake';
+export type JobNames = 'fake' | 'catalog.sync';

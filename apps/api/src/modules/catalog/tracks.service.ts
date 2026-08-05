@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { Pagination } from '../shared/types/pagination.js';
 import { CatalogQueryInput, Track } from './types/catalog.types.js';
 import { TracksRepository } from './tracks.repository.js';
-import { parseAndValidate } from '@maroonedsoftware/zod';
+import { parseAndValidateArray } from '@maroonedsoftware/zod';
 
 @Injectable()
 export class TracksService {
@@ -20,6 +20,6 @@ export class TracksService {
     private async page(query: CatalogQueryInput, albumId?: string): Promise<{ meta: Pagination; data: Track[] }> {
         const { page, pageSize, sort, search } = query;
         const { total, data } = await this.tracksRepository.listTracks({ limit: pageSize, offset: page * pageSize, sort, search }, albumId);
-        return { meta: { total, page, pageSize, sort }, data: await Promise.all(data.map((row: unknown) => parseAndValidate(row, Track))) };
+        return { meta: { total, page, pageSize, sort }, data: await parseAndValidateArray(data, Track) };
     }
 }

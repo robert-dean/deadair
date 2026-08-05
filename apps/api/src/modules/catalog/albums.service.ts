@@ -3,7 +3,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { AlbumsRepository } from './albums.repository.js';
 import { Pagination } from '../shared/types/pagination.js';
 import { Album, CatalogQueryInput } from './types/catalog.types.js';
-import { parseAndValidate } from '@maroonedsoftware/zod';
+import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 
 @Injectable()
 export class AlbumsService {
@@ -31,6 +31,6 @@ export class AlbumsService {
     private async page(query: CatalogQueryInput, artistId?: string): Promise<{ meta: Pagination; data: Album[] }> {
         const { page, pageSize, sort, search } = query;
         const { total, data } = await this.albumsRepository.listAlbums({ limit: pageSize, offset: page * pageSize, sort, search }, artistId);
-        return { meta: { total, page, pageSize, sort }, data: await Promise.all(data.map((row: unknown) => parseAndValidate(row, Album))) };
+        return { meta: { total, page, pageSize, sort }, data: await parseAndValidateArray(data, Album) };
     }
 }

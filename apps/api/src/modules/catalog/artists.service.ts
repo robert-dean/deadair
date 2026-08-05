@@ -3,7 +3,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Pagination } from '../shared/types/pagination.js';
 import { Artist, CatalogQueryInput } from './types/catalog.types.js';
 import { ArtistsRepository } from './artists.repository.js';
-import { parseAndValidate } from '@maroonedsoftware/zod';
+import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 
 @Injectable()
 export class ArtistsService {
@@ -12,7 +12,7 @@ export class ArtistsService {
     async listArtists(query: CatalogQueryInput): Promise<{ meta: Pagination; data: Artist[] }> {
         const { page, pageSize, sort, search } = query;
         const { total, data } = await this.artistsRepository.listArtists({ limit: pageSize, offset: page * pageSize, sort, search });
-        return { meta: { total, page, pageSize, sort }, data: await Promise.all(data.map((row: unknown) => parseAndValidate(row, Artist))) };
+        return { meta: { total, page, pageSize, sort }, data: await parseAndValidateArray(data, Artist) };
     }
 
     /** @throws 404 when no such artist exists, and equally when it was merged into another. */

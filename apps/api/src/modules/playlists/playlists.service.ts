@@ -22,6 +22,32 @@ const errorText = (error: unknown): string => {
 };
 
 /**
+ * Why a plugin that declares a catalog cannot be asked for one right now, or
+ * `undefined` when its state is not something to report.
+ *
+ * The messages name the operator's next move rather than the internal state: a
+ * quarantined plugin is cleared by a reload, a misconfigured one by fixing its
+ * settings, and a plugin that declares a capability it does not implement is
+ * its author's bug and nothing the operator can do anything about.
+ */
+const unavailableReason = (record: PluginRecord): string | undefined => {
+    const detail = record.error ? `: ${record.error}` : '';
+    switch (record.status) {
+        case 'failed':
+            return `quarantined after a failure${detail}. Reload the plugin once the cause is fixed`;
+        case 'misconfigured':
+            return `its configuration is not valid${detail}`;
+        case 'active':
+            // Active, but `asCatalogPlugin` still refused it: it declares `catalog`
+            // and does not implement the methods.
+            return 'it declares a catalog but does not implement one, so it cannot be asked for playlists';
+        default:
+            // `discovered` and `disabled`: never turned on, so not a fault.
+            return undefined;
+    }
+};
+
+/**
  * The read-only, no-database POC surface for "what could I import from a
  * plugin": every catalog-capable plugin's playlists, aggregated, and one
  * plugin's playlist tracks on demand.
@@ -48,7 +74,7 @@ export class PlaylistsService {
      * others' successes rather than propagated.
      */
     async listPlaylists(): Promise<CatalogPlaylistPage> {
-        const candidates = await this.catalogCapablePlugins();
+        const { usable: candidates, unavailable } = await this.catalogCapablePlugins();
 
         const settled = await Promise.allSettled(
             candidates.map(async ({ record, manifest }) => {
@@ -60,7 +86,11 @@ export class PlaylistsService {
         );
 
         const playlists: CatalogPlaylist[] = [];
-        const errors: CatalogSourceError[] = [];
+        // Seeded with the plugins that could not even be called. A source the operator
+        // turned on and which is not working is the single most useful thing this page
+        // can say, and dropping it silently leaves an empty list whose only explanation
+        // is the empty state's advice to enable a plugin that IS already enabled.
+        const errors: CatalogSourceError[] = [...unavailable];
 
         settled.forEach((outcome, index) => {
             const { record, manifest } = candidates[index]!;
@@ -131,11 +161,28 @@ export class PlaylistsService {
     }
 
     /**
-     * Active, catalog-capable, visible-to-the-actor plugin records, narrowed
-     * exactly like {@link PluginsService.listPlugins}: `{ all: true }` skips
-     * the filter for actors whose role already covers every plugin.
+     * The visible-to-the-actor plugins that declare a catalog, split into the
+     * ones that can be called and the ones that cannot.
+     *
+     * Visibility is narrowed exactly like {@link PluginsService.listPlugins}:
+     * `{ all: true }` skips the filter for actors whose role already covers
+     * every plugin.
+     *
+     * The split is what keeps a broken source from disappearing. `unavailable`
+     * deliberately covers only the states the operator has already asked to be
+     * working — quarantined, misconfigured, or declaring a capability it does
+     * not implement. A `discovered` or `disabled` plugin is not reported: it was
+     * never turned on, so calling that an error would put a permanent warning on
+     * the page for a choice the operator made.
+     *
+     * A record with no manifest is skipped entirely, however it failed: without
+     * one there is no way to know it was ever a catalog, and attributing an
+     * enrichment plugin's failure to this page would be worse than silence.
      */
-    private async catalogCapablePlugins(): Promise<{ record: PluginRecord; manifest: PluginManifest }[]> {
+    private async catalogCapablePlugins(): Promise<{
+        usable: { record: PluginRecord; manifest: PluginManifest }[];
+        unavailable: CatalogSourceError[];
+    }> {
         const visible = await this.accessControl.listVisibleIds('plugin', 'view');
         const records = this.pluginRegistry.list();
         let narrowed = records;
@@ -144,12 +191,24 @@ export class PlaylistsService {
             narrowed = records.filter(record => visibleIds.has(record.id));
         }
 
-        const result: { record: PluginRecord; manifest: PluginManifest }[] = [];
+        const usable: { record: PluginRecord; manifest: PluginManifest }[] = [];
+        const unavailable: CatalogSourceError[] = [];
+
         for (const record of narrowed) {
             const catalog = asCatalogPlugin(record);
-            if (catalog) result.push({ record, manifest: catalog.manifest });
+            if (catalog) {
+                usable.push({ record, manifest: catalog.manifest });
+                continue;
+            }
+
+            const manifest = record.manifest;
+            if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_CATALOG)) continue;
+
+            const reason = unavailableReason(record);
+            if (reason) unavailable.push({ pluginId: record.id, pluginName: manifest.name, message: reason });
         }
-        return result;
+
+        return { usable, unavailable };
     }
 
     /**

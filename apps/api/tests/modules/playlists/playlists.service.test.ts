@@ -169,13 +169,78 @@ describe('PlaylistsService.listPlaylists', () => {
         expect(page.errors).toEqual([]);
     });
 
-    it('excludes a plugin that declares catalog but does not implement every catalog method', async () => {
+    it('reports a plugin that declares catalog but does not implement every catalog method', async () => {
+        // Not called (that would be a TypeError mid-request) but not silent either: a
+        // manifest promising something the code does not have is its author's bug, and
+        // the operator needs to see which plugin to blame rather than an empty page.
         const { service, registry } = makeService(userActor('u-admin', ['admin']));
         registry.upsert(record(SPOTIFY_ID, { instance: catalogInstance({ getPlaylistTracks: undefined }) as never }));
 
         const page = await service.listPlaylists();
 
         expect(page.playlists).toEqual([]);
+        expect(page.errors).toEqual([{ pluginId: SPOTIFY_ID, pluginName: 'Spotify', message: expect.stringContaining('does not implement one') }]);
+    });
+
+    it('reports a quarantined catalog plugin, with the reason and the way out', async () => {
+        // The case that made this exist: a plugin whose upstream was unreachable tripped
+        // the invoker's breaker, and the page then showed an empty list whose only
+        // explanation was advice to enable a plugin that was already enabled.
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { status: 'failed', instance: undefined, error: 'fetch to accounts.spotify.com failed' }));
+
+        const page = await service.listPlaylists();
+
+        expect(page.playlists).toEqual([]);
+        expect(page.errors).toHaveLength(1);
+        expect(page.errors[0]?.pluginName).toBe('Spotify');
+        expect(page.errors[0]?.message).toContain('quarantined');
+        expect(page.errors[0]?.message).toContain('fetch to accounts.spotify.com failed');
+        expect(page.errors[0]?.message).toContain('Reload the plugin');
+    });
+
+    it('reports a misconfigured catalog plugin', async () => {
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { status: 'misconfigured', instance: undefined, error: 'clientId is required' }));
+
+        const page = await service.listPlaylists();
+
+        expect(page.errors[0]?.message).toContain('configuration is not valid');
+        expect(page.errors[0]?.message).toContain('clientId is required');
+    });
+
+    it('stays silent about a plugin the operator has not enabled', async () => {
+        // `discovered` and `disabled` are choices, not faults. Reporting them would put a
+        // permanent warning on the page for a station deliberately running one source.
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { status: 'disabled', instance: undefined }));
+        registry.upsert(record(OTHER_ID, { status: 'discovered', instance: undefined, manifest: manifest({ id: OTHER_ID, name: 'Other' }) }));
+
+        const page = await service.listPlaylists();
+
+        expect(page.errors).toEqual([]);
+    });
+
+    it('says nothing about a failed plugin whose manifest never loaded', async () => {
+        // With no manifest there is no way to know it was ever a catalog, and blaming
+        // this page for an enrichment plugin's failure is worse than silence. The
+        // plugins page is where a manifest-less failure belongs.
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert({ id: SPOTIFY_ID, dir: '/plugins/x', status: 'failed', error: 'manifest did not validate' });
+
+        const page = await service.listPlaylists();
+
+        expect(page.errors).toEqual([]);
+    });
+
+    it('does not report a plugin the actor cannot see', async () => {
+        // The error list must not become a way to discover what is installed.
+        const fixture = new FakePermissionsFixture();
+        const { service, registry } = makeService(userActor('u-plain'), fixture);
+        registry.upsert(record(SPOTIFY_ID, { status: 'failed', instance: undefined, error: 'boom' }));
+
+        const page = await service.listPlaylists();
+
         expect(page.errors).toEqual([]);
     });
 

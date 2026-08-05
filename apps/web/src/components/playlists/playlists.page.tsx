@@ -25,7 +25,7 @@ export function PlaylistsPage() {
             ) : undefined}
 
             {sourceErrors.length > 0 ? (
-                <Alert color="yellow" title="Some plugins could not be reached">
+                <Alert color="yellow" title="Some plugins could not be listed">
                     <List size="sm">
                         {sourceErrors.map(error => (
                             <List.Item key={error.pluginId}>
@@ -49,7 +49,20 @@ export function PlaylistsPage() {
                     <Stack gap="xs">
                         <Text fw={600}>No playlists are available</Text>
                         <Text size="sm" c="dimmed" maw={520}>
-                            Enable a plugin with the <Text span ff="monospace">catalog</Text> capability to see its playlists here.
+                            {/* Never both stories at once. Telling an operator to enable a plugin
+                                directly under a warning that their enabled plugin has failed sends
+                                them to the wrong screen; the alert above already says what to do. */}
+                            {sourceErrors.length > 0 ? (
+                                'The plugins that could offer playlists are listed above, with why each one could not be.'
+                            ) : (
+                                <>
+                                    Enable a plugin with the{' '}
+                                    <Text span ff="monospace">
+                                        catalog
+                                    </Text>{' '}
+                                    capability to see its playlists here.
+                                </>
+                            )}
                         </Text>
                     </Stack>
                 </Card>

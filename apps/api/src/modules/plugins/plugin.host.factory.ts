@@ -167,6 +167,11 @@ export class PluginHostFactory {
         return {
             logger,
             fetch: (url, init) => this.hostFetch(manifest, limiter, logger, url, init),
+            // Never negative: a plugin reading this is deciding whether to
+            // start more work, and "-40" and "0" are the same answer to that
+            // question. `hostFetch` reads the raw value instead, because it
+            // does need to tell "expired" apart from "expiring".
+            remainingMs: async () => Math.max(0, invocationRemainingMs() ?? PLUGIN_INVOKE_TIMEOUT_MS),
             storage: this.createStorage(manifest),
             secrets: this.createSecrets(manifest),
             config: this.createConfig(manifest),

@@ -218,6 +218,31 @@ Let these propagate unless you can do something better with them. The host
 maps each one to a status and error code for the operator console, and
 swallowing them turns a precise answer into a silent empty result.
 
+## Knowing how much time you have
+
+Every call into your code has a deadline, and it is not a constant: a
+background job may run on a far longer budget than a request someone is waiting
+on, and the same method of yours gets called both ways. `host.remainingMs()`
+tells you what is left of the current one.
+
+Reach for it when the work is a sequence whose later steps are optional, which
+is the usual shape for anything paced against a rate-limited API:
+
+```ts
+const core = await this.lookup(ref);
+if ((await host.remainingMs()) < 2_000) return core;  // good enough, out of time
+return { ...core, ...(await this.enrich(core)) };
+```
+
+What it saves you from is hardcoding a guess at the host's deadline, which
+means either quitting early on a budget you actually had or being killed
+halfway through with nothing to return.
+
+It is the host's clock, not an allowance: everything the call does spends from
+it, including the time `host.fetch` parks waiting for rate-limit headroom, and
+`host.fetch` caps its own timeout by it. Read a small number as advice to wrap
+up, not as permission to run that long.
+
 ## Music providers
 
 A `music-provider` declares any subset of three sub-capabilities and lists the

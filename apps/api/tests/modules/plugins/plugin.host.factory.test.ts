@@ -721,6 +721,27 @@ describe('PluginHostFactory fetch budget', () => {
         await assertion;
     });
 
+    it('reports the remaining budget to the plugin, so it can shed optional work on purpose', async () => {
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const inside = await runWithDeadline(Date.now() + 4_000, async () => host.remainingMs());
+
+        expect(inside).toBeGreaterThan(3_000);
+        expect(inside).toBeLessThanOrEqual(4_000);
+    });
+
+    it('reports the ordinary per-call default when nothing is waiting on the plugin', async () => {
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        await expect(host.remainingMs()).resolves.toBe(PLUGIN_INVOKE_TIMEOUT_MS);
+    });
+
+    it('never reports a negative budget: the plugin is deciding whether to start work, not measuring lateness', async () => {
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        await expect(runWithDeadline(Date.now() - 5_000, async () => host.remainingMs())).resolves.toBe(0);
+    });
+
     it('refuses without a round trip when the invocation is already out of time', async () => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);

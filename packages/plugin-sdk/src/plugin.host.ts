@@ -156,6 +156,32 @@ export interface PluginHost {
      */
     fetch(url: string, init?: HostFetchInit): Promise<HostFetchResponse>;
 
+    /**
+     * Milliseconds left before the host abandons the call you are currently
+     * inside, so work that does not fit can be dropped deliberately instead of
+     * being cut off halfway.
+     *
+     * The host gives every call into your code a deadline, and it is not a
+     * constant: a background job may run on a far longer budget than a request
+     * a person is waiting on, and the same method of yours can be called both
+     * ways. Guessing at it is how a plugin ends up either quitting early on a
+     * budget it had, or being killed mid-flight with nothing useful to return.
+     *
+     * The pattern this exists for is a sequence where the later steps are
+     * optional:
+     *
+     * ```ts
+     * const core = await this.lookup(ref);
+     * if (await host.remainingMs() < 2_000) return core;  // good enough, out of time
+     * return { ...core, ...(await this.enrich(core)) };
+     * ```
+     *
+     * Not a budget you are given: it is the host's, spent by everything the
+     * call does, and `host.fetch` already caps its own timeout by it. Treat a
+     * small number as advice to wrap up, not as permission to run that long.
+     */
+    remainingMs(): Promise<number>;
+
     storage: PluginStorage;
 
     secrets: PluginSecrets;

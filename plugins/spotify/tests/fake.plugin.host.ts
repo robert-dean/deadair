@@ -22,6 +22,8 @@ export interface RecordedFetchCall {
 export interface FakePluginHost extends PluginHost {
     /** Every `host.fetch` call so far, in call order. */
     readonly calls: RecordedFetchCall[];
+    /** Set what `host.remainingMs()` reports, for testing budget shedding. */
+    seedRemainingMs(ms: number): void;
     /** Push one scripted response onto the back of the reply queue. */
     queueResponse(response: Partial<HostFetchResponse>): void;
     /** Replace the fetch handler outright; overrides the queue while set. */
@@ -41,6 +43,13 @@ export interface FakePluginHost extends PluginHost {
     /** Read the oauth vault directly, bypassing `host.oauth.getTokens`. */
     getVaultTokens(): Record<string, string> | undefined;
 }
+
+/**
+ * What `host.remainingMs()` reports unless a test says otherwise. Matches the
+ * host's default per-call deadline, so a plugin that only sheds work when the
+ * budget is tight behaves in tests the way it does on a healthy station.
+ */
+const DEFAULT_REMAINING_MS = 15_000;
 
 /** Builds a default 200 `HostFetchResponse`, overridable field by field. */
 export function fakeHostFetchResponse(overrides: Partial<HostFetchResponse> = {}): HostFetchResponse {
@@ -66,6 +75,7 @@ export function createFakePluginHost(): FakePluginHost {
     let configData: Record<string, unknown> = {};
     const secretsData = new Map<string, string>();
     let tokens: Record<string, string> | undefined;
+    let remainingMs = DEFAULT_REMAINING_MS;
 
     const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<HostFetchResponse> => {
         calls.push({ url, method: init?.method, headers: init?.headers, body: init?.body });
@@ -78,6 +88,7 @@ export function createFakePluginHost(): FakePluginHost {
     const host: FakePluginHost = {
         logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         fetch: fetchImpl,
+        remainingMs: vi.fn(async () => remainingMs),
         storage: {
             get: vi.fn(async (key: string) => storageData.get(key)),
             set: vi.fn(async (key: string, value: unknown) => {
@@ -99,6 +110,9 @@ export function createFakePluginHost(): FakePluginHost {
         },
         events: { emit: vi.fn() },
         calls,
+        seedRemainingMs(ms) {
+            remainingMs = ms;
+        },
         queueResponse(response: Partial<HostFetchResponse>) {
             queue.push(fakeHostFetchResponse(response));
         },

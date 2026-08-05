@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
-import { httpError } from '@maroonedsoftware/errors';
+import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 import type {
     HostFetchInit,
     HostFetchMethod,
@@ -137,6 +137,16 @@ const rateLimitWaitMs = (rejection: unknown): number | undefined => {
  * `Response`, no `Buffer`, no kysely row objects. That keeps the boundary
  * movable behind a subprocess later without touching a signature; see
  * `docs/decisions/plugin-isolation.md` for why a subprocess and not a worker.
+ *
+ * Failures included. Everything thrown from here is thrown INTO plugin code,
+ * so it is a `PluginError` and never a `ServerkitError`: the SDK deliberately
+ * does not depend on the server's error framework (see the note atop
+ * `plugin.error.ts`), and a plugin catching its own fetch rejection should be
+ * branching on `error.code`, not pattern-matching a framework class it should
+ * never have been handed. The status each code answers with lives in
+ * `plugin.error.http.ts`, which is also what makes it reach the client:
+ * `PluginInvoker` funnels every throw through `toPluginError`, and anything
+ * that is not already a `PluginError` lands on `internal` and flattens to 500.
  */
 @Injectable()
 export class PluginHostFactory {
@@ -164,9 +174,12 @@ export class PluginHostFactory {
     }
 
     private createStorage(manifest: PluginManifest): PluginStorage {
+        // `internal`, not `config` or `forbidden`: the manifest is the plugin's
+        // own code, so calling a capability it never declared is a bug in the
+        // plugin rather than something the operator can fix or the upstream did.
         const guard = (): void => {
             if (!manifest.permissions.storage) {
-                throw httpError(403).withDetails({ message: `plugin "${manifest.id}" does not declare the "storage" permission` });
+                throw new PluginError(`plugin "${manifest.id}" does not declare the "storage" permission`).withCode('internal');
             }
         };
 
@@ -212,9 +225,10 @@ export class PluginHostFactory {
      * read model (which only ever asks about the manifest's own fields).
      */
     private createOAuth(manifest: PluginManifest): PluginOAuth {
+        // `internal` for the same reason as the storage guard above.
         const guard = (): void => {
             if (!manifest.permissions.oauth) {
-                throw httpError(403).withDetails({ message: `plugin "${manifest.id}" does not declare the "oauth" permission` });
+                throw new PluginError(`plugin "${manifest.id}" does not declare the "oauth" permission`).withCode('internal');
             }
         };
 
@@ -228,7 +242,7 @@ export class PluginHostFactory {
                 const flat: Record<string, string> = {};
                 for (const [key, value] of Object.entries(tokens ?? {})) {
                     if (typeof value !== 'string') {
-                        throw httpError(422).withDetails({ message: `oauth token "${key}" must be a string` });
+                        throw new PluginError(`oauth token "${key}" must be a string`).withCode('internal');
                     }
                     flat[key] = value;
                 }
@@ -327,9 +341,14 @@ export class PluginHostFactory {
      * cannot bounce a plugin somewhere its manifest never asked for.
      *
      * `from` is the URL the hop came from: present only for a redirect, where it
-     * doubles as the base a relative `location` resolves against. A hop that
-     * fails the policy is refused with a 403 either way, since at that point the
-     * offending URL is the server's doing rather than bad plugin input.
+     * doubles as the base a relative `location` resolves against. It also
+     * decides how the refusal is classified, because who caused it differs:
+     * a URL the plugin built is `config` (the operator has a setting to fix, or
+     * the plugin has a bug), while a redirect target is `upstream`, since at
+     * that point the offending URL is the server's doing rather than bad plugin
+     * input. A hostname the manifest never declared is the third case,
+     * `forbidden`: the request is refused, but the plugin is healthy and the
+     * next call for something it did declare will succeed.
      */
     private assertAllowed(manifest: PluginManifest, logger: PluginLogger, url: string, from?: URL): URL {
         let target: URL;
@@ -337,11 +356,11 @@ export class PluginHostFactory {
             target = new URL(url, from);
         } catch {
             if (from !== undefined) {
-                throw httpError(502).withDetails({
-                    message: `plugin "${manifest.id}" got an unparseable redirect target "${url}" from "${from.hostname.toLowerCase()}"`,
-                });
+                throw new PluginError(
+                    `plugin "${manifest.id}" got an unparseable redirect target "${url}" from "${from.hostname.toLowerCase()}"`,
+                ).withCode('upstream');
             }
-            throw httpError(400).withDetails({ message: `plugin "${manifest.id}" requested an unparseable URL` });
+            throw new PluginError(`plugin "${manifest.id}" requested an unparseable URL`).withCode('config');
         }
 
         if (target.protocol !== 'https:' && target.protocol !== 'http:') {
@@ -350,26 +369,29 @@ export class PluginHostFactory {
                     protocol: target.protocol,
                     from: from.hostname.toLowerCase(),
                 });
-                throw httpError(403).withDetails({
-                    message: `plugin "${manifest.id}" was redirected by "${from.hostname.toLowerCase()}" to a non-http(s) URL ("${target.protocol}")`,
-                });
+                throw new PluginError(
+                    `plugin "${manifest.id}" was redirected by "${from.hostname.toLowerCase()}" to a non-http(s) URL ("${target.protocol}")`,
+                ).withCode('upstream');
             }
-            throw httpError(400).withDetails({ message: `plugin "${manifest.id}" may only fetch http(s) URLs, got "${target.protocol}"` });
+            throw new PluginError(`plugin "${manifest.id}" may only fetch http(s) URLs, got "${target.protocol}"`).withCode('config');
         }
 
         const hostname = target.hostname.toLowerCase();
         if (!manifest.permissions.network.some(pattern => matchesHost(hostname, pattern))) {
+            const message = `plugin "${manifest.id}" is not allowed to reach "${hostname}"; add it to permissions.network`;
             if (from !== undefined) {
                 logger.warn('plugin fetch denied: redirect hop hostname not in permissions.network', {
                     hostname,
                     from: from.hostname.toLowerCase(),
                 });
-            } else {
-                logger.warn('plugin fetch denied: hostname not in permissions.network', { hostname });
+                // The plugin asked for an allowlisted host and the server sent
+                // it elsewhere, so this is the upstream misbehaving and it
+                // counts against the plugin's health as such.
+                throw new PluginError(`${message} (redirected there by "${from.hostname.toLowerCase()}")`).withCode('upstream');
             }
-            throw httpError(403).withDetails({
-                message: `plugin "${manifest.id}" is not allowed to reach "${hostname}"; add it to permissions.network`,
-            });
+
+            logger.warn('plugin fetch denied: hostname not in permissions.network', { hostname });
+            throw new PluginError(message).withCode('forbidden');
         }
 
         return target;
@@ -383,10 +405,16 @@ export class PluginHostFactory {
      * is over quota by more time than it has left is rejected instead.
      */
     private async consumeRateLimit(manifest: PluginManifest, limiter: RateLimiterMemory, deadlineAt: number): Promise<void> {
-        const overQuota = (): never => {
-            throw httpError(429).withDetails({
-                message: `plugin "${manifest.id}" is over its fetch rate limit (${PLUGIN_FETCH_REQUESTS_PER_WINDOW} per ${PLUGIN_FETCH_WINDOW_SECONDS}s)`,
-            });
+        // The limiter knows exactly how long the wait would have been, so the
+        // refusal carries it: `pluginHttpError` turns `retryAfterMs` into a real
+        // `Retry-After` header, which is the difference between a client that
+        // backs off correctly and one that hammers.
+        const overQuota = (waitMs: number): never => {
+            throw new PluginError(
+                `plugin "${manifest.id}" is over its fetch rate limit (${PLUGIN_FETCH_REQUESTS_PER_WINDOW} per ${PLUGIN_FETCH_WINDOW_SECONDS}s)`,
+            )
+                .withCode('rate_limited')
+                .withRetry(waitMs);
         };
 
         try {
@@ -395,15 +423,16 @@ export class PluginHostFactory {
         } catch (rejection) {
             const waitMs = rateLimitWaitMs(rejection);
             if (waitMs === undefined) throw rejection;
-            if (waitMs >= deadlineAt - Date.now()) overQuota();
+            if (waitMs >= deadlineAt - Date.now()) overQuota(waitMs);
             await sleep(waitMs);
         }
 
         try {
             await limiter.consume(manifest.id, 1);
         } catch (rejection) {
-            if (rateLimitWaitMs(rejection) === undefined) throw rejection;
-            overQuota();
+            const waitMs = rateLimitWaitMs(rejection);
+            if (waitMs === undefined) throw rejection;
+            overQuota(waitMs);
         }
     }
 
@@ -453,9 +482,9 @@ export class PluginHostFactory {
                 if (hop >= MAX_PLUGIN_FETCH_REDIRECTS) {
                     const hostname = current.hostname.toLowerCase();
                     logger.warn('plugin fetch denied: too many redirects', { hostname, hops: hop + 1 });
-                    throw httpError(502).withDetails({
-                        message: `plugin "${manifest.id}" fetch to "${hostname}" failed: too many redirects (over ${MAX_PLUGIN_FETCH_REDIRECTS})`,
-                    });
+                    throw new PluginError(
+                        `plugin "${manifest.id}" fetch to "${hostname}" failed: too many redirects (over ${MAX_PLUGIN_FETCH_REDIRECTS})`,
+                    ).withCode('upstream');
                 }
 
                 const next = this.assertAllowed(manifest, logger, location, current);
@@ -526,9 +555,22 @@ export class PluginHostFactory {
                 redirected: false,
             };
         } catch (error) {
-            const reason = controller.signal.aborted ? `timed out after ${budgetMs}ms` : errorText(error);
+            // Something in the try block may already have classified itself.
+            // Re-wrapping it would relabel a precise failure as a generic
+            // transport one and lose the code the caller was meant to branch on.
+            if (isPluginError(error)) throw error;
+
+            const aborted = controller.signal.aborted;
+            const reason = aborted ? `timed out after ${budgetMs}ms` : errorText(error);
             this.pluginLog.for(manifest.id).warn('plugin fetch failed', { hostname, method, error: reason });
-            throw httpError(502).withDetails({ message: `plugin "${manifest.id}" fetch to "${hostname}" failed: ${reason}` });
+
+            // A deadline the host imposed and an upstream that could not be
+            // reached are different answers (504 vs 502), and a caller deciding
+            // whether to retry needs them apart: the timeout may just need a
+            // bigger budget, the connection failure will not care.
+            throw new PluginError(`plugin "${manifest.id}" fetch to "${hostname}" failed: ${reason}`, { cause: error }).withCode(
+                aborted ? 'timeout' : 'upstream',
+            );
         }
     }
 

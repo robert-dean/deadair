@@ -197,6 +197,27 @@ HTML error page. `tryJsonBody(response)` returns `undefined` instead of
 throwing. Both are ordinary functions rather than methods on the response,
 because a method would make the payload itself unserializable.
 
+An upstream that answers is not a failure: a 404 or a 500 comes back as an
+ordinary `HostFetchResponse` with `ok: false`, and what it means is yours to
+decide. `host.fetch` only *rejects* when there is no response to give you, and
+when it does it rejects with a `PluginError` carrying the same
+[`PluginErrorCode`](src/plugin.error.ts) vocabulary your own failures use, so
+you can branch on it:
+
+- `upstream` — the request never completed, or the server misbehaved (an
+  unreachable host, a redirect chain past the cap, a redirect somewhere your
+  manifest does not allow, a body over the size cap).
+- `timeout` — the host abandoned the call at its deadline.
+- `rate_limited` — you are over the host's fetch quota by more time than the
+  call had left. `retryAfterMs` says how long the wait would have been.
+- `forbidden` — the hostname is not in your `permissions.network`.
+- `config` — the URL did not parse, or was not http(s). Usually an operator
+  setting you built it from.
+
+Let these propagate unless you can do something better with them. The host
+maps each one to a status and error code for the operator console, and
+swallowing them turns a precise answer into a silent empty result.
+
 ## Music providers
 
 A `music-provider` declares any subset of three sub-capabilities and lists the

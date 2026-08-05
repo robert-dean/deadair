@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { httpError, IsServerkitError } from '@maroonedsoftware/errors';
-import type { PluginManifest } from '@deadair/plugin-sdk';
+import { ErrorCodes } from '@deadair/error-codes';
+import { isPluginError, toPluginError, type PluginError, type PluginErrorCode, type PluginManifest } from '@deadair/plugin-sdk';
+
+import { pluginHttpError } from '../../../src/modules/plugins/plugin.error.http.js';
 
 import {
     MAX_PLUGIN_FETCH_REDIRECTS,
@@ -102,10 +105,44 @@ function factory(
     return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), configService, storage, stubPluginLog().log);
 }
 
+/** The rejection, or a failure if there wasn't one. */
+async function rejection(promise: Promise<unknown>): Promise<unknown> {
+    return promise.then(
+        value => {
+            throw new Error(`expected a rejection, got ${JSON.stringify(value)}`);
+        },
+        (thrown: unknown) => thrown,
+    );
+}
+
+/**
+ * Asserts the rejection is a `PluginError` classified `code` and saying
+ * something matching `pattern`.
+ *
+ * The code is asserted, not just the sentence: it is what `plugin.error.http.ts`
+ * turns into the status and error code a client sees, so a test that only
+ * matched the message would happily pass while every one of these answered 500.
+ *
+ * Returns the error, for the cases that carry more than a classification.
+ */
+async function expectPluginError(promise: Promise<unknown>, code: PluginErrorCode, pattern: RegExp): Promise<PluginError> {
+    const error = await rejection(promise);
+
+    expect(isPluginError(error), `expected a PluginError, got ${String(error)}`).toBe(true);
+    expect((error as PluginError).code).toBe(code);
+    expect((error as PluginError).message).toMatch(pattern);
+
+    return error as PluginError;
+}
+
 /**
  * `HttpError#message` is the bare status text ("Forbidden"); the useful
  * sentence lives in `details.message`. Asserts the rejection is a
  * `ServerkitError` whose `details.message` matches `pattern`.
+ *
+ * Only for failures the host passes through from a repository rather than
+ * raising itself. Everything the factory throws is a `PluginError`; see
+ * {@link expectPluginError}.
  */
 async function expectDetailMessage(promise: Promise<unknown>, pattern: RegExp): Promise<void> {
     await expect(promise).rejects.toSatisfy(error => {
@@ -126,7 +163,7 @@ describe('PluginHostFactory.createHost fetch', () => {
         vi.stubGlobal('fetch', fetchMock);
         const host = factory().createHost(manifest({ permissions: { network: ['api.example.com'], storage: false, oauth: false } }));
 
-        await expectDetailMessage(host.fetch('https://evil.example.com/x'), /not allowed to reach "evil\.example\.com"/);
+        await expectPluginError(host.fetch('https://evil.example.com/x'), 'forbidden', /not allowed to reach "evil\.example\.com"/);
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
@@ -179,7 +216,16 @@ describe('PluginHostFactory.createHost fetch', () => {
         }
 
         // 50ms of budget against a window that has most of a second left to run.
-        await expectDetailMessage(host.fetch('https://api.example.com/over', { timeoutMs: 50 }), /over its fetch rate limit/);
+        const error = await expectPluginError(
+            host.fetch('https://api.example.com/over', { timeoutMs: 50 }),
+            'rate_limited',
+            /over its fetch rate limit/,
+        );
+
+        // The limiter knew the wait, so the refusal carries it and
+        // `pluginHttpError` can answer with a real `Retry-After`.
+        expect(error.retryAfterMs).toBeGreaterThan(0);
+        expect(error.retryable).toBe(true);
         expect(fetchMock).toHaveBeenCalledTimes(PLUGIN_FETCH_REQUESTS_PER_WINDOW);
     });
 
@@ -232,7 +278,7 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
         vi.stubGlobal('fetch', fetchMock);
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectDetailMessage(host.fetch('https://api.example.com/x'), /not allowed to reach "169\.254\.169\.254"/);
+        await expectPluginError(host.fetch('https://api.example.com/x'), 'upstream', /not allowed to reach "169\.254\.169\.254"/);
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
@@ -241,7 +287,7 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
         vi.stubGlobal('fetch', fetchMock);
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectDetailMessage(host.fetch('https://api.example.com/x'), /non-http\(s\) URL \("file:"\)/);
+        await expectPluginError(host.fetch('https://api.example.com/x'), 'upstream', /non-http\(s\) URL \("file:"\)/);
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
@@ -299,7 +345,7 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
         vi.stubGlobal('fetch', fetchMock);
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectDetailMessage(host.fetch('https://api.example.com/x'), /too many redirects/);
+        await expectPluginError(host.fetch('https://api.example.com/x'), 'upstream', /too many redirects/);
         expect(fetchMock).toHaveBeenCalledTimes(MAX_PLUGIN_FETCH_REDIRECTS + 1);
     });
 
@@ -396,7 +442,7 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
         const host = factory().createHost(allowlisted('api.example.com'));
 
         const call = host.fetch('https://api.example.com/x', { timeoutMs: 1_000 });
-        const assertion = expectDetailMessage(call, /timed out after 1000ms/);
+        const assertion = expectPluginError(call, 'timeout', /timed out after 1000ms/);
 
         await vi.advanceTimersByTimeAsync(1_100);
         await assertion;
@@ -538,8 +584,9 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectDetailMessage(
+        await expectPluginError(
             host.fetch('https://api.example.com/big'),
+            'upstream',
             new RegExp(`response body is ${declared} bytes, over the ${PLUGIN_FETCH_MAX_BODY_BYTES} byte limit`),
         );
         expect(cancelled).toBe(true);
@@ -549,8 +596,9 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(chunksOverCap(20))));
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectDetailMessage(
+        await expectPluginError(
             host.fetch('https://api.example.com/chunked'),
+            'upstream',
             new RegExp(`failed: response body is ${PLUGIN_FETCH_MAX_BODY_BYTES + 20} bytes, over the ${PLUGIN_FETCH_MAX_BODY_BYTES} byte limit`),
         );
     });
@@ -571,7 +619,7 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(['あ'.repeat(characters)])));
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectDetailMessage(host.fetch('https://api.example.com/utf8'), new RegExp(`response body is ${characters * 3} bytes`));
+        await expectPluginError(host.fetch('https://api.example.com/utf8'), 'upstream', new RegExp(`response body is ${characters * 3} bytes`));
     });
 
     it('decodes a multi-byte character split across two chunks', async () => {
@@ -629,7 +677,7 @@ describe('PluginHostFactory fetch budget', () => {
         const host = factory().createHost(allowlisted('api.example.com'));
 
         const call = host.fetch('https://api.example.com/slow', { timeoutMs: 120_000 });
-        const assertion = expectDetailMessage(call, new RegExp(`timed out after ${PLUGIN_INVOKE_TIMEOUT_MS}ms`));
+        const assertion = expectPluginError(call, 'timeout', new RegExp(`timed out after ${PLUGIN_INVOKE_TIMEOUT_MS}ms`));
 
         await vi.advanceTimersByTimeAsync(PLUGIN_INVOKE_TIMEOUT_MS + 100);
         await assertion;
@@ -647,6 +695,94 @@ describe('PluginHostFactory fetch budget', () => {
         // helps nobody, and the plugin can read `retry-after` itself.
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(response.status).toBe(429);
+    });
+});
+
+/**
+ * The host used to raise `httpError` here, which is not a `PluginError`, so
+ * `toPluginError` (the adoption step every call into plugin code goes through
+ * in `PluginInvoker`) classified all of it `internal` and `pluginHttpError`
+ * answered 500 no matter what the host had decided. These assert the whole
+ * chain, because each half was already correct on its own while the join was
+ * not: an unreachable upstream answered 500 `PLUGIN_FAILED` in production.
+ */
+describe('PluginHostFactory fetch failures, as the client sees them', () => {
+    const allowlisted = (...network: string[]): PluginManifest => manifest({ permissions: { network, storage: false, oauth: false } });
+
+    /** What `PluginInvoker` does to anything a plugin call throws, then the route's mapping. */
+    const asResponse = (error: unknown) => pluginHttpError('test.plugin', toPluginError(error));
+
+    it('answers 502 PLUGIN_UPSTREAM_FAILED when the upstream cannot be reached', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND api.example.com')));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const error = await rejection(host.fetch('https://api.example.com/x'));
+        const failure = asResponse(error);
+
+        expect(failure.statusCode).toBe(502);
+        expect(failure.details).toMatchObject({ code: ErrorCodes.PLUGIN_UPSTREAM_FAILED, plugin: 'test.plugin' });
+    });
+
+    it('answers 504 PLUGIN_TIMED_OUT when the host abandoned the call on its deadline', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(
+                async (_url: URL, init: RequestInit) =>
+                    new Promise<Response>((_resolve, reject) => {
+                        init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+                    }),
+            ),
+        );
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const call = rejection(host.fetch('https://api.example.com/slow', { timeoutMs: 1_000 }));
+        await vi.advanceTimersByTimeAsync(1_100);
+        const failure = asResponse(await call);
+
+        expect(failure.statusCode).toBe(504);
+        expect(failure.details).toMatchObject({ code: ErrorCodes.PLUGIN_TIMED_OUT });
+    });
+
+    it('answers 429 with a Retry-After the limiter supplied', async () => {
+        vi.useFakeTimers();
+        // A fresh Response per call: one instance would have its body stream
+        // consumed by the first read and locked for every read after it.
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockImplementation(async () => new Response('ok', { status: 200 })),
+        );
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        for (let i = 0; i < PLUGIN_FETCH_REQUESTS_PER_WINDOW; i++) {
+            await host.fetch(`https://api.example.com/${i}`);
+        }
+
+        const failure = asResponse(await rejection(host.fetch('https://api.example.com/over', { timeoutMs: 50 })));
+
+        expect(failure.statusCode).toBe(429);
+        expect(failure.details).toMatchObject({ code: ErrorCodes.PLUGIN_RATE_LIMITED });
+        expect(failure.headers).toMatchObject({ 'Retry-After': expect.any(String) });
+    });
+
+    it('answers 502 PLUGIN_FORBIDDEN for a hostname the manifest never declared', async () => {
+        vi.stubGlobal('fetch', vi.fn());
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const failure = asResponse(await rejection(host.fetch('https://evil.example.com/x')));
+
+        expect(failure.statusCode).toBe(502);
+        expect(failure.details).toMatchObject({ code: ErrorCodes.PLUGIN_FORBIDDEN, retryable: false });
+    });
+
+    it('answers 422 PLUGIN_MISCONFIGURED for a URL the plugin could not have built from good settings', async () => {
+        vi.stubGlobal('fetch', vi.fn());
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const failure = asResponse(await rejection(host.fetch('not-a-url')));
+
+        expect(failure.statusCode).toBe(422);
+        expect(failure.details).toMatchObject({ code: ErrorCodes.PLUGIN_MISCONFIGURED });
     });
 });
 
@@ -678,10 +814,10 @@ describe('PluginHostFactory.createHost storage', () => {
     it('throws a permission error for storage when the manifest does not declare it', async () => {
         const host = factory().createHost(manifest({ permissions: { network: [], storage: false, oauth: false } }));
 
-        await expectDetailMessage(host.storage.get('k'), /does not declare the "storage" permission/);
-        await expectDetailMessage(host.storage.set('k', 1), /does not declare the "storage" permission/);
-        await expectDetailMessage(host.storage.delete('k'), /does not declare the "storage" permission/);
-        await expectDetailMessage(host.storage.list(), /does not declare the "storage" permission/);
+        await expectPluginError(host.storage.get('k'), 'internal', /does not declare the "storage" permission/);
+        await expectPluginError(host.storage.set('k', 1), 'internal', /does not declare the "storage" permission/);
+        await expectPluginError(host.storage.delete('k'), 'internal', /does not declare the "storage" permission/);
+        await expectPluginError(host.storage.list(), 'internal', /does not declare the "storage" permission/);
     });
 });
 
@@ -689,9 +825,9 @@ describe('PluginHostFactory.createHost oauth', () => {
     it('throws a permission error for oauth when the manifest does not declare it', async () => {
         const host = factory().createHost(manifest({ permissions: { network: [], storage: false, oauth: false } }));
 
-        await expectDetailMessage(host.oauth.getRedirectUri(), /does not declare the "oauth" permission/);
-        await expectDetailMessage(host.oauth.saveTokens({}), /does not declare the "oauth" permission/);
-        await expectDetailMessage(host.oauth.getTokens(), /does not declare the "oauth" permission/);
+        await expectPluginError(host.oauth.getRedirectUri(), 'internal', /does not declare the "oauth" permission/);
+        await expectPluginError(host.oauth.saveTokens({}), 'internal', /does not declare the "oauth" permission/);
+        await expectPluginError(host.oauth.getTokens(), 'internal', /does not declare the "oauth" permission/);
     });
 
     it('persists the tokens through saveConfig, carrying the manifest fields so stored settings survive a refresh', async () => {

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  STATIC BOOT DEFAULT for Icecast. This is a concrete render of icecast.xml.tmpl
+  with dev-only placeholder passwords so the stream containers can start on their
+  own, without waiting for the app to render config from the DB.
+
+  The container seeds this onto the shared streamconfig volume only if no
+  icecast.xml exists yet (cp -n). Once the app boots it overwrites icecast.xml
+  with the real DB-backed values; that render takes effect on the next Icecast
+  restart. Do NOT put real secrets here — this file is committed.
+-->
+<icecast>
+  <location>Earth</location>
+  <admin>admin@localhost</admin>
+
+  <limits>
+    <clients>100</clients>
+    <!-- Headroom for a future live/harbor source alongside the main mount. -->
+    <sources>4</sources>
+    <queue-size>524288</queue-size>
+    <client-timeout>30</client-timeout>
+    <header-timeout>15</header-timeout>
+    <source-timeout>10</source-timeout>
+    <!-- Burst a little buffered audio on connect so players start fast. The burst is backlog the
+         listener never catches up on, so it is also how late the mount reacts to an operator
+         skip. 8192 B ≈ 0.5s at 128 kbps. Kept in step with icecast.xml.tmpl. -->
+    <burst-on-connect>1</burst-on-connect>
+    <burst-size>8192</burst-size>
+  </limits>
+
+  <authentication>
+    <source-password>devsource</source-password>
+    <relay-password>devsource</relay-password>
+    <admin-user>admin</admin-user>
+    <admin-password>devadmin</admin-password>
+  </authentication>
+
+  <hostname>localhost</hostname>
+  <listen-socket>
+    <port>8000</port>
+  </listen-socket>
+
+  <!-- The public voice stream. When Liquidsoap isn't connected, listeners are
+       moved to the fallback so the mount is never a dead connection. -->
+  <mount type="normal">
+    <mount-name>/live.mp3</mount-name>
+    <stream-name>Deadair</stream-name>
+    <stream-description></stream-description>
+    <genre>Music</genre>
+    <stream-url></stream-url>
+    <!-- Don't auto-advertise to public YP directories yet. -->
+    <public>0</public>
+  </mount>
+
+  <fileserve>1</fileserve>
+  <!-- Paths match the libretime/icecast image (built from source, prefix /usr,
+       localstatedir /var), NOT the Debian icecast2 package layout. The container
+       runs as the non-root `icecast` user, which owns /var/log/icecast; using
+       /var/log/icecast2 would fail to open the log and icecast would exit. -->
+  <paths>
+    <logdir>/var/log/icecast</logdir>
+    <webroot>/usr/share/icecast/web</webroot>
+    <adminroot>/usr/share/icecast/admin</adminroot>
+  </paths>
+
+  <logging>
+    <loglevel>3</loglevel>
+  </logging>
+</icecast>

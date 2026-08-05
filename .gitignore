@@ -39,5 +39,10 @@ yarn-error.log*
 
 # Docker volume data (bind-mounted host paths)
 .docvol/
+
+# The rights-cleared music bed is the operator's own library, mounted at /music.
+# The directory has to exist for the bind mount; its contents are never committed.
+stream/music/*
+!stream/music/.gitkeep
 .claude/handoffs/
 docs/decisions/

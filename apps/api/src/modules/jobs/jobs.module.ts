@@ -1,6 +1,6 @@
 import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { JobBroker, JobRunner } from '@maroonedsoftware/jobbroker';
+import { JobBroker, JobRunner, registerJobContext } from '@maroonedsoftware/jobbroker';
 import {
     KyselyTransactionConnectionProvider,
     PgBossConnectionProvider,
@@ -34,6 +34,13 @@ export const JobsModule: ServerKitModule = {
                 return pgBoss;
             })
             .asSingleton();
+
+        // `Registry.build()` rejects a service whose dependency has no
+        // registration, and the runner's per-execution JobContext override only
+        // exists at runtime, inside the scope. This registers the placeholder
+        // that satisfies the up-front check and throws if anything resolves
+        // JobContext outside a job. TransactionalJob depends on it.
+        registerJobContext(registry);
 
         // A mapping is either the bare job class or `{ job, cron, policy }`; the
         // registry takes both, but the container has to be handed the class

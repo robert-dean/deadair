@@ -111,11 +111,25 @@ export interface DeadairActorsPasswordFactorsArchive {
   salt: string;
 }
 
+export interface DeadairAlbumEnrichment {
+  albumId: string;
+  createdAt: Generated<DateTime>;
+  data: Json;
+  expiresAt: DateTime | null;
+  fetchedAt: Generated<DateTime>;
+  id: Generated<string>;
+  provider: string;
+  providerRef: string | null;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairAlbums {
   artistId: string;
-  coverArtId: string | null;
   createdAt: Generated<DateTime>;
   id: Generated<string>;
+  imageUrl: string | null;
+  mbid: string | null;
+  mergedIntoId: string | null;
   name: string;
   nameKey: string;
   rating: Generated<number>;
@@ -123,13 +137,56 @@ export interface DeadairAlbums {
   year: number | null;
 }
 
+export interface DeadairAlbumSources {
+  albumId: string;
+  coverArtId: string | null;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  lastSeenAt: DateTime | null;
+  missingAt: DateTime | null;
+  raw: Json | null;
+  source: string;
+  sourceId: string;
+  updatedAt: Generated<DateTime>;
+  uri: string | null;
+}
+
+export interface DeadairArtistEnrichment {
+  artistId: string;
+  createdAt: Generated<DateTime>;
+  data: Json;
+  expiresAt: DateTime | null;
+  fetchedAt: Generated<DateTime>;
+  id: Generated<string>;
+  provider: string;
+  providerRef: string | null;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairArtists {
   artistKey: string;
   createdAt: Generated<DateTime>;
   id: Generated<string>;
+  imageUrl: string | null;
+  mbid: string | null;
+  mergedIntoId: string | null;
   name: string;
   rating: Generated<number>;
   updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairArtistSources {
+  artistId: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  imageUrl: string | null;
+  lastSeenAt: DateTime | null;
+  missingAt: DateTime | null;
+  raw: Json | null;
+  source: string;
+  sourceId: string;
+  updatedAt: Generated<DateTime>;
+  uri: string | null;
 }
 
 export interface DeadairLoginEvents {
@@ -211,24 +268,52 @@ export interface DeadairSettings {
   value: string | null;
 }
 
+export interface DeadairTrackEnrichment {
+  createdAt: Generated<DateTime>;
+  data: Json;
+  expiresAt: DateTime | null;
+  fetchedAt: Generated<DateTime>;
+  id: Generated<string>;
+  provider: string;
+  providerRef: string | null;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairTracks {
   albumId: string | null;
   artistId: string;
   artists: string;
-  coverArtId: string | null;
   createdAt: Generated<DateTime>;
   durationMs: number | null;
   genre: string | null;
   id: Generated<string>;
-  lastSeenAt: DateTime | null;
-  missingAt: DateTime | null;
+  mbid: string | null;
+  mergedIntoId: string | null;
   rating: Generated<number>;
-  source: string;
-  sourceId: string;
   title: string;
   titleKey: string;
   updatedAt: Generated<DateTime>;
   year: number | null;
+}
+
+export interface DeadairTrackSources {
+  bitrate: number | null;
+  coverArtId: string | null;
+  createdAt: Generated<DateTime>;
+  durationMs: number | null;
+  format: string | null;
+  id: Generated<string>;
+  isrc: string | null;
+  lastSeenAt: DateTime | null;
+  missingAt: DateTime | null;
+  playable: Generated<boolean>;
+  raw: Json | null;
+  source: string;
+  sourceId: string;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+  uri: string | null;
 }
 
 export interface SchemaMigrations {
@@ -244,8 +329,12 @@ export interface DB {
   "deadair.actorsOidcFactors": DeadairActorsOidcFactors;
   "deadair.actorsPasswordFactors": DeadairActorsPasswordFactors;
   "deadair.actorsPasswordFactorsArchive": DeadairActorsPasswordFactorsArchive;
+  "deadair.albumEnrichment": DeadairAlbumEnrichment;
   "deadair.albums": DeadairAlbums;
+  "deadair.albumSources": DeadairAlbumSources;
+  "deadair.artistEnrichment": DeadairArtistEnrichment;
   "deadair.artists": DeadairArtists;
+  "deadair.artistSources": DeadairArtistSources;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
@@ -254,6 +343,8 @@ export interface DB {
   "deadair.pluginConfigs": DeadairPluginConfigs;
   "deadair.pluginStorage": DeadairPluginStorage;
   "deadair.settings": DeadairSettings;
+  "deadair.trackEnrichment": DeadairTrackEnrichment;
   "deadair.tracks": DeadairTracks;
+  "deadair.trackSources": DeadairTrackSources;
   schemaMigrations: SchemaMigrations;
 }

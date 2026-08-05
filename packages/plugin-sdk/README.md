@@ -218,6 +218,38 @@ Let these propagate unless you can do something better with them. The host
 maps each one to a status and error code for the operator console, and
 swallowing them turns a precise answer into a silent empty result.
 
+## Declaring the upstreams you reach
+
+`permissions.network` is a list of bare hostnames, and a leading `*.` is a
+wildcard subdomain that does not match the apex:
+
+```ts
+network: ['api.spotify.com', 'accounts.spotify.com']
+```
+
+Use the object form when the upstream publishes a rate limit. `host.fetch`
+then paces you at it, parking each call until there is headroom instead of
+failing it, and you write no pacer at all:
+
+```ts
+network: [
+    { host: 'musicbrainz.org', ratePerSecond: 1, bucket: 'musicbrainz' },
+    { host: '*.musicbrainz.org', ratePerSecond: 1, bucket: 'musicbrainz' },
+    'coverartarchive.org',
+]
+```
+
+`bucket` is what makes those first two entries share one allowance. Published
+limits are usually per service rather than per hostname, and two entries
+without a shared bucket are two allowances, which is how a plugin ends up at
+twice the rate it declared and the station gets blocked. Entries with different
+buckets never pace each other, so a slow upstream does not hold up a fast one.
+
+The rate is a floor on the interval, not a promise of throughput: the host caps
+every bucket at its own ceiling, so asking to go faster than the host allows
+does nothing. Parking is spent from the call's budget, which is the other half
+of this: see below.
+
 ## Knowing how much time you have
 
 Every call into your code has a deadline, and it is not a constant: a

@@ -662,6 +662,126 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
 });
 
 /**
+ * The limiter used to be one bucket per plugin at one hardcoded rate, which is
+ * both too coarse (two upstreams sharing an allowance neither published) and
+ * too fast for anything with a real published limit. MusicBrainz allows about
+ * one request per second, a tenth of the host default.
+ */
+describe('PluginHostFactory fetch pacing', () => {
+    const okFetch = () => vi.fn().mockImplementation(async () => new Response('ok', { status: 200 }));
+
+    /** Runs `call`, reporting whether it settled within `ms` of fake time. */
+    async function settlesWithin(call: Promise<unknown>, ms: number): Promise<boolean> {
+        let settled = false;
+        const tracked = call.then(() => {
+            settled = true;
+        });
+
+        await vi.advanceTimersByTimeAsync(ms);
+        if (settled) await tracked;
+        return settled;
+    }
+
+    it('paces an upstream at the rate its entry declared, not the host default', async () => {
+        vi.useFakeTimers();
+        const fetchMock = okFetch();
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(
+            manifest({ permissions: { network: [{ host: 'api.example.com', ratePerSecond: 1 }], storage: false, oauth: false } }),
+        );
+
+        await host.fetch('https://api.example.com/1');
+
+        // The host default would have let this straight through.
+        const second = host.fetch('https://api.example.com/2');
+        expect(await settlesWithin(second, 500)).toBe(false);
+
+        expect(await settlesWithin(second, 600)).toBe(true);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('shares one allowance across entries naming the same bucket', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('fetch', okFetch());
+        const host = factory().createHost(
+            manifest({
+                permissions: {
+                    network: [
+                        { host: 'musicbrainz.example', ratePerSecond: 1, bucket: 'musicbrainz' },
+                        { host: '*.musicbrainz.example', ratePerSecond: 1, bucket: 'musicbrainz' },
+                    ],
+                    storage: false,
+                    oauth: false,
+                },
+            }),
+        );
+
+        await host.fetch('https://musicbrainz.example/ws/2/recording');
+
+        // Without the shared bucket this would quietly be a second 1/s
+        // allowance, and the station would be blocked for doing 2/s.
+        const viaSubdomain = host.fetch('https://beta.musicbrainz.example/ws/2/artist');
+        expect(await settlesWithin(viaSubdomain, 500)).toBe(false);
+        expect(await settlesWithin(viaSubdomain, 600)).toBe(true);
+    });
+
+    it('gives unrelated upstreams their own allowance', async () => {
+        vi.useFakeTimers();
+        const fetchMock = okFetch();
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(
+            manifest({
+                permissions: {
+                    network: [
+                        { host: 'slow.example.com', ratePerSecond: 1 },
+                        { host: 'fast.example.com' },
+                    ],
+                    storage: false,
+                    oauth: false,
+                },
+            }),
+        );
+
+        await host.fetch('https://slow.example.com/1');
+
+        // Spending the slow upstream's allowance must not pace the other one.
+        expect(await settlesWithin(host.fetch('https://fast.example.com/1'), 0)).toBe(true);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('caps a plugin that asks to go faster than the host allows', async () => {
+        vi.useFakeTimers();
+        const fetchMock = okFetch();
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(
+            manifest({ permissions: { network: [{ host: 'api.example.com', ratePerSecond: 1_000 }], storage: false, oauth: false } }),
+        );
+
+        for (let i = 0; i < PLUGIN_FETCH_REQUESTS_PER_WINDOW; i++) {
+            await host.fetch(`https://api.example.com/${i}`);
+        }
+
+        // The declared rate is advisory in one direction only.
+        expect(await settlesWithin(host.fetch('https://api.example.com/over'), 0)).toBe(false);
+        expect(fetchMock).toHaveBeenCalledTimes(PLUGIN_FETCH_REQUESTS_PER_WINDOW);
+    });
+
+    it('stretches the window rather than rounding down to zero for a rate under one per second', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('fetch', okFetch());
+        const host = factory().createHost(
+            manifest({ permissions: { network: [{ host: 'api.example.com', ratePerSecond: 0.5 }], storage: false, oauth: false } }),
+        );
+
+        await host.fetch('https://api.example.com/1');
+
+        const second = host.fetch('https://api.example.com/2', { timeoutMs: 10_000 });
+        expect(await settlesWithin(second, 1_500)).toBe(false);
+        expect(await settlesWithin(second, 700)).toBe(true);
+    });
+});
+
+/**
  * The budget knobs used to be independent of the invoker's deadline, which
  * meant a limit could be written down that no call could ever reach. These
  * pin the two together.

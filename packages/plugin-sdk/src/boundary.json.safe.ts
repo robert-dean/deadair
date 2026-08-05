@@ -34,7 +34,7 @@ import type { ConfigField, ConfigFieldOption } from './plugin.config.fields.js';
 import type { HostFetchInit, HostFetchResponse } from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
 import type { PluginManifest } from './plugin.manifest.js';
-import type { PluginPermissions } from './plugin.permissions.js';
+import type { NetworkPermissionEntry, PluginPermissions } from './plugin.permissions.js';
 
 /**
  * `T` with every part that cannot survive `JSON.parse(JSON.stringify(x))`
@@ -106,6 +106,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     HostFetchResponse: IsJsonSafe<HostFetchResponse>;
     PluginConnectionResult: IsJsonSafe<PluginConnectionResult>;
     PluginPermissions: IsJsonSafe<PluginPermissions>;
+    NetworkPermissionEntry: IsJsonSafe<NetworkPermissionEntry>;
     ConfigField: IsJsonSafe<ConfigField>;
     ConfigFieldOption: IsJsonSafe<ConfigFieldOption>;
     PluginManifestWithoutConfigSchema: IsJsonSafe<Omit<PluginManifest, 'configSchema'>>;
@@ -133,6 +134,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'HostFetchResponse',
     'PluginConnectionResult',
     'PluginPermissions',
+    'NetworkPermissionEntry',
     'ConfigField',
     'ConfigFieldOption',
     'PluginManifest',

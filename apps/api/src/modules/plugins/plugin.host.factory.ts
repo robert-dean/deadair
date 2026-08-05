@@ -11,6 +11,7 @@ import type {
     PluginLogger,
     PluginManifest,
     PluginOAuth,
+    PluginPermissions,
     PluginSecrets,
     PluginStorage,
 } from '@deadair/plugin-sdk';
@@ -82,6 +83,48 @@ const matchesHost = (hostname: string, pattern: string): boolean => {
     if (entry.length === 0) return false;
     if (entry.startsWith('*.')) return hostname.endsWith(entry.slice(1)) && hostname.length > entry.length - 1;
     return hostname === entry;
+};
+
+/** A manifest allowlist entry, with the shorthand expanded and the defaults filled in. */
+interface NetworkEntry {
+    pattern: string;
+    /** Which limiter this entry draws from. Several entries may name the same one. */
+    bucket: string;
+    /** Absent means the host default. */
+    ratePerSecond?: number;
+}
+
+/**
+ * Expands the manifest's allowlist into what the egress path actually needs.
+ *
+ * Done once per host rather than per call: the manifest cannot change under a
+ * running plugin, and a `reinitPlugin` (which is what a config change causes)
+ * builds a whole new host anyway.
+ */
+const normalizeNetwork = (network: PluginPermissions['network']): NetworkEntry[] =>
+    network.map(entry => {
+        if (typeof entry === 'string') return { pattern: entry, bucket: entry };
+        return { pattern: entry.host, bucket: entry.bucket ?? entry.host, ratePerSecond: entry.ratePerSecond };
+    });
+
+/**
+ * The limiter shape for a declared rate, capped at the host's ceiling: a plugin
+ * may ask to be paced more slowly than the host would, never faster.
+ *
+ * Under one request per second there are no fractional points to hand out, so
+ * the window stretches instead of the allowance shrinking: one request per
+ * `ceil(1 / rate)` seconds. Rounding the window up rather than down keeps the
+ * effective rate at or under what was asked for, which is the direction that
+ * cannot get a station blocked.
+ */
+const limiterFor = (ratePerSecond: number | undefined): RateLimiterMemory => {
+    if (ratePerSecond === undefined) {
+        return new RateLimiterMemory({ points: PLUGIN_FETCH_REQUESTS_PER_WINDOW, duration: PLUGIN_FETCH_WINDOW_SECONDS });
+    }
+
+    const capped = Math.min(ratePerSecond, PLUGIN_FETCH_REQUESTS_PER_WINDOW / PLUGIN_FETCH_WINDOW_SECONDS);
+    if (capped >= 1) return new RateLimiterMemory({ points: Math.floor(capped), duration: 1 });
+    return new RateLimiterMemory({ points: 1, duration: Math.ceil(1 / capped) });
 };
 
 /** The statuses that carry a `location` worth following. */
@@ -159,14 +202,19 @@ export class PluginHostFactory {
         private readonly pluginLog: PluginLog,
     ) {}
 
-    /** One host per plugin. Cheap: the only per-host state is its rate limiter. */
+    /** One host per plugin. Cheap: the only per-host state is its rate limiters. */
     createHost(manifest: PluginManifest): PluginHost {
         const logger = this.pluginLog.for(manifest.id);
-        const limiter = new RateLimiterMemory({ points: PLUGIN_FETCH_REQUESTS_PER_WINDOW, duration: PLUGIN_FETCH_WINDOW_SECONDS });
+        const entries = normalizeNetwork(manifest.permissions.network);
+        // Per bucket, not per plugin: a plugin talking to two upstreams was
+        // sharing one allowance between them, which paced it against a limit
+        // neither of them published. Built lazily, so a declared-but-unused
+        // upstream costs nothing.
+        const limiters = new Map<string, RateLimiterMemory>();
 
         return {
             logger,
-            fetch: (url, init) => this.hostFetch(manifest, limiter, logger, url, init),
+            fetch: (url, init) => this.hostFetch(manifest, entries, limiters, logger, url, init),
             // Never negative: a plugin reading this is deciding whether to
             // start more work, and "-40" and "0" are the same answer to that
             // question. `hostFetch` reads the raw value instead, because it
@@ -320,12 +368,13 @@ export class PluginHostFactory {
      */
     private async hostFetch(
         manifest: PluginManifest,
-        limiter: RateLimiterMemory,
+        entries: NetworkEntry[],
+        limiters: Map<string, RateLimiterMemory>,
         logger: PluginLogger,
         url: string,
         init?: HostFetchInit,
     ): Promise<HostFetchResponse> {
-        const target = this.assertAllowed(manifest, logger, url);
+        const { url: target, entry } = this.assertAllowed(manifest, entries, logger, url);
         const hostname = target.hostname.toLowerCase();
 
         const ceilingMs = invocationRemainingMs() ?? PLUGIN_INVOKE_TIMEOUT_MS;
@@ -341,8 +390,8 @@ export class PluginHostFactory {
         const budgetMs = Math.min(init?.timeoutMs ?? PLUGIN_FETCH_TIMEOUT_MS, ceilingMs);
         const deadlineAt = Date.now() + budgetMs;
 
-        await this.consumeRateLimit(manifest, limiter, deadlineAt);
-        const first = await this.send(manifest, logger, target, init, deadlineAt, budgetMs);
+        await this.consumeRateLimit(manifest, limiters, entry, deadlineAt);
+        const first = await this.send(manifest, entries, logger, target, init, deadlineAt, budgetMs);
 
         // One retry, and only when the server itself asked for one. Anything
         // more belongs to the plugin, which knows whether the call is idempotent.
@@ -355,8 +404,8 @@ export class PluginHostFactory {
 
         logger.info('plugin fetch backing off on Retry-After', { hostname, status: first.status, retryAfterMs });
         await sleep(retryAfterMs);
-        await this.consumeRateLimit(manifest, limiter, deadlineAt);
-        return this.send(manifest, logger, target, init, deadlineAt, budgetMs);
+        await this.consumeRateLimit(manifest, limiters, entry, deadlineAt);
+        return this.send(manifest, entries, logger, target, init, deadlineAt, budgetMs);
     }
 
     /**
@@ -374,8 +423,19 @@ export class PluginHostFactory {
      * input. A hostname the manifest never declared is the third case,
      * `forbidden`: the request is refused, but the plugin is healthy and the
      * next call for something it did declare will succeed.
+     *
+     * Returns the entry that matched as well as the URL, because which one it
+     * was decides how the call is paced. First match wins, so a manifest that
+     * lists a canonical host before a broader pattern keeps the stricter rate
+     * for it.
      */
-    private assertAllowed(manifest: PluginManifest, logger: PluginLogger, url: string, from?: URL): URL {
+    private assertAllowed(
+        manifest: PluginManifest,
+        entries: NetworkEntry[],
+        logger: PluginLogger,
+        url: string,
+        from?: URL,
+    ): { url: URL; entry: NetworkEntry } {
         let target: URL;
         try {
             target = new URL(url, from);
@@ -402,7 +462,8 @@ export class PluginHostFactory {
         }
 
         const hostname = target.hostname.toLowerCase();
-        if (!manifest.permissions.network.some(pattern => matchesHost(hostname, pattern))) {
+        const matched = entries.find(entry => matchesHost(hostname, entry.pattern));
+        if (matched === undefined) {
             const message = `plugin "${manifest.id}" is not allowed to reach "${hostname}"; add it to permissions.network`;
             if (from !== undefined) {
                 logger.warn('plugin fetch denied: redirect hop hostname not in permissions.network', {
@@ -419,7 +480,7 @@ export class PluginHostFactory {
             throw new PluginError(message).withCode('forbidden');
         }
 
-        return target;
+        return { url: target, entry: matched };
     }
 
     /**
@@ -428,16 +489,33 @@ export class PluginHostFactory {
      * is friendlier to the upstream API than making the plugin implement its own
      * back-off. Parking is paid for out of the call's budget, so a plugin that
      * is over quota by more time than it has left is rejected instead.
+     *
+     * The bucket comes from the allowlist entry that matched, so an upstream
+     * that publishes a limit gets paced at it and the plugin does not have to
+     * carry a pacer of its own.
      */
-    private async consumeRateLimit(manifest: PluginManifest, limiter: RateLimiterMemory, deadlineAt: number): Promise<void> {
+    private async consumeRateLimit(
+        manifest: PluginManifest,
+        limiters: Map<string, RateLimiterMemory>,
+        entry: NetworkEntry,
+        deadlineAt: number,
+    ): Promise<void> {
+        let limiter = limiters.get(entry.bucket);
+        if (limiter === undefined) {
+            limiter = limiterFor(entry.ratePerSecond);
+            limiters.set(entry.bucket, limiter);
+        }
+
         // The limiter knows exactly how long the wait would have been, so the
         // refusal carries it: `pluginHttpError` turns `retryAfterMs` into a real
         // `Retry-After` header, which is the difference between a client that
         // backs off correctly and one that hammers.
+        const rate =
+            entry.ratePerSecond === undefined
+                ? `${PLUGIN_FETCH_REQUESTS_PER_WINDOW} per ${PLUGIN_FETCH_WINDOW_SECONDS}s`
+                : `${entry.ratePerSecond} per second`;
         const overQuota = (waitMs: number): never => {
-            throw new PluginError(
-                `plugin "${manifest.id}" is over its fetch rate limit (${PLUGIN_FETCH_REQUESTS_PER_WINDOW} per ${PLUGIN_FETCH_WINDOW_SECONDS}s)`,
-            )
+            throw new PluginError(`plugin "${manifest.id}" is over its fetch rate limit for "${entry.bucket}" (${rate})`)
                 .withCode('rate_limited')
                 .withRetry(waitMs);
         };
@@ -478,6 +556,7 @@ export class PluginHostFactory {
      */
     private async send(
         manifest: PluginManifest,
+        entries: NetworkEntry[],
         logger: PluginLogger,
         target: URL,
         init: HostFetchInit | undefined,
@@ -512,7 +591,10 @@ export class PluginHostFactory {
                     ).withCode('upstream');
                 }
 
-                const next = this.assertAllowed(manifest, logger, location, current);
+                // Hops are checked, but not charged: the redirect cap is what
+                // bounds a chain, and spending the plugin's allowance on moves
+                // it did not ask for would pace it for the server's choices.
+                const { url: next } = this.assertAllowed(manifest, entries, logger, location, current);
 
                 // Method rewriting per the fetch spec: 303 means "go look at
                 // this other thing", and 301/302 after a POST is what every

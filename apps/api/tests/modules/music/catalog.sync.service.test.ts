@@ -14,6 +14,7 @@ import { PluginError } from '@deadair/plugin-sdk';
 
 import { CatalogSyncService } from '../../../src/modules/music/catalog.sync.service.js';
 import type { CatalogResolverRepository, IngestResult } from '../../../src/modules/music/catalog.resolver.repository.js';
+import type { JobBroker } from '@maroonedsoftware/jobbroker';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
@@ -115,12 +116,27 @@ function fakeResolver(results: (track: ProviderTrack) => IngestResult = () => ({
     };
 }
 
-function build(records: PluginRecord[], resolver: CatalogResolverRepository) {
+/** Records what the sync asked to enqueue, and can be told to refuse. */
+function fakeJobBroker(options: { failing?: boolean } = {}) {
+    const sent: { name: string; payload: object }[] = [];
+    return {
+        sent,
+        broker: {
+            send: vi.fn(async (name: string, payload: object) => {
+                if (options.failing) throw new Error('the queue is unreachable');
+                sent.push({ name, payload });
+                return 'job-1';
+            }),
+        } as unknown as JobBroker,
+    };
+}
+
+function build(records: PluginRecord[], resolver: CatalogResolverRepository, broker: JobBroker = fakeJobBroker().broker) {
     const registry = new PluginRegistry();
     registry.setAll(records);
     const invoker = new PluginInvoker(registry, stubPluginLog().log);
     const logger = stubLogger();
-    return { service: new CatalogSyncService(registry, invoker, resolver, logger), registry, logger };
+    return { service: new CatalogSyncService(registry, invoker, resolver, broker, logger), registry, logger };
 }
 
 describe('CatalogSyncService.syncAll', () => {
@@ -377,6 +393,71 @@ describe('CatalogSyncService.syncAll', () => {
             const summaries = await service.syncAll();
 
             expect(summaries[0]).toMatchObject({ items: 2, bound: 1, created: 0, skipped: 1 });
+        });
+    });
+
+    describe('handing off to the placeholder pass', () => {
+        it('queues it when the run created canonical tracks', async () => {
+            const { resolver } = fakeResolver(() => ({ status: 'ingested', trackId: 't', created: true }));
+            const jobs = fakeJobBroker();
+            const { service } = build([record(SPOTIFY_ID)], resolver, jobs.broker);
+
+            await service.syncAll();
+
+            expect(jobs.sent).toEqual([{ name: 'catalog.resolve_placeholders', payload: {} }]);
+        });
+
+        it('does not queue it when everything was already in the library', async () => {
+            // Placeholders can only start resolving when the library gains
+            // something it did not have; re-reading the same rows to the same
+            // conclusion is pure cost.
+            const { resolver } = fakeResolver(() => ({ status: 'ingested', trackId: 't', created: false }));
+            const jobs = fakeJobBroker();
+            const { service } = build([record(SPOTIFY_ID)], resolver, jobs.broker);
+
+            await service.syncAll();
+
+            expect(jobs.sent).toEqual([]);
+        });
+
+        it('does not queue it when there were no plugins to walk', async () => {
+            const { resolver } = fakeResolver();
+            const jobs = fakeJobBroker();
+            const { service } = build([], resolver, jobs.broker);
+
+            await service.syncAll();
+
+            expect(jobs.sent).toEqual([]);
+        });
+
+        it('queues it on the strength of one plugin even if another failed', async () => {
+            const broken = fakeProvider({ failOn: 'playlists' });
+            const working = fakeProvider({ playlists: [playlist('p9')], tracks: { p9: [track('t9')] } });
+            const { resolver } = fakeResolver();
+            const jobs = fakeJobBroker();
+            const { service } = build(
+                [record(SPOTIFY_ID, { instance: broken.instance as never }), record(OTHER_ID, { instance: working.instance as never })],
+                resolver,
+                jobs.broker,
+            );
+
+            await service.syncAll();
+
+            expect(jobs.sent).toHaveLength(1);
+        });
+
+        it('reports a sync that succeeded even when the enqueue failed', async () => {
+            // The sync's own work is committed and correct; failing it over a
+            // hint that the next run will send again would be a worse answer.
+            const { resolver } = fakeResolver();
+            const jobs = fakeJobBroker({ failing: true });
+            const { service, logger } = build([record(SPOTIFY_ID)], resolver, jobs.broker);
+
+            const summaries = await service.syncAll();
+
+            expect(summaries[0]).toMatchObject({ created: 1 });
+            expect(summaries[0]!.error).toBeUndefined();
+            expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('placeholder pass'), expect.objectContaining({ created: 1 }));
         });
     });
 

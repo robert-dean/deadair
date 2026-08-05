@@ -100,7 +100,15 @@ export class PlaylistsService {
         const { record } = await this.requireCatalogCapable(pluginId);
         const instance = record.instance as MusicProviderPluginInstance;
 
-        let tracks: readonly { id: string; title: string; artists: string[]; album?: string; durationMs?: number; isrc?: string; artworkUrl?: string }[];
+        let tracks: readonly {
+            id: string;
+            title: string;
+            artists: string[];
+            album?: string;
+            durationMs?: number;
+            isrc?: string;
+            artworkUrl?: string;
+        }[];
         try {
             tracks = await this.pluginInvoker.invoke(pluginId, 'catalog.getPlaylistTracks', async () => instance.getPlaylistTracks!(playlistId));
         } catch (error) {

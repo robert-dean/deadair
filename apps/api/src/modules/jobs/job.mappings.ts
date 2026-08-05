@@ -3,6 +3,7 @@ import { Constructor, Injectable } from 'injectkit';
 import { Duration } from 'luxon';
 import { Job } from '@maroonedsoftware/jobbroker';
 import type { PgBossJobRegistration } from '@maroonedsoftware/jobbroker/pgboss';
+import { CatalogPlaceholderJob } from '#modules/music/catalog.placeholder.job.js';
 import { CatalogSyncJob } from '#modules/music/catalog.sync.job.js';
 
 /**
@@ -46,5 +47,18 @@ export const JobMappings: Record<JobNames, JobMapping> = {
             expiresIn: Duration.fromObject({ minutes: 30 }),
             deadLetter: 'catalog.sync.dead',
         },
+    },
+
+    // No cron: the sync sends this when it has actually grown the library, which
+    // is the only event that can change any of these answers. A schedule would
+    // re-read the same rows to the same conclusion all day.
+    //
+    // No dead-letter queue either, for the same reason. A batch that fails is
+    // simply retried by the next sync that adds anything, and the rows it would
+    // have resolved are still sitting there unresolved — the work is its own
+    // record, so there is nothing a dead-letter row would preserve.
+    'catalog.resolve_placeholders': {
+        job: CatalogPlaceholderJob,
+        policy: { retryLimit: 2, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 };

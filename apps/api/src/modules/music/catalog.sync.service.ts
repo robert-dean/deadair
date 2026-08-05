@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import type { ProviderPlaylist, ProviderTrack } from '@deadair/plugin-sdk';
 import { asCatalogPlugin, type CatalogPlugin } from '#modules/plugins/plugin.capabilities.js';
@@ -71,6 +72,7 @@ export class CatalogSyncService {
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
         private readonly resolver: CatalogResolverRepository,
+        private readonly jobBroker: JobBroker,
         private readonly logger: Logger,
     ) {}
 
@@ -102,7 +104,34 @@ export class CatalogSyncService {
             }
             summaries.push(await this.syncPlugin(candidate, signal));
         }
+
+        await this.retryPlaceholders(summaries);
         return summaries;
+    }
+
+    /**
+     * Asks the placeholder pass to run, but only if this walk gave it something
+     * new to work with.
+     *
+     * Unresolved playlist rows can only start resolving when the library gains
+     * tracks it did not have, so a run that created none has changed no answer
+     * and the pass would re-read the same rows to the same conclusion.
+     *
+     * Best-effort on purpose. The enqueue is not in a transaction with the rows
+     * just written (a plain job's `PgBossConnectionProvider` is the pooled one),
+     * so it cannot be atomic with them, and a failure to send is not worth
+     * failing a successful sync over: the next run that creates anything sends
+     * again, and the placeholders are unharmed by waiting.
+     */
+    private async retryPlaceholders(summaries: readonly PluginSyncSummary[]): Promise<void> {
+        const created = summaries.reduce((total, summary) => total + summary.created, 0);
+        if (created === 0) return;
+
+        try {
+            await this.jobBroker.send('catalog.resolve_placeholders', {});
+        } catch (error) {
+            this.logger.warn('could not queue the placeholder pass', { error: this.errorText(error), created });
+        }
     }
 
     /**

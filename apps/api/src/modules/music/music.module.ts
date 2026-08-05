@@ -7,6 +7,8 @@ import { TracksService } from './tracks.service.js';
 import { ArtistsRepository } from './artists.repository.js';
 import { AlbumsRepository } from './albums.repository.js';
 import { TracksRepository } from './tracks.repository.js';
+import { CatalogPlaceholderRepository } from './catalog.placeholder.repository.js';
+import { CatalogPlaceholderService } from './catalog.placeholder.service.js';
 import { CatalogResolverRepository } from './catalog.resolver.repository.js';
 import { CatalogSyncService } from './catalog.sync.service.js';
 
@@ -25,5 +27,7 @@ export const MusicModule: ServerKitModule = {
         // per-run there and per-request on the request path.
         registry.register(CatalogResolverRepository).useClass(CatalogResolverRepository).asScoped();
         registry.register(CatalogSyncService).useClass(CatalogSyncService).asScoped();
+        registry.register(CatalogPlaceholderRepository).useClass(CatalogPlaceholderRepository).asScoped();
+        registry.register(CatalogPlaceholderService).useClass(CatalogPlaceholderService).asScoped();
     },
 };

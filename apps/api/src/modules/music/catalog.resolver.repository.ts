@@ -220,6 +220,45 @@ export class CatalogResolverRepository extends DataRepository {
     }
 
     /**
+     * The canonical artist for a name, or nothing. Never creates.
+     *
+     * The lookup-only counterpart to {@link resolveArtist}, for callers asking
+     * "is this already in the library?" rather than "put this in the library".
+     */
+    async findArtist(name: string): Promise<string | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.artists')
+            .select(['id', 'mergedIntoId'])
+            .where('artistKey', '=', normalizeKey(name))
+            .executeTakeFirst();
+        return row ? this.followMerge('deadair.artists', row) : undefined;
+    }
+
+    /**
+     * The canonical track an item refers to, if the library already has it.
+     *
+     * The same isrc-then-fuzzy ladder {@link resolveTrack} walks, stopping short
+     * of the insert. Separate from it rather than a flag on it, because the
+     * distinction is the point: a caller re-checking an item nobody has (an
+     * unresolved playlist placeholder) must not conjure a canonical track for
+     * music the station cannot play. That would make the row look resolved, and
+     * quietly grow a library of phantoms.
+     */
+    async findTrack(identity: TrackIdentity): Promise<string | undefined> {
+        if (identity.isrc) {
+            const byIsrc = await this.findByIsrc(identity.isrc);
+            if (byIsrc) return byIsrc;
+        }
+
+        const artistName = identity.artists[0];
+        if (!artistName) return undefined;
+        const artistId = await this.findArtist(artistName);
+        if (!artistId) return undefined;
+
+        return this.findByKeys(artistId, identity);
+    }
+
+    /**
      * The canonical album for a name under one artist. `imageUrl` is recorded
      * only when the album has none: a later enrichment pass should be able to
      * replace provider art without a sync overwriting it on the next run.

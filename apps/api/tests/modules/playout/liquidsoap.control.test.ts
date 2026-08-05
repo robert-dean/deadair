@@ -3,10 +3,12 @@
 // be on an older radio.liq that reports less — and every field this gets wrong is a
 // confident lie about what the listener is hearing.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { Logger } from '@maroonedsoftware/logger';
 
-import { parseReading } from '../../../src/modules/playout/liquidsoap.control.js';
+import { parseReading, PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
 import { annotateUri, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
+import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 
 describe('parseReading', () => {
     it('reads a full reading', () => {
@@ -50,6 +52,85 @@ describe('parseReading', () => {
         const reading = parseReading({ queued: 2, ready: 'yes', onAir: 42, remainingMs: 'soon' });
 
         expect(reading).toEqual({ queued: 2 });
+    });
+});
+
+describe('PlayoutControlClient.isUp', () => {
+    // The console shows this as "the stream is not reachable, so nothing can go to
+    // air". It has to mean a call that actually happened: the endpoint returns a
+    // configured LIQUIDSOAP_CONTROL_URL without probing it, so anything derived from
+    // resolution alone would report a dead stream as up the moment one is pinned.
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+
+    /** An endpoint that always hands back an address, exactly as a pinned override does. */
+    const pinnedEndpoint = {
+        resolve: async () => 'http://stream.test:8005',
+        secret: () => 'a-secret',
+        invalidate: vi.fn(),
+    } as unknown as LiquidsoapEndpoint;
+
+    const clientWith = (fetchImpl: typeof fetch) => {
+        vi.stubGlobal('fetch', fetchImpl);
+        return new PlayoutControlClient(pinnedEndpoint, logger);
+    };
+
+    it('is false before anything has been heard from', () => {
+        const client = new PlayoutControlClient(pinnedEndpoint, logger);
+
+        expect(client.isUp()).toBe(false);
+    });
+
+    it('is true once a call is answered', async () => {
+        const client = clientWith(async () => new Response(JSON.stringify({ queued: 0, ready: false }), { status: 200 }));
+        try {
+            await client.status();
+            expect(client.isUp()).toBe(true);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('is false when the address is pinned but nothing is listening', async () => {
+        // The case that made this exist. The endpoint resolves happily; the socket does not.
+        const client = clientWith(async () => {
+            throw new Error('connect ECONNREFUSED');
+        });
+        try {
+            await client.status();
+            expect(client.isUp()).toBe(false);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('stays up when the stream answers but refuses', async () => {
+        // A 401 means the secret diverged. Something is there, and telling the operator
+        // the stream is unreachable would send them looking for the wrong fault.
+        const client = clientWith(async () => new Response('denied', { status: 401 }));
+        try {
+            expect(await client.status()).toBeUndefined();
+            expect(client.isUp()).toBe(true);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('goes back down after a call fails', async () => {
+        let answer = true;
+        const client = clientWith(async () => {
+            if (!answer) throw new Error('gone');
+            return new Response(JSON.stringify({ queued: 0, ready: false }), { status: 200 });
+        });
+        try {
+            await client.status();
+            expect(client.isUp()).toBe(true);
+
+            answer = false;
+            await client.status();
+            expect(client.isUp()).toBe(false);
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 });
 

@@ -8,6 +8,7 @@ import { pluginHttpError } from '#modules/plugins/plugin.error.http.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { StreamService } from '#modules/stream/stream.service.js';
+import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutPusher } from './playout.pusher.js';
 import { Rundown, type RundownItem } from './rundown.js';
@@ -47,6 +48,7 @@ export class PlayoutService {
         private readonly pusher: PlayoutPusher,
         private readonly playlists: PlaylistsService,
         private readonly endpoint: LiquidsoapEndpoint,
+        private readonly control: PlayoutControlClient,
         private readonly registry: PluginRegistry,
         private readonly invoker: PluginInvoker,
         private readonly stream: StreamService,
@@ -67,7 +69,11 @@ export class PlayoutService {
             // Reachability is the honest answer to "can anything air right now".
             // A running order with no stream to hand it to plays nothing, and a
             // console that showed a queue without saying so would be lying by omission.
-            streamUp: Boolean(await this.endpoint.resolve()),
+            //
+            // Read from the last call the transport actually made, not from resolving
+            // an address: a pinned LIQUIDSOAP_CONTROL_URL resolves without being
+            // probed, so asking the endpoint would report any configured stream as up.
+            streamUp: this.control.isUp(),
             ...(nowPlaying
                 ? {
                       nowPlaying: {

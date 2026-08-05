@@ -49,10 +49,29 @@ export interface QueueStatus {
 
 @Injectable()
 export class PlayoutControlClient {
+    /** Whether the last call to the stream actually got an answer. See {@link isUp}. */
+    private up = false;
+
     constructor(
         private readonly endpoint: LiquidsoapEndpoint,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * Whether the stream answered the most recent call.
+     *
+     * Deliberately the outcome of a real call rather than
+     * {@link LiquidsoapEndpoint.resolve}: a configured `LIQUIDSOAP_CONTROL_URL`
+     * is returned unprobed (it is a pin, not a guess), so resolving one would
+     * report a stream as reachable purely because an operator named an address.
+     *
+     * Never more than one reconcile tick stale, because the pusher's loop is
+     * itself a call. False before the first one, which is the honest answer:
+     * nothing has been heard from yet.
+     */
+    isUp(): boolean {
+        return this.up;
+    }
 
     /** One reading of the queue, or `undefined` when the stream is not reachable. */
     async status(): Promise<QueueStatus | undefined> {
@@ -85,7 +104,11 @@ export class PlayoutControlClient {
     /** One control call. Resolves to the parsed JSON body, or `undefined` on any failure. */
     private async call(method: 'GET' | 'POST', path: string, body?: string): Promise<unknown> {
         const base = await this.endpoint.resolve();
-        if (!base) return undefined;
+        if (!base) {
+            // Nothing answered the probe, so there is no address to be up at.
+            this.up = false;
+            return undefined;
+        }
 
         try {
             const response = await fetch(`${base}${path}`, {
@@ -101,13 +124,19 @@ export class PlayoutControlClient {
             if (!response.ok) {
                 // 401 means the secret diverged (Liquidsoap still on a stale radio.env);
                 // anything else is a bug in the handler. Both are worth saying out loud.
+                // Not "down": something answered, it just refused — and a console that
+                // said the stream was unreachable would send the operator looking for
+                // the wrong fault.
+                this.up = true;
                 this.logger.warn(`liquidsoap: ${method} ${path} answered ${response.status}`);
                 return undefined;
             }
+            this.up = true;
             return (await response.json()) as unknown;
         } catch (error) {
             // Unreachable, timed out, or a body that is not JSON: the stream may have
             // restarted, so drop the cached address and let the next call re-probe.
+            this.up = false;
             this.endpoint.invalidate();
             this.logger.warn(`liquidsoap: ${method} ${path} failed (${errorText(error)})`);
             return undefined;

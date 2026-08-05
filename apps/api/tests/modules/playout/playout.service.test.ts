@@ -9,6 +9,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 
 import { PlayoutService } from '../../../src/modules/playout/playout.service.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
+import type { PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
 import type { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import type { Rundown } from '../../../src/modules/playout/rundown.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
@@ -54,6 +55,8 @@ function build(options: Options = {}) {
         skipCurrent: vi.fn(async () => options.skipLands ?? true),
     } as unknown as PlayoutPusher;
 
+    const control = { isUp: vi.fn(() => options.streamUp ?? true) } as unknown as PlayoutControlClient;
+
     const playlists = {
         getPlaylistTracks: vi.fn(async () => {
             if (options.playlistError) throw options.playlistError;
@@ -65,9 +68,12 @@ function build(options: Options = {}) {
         }),
     } as unknown as PlaylistsService;
 
+    // Deliberately always resolves an address, even when the stream is down: that is
+    // exactly what a pinned LIQUIDSOAP_CONTROL_URL does, and `streamUp` must not be
+    // fooled by it.
     const endpoint = {
         secret: () => options.bridgeSecret ?? BRIDGE_SECRET,
-        resolve: async () => ((options.streamUp ?? true) ? 'http://127.0.0.1:8005' : undefined),
+        resolve: async () => 'http://127.0.0.1:8005',
     } as unknown as LiquidsoapEndpoint;
 
     const record =
@@ -80,7 +86,7 @@ function build(options: Options = {}) {
     const stream = { settings: async () => ({ spotifyLoginSecret: options.loginSecret ?? LOGIN_SECRET }) } as unknown as StreamService;
 
     return {
-        service: new PlayoutService(rundown, pusher, playlists, endpoint, registry, invoker, stream, logger),
+        service: new PlayoutService(rundown, pusher, playlists, endpoint, control, registry, invoker, stream, logger),
         rundown,
         pusher,
         playlists,
@@ -149,6 +155,10 @@ describe('PlayoutService.getStatus', () => {
     it('reports the stream as down when nothing answers', async () => {
         // A running order with no stream to hand it to plays nothing; a console that
         // showed the queue without saying so would be lying by omission.
+        //
+        // The stub endpoint still resolves an address here, which is the point: a
+        // pinned LIQUIDSOAP_CONTROL_URL is returned unprobed, so liveness has to come
+        // from a call that actually happened rather than from having an address.
         const { service } = build({ streamUp: false });
 
         expect((await service.getStatus()).streamUp).toBe(false);

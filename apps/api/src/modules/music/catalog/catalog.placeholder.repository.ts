@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { DataRepository } from '../data/data.repository.js';
+import { DataRepository } from '../../data/data.repository.js';
 
 /**
  * An imported playlist row whose track was not in the library at import time.

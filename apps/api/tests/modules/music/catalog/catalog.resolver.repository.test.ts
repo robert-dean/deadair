@@ -16,8 +16,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Kysely } from 'kysely';
 import type { Logger } from '@maroonedsoftware/logger';
 
-import { CatalogResolverRepository, chooseTrackCandidate } from '../../../src/modules/music/catalog.resolver.repository.js';
-import type { DB } from '../../../src/modules/data/db.js';
+import { CatalogResolverRepository, chooseTrackCandidate } from '../../../../src/modules/music/catalog/catalog.resolver.repository.js';
+import type { DB } from '../../../../src/modules/data/db.js';
 
 const stubLogger = (): Logger => ({
     debug: vi.fn(),

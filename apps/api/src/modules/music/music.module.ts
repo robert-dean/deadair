@@ -7,10 +7,11 @@ import { TracksService } from './tracks.service.js';
 import { ArtistsRepository } from './artists.repository.js';
 import { AlbumsRepository } from './albums.repository.js';
 import { TracksRepository } from './tracks.repository.js';
-import { CatalogPlaceholderRepository } from './catalog.placeholder.repository.js';
-import { CatalogPlaceholderService } from './catalog.placeholder.service.js';
-import { CatalogResolverRepository } from './catalog.resolver.repository.js';
-import { CatalogSyncService } from './catalog.sync.service.js';
+import { CatalogPlaceholderRepository } from './catalog/catalog.placeholder.repository.js';
+import { CatalogPlaceholderService } from './catalog/catalog.placeholder.service.js';
+import { CatalogResolverRepository } from './catalog/catalog.resolver.repository.js';
+import { CatalogResolverService } from './catalog/catalog.resolver.service.js';
+import { CatalogSyncService } from './catalog/catalog.sync.service.js';
 
 export const MusicModule: ServerKitModule = {
     name: 'Music',
@@ -22,10 +23,11 @@ export const MusicModule: ServerKitModule = {
         registry.register(TracksService).useClass(TracksService).asScoped();
         registry.register(TracksRepository).useClass(TracksRepository).asScoped();
 
-        // Ingest, as opposed to the read side above. Scoped like its siblings:
-        // the job runner gives every execution its own scope, so this is
-        // per-run there and per-request on the request path.
+        // `catalog/` — ingest, as opposed to the read side above. Scoped like
+        // its siblings: the job runner gives every execution its own scope, so
+        // these are per-run there and per-request on the request path.
         registry.register(CatalogResolverRepository).useClass(CatalogResolverRepository).asScoped();
+        registry.register(CatalogResolverService).useClass(CatalogResolverService).asScoped();
         registry.register(CatalogSyncService).useClass(CatalogSyncService).asScoped();
         registry.register(CatalogPlaceholderRepository).useClass(CatalogPlaceholderRepository).asScoped();
         registry.register(CatalogPlaceholderService).useClass(CatalogPlaceholderService).asScoped();

@@ -17,12 +17,12 @@ export interface CatalogSyncPayload {
  * runtime-pool connection and hold one snapshot open for the length of the
  * walk. `TransactionalJob`'s own guidance is the rule being followed: bounded
  * unit of work extends it, loops transact per item — which is what
- * `CatalogResolverRepository.ingestTrack` does.
+ * `CatalogResolverService.ingestTrack` does.
  *
  * Because it is not transactional, the actor has to be installed here; nothing
  * else in a plain job's scope does it.
  */
-@Injectable({ deps: [CatalogSyncService, JobContext, Container, Logger] })
+@Injectable()
 export class CatalogSyncJob implements Job<CatalogSyncPayload> {
     constructor(
         private readonly sync: CatalogSyncService,

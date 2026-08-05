@@ -3,8 +3,8 @@ import { Constructor, Injectable } from 'injectkit';
 import { Duration } from 'luxon';
 import { Job } from '@maroonedsoftware/jobbroker';
 import type { PgBossJobRegistration } from '@maroonedsoftware/jobbroker/pgboss';
-import { CatalogPlaceholderJob } from '#modules/music/catalog.placeholder.job.js';
-import { CatalogSyncJob } from '#modules/music/catalog.sync.job.js';
+import { CatalogPlaceholderJob } from '#modules/music/catalog/catalog.placeholder.job.js';
+import { CatalogSyncJob } from '#modules/music/catalog/catalog.sync.job.js';
 
 /**
  * What a job name maps to. The bare constructor is the short form for an

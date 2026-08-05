@@ -12,13 +12,13 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { PluginManifest, ProviderPlaylist, ProviderTrack } from '@deadair/plugin-sdk';
 import { PluginError } from '@deadair/plugin-sdk';
 
-import { CatalogSyncService } from '../../../src/modules/music/catalog.sync.service.js';
-import type { CatalogResolverRepository, IngestResult } from '../../../src/modules/music/catalog.resolver.repository.js';
+import { CatalogSyncService } from '../../../../src/modules/music/catalog/catalog.sync.service.js';
+import type { CatalogResolverService, IngestResult } from '../../../../src/modules/music/catalog/catalog.resolver.service.js';
 import type { JobBroker } from '@maroonedsoftware/jobbroker';
-import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
-import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
-import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
-import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import { PluginInvoker } from '../../../../src/modules/plugins/plugin.invoker.js';
+import { PluginRegistry } from '../../../../src/modules/plugins/plugin.registry.js';
+import type { PluginRecord } from '../../../../src/modules/plugins/types/plugin.record.js';
+import { stubPluginLog } from '../../../utils/plugin.log.fixture.js';
 
 const SPOTIFY_ID = 'deadair.spotify';
 const OTHER_ID = 'deadair.other';
@@ -108,11 +108,11 @@ function fakeResolver(results: (track: ProviderTrack) => IngestResult = () => ({
                 ingested.push(providerTrack.id);
                 return results(providerTrack);
             }),
-            markMissingTrackSources: vi.fn(async (pluginId: string, seen: readonly string[]) => {
+            markMissing: vi.fn(async (pluginId: string, seen: readonly string[]) => {
                 swept.push({ pluginId, seen: [...seen] });
                 return seen.length;
             }),
-        } as unknown as CatalogResolverRepository,
+        } as unknown as CatalogResolverService,
     };
 }
 
@@ -131,7 +131,7 @@ function fakeJobBroker(options: { failing?: boolean } = {}) {
     };
 }
 
-function build(records: PluginRecord[], resolver: CatalogResolverRepository, broker: JobBroker = fakeJobBroker().broker) {
+function build(records: PluginRecord[], resolver: CatalogResolverService, broker: JobBroker = fakeJobBroker().broker) {
     const registry = new PluginRegistry();
     registry.setAll(records);
     const invoker = new PluginInvoker(registry, stubPluginLog().log);
@@ -471,6 +471,6 @@ describe('CatalogSyncService.syncAll', () => {
 
         await service.syncAll();
 
-        expect(Object.keys(resolver)).toEqual(['ingestTrack', 'markMissingTrackSources']);
+        expect(Object.keys(resolver)).toEqual(['ingestTrack', 'markMissing']);
     });
 });

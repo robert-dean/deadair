@@ -2,9 +2,9 @@ import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { Logger } from '@maroonedsoftware/logger';
 import type { ProviderTrack } from '@deadair/plugin-sdk';
-import { DataRepository } from '../data/data.repository.js';
-import { DB } from '../data/db.js';
-import { normalizeKey } from './music.keys.js';
+import { DataRepository } from '../../data/data.repository.js';
+import { DB } from '../../data/db.js';
+import { normalizeKey } from '../music.keys.js';
 
 /**
  * How far two durations may differ and still be taken for the same recording.
@@ -34,15 +34,6 @@ type MergeableTable = 'deadair.artists' | 'deadair.albums' | 'deadair.tracks';
  * pg wants and what those columns are declared to take.
  */
 type Nullable<T> = T | null | undefined;
-
-/** Why an item could not become a catalog row. */
-export type IngestSkipReason =
-    /** The provider credited nobody, and `tracks.artist_id` is NOT NULL. */
-    | 'no-artist'
-    /** Neither title nor artist survived key normalization, so nothing could be matched or displayed. */
-    | 'unnamed';
-
-export type IngestResult = { status: 'ingested'; trackId: string; created: boolean } | { status: 'skipped'; reason: IngestSkipReason };
 
 /** What a resolved track needs, independent of which provider described it. */
 export interface TrackIdentity {
@@ -131,8 +122,11 @@ export const chooseTrackCandidate = (
  *   stands; ingest only fills blanks. Whatever the provider actually said
  *   survives verbatim in `track_sources.raw` either way.
  *
- * Deliberately not a service: it holds no policy beyond the resolution order,
- * and the request-path import will need exactly these primitives.
+ * Row-level throughout: each method finds or writes one thing. Sequencing them
+ * into a complete ingest, and deciding what that sequence commits as, is
+ * {@link CatalogResolverService}'s job — which is also why nothing here opens a
+ * transaction. A caller already inside one (a request, via
+ * `auditContextMiddleware`) composes these directly and inherits it.
  */
 @Injectable()
 export class CatalogResolverRepository extends DataRepository {
@@ -144,43 +138,16 @@ export class CatalogResolverRepository extends DataRepository {
     }
 
     /**
-     * The whole ingest for one provider item, as a single transaction.
+     * This repository bound to an open transaction, for a caller that opened one
+     * and needs these methods to run inside it.
      *
-     * Atomic because the halves are worthless apart: a canonical track with no
-     * binding is invisible to playout and would be re-created as a duplicate on
-     * the next run, and a binding pointing at a track that was rolled back
-     * violates its foreign key. One short transaction per item — rather than one
-     * long one per run — is what lets the caller be a long, network-bound walk.
-     *
-     * Because it opens that transaction itself, this is for callers that have
-     * none: a background job, not a request, which is already inside the one
-     * `auditContextMiddleware` opened. A caller in a transaction composes
-     * {@link resolveArtist}, {@link resolveAlbum}, {@link resolveTrack} and
-     * {@link upsertTrackSource} directly instead — they are public for exactly
-     * that, and they inherit whatever transaction the scope's `Kysely` is bound
-     * to.
-     *
-     * @param pluginId - Manifest id of the providing plugin.
-     * @param track - The item as the provider described it.
-     * @returns The canonical track id, or why the item could not become one.
+     * Necessary because the injected `Kysely` is fixed at construction: a job's
+     * scope has no ambient transaction to inherit (unlike a request's, which
+     * `auditContextMiddleware` overrides), so the only way in is to hand the
+     * transaction over explicitly.
      */
-    async ingestTrack(pluginId: string, track: ProviderTrack): Promise<IngestResult> {
-        const artistName = track.artists[0];
-        if (!artistName || normalizeKey(artistName).length === 0) {
-            return { status: 'skipped', reason: 'no-artist' };
-        }
-        if (normalizeKey(track.title).length === 0 && normalizeKey(artistName).length === 0) {
-            return { status: 'skipped', reason: 'unnamed' };
-        }
-
-        return this.db.transaction().execute(async trx => {
-            const repo = this.withDb(trx);
-            const artistId = await repo.resolveArtist(artistName);
-            const albumId = track.album ? await repo.resolveAlbum(artistId, track.album, track.artworkUrl) : undefined;
-            const resolved = await repo.resolveTrack(artistId, albumId, track);
-            await repo.upsertTrackSource(resolved.id, pluginId, track);
-            return { status: 'ingested', trackId: resolved.id, created: resolved.created };
-        });
+    withTransaction(trx: Kysely<DB>): CatalogResolverRepository {
+        return new CatalogResolverRepository(trx, this.logger);
     }
 
     /**
@@ -489,11 +456,6 @@ export class CatalogResolverRepository extends DataRepository {
 
         this.logger.error('merge chain did not terminate', { table, from: row.id, stoppedAt: current.id, hops: MAX_MERGE_HOPS });
         return current.id;
-    }
-
-    /** A copy of this repository bound to an open transaction. */
-    private withDb(db: Kysely<DB>): CatalogResolverRepository {
-        return new CatalogResolverRepository(db, this.logger);
     }
 
     /** jsonb columns are typed as `Json` by kysely-codegen; pg wants the serialized form. */

@@ -5,7 +5,7 @@ import type { ProviderPlaylist, ProviderTrack } from '@deadair/plugin-sdk';
 import { asCatalogPlugin, type CatalogPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
-import { CatalogResolverRepository } from './catalog.resolver.repository.js';
+import { CatalogResolverService } from './catalog.resolver.service.js';
 
 /**
  * Items per page. Spotify caps playlist reads at 50 and clamps anything larger,
@@ -71,7 +71,7 @@ export class CatalogSyncService {
     constructor(
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
-        private readonly resolver: CatalogResolverRepository,
+        private readonly resolver: CatalogResolverService,
         private readonly jobBroker: JobBroker,
         private readonly logger: Logger,
     ) {}
@@ -177,7 +177,7 @@ export class CatalogSyncService {
             return summary;
         }
 
-        summary.swept = await this.resolver.markMissingTrackSources(pluginId, [...seen]);
+        summary.swept = await this.resolver.markMissing(pluginId, [...seen]);
         this.logger.info('catalog sync finished a plugin', { plugin: pluginId, ...this.counts(summary), swept: summary.swept });
         return summary;
     }

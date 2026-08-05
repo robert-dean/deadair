@@ -15,9 +15,9 @@ import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 
-import { CatalogPlaceholderJob } from '../../../src/modules/music/catalog.placeholder.job.js';
-import { CatalogPlaceholderService } from '../../../src/modules/music/catalog.placeholder.service.js';
-import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
+import { CatalogPlaceholderJob } from '../../../../src/modules/music/catalog/catalog.placeholder.job.js';
+import { CatalogPlaceholderService } from '../../../../src/modules/music/catalog/catalog.placeholder.service.js';
+import { AuthorizationContext } from '../../../../src/modules/permissions/authorization.context.js';
 
 /**
  * A scope that records every resolution, in order, and hands back a `Kysely`

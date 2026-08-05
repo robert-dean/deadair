@@ -4,6 +4,7 @@ import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
 import { DB } from '#modules/data/db.js';
 import { KyselyTransactionConnectionProvider } from '#modules/data/kysely.transaction.connection.provider.js';
+import { overrideJobActor } from './job.authorization.js';
 
 /**
  * The job-side counterpart of `auditContextMiddleware`.
@@ -11,11 +12,13 @@ import { KyselyTransactionConnectionProvider } from '#modules/data/kysely.transa
  * `PgBossJobRunner` already gives every execution its own scoped container (the
  * job-side equivalent of a request scope) and disposes it once the job settles.
  * That scope is the seam: this base class opens a transaction on it, sets the
- * same `app.*` audit GUCs the request path sets, and installs the same two
- * overrides — `Kysely<DB>` → the transaction, and `PgBossConnectionProvider` →
- * a {@link KyselyTransactionConnectionProvider} bound to it. Everything the job
- * then resolves from the scope reads and writes on the transaction, and any job
- * it enqueues commits atomically with the work that enqueued it.
+ * same `app.*` audit GUCs the request path sets, and installs the same
+ * overrides — `Kysely<DB>` → the transaction, `PgBossConnectionProvider` → a
+ * {@link KyselyTransactionConnectionProvider} bound to it, and
+ * `AuthorizationContext` → the job's actor (see {@link overrideJobActor}).
+ * Everything the job then resolves from the scope reads and writes on the
+ * transaction, and any job it enqueues commits atomically with the work that
+ * enqueued it.
  *
  * **Resolve collaborators inside `execute`, not in the constructor.** The runner
  * calls `scope.get(JobClass)` *before* `run`, so anything constructor-injected is
@@ -71,6 +74,9 @@ export abstract class TransactionalJob<Payload extends object = object> implemen
 
             scope.override(Kysely<DB>, trx);
             scope.override(PgBossConnectionProvider, new KyselyTransactionConnectionProvider(trx));
+            // The DI-side counterpart of the GUCs above: same job, same identity,
+            // told to the permission model instead of to Postgres.
+            overrideJobActor(scope, context);
 
             await this.execute(payload, signal);
         });

@@ -339,13 +339,13 @@ importers:
 
   plugins/spotify:
     dependencies:
-      '@deadair/plugin-sdk':
-        specifier: workspace:*
-        version: link:../../packages/plugin-sdk
       '@spotify/web-api-ts-sdk':
         specifier: ^1.2.0
         version: 1.2.0
     devDependencies:
+      '@deadair/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
       '@repo/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint

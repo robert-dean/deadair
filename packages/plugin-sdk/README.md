@@ -245,6 +245,31 @@ without a shared bucket are two allowances, which is how a plugin ends up at
 twice the rate it declared and the station gets blocked. Entries with different
 buckets never pace each other, so a slow upstream does not hold up a fast one.
 
+When the operator picks the address (a mirror, a self-hosted server), name the
+config field it lives in instead of a hostname:
+
+```ts
+configFields: [{ key: 'baseUrl', label: 'Server URL', type: 'url' }],
+permissions: {
+    network: [
+        { host: 'musicbrainz.org', ratePerSecond: 1, bucket: 'musicbrainz' },
+        { fromConfig: 'baseUrl', ratePerSecond: 10 },
+    ],
+    ...
+}
+```
+
+The host reads the hostname out of that setting when your plugin is
+initialized, so changing it takes effect on the reinitialization the save
+triggers. A setting that is blank or unparseable contributes no entry, so an
+unconfigured plugin is refused exactly as if the host were undeclared, and a
+wildcard is never accepted from a setting: those come only from a manifest an
+operator could read before installing.
+
+Order it after the hostname you know, as above. First match wins, so an
+operator who points `baseUrl` back at the canonical service still gets the
+strict rate rather than the mirror's.
+
 The rate is a floor on the interval, not a promise of throughput: the host caps
 every bucket at its own ceiling, so asking to go faster than the host allows
 does nothing. Parking is spent from the call's budget, which is the other half

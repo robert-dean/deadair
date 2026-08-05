@@ -95,17 +95,63 @@ interface NetworkEntry {
 }
 
 /**
- * Expands the manifest's allowlist into what the egress path actually needs.
+ * The hostname an operator-supplied address points at, or `undefined` when the
+ * setting cannot name one.
  *
- * Done once per host rather than per call: the manifest cannot change under a
- * running plugin, and a `reinitPlugin` (which is what a config change causes)
- * builds a whole new host anyway.
+ * Accepts both a URL and a bare hostname, because either is a reasonable thing
+ * for an operator to have typed into a "server address" field. Anything that
+ * does not resolve to a plain hostname contributes no entry at all rather than
+ * a permissive one: a blank setting must not widen the allowlist, and a
+ * wildcard must never arrive from data, only from a manifest an operator read
+ * before installing.
  */
-const normalizeNetwork = (network: PluginPermissions['network']): NetworkEntry[] =>
-    network.map(entry => {
-        if (typeof entry === 'string') return { pattern: entry, bucket: entry };
-        return { pattern: entry.host, bucket: entry.bucket ?? entry.host, ratePerSecond: entry.ratePerSecond };
-    });
+const hostnameFromSetting = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return undefined;
+
+    try {
+        const { hostname } = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`);
+        const normalized = hostname.toLowerCase();
+        return normalized.length > 0 && !normalized.includes('*') ? normalized : undefined;
+    } catch {
+        return undefined;
+    }
+};
+
+/**
+ * Expands the manifest's allowlist into what the egress path actually needs,
+ * reading `fromConfig` entries out of `config`.
+ *
+ * Done once per host rather than per call: neither the manifest nor the config
+ * can change under a running plugin, because a config write reinitializes it
+ * and builds a whole new host.
+ */
+const normalizeNetwork = (network: PluginPermissions['network'], config: Record<string, unknown>): NetworkEntry[] => {
+    const entries: NetworkEntry[] = [];
+
+    for (const entry of network) {
+        if (typeof entry === 'string') {
+            entries.push({ pattern: entry, bucket: entry });
+            continue;
+        }
+
+        if ('host' in entry) {
+            entries.push({ pattern: entry.host, bucket: entry.bucket ?? entry.host, ratePerSecond: entry.ratePerSecond });
+            continue;
+        }
+
+        const hostname = hostnameFromSetting(config[entry.fromConfig]);
+        if (hostname === undefined) continue;
+        entries.push({ pattern: hostname, bucket: entry.bucket ?? hostname, ratePerSecond: entry.ratePerSecond });
+    }
+
+    return entries;
+};
+
+/** Whether any entry needs the plugin's config read before the allowlist is known. */
+const needsConfig = (network: PluginPermissions['network']): boolean =>
+    network.some(entry => typeof entry !== 'string' && 'fromConfig' in entry);
 
 /**
  * The limiter shape for a declared rate, capped at the host's ceiling: a plugin
@@ -205,7 +251,7 @@ export class PluginHostFactory {
     /** One host per plugin. Cheap: the only per-host state is its rate limiters. */
     createHost(manifest: PluginManifest): PluginHost {
         const logger = this.pluginLog.for(manifest.id);
-        const entries = normalizeNetwork(manifest.permissions.network);
+        const entries = this.networkEntries(manifest, logger);
         // Per bucket, not per plugin: a plugin talking to two upstreams was
         // sharing one allowance between them, which paced it against a limit
         // neither of them published. Built lazily, so a declared-but-unused
@@ -225,6 +271,47 @@ export class PluginHostFactory {
             config: this.createConfig(manifest),
             oauth: this.createOAuth(manifest),
             events: this.createEvents(manifest, logger),
+        };
+    }
+
+    /**
+     * The allowlist for one host, resolved at most once and then reused.
+     *
+     * Lazy because a `fromConfig` entry needs a database read, and doing it in
+     * `createHost` would put a query in front of every plugin's initialization
+     * whether or not it has one. Memoized as the promise rather than the result
+     * so concurrent first calls share the one read.
+     *
+     * Reusing it cannot go stale: `PluginConfigService.getConfig` has no cache,
+     * but every write to a plugin's config reinitializes it
+     * ({@link PluginLifecycleManager.reinitPlugin}), and that builds a new host
+     * with a fresh memo. A manifest with no `fromConfig` entry never reads the
+     * database at all.
+     */
+    private networkEntries(manifest: PluginManifest, logger: PluginLogger): () => Promise<NetworkEntry[]> {
+        const declared = manifest.permissions.network;
+        if (!needsConfig(declared)) {
+            const fixed = normalizeNetwork(declared, {});
+            return async () => fixed;
+        }
+
+        let resolved: Promise<NetworkEntry[]> | undefined;
+        return () => {
+            resolved ??= this.pluginConfigService.getConfig(manifest.id).then(config => {
+                const entries = normalizeNetwork(declared, config);
+                // An entry that resolved to nothing is a setting the operator
+                // has not filled in (or filled in wrongly), and the symptom is
+                // a `forbidden` per request naming a host they thought they had
+                // configured. Say so once, here, where the cause is visible.
+                if (entries.length < declared.length) {
+                    logger.warn('plugin network entry could not be resolved from config', {
+                        declared: declared.length,
+                        resolved: entries.length,
+                    });
+                }
+                return entries;
+            });
+            return resolved;
         };
     }
 
@@ -368,12 +455,13 @@ export class PluginHostFactory {
      */
     private async hostFetch(
         manifest: PluginManifest,
-        entries: NetworkEntry[],
+        networkEntries: () => Promise<NetworkEntry[]>,
         limiters: Map<string, RateLimiterMemory>,
         logger: PluginLogger,
         url: string,
         init?: HostFetchInit,
     ): Promise<HostFetchResponse> {
+        const entries = await networkEntries();
         const { url: target, entry } = this.assertAllowed(manifest, entries, logger, url);
         const hostname = target.hostname.toLowerCase();
 

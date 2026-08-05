@@ -782,6 +782,119 @@ describe('PluginHostFactory fetch pacing', () => {
 });
 
 /**
+ * A plugin whose upstream the operator chooses (a mirror, a self-hosted
+ * server) has no hostname to write into its manifest at authoring time. It
+ * declares which setting holds the address instead.
+ */
+describe('PluginHostFactory config-derived allowlist', () => {
+    const configured = (config: Record<string, unknown>) => {
+        const getConfig = vi.fn(async () => config);
+        return { service: { getConfig } as unknown as PluginConfigService, getConfig };
+    };
+
+    const fromConfig = (...network: PluginManifest['permissions']['network']) =>
+        manifest({ permissions: { network, storage: false, oauth: false } });
+
+    it('allows the host the operator configured', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const { service } = configured({ baseUrl: 'https://mirror.example.org/ws/2' });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'baseUrl' }));
+
+        await expect(host.fetch('https://mirror.example.org/ws/2/recording')).resolves.toMatchObject({ status: 200 });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('accepts a bare hostname as readily as a URL, because operators type both', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        const { service } = configured({ server: 'navidrome.lan' });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'server' }));
+
+        await expect(host.fetch('https://navidrome.lan/rest/ping')).resolves.toMatchObject({ status: 200 });
+    });
+
+    it('refuses when the setting is unfilled, exactly as if the host were undeclared', async () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        const { service } = configured({});
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'baseUrl' }));
+
+        await expectPluginError(host.fetch('https://mirror.example.org/x'), 'forbidden', /not allowed to reach/);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('never lets a wildcard arrive from a setting', async () => {
+        vi.stubGlobal('fetch', vi.fn());
+        // A permissive pattern is something an operator should only ever get by
+        // reading it in a manifest before installing, never by typing it here.
+        const { service } = configured({ baseUrl: 'https://*.example.org' });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'baseUrl' }));
+
+        await expectPluginError(host.fetch('https://anything.example.org/x'), 'forbidden', /not allowed to reach/);
+    });
+
+    it('checks redirect hops against the configured host too', async () => {
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: 'https://mirror.example.org/moved' } }))
+            .mockResolvedValueOnce(new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const { service } = configured({ baseUrl: 'https://mirror.example.org' });
+        const host = factory(undefined, service).createHost(fromConfig('gateway.example.com', { fromConfig: 'baseUrl' }));
+
+        await expect(host.fetch('https://gateway.example.com/x')).resolves.toMatchObject({ status: 200, redirected: true });
+    });
+
+    it('reads the config once per host, not once per request', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockImplementation(async () => new Response('ok', { status: 200 })),
+        );
+        const { service, getConfig } = configured({ baseUrl: 'https://mirror.example.org' });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'baseUrl' }));
+
+        await Promise.all([host.fetch('https://mirror.example.org/1'), host.fetch('https://mirror.example.org/2')]);
+        await host.fetch('https://mirror.example.org/3');
+
+        // getConfig has no cache of its own, so a read per request would be a
+        // query per request. Safe to reuse: a config write reinitializes the
+        // plugin and builds a new host.
+        expect(getConfig).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not read the config at all for a manifest that names its hosts outright', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        const { service, getConfig } = configured({});
+        const host = factory(undefined, service).createHost(fromConfig('api.example.com'));
+
+        await host.fetch('https://api.example.com/x');
+
+        // The common case must not pay a query for a feature it does not use.
+        expect(getConfig).not.toHaveBeenCalled();
+    });
+
+    it('paces a configured host at the rate its entry declared', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockImplementation(async () => new Response('ok', { status: 200 })),
+        );
+        const { service } = configured({ baseUrl: 'https://mirror.example.org' });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'baseUrl', ratePerSecond: 1 }));
+
+        await host.fetch('https://mirror.example.org/1');
+
+        let settled = false;
+        void host.fetch('https://mirror.example.org/2').then(() => {
+            settled = true;
+        });
+
+        await vi.advanceTimersByTimeAsync(500);
+        expect(settled).toBe(false);
+    });
+});
+
+/**
  * The budget knobs used to be independent of the invoker's deadline, which
  * meant a limit could be written down that no call could ever reach. These
  * pin the two together.

@@ -1,21 +1,7 @@
 import { z } from 'zod';
 
-/**
- * One upstream a plugin may reach, and how hard it may lean on it.
- *
- * The bare string is the common case and means "this hostname, at the host's
- * default rate". Reach for the object form when the upstream publishes a limit
- * of its own: MusicBrainz allows roughly one request per second to anonymous
- * clients, which is a tenth of what the host would otherwise let through.
- */
-export interface NetworkPermissionEntry {
-    /**
-     * Bare hostname (`api.spotify.com`), no scheme and no path. A leading `*.`
-     * marks a wildcard subdomain match (`*.example.com`) and does NOT match the
-     * bare apex.
-     */
-    host: string;
-
+/** The pacing knobs, shared by both kinds of entry. */
+interface NetworkPermissionPacing {
     /**
      * Requests per second the host will let through to this entry, capped by
      * the host's own ceiling. You can ask to be slower, never faster.
@@ -30,7 +16,8 @@ export interface NetworkPermissionEntry {
 
     /**
      * Name of the rate-limit bucket this entry draws from. Entries sharing a
-     * bucket share one limiter; the default is the entry's own `host`.
+     * bucket share one limiter; the default is the hostname the entry resolves
+     * to.
      *
      * For when a published limit covers a service rather than a hostname.
      * `musicbrainz.org` and `*.musicbrainz.org` are two entries against one
@@ -40,8 +27,45 @@ export interface NetworkPermissionEntry {
     bucket?: string;
 }
 
+/**
+ * One upstream a plugin may reach, named outright.
+ *
+ * The bare string shorthand means exactly this with no pacing set. Reach for
+ * the object form when the upstream publishes a limit of its own: MusicBrainz
+ * allows roughly one request per second to anonymous clients, a tenth of what
+ * the host would otherwise let through.
+ */
+export interface NetworkPermissionHost extends NetworkPermissionPacing {
+    /**
+     * Bare hostname (`api.spotify.com`), no scheme and no path. A leading `*.`
+     * marks a wildcard subdomain match (`*.example.com`) and does NOT match the
+     * bare apex.
+     */
+    host: string;
+}
+
+/**
+ * One upstream the operator names, not the plugin: the hostname comes from one
+ * of your own config fields, resolved when the plugin is initialized.
+ *
+ * For anything self-hosted or mirrored, where there is no hostname to write
+ * down at authoring time. A MusicBrainz mirror, a Navidrome server, an internal
+ * API: the plugin declares which setting holds the address and the host reads
+ * the hostname out of it.
+ *
+ * The value is read as a URL, or as a bare hostname if it does not look like
+ * one. Empty, unparseable, or wildcard-bearing values simply contribute no
+ * entry, so an unconfigured plugin is refused exactly as if it had asked for
+ * an undeclared host. Because it resolves at init, changing the setting
+ * reinitializes the plugin and the new address takes effect with it.
+ */
+export interface NetworkPermissionFromConfig extends NetworkPermissionPacing {
+    /** Key of the config field holding the address, e.g. `baseUrl`. */
+    fromConfig: string;
+}
+
 /** A hostname at the host's default rate, or an entry that says more. */
-export type NetworkPermission = string | NetworkPermissionEntry;
+export type NetworkPermission = string | NetworkPermissionHost | NetworkPermissionFromConfig;
 
 /**
  * What a plugin is allowed to do. Declared up front in the manifest so the
@@ -60,9 +84,10 @@ export interface PluginPermissions {
      * field as a disclosure an operator can weigh before installing, not as a
      * containment guarantee.
      *
-     * Entries are bare hostnames, or {@link NetworkPermissionEntry} objects
-     * when the upstream needs pacing. Order matters only for pacing: the first
-     * entry a hostname matches supplies its rate and bucket.
+     * Entries are bare hostnames, {@link NetworkPermissionHost} objects when
+     * the upstream needs pacing, or {@link NetworkPermissionFromConfig} when
+     * the operator is the one who names it. Order matters only for pacing: the
+     * first entry a hostname matches supplies its rate and bucket.
      */
     network: NetworkPermission[];
 
@@ -73,15 +98,17 @@ export interface PluginPermissions {
     oauth: boolean;
 }
 
+// Finite and positive: a zero or a NaN would compute a limiter window of
+// Infinity, which is a plugin that never gets to make a request.
+const pacingShape = {
+    ratePerSecond: z.number().positive().finite().optional(),
+    bucket: z.string().min(1).optional(),
+};
+
 export const networkPermissionSchema: z.ZodType<NetworkPermission> = z.union([
     z.string().min(1),
-    z.object({
-        host: z.string().min(1),
-        // Finite and positive: a zero or a NaN would compute a limiter window
-        // of Infinity, which is a plugin that never gets to make a request.
-        ratePerSecond: z.number().positive().finite().optional(),
-        bucket: z.string().min(1).optional(),
-    }),
+    z.object({ host: z.string().min(1), ...pacingShape }),
+    z.object({ fromConfig: z.string().min(1), ...pacingShape }),
 ]);
 
 export const pluginPermissionsSchema = z.object({

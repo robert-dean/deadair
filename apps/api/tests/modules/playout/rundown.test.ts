@@ -50,6 +50,19 @@ describe('Rundown hand-over', () => {
         expect(rundown.queuedCount()).toBe(1);
     });
 
+    it('still counts a handed-over item as coming, and puts it first', async () => {
+        // Handing an item to the player does not make it airing — it makes it NEXT.
+        // A console told only about the queue names the track after next as next,
+        // because the real next one is the one already downloading.
+        const rundown = rundownWith(['a', 'b', 'c']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        await rundown.next();
+
+        expect(rundown.upcoming().map(entry => entry.externalId)).toEqual(['b', 'c']);
+        expect(rundown.queuedCount()).toBe(1);
+    });
+
     it('gives each item an id of our own rather than reusing the provider id', async () => {
         // The id rides through Liquidsoap on the annotation and comes back on the
         // notify; a provider id would collide the moment a playlist repeats a track.

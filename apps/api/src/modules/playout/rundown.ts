@@ -114,12 +114,26 @@ export class Rundown {
         this.emit();
     }
 
-    /** Items still waiting here, in order. Excludes what the player already holds. */
+    /**
+     * Everything committed but not yet on air, in the order it will air.
+     *
+     * What the player is already HOLDING comes first. That item is the genuinely
+     * next one — it has been handed over and, for an http uri, downloaded — and
+     * leaving it out is how a console ends up naming the track after next as
+     * "next". It is not in {@link queue} precisely because it has moved on, so
+     * the two lists have to be answered together or the answer is wrong by one.
+     */
     upcoming(): readonly RundownItem[] {
-        return this.queue;
+        return [...this.served, ...this.queue];
     }
 
-    /** How many items are waiting. */
+    /**
+     * How many items are waiting HERE, which is a smaller number than
+     * {@link upcoming} by whatever the player is holding.
+     *
+     * The pusher's own bookkeeping, not an answer for a console: it is what
+     * {@link reconcileServed} compares a reading against.
+     */
     queuedCount(): number {
         return this.queue.length;
     }

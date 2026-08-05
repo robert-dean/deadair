@@ -64,6 +64,10 @@ export class PlayoutService {
      */
     async getStatus(): Promise<PlayoutStatus> {
         const nowPlaying = this.rundown.nowPlaying();
+        // Includes the item the player is already holding, which is the one that
+        // actually airs next. Counted from the same list, so `queuedCount` and
+        // `upNext` can never disagree about what is coming.
+        const upcoming = this.rundown.upcoming();
         // The mount is a setting, so the console follows it rather than keeping a second
         // copy that drifts. A PATH, not a URL: `stream.icecastHost` names Icecast as the
         // app's containers see it, which is not an address a browser can reach.
@@ -88,8 +92,8 @@ export class PlayoutService {
                       },
                   }
                 : {}),
-            upNext: this.rundown.upcoming().slice(0, UP_NEXT_LIMIT).map(toPlayoutItem),
-            queuedCount: this.rundown.queuedCount(),
+            upNext: upcoming.slice(0, UP_NEXT_LIMIT).map(toPlayoutItem),
+            queuedCount: upcoming.length,
         };
     }
 

@@ -169,13 +169,25 @@ describe('PlayoutService.getStatus', () => {
         const many = Array.from({ length: 50 }, (_, index) => ({ ...item, id: `item-${index}` }));
         const { service, rundown } = build();
         vi.mocked(rundown.upcoming).mockReturnValue(many);
-        vi.mocked(rundown.queuedCount).mockReturnValue(many.length);
 
         const status = await service.getStatus();
 
         expect(status.upNext).toHaveLength(10);
         // The full depth is still reported, so the console can say "and 40 more".
         expect(status.queuedCount).toBe(50);
+    });
+
+    it('counts what is coming from the same list it names, so the two cannot disagree', async () => {
+        // They used to come from different accessors, one of which excluded the item
+        // the player was already holding: the console named the track AFTER next as
+        // next, and was one short on the count.
+        const { service, rundown } = build();
+        vi.mocked(rundown.upcoming).mockReturnValue([item, { ...item, id: 'item-2' }]);
+
+        const status = await service.getStatus();
+
+        expect(status.queuedCount).toBe(status.upNext.length);
+        expect(status.upNext[0]?.id).toBe('item-1');
     });
 
     it('carries the playhead when the decoder reported one', async () => {

@@ -15,6 +15,7 @@ import type {
     PluginStorage,
 } from '@deadair/plugin-sdk';
 import { PluginConfigService } from './plugin.config.service.js';
+import { invocationRemainingMs } from './plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
 import { PluginLog } from './plugin.log.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
@@ -31,10 +32,11 @@ export const PLUGIN_FETCH_WINDOW_SECONDS = 1;
  * for its own. Everything the call does spends from it: waiting for rate-limit
  * headroom, the request itself, a `Retry-After` back-off, and the retry.
  *
- * A plugin may ask for less, or for more up to {@link PLUGIN_INVOKE_TIMEOUT_MS}.
- * That ceiling is not arbitrary: every call into plugin code is already
- * abandoned by `PluginInvoker` at that deadline, so a fetch budget above it
- * describes time the plugin will never be given.
+ * A plugin may ask for less, or for more up to whatever the invocation it is
+ * running inside has left ({@link PLUGIN_INVOKE_TIMEOUT_MS} when there is no
+ * invocation to ask). That ceiling is not arbitrary: the call into plugin code
+ * is already abandoned by `PluginInvoker` at that deadline, so a fetch budget
+ * above it describes time the plugin will never be given.
  */
 export const PLUGIN_FETCH_TIMEOUT_MS = 10_000;
 
@@ -302,6 +304,14 @@ export class PluginHostFactory {
      * `Retry-After` back-off, the retry. Separate caps per phase is how a call
      * ends up promising a 10s timeout and taking 40s, and how a limit gets
      * written down that the invoker's own deadline means can never be reached.
+     *
+     * The ceiling is what the invocation this runs inside has left, not
+     * `PLUGIN_INVOKE_TIMEOUT_MS`. That constant is only the invoker's default,
+     * and clamping to it was wrong in both directions: a caller that asked for
+     * a shorter invocation got a fetch that outlived it and was killed
+     * mid-flight, and one that asked for a longer background budget could not
+     * spend it. Outside any invocation (a plugin fetching from a timer of its
+     * own) there is nothing to inherit, so the constant is the fallback.
      */
     private async hostFetch(
         manifest: PluginManifest,
@@ -313,7 +323,17 @@ export class PluginHostFactory {
         const target = this.assertAllowed(manifest, logger, url);
         const hostname = target.hostname.toLowerCase();
 
-        const budgetMs = Math.min(init?.timeoutMs ?? PLUGIN_FETCH_TIMEOUT_MS, PLUGIN_INVOKE_TIMEOUT_MS);
+        const ceilingMs = invocationRemainingMs() ?? PLUGIN_INVOKE_TIMEOUT_MS;
+        // Already out of time. Issuing the request anyway would spend a round
+        // trip on a response nobody is left to receive, and report it as a
+        // transport failure when the truth is that the call was over.
+        if (ceilingMs <= 0) {
+            throw new PluginError(`plugin "${manifest.id}" fetch to "${hostname}" failed: the call's deadline had already passed`).withCode(
+                'timeout',
+            );
+        }
+
+        const budgetMs = Math.min(init?.timeoutMs ?? PLUGIN_FETCH_TIMEOUT_MS, ceilingMs);
         const deadlineAt = Date.now() + budgetMs;
 
         await this.consumeRateLimit(manifest, limiter, deadlineAt);

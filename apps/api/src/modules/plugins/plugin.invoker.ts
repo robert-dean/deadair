@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { PluginError, isResourceScopedCode, toPluginError } from '@deadair/plugin-sdk';
+import { runWithDeadline } from './plugin.invocation.deadline.js';
 import { PluginLog } from './plugin.log.js';
 import { PluginRegistry } from './plugin.registry.js';
 
@@ -122,7 +123,12 @@ export class PluginInvoker {
         try {
             // `fn` may throw synchronously; wrapping it keeps that on the same
             // path as a rejection instead of escaping the race entirely.
-            const call = (async () => fn(timeout.signal))();
+            //
+            // Published as the ambient deadline as well as raced against, so
+            // host services the plugin calls back into can size their own
+            // budgets against the time this call actually has left rather than
+            // against the default constant. See `plugin.invocation.deadline.ts`.
+            const call = runWithDeadline(Date.now() + timeoutMs, async () => fn(timeout.signal));
             const result = await Promise.race([call, timeout.expiry]);
             this.recordSuccess(pluginId);
             return result;

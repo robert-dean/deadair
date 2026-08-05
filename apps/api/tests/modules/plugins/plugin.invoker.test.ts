@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 
+import { invocationRemainingMs } from '../../../src/modules/plugins/plugin.invocation.deadline.js';
 import { PLUGIN_FAILURE_THRESHOLD, PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
@@ -37,6 +38,31 @@ describe('PluginInvoker.invoke', () => {
 
         expect(sawAbort).toBe(true);
         expect(registry.get('p')?.error).toBeDefined();
+    });
+
+    it('publishes the call deadline, so host services the plugin calls back into can size their own budgets', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+
+        // Read from inside the call, which is where a host service reads it:
+        // there is no parameter that could carry it across arbitrary plugin code.
+        const seen = await invoker.invoke('p', 'op', async () => invocationRemainingMs(), { timeoutMs: 5_000 });
+
+        expect(seen).toBeGreaterThan(4_000);
+        expect(seen).toBeLessThanOrEqual(5_000);
+    });
+
+    it('leaves no ambient deadline behind once the call is over', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+
+        await invoker.invoke('p', 'op', async () => undefined);
+
+        // A plugin fetching from a timer of its own is outside any invocation,
+        // and reading a stale deadline there would be worse than reading none.
+        expect(invocationRemainingMs()).toBeUndefined();
     });
 
     it('captures a synchronous throw: invoke rejects with a useful message, op name recorded, process unharmed', async () => {

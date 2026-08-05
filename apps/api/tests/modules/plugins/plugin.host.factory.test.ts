@@ -13,6 +13,7 @@ import {
     PluginHostFactory,
     PluginHostFactoryOptions,
 } from '../../../src/modules/plugins/plugin.host.factory.js';
+import { runWithDeadline } from '../../../src/modules/plugins/plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from '../../../src/modules/plugins/plugin.invoker.js';
 import {
     PLUGIN_STORAGE_MAX_KEYS,
@@ -104,6 +105,15 @@ function factory(
 ) {
     return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), configService, storage, stubPluginLog().log);
 }
+
+/** A fetch that never answers on its own: it settles only when the host aborts it. */
+const neverResolvingFetch = () =>
+    vi.fn(
+        async (_url: URL, init: RequestInit) =>
+            new Promise<Response>((_resolve, reject) => {
+                init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+            }),
+    );
 
 /** The rejection, or a failure if there wasn't one. */
 async function rejection(promise: Promise<unknown>): Promise<unknown> {
@@ -665,15 +675,7 @@ describe('PluginHostFactory fetch budget', () => {
 
     it('clamps a plugin asking for longer than the invoke deadline down to it', async () => {
         vi.useFakeTimers();
-        vi.stubGlobal(
-            'fetch',
-            vi.fn(
-                async (_url: URL, init: RequestInit) =>
-                    new Promise<Response>((_resolve, reject) => {
-                        init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
-                    }),
-            ),
-        );
+        vi.stubGlobal('fetch', neverResolvingFetch());
         const host = factory().createHost(allowlisted('api.example.com'));
 
         const call = host.fetch('https://api.example.com/slow', { timeoutMs: 120_000 });
@@ -681,6 +683,53 @@ describe('PluginHostFactory fetch budget', () => {
 
         await vi.advanceTimersByTimeAsync(PLUGIN_INVOKE_TIMEOUT_MS + 100);
         await assertion;
+    });
+
+    it('shrinks the budget to what the invocation it runs inside has left', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('fetch', neverResolvingFetch());
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        // Default fetch budget is 10s; the call it is running inside ends in 2.
+        const call = runWithDeadline(Date.now() + 2_000, async () => host.fetch('https://api.example.com/slow'));
+        const assertion = expectPluginError(call, 'timeout', /timed out after 2000ms/);
+
+        await vi.advanceTimersByTimeAsync(2_100);
+        await assertion;
+    });
+
+    it('lets a longer invocation buy a longer fetch than the default invoke deadline allows', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('fetch', neverResolvingFetch());
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        // A background job that gave itself a minute, asking for 30s of it.
+        const call = runWithDeadline(Date.now() + 60_000, async () => host.fetch('https://api.example.com/slow', { timeoutMs: 30_000 }));
+        const assertion = expectPluginError(call, 'timeout', /timed out after 30000ms/);
+
+        let settled = false;
+        void call.then(
+            () => (settled = true),
+            () => (settled = true),
+        );
+
+        // Past the constant that used to be the ceiling, and still running.
+        await vi.advanceTimersByTimeAsync(PLUGIN_INVOKE_TIMEOUT_MS + 100);
+        expect(settled).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(30_000);
+        await assertion;
+    });
+
+    it('refuses without a round trip when the invocation is already out of time', async () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const call = runWithDeadline(Date.now() - 1, async () => host.fetch('https://api.example.com/x'));
+
+        await expectPluginError(call, 'timeout', /deadline had already passed/);
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('skips a Retry-After back-off that would outlast the budget, handing the 429 back instead', async () => {
@@ -725,15 +774,7 @@ describe('PluginHostFactory fetch failures, as the client sees them', () => {
 
     it('answers 504 PLUGIN_TIMED_OUT when the host abandoned the call on its deadline', async () => {
         vi.useFakeTimers();
-        vi.stubGlobal(
-            'fetch',
-            vi.fn(
-                async (_url: URL, init: RequestInit) =>
-                    new Promise<Response>((_resolve, reject) => {
-                        init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
-                    }),
-            ),
-        );
+        vi.stubGlobal('fetch', neverResolvingFetch());
         const host = factory().createHost(allowlisted('api.example.com'));
 
         const call = rejection(host.fetch('https://api.example.com/slow', { timeoutMs: 1_000 }));

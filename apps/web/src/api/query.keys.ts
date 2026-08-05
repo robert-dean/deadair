@@ -28,4 +28,21 @@ export const queryKeys = {
         list: () => ['playlists', 'list'] as const,
         tracks: (pluginId: string, playlistId: string) => ['playlists', 'tracks', pluginId, playlistId] as const,
     },
+    /**
+     * The station's own catalog, as opposed to `playlists`, which is whatever the enabled plugins
+     * can offer right now.
+     *
+     * Every list key carries its page and search term. They are a different query rather than a
+     * stale one: page 2 is not page 1 refetched, and a search that reused the unfiltered key would
+     * overwrite the full list in the cache with a filtered slice of it.
+     */
+    catalog: {
+        artists: (page: number, search?: string) => ['catalog', 'artists', page, search ?? ''] as const,
+        artist: (id: string) => ['catalog', 'artist', id] as const,
+        artistAlbums: (id: string, page: number, search?: string) => ['catalog', 'artist', id, 'albums', page, search ?? ''] as const,
+        albums: (page: number, search?: string) => ['catalog', 'albums', page, search ?? ''] as const,
+        album: (id: string) => ['catalog', 'album', id] as const,
+        albumTracks: (id: string, page: number, search?: string) => ['catalog', 'album', id, 'tracks', page, search ?? ''] as const,
+        tracks: (page: number, search?: string) => ['catalog', 'tracks', page, search ?? ''] as const,
+    },
 } as const;

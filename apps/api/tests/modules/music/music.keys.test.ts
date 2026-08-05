@@ -3,6 +3,11 @@
 // keys match. So the tests come in two halves — spellings that MUST collide,
 // and distinctions that must NOT be flattened, because a key that over-matches
 // silently binds one artist's tracks to another.
+//
+// The non-Latin cases carry the most weight. They are not a nicety: an artist
+// whose name yields an empty key cannot be stored at all (`artist_key` is
+// `not null unique`, so one shared row would swallow every such artist), so
+// anything this function drops entirely is music the station cannot hold.
 
 import { describe, expect, it } from 'vitest';
 
@@ -53,6 +58,60 @@ describe('normalizeKey', () => {
     it('keeps digits, which carry meaning in titles', () => {
         expect(normalizeKey('Blink-182')).toBe('blink 182');
         expect(normalizeKey('1999')).toBe('1999');
+    });
+
+    describe('scripts other than Latin', () => {
+        it.each([
+            ['Japanese', 'サカナクション'],
+            ['Cyrillic', 'Мумий Тролль'],
+            ['Hangul', '방탄소년단'],
+            ['Han', '宇多田ヒカル'],
+            ['Greek', 'Σίσυφος'],
+            ['Hebrew', 'אריק איינשטיין'],
+            ['Arabic', 'بدر'],
+            ['Thai', 'ก้อน'],
+        ])('keeps a %s name as a usable key rather than dropping it', (_script, name) => {
+            expect(normalizeKey(name).length).toBeGreaterThan(0);
+        });
+
+        it('keeps the Latin part of a mixed name alongside the rest', () => {
+            expect(normalizeKey('宇多田ヒカル Utada')).toBe('宇多田ヒカル utada');
+            expect(normalizeKey('BTS 방탄소년단')).toBe('bts 방탄소년단');
+        });
+
+        it('does not conflate Japanese voiced kana with their unvoiced base', () => {
+            // NFKD splits `が` into `か` + a combining voice mark. Stripping that
+            // mark as though it were a Latin accent would merge distinct words.
+            expect(normalizeKey('が')).not.toBe(normalizeKey('か'));
+            expect(normalizeKey('だ')).not.toBe(normalizeKey('た'));
+            expect(normalizeKey('ガガガSP')).not.toBe(normalizeKey('カカカSP'));
+        });
+
+        it('does not conflate Cyrillic й with и', () => {
+            // `й` decomposes to `и` + U+0306, which sits in the very range the
+            // Latin accent rule covers — hence that rule requiring a Latin base.
+            expect(normalizeKey('й')).not.toBe(normalizeKey('и'));
+            expect(normalizeKey('Мумий')).not.toBe(normalizeKey('Мумии'));
+        });
+
+        it('does not split a word where a mark could be mistaken for punctuation', () => {
+            // The failure this replaced: `がっこうぐらし` came out as "か っこうく らし".
+            expect(normalizeKey('がっこうぐらし')).toBe('がっこうぐらし');
+            expect(normalizeKey('がっこうぐらし')).not.toContain(' ');
+        });
+
+        it.each([
+            ['composed and decomposed Hangul', '한국', '한국'.normalize('NFD')],
+            ['composed and decomposed kana', 'が', 'が'.normalize('NFD')],
+            ['half-width and full-width katakana', 'ｶﾞｷ', 'ガキ'],
+            ['full-width and ASCII latin', 'Ａｂｃ', 'Abc'],
+        ])('folds %s together', (_label, a, b) => {
+            expect(normalizeKey(a)).toBe(normalizeKey(b));
+        });
+
+        it('still tells two different non-Latin names apart', () => {
+            expect(normalizeKey('サカナクション')).not.toBe(normalizeKey('サカナ'));
+        });
     });
 
     it('returns an empty string when nothing survives normalization', () => {

@@ -31,7 +31,7 @@
         "@maroonedsoftware/encryption": "^0.5.5",
         "@maroonedsoftware/errors": "^1.8.0",
         "@maroonedsoftware/eventbus": "^0.1.2",
-        "@maroonedsoftware/jobbroker": "^1.10.0",
+        "@maroonedsoftware/jobbroker": "^1.11.0",
         "@maroonedsoftware/koa": "^3.0.3",
         "@maroonedsoftware/kysely": "^0.7.3",
         "@maroonedsoftware/logger": "^1.1.3",

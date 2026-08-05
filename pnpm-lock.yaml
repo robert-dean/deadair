@@ -66,8 +66,8 @@ importers:
         specifier: ^0.1.2
         version: 0.1.2
       '@maroonedsoftware/jobbroker':
-        specifier: ^1.10.0
-        version: 1.10.0(pg-boss@12.27.0)
+        specifier: ^1.11.0
+        version: 1.11.0(pg-boss@12.27.0)
       '@maroonedsoftware/koa':
         specifier: ^3.0.3
         version: 3.0.3(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.0(@maroonedsoftware/logger@1.1.3))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)
@@ -940,8 +940,8 @@ packages:
     resolution: {integrity: sha512-vZJLck0SgWAiheadBVi5FdaIDNXxCI4HlUh4Ez8YPOHU7KPYtX2t3o+AyjBLJXF5Wei6o73J7N5+w164YeDb7w==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/jobbroker@1.10.0':
-    resolution: {integrity: sha512-5LwEMWexiYcOBHvHWbnkxp1Bt9y5jorK+SuCtfT0kfjwFNcXp/b2jqTkmjHTN3+DsdACtZuwkKgy9oAwlkT4rA==}
+  '@maroonedsoftware/jobbroker@1.11.0':
+    resolution: {integrity: sha512-QmBlU4XKRkdgm/+OYQjlwKTxFe52ySWuW7hwnPzwLxnlBR2AJXnyfWIjxNXiQ/IhGR1VSy4eReC161q33JXxUw==}
     engines: {node: '>=22'}
     peerDependencies:
       pg-boss: ^12.5.4
@@ -4984,7 +4984,7 @@ snapshots:
     dependencies:
       injectkit: 1.6.0
 
-  '@maroonedsoftware/jobbroker@1.10.0(pg-boss@12.27.0)':
+  '@maroonedsoftware/jobbroker@1.11.0(pg-boss@12.27.0)':
     dependencies:
       '@maroonedsoftware/errors': 1.8.0
       '@maroonedsoftware/logger': 1.1.3

@@ -64,8 +64,13 @@ export class PlayoutService {
      */
     async getStatus(): Promise<PlayoutStatus> {
         const nowPlaying = this.rundown.nowPlaying();
+        // The mount is a setting, so the console follows it rather than keeping a second
+        // copy that drifts. A PATH, not a URL: `stream.icecastHost` names Icecast as the
+        // app's containers see it, which is not an address a browser can reach.
+        const { mount } = await this.stream.settings();
 
         return {
+            mountPath: mount,
             // Reachability is the honest answer to "can anything air right now".
             // A running order with no stream to hand it to plays nothing, and a
             // console that showed a queue without saying so would be lying by omission.

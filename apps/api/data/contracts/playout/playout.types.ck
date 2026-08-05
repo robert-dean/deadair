@@ -26,6 +26,7 @@ contract PlayoutNowPlaying: { # What the PLAYER says is airing, which is not the
 
 contract PlayoutStatus: { # The station's transport, as one reading
     streamUp: boolean # Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds
+    mountPath: string(min=1, max=200) # Same-origin path of the Icecast mount, for a console that wants to monitor what it is driving. A path rather than a URL: the browser reaches Icecast through whatever edge served the SPA, never at the address the app itself uses
     nowPlaying?: PlayoutNowPlaying
     upNext: array(PlayoutItem) # Waiting here, in order. Excludes what the player already holds
     queuedCount: number # How many items are waiting in total, of which `upNext` is the head

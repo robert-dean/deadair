@@ -5,6 +5,19 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 // The dev API port: PORT in apps/api/.env. nginx.dev.conf proxies :8080 to the same host port.
 const API_TARGET = 'http://127.0.0.1:3333';
 
+// Icecast, on the port docker-compose publishes to the host.
+const ICECAST_TARGET = 'http://127.0.0.1:8000';
+
+/**
+ * The Icecast mount path, for the console's stream monitor.
+ *
+ * The station's real mount is the `stream.mount` setting (the API reports it as
+ * `PlayoutStatus.mountPath`), but a dev proxy cannot read the database, so this
+ * matches the default — the same coupling `nginx/snippets/icecast.conf` carries.
+ * Change the setting away from the default and this has to change with it.
+ */
+const MOUNT_PATH = '/live.mp3';
+
 export default defineConfig({
     plugins: [
         // Must precede react() so the generated route tree is in place before JSX transforms.
@@ -25,6 +38,16 @@ export default defineConfig({
                 target: API_TARGET,
                 changeOrigin: true,
                 rewrite: path => path.replace(/^\/api/, ''),
+            },
+            // So the monitor works when the SPA is opened on this port directly rather
+            // than through nginx, which proxies the mount in dev and prod alike.
+            [MOUNT_PATH]: {
+                target: ICECAST_TARGET,
+                changeOrigin: true,
+                // A live stream never completes: the default timeouts would cut it off
+                // mid-listen, which reads as the station dropping out.
+                timeout: 0,
+                proxyTimeout: 0,
             },
         },
     },

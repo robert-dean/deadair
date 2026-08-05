@@ -25,7 +25,7 @@ export interface PlayoutItem {
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L34)
+ * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L35)
  */
 export interface PlayoutAiredQuery {
     /** The id the app put on the pushed uri's `annotate:` metadata */
@@ -34,7 +34,7 @@ export interface PlayoutAiredQuery {
 
 /**
  * The shared secret gating the internal playout bridge, in both directions
- * generated from [PlayoutBridgeHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L38)
+ * generated from [PlayoutBridgeHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L39)
  */
 export interface PlayoutBridgeHeaders {
     /** The shared secret gating the internal playout bridge, in both directions */
@@ -43,7 +43,7 @@ export interface PlayoutBridgeHeaders {
 
 /**
  * The shared secret gating the track shim's login route
- * generated from [SpotifyLoginHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L42)
+ * generated from [SpotifyLoginHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L43)
  */
 export interface SpotifyLoginHeaders {
     /** The shared secret gating the track shim's login route */
@@ -52,7 +52,7 @@ export interface SpotifyLoginHeaders {
 
 /**
  * A login for the track shim to open its own Spotify session with. Machine-to-machine: this never reaches a browser
- * generated from [SpotifySessionLogin](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L46)
+ * generated from [SpotifySessionLogin](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L47)
  */
 export interface SpotifySessionLogin {
     /** The connected account's Spotify id, which is what librespot logs in with */
@@ -80,6 +80,8 @@ export interface PlayoutNowPlaying {
 export interface PlayoutStatus {
     /** Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds */
     streamUp: boolean;
+    /** Same-origin path of the Icecast mount, for a console that wants to monitor what it is driving. A path rather than a URL: the browser reaches Icecast through whatever edge served the SPA, never at the address the app itself uses */
+    mountPath: string;
     nowPlaying?: PlayoutNowPlaying;
     /** Waiting here, in order. Excludes what the player already holds */
     upNext: PlayoutItem[];

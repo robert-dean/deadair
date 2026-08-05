@@ -13,6 +13,7 @@ import { apiErrorMessage } from '../api/sdk.error';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
 import { usePlayoutStatus } from '../api/playout.queries';
 import { hasTransportToShow, TransportBar } from '../components/playout/transport.bar';
+import { StreamMonitor } from '../components/playout/stream.monitor';
 
 /** Height of the transport strip, reserved by the shell only while it is showing. */
 const TRANSPORT_HEIGHT = 56;
@@ -77,6 +78,12 @@ export function RootLayout() {
                             <Anchor component={Link} to="/about" size="sm">
                                 About
                             </Anchor>
+                            {/* In the header rather than in the transport bar, which hides itself
+                                when the station is idle. The mount is never silent — it falls
+                                through to the local bed and then the ident — so "is anything
+                                actually going out?" is a question worth being able to answer
+                                precisely when deadair is NOT driving it. */}
+                            {playout.data ? <StreamMonitor mountPath={playout.data.mountPath} /> : undefined}
                             <Button
                                 variant="subtle"
                                 size="compact-sm"

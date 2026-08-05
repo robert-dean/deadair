@@ -1,4 +1,4 @@
-import { Alert, Anchor, Card, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -27,7 +27,14 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
                 </Text>
             </Stack>
 
-            <CatalogSearch value={search} placeholder="Search artists" onChange={onSearchChange} />
+            <Group justify="space-between" align="center">
+                <CatalogSearch value={search} placeholder="Search artists" onChange={onSearchChange} />
+                {/* The flat list is the only way to find a song whose artist the operator does not
+                    already know, so it needs a way in that is not the address bar. */}
+                <Anchor renderRoot={props => <Link to="/catalog/tracks" {...props} />} size="sm">
+                    Browse all tracks
+                </Anchor>
+            </Group>
 
             {artists.error ? (
                 <Alert color="red" title="The catalog could not be loaded">

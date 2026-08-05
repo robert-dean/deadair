@@ -11,6 +11,7 @@ import { queryKeys } from '../../src/api/query.keys';
 import { createTestQueryClient } from '../utils/render';
 
 const listArtists = vi.fn();
+const listTracks = vi.fn();
 const getArtist = vi.fn();
 const listArtistAlbums = vi.fn();
 const getAlbum = vi.fn();
@@ -20,6 +21,7 @@ vi.mock('../../src/api/client', () => ({
     sdk: {
         catalog: {
             listArtists: (...args: unknown[]) => listArtists(...args),
+            listTracks: (...args: unknown[]) => listTracks(...args),
             getArtist: (...args: unknown[]) => getArtist(...args),
             listArtistAlbums: (...args: unknown[]) => listArtistAlbums(...args),
             getAlbum: (...args: unknown[]) => getAlbum(...args),
@@ -37,6 +39,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const { Route: ArtistsRoute } = await import('../../src/routes/catalog/index');
+const { Route: TracksRoute } = await import('../../src/routes/catalog/tracks');
 const { Route: ArtistRoute } = await import('../../src/routes/catalog/artists/$artistId');
 const { Route: AlbumRoute } = await import('../../src/routes/catalog/albums/$albumId');
 
@@ -90,6 +93,18 @@ describe('/catalog loader', () => {
 
         await expect(runLoader(ArtistsRoute, { context: { queryClient }, deps: { page: 0, search: '' } })).resolves.toBeUndefined();
         expect(queryClient.getQueryState(queryKeys.catalog.artists(0, ''))?.status).toBe('error');
+    });
+});
+
+describe('/catalog/tracks loader', () => {
+    it('carries the search term through, since finding one song is what the flat list is for', async () => {
+        listTracks.mockResolvedValue(emptyPage);
+        const queryClient = createTestQueryClient();
+
+        await runLoader(TracksRoute, { context: { queryClient }, deps: { page: 0, search: 'vaka' } });
+
+        expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ search: 'vaka' }));
+        expect(queryClient.getQueryData(queryKeys.catalog.tracks(0, 'vaka'))).toEqual(emptyPage);
     });
 });
 

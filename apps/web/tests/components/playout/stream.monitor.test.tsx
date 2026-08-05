@@ -66,7 +66,7 @@ describe('StreamMonitor', () => {
     });
 });
 
-describe('StreamMonitor live-edge trim', () => {
+describe('StreamMonitor lag', () => {
     beforeEach(() => {
         vi.useFakeTimers();
     });
@@ -83,22 +83,40 @@ describe('StreamMonitor live-edge trim', () => {
         });
     }
 
-    it('plays fast while it is sitting on buffer, and only while', async () => {
+    it('never touches the playback rate, however far behind it gets', async () => {
+        // Playing fast to drain the buffer sounds like the fix and is not: Icecast
+        // delivers at exactly real time, so consuming faster reaches zero buffer and
+        // the element stalls, which is audible glitching AND a fresh delay after
+        // every rebuffer. This is the regression that behaviour caused, held down.
         await listening();
 
-        buffered = 4;
+        buffered = 8;
         act(() => {
-            vi.advanceTimersByTime(1_000);
+            vi.advanceTimersByTime(5_000);
         });
-        expect(element().playbackRate).toBeCloseTo(1.03);
 
-        // Drained back under the threshold: stop rushing, and keep the slack that
-        // is left so the next hiccup is not a dropout.
-        buffered = 0.5;
+        expect(element().playbackRate).toBe(1);
+    });
+
+    it('goes back to the live edge only when asked, by reconnecting', async () => {
+        await listening();
+        await act(async () => {
+            screen.getByLabelText('Monitor volume').click();
+        });
+        buffered = 6;
         act(() => {
             vi.advanceTimersByTime(1_000);
         });
-        expect(element().playbackRate).toBe(1);
+        const before = element().getAttribute('src');
+
+        await act(async () => {
+            screen.getByRole('button', { name: 'Catch up to the live edge' }).click();
+        });
+
+        // A fresh, cache-busted connection: the only thing that actually returns an
+        // element to the live edge, at the cost of a momentary gap.
+        expect(element().getAttribute('src')).not.toBe(before);
+        expect(element().getAttribute('src')).toMatch(/^\/live\.mp3\?t=\d+$/);
     });
 
     it('says how far behind it is rather than leaving it a suspicion', async () => {

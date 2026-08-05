@@ -10,6 +10,7 @@ import { SettingsModule } from './settings/settings.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
 
 // Registered in dependency order: infrastructure (data, shared, messaging,
 // events) first, then the single-actor identity/auth foundation. IdentityModule
@@ -21,6 +22,7 @@ export const modules: ServerKitModule[] = [
     AuthenticationModule,
     PermissionsModule,
     PolicyModule,
+    JobsModule,
     MusicModule,
     OnboardingModule,
     SettingsModule,

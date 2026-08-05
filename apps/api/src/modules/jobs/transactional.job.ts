@@ -1,4 +1,4 @@
-import { Container, ScopedContainer } from 'injectkit';
+import { Container, Injectable, ScopedContainer } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
@@ -29,7 +29,7 @@ import { overrideJobActor } from './job.authorization.js';
  * the transaction is open:
  *
  * ```typescript
- * @Injectable({ deps: [Container] })
+ * @Injectable()
  * export class ReconcileTracksJob extends TransactionalJob<{ playlistId: string }> {
  *     protected async execute(payload: { playlistId: string }): Promise<void> {
  *         const tracks = this.container.get(TracksService);
@@ -38,9 +38,12 @@ import { overrideJobActor } from './job.authorization.js';
  * }
  * ```
  *
- * Declare `deps` explicitly: a subclass with no constructor of its own emits no
- * `design:paramtypes`, so the metadata fallback would resolve it with no
- * arguments.
+ * A plain `@Injectable()` is enough, and the `@Injectable()` on this class is
+ * what makes that true. A subclass with no constructor of its own emits no
+ * `design:paramtypes`, so injectkit walks up the prototype chain looking for a
+ * base that has some; decorating this class is what puts `[Container]` there for
+ * it to find. Without it every subclass would have to repeat
+ * `{ deps: [Container] }` and would fail loudly at first dequeue if it forgot.
  *
  * **This is opt-in per job, not a blanket wrapper**, and that is the other
  * difference from the request path. A request is short and the pool is sized for
@@ -53,6 +56,7 @@ import { overrideJobActor } from './job.authorization.js';
  * transaction, so delivery stays at-least-once: a crash between commit and ack
  * re-runs the job. Handlers still have to be idempotent.
  */
+@Injectable()
 export abstract class TransactionalJob<Payload extends object = object> implements Job<Payload> {
     constructor(protected readonly container: Container) {}
 

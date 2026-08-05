@@ -1,4 +1,4 @@
-import { Container, Injectable } from 'injectkit';
+import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { TransactionalJob } from '#modules/jobs/transactional.job.js';
@@ -15,7 +15,7 @@ import { CatalogPlaceholderService } from './catalog.placeholder.service.js';
  * Sent by the catalog sync whenever a run added to the library, and safe to run
  * at any other time — it only ever reads more of the same rows.
  */
-@Injectable({ deps: [Container] })
+@Injectable()
 export class CatalogPlaceholderJob extends TransactionalJob {
     /**
      * Collaborators are resolved here rather than injected, as

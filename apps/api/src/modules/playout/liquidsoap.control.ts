@@ -31,6 +31,27 @@ const CONTROL_TIMEOUT_MS = 2000;
 export const CONTROL_TTL_S = 6;
 
 /**
+ * How many items beyond the one on air the station keeps ready, in both senses:
+ * how many the app hands over ({@link PlayoutPusher}'s lead) and how many
+ * Liquidsoap RESOLVES ahead (`request.queue(prefetch=…)`, materialized into
+ * `radio.env`). One number, because the two are useless apart — pushing items
+ * Liquidsoap will not resolve buys nothing, and a prefetch with nothing pushed
+ * has nothing to resolve.
+ *
+ * This is what makes a skip land at once. `prefetch` defaults to 1, so exactly
+ * one track is ever downloaded ahead; a skip spends it, and a second skip before
+ * the replacement finishes downloading has nothing resolved to cut to. Measured
+ * on a real station, that is the difference between a ~200ms skip and one that is
+ * either seconds late or silently swallowed.
+ *
+ * Three, so an operator can click through a few tracks and each one lands. The
+ * cost is real but small: three tracks fetched ahead rather than one, which is
+ * disk and upstream traffic in the stream container. Raising it further buys
+ * deeper clicking and commits the running order further ahead.
+ */
+export const PLAYOUT_LEAD = 3;
+
+/**
  * What Liquidsoap reports about its playout queue: `radio.liq`'s `playout_reading`.
  *
  * Everything past `queued` is optional because a running Liquidsoap may be on an

@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { annotateUri, ITEM_KEY } from './annotate.js';
-import { PlayoutControlClient } from './liquidsoap.control.js';
+import { PLAYOUT_LEAD, PlayoutControlClient } from './liquidsoap.control.js';
 import { Rundown } from './rundown.js';
 
 /**
@@ -18,12 +18,16 @@ import { Rundown } from './rundown.js';
 /**
  * How many items to keep queued BEYOND the one on air.
  *
- * One, because Liquidsoap resolves (and, for an http uri, downloads) the queued
- * item while the previous one plays. That is the lead the fetch needs, and it is
- * what keeps the boundary gapless. Zero would mean pushing at the boundary
- * itself, and any hesitation there drops the mount to the local bed for a moment.
+ * Liquidsoap resolves (and, for an http uri, downloads) queued items while the
+ * current one plays, so this is the lead the fetch needs and what keeps a
+ * boundary gapless. Zero would mean pushing at the boundary itself, and any
+ * hesitation there drops the mount for a moment.
+ *
+ * It has to match the queue's `prefetch`, which is why it comes from the shared
+ * {@link PLAYOUT_LEAD}: handing over more than Liquidsoap will resolve leaves
+ * items sitting unfetched, which is exactly the state a skip cannot land in.
  */
-const LEAD = 1;
+const LEAD = PLAYOUT_LEAD;
 
 /** Safety net for anything that does not emit a change: a restart, a dropped push. */
 const TICK_MS = 2000;
@@ -152,7 +156,18 @@ export class PlayoutPusher {
             // memory of it.
             this.rundown.reconcile(reading);
 
-            for (let queued = reading.queued; queued < LEAD; queued++) {
+            // Whichever of the two says the player is holding MORE.
+            //
+            // `queued` counts pending requests and the ones the prefetch has resolved,
+            // but NOT the one it is currently resolving — so during a download it
+            // under-reports, and topping up against it alone hands over an extra item
+            // every pass until the fetch completes. `served` is the app's own count of
+            // what it handed over, which covers the in-flight item but knows nothing
+            // about requests this process never pushed — a Liquidsoap that outlived an
+            // app restart is still holding those, and pushing on top of them would
+            // stack the queue deeper than the lead.
+            const held = Math.max(this.rundown.servedCount(), reading.queued);
+            for (let depth = held; depth < LEAD; depth++) {
                 const pulled = await this.rundown.next();
                 // Nothing left: the player drains, the mount falls back to the local bed,
                 // and loading a new order will wake us through onChange.

@@ -191,6 +191,21 @@ export class Rundown {
     }
 
     /**
+     * How many items the player is believed to be holding: handed over and not
+     * yet aired.
+     *
+     * What the pusher tops up against, and deliberately not the reading's own
+     * `queued`. That number omits the request Liquidsoap is currently resolving,
+     * so it dips for the length of a download — and a top-up driven by it hands
+     * over an extra item every pass until the fetch completes. This is the same
+     * number reconciled against the reading a moment earlier, so it counts what
+     * is in flight too.
+     */
+    servedCount(): number {
+        return this.served.length;
+    }
+
+    /**
      * What is on air, with the playhead projected from the last reading. Projected
      * on read rather than on a timer, so it is never served stale and nothing
      * pulses through the listeners every couple of seconds.

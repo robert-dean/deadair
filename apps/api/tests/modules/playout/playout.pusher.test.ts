@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
-import type { PlayoutControlClient, QueueStatus } from '../../../src/modules/playout/liquidsoap.control.js';
+import { PLAYOUT_LEAD, type PlayoutControlClient, type QueueStatus } from '../../../src/modules/playout/liquidsoap.control.js';
 import type { Logger } from '@maroonedsoftware/logger';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -118,24 +118,55 @@ function setup(ids: string[], reading: QueueStatus | undefined, options: { pushL
 }
 
 describe('PlayoutPusher.reconcile', () => {
-    it('hands one item over when the player is empty', async () => {
-        // The lead is one: Liquidsoap downloads the queued item while the previous one
-        // plays, so pushing more buys nothing and pushing none leaves a gap.
-        const { pusher, pushed } = setup(['a', 'b', 'c'], { queued: 0, ready: false });
+    it('fills the lead when the player is empty', async () => {
+        // The lead is what Liquidsoap DOWNLOADS ahead: each item is fetched while the
+        // previous one plays, and a skip can only land at once onto one that is already
+        // fetched. Pushing fewer than the prefetch leaves it with nothing to resolve.
+        const { pusher, pushed } = setup(['a', 'b', 'c', 'd'], { queued: 0, ready: false });
 
         await pusher.reconcile();
 
-        expect(pushed).toHaveLength(1);
+        expect(pushed).toHaveLength(PLAYOUT_LEAD);
         expect(pushed[0]).toContain('https://example.test/a.ogg');
         expect(pushed[0]).toMatch(/^annotate:deadair_item="/);
     });
 
     it('pushes nothing when the player already holds its lead', async () => {
-        const { pusher, pushed } = setup(['a', 'b'], { queued: 1, ready: true, onAir: 'whatever' });
+        const { pusher, pushed } = setup(['a', 'b'], { queued: PLAYOUT_LEAD, ready: true, onAir: 'whatever' });
 
         await pusher.reconcile();
 
         expect(pushed).toHaveLength(0);
+    });
+
+    it('does not stack on top of requests it never pushed', async () => {
+        // A Liquidsoap that outlived an app restart is still holding items this process
+        // knows nothing about. Counting only its own hand-overs would push a full lead
+        // on top of those and leave the queue deeper than intended.
+        const { pusher, pushed } = setup(['a', 'b', 'c', 'd'], { queued: PLAYOUT_LEAD - 1, ready: true, onAir: 'from-a-previous-session' });
+
+        await pusher.reconcile();
+
+        expect(pushed).toHaveLength(1);
+    });
+
+    it('does not push again for an item the player is still fetching', async () => {
+        // The reading omits the request being resolved, so the depth dips for as long as
+        // the download takes. Topping up against that alone hands over an extra item
+        // every pass until it completes.
+        // The stub keeps answering with the same reading — nothing queued, nothing on
+        // air — which is exactly what the player reports while it is downloading what
+        // it was just given.
+        const { pusher, pushed } = setup(['a', 'b', 'c', 'd'], { queued: 0, ready: false });
+
+        await pusher.reconcile();
+        expect(pushed).toHaveLength(PLAYOUT_LEAD);
+
+        await pusher.reconcile();
+
+        // Still the same items: the app knows it handed those over, whatever the
+        // reading says about them.
+        expect(pushed).toHaveLength(PLAYOUT_LEAD);
     });
 
     it('does nothing at all when the stream is unreachable', async () => {
@@ -177,16 +208,17 @@ describe('PlayoutPusher.reconcile', () => {
             const { pusher, rundown, pushed } = setup(['a', 'b'], { queued: 0, ready: false });
 
             await pusher.reconcile();
-            expect(pushed).toHaveLength(1);
+            // Only two items in the order, so the lead cannot be filled past them.
+            expect(pushed).toHaveLength(2);
 
-            // Past the point where the player could still be fetching it: everything
+            // Past the point where the player could still be fetching them: everything
             // handed over is forgotten by the player, so it comes back to us.
             vi.advanceTimersByTime(30_000);
             rundown.reconcile({ queued: 0, ready: false });
             await pusher.reconcile();
 
-            expect(pushed).toHaveLength(2);
-            expect(pushed[1]).toContain('https://example.test/a.ogg');
+            expect(pushed).toHaveLength(4);
+            expect(pushed[2]).toContain('https://example.test/a.ogg');
         } finally {
             vi.useRealTimers();
         }

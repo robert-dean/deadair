@@ -53,7 +53,7 @@ already the state it produced:
 
 | Field | Meaning |
 | --- | --- |
-| `queued` | requests waiting, excluding the one on air (pending **and** prefetch-resolved) |
+| `queued` | requests waiting, excluding the one on air (pending **and** prefetch-resolved). Note it also excludes the one currently being *resolved*, so it dips for the length of a download — the app counts its own hand-overs alongside it rather than trusting it alone |
 | `ready` | whether the queue can produce audio at all; `false` means the mount has fallen through to another bed |
 | `onAir` | rundown item id of the request playing, `""` when not producing |
 | `driving` | whether deadair's lease is unexpired, i.e. whether any of this is reaching the mount. Every other field describes the **queue**; this one describes the **station** |
@@ -145,7 +145,16 @@ pre-signed stream URL.
 
 That is the whole point: the station **owns each track before it airs**. A skip is
 `POST /control/skip` and lands at once, the playhead is the decoder's own reading rather than
-wall-clock arithmetic, and a DJ break is an item in the running order. The station used to run
+wall-clock arithmetic, and a DJ break is an item in the running order.
+
+"At once" depends on `PLAYOUT_PREFETCH`, and this is the one number to reach for if skipping feels
+slow. Liquidsoap only ever **downloads** that many requests ahead of the one on air, however many
+the app has pushed — so with the Liquidsoap default of 1, a skip spends the only fetched track and
+a second skip during the replacement's download has nothing resolved to cut to. Measured on a real
+station: **~200ms** for a skip onto a resolved item, **>1.2s and no boundary at all** for one onto
+an unresolved queue. It defaults to 3 here, materialized by the app from the same constant it uses
+for its own push lead (`PLAYOUT_LEAD` in `apps/api/src/modules/playout/liquidsoap.control.ts`) —
+the two are useless apart, since pushing more than gets resolved buys nothing. The station used to run
 go-librespot as a Connect device and read its raw PCM through `input.external`, which meant it
 could only steer playback from the outside: seconds of audio were already committed to that pipe
 at any moment, so a skip had to wait them out.

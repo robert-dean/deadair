@@ -82,6 +82,14 @@ export interface StreamPlayoutConfig {
      * leaving the local bed playing to an audience deadair is not choosing for.
      */
     controlTtlS: number;
+    /**
+     * How many requests Liquidsoap resolves ahead of the one on air.
+     *
+     * The same number the app uses for its own push lead, because a skip only
+     * lands at once if the item behind it is already downloaded, and only
+     * `prefetch` of the pushed items ever are.
+     */
+    playoutPrefetch: number;
 }
 
 export interface WriteStreamConfigArgs {
@@ -175,6 +183,10 @@ export function writeStreamConfig({
             // claim inside this window, so the two ends have to agree: this is written from
             // the same constant the pusher renews against.
             `CONTROL_TTL_S=${shell(String(playout.controlTtlS))}`,
+            // How deep Liquidsoap fetches ahead. Written from the same constant as the
+            // app's push lead: handing over more than the queue resolves leaves items
+            // unfetched, which is the one state a skip cannot land in.
+            `PLAYOUT_PREFETCH=${shell(String(playout.playoutPrefetch))}`,
             // The duck. Read at Liquidsoap startup, so changing these re-renders the file
             // and takes effect on the next restart.
             `TALK_OVER_TRACKS=${shell(playout.talkOverTracks ? 'true' : 'false')}`,

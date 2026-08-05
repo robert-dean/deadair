@@ -119,7 +119,23 @@ station_id = mksafe(single("/radio/station-id.mp3"))
 # NOTE: written for Liquidsoap 2.4.5 (the pinned image, stream/Dockerfile). `q.length` counts
 # both the pending queue and the resolved-but-not-yet-playing one, and EXCLUDES what is on air,
 # which is exactly the depth the app tops up against. `q.set_queue([])` clears both.
-playout_queue = request.queue(id="playout")
+#
+# `prefetch` is what makes an operator skip land AT ONCE, and it is not the same thing as how many
+# items the app has pushed. Liquidsoap only ever downloads `prefetch` requests ahead of the one on
+# air; everything else pushed sits unresolved. The default is 1, so a single skip spends the only
+# fetched track and the next skip — until the replacement finishes downloading, which for a Spotify
+# track through the shim is seconds — has nothing resolved to cut to, and is silently swallowed.
+# Measured on a real station: ~200ms for a skip onto a resolved item, >1.2s and no boundary at all
+# for one onto an unresolved queue.
+#
+# PLAYOUT_PREFETCH is materialized by the app from the same constant it uses for its own push lead
+# (PLAYOUT_LEAD), because the two are useless apart: pushing more than this resolves buys nothing,
+# and this resolving more than is pushed has nothing to work on.
+# Through env_float (and back to an int) rather than int_of_string: that one's `default` is
+# NULLABLE too, so a literal default would make this an `int?` that nothing downstream accepts.
+# Same trap the duck settings hit, same way out.
+playout_prefetch = int_of_float(max(1., env_float("PLAYOUT_PREFETCH", 3.)))
+playout_queue = request.queue(id="playout", prefetch=playout_prefetch)
 
 # What the queue is playing RIGHT NOW, by rundown item id ("" before the first track, and while
 # the queue has nothing to produce). So /control/status can answer "what is airing" as an

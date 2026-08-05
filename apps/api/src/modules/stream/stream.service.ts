@@ -3,7 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { Logger } from '@maroonedsoftware/logger';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
-import { CONTROL_TTL_S } from '#modules/playout/liquidsoap.control.js';
+import { CONTROL_TTL_S, PLAYOUT_LEAD } from '#modules/playout/liquidsoap.control.js';
 import { playoutAiredUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
 import { defaultStreamAssetsDir, defaultStreamConfigDir, writeStreamConfig, type StreamPlayoutConfig } from './stream.config.js';
 import { ensureStreamSecrets, resolveStreamSettings, type StreamSettings } from './stream.settings.js';
@@ -98,6 +98,7 @@ export class StreamService {
             duckGainDb: DUCK_GAIN_DB,
             duckFadeMs: DUCK_FADE_MS,
             controlTtlS: CONTROL_TTL_S,
+            playoutPrefetch: PLAYOUT_LEAD,
         };
     }
 }

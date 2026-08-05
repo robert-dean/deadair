@@ -122,7 +122,7 @@ export function TransportBar({ status, expanded, onToggleExpanded }: TransportBa
                             labelled button below, and two controls that do one thing is
                             one more thing to be sure about mid-broadcast. */}
                         {!expanded ? (
-                            <Tooltip label="Stop, and fall back to the local music bed">
+                            <Tooltip label="Stop and go off air">
                                 <ActionIcon
                                     variant="subtle"
                                     color="red"

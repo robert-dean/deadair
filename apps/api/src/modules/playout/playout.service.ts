@@ -153,16 +153,18 @@ export class PlayoutService {
     }
 
     /**
-     * Drop the running order and take back everything queued but not airing.
+     * Drop the running order and go off air.
      *
-     * What is on air finishes, and then the mount falls through to the local
-     * music bed. Stopping the station's own programme is not the same as
-     * silence, and `radio.liq` has no way to produce silence anyway.
+     * Ends the broadcast rather than the running order: what is on air stops too,
+     * at once. deadair holds the mount on a lease it has to keep renewing, and a
+     * station standing down stops renewing it — so the audio ends with the
+     * command instead of a track later, and the mount goes quiet rather than
+     * falling through to a local bed nobody programmed.
      */
     async stop(): Promise<PlayoutStatus> {
-        // The reset listener in the pusher is what flushes the player's queue.
+        // The reset listener in the pusher is what hands the mount back.
         this.rundown.reset();
-        this.logger.info('playout: running order dropped; the mount falls back to the local bed');
+        this.logger.info('playout: standing down; the running order is dropped and the mount goes quiet');
         return this.getStatus();
     }
 

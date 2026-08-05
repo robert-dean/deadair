@@ -17,6 +17,20 @@ import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 const CONTROL_TIMEOUT_MS = 2000;
 
 /**
+ * How long one {@link PlayoutControlClient.assertOnAir} keeps the station on air,
+ * in seconds. Materialized into `radio.env` as `CONTROL_TTL_S`, so both ends of
+ * the lease come from this one number.
+ *
+ * The station airs NOTHING unless the app is actively renewing this. That makes
+ * the value a real trade: too short and an ordinary slow tick drops the mount,
+ * too long and a dead app keeps broadcasting for that many seconds. Six is three
+ * of the pusher's two-second reconciles, which is enough to ride out a slow one
+ * and short enough that a crash is over before a listener has decided what they
+ * are hearing.
+ */
+export const CONTROL_TTL_S = 6;
+
+/**
  * What Liquidsoap reports about its playout queue: `radio.liq`'s `playout_reading`.
  *
  * Everything past `queued` is optional because a running Liquidsoap may be on an
@@ -76,6 +90,34 @@ export class PlayoutControlClient {
     /** One reading of the queue, or `undefined` when the stream is not reachable. */
     async status(): Promise<QueueStatus | undefined> {
         return parseReading(await this.call('GET', '/control/status'));
+    }
+
+    /**
+     * Renew deadair's claim on the mount, and take a reading while we are there.
+     *
+     * The station is gated on this: `radio.liq` airs the programme only while an
+     * assertion is unexpired, so everything the operator hears exists because
+     * this call keeps happening. It replaces {@link status} on the reconcile loop
+     * rather than joining it, so holding the station costs no extra request.
+     *
+     * Deliberately not something the app can set once. A lease has to be renewed
+     * by something that is still running, which is exactly the property a flag
+     * would not have: a crashed app leaves a flag set.
+     */
+    async assertOnAir(): Promise<QueueStatus | undefined> {
+        return parseReading(await this.call('POST', '/control/onair'));
+    }
+
+    /**
+     * Hand the mount back at once: the station goes off air without waiting out
+     * {@link CONTROL_TTL_S}, and Liquidsoap drops what it was holding.
+     *
+     * For a deliberate stop. Letting the lease lapse would put several seconds of
+     * audio after a command the operator has already given, which is the kind of
+     * lag that makes a console feel like it is not really in charge.
+     */
+    async releaseOnAir(): Promise<QueueStatus | undefined> {
+        return parseReading(await this.call('POST', '/control/offair'));
     }
 
     /** Push one `annotate:` uri onto the queue. False when it did not land. */

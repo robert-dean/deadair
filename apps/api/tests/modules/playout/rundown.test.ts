@@ -284,4 +284,40 @@ describe('Rundown.load and reset', () => {
         expect(rundown.queuedCount()).toBe(0);
         expect(await rundown.next()).toBeUndefined();
     });
+
+    it('takes what is on air down with it, so the station stops rather than plays out', async () => {
+        // deadair holds the mount only while it has a programme. Leaving the airing
+        // item behind would have a stood-down station still asserting control of a
+        // track it just abandoned, and the audio would outlive the command.
+        const rundown = rundownWith(['a', 'b']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        expect(rundown.hasProgramme()).toBe(true);
+
+        rundown.reset();
+
+        expect(rundown.nowPlaying()).toBeUndefined();
+        expect(rundown.hasProgramme()).toBe(false);
+    });
+
+    it('still has a programme while an item it handed over has not aired yet', async () => {
+        // Handed over but not airing is the gap the lease must not fall into: the app
+        // has committed to that item and the player is fetching it.
+        const rundown = rundownWith(['a']);
+        await rundown.next();
+
+        expect(rundown.nowPlaying()).toBeUndefined();
+        expect(rundown.hasProgramme()).toBe(true);
+    });
+
+    it('tells a replacement from a stand-down, because only one of them cuts the listener off', async () => {
+        const rundown = rundownWith(['a']);
+        const announced: boolean[] = [];
+        rundown.onReset(standingDown => announced.push(standingDown));
+
+        rundown.load([{ pluginId: 'deadair.spotify', externalId: 'b', title: 'B', artists: ['An Artist'] }]);
+        rundown.reset();
+
+        expect(announced).toEqual([false, true]);
+    });
 });

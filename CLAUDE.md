@@ -84,6 +84,15 @@ the live `AppConfigStore` reload and `radio.env` materialization are planned, no
 band is applied by `POST /plugins/:id/reload`, or not at all. Anything that grows a second writer of
 that table has to call `PluginLifecycleManager.reinitPlugin` itself.
 
+**The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
+short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on
+its reconcile only while `Rundown.hasProgramme()`. So a crashed, redeployed or freshly restarted
+API takes the station off air within seconds instead of leaving Liquidsoap's local music bed
+playing to nobody's plan, and "Stop" means off air rather than fall back to the bed. Anything that
+grows a second way to drive playout has to renew the lease too, or it will be silently muted. Do
+not write docs or comments claiming the mount is never silent: it is silent exactly when deadair
+is not driving it, which is the point. See `stream/README.md`.
+
 **Two database pools.** The runtime pool connects as the non-owner `app_user` role so RLS actually enforces; a separate owner pool handles privileged maintenance.
 
 **Import aliases** are `#src/*`, `#routes/*`, `#modules/*`, declared as `paths` in

@@ -132,7 +132,7 @@ describe('TransportBar', () => {
     it('says what an empty running order means rather than showing a blank list', () => {
         renderBar(playoutStatus({ upNext: [], queuedCount: 0 }), true);
 
-        expect(screen.getByText(/falls back to the local music bed/)).toBeInTheDocument();
+        expect(screen.getByText(/deadair stops driving and the station goes off air/)).toBeInTheDocument();
     });
 });
 

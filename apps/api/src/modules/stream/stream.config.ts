@@ -74,6 +74,14 @@ export interface StreamPlayoutConfig {
     duckGainDb: number;
     /** How long the duck ramp takes, in ms. */
     duckFadeMs: number;
+    /**
+     * How long one "deadair is driving" assertion holds the mount, in seconds.
+     *
+     * The dead-man switch: `radio.liq` airs nothing unless the app is renewing
+     * this, so a crashed or restarted app takes the station off air instead of
+     * leaving the local bed playing to an audience deadair is not choosing for.
+     */
+    controlTtlS: number;
 }
 
 export interface WriteStreamConfigArgs {
@@ -163,6 +171,10 @@ export function writeStreamConfig({
             // downloaded one item AHEAD of air and only Liquidsoap knows when it started.
             `PLAYOUT_AIRED_URL=${shell(playout.playoutAiredUrl)}`,
             `PLAYOUT_BRIDGE_SECRET=${shell(playout.playoutBridgeSecret)}`,
+            // The dead-man switch. Liquidsoap airs nothing unless the app is renewing its
+            // claim inside this window, so the two ends have to agree: this is written from
+            // the same constant the pusher renews against.
+            `CONTROL_TTL_S=${shell(String(playout.controlTtlS))}`,
             // The duck. Read at Liquidsoap startup, so changing these re-renders the file
             // and takes effect on the next restart.
             `TALK_OVER_TRACKS=${shell(playout.talkOverTracks ? 'true' : 'false')}`,

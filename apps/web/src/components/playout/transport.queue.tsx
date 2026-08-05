@@ -27,7 +27,7 @@ export function TransportQueue({ upNext, queuedCount }: TransportQueueProps) {
     if (upNext.length === 0) {
         return (
             <Text size="sm" c="dimmed">
-                Nothing queued behind this. When the running order drains, the mount falls back to the local music bed.
+                Nothing queued behind this. When the running order drains, deadair stops driving and the station goes off air.
             </Text>
         );
     }

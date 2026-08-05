@@ -62,7 +62,7 @@ operation /playout/skip: {
 }
 
 operation /playout/stop: {
-    post: { # Drops the running order and takes back everything queued but not airing. What is on air finishes, then the mount falls back to the local music bed — it never goes silent
+    post: { # Stands the station down: drops the running order, stops what is on air, and hands the mount back. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
         name: Stop playout
         service: PlayoutService.stop
         security: {

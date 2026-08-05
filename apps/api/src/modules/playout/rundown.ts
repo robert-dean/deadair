@@ -83,7 +83,7 @@ export class Rundown {
     private unknownOnAir?: string;
 
     private readonly changeListeners = new Set<() => void>();
-    private readonly resetListeners = new Set<() => void>();
+    private readonly resetListeners = new Set<(standingDown: boolean) => void>();
 
     constructor(
         private readonly resolver: TrackResolver,
@@ -102,16 +102,39 @@ export class Rundown {
     load(tracks: readonly RundownTrack[]): void {
         this.queue = tracks.map(track => ({ ...track, id: randomUUID() }));
         this.served = [];
-        this.announceReset();
+        // Not a stand-down: the station is still on air, playing the item it was
+        // already playing, and only the order behind it has changed.
+        this.announceReset(false);
         this.emit();
     }
 
-    /** Stop: drop the running order entirely. What is on air still finishes. */
+    /**
+     * Stop: drop the running order entirely, including whatever was on air.
+     *
+     * The airing item goes too, which is what makes this a stand-down rather than
+     * a change of plan. deadair holds the mount only while it has a programme
+     * ({@link hasProgramme}), so leaving `airing` set would have the station
+     * asserting control of a track it has just abandoned, and the audio would
+     * outlive the command by a whole item.
+     */
     reset(): void {
         this.queue = [];
         this.served = [];
-        this.announceReset();
+        this.airing = undefined;
+        this.announceReset(true);
         this.emit();
+    }
+
+    /**
+     * Whether the station currently has anything it is responsible for airing.
+     *
+     * This is the question the dead-man switch is answered with: deadair holds
+     * the mount while this is true and hands it back when it is not, so an app
+     * that is merely RUNNING does not keep a station on air with nothing to play.
+     * An empty rundown after a restart is exactly that case.
+     */
+    hasProgramme(): boolean {
+        return this.airing !== undefined || this.served.length > 0 || this.queue.length > 0;
     }
 
     /**
@@ -249,8 +272,15 @@ export class Rundown {
         return () => this.changeListeners.delete(listener);
     }
 
-    /** Subscribe to the order being replaced or dropped. Returns the unsubscribe. */
-    onReset(listener: () => void): () => void {
+    /**
+     * Subscribe to the order being replaced or dropped. Returns the unsubscribe.
+     *
+     * `standingDown` tells the two apart, and they are not the same command: a
+     * replacement keeps the station on air and only retracts what has not been
+     * heard yet, while a stand-down ends the broadcast. Only the second one is
+     * allowed to cut a listener off mid-track.
+     */
+    onReset(listener: (standingDown: boolean) => void): () => void {
         this.resetListeners.add(listener);
         return () => this.resetListeners.delete(listener);
     }
@@ -312,7 +342,7 @@ export class Rundown {
         for (const listener of this.changeListeners) listener();
     }
 
-    private announceReset(): void {
-        for (const listener of this.resetListeners) listener();
+    private announceReset(standingDown: boolean): void {
+        for (const listener of this.resetListeners) listener(standingDown);
     }
 }

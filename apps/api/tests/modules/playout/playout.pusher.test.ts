@@ -32,6 +32,8 @@ function stubControl(reading: QueueStatus | undefined, options: { pushLands?: bo
     const pushed: string[] = [];
     const control = {
         status: vi.fn(async () => reading),
+        assertOnAir: vi.fn(async () => reading),
+        releaseOnAir: vi.fn(async () => reading),
         push: vi.fn(async (uri: string) => {
             pushed.push(uri);
             return options.pushLands ?? true;
@@ -56,6 +58,12 @@ function scriptedControl() {
     let switchAt: number | undefined;
     let switchTo: QueueStatus | undefined;
 
+    const read = async () => {
+        reads += 1;
+        if (switchAt !== undefined && reads >= switchAt) control.reading = switchTo!;
+        return control.reading;
+    };
+
     const control = {
         reading: { queued: 0, ready: false } as QueueStatus,
         /** From the `nth` reading after this call onward, the player reports `next`. */
@@ -63,11 +71,11 @@ function scriptedControl() {
             switchAt = reads + nth;
             switchTo = next;
         },
-        status: vi.fn(async () => {
-            reads += 1;
-            if (switchAt !== undefined && reads >= switchAt) control.reading = switchTo!;
-            return control.reading;
-        }),
+        status: vi.fn(read),
+        // The lease renewal answers with the same reading, which is what lets it
+        // replace the poll rather than join it.
+        assertOnAir: vi.fn(read),
+        releaseOnAir: vi.fn(read),
         push: vi.fn(async (uri: string) => {
             pushed.push(uri);
             return true;
@@ -186,7 +194,26 @@ describe('PlayoutPusher.reconcile', () => {
         await pusher.reconcile();
 
         expect(reconcileSpy).toHaveBeenCalledOnce();
-        expect(spy.status.mock.invocationCallOrder[0]).toBeLessThan(spy.push.mock.invocationCallOrder[0]!);
+        expect(spy.assertOnAir.mock.invocationCallOrder[0]).toBeLessThan(spy.push.mock.invocationCallOrder[0]!);
+    });
+
+    it('renews the lease while it has a programme, and reads without renewing when it does not', async () => {
+        // The dead-man switch, from the app's side: an app that is merely running must
+        // not hold a mount it has nothing to put on. This is the state a restart leaves
+        // behind — the process is up, the rundown is empty, and Liquidsoap is still
+        // holding an item nobody here handed it.
+        const { pusher, rundown, spy } = setup(['a'], { queued: 1, ready: true, onAir: 'x' });
+
+        await pusher.reconcile();
+        expect(spy.assertOnAir).toHaveBeenCalledOnce();
+        expect(spy.status).not.toHaveBeenCalled();
+
+        rundown.reset();
+        spy.assertOnAir.mockClear();
+        await pusher.reconcile();
+
+        expect(spy.assertOnAir).not.toHaveBeenCalled();
+        expect(spy.status).toHaveBeenCalledOnce();
     });
 });
 
@@ -257,12 +284,31 @@ describe('PlayoutPusher.skipCurrent', () => {
 describe('PlayoutPusher lifecycle', () => {
     it('takes back what has not aired when the running order is replaced', async () => {
         // The station has abandoned that order; leaving it queued would air it anyway.
+        // A flush and NOT a release: the station is still on air, and swapping the
+        // running order is not a reason to cut the listener off mid-track.
         const { pusher, rundown, spy } = setup(['a'], { queued: 0, ready: false });
         pusher.start();
 
         try {
             rundown.load([track('b')]);
             expect(spy.flush).toHaveBeenCalledOnce();
+            expect(spy.releaseOnAir).not.toHaveBeenCalled();
+        } finally {
+            pusher.stop();
+        }
+    });
+
+    it('hands the mount back when the station stands down', async () => {
+        // Standing down ends the broadcast, so it does not wait out the lease: an
+        // operator who pressed stop has already given the command, and several more
+        // seconds of audio after it is the console not being in charge.
+        const { pusher, rundown, spy } = setup(['a'], { queued: 0, ready: false });
+        pusher.start();
+
+        try {
+            rundown.reset();
+            expect(spy.releaseOnAir).toHaveBeenCalledOnce();
+            expect(spy.flush).not.toHaveBeenCalled();
         } finally {
             pusher.stop();
         }

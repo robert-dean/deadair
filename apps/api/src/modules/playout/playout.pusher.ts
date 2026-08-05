@@ -67,9 +67,15 @@ export class PlayoutPusher {
         // A reset is the station standing down or loading a different order, so what
         // was already handed over is no longer the running order: take back whatever
         // has not aired.
+        //
+        // Standing down goes further and hands the mount back, which ends the
+        // broadcast at once rather than at the end of an item nobody asked for. A
+        // REPLACEMENT does not: the station is still on air, and swapping the running
+        // order is not a reason to cut the listener off mid-track.
         this.unsubscribes.push(
-            this.rundown.onReset(() => {
-                void this.control.flush().catch(() => undefined);
+            this.rundown.onReset(standingDown => {
+                const handed = standingDown ? this.control.releaseOnAir() : this.control.flush();
+                void handed.catch(() => undefined);
             }),
         );
 
@@ -127,7 +133,15 @@ export class PlayoutPusher {
         this.busy = true;
 
         try {
-            const reading = await this.control.status();
+            // Renewing the lease IS the reading: `radio.liq` answers /control/onair
+            // with the same reading as /control/status, so holding the station on air
+            // costs nothing beyond the poll this loop was already making.
+            //
+            // Asserted only while there is a programme. An app that is merely running
+            // must not hold a mount it has nothing to put on — which is precisely the
+            // state a restart leaves behind, with the rundown empty and Liquidsoap
+            // still holding an item from a process that no longer exists.
+            const reading = this.rundown.hasProgramme() ? await this.control.assertOnAir() : await this.control.status();
             // Stream not up, or not yet reachable. Try again next tick.
             if (!reading) return;
 

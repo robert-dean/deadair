@@ -41,6 +41,8 @@ an `X-Playout-Secret` header:
 | `POST /control/push` | body is an `annotate:` uri; queues it, returns `{"rid": n, …reading}` |
 | `POST /control/flush` | drops everything queued; what is on air finishes |
 | `POST /control/skip` | ends what is on air; the queue advances to the next item at once |
+| `POST /control/onair` | renews deadair's lease on the mount for `CONTROL_TTL_S` |
+| `POST /control/offair` | hands the lease back now: off air at once, queue dropped |
 
 Every one of them answers with the same **reading** of the queue, so a mutation's own response is
 already the state it produced:
@@ -93,7 +95,41 @@ ahead of air and could not be taken back once it had resolved.
 
 By default the music bed is the local, rights-cleared `stream/music/` library
 (`MUSIC_DIR=/music`). A configured source plays through the running order above; the local library
-is what the mount falls through to when the queue is empty.
+is what the mount falls through to when the queue is empty **and deadair is still driving**.
+
+## The dead-man switch: deadair drives, or nothing airs
+
+deadair is the station, so nothing else is allowed to be. The local library and the bundled ident
+would otherwise keep a mount playing long after the app that was supposed to be programming it
+crashed, was redeployed, or restarted and lost its running order — sound nobody chose, from a
+station whose whole premise is that the app chooses.
+
+So control is a **lease**, not a state. `radio.liq` airs the programme only while an unexpired
+assertion exists; the app renews it with `POST /control/onair` on the same two-second reconcile
+that was already polling `/control/status` (the endpoint answers with the reading, so the lease
+costs no extra request). The app asserts only while it actually **has** a programme — something on
+air, handed over, or queued — so an app that is merely *running* does not hold a mount it has
+nothing to put on.
+
+When the lease lapses, the source stays connected to Icecast and airs **digital silence**: a
+listener keeps their connection and hears the station come back rather than having to reconnect to
+a mount that 404'd. The cut is immediate (`track_sensitive=false`), not at the next boundary — a
+boundary may be minutes away, or never.
+
+`CONTROL_TTL_S` (default 6s, three reconciles) is the window. Both ends come from one constant:
+the app materializes it into `radio.env` from `CONTROL_TTL_S` in
+`apps/api/src/modules/playout/liquidsoap.control.ts`. Too short and a slow tick drops the mount;
+too long and a dead app keeps broadcasting for that many seconds.
+
+Consequences worth knowing before they surprise you:
+
+- **Stop means off air.** `POST /playout/stop` stands the station down: the running order is
+  dropped, what is on air stops, and the mount goes quiet. It no longer falls back to the bed.
+- **An API restart takes the station off air** within the TTL, because the rundown is in memory
+  and the restarted process has no programme to assert for. Press play again. The rundown is
+  deliberately not persisted; see `apps/api/src/modules/playout/rundown.ts`.
+- **Replacing the running order does not cut the listener off.** `load()` flushes what has not
+  aired and keeps the lease; only a stand-down releases it.
 
 ## Spotify playout (the track shim)
 

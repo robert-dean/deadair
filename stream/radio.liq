@@ -2,8 +2,13 @@
 #
 # A rights-cleared music bed loops continuously; whenever a pre-rendered voice
 # segment is available, the bed ducks and the voice plays over it, then the bed
-# comes back up. A bundled ident guarantees the mount is NEVER silent, even on a
-# cold volume with no music and no segments yet.
+# comes back up. A bundled ident means the station always has something to fall
+# back on, even on a cold volume with no music and no segments yet.
+#
+# All of which happens ONLY while deadair holds the control lease. The mount is
+# not "never silent": it is silent exactly when the app is not driving it, which
+# is the point of the dead-man switch further down. Everything the fallbacks do
+# is about not dropping out mid-programme, never about carrying on without one.
 #
 # All config comes from the process env, which the container entrypoint sources
 # from the app-rendered /streamconfig/radio.env (falling back to the committed
@@ -90,13 +95,14 @@ music =
   )
 music = normalize(target=-16., music)
 
-# Never-silent floor: a bundled station ident/bed. Always available, so there is
-# never dead air and the voice always has something to duck.
+# The floor UNDER the programme: a bundled station ident/bed. Always available, so a gap inside
+# a programme deadair is driving never becomes dead air, and the voice always has something to
+# duck. It is not a floor under the station itself — the lease gate below is above all of this.
 station_id = mksafe(single("/radio/station-id.mp3"))
 
 # 2) The music bed: a request.queue the APP pushes into (POST /control/push below), one item at a
 # time. Empty queue → the source is unavailable, so the enclosing fallback drops to the local
-# music bed / ident and the mount is never silent. Each pushed uri is an `annotate:` uri carrying
+# music bed / ident for as long as deadair still holds the lease. Each pushed uri is an `annotate:` uri carrying
 # the rundown item id, with the source's own auth embedded in the URL (a pre-signed Subsonic
 # stream URL, or a token-gated app URL for a rendered segment), so the fetch needs no headers.
 #
@@ -171,6 +177,8 @@ playout_bed = normalize(target=-16., playout_queue)
 #   POST /control/push   → {"rid": n, …reading}   body is the annotate: uri
 #   POST /control/flush  → the reading            drop everything queued; what is on air finishes
 #   POST /control/skip   → the reading            END what is on air; the queue advances at once
+#   POST /control/onair  → the reading            "deadair is driving", good for CONTROL_TTL_S
+#   POST /control/offair → the reading            hand the lease back now: off air, queue dropped
 def control_authorized(req) =
   playout_secret != "" and list.assoc(default="", "x-playout-secret", req.headers) == playout_secret
 end
@@ -271,10 +279,60 @@ def control_skip(req) =
   end
 end
 
+# ── The dead-man switch ──────────────────────────────────────────────────────────────────────
+# deadair is the station. Nothing else here is allowed to be: this script owns a local music
+# library and a bundled ident, and without a gate BOTH of them keep the mount playing after the
+# app has stopped driving — a crash, a deploy, a restart that lost the running order. That is
+# sound nobody chose, coming out of a station whose entire premise is that the app chooses.
+#
+# So control is a LEASE, not a state. The app renews it by calling /control/onair, and everything
+# it does not renew expires on its own. A dead app cannot hold the station by inertia, and there
+# is no failure mode where "the app stopped talking to us" is mistaken for "carry on".
+#
+# CONTROL_TTL_S has to comfortably exceed the app's reconcile interval (2s), or an ordinary slow
+# tick would take the station off air. Six seconds is three ticks.
+control_ttl = max(1., env_float("CONTROL_TTL_S", 6.))
+
+# When the lease runs out, as a unix time. Starts expired: a Liquidsoap that comes up before the
+# app is not yet being driven by anything, and should not pretend otherwise.
+on_air_until = ref(-1.)
+
+def driving() =
+  time() < on_air_until()
+end
+
+# Renew, and answer with the reading like every other control call — so the app's own heartbeat
+# doubles as the poll it was already making, and the lease costs no extra request.
+def control_onair(req) =
+  if control_authorized(req) then
+    on_air_until := time() + control_ttl
+    control_json('{' ^ playout_reading() ^ '}')
+  else
+    control_denied()
+  end
+end
+
+# Hand the lease back NOW rather than letting it lapse. The station standing down is a decision
+# somebody made, and it should sound like one: waiting out the TTL would put six seconds of audio
+# after a stop that the operator has already given. Also flushes, because an order that has been
+# abandoned must not still be sitting in the queue when the lease is next taken.
+def control_offair(req) =
+  if control_authorized(req) then
+    on_air_until := -1.
+    playout_queue.set_queue([])
+    playout_queue.skip()
+    control_json('{' ^ playout_reading() ^ '}')
+  else
+    control_denied()
+  end
+end
+
 harbor.http.register.simple(port=harbor_port, method="GET", "/control/status", control_status)
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/push", control_push)
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/flush", control_flush)
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/skip", control_skip)
+harbor.http.register.simple(port=harbor_port, method="POST", "/control/onair", control_onair)
+harbor.http.register.simple(port=harbor_port, method="POST", "/control/offair", control_offair)
 
 # The live bed: the app's own running order, then the local rights-cleared library, then the
 # ident. Every source the station plays now arrives the same way — the app pushes an item and the
@@ -283,7 +341,7 @@ harbor.http.register.simple(port=harbor_port, method="POST", "/control/skip", co
 # seconds behind the daemon and a skip had to wait out audio already committed to the pipe.
 #
 # track_sensitive=false so a drained queue drops through mid-item rather than at a boundary that
-# may never come. The mount is never silent.
+# may never come. This whole chain plays only under the lease (step 5).
 bed = fallback(track_sensitive=false, [playout_bed, music, station_id])
 
 # 3) Voice: the station's on-air DJ, pushed live to this harbor mount by the app
@@ -305,10 +363,10 @@ voice = input.harbor("dj", port=harbor_port, user="source", password=harbor_pass
 #        OFF: it would divide by the number of ready sources, halving the bed the moment the DJ
 #        speaks and undoing the ramp.
 #    OFF (between tracks): a voice-priority fallback. While a segment is connected the mount plays
-#        the VOICE ALONE (the bed, including the never-silent ident floor, is preempted), so the
-#        DJ speaks in true silence; when the push ends it drops back to the bed. The app pauses
-#        playout at the track boundary so no track advances underneath during the gap.
-#    With no live push either way, the bed simply plays at full — the mount is never silent.
+#        the VOICE ALONE (the bed, including the ident floor, is preempted), so the DJ speaks in
+#        true silence; when the push ends it drops back to the bed. The app pauses playout at the
+#        track boundary so no track advances underneath during the gap.
+#    With no live push either way, the bed simply plays at full.
 #
 #    This replaced smooth_add, whose open bug (savonet/liquidsoap#3714) is that it fades the bed
 #    down but never back up, with a glitch at the end of the voice. Ramping a gain ref ourselves
@@ -341,14 +399,33 @@ def ducked(music_bed, dj_voice) =
   add(normalize=false, [amplify({gain()}, music_bed), dj_voice])
 end
 
-radio =
+programme =
   if talk_over then
     ducked(bed, voice)
   else
     fallback(track_sensitive=false, [voice, bed])
   end
 
-# 5) Encode to MP3 and push to the Icecast mount.
+# 5) The lease, applied. Everything above this line is what deadair sounds like; below it is the
+# question of whether deadair is saying anything at all.
+#
+# `switch` with a single case is a source that is simply UNAVAILABLE while the predicate is false,
+# so the fallback underneath takes over. track_sensitive=false because the whole point is to cut
+# the moment the lease lapses: waiting for a track boundary would keep airing a track nothing is
+# driving, and the boundary might be minutes away — or never, if the queue drained.
+#
+# What is underneath is silence, not the local bed and not a disconnect. The mount stays up and
+# the source stays connected, so a listener keeps their connection and hears the station come
+# back rather than having to reconnect to a mount that 404'd; and the output stays INFALLIBLE,
+# which is what lets it be declared without `fallible=true`.
+#
+# Note what this deliberately does NOT do: it does not check whether the queue has anything in
+# it. Silence while deadair is driving is deadair's business (an item still resolving, a gap it
+# meant to leave). Silence because nothing is driving is a different fact, and only this gate
+# can tell them apart.
+radio = fallback(track_sensitive=false, [switch(track_sensitive=false, [({driving()}, programme)]), blank()])
+
+# 6) Encode to MP3 and push to the Icecast mount.
 output.icecast(
   %mp3(bitrate=int_of_string(environment.get("STREAM_BITRATE", default="128"))),
   host        = environment.get("ICECAST_HOST", default="icecast"),

@@ -38,7 +38,7 @@ export class PlayoutClient {
 
     /**
      * @name Stop playout
-     * @description Drops the running order and takes back everything queued but not airing. What is on air finishes, then the mount falls back to the local music bed — it never goes silent
+     * @description Stands the station down: drops the running order, stops what is on air, and hands the mount back. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
      */
     async stopPlayout(): Promise<PlayoutStatus> {
         const result = await this.fetch(`/playout/stop`, { method: 'POST' });

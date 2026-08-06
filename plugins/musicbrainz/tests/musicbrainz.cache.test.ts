@@ -28,8 +28,6 @@ const recordingDetail = {
     releases: [{ id: 'rel-1', title: 'Dummy', 'release-group': { 'primary-type': 'Album' } }],
 };
 
-const artistDetail = { id: 'art-1', name: 'Portishead', type: 'Group', 'begin-area': { name: 'Bristol' }, 'life-span': { begin: '1991' } };
-
 let host: FakePluginHost;
 let plugin: MusicBrainzPlugin;
 
@@ -38,12 +36,10 @@ const initialize = async (config: Record<string, unknown> = {}): Promise<void> =
     await plugin.init(host);
 };
 
-/** Every request a full, uncached enrichment makes. */
+/** Every request a full, uncached track enrichment makes. */
 const queueFullPass = (): void => {
     host.queueResponse({ body: JSON.stringify(searchResult) });
     host.queueResponse({ body: JSON.stringify(recordingDetail) });
-    host.queueResponse({ body: JSON.stringify({ id: 'rel-1', title: 'Dummy', 'label-info': [{ label: { name: 'Go! Beat' } }] }) });
-    host.queueResponse({ body: JSON.stringify(artistDetail) });
 };
 
 beforeEach(() => {
@@ -123,7 +119,7 @@ describe('enrichTrack with the cache', () => {
 
         expect(host.calls).toHaveLength(requests);
         expect(second).toEqual(first);
-        expect(second.label).toBe('Go! Beat');
+        expect(second.title).toBe('Glory Box');
     });
 
     it('remembers a miss, so the next pass does not search again', async () => {

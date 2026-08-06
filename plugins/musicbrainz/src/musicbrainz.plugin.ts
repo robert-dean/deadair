@@ -1,4 +1,6 @@
 import {
+    type AlbumEnrichment,
+    type AlbumRef,
     type ArtistEnrichment,
     type ArtistRef,
     type EnrichmentMatchKey,
@@ -13,7 +15,7 @@ import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
 import { cacheFingerprint, MATCH_TTL_MS, MISS_TTL_MS, MusicBrainzCache, type CachedEnrichment } from './musicbrainz.cache.js';
-import { mapRecording, mapRelease, mergeEnrichment, selectRelease } from './musicbrainz.mapping.js';
+import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup } from './musicbrainz.mapping.js';
 import { buildRecordingQuery, escapeLucene, selectByIsrc, selectRecording, type RecordingMatch } from './musicbrainz.match.js';
 import type {
     MusicBrainzArtist,
@@ -23,6 +25,8 @@ import type {
     MusicBrainzRecording,
     MusicBrainzRecordingSearchResponse,
     MusicBrainzRelease,
+    MusicBrainzReleaseGroup,
+    MusicBrainzReleaseGroupSearchResponse,
 } from './musicbrainz.types.js';
 
 export { musicbrainzManifest } from './musicbrainz.manifest.js';
@@ -41,6 +45,9 @@ const RELEASE_INC = 'labels';
 
 /** Links out. The artist's own area and life span come with the entity itself. */
 const ARTIST_INC = 'url-rels';
+
+/** What the release-group lookup asks for: the pressings to choose from, plus the record's own vocabulary. */
+const RELEASE_GROUP_INC = 'artist-credits+releases+genres+tags';
 
 /**
  * Budget below which an optional lookup is not worth starting: one second of
@@ -191,20 +198,71 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         return mapArtist(artist);
     }
 
-    /** The whole request sequence for one track. `undefined` is a genuine miss. */
+    /**
+     * What MusicBrainz knows about a record.
+     *
+     * Two requests: the release group for identity, dates and genres, then one
+     * release out of it for the label and the cover, which are the only things
+     * a release group document cannot say. Those two facts used to cost a
+     * `release/{id}` request per *track*, so a twelve track album bought the
+     * same answer twelve times.
+     */
+    async enrichAlbum(ref: AlbumRef): Promise<Partial<AlbumEnrichment>> {
+        if (!this.client) return {};
+
+        const groupId = ref.mbid ?? ref.providerRef ?? (await this.searchReleaseGroup(ref));
+        if (!groupId) return {};
+
+        const group = await this.loadReleaseGroup(groupId);
+        const chosen = selectReleaseFromGroup(group);
+
+        // Optional, not required: an identified record with no label on it is a
+        // good answer, and this is the request most likely to be the one that
+        // runs out of budget.
+        const release = await this.optional('release', () => this.loadRelease(chosen?.id));
+
+        return mapAlbum(group, release ?? chosen, this.includeArtwork);
+    }
+
+    /**
+     * `/release-group?query=`, for a record the host has no id for yet.
+     *
+     * Artist and title together, because a title alone is not a record: half
+     * the catalogue has a "Greatest Hits".
+     */
+    private async searchReleaseGroup(ref: AlbumRef): Promise<string | undefined> {
+        const response = await this.client!.get<MusicBrainzReleaseGroupSearchResponse>('release-group', {
+            query: `releasegroup:"${escapeLucene(ref.name)}" AND artist:"${escapeLucene(ref.artist)}"`,
+            limit: '1',
+        });
+
+        const found = response['release-groups']?.[0];
+        if (!found?.id) this.host?.logger.debug('musicbrainz found no release group', { album: ref.name, artist: ref.artist });
+        return found?.id;
+    }
+
+    private async loadReleaseGroup(groupId: string): Promise<MusicBrainzReleaseGroup> {
+        return this.client!.get<MusicBrainzReleaseGroup>(`release-group/${groupId}`, { inc: RELEASE_GROUP_INC });
+    }
+
+    /**
+     * The whole request sequence for one track. `undefined` is a genuine miss.
+     *
+     * Two requests now: identify, then the recording document. The label and
+     * the cover art moved to {@link enrichAlbum}, where they are bought once
+     * per record rather than once per track — they are properties of a
+     * pressing, not of a performance.
+     */
     private async resolve(ref: TrackRef): Promise<Partial<TrackEnrichment> | undefined> {
         const match = await this.identify(ref);
         if (!match) return undefined;
 
         const recording = await this.loadRecording(match.recording);
-        const summary = selectRelease(recording, ref);
 
-        const release = await this.optional('release', () => this.loadRelease(summary?.id));
-
-        // Priority order, not spread order: the recording decides the scalars
-        // it owns, the release fills what it left, and every list field
-        // accumulates across both. See `mergeEnrichment`.
-        return mergeEnrichment(mapRecording(recording, summary, ref), mapRelease(release ?? summary, this.includeArtwork));
+        // The release summary embedded in the recording document, which costs
+        // no request of its own: the album title, the release ids, and a date
+        // to fall back on.
+        return mapRecording(recording, selectRelease(recording, ref), ref);
     }
 
     /**

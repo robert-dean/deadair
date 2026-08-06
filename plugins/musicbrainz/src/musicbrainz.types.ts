@@ -127,6 +127,30 @@ export interface MusicBrainzRecordingSearchResponse {
     recordings?: MusicBrainzSearchRecording[];
 }
 
+/**
+ * A release group: the record as a work, rather than any one pressing of it.
+ *
+ * This is what `albums.mbid` holds, and the distinction is load-bearing. "Kid
+ * A" is one release group and a dozen releases (UK CD, US CD, 2009 vinyl), and
+ * an operator's copy is one of them.
+ */
+export interface MusicBrainzReleaseGroup {
+    id?: string;
+    title?: string;
+    'primary-type'?: string;
+    'first-release-date'?: string;
+    disambiguation?: string;
+    'artist-credit'?: MusicBrainzArtistCredit[];
+    releases?: MusicBrainzRelease[];
+    tags?: MusicBrainzTag[];
+    genres?: MusicBrainzTag[];
+}
+
+export interface MusicBrainzReleaseGroupSearchResponse {
+    count?: number;
+    'release-groups'?: (MusicBrainzReleaseGroup & { score?: number })[];
+}
+
 /** An artist as it comes back from `/artist?query=`, carrying the search engine's confidence. */
 export interface MusicBrainzSearchArtist extends MusicBrainzArtist {
     /** 0-100. Present on search results only. */

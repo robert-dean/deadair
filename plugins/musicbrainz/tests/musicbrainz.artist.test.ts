@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { TrackRef } from '@deadair/plugin-sdk';
 
 import { artistFacts, mapArtist, wikidataId } from '../src/musicbrainz.artist.js';
-import { mergeEnrichment } from '../src/musicbrainz.mapping.js';
 import { MusicBrainzPlugin } from '../src/musicbrainz.plugin.js';
 import type { MusicBrainzArtist } from '../src/musicbrainz.types.js';
 import { createFakePluginHost, type FakePluginHost } from './fake.plugin.host.js';
@@ -53,11 +52,10 @@ const initialize = async (config: Record<string, unknown> = {}): Promise<void> =
     await plugin.init(host);
 };
 
-/** The search, the recording detail and the release detail every enrichment makes. */
+/** The two requests every track enrichment makes: identify, then the recording document. */
 const queueMatch = (): void => {
     host.queueResponse({ body: JSON.stringify(searchResult) });
     host.queueResponse({ body: JSON.stringify(recordingDetail) });
-    host.queueResponse({ body: JSON.stringify({ id: 'rel-1', title: 'Dummy' }) });
 };
 
 beforeEach(() => {
@@ -134,34 +132,6 @@ describe('mapArtist', () => {
     });
 });
 
-describe('mergeEnrichment', () => {
-    it('lets the first contribution decide a scalar', () => {
-        expect(mergeEnrichment({ year: 1994 }, { year: 2008 }).year).toBe(1994);
-    });
-
-    it('accumulates the list fields instead of replacing them', () => {
-        const merged = mergeEnrichment(
-            { links: [{ label: 'MusicBrainz recording', url: 'https://musicbrainz.org/recording/rec-1' }] },
-            { links: [{ label: 'Official site', url: 'https://portishead.co.uk/' }] },
-        );
-        expect(merged.links).toHaveLength(2);
-    });
-
-    it('keeps one entry per link and per external id', () => {
-        const link = { label: 'MusicBrainz artist', url: 'https://musicbrainz.org/artist/art-1' };
-        const merged = mergeEnrichment(
-            { links: [link], externalIds: [{ source: 'wikidata', id: 'Q483407' }] },
-            { links: [{ ...link, label: 'Artist page' }], externalIds: [{ source: 'wikidata', id: 'Q483407' }] },
-        );
-        expect(merged.links).toEqual([link]);
-        expect(merged.externalIds).toHaveLength(1);
-    });
-
-    it('leaves out a field nobody contributed', () => {
-        expect(mergeEnrichment({ year: 1994 }, {})).toEqual({ year: 1994 });
-    });
-});
-
 describe('enrichArtist', () => {
     it('looks the artist up directly when the host already has an mbid', async () => {
         await initialize();
@@ -219,7 +189,7 @@ describe('enrichTrack no longer pays for the artist', () => {
 
         const enrichment = await plugin.enrichTrack(ref);
 
-        expect(host.calls).toHaveLength(3);
+        expect(host.calls).toHaveLength(2);
         expect(host.calls.some(call => call.url.includes('artist/'))).toBe(false);
         expect(enrichment.facts).toBeUndefined();
         expect(enrichment.title).toBe('Glory Box');

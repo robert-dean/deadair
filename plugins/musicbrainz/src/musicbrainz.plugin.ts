@@ -10,6 +10,7 @@ import {
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
+import { ARTIST_TTL_MS, cacheFingerprint, MATCH_TTL_MS, MISS_TTL_MS, MusicBrainzCache, type CachedEnrichment } from './musicbrainz.cache.js';
 import { mapRecording, mapRelease, mergeEnrichment, selectRelease } from './musicbrainz.mapping.js';
 import { buildRecordingQuery, selectByIsrc, selectRecording, type RecordingMatch } from './musicbrainz.match.js';
 import type {
@@ -81,6 +82,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     private matchScore = DEFAULT_MATCH_SCORE;
     private includeArtwork = true;
     private includeArtistFacts = true;
+    private cache?: MusicBrainzCache;
 
     async init(host: PluginHost): Promise<void> {
         this.host = host;
@@ -98,12 +100,20 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         // traffic, and one clear config error beats a 403 per track.
         this.client = contactEmail.length > 0 ? new MusicBrainzClient(host, baseUrl, contactEmail) : undefined;
 
+        const fingerprint = cacheFingerprint({
+            matchScore: this.matchScore,
+            includeArtwork: this.includeArtwork,
+            includeArtistFacts: this.includeArtistFacts,
+        });
+        this.cache = new MusicBrainzCache(host.storage, host.logger, fingerprint);
+
         host.logger.info('musicbrainz enrichment ready', { configured: this.client !== undefined, baseUrl });
     }
 
     async dispose(): Promise<void> {
         this.host = undefined;
         this.client = undefined;
+        this.cache = undefined;
     }
 
     async testConnection(): Promise<PluginConnectionResult> {
@@ -129,25 +139,68 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
      * and a 404 are all "nothing to add" to the caller, and none of them are
      * worth failing an enrichment pass over. A broken upstream still throws,
      * because that is the host's to see.
+     *
+     * A remembered track answers from storage without a request. A remembered
+     * *miss* does too: the second pass over a rotation should not re-search for
+     * the tracks MusicBrainz has already said it does not have.
      */
     async enrichTrack(ref: TrackRef): Promise<Partial<TrackEnrichment>> {
         if (!this.client) return {};
 
+        const key = this.cache?.matchKey(ref);
+        const cached = key === undefined ? undefined : await this.cache?.read<CachedEnrichment>(key);
+        if (cached) return cached.value ?? {};
+
+        const enrichment = await this.resolve(ref);
+        if (key !== undefined) {
+            await this.cache?.write(key, enrichment, enrichment === undefined ? MISS_TTL_MS : MATCH_TTL_MS);
+        }
+
+        return enrichment ?? {};
+    }
+
+    /** The whole request sequence for a track the cache had never seen. `undefined` is a genuine miss. */
+    private async resolve(ref: TrackRef): Promise<Partial<TrackEnrichment> | undefined> {
         const match = await this.identify(ref);
-        if (!match) return {};
+        if (!match) return undefined;
 
         const recording = await this.loadRecording(match.recording);
         const summary = selectRelease(recording, ref);
 
         const release = await this.optional('release', () => this.loadRelease(summary?.id));
-        const artist = this.includeArtistFacts
-            ? await this.optional('artist', () => this.loadArtist(recording['artist-credit']?.[0]?.artist?.id))
-            : undefined;
+        const artist = this.includeArtistFacts ? await this.artistContribution(recording['artist-credit']?.[0]?.artist?.id) : {};
 
         // Priority order, not spread order: the recording decides the scalars
         // it owns, the release fills what it left, and every list field
         // accumulates across all three. See `mergeEnrichment`.
-        return mergeEnrichment(mapRecording(recording, summary, ref), mapRelease(release ?? summary, this.includeArtwork), mapArtist(artist));
+        return mergeEnrichment(mapRecording(recording, summary, ref), mapRelease(release ?? summary, this.includeArtwork), artist);
+    }
+
+    /**
+     * The artist's contribution, cached by MBID rather than by track.
+     *
+     * This is the entry that pays for itself fastest. A rotation revisits the
+     * same few hundred artists constantly, and an artist's background changes
+     * on a scale of years, so one lookup covers every track they appear on
+     * until the entry ages out.
+     */
+    private async artistContribution(artistId: string | undefined): Promise<Partial<TrackEnrichment>> {
+        if (!artistId) return {};
+
+        const key = this.cache?.artistKey(artistId);
+        const cached = key === undefined ? undefined : await this.cache?.read<CachedEnrichment>(key);
+        if (cached) return cached.value ?? {};
+
+        const artist = await this.optional('artist', () => this.loadArtist(artistId));
+        // Only a lookup that actually answered is remembered. A step skipped for
+        // budget or dropped on an error is not evidence that the artist has
+        // nothing to say, and caching it as a miss would make one bad minute
+        // last a month.
+        if (!artist) return {};
+
+        const contribution = mapArtist(artist);
+        if (key !== undefined) await this.cache?.write(key, contribution, ARTIST_TTL_MS);
+        return contribution;
     }
 
     /**

@@ -49,10 +49,15 @@ const ARTIST_INC = 'url-rels';
 const RELEASE_GROUP_INC = 'artist-credits+releases+genres+tags';
 
 /**
- * Budget below which an optional lookup is not worth starting: one second of
- * pacing plus the request itself, rounded up. Under this, the call would spend
- * the caller's remaining deadline waiting for a rate-limit slot and be
- * abandoned before the answer arrived.
+ * Budget below which an optional lookup is not worth starting: the one second
+ * of pacing it will wait for a rate-limit slot, plus enough left over for the
+ * request to be worth making at all.
+ *
+ * Deliberately not `REQUEST_TIMEOUT_MS`, which is a ceiling rather than an
+ * expectation. The host caps each fetch by what remains of the invocation, so a
+ * step begun with three seconds left gets a three second attempt, and most
+ * answers arrive well inside that. Requiring a full timeout's worth of headroom
+ * would skip the label on almost every record instead.
  */
 const OPTIONAL_STEP_MIN_MS = 2_000;
 

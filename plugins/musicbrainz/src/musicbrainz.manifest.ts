@@ -34,11 +34,19 @@ export const PUBLIC_RATE_PER_SECOND = 1;
 export const MUSICBRAINZ_BUCKET = 'musicbrainz';
 
 /**
- * Per-request budget. Well under the host's own ceiling, which is what is left
- * of the current invocation: a lookup that cannot be answered in five seconds
- * is one this plugin would rather skip than spend the whole enrichment on.
+ * Per-request budget.
+ *
+ * Ten seconds because the public service genuinely takes that long under load,
+ * and five was cutting off answers that were on their way: three timeouts in a
+ * pass trip the host's breaker, so a slow minute cost the whole walk rather
+ * than one track.
+ *
+ * This is a ceiling, not a reservation. The host caps every fetch by whatever
+ * is left of the current invocation, so a request started late gets the
+ * remainder and no more — which is also why raising this does not let one
+ * request eat a whole pass.
  */
-export const REQUEST_TIMEOUT_MS = 5_000;
+export const REQUEST_TIMEOUT_MS = 10_000;
 
 /** Search results below this score are not the track we asked about. MusicBrainz scores 0-100. */
 export const DEFAULT_MATCH_SCORE = 90;

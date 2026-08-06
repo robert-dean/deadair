@@ -5,6 +5,30 @@ import { asEnrichmentPlugin, type EnrichmentPlugin } from '#modules/plugins/plug
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { mergeEnrichment, sanitizeEnrichment } from './enrichment.merge.js';
+import { EnrichmentRepository, type EnrichableTrack } from './enrichment.repository.js';
+
+/**
+ * How long a stored payload is trusted before the walk asks again.
+ *
+ * Long, because the answers are stable: a recording's year, label and personnel
+ * do not move, and what does move (a new relation, a corrected spelling) is not
+ * worth a rate-limited request a week to catch. Bounded rather than infinite so
+ * corrections do land eventually, and so a source that was wrong about a track
+ * is not wrong about it forever.
+ */
+export const ENRICHMENT_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
+/**
+ * The `externalIds` sources the host promotes onto canonical columns.
+ *
+ * Naming MusicBrainz here is not the host playing favourites with a plugin:
+ * `tracks.mbid` and `artists.mbid` are MusicBrainz columns by definition, named
+ * as such in `0004_music.sql`, and a source string is the only thing that says
+ * which id is one. Any plugin that resolves a MusicBrainz id may fill them by
+ * saying so.
+ */
+export const SOURCE_MUSICBRAINZ_RECORDING = 'musicbrainz';
+export const SOURCE_MUSICBRAINZ_ARTIST = 'musicbrainz-artist';
 
 /** What one plugin contributed, kept apart from the merge because it is stored per provider. */
 export interface EnrichmentContribution {
@@ -19,6 +43,16 @@ export interface EnrichmentFailure {
     message: string;
 }
 
+/** What one track's pass did, for the job's log line. */
+export interface EnrichmentTrackOutcome {
+    trackId: string;
+    /** Plugins that had something to say, and therefore have a stored payload. */
+    providers: string[];
+    /** Canonical columns this pass filled in. Empty is the normal case for a track already complete. */
+    promoted: string[];
+    failures: EnrichmentFailure[];
+}
+
 export interface EnrichmentResult {
     /** Every plugin's answer folded together in priority order. */
     enrichment: Partial<TrackEnrichment>;
@@ -28,6 +62,33 @@ export interface EnrichmentResult {
 }
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/**
+ * A catalog row as the question a plugin is asked.
+ *
+ * `artistName` rather than the row's `artists` credit line: the credit is what
+ * the release printed ("X feat. Y") and the canonical artist is what a lookup
+ * should match on. A plugin that wants the credit can still see it in the
+ * title-and-album context it gets.
+ */
+export const toTrackRef = (track: EnrichableTrack): TrackRef => ({
+    isrc: track.isrc,
+    artist: track.artistName,
+    title: track.title,
+    album: track.albumName,
+    durationMs: track.durationMs,
+    year: track.year,
+});
+
+/**
+ * The id a stored payload was fetched under.
+ *
+ * The first `externalIds` entry, which is the convention the SDK's own example
+ * follows: a plugin lists its most specific identifier for the thing it just
+ * looked up first. Provenance, not identity — the schema is explicit that this
+ * column records what was asked, even when the answer later proves wrong.
+ */
+const providerRef = (contribution: EnrichmentContribution): string | undefined => contribution.enrichment.externalIds?.[0]?.id;
 
 /**
  * Whether it is worth asking this plugin about this track.
@@ -62,6 +123,7 @@ export class EnrichmentService {
     constructor(
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
+        private readonly enrichmentRepository: EnrichmentRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -119,5 +181,63 @@ export class EnrichmentService {
         }
 
         return { enrichment: mergeEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures };
+    }
+
+    /**
+     * Enriches one catalog track and writes what came back.
+     *
+     * The payloads are stored per provider, exactly as each plugin said them,
+     * including everything no column exists for. Only then is the merged view
+     * promoted onto the canonical rows, and only into the gaps.
+     *
+     * A track nothing could identify is not an error and leaves no row. There is
+     * no "we tried and failed" marker, deliberately: the next pass costs one
+     * search, and a marker would be a second thing to keep true.
+     */
+    async enrichCatalogTrack(track: EnrichableTrack, signal?: AbortSignal): Promise<EnrichmentTrackOutcome> {
+        const result = await this.enrich(toTrackRef(track), signal);
+
+        for (const contribution of result.contributions) {
+            await this.enrichmentRepository.saveTrackEnrichment(
+                track.id,
+                contribution.pluginId,
+                providerRef(contribution),
+                contribution.enrichment,
+                ENRICHMENT_TTL_MS,
+            );
+        }
+
+        const promoted = result.contributions.length === 0 ? [] : await this.promote(track, result.enrichment);
+
+        return { trackId: track.id, providers: result.contributions.map(contribution => contribution.pluginId), promoted, failures: result.failures };
+    }
+
+    /**
+     * The merged view onto the canonical rows: identity, and gaps only.
+     *
+     * `genre` takes the first genre rather than joining them, because the column
+     * holds one and a comma-joined list would be a value nothing can group by.
+     * The rest of what a plugin found stays in the jsonb payload, which is where
+     * anything richer should read it from.
+     */
+    private async promote(track: EnrichableTrack, enrichment: Partial<TrackEnrichment>): Promise<string[]> {
+        const ids = enrichment.externalIds ?? [];
+        const idFor = (source: string): string | undefined => ids.find(entry => entry.source === source)?.id;
+
+        const promoted = await this.enrichmentRepository.promoteTrack(track.id, {
+            mbid: idFor(SOURCE_MUSICBRAINZ_RECORDING),
+            year: enrichment.year,
+            genre: enrichment.genres?.[0],
+        });
+
+        if (await this.enrichmentRepository.promoteArtistMbid(track.artistId, idFor(SOURCE_MUSICBRAINZ_ARTIST))) {
+            promoted.push('artist.mbid');
+        }
+
+        if (track.albumId && (await this.enrichmentRepository.promoteAlbumArtwork(track.albumId, enrichment.artworkUrl))) {
+            promoted.push('album.imageUrl');
+        }
+
+        return promoted;
     }
 }

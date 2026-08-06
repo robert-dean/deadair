@@ -8,7 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import { PluginError, type PluginManifest, type TrackRef } from '@deadair/plugin-sdk';
 
-import { EnrichmentService } from '../../../src/modules/enrichment/enrichment.service.js';
+import { ENRICHMENT_TTL_MS, EnrichmentService, toTrackRef } from '../../../src/modules/enrichment/enrichment.service.js';
+import type { EnrichableTrack, TrackPromotion } from '../../../src/modules/enrichment/enrichment.repository.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
@@ -55,13 +56,42 @@ function record(id: string, overrides: Partial<PluginRecord> = {}, options: Inst
     return { id, dir: `/plugins/${id}`, status: 'active', manifest: manifest(id), instance: instance(options) as never, ...overrides };
 }
 
+/**
+ * The repository as a recording of what was asked of it. The promote methods
+ * answer "yes, that was a gap I filled" by default; a test that cares about the
+ * "already set, left alone" path overrides them.
+ */
+function fakeRepository() {
+    return {
+        listTracksNeedingEnrichment: vi.fn(async () => []),
+        saveTrackEnrichment: vi.fn(async () => {}),
+        promoteTrack: vi.fn(async (_id: string, promotion: TrackPromotion) =>
+            Object.keys(promotion).filter(key => promotion[key as keyof TrackPromotion] !== undefined),
+        ),
+        promoteArtistMbid: vi.fn(async (_id: string, mbid?: string) => mbid !== undefined),
+        promoteAlbumArtwork: vi.fn(async (_id: string, url?: string) => url !== undefined),
+    };
+}
+
+const catalogTrack: EnrichableTrack = {
+    id: 'track-1',
+    title: 'Glory Box',
+    artistId: 'artist-1',
+    artistName: 'Portishead',
+    albumId: 'album-1',
+    albumName: 'Dummy',
+    durationMs: 301_000,
+};
+
 let registry: PluginRegistry;
+let repository: ReturnType<typeof fakeRepository>;
 let service: EnrichmentService;
 
 const build = (records: PluginRecord[]): EnrichmentService => {
     registry = new PluginRegistry();
     registry.setAll(records);
-    return new EnrichmentService(registry, new PluginInvoker(registry, stubPluginLog().log), stubLogger());
+    repository = fakeRepository();
+    return new EnrichmentService(registry, new PluginInvoker(registry, stubPluginLog().log), repository as never, stubLogger());
 };
 
 beforeEach(() => {
@@ -188,5 +218,99 @@ describe('enrich', () => {
     it('has nothing to say when no enrichment plugin is installed', async () => {
         service = build([]);
         await expect(service.enrich(ref)).resolves.toEqual({ enrichment: {}, contributions: [], failures: [] });
+    });
+});
+
+describe('toTrackRef', () => {
+    it('asks about the canonical artist rather than the printed credit', () => {
+        expect(toTrackRef(catalogTrack)).toEqual({
+            isrc: undefined,
+            artist: 'Portishead',
+            title: 'Glory Box',
+            album: 'Dummy',
+            durationMs: 301_000,
+            year: undefined,
+        });
+    });
+});
+
+describe('enrichCatalogTrack', () => {
+    const answer = {
+        artist: 'Portishead',
+        year: 1994,
+        genres: ['trip hop', 'downtempo'],
+        artworkUrl: 'https://coverartarchive.org/release/rel-1/front-500',
+        externalIds: [
+            { source: 'musicbrainz', id: 'a0000000-0000-4000-8000-000000000001' },
+            { source: 'musicbrainz-artist', id: 'a0000000-0000-4000-8000-000000000002' },
+        ],
+    };
+
+    it('stores one payload per provider, exactly as that plugin said it', async () => {
+        service = build([
+            record(MUSICBRAINZ, {}, { priority: 100, enrichTrack: vi.fn(async () => answer) }),
+            record(OTHER, {}, { priority: 500, enrichTrack: vi.fn(async () => ({ bpm: 90 })) }),
+        ]);
+
+        const outcome = await service.enrichCatalogTrack(catalogTrack);
+
+        expect(repository.saveTrackEnrichment).toHaveBeenCalledTimes(2);
+        expect(repository.saveTrackEnrichment).toHaveBeenNthCalledWith(
+            1,
+            'track-1',
+            MUSICBRAINZ,
+            'a0000000-0000-4000-8000-000000000001',
+            expect.objectContaining({ artist: 'Portishead' }),
+            ENRICHMENT_TTL_MS,
+        );
+        expect(repository.saveTrackEnrichment).toHaveBeenNthCalledWith(2, 'track-1', OTHER, undefined, { bpm: 90 }, ENRICHMENT_TTL_MS);
+        expect(outcome.providers).toEqual([MUSICBRAINZ, OTHER]);
+    });
+
+    it('promotes identity and gaps onto the canonical rows', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => answer) })]);
+
+        const outcome = await service.enrichCatalogTrack(catalogTrack);
+
+        expect(repository.promoteTrack).toHaveBeenCalledWith('track-1', {
+            mbid: 'a0000000-0000-4000-8000-000000000001',
+            year: 1994,
+            genre: 'trip hop',
+        });
+        expect(repository.promoteArtistMbid).toHaveBeenCalledWith('artist-1', 'a0000000-0000-4000-8000-000000000002');
+        expect(repository.promoteAlbumArtwork).toHaveBeenCalledWith('album-1', answer.artworkUrl);
+        expect(outcome.promoted).toContain('artist.mbid');
+        expect(outcome.promoted).toContain('album.imageUrl');
+    });
+
+    it('writes nothing at all for a track nothing could identify', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => ({})) })]);
+
+        const outcome = await service.enrichCatalogTrack(catalogTrack);
+
+        expect(repository.saveTrackEnrichment).not.toHaveBeenCalled();
+        expect(repository.promoteTrack).not.toHaveBeenCalled();
+        expect(outcome).toEqual({ trackId: 'track-1', providers: [], promoted: [], failures: [] });
+    });
+
+    it('does not reach for an album a track does not belong to', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => answer) })]);
+
+        await service.enrichCatalogTrack({ ...catalogTrack, albumId: undefined, albumName: undefined });
+
+        expect(repository.promoteAlbumArtwork).not.toHaveBeenCalled();
+    });
+
+    it('reports a plugin failure without losing what the others stored', async () => {
+        service = build([
+            record(MUSICBRAINZ, {}, { priority: 100, enrichTrack: vi.fn(async () => Promise.reject(new PluginError('down'))) }),
+            record(OTHER, {}, { priority: 500, enrichTrack: vi.fn(async () => ({ bpm: 90 })) }),
+        ]);
+
+        const outcome = await service.enrichCatalogTrack(catalogTrack);
+
+        expect(outcome.providers).toEqual([OTHER]);
+        expect(outcome.failures).toHaveLength(1);
+        expect(repository.saveTrackEnrichment).toHaveBeenCalledTimes(1);
     });
 });

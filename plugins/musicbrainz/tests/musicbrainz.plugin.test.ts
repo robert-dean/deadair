@@ -57,8 +57,10 @@ describe('manifest', () => {
         expect(musicbrainzManifest.permissions.network.at(-1)).toEqual({ fromConfig: 'baseUrl' });
     });
 
-    it('asks for storage and not for oauth', () => {
-        expect(musicbrainzManifest.permissions.storage).toBe(true);
+    it('asks for no capability beyond the network it reads from', () => {
+        // The host stores every answer against the entity it is about, so there
+        // is nothing left for plugin-private storage to hold.
+        expect(musicbrainzManifest.permissions.storage).toBe(false);
         expect(musicbrainzManifest.permissions.oauth).toBe(false);
     });
 });

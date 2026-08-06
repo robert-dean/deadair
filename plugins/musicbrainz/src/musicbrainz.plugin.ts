@@ -14,7 +14,6 @@ import {
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
-import { cacheFingerprint, MATCH_TTL_MS, MISS_TTL_MS, MusicBrainzCache, type CachedEnrichment } from './musicbrainz.cache.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup } from './musicbrainz.mapping.js';
 import { buildRecordingQuery, escapeLucene, selectByIsrc, selectRecording, type RecordingMatch } from './musicbrainz.match.js';
 import type {
@@ -96,7 +95,6 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     private matchScore = DEFAULT_MATCH_SCORE;
     private includeArtwork = true;
     private includeArtistFacts = true;
-    private cache?: MusicBrainzCache;
 
     async init(host: PluginHost): Promise<void> {
         this.host = host;
@@ -114,20 +112,12 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         // traffic, and one clear config error beats a 403 per track.
         this.client = contactEmail.length > 0 ? new MusicBrainzClient(host, baseUrl, contactEmail) : undefined;
 
-        const fingerprint = cacheFingerprint({
-            matchScore: this.matchScore,
-            includeArtwork: this.includeArtwork,
-            includeArtistFacts: this.includeArtistFacts,
-        });
-        this.cache = new MusicBrainzCache(host.storage, host.logger, fingerprint);
-
         host.logger.info('musicbrainz enrichment ready', { configured: this.client !== undefined, baseUrl });
     }
 
     async dispose(): Promise<void> {
         this.host = undefined;
         this.client = undefined;
-        this.cache = undefined;
     }
 
     async testConnection(): Promise<PluginConnectionResult> {
@@ -154,23 +144,14 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
      * worth failing an enrichment pass over. A broken upstream still throws,
      * because that is the host's to see.
      *
-     * A remembered track answers from storage without a request. A remembered
-     * *miss* does too: the second pass over a rotation should not re-search for
-     * the tracks MusicBrainz has already said it does not have.
+     * Nothing is remembered here. The host stores every answer against the
+     * track, per provider, with its own expiry, and does not call this at all
+     * while that row is live — so a cache on this side would only ever be
+     * consulted for a track the host had already decided was stale.
      */
     async enrichTrack(ref: TrackRef): Promise<Partial<TrackEnrichment>> {
         if (!this.client) return {};
-
-        const key = this.cache?.matchKey(ref);
-        const cached = key === undefined ? undefined : await this.cache?.read<CachedEnrichment>(key);
-        if (cached) return cached.value ?? {};
-
-        const enrichment = await this.resolve(ref);
-        if (key !== undefined) {
-            await this.cache?.write(key, enrichment, enrichment === undefined ? MISS_TTL_MS : MATCH_TTL_MS);
-        }
-
-        return enrichment ?? {};
+        return (await this.resolve(ref)) ?? {};
     }
 
     /**

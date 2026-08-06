@@ -76,7 +76,10 @@ export const musicbrainzManifest: PluginManifest = {
             { host: '*.musicbrainz.org', ratePerSecond: PUBLIC_RATE_PER_SECOND, bucket: MUSICBRAINZ_BUCKET },
             { fromConfig: 'baseUrl' },
         ],
-        storage: true,
+        // No storage. Everything this plugin learns is stored by the host,
+        // against the track, artist or album it is about, so there is nothing
+        // for a plugin-private key/value store to hold.
+        storage: false,
         oauth: false,
     },
     configFields: [

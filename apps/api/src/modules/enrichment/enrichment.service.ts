@@ -38,6 +38,37 @@ import { EnrichmentRepository, type EnrichableAlbum, type EnrichableArtist, type
 export const ENRICHMENT_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
+ * How long the walk waits on one call into a plugin.
+ *
+ * `PluginInvoker` defaults to `PLUGIN_INVOKE_TIMEOUT_MS`, which is the figure
+ * for a call the host knows nothing about. This walk knows quite a lot: its
+ * sources are rate limited in single requests per second, a call is a handful
+ * of those, and it runs in a cron job with minutes to spare rather than on a
+ * request path with a person waiting. Fifteen seconds is the wrong number for
+ * that, and it showed — an album call is three paced requests and was being
+ * killed mid-flight, throwing away the release group it had already fetched.
+ *
+ * Budgeted per request the method actually makes, rather than one constant for
+ * all three, because the difference between them is exactly the number of
+ * upstream round trips. Raising the shared default instead would have handed
+ * every plugin in the system the same rope to cover this one walk's shape.
+ *
+ * A plugin that needs materially more than this is not a case for a bigger
+ * constant here: it is the case for the per-plugin ceiling an operator sets,
+ * which does not exist yet.
+ */
+const UPSTREAM_REQUEST_BUDGET_MS = 12_000;
+
+/** Identify the recording, then load its document. */
+export const ENRICH_TRACK_TIMEOUT_MS = 2 * UPSTREAM_REQUEST_BUDGET_MS;
+
+/** Search for the artist when the catalog has no id yet, then load them. */
+export const ENRICH_ARTIST_TIMEOUT_MS = 2 * UPSTREAM_REQUEST_BUDGET_MS;
+
+/** Search for the record, load the release group, then one release for the label. */
+export const ENRICH_ALBUM_TIMEOUT_MS = 3 * UPSTREAM_REQUEST_BUDGET_MS;
+
+/**
  * How long "that provider had nothing" is trusted.
  *
  * Much shorter than a real answer, and never permanent. MusicBrainz gains
@@ -332,7 +363,9 @@ export class EnrichmentService {
 
             const pluginId = plugin.record.id;
             try {
-                const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichTrack', async () => plugin.instance.enrichTrack(ref));
+                const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichTrack', async () => plugin.instance.enrichTrack(ref), {
+                    timeoutMs: ENRICH_TRACK_TIMEOUT_MS,
+                });
                 const enrichment = sanitizeEnrichment(answer, reason =>
                     this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
                 );
@@ -381,8 +414,11 @@ export class EnrichmentService {
             const scoped: ArtistRef = { ...ref, providerRef: refs?.[pluginId] };
 
             try {
-                const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichArtist', async () =>
-                    plugin.instance.enrichArtist!(scoped),
+                const answer = await this.pluginInvoker.invoke(
+                    pluginId,
+                    'enrichment.enrichArtist',
+                    async () => plugin.instance.enrichArtist!(scoped),
+                    { timeoutMs: ENRICH_ARTIST_TIMEOUT_MS },
                 );
                 const enrichment = sanitizeArtistEnrichment(answer, reason =>
                     this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
@@ -417,7 +453,9 @@ export class EnrichmentService {
             const scoped: AlbumRef = { ...ref, providerRef: refs?.[pluginId] };
 
             try {
-                const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichAlbum', async () => plugin.instance.enrichAlbum!(scoped));
+                const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichAlbum', async () => plugin.instance.enrichAlbum!(scoped), {
+                    timeoutMs: ENRICH_ALBUM_TIMEOUT_MS,
+                });
                 const enrichment = sanitizeAlbumEnrichment(answer, reason =>
                     this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
                 );

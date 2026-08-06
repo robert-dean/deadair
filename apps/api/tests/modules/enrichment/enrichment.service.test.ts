@@ -8,7 +8,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import { PluginError, type PluginManifest, type TrackRef } from '@deadair/plugin-sdk';
 
-import { ENRICHMENT_MISS_TTL_MS, ENRICHMENT_TTL_MS, EnrichmentService, toTrackRef } from '../../../src/modules/enrichment/enrichment.service.js';
+import {
+    ENRICH_ALBUM_TIMEOUT_MS,
+    ENRICH_ARTIST_TIMEOUT_MS,
+    ENRICH_TRACK_TIMEOUT_MS,
+    ENRICHMENT_MISS_TTL_MS,
+    ENRICHMENT_TTL_MS,
+    EnrichmentService,
+    toTrackRef,
+} from '../../../src/modules/enrichment/enrichment.service.js';
 import type { EnrichableTrack, PendingTrack, TrackPromotion } from '../../../src/modules/enrichment/enrichment.repository.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
@@ -107,13 +115,15 @@ const pending = (track: EnrichableTrack, outstanding: string[] = [MUSICBRAINZ]):
 
 let registry: PluginRegistry;
 let repository: ReturnType<typeof fakeRepository>;
+let invoker: PluginInvoker;
 let service: EnrichmentService;
 
 const build = (records: PluginRecord[]): EnrichmentService => {
     registry = new PluginRegistry();
     registry.setAll(records);
     repository = fakeRepository();
-    return new EnrichmentService(registry, new PluginInvoker(registry, stubPluginLog().log), repository as never, stubLogger());
+    invoker = new PluginInvoker(registry, stubPluginLog().log);
+    return new EnrichmentService(registry, invoker, repository as never, stubLogger());
 };
 
 beforeEach(() => {
@@ -255,6 +265,38 @@ describe('enrich', () => {
         expect(musicbrainz).not.toHaveBeenCalled();
         expect(other).toHaveBeenCalledTimes(1);
         expect(result.contributions.map(contribution => contribution.pluginId)).toEqual([OTHER]);
+    });
+});
+
+describe('the budget each call gets', () => {
+    // The walk knows what its own calls cost; PLUGIN_INVOKE_TIMEOUT_MS is the
+    // figure for a call the host knows nothing about. Pinned because falling
+    // back to the default is silent, and the symptom is an album call killed
+    // part-way with the release group already fetched and thrown away.
+    const timeoutOf = (op: string): number | undefined =>
+        (vi.mocked(invoker.invoke).mock.calls.find(call => call[1] === op)?.[3] as { timeoutMs?: number } | undefined)?.timeoutMs;
+
+    it('gives each kind of call a budget sized to the round trips it makes', async () => {
+        service = build([
+            record(
+                MUSICBRAINZ,
+                {},
+                { enrichArtist: vi.fn(async () => ({ name: 'Portishead' })), enrichAlbum: vi.fn(async () => ({ name: 'Dummy' })) },
+            ),
+        ]);
+        vi.spyOn(invoker, 'invoke');
+
+        await service.enrich(ref);
+        await service.enrichArtist({ name: 'Portishead' });
+        await service.enrichAlbum({ name: 'Dummy', artist: 'Portishead' });
+
+        expect(timeoutOf('enrichment.enrichTrack')).toBe(ENRICH_TRACK_TIMEOUT_MS);
+        expect(timeoutOf('enrichment.enrichArtist')).toBe(ENRICH_ARTIST_TIMEOUT_MS);
+        expect(timeoutOf('enrichment.enrichAlbum')).toBe(ENRICH_ALBUM_TIMEOUT_MS);
+    });
+
+    it('gives an album more than a track, because it is one more round trip', () => {
+        expect(ENRICH_ALBUM_TIMEOUT_MS).toBeGreaterThan(ENRICH_TRACK_TIMEOUT_MS);
     });
 });
 

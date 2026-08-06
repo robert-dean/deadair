@@ -135,14 +135,17 @@ export class EnrichmentRepository extends DataRepository {
     async listTracksNeedingEnrichment(providers: string[], isrcOnly: string[], limit: number): Promise<PendingTrack[]> {
         if (providers.length === 0) return [];
 
+        // Keys are camelCase even here: `CamelCasePlugin` is in
+        // `KyselyDefaultPlugins` and rewrites result keys for raw SQL too, so
+        // `artist_name` never arrives under the name the query gave it.
         const rows = await sql<{
             id: string;
             title: string;
-            artist_id: string;
-            artist_name: string;
-            album_id: string | null;
-            album_name: string | null;
-            duration_ms: number | null;
+            artistId: string;
+            artistName: string;
+            albumId: string | null;
+            albumName: string | null;
+            durationMs: number | null;
             year: number | null;
             isrc: string | null;
             outstanding: string[];
@@ -186,11 +189,11 @@ export class EnrichmentRepository extends DataRepository {
         return rows.rows.map(row => ({
             id: row.id,
             title: row.title,
-            artistId: row.artist_id,
-            artistName: row.artist_name,
-            albumId: nullable(row.album_id),
-            albumName: nullable(row.album_name),
-            durationMs: nullable(row.duration_ms),
+            artistId: row.artistId,
+            artistName: row.artistName,
+            albumId: nullable(row.albumId),
+            albumName: nullable(row.albumName),
+            durationMs: nullable(row.durationMs),
             year: nullable(row.year),
             isrc: nullable(row.isrc),
             outstanding: row.outstanding,
@@ -418,7 +421,7 @@ export class EnrichmentRepository extends DataRepository {
         const rows = await sql<{
             id: string;
             name: string;
-            artist_name: string;
+            artistName: string;
             mbid: string | null;
             outstanding: string[];
             refs: Record<string, string | null> | null;
@@ -456,7 +459,7 @@ export class EnrichmentRepository extends DataRepository {
         return rows.rows.map(row => ({
             id: row.id,
             name: row.name,
-            artistName: row.artist_name,
+            artistName: row.artistName,
             mbid: nullable(row.mbid),
             outstanding: row.outstanding,
             refs: Object.fromEntries(Object.entries(row.refs ?? {}).filter((entry): entry is [string, string] => entry[1] !== null)),

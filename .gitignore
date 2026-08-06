@@ -35,6 +35,9 @@ yarn-error.log*
 
 .contractkit/
 .local-storage/
+# Locally cached artwork (ART_DIR). Fetched from the upstream the catalog points at, and
+# re-fetchable, so it is a cache rather than anything to commit.
+media/
 .tanstack/tmp/
 
 # Docker volume data (bind-mounted host paths)

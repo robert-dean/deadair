@@ -151,6 +151,21 @@ export interface DeadairAlbumSources {
   uri: string | null;
 }
 
+export interface DeadairArtAssets {
+  attempts: Generated<number>;
+  byteSize: number | null;
+  checksum: string | null;
+  contentType: string | null;
+  createdAt: Generated<DateTime>;
+  ext: string | null;
+  fetchedAt: DateTime | null;
+  id: Generated<string>;
+  lastError: string | null;
+  nextAttemptAt: DateTime | null;
+  sourceUrl: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairArtistEnrichment {
   artistId: string;
   createdAt: Generated<DateTime>;
@@ -336,6 +351,7 @@ export interface DB {
   "deadair.albumEnrichment": DeadairAlbumEnrichment;
   "deadair.albums": DeadairAlbums;
   "deadair.albumSources": DeadairAlbumSources;
+  "deadair.artAssets": DeadairArtAssets;
   "deadair.artistEnrichment": DeadairArtistEnrichment;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;

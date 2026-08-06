@@ -12,6 +12,7 @@ import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { PlayoutModule } from './playout/playout.module.js';
 import { EnrichmentModule } from './enrichment/enrichment.module.js';
+import { ArtModule } from './art/art.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 
@@ -26,6 +27,10 @@ export const modules: ServerKitModule[] = [
     PermissionsModule,
     PolicyModule,
     JobsModule,
+    // Before CatalogModule: catalog reads join `art_assets` so a row that has a
+    // locally cached cover reports that instead of the upstream URL. Nothing
+    // here reaches back into the catalog.
+    ArtModule,
     CatalogModule,
     OnboardingModule,
     SettingsModule,

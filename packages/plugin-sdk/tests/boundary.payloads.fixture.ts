@@ -8,7 +8,16 @@ import type {
     ProviderStream,
     ProviderTrack,
 } from '../src/capabilities/music.provider.js';
-import type { ExternalId, ExternalLink, TrackEnrichment, TrackRef } from '../src/capabilities/enrichment.js';
+import type {
+    AlbumEnrichment,
+    AlbumRef,
+    ArtistEnrichment,
+    ArtistRef,
+    ExternalId,
+    ExternalLink,
+    TrackEnrichment,
+    TrackRef,
+} from '../src/capabilities/enrichment.js';
 import type { PluginConnectionResult } from '../src/plugin.lifecycle.js';
 import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
@@ -277,6 +286,42 @@ export const trackEnrichmentFixture: Partial<TrackEnrichment> = {
     musicalKey: 'A minor',
     label: 'Parlophone',
     isrc: 'GBAYE0000351',
+    artworkUrl: 'https://images.example.com/kid-a.jpg',
+    externalIds: [externalIdFixture],
+    links: [externalLinkFixture],
+};
+
+export const artistRefFixture: ArtistRef = {
+    name: 'Radiohead',
+    mbid: 'a74b1b7f-71a5-4011-9441-d0b5e4122711',
+    providerRef: 'a74b1b7f-71a5-4011-9441-d0b5e4122711',
+};
+
+export const artistEnrichmentFixture: Partial<ArtistEnrichment> = {
+    name: 'Radiohead',
+    biography: 'Formed in Abingdon in 1985.',
+    facts: ['Radiohead formed in Abingdon in 1985.'],
+    genres: ['art rock'],
+    imageUrl: 'https://images.example.com/radiohead.jpg',
+    externalIds: [externalIdFixture],
+    links: [externalLinkFixture],
+};
+
+export const albumRefFixture: AlbumRef = {
+    name: 'Kid A',
+    artist: 'Radiohead',
+    mbid: '3ba0c2b6-3b1a-4e6a-b8b0-2e2b0b6f4a2f',
+    providerRef: '3ba0c2b6-3b1a-4e6a-b8b0-2e2b0b6f4a2f',
+};
+
+export const albumEnrichmentFixture: Partial<AlbumEnrichment> = {
+    name: 'Kid A',
+    artist: 'Radiohead',
+    year: 2000,
+    releaseDate: '2000-10-02',
+    label: 'Parlophone',
+    genres: ['electronic'],
+    facts: ['Recorded in Paris, Copenhagen and Gloucestershire.'],
     artworkUrl: 'https://images.example.com/kid-a.jpg',
     externalIds: [externalIdFixture],
     links: [externalLinkFixture],

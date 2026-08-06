@@ -306,6 +306,38 @@ it, including the time `host.fetch` parks waiting for rate-limit headroom, and
 `host.fetch` caps its own timeout by it. Read a small number as advice to wrap
 up, not as permission to run that long.
 
+## Enriching artists and albums, not just tracks
+
+`enrichTrack` is the only method an enrichment plugin must write.
+`enrichArtist` and `enrichAlbum` are optional, and worth writing for anything
+that belongs to the artist or the record rather than to one recording:
+
+```ts
+async enrichArtist(ref: ArtistRef): Promise<Partial<ArtistEnrichment>> {
+    // `mbid` is the id that crosses providers; `providerRef` is your own id
+    // from the last time you answered about this artist. Both may be absent
+    // the first time anything asks, in which case you have a name.
+    const id = ref.providerRef ?? (await this.search(ref.name));
+    if (!id) return {};
+
+    const body = jsonBody<{ bio?: string; image?: string }>(await this.request(`/artists/${id}`));
+    return { biography: body.bio, imageUrl: body.image, externalIds: [{ source: 'recordbin', id }] };
+}
+```
+
+The reason to split them is cost, not tidiness. The host asks once per artist
+and once per album, so an artist who appears on forty tracks is one request
+rather than forty, and the answer is stored against the artist where the
+console and the DJ can both read it. Anything you return from `enrichTrack`
+is still stored against the track, so a single with no album, or a
+compilation whose tracks were licensed separately, is still described
+correctly by `TrackEnrichment.label`.
+
+The first `externalIds` entry you return is remembered as the id that answer
+was fetched under, and handed back as `providerRef` next time. That is what
+turns a second pass into a lookup instead of another search, so list your most
+specific identifier first.
+
 ## Music providers
 
 A `music-provider` declares any subset of three sub-capabilities and lists the

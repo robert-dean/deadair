@@ -19,7 +19,16 @@
  * plus two name arrays, so the runtime cost is the arrays alone.
  */
 
-import type { ExternalId, ExternalLink, TrackEnrichment, TrackRef } from './capabilities/enrichment.js';
+import type {
+    AlbumEnrichment,
+    AlbumRef,
+    ArtistEnrichment,
+    ArtistRef,
+    ExternalId,
+    ExternalLink,
+    TrackEnrichment,
+    TrackRef,
+} from './capabilities/enrichment.js';
 import type {
     GetPlaylistTracksOptions,
     ListPlaylistsOptions,
@@ -120,9 +129,13 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     GetPlaylistTracksOptions: IsJsonSafe<GetPlaylistTracksOptions>;
     PlaybackState: IsJsonSafe<PlaybackState>;
     TrackRef: IsJsonSafe<TrackRef>;
+    ArtistRef: IsJsonSafe<ArtistRef>;
+    AlbumRef: IsJsonSafe<AlbumRef>;
     ExternalId: IsJsonSafe<ExternalId>;
     ExternalLink: IsJsonSafe<ExternalLink>;
     TrackEnrichment: IsJsonSafe<TrackEnrichment>;
+    ArtistEnrichment: IsJsonSafe<ArtistEnrichment>;
+    AlbumEnrichment: IsJsonSafe<AlbumEnrichment>;
 }>;
 
 /**
@@ -149,9 +162,13 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'GetPlaylistTracksOptions',
     'PlaybackState',
     'TrackRef',
+    'ArtistRef',
+    'AlbumRef',
     'ExternalId',
     'ExternalLink',
     'TrackEnrichment',
+    'ArtistEnrichment',
+    'AlbumEnrichment',
 ] as const;
 
 /**

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    albumEnrichmentFixture,
+    albumRefFixture,
+    artistEnrichmentFixture,
+    artistRefFixture,
     assertCrossesBoundary,
     getPlaylistTracksOptionsFixture,
     hostFetchInitFixture,
@@ -46,6 +50,10 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['PlaybackState', playbackStateFixture],
         ['TrackRef', trackRefFixture],
         ['Partial<TrackEnrichment>', trackEnrichmentFixture],
+        ['ArtistRef', artistRefFixture],
+        ['Partial<ArtistEnrichment>', artistEnrichmentFixture],
+        ['AlbumRef', albumRefFixture],
+        ['Partial<AlbumEnrichment>', albumEnrichmentFixture],
         ['PluginConnectionResult', pluginConnectionResultFixture],
         ['PluginManifest (minus configSchema)', pluginManifestFixtureWithoutConfigSchema],
     ] as const)('%s crosses the boundary', (label, value) => {

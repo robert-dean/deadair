@@ -29,8 +29,42 @@ describe('sanitizeEnrichment', () => {
         expect(sanitizeEnrichment({ artist: 42, year: 'nineteen ninety four', genres: 'trip hop' })).toEqual({});
     });
 
-    it('drops anything that is not a field of an enrichment', () => {
-        expect(sanitizeEnrichment({ artist: 'Portishead', __proto__: { polluted: true }, whatever: 'no' })).toEqual({ artist: 'Portishead' });
+    it('keeps a field the host has no name for, rather than dropping what a plugin knows', () => {
+        expect(sanitizeEnrichment({ artist: 'Portishead', listeners: 412_000, pressing: { country: 'UK', matrix: 'GO!BEAT 3' } })).toEqual({
+            artist: 'Portishead',
+            extra: { listeners: 412_000, pressing: { country: 'UK', matrix: 'GO!BEAT 3' } },
+        });
+    });
+
+    it('folds a plugin that filled `extra` itself into the same place', () => {
+        expect(sanitizeEnrichment({ extra: { listeners: 1 }, pressing: 'UK' }).extra).toEqual({ listeners: 1, pressing: 'UK' });
+    });
+
+    it('refuses a value that would not survive the trip to jsonb', () => {
+        const dropped: string[] = [];
+        const enrichment = sanitizeEnrichment(
+            { artist: 'Portishead', fetchedAt: new Date(), depth: { a: { b: { c: { d: { e: { f: 1 } } } } } } },
+            reason => dropped.push(reason),
+        );
+
+        expect(enrichment).toEqual({ artist: 'Portishead' });
+        expect(dropped).toHaveLength(2);
+    });
+
+    it('refuses an oversized extra whole rather than storing half of it', () => {
+        const dropped: string[] = [];
+        const enrichment = sanitizeEnrichment({ artist: 'Portishead', dump: 'x'.repeat(20_000) }, reason => dropped.push(reason));
+
+        expect(enrichment).toEqual({ artist: 'Portishead' });
+        expect(dropped[0]).toContain('exceed');
+    });
+
+    it('never lets a key from an upstream reach the prototype', () => {
+        const raw = JSON.parse('{"artist":"Portishead","__proto__":{"polluted":true}}') as unknown;
+        const enrichment = sanitizeEnrichment(raw);
+
+        expect(enrichment).toEqual({ artist: 'Portishead' });
+        expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
     });
 
     it('refuses a link the console would render as something clickable', () => {
@@ -86,6 +120,10 @@ describe('mergeEnrichment', () => {
         expect(merged.genres).toEqual(['Trip Hop']);
         expect(merged.links).toEqual([{ label: 'A', url: 'https://example.test/' }]);
         expect(merged.externalIds).toHaveLength(1);
+    });
+
+    it('leaves `extra` out of the view that gets promoted and read as one answer', () => {
+        expect(mergeEnrichment([{ artist: 'Portishead', extra: { listeners: 1 } }, { extra: { listeners: 2 } }])).toEqual({ artist: 'Portishead' });
     });
 
     it('is empty when nobody contributed', () => {

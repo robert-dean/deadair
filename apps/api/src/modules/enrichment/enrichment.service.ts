@@ -4,7 +4,7 @@ import { ENRICHMENT_MATCH_KEY_ARTIST_TITLE, ENRICHMENT_MATCH_KEY_ISRC, type Trac
 import { asEnrichmentPlugin, type EnrichmentPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
-import { mergeEnrichment, sanitizeEnrichment } from './enrichment.merge.js';
+import { mergeEnrichment, sanitizeEnrichment, type StoredEnrichment } from './enrichment.merge.js';
 import { EnrichmentRepository, type EnrichableTrack } from './enrichment.repository.js';
 
 /**
@@ -34,7 +34,8 @@ export const SOURCE_MUSICBRAINZ_ARTIST = 'musicbrainz-artist';
 export interface EnrichmentContribution {
     pluginId: string;
     priority: number;
-    enrichment: Partial<TrackEnrichment>;
+    /** Stored verbatim against this provider, `extra` and all. */
+    enrichment: StoredEnrichment;
 }
 
 /** A plugin that was asked and could not answer. Reported, never thrown. */
@@ -209,7 +210,9 @@ export class EnrichmentService {
             const pluginId = plugin.record.id;
             try {
                 const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichTrack', async () => plugin.instance.enrichTrack(ref));
-                const enrichment = sanitizeEnrichment(answer);
+                const enrichment = sanitizeEnrichment(answer, reason =>
+                    this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
+                );
                 // An empty answer is the ordinary "I do not have this track".
                 // Recording it as a contribution would write an empty payload
                 // over whatever that provider knew last month.

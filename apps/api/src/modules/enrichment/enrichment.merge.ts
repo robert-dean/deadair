@@ -28,6 +28,37 @@ const MAX_TEXT = 2_000;
 const MAX_BIOGRAPHY = 20_000;
 const MAX_LIST = 50;
 
+/** How deep a nested value in {@link StoredEnrichment.extra} may go before it is refused. */
+const MAX_EXTRA_DEPTH = 5;
+
+/** How large the whole `extra` object may serialize to. Refused whole rather than trimmed. */
+const MAX_EXTRA_BYTES = 16_000;
+
+/**
+ * Keys that are never carried through to `extra`, whatever a plugin says.
+ *
+ * `__proto__` is the one that matters: an object parsed from an upstream's
+ * JSON can carry it as an own property, and assigning it onto a plain object
+ * sets the prototype instead of a key.
+ */
+const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * What one plugin's answer looks like once it is ours: the fields this host
+ * understands, plus whatever else that plugin said.
+ *
+ * `extra` is the deliberate hole in the type. A provider knows things the SDK
+ * has no field for — a Discogs pressing note, a Last.fm listener count — and
+ * `track_enrichment.data` is a jsonb column precisely so those survive. The
+ * alternative is that every new kind of fact waits on an SDK release, which is
+ * the coupling a plugin system exists to remove.
+ *
+ * Nothing reads `extra` as a known field. It does not merge across providers
+ * (it does not have to: payloads are stored per provider, so two plugins'
+ * unknown keys cannot collide) and it never promotes onto a canonical column.
+ */
+export type StoredEnrichment = Partial<TrackEnrichment> & { extra?: Record<string, unknown> };
+
 const text = (value: unknown, max = MAX_TEXT): string | undefined => {
     if (typeof value !== 'string') return undefined;
     const trimmed = value.trim();
@@ -83,19 +114,91 @@ const links = (value: unknown): ExternalLink[] | undefined => {
     return list.length > 0 ? list.slice(0, MAX_LIST) : undefined;
 };
 
+/** Every key {@link sanitizeEnrichment} understands. Anything else is `extra`. */
+const KNOWN_FIELDS = new Set<string>([...TEXT_FIELDS, ...NUMBER_FIELDS, ...LIST_FIELDS]);
+
 /**
- * One plugin's answer, reduced to the fields this host understands, in the
- * types it promised them in.
+ * Whether a value can be stored as-is: JSON-safe, and not nested past
+ * {@link MAX_EXTRA_DEPTH}.
  *
- * Everything else is dropped rather than corrected: a plugin that returns a
- * number for `artist` has a bug, and storing `"42"` would hide it while making
- * the catalog worse. Returning `{}` for a plugin that answered entirely in
- * nonsense is the honest outcome.
+ * Narrower than "survives JSON.stringify" on purpose. A `Date` stringifies
+ * happily and comes back a string, which is the silent type change the plugin
+ * boundary rule exists to prevent.
  */
-export function sanitizeEnrichment(value: unknown): Partial<TrackEnrichment> {
+function isStorable(value: unknown, depth = 0): boolean {
+    if (depth > MAX_EXTRA_DEPTH) return false;
+    if (value === null) return true;
+
+    const type = typeof value;
+    if (type === 'string' || type === 'boolean') return true;
+    if (type === 'number') return Number.isFinite(value as number);
+    if (type !== 'object') return false;
+
+    if (Array.isArray(value)) return value.every(entry => entry !== undefined && isStorable(entry, depth + 1));
+
+    const prototype = Object.getPrototypeOf(value) as object | null;
+    if (prototype !== Object.prototype && prototype !== null) return false;
+
+    return Object.entries(value as Record<string, unknown>).every(
+        ([key, entry]) => !FORBIDDEN_KEYS.has(key) && (entry === undefined || isStorable(entry, depth + 1)),
+    );
+}
+
+/**
+ * The facts a plugin returned that this host has no field for.
+ *
+ * Refused whole rather than trimmed when it is too large: a plugin handing over
+ * a megabyte of upstream response has a bug, and half of that response stored
+ * silently is a worse outcome than none of it and a log line.
+ */
+function extraFields(raw: Record<string, unknown>, onDrop?: (reason: string) => void): Record<string, unknown> | undefined {
+    const entries: [string, unknown][] = [];
+
+    for (const [key, value] of Object.entries(raw)) {
+        if (KNOWN_FIELDS.has(key) || FORBIDDEN_KEYS.has(key) || value === undefined) continue;
+
+        // A plugin that fills `extra` itself is saying the same thing the host
+        // means by it, so its entries are folded in rather than nested.
+        const pairs =
+            key === 'extra' && isStorable(value) && value !== null && !Array.isArray(value) ? Object.entries(value) : [[key, value] as const];
+
+        for (const [name, entry] of pairs) {
+            if (KNOWN_FIELDS.has(name) || FORBIDDEN_KEYS.has(name) || entry === undefined) continue;
+            if (!isStorable(entry)) {
+                onDrop?.(`"${name}" is not storable`);
+                continue;
+            }
+            entries.push([name, entry]);
+        }
+    }
+
+    if (entries.length === 0) return undefined;
+
+    const extra = Object.fromEntries(entries);
+    if (JSON.stringify(extra).length > MAX_EXTRA_BYTES) {
+        onDrop?.(`extra fields exceed ${MAX_EXTRA_BYTES} bytes`);
+        return undefined;
+    }
+
+    return extra;
+}
+
+/**
+ * One plugin's answer, with the fields this host understands checked against
+ * the types they were promised in, and everything else kept under `extra`.
+ *
+ * A known field of the wrong type is dropped rather than corrected: a plugin
+ * that returns a number for `artist` has a bug, and storing `"42"` would hide
+ * it while making the catalog worse. An *unknown* field is a different thing
+ * entirely — not a bug, just a fact the SDK has not named yet — so it is kept.
+ * What both share is the validation: caps, finite numbers, and links narrowed
+ * to http(s), because this payload reaches a settings card, the console and
+ * eventually an LLM prompt no matter which half it came from.
+ */
+export function sanitizeEnrichment(value: unknown, onDrop?: (reason: string) => void): StoredEnrichment {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
     const raw = value as Record<string, unknown>;
-    const clean: Partial<TrackEnrichment> = {};
+    const clean: StoredEnrichment = {};
 
     for (const field of TEXT_FIELDS) {
         const parsed = text(raw[field], field === 'biography' ? MAX_BIOGRAPHY : MAX_TEXT);
@@ -119,6 +222,9 @@ export function sanitizeEnrichment(value: unknown): Partial<TrackEnrichment> {
     const linkList = links(raw.links);
     if (linkList) clean.links = linkList;
 
+    const extra = extraFields(raw, onDrop);
+    if (extra) clean.extra = extra;
+
     return clean;
 }
 
@@ -140,14 +246,19 @@ const identity = (value: unknown): string => {
  * BPM MusicBrainz has never heard of. Lists accumulate across every plugin,
  * deduplicated, because two sources naming different genres is more knowledge
  * rather than a conflict.
+ *
+ * `extra` is skipped rather than merged. Two plugins' unknown keys mean
+ * whatever each plugin meant by them, and the merged view is what gets promoted
+ * onto canonical rows and read as a single answer — so an unnamed field has no
+ * business in it. The per-provider payloads keep every one of them.
  */
-export function mergeEnrichment(parts: Partial<TrackEnrichment>[]): Partial<TrackEnrichment> {
+export function mergeEnrichment(parts: StoredEnrichment[]): Partial<TrackEnrichment> {
     const merged: Partial<TrackEnrichment> = {};
     const lists = new Map<string, { seen: Set<string>; values: unknown[] }>();
 
     for (const part of parts) {
         for (const [key, value] of Object.entries(part)) {
-            if (value === undefined) continue;
+            if (value === undefined || key === 'extra') continue;
 
             if ((LIST_FIELDS as readonly string[]).includes(key)) {
                 const list = lists.get(key) ?? { seen: new Set<string>(), values: [] };

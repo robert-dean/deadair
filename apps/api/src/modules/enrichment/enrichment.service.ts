@@ -64,6 +64,19 @@ export interface EnrichmentTrackOutcome {
     failures: EnrichmentFailure[];
 }
 
+/**
+ * How to run one fan-out.
+ *
+ * `only` is the walk telling the fan-out which providers this entity is
+ * actually waiting on, so a source that answered last week is not asked again
+ * because a different one expired. Absent means every capable provider, which
+ * is what an on-demand caller wants: it has no stored rows to reason about.
+ */
+export interface EnrichOptions {
+    only?: string[];
+    signal?: AbortSignal;
+}
+
 export interface EnrichmentResult {
     /** Every plugin's answer folded together in priority order. */
     enrichment: Partial<TrackEnrichment>;
@@ -160,19 +173,37 @@ export class EnrichmentService {
     }
 
     /**
-     * Asks every capable plugin about one track.
+     * The providers that can only match on ISRC, which the selection query has
+     * to know about to avoid holding an ISRC-less track to a bar it can never
+     * clear. See `listTracksNeedingEnrichment`.
+     */
+    isrcOnlyProviderIds(): string[] {
+        return this.providers()
+            .filter(plugin => !(plugin.instance.matchKeys ?? []).includes(ENRICHMENT_MATCH_KEY_ARTIST_TITLE))
+            .map(plugin => plugin.record.id);
+    }
+
+    /**
+     * Asks the capable plugins about one track.
      *
      * Sequential rather than concurrent, on purpose. Enrichment sources publish
      * rate limits measured in single requests per second and the host paces
      * each one to them, so parallelism here buys nothing except several plugins
      * simultaneously parked on their limiters, all spending the same deadline.
+     *
+     * With `only` set, the merged view is built from fewer answers than the
+     * track has stored. That is safe rather than lossy because promotion fills
+     * gaps and never overwrites: a subset can promote less than the whole would
+     * have, never something different.
      */
-    async enrich(ref: TrackRef, signal?: AbortSignal): Promise<EnrichmentResult> {
+    async enrich(ref: TrackRef, options: EnrichOptions = {}): Promise<EnrichmentResult> {
+        const { only, signal } = options;
         const contributions: EnrichmentContribution[] = [];
         const failures: EnrichmentFailure[] = [];
 
         for (const plugin of this.providers()) {
             if (signal?.aborted) break;
+            if (only && !only.includes(plugin.record.id)) continue;
             if (!canMatch(plugin, ref)) continue;
 
             const pluginId = plugin.record.id;
@@ -205,8 +236,8 @@ export class EnrichmentService {
      * no "we tried and failed" marker, deliberately: the next pass costs one
      * search, and a marker would be a second thing to keep true.
      */
-    async enrichCatalogTrack(track: EnrichableTrack, signal?: AbortSignal): Promise<EnrichmentTrackOutcome> {
-        const result = await this.enrich(toTrackRef(track), signal);
+    async enrichCatalogTrack(track: EnrichableTrack, options: EnrichOptions = {}): Promise<EnrichmentTrackOutcome> {
+        const result = await this.enrich(toTrackRef(track), options);
 
         for (const contribution of result.contributions) {
             await this.enrichmentRepository.saveTrackEnrichment(
@@ -241,14 +272,14 @@ export class EnrichmentService {
         const providers = this.providerIds();
         if (providers.length === 0) return summary;
 
-        const tracks = await this.enrichmentRepository.listTracksNeedingEnrichment(providers, limit);
+        const tracks = await this.enrichmentRepository.listTracksNeedingEnrichment(providers, this.isrcOnlyProviderIds(), limit);
 
         for (const track of tracks) {
             if (signal?.aborted) break;
             summary.scanned++;
 
             try {
-                const outcome = await this.enrichCatalogTrack(track, signal);
+                const outcome = await this.enrichCatalogTrack(track, { only: track.outstanding, signal });
                 if (outcome.providers.length > 0) summary.enriched++;
                 summary.promoted += outcome.promoted.length;
                 if (outcome.failures.length > 0) summary.failed++;

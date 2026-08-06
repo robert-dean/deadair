@@ -9,7 +9,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import { PluginError, type PluginManifest, type TrackRef } from '@deadair/plugin-sdk';
 
 import { ENRICHMENT_TTL_MS, EnrichmentService, toTrackRef } from '../../../src/modules/enrichment/enrichment.service.js';
-import type { EnrichableTrack, TrackPromotion } from '../../../src/modules/enrichment/enrichment.repository.js';
+import type { EnrichableTrack, PendingTrack, TrackPromotion } from '../../../src/modules/enrichment/enrichment.repository.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
@@ -82,6 +82,9 @@ const catalogTrack: EnrichableTrack = {
     albumName: 'Dummy',
     durationMs: 301_000,
 };
+
+/** What the selection query hands back: the track, plus who it is waiting on. */
+const pending = (track: EnrichableTrack, outstanding: string[] = [MUSICBRAINZ]): PendingTrack => ({ ...track, outstanding });
 
 let registry: PluginRegistry;
 let repository: ReturnType<typeof fakeRepository>;
@@ -209,7 +212,7 @@ describe('enrich', () => {
             record(OTHER, {}, { priority: 500, enrichTrack: second }),
         ]);
 
-        const result = await service.enrich(ref, controller.signal);
+        const result = await service.enrich(ref, { signal: controller.signal });
 
         expect(second).not.toHaveBeenCalled();
         expect(result.enrichment).toEqual({ artist: 'Portishead' });
@@ -218,6 +221,28 @@ describe('enrich', () => {
     it('has nothing to say when no enrichment plugin is installed', async () => {
         service = build([]);
         await expect(service.enrich(ref)).resolves.toEqual({ enrichment: {}, contributions: [], failures: [] });
+    });
+
+    it('asks only the providers it was told the track is waiting on', async () => {
+        const musicbrainz = vi.fn(async () => ({ artist: 'Portishead' }));
+        const other = vi.fn(async () => ({ bpm: 90 }));
+        service = build([
+            record(MUSICBRAINZ, {}, { priority: 100, enrichTrack: musicbrainz }),
+            record(OTHER, {}, { priority: 500, enrichTrack: other }),
+        ]);
+
+        const result = await service.enrich(ref, { only: [OTHER] });
+
+        expect(musicbrainz).not.toHaveBeenCalled();
+        expect(other).toHaveBeenCalledTimes(1);
+        expect(result.contributions.map(contribution => contribution.pluginId)).toEqual([OTHER]);
+    });
+});
+
+describe('isrcOnlyProviderIds', () => {
+    it('names the plugins that cannot answer about a track with no ISRC', () => {
+        service = build([record(MUSICBRAINZ, {}, { matchKeys: ['isrc', 'artist-title'] }), record(OTHER, {}, { matchKeys: ['isrc'] })]);
+        expect(service.isrcOnlyProviderIds()).toEqual([OTHER]);
     });
 });
 
@@ -237,12 +262,40 @@ describe('toTrackRef', () => {
 describe('enrichPending', () => {
     it('walks the batch the repository handed it and summarises the run', async () => {
         service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => ({ artist: 'Portishead', year: 1994 })) })]);
-        repository.listTracksNeedingEnrichment.mockResolvedValue([catalogTrack, { ...catalogTrack, id: 'track-2' }] as never);
+        repository.listTracksNeedingEnrichment.mockResolvedValue([pending(catalogTrack), pending({ ...catalogTrack, id: 'track-2' })] as never);
 
         const summary = await service.enrichPending(25);
 
-        expect(repository.listTracksNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ], 25);
+        expect(repository.listTracksNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ], [], 25);
         expect(summary).toMatchObject({ scanned: 2, enriched: 2, failed: 0 });
+    });
+
+    it('asks each track only the providers that track is waiting on', async () => {
+        const musicbrainz = vi.fn(async () => ({ artist: 'Portishead' }));
+        const other = vi.fn(async () => ({ bpm: 90 }));
+        service = build([
+            record(MUSICBRAINZ, {}, { priority: 100, enrichTrack: musicbrainz }),
+            record(OTHER, {}, { priority: 500, enrichTrack: other }),
+        ]);
+        repository.listTracksNeedingEnrichment.mockResolvedValue([
+            pending(catalogTrack, [OTHER]),
+            pending({ ...catalogTrack, id: 'track-2' }, [MUSICBRAINZ, OTHER]),
+        ] as never);
+
+        await service.enrichPending(25);
+
+        // The first track already had a live MusicBrainz row, so a stale
+        // Last.fm-shaped provider must not drag MusicBrainz along with it.
+        expect(musicbrainz).toHaveBeenCalledTimes(1);
+        expect(other).toHaveBeenCalledTimes(2);
+    });
+
+    it('tells the query which providers cannot match a track without an ISRC', async () => {
+        service = build([record(MUSICBRAINZ, {}, { matchKeys: ['artist-title'] }), record(OTHER, {}, { matchKeys: ['isrc'] })]);
+
+        await service.enrichPending(25);
+
+        expect(repository.listTracksNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ, OTHER], [OTHER], 25);
     });
 
     it('does not go near the database when no enrichment plugin is installed', async () => {
@@ -256,14 +309,14 @@ describe('enrichPending', () => {
 
     it('counts a track nobody could identify as scanned but not enriched', async () => {
         service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => ({})) })]);
-        repository.listTracksNeedingEnrichment.mockResolvedValue([catalogTrack] as never);
+        repository.listTracksNeedingEnrichment.mockResolvedValue([pending(catalogTrack)] as never);
 
         expect(await service.enrichPending(25)).toMatchObject({ scanned: 1, enriched: 0, failed: 0 });
     });
 
     it('skips a track that threw and keeps the batch going', async () => {
         service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => ({ artist: 'Portishead' })) })]);
-        repository.listTracksNeedingEnrichment.mockResolvedValue([catalogTrack, { ...catalogTrack, id: 'track-2' }] as never);
+        repository.listTracksNeedingEnrichment.mockResolvedValue([pending(catalogTrack), pending({ ...catalogTrack, id: 'track-2' })] as never);
         repository.saveTrackEnrichment.mockRejectedValueOnce(new Error('write failed'));
 
         const summary = await service.enrichPending(25);
@@ -285,7 +338,7 @@ describe('enrichPending', () => {
                 },
             ),
         ]);
-        repository.listTracksNeedingEnrichment.mockResolvedValue([catalogTrack, { ...catalogTrack, id: 'track-2' }] as never);
+        repository.listTracksNeedingEnrichment.mockResolvedValue([pending(catalogTrack), pending({ ...catalogTrack, id: 'track-2' })] as never);
 
         expect(await service.enrichPending(25, controller.signal)).toMatchObject({ scanned: 1 });
     });

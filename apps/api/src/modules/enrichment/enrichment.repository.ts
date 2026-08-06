@@ -15,6 +15,19 @@ export interface EnrichableTrack {
     isrc?: string;
 }
 
+/**
+ * A track the walk picked up, plus the providers it is actually waiting on.
+ *
+ * The list is per track rather than per pass because provider freshness is per
+ * track: one source expiring is not a reason to re-ask the two that answered
+ * last week, and at a request per second each that difference is the whole cost
+ * of a run.
+ */
+export interface PendingTrack extends EnrichableTrack {
+    /** Providers that could match this track and have no live row for it. Never empty. */
+    outstanding: string[];
+}
+
 /** What the merged enrichment is allowed to write onto the canonical rows. */
 export interface TrackPromotion {
     /** MusicBrainz recording id. Written once and never revised. */
@@ -49,13 +62,22 @@ export const isUuid = (value: string | undefined): value is string => value !== 
 @Injectable()
 export class EnrichmentRepository extends DataRepository {
     /**
-     * Tracks that have not heard from every enrichment provider lately.
+     * Tracks that have not heard from every enrichment provider that could
+     * answer about them, each carrying the list of providers it is waiting on.
      *
-     * Raw SQL because the shape is a correlated count against a list of
+     * Raw SQL because the shape is a set difference against a list of
      * providers, which the query builder expresses far less legibly than it
      * reads here. "Lately" is per provider: adding a second enrichment plugin
      * makes every track eligible again for that plugin alone, which is what
      * lets a new source backfill without a migration or a manual sweep.
+     *
+     * `isrcOnly` is what stops that being a trap. A plugin that can only match
+     * on ISRC is never asked about a track that has none, so it never writes a
+     * row for one, so a bar that counted it would be a bar that track could
+     * never clear — leaving it outstanding forever and re-costing every *other*
+     * provider on every pass. Such a provider is dropped from the bar for the
+     * tracks it could not have answered about, rather than being counted as
+     * owing an answer it was never asked for.
      *
      * The ISRC comes off whichever binding carries one. It is the strongest key
      * an enrichment plugin can match on, and it is a property of the recording
@@ -64,7 +86,7 @@ export class EnrichmentRepository extends DataRepository {
      * Oldest first, so a backlog drains in the order it arrived rather than
      * starving whatever sorts last.
      */
-    async listTracksNeedingEnrichment(providers: string[], limit: number): Promise<EnrichableTrack[]> {
+    async listTracksNeedingEnrichment(providers: string[], isrcOnly: string[], limit: number): Promise<PendingTrack[]> {
         if (providers.length === 0) return [];
 
         const rows = await sql<{
@@ -77,6 +99,7 @@ export class EnrichmentRepository extends DataRepository {
             duration_ms: number | null;
             year: number | null;
             isrc: string | null;
+            outstanding: string[];
         }>`
             select t.id,
                    t.title,
@@ -86,20 +109,30 @@ export class EnrichmentRepository extends DataRepository {
                    al.name as album_name,
                    t.duration_ms,
                    t.year,
-                   (select ts.isrc
-                      from deadair.track_sources ts
-                     where ts.track_id = t.id and ts.isrc is not null
-                     order by ts.created_at asc
-                     limit 1) as isrc
+                   src.isrc,
+                   pending.providers as outstanding
               from deadair.tracks t
               join deadair.artists ar on ar.id = t.artist_id
               left join deadair.albums al on al.id = t.album_id
+              left join lateral (select ts.isrc
+                                   from deadair.track_sources ts
+                                  where ts.track_id = t.id and ts.isrc is not null
+                                  order by ts.created_at asc
+                                  limit 1) src on true
+              cross join lateral (
+                  select array(
+                      select candidate.provider
+                        from unnest(${providers}::text[]) as candidate(provider)
+                       where (src.isrc is not null or candidate.provider <> all(${isrcOnly}::text[]))
+                         and not exists (select 1
+                                           from deadair.track_enrichment te
+                                          where te.track_id = t.id
+                                            and te.provider = candidate.provider
+                                            and (te.expires_at is null or te.expires_at > now()))
+                  ) as providers
+              ) pending
              where t.merged_into_id is null
-               and (select count(distinct te.provider)
-                      from deadair.track_enrichment te
-                     where te.track_id = t.id
-                       and te.provider = any(${providers}::text[])
-                       and (te.expires_at is null or te.expires_at > now())) < ${providers.length}
+               and cardinality(pending.providers) > 0
              order by t.created_at asc, t.id asc
              limit ${limit}
         `.execute(this.db);
@@ -114,6 +147,7 @@ export class EnrichmentRepository extends DataRepository {
             durationMs: nullable(row.duration_ms),
             year: nullable(row.year),
             isrc: nullable(row.isrc),
+            outstanding: row.outstanding,
         }));
     }
 

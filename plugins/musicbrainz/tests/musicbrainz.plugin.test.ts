@@ -145,6 +145,30 @@ describe('enrichTrack', () => {
         expect(enrichment.title).toBe('Glory Box');
     });
 
+    it('upper cases the code, because a lower case one is a 400 rather than a lookup', async () => {
+        await initialize();
+        host.queueResponse({ body: JSON.stringify({ isrc: 'GBAAA9400123', recordings: [searchResult.recordings[0]] }) });
+        host.queueResponse({ body: JSON.stringify(recordingDetail) });
+
+        await plugin.enrichTrack({ ...ref, isrc: 'gbaaa9400123' });
+
+        expect(host.calls[0]!.url).toContain('isrc/GBAAA9400123');
+    });
+
+    it('falls back to the search when MusicBrainz refuses the code outright', async () => {
+        await initialize();
+        host.queueResponse({ status: 400, ok: false, body: '{"error":"Invalid isrc."}' });
+        host.queueResponse({ body: JSON.stringify(searchResult) });
+        host.queueResponse({ body: JSON.stringify(recordingDetail) });
+
+        // A 400 must not fail the track: one malformed code in a rotation would
+        // otherwise spend a strike on the breaker and quarantine the plugin.
+        const enrichment = await plugin.enrichTrack({ ...ref, isrc: 'NOTANISRC123' });
+
+        expect(host.calls[1]!.url).toContain('recording?query');
+        expect(enrichment.title).toBe('Glory Box');
+    });
+
     it('returns nothing when no candidate is confident enough', async () => {
         await initialize();
         host.queueResponse({ body: JSON.stringify({ recordings: [{ ...searchResult.recordings[0], score: 40 }] }) });

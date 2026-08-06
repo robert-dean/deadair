@@ -337,13 +337,27 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     private async lookupIsrc(ref: TrackRef): Promise<RecordingMatch | undefined> {
         if (!ref.isrc) return undefined;
 
+        // Upper case, because MusicBrainz answers 400 rather than 404 for a
+        // lower case code and providers are not consistent about it: Spotify
+        // hands back both `GBDHC2551205` and `usbhp0500081`. An ISRC is defined
+        // as upper case, so this is normalising rather than guessing.
+        const isrc = ref.isrc.toUpperCase();
+
         try {
-            const response = await this.client!.get<MusicBrainzIsrcResponse>(`isrc/${encodeURIComponent(ref.isrc)}`, { inc: CANDIDATE_INC });
+            const response = await this.client!.get<MusicBrainzIsrcResponse>(`isrc/${encodeURIComponent(isrc)}`, { inc: CANDIDATE_INC });
             const match = selectByIsrc(response.recordings ?? [], ref);
-            if (!match) this.host?.logger.debug('musicbrainz isrc resolved to nothing usable', { isrc: ref.isrc });
+            if (!match) this.host?.logger.debug('musicbrainz isrc resolved to nothing usable', { isrc });
             return match;
         } catch (error) {
-            if (error instanceof MusicBrainzRequestError && error.status === 404) return undefined;
+            // 404 is a code MusicBrainz has never seen; 400 is one it will not
+            // accept at all. Both mean this key cannot answer, and neither is a
+            // reason to fail a track that the search could still identify —
+            // less still to spend a strike on the breaker and have one bad code
+            // in a rotation quarantine the plugin.
+            if (error instanceof MusicBrainzRequestError && (error.status === 404 || error.status === 400)) {
+                this.host?.logger.debug('musicbrainz would not take that isrc, falling back to the search', { isrc, status: error.status });
+                return undefined;
+            }
             throw error;
         }
     }

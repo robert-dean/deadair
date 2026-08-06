@@ -19,9 +19,10 @@ plugins/spotify   the bundled music provider
 stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends
 ```
 
-Current `apps/api` modules: `data`, `crypto`, `authentication`, `permissions`, `policy`, `catalog`,
-`onboarding`, `settings`, `plugins`, `playlists`, plus process-level `logging`. That list is the
-source of truth; check it before assuming a subsystem exists.
+Current `apps/api` modules: `data`, `crypto`, `authentication`, `permissions`, `policy`, `jobs`,
+`catalog`, `onboarding`, `settings`, `stream`, `plugins`, `playlists`, `playout`, `enrichment`, plus
+process-level `logging`. That list is the source of truth; check it before assuming a subsystem
+exists.
 
 ## Where the real documentation is
 

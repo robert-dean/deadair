@@ -43,6 +43,17 @@ export interface EnrichmentFailure {
     message: string;
 }
 
+/** One run of the walk, for the job's log line. */
+export interface EnrichmentPassSummary {
+    scanned: number;
+    /** Tracks that came back with something from at least one provider. */
+    enriched: number;
+    /** Canonical columns filled across the whole batch. */
+    promoted: number;
+    /** Tracks where at least one provider failed. Not the same as a track nobody could identify. */
+    failed: number;
+}
+
 /** What one track's pass did, for the job's log line. */
 export interface EnrichmentTrackOutcome {
     trackId: string;
@@ -210,6 +221,44 @@ export class EnrichmentService {
         const promoted = result.contributions.length === 0 ? [] : await this.promote(track, result.enrichment);
 
         return { trackId: track.id, providers: result.contributions.map(contribution => contribution.pluginId), promoted, failures: result.failures };
+    }
+
+    /**
+     * One batch of tracks that have not heard from every provider lately.
+     *
+     * Bounded, and small: an enrichment source paced at one request per second
+     * spends a few seconds per track, so the batch is really a statement about
+     * how long one run takes. Whatever is left is picked up by the next run, and
+     * there is always a next run.
+     *
+     * A track that fails is skipped, not retried here. Its rows are unchanged,
+     * so it is still outstanding and the next pass will find it; retrying inside
+     * the batch would spend the whole run on one bad track.
+     */
+    async enrichPending(limit: number, signal?: AbortSignal): Promise<EnrichmentPassSummary> {
+        const summary: EnrichmentPassSummary = { scanned: 0, enriched: 0, promoted: 0, failed: 0 };
+
+        const providers = this.providerIds();
+        if (providers.length === 0) return summary;
+
+        const tracks = await this.enrichmentRepository.listTracksNeedingEnrichment(providers, limit);
+
+        for (const track of tracks) {
+            if (signal?.aborted) break;
+            summary.scanned++;
+
+            try {
+                const outcome = await this.enrichCatalogTrack(track, signal);
+                if (outcome.providers.length > 0) summary.enriched++;
+                summary.promoted += outcome.promoted.length;
+                if (outcome.failures.length > 0) summary.failed++;
+            } catch (error) {
+                summary.failed++;
+                this.logger.warn('enrichment pass skipped a track', { trackId: track.id, error: errorText(error) });
+            }
+        }
+
+        return summary;
     }
 
     /**

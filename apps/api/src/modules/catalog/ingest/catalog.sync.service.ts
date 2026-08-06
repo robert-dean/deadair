@@ -106,7 +106,29 @@ export class CatalogSyncService {
         }
 
         await this.retryPlaceholders(summaries);
+        await this.enrichNewTracks(summaries);
         return summaries;
+    }
+
+    /**
+     * Asks the enrichment walk to run, on the same "only if this changed
+     * something" rule as {@link retryPlaceholders} and for the same reason: a
+     * track that already exists is either enriched or already queued by the
+     * cron, and a run that created nothing has given the walk no new work.
+     *
+     * Best-effort in the same way, too. The enqueue is not atomic with the rows
+     * just written, and enrichment is the least urgent thing this station does:
+     * the quarter-hourly schedule picks up anything a failed send missed.
+     */
+    private async enrichNewTracks(summaries: readonly PluginSyncSummary[]): Promise<void> {
+        const created = summaries.reduce((total, summary) => total + summary.created, 0);
+        if (created === 0) return;
+
+        try {
+            await this.jobBroker.send('catalog.enrich', {});
+        } catch (error) {
+            this.logger.warn('could not queue the enrichment pass', { error: this.errorText(error), created });
+        }
     }
 
     /**

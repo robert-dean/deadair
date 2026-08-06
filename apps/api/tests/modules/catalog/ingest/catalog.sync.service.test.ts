@@ -396,15 +396,20 @@ describe('CatalogSyncService.syncAll', () => {
         });
     });
 
-    describe('handing off to the placeholder pass', () => {
-        it('queues it when the run created canonical tracks', async () => {
+    describe('handing off to the follow-up passes', () => {
+        it('queues them when the run created canonical tracks', async () => {
             const { resolver } = fakeResolver(() => ({ status: 'ingested', trackId: 't', created: true }));
             const jobs = fakeJobBroker();
             const { service } = build([record(SPOTIFY_ID)], resolver, jobs.broker);
 
             await service.syncAll();
 
-            expect(jobs.sent).toEqual([{ name: 'catalog.resolve_placeholders', payload: {} }]);
+            // Both follow-ups have the same trigger: a track the library did not
+            // have before is what gives either of them new work.
+            expect(jobs.sent).toEqual([
+                { name: 'catalog.resolve_placeholders', payload: {} },
+                { name: 'catalog.enrich', payload: {} },
+            ]);
         });
 
         it('does not queue it when everything was already in the library', async () => {
@@ -430,7 +435,7 @@ describe('CatalogSyncService.syncAll', () => {
             expect(jobs.sent).toEqual([]);
         });
 
-        it('queues it on the strength of one plugin even if another failed', async () => {
+        it('queues them on the strength of one plugin even if another failed', async () => {
             const broken = fakeProvider({ failOn: 'playlists' });
             const working = fakeProvider({ playlists: [playlist('p9')], tracks: { p9: [track('t9')] } });
             const { resolver } = fakeResolver();
@@ -443,7 +448,7 @@ describe('CatalogSyncService.syncAll', () => {
 
             await service.syncAll();
 
-            expect(jobs.sent).toHaveLength(1);
+            expect(jobs.sent.map(sent => sent.name)).toEqual(['catalog.resolve_placeholders', 'catalog.enrich']);
         });
 
         it('reports a sync that succeeded even when the enqueue failed', async () => {

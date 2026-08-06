@@ -234,6 +234,63 @@ describe('toTrackRef', () => {
     });
 });
 
+describe('enrichPending', () => {
+    it('walks the batch the repository handed it and summarises the run', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => ({ artist: 'Portishead', year: 1994 })) })]);
+        repository.listTracksNeedingEnrichment.mockResolvedValue([catalogTrack, { ...catalogTrack, id: 'track-2' }] as never);
+
+        const summary = await service.enrichPending(25);
+
+        expect(repository.listTracksNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ], 25);
+        expect(summary).toMatchObject({ scanned: 2, enriched: 2, failed: 0 });
+    });
+
+    it('does not go near the database when no enrichment plugin is installed', async () => {
+        service = build([]);
+
+        const summary = await service.enrichPending(25);
+
+        expect(repository.listTracksNeedingEnrichment).not.toHaveBeenCalled();
+        expect(summary).toEqual({ scanned: 0, enriched: 0, promoted: 0, failed: 0 });
+    });
+
+    it('counts a track nobody could identify as scanned but not enriched', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => ({})) })]);
+        repository.listTracksNeedingEnrichment.mockResolvedValue([catalogTrack] as never);
+
+        expect(await service.enrichPending(25)).toMatchObject({ scanned: 1, enriched: 0, failed: 0 });
+    });
+
+    it('skips a track that threw and keeps the batch going', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => ({ artist: 'Portishead' })) })]);
+        repository.listTracksNeedingEnrichment.mockResolvedValue([catalogTrack, { ...catalogTrack, id: 'track-2' }] as never);
+        repository.saveTrackEnrichment.mockRejectedValueOnce(new Error('write failed'));
+
+        const summary = await service.enrichPending(25);
+
+        expect(summary).toMatchObject({ scanned: 2, enriched: 1, failed: 1 });
+    });
+
+    it('stops between tracks when the caller aborts', async () => {
+        const controller = new AbortController();
+        service = build([
+            record(
+                MUSICBRAINZ,
+                {},
+                {
+                    enrichTrack: vi.fn(async () => {
+                        controller.abort();
+                        return { artist: 'Portishead' };
+                    }),
+                },
+            ),
+        ]);
+        repository.listTracksNeedingEnrichment.mockResolvedValue([catalogTrack, { ...catalogTrack, id: 'track-2' }] as never);
+
+        expect(await service.enrichPending(25, controller.signal)).toMatchObject({ scanned: 1 });
+    });
+});
+
 describe('enrichCatalogTrack', () => {
     const answer = {
         artist: 'Portishead',

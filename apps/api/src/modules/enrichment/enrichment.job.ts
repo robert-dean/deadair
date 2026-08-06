@@ -5,7 +5,7 @@ import { overrideJobActor } from '#modules/jobs/job.authorization.js';
 import { EnrichmentService } from './enrichment.service.js';
 
 /**
- * Tracks examined per run.
+ * Rows examined per run, per kind.
  *
  * Small, because the clock here belongs to the upstream: MusicBrainz asks
  * anonymous clients for one request per second and a track costs a few, so this
@@ -22,7 +22,7 @@ export interface EnrichmentPayload {
 }
 
 /**
- * The scheduled enrichment walk: the thing that finally calls `enrichTrack`.
+ * The scheduled enrichment walk: tracks, then the artists behind them.
  *
  * A plain `Job` rather than a `TransactionalJob`, for the same reason
  * `CatalogSyncJob` is: this is a long walk with rate-limited network in the
@@ -46,10 +46,17 @@ export class EnrichmentJob implements Job<EnrichmentPayload> {
 
     async run(payload?: EnrichmentPayload, signal?: AbortSignal): Promise<void> {
         overrideJobActor(this.container as ScopedContainer, this.context);
+        const limit = payload?.limit ?? BATCH_SIZE;
 
-        const summary = await this.enrichment.enrichPending(payload?.limit ?? BATCH_SIZE, signal);
+        // Tracks first, and in the same run rather than a job of their own. The
+        // artist pass wants `artists.mbid`, which the track pass promotes for
+        // free off the recording's artist credit, and two jobs would put two
+        // walks on the same one-request-per-second limiter.
+        const tracks = await this.enrichment.enrichPending(limit, signal);
+        const artists = await this.enrichment.enrichPendingArtists(limit, signal);
+
         // Quiet when there was nothing to do: with a cron this frequent, an
         // idle station would otherwise write a line every few minutes saying so.
-        if (summary.scanned > 0) this.logger.info('enrichment pass', { job: this.context.id, ...summary });
+        if (tracks.scanned > 0 || artists.scanned > 0) this.logger.info('enrichment pass', { job: this.context.id, tracks, artists });
     }
 }

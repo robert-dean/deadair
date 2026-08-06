@@ -69,6 +69,9 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // paced at a request per second cannot be hurried, so throughput comes from
     // running often rather than from running long.
     //
+    // One run walks tracks and then artists, because the artist pass matches on
+    // an mbid the track pass promotes.
+    //
     // One retry, no dead-letter queue. A track that failed still has no fresh
     // enrichment row, so it is still outstanding and the next pass picks it up —
     // the work is its own record, and there is nothing a dead-letter row would

@@ -4,7 +4,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { mergeEnrichment, sanitizeEnrichment } from '../../../src/modules/enrichment/enrichment.merge.js';
+import {
+    mergeArtistEnrichment,
+    mergeEnrichment,
+    sanitizeArtistEnrichment,
+    sanitizeEnrichment,
+} from '../../../src/modules/enrichment/enrichment.merge.js';
 
 describe('sanitizeEnrichment', () => {
     it('keeps the fields the host understands, in the types they were promised in', () => {
@@ -95,6 +100,33 @@ describe('sanitizeEnrichment', () => {
         expect(sanitizeEnrichment(undefined)).toEqual({});
         expect(sanitizeEnrichment('nope')).toEqual({});
         expect(sanitizeEnrichment([{ artist: 'Portishead' }])).toEqual({});
+    });
+});
+
+describe('the artist spec', () => {
+    it('keeps what belongs to an artist and treats a track field as just another unnamed one', () => {
+        expect(sanitizeArtistEnrichment({ name: 'Portishead', biography: 'Bristol.', bpm: 90 })).toEqual({
+            name: 'Portishead',
+            biography: 'Bristol.',
+            extra: { bpm: 90 },
+        });
+    });
+
+    it('applies the same link and cap rules as a track does', () => {
+        const enrichment = sanitizeArtistEnrichment({
+            links: [{ label: 'Bad', url: 'javascript:alert(1)' }],
+            facts: Array.from({ length: 200 }, (_, index) => `fact-${index}`),
+        });
+
+        expect(enrichment.links).toBeUndefined();
+        expect(enrichment.facts).toHaveLength(50);
+    });
+
+    it('accumulates artist lists and gives a scalar to the first plugin that knew it', () => {
+        expect(mergeArtistEnrichment([{ facts: ['a'] }, { facts: ['b'], name: 'Portishead' }])).toEqual({
+            facts: ['a', 'b'],
+            name: 'Portishead',
+        });
     });
 });
 

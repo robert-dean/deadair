@@ -28,6 +28,28 @@ export interface PendingTrack extends EnrichableTrack {
     outstanding: string[];
 }
 
+/** A canonical artist, in the shape the enrichment fan-out needs to ask about them. */
+export interface EnrichableArtist {
+    id: string;
+    name: string;
+    /** MusicBrainz artist id, once the track pass has promoted one. */
+    mbid?: string;
+}
+
+/**
+ * An artist the walk picked up: who it is waiting on, and what each of those
+ * providers called this artist last time.
+ *
+ * `refs` is read off rows that may well have expired, which is the point. An
+ * expired payload is stale; the id it was fetched under is not, and handing it
+ * back turns a re-ask into a lookup instead of another search.
+ */
+export interface PendingArtist extends EnrichableArtist {
+    outstanding: string[];
+    /** Provider id to the id that provider last fetched this artist under. */
+    refs: Record<string, string>;
+}
+
 /** What the merged enrichment is allowed to write onto the canonical rows. */
 export interface TrackPromotion {
     /** MusicBrainz recording id. Written once and never revised. */
@@ -223,6 +245,100 @@ export class EnrichmentRepository extends DataRepository {
         }
 
         return promoted;
+    }
+
+    /**
+     * Artists that have not heard from every enrichment provider lately.
+     *
+     * The sibling of {@link listTracksNeedingEnrichment}, and simpler in one
+     * way: an artist always has a name, so there is no equivalent of the
+     * ISRC-only provider that could not have answered. Every artist provider is
+     * applicable to every artist.
+     */
+    async listArtistsNeedingEnrichment(providers: string[], limit: number): Promise<PendingArtist[]> {
+        if (providers.length === 0) return [];
+
+        const rows = await sql<{
+            id: string;
+            name: string;
+            mbid: string | null;
+            outstanding: string[];
+            refs: Record<string, string | null> | null;
+        }>`
+            select a.id,
+                   a.name,
+                   a.mbid,
+                   pending.providers as outstanding,
+                   refs.map as refs
+              from deadair.artists a
+              cross join lateral (
+                  select array(
+                      select candidate.provider
+                        from unnest(${providers}::text[]) as candidate(provider)
+                       where not exists (select 1
+                                           from deadair.artist_enrichment ae
+                                          where ae.artist_id = a.id
+                                            and ae.provider = candidate.provider
+                                            and (ae.expires_at is null or ae.expires_at > now()))
+                  ) as providers
+              ) pending
+              left join lateral (
+                  select jsonb_object_agg(ae.provider, ae.provider_ref) as map
+                    from deadair.artist_enrichment ae
+                   where ae.artist_id = a.id and ae.provider_ref is not null
+              ) refs on true
+             where a.merged_into_id is null
+               and cardinality(pending.providers) > 0
+             order by a.created_at asc, a.id asc
+             limit ${limit}
+        `.execute(this.db);
+
+        return rows.rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            mbid: nullable(row.mbid),
+            outstanding: row.outstanding,
+            refs: Object.fromEntries(Object.entries(row.refs ?? {}).filter((entry): entry is [string, string] => entry[1] !== null)),
+        }));
+    }
+
+    /** One provider's payload for one artist. The {@link saveTrackEnrichment} rule, per artist. */
+    async saveArtistEnrichment(artistId: string, provider: string, providerRef: string | undefined, data: unknown, ttlMs: number): Promise<void> {
+        const row = {
+            artistId,
+            provider,
+            providerRef: providerRef ?? null,
+            data: JSON.stringify(data) as unknown as never,
+            fetchedAt: sql<never>`now()`,
+            expiresAt: sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`,
+        };
+
+        await this.db
+            .insertInto('deadair.artistEnrichment')
+            .values(row)
+            .onConflict(oc => oc.columns(['artistId', 'provider']).doUpdateSet(row))
+            .execute();
+    }
+
+    /**
+     * Gap-filling onto `deadair.artists`.
+     *
+     * `name` is deliberately not promotable. The column is not null and always
+     * populated by the catalog, so there is no gap for a source to fill, and
+     * "MusicBrainz spells it differently" is a merge decision rather than a
+     * licence to rewrite the row every provider's bindings point at.
+     */
+    async promoteArtist(artistId: string, promotion: { imageUrl?: string }): Promise<string[]> {
+        if (promotion.imageUrl === undefined) return [];
+
+        const result = await this.db
+            .updateTable('deadair.artists')
+            .set({ imageUrl: promotion.imageUrl })
+            .where('id', '=', artistId)
+            .where('imageUrl', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n ? ['artist.imageUrl'] : [];
     }
 
     /** The artist's MusicBrainz id, under the same unique-column guard as {@link promoteTrack}. */

@@ -41,15 +41,19 @@ interface InstanceOptions {
     priority?: number;
     matchKeys?: string[];
     enrichTrack?: unknown;
+    /** Absent means a plugin that never wrote the optional method, which is the normal case. */
+    enrichArtist?: unknown;
 }
 
 function instance(options: InstanceOptions = {}) {
-    return {
+    const built: Record<string, unknown> = {
         priority: options.priority ?? 100,
         matchKeys: options.matchKeys ?? ['isrc', 'artist-title'],
         init: vi.fn(),
         enrichTrack: options.enrichTrack ?? vi.fn(async () => ({ artist: 'Portishead' })),
     };
+    if (options.enrichArtist) built.enrichArtist = options.enrichArtist;
+    return built;
 }
 
 function record(id: string, overrides: Partial<PluginRecord> = {}, options: InstanceOptions = {}): PluginRecord {
@@ -65,6 +69,9 @@ function fakeRepository() {
     return {
         listTracksNeedingEnrichment: vi.fn(async () => []),
         saveTrackEnrichment: vi.fn(async () => {}),
+        listArtistsNeedingEnrichment: vi.fn(async () => []),
+        saveArtistEnrichment: vi.fn(async () => {}),
+        promoteArtist: vi.fn(async (_id: string, promotion: { imageUrl?: string }) => (promotion.imageUrl ? ['artist.imageUrl'] : [])),
         promoteTrack: vi.fn(async (_id: string, promotion: TrackPromotion) =>
             Object.keys(promotion).filter(key => promotion[key as keyof TrackPromotion] !== undefined),
         ),
@@ -341,6 +348,109 @@ describe('enrichPending', () => {
         repository.listTracksNeedingEnrichment.mockResolvedValue([pending(catalogTrack), pending({ ...catalogTrack, id: 'track-2' })] as never);
 
         expect(await service.enrichPending(25, controller.signal)).toMatchObject({ scanned: 1 });
+    });
+});
+
+describe('artist enrichment', () => {
+    const artist = { id: 'artist-1', name: 'Portishead', mbid: 'a0000000-0000-4000-8000-000000000002' };
+    const facts = { name: 'Portishead', facts: ['Formed in Bristol in 1991.'], imageUrl: 'https://images.test/portishead.jpg' };
+
+    it('counts only the plugins that actually wrote the optional method', () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichArtist: vi.fn(async () => facts) }), record(OTHER)]);
+
+        expect(service.providerIds()).toEqual([MUSICBRAINZ, OTHER]);
+        expect(service.artistProviderIds()).toEqual([MUSICBRAINZ]);
+    });
+
+    it('never calls a plugin that only knows recordings', async () => {
+        service = build([record(OTHER)]);
+
+        const result = await service.enrichArtist({ name: 'Portishead' });
+
+        expect(result).toEqual({ enrichment: {}, contributions: [], failures: [] });
+    });
+
+    it('hands each plugin the id that plugin itself fetched under last time', async () => {
+        const enrichArtist = vi.fn(async () => facts);
+        const otherArtist = vi.fn(async () => ({ biography: 'A Bristol group.' }));
+        service = build([record(MUSICBRAINZ, {}, { priority: 100, enrichArtist }), record(OTHER, {}, { priority: 500, enrichArtist: otherArtist })]);
+
+        await service.enrichArtist({ name: 'Portishead', mbid: 'mb-1' }, { refs: { [MUSICBRAINZ]: 'mb-1', [OTHER]: 'discogs-99' } });
+
+        expect(enrichArtist).toHaveBeenCalledWith({ name: 'Portishead', mbid: 'mb-1', providerRef: 'mb-1' });
+        expect(otherArtist).toHaveBeenCalledWith({ name: 'Portishead', mbid: 'mb-1', providerRef: 'discogs-99' });
+    });
+
+    it('merges the answers under the same priority rule as a track', async () => {
+        service = build([
+            record(MUSICBRAINZ, {}, { priority: 100, enrichArtist: vi.fn(async () => ({ name: 'Portishead', facts: ['a'] })) }),
+            record(OTHER, {}, { priority: 500, enrichArtist: vi.fn(async () => ({ name: 'PORTISHEAD', facts: ['b'], biography: 'Bristol.' })) }),
+        ]);
+
+        const result = await service.enrichArtist({ name: 'Portishead' });
+
+        expect(result.enrichment).toEqual({ name: 'Portishead', facts: ['a', 'b'], biography: 'Bristol.' });
+    });
+
+    it('stores one payload per provider and fills the image only if it was a gap', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichArtist: vi.fn(async () => facts) })]);
+
+        const outcome = await service.enrichCatalogArtist(artist);
+
+        expect(repository.saveArtistEnrichment).toHaveBeenCalledWith(
+            'artist-1',
+            MUSICBRAINZ,
+            undefined,
+            expect.objectContaining(facts),
+            ENRICHMENT_TTL_MS,
+        );
+        expect(repository.promoteArtist).toHaveBeenCalledWith('artist-1', { imageUrl: facts.imageUrl });
+        expect(outcome.promoted).toEqual(['artist.imageUrl']);
+    });
+
+    it('writes nothing for an artist nobody could say anything about', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichArtist: vi.fn(async () => ({})) })]);
+
+        const outcome = await service.enrichCatalogArtist(artist);
+
+        expect(repository.saveArtistEnrichment).not.toHaveBeenCalled();
+        expect(repository.promoteArtist).not.toHaveBeenCalled();
+        expect(outcome).toEqual({ artistId: 'artist-1', providers: [], promoted: [], failures: [] });
+    });
+
+    it('walks the batch and passes each artist its own outstanding list and refs', async () => {
+        const enrichArtist = vi.fn(async () => facts);
+        service = build([record(MUSICBRAINZ, {}, { enrichArtist })]);
+        repository.listArtistsNeedingEnrichment.mockResolvedValue([
+            { ...artist, outstanding: [MUSICBRAINZ], refs: { [MUSICBRAINZ]: 'mb-cached' } },
+        ] as never);
+
+        const summary = await service.enrichPendingArtists(25);
+
+        expect(repository.listArtistsNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ], 25);
+        expect(enrichArtist).toHaveBeenCalledWith({ name: 'Portishead', mbid: artist.mbid, providerRef: 'mb-cached' });
+        expect(summary).toMatchObject({ scanned: 1, enriched: 1, promoted: 1, failed: 0 });
+    });
+
+    it('does not go near the database when no plugin answers about artists', async () => {
+        service = build([record(MUSICBRAINZ)]);
+
+        const summary = await service.enrichPendingArtists(25);
+
+        expect(repository.listArtistsNeedingEnrichment).not.toHaveBeenCalled();
+        expect(summary).toEqual({ scanned: 0, enriched: 0, promoted: 0, failed: 0 });
+    });
+
+    it('records a failing plugin rather than losing the pass', async () => {
+        service = build([
+            record(MUSICBRAINZ, {}, { priority: 100, enrichArtist: vi.fn(async () => Promise.reject(new PluginError('down'))) }),
+            record(OTHER, {}, { priority: 500, enrichArtist: vi.fn(async () => ({ biography: 'Bristol.' })) }),
+        ]);
+
+        const outcome = await service.enrichCatalogArtist(artist);
+
+        expect(outcome.providers).toEqual([OTHER]);
+        expect(outcome.failures).toHaveLength(1);
     });
 });
 

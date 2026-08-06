@@ -1,4 +1,4 @@
-import type { ExternalId, ExternalLink, TrackEnrichment } from '@deadair/plugin-sdk';
+import type { ArtistEnrichment, ExternalId, ExternalLink, TrackEnrichment } from '@deadair/plugin-sdk';
 
 /**
  * Taking several plugins' answers about one track and turning them into one
@@ -10,14 +10,39 @@ import type { ExternalId, ExternalLink, TrackEnrichment } from '@deadair/plugin-
  * shaped like an enrichment at all, is decided here.
  */
 
-/** Fields that accumulate across plugins rather than being decided by one of them. */
-const LIST_FIELDS = ['genres', 'moods', 'facts', 'externalIds', 'links'] as const;
+/**
+ * What one kind of enrichment is made of, in the terms this file validates in.
+ *
+ * A spec rather than three near-identical functions: a track, an artist and a
+ * record differ in which fields they have, not in what a field of each type is
+ * allowed to be, and the parts that are actually load-bearing — the caps, the
+ * link scheme check, the `extra` rules — must not be able to drift between
+ * them.
+ */
+interface FieldSpec {
+    /** One string each. */
+    text: readonly string[];
+    /** One number each. */
+    number: readonly string[];
+    /** Lists of strings. */
+    strings: readonly string[];
+    /** Everything that accumulates across plugins rather than being decided by one. */
+    lists: readonly string[];
+}
 
-/** Fields that are one string each. */
-const TEXT_FIELDS = ['artist', 'title', 'album', 'releaseDate', 'biography', 'musicalKey', 'label', 'isrc', 'artworkUrl'] as const;
+const TRACK_FIELDS: FieldSpec = {
+    text: ['artist', 'title', 'album', 'releaseDate', 'biography', 'musicalKey', 'label', 'isrc', 'artworkUrl'],
+    number: ['year', 'bpm'],
+    strings: ['genres', 'moods', 'facts'],
+    lists: ['genres', 'moods', 'facts', 'externalIds', 'links'],
+};
 
-/** Fields that are one number each. */
-const NUMBER_FIELDS = ['year', 'bpm'] as const;
+const ARTIST_FIELDS: FieldSpec = {
+    text: ['name', 'biography', 'imageUrl'],
+    number: [],
+    strings: ['genres', 'facts'],
+    lists: ['genres', 'facts', 'externalIds', 'links'],
+};
 
 /**
  * Caps. A plugin is trusted code, but the upstream it read from is not, and
@@ -58,6 +83,9 @@ const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  * unknown keys cannot collide) and it never promotes onto a canonical column.
  */
 export type StoredEnrichment = Partial<TrackEnrichment> & { extra?: Record<string, unknown> };
+
+/** {@link StoredEnrichment} for an artist. */
+export type StoredArtistEnrichment = Partial<ArtistEnrichment> & { extra?: Record<string, unknown> };
 
 const text = (value: unknown, max = MAX_TEXT): string | undefined => {
     if (typeof value !== 'string') return undefined;
@@ -114,8 +142,8 @@ const links = (value: unknown): ExternalLink[] | undefined => {
     return list.length > 0 ? list.slice(0, MAX_LIST) : undefined;
 };
 
-/** Every key {@link sanitizeEnrichment} understands. Anything else is `extra`. */
-const KNOWN_FIELDS = new Set<string>([...TEXT_FIELDS, ...NUMBER_FIELDS, ...LIST_FIELDS]);
+/** Every key a spec understands. Anything else is `extra`. */
+const knownFields = (spec: FieldSpec): Set<string> => new Set<string>([...spec.text, ...spec.number, ...spec.lists]);
 
 /**
  * Whether a value can be stored as-is: JSON-safe, and not nested past
@@ -151,11 +179,12 @@ function isStorable(value: unknown, depth = 0): boolean {
  * a megabyte of upstream response has a bug, and half of that response stored
  * silently is a worse outcome than none of it and a log line.
  */
-function extraFields(raw: Record<string, unknown>, onDrop?: (reason: string) => void): Record<string, unknown> | undefined {
+function extraFields(raw: Record<string, unknown>, spec: FieldSpec, onDrop?: (reason: string) => void): Record<string, unknown> | undefined {
+    const known = knownFields(spec);
     const entries: [string, unknown][] = [];
 
     for (const [key, value] of Object.entries(raw)) {
-        if (KNOWN_FIELDS.has(key) || FORBIDDEN_KEYS.has(key) || value === undefined) continue;
+        if (known.has(key) || FORBIDDEN_KEYS.has(key) || value === undefined) continue;
 
         // A plugin that fills `extra` itself is saying the same thing the host
         // means by it, so its entries are folded in rather than nested.
@@ -163,7 +192,7 @@ function extraFields(raw: Record<string, unknown>, onDrop?: (reason: string) => 
             key === 'extra' && isStorable(value) && value !== null && !Array.isArray(value) ? Object.entries(value) : [[key, value] as const];
 
         for (const [name, entry] of pairs) {
-            if (KNOWN_FIELDS.has(name) || FORBIDDEN_KEYS.has(name) || entry === undefined) continue;
+            if (known.has(name) || FORBIDDEN_KEYS.has(name) || entry === undefined) continue;
             if (!isStorable(entry)) {
                 onDrop?.(`"${name}" is not storable`);
                 continue;
@@ -195,38 +224,43 @@ function extraFields(raw: Record<string, unknown>, onDrop?: (reason: string) => 
  * to http(s), because this payload reaches a settings card, the console and
  * eventually an LLM prompt no matter which half it came from.
  */
-export function sanitizeEnrichment(value: unknown, onDrop?: (reason: string) => void): StoredEnrichment {
+function sanitize(value: unknown, spec: FieldSpec, onDrop?: (reason: string) => void): Record<string, unknown> {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
     const raw = value as Record<string, unknown>;
-    const clean: StoredEnrichment = {};
+    const clean: Record<string, unknown> = {};
 
-    for (const field of TEXT_FIELDS) {
+    for (const field of spec.text) {
         const parsed = text(raw[field], field === 'biography' ? MAX_BIOGRAPHY : MAX_TEXT);
         if (parsed !== undefined) clean[field] = parsed;
     }
 
-    for (const field of NUMBER_FIELDS) {
+    for (const field of spec.number) {
         const parsed = finite(raw[field]);
         if (parsed !== undefined) clean[field] = parsed;
     }
 
-    const genres = strings(raw.genres);
-    if (genres) clean.genres = genres;
-    const moods = strings(raw.moods);
-    if (moods) clean.moods = moods;
-    const facts = strings(raw.facts);
-    if (facts) clean.facts = facts;
+    for (const field of spec.strings) {
+        const parsed = strings(raw[field]);
+        if (parsed) clean[field] = parsed;
+    }
 
     const ids = externalIds(raw.externalIds);
     if (ids) clean.externalIds = ids;
     const linkList = links(raw.links);
     if (linkList) clean.links = linkList;
 
-    const extra = extraFields(raw, onDrop);
+    const extra = extraFields(raw, spec, onDrop);
     if (extra) clean.extra = extra;
 
     return clean;
 }
+
+export const sanitizeEnrichment = (value: unknown, onDrop?: (reason: string) => void): StoredEnrichment =>
+    sanitize(value, TRACK_FIELDS, onDrop) as StoredEnrichment;
+
+/** {@link sanitizeEnrichment} for what a plugin said about an artist. */
+export const sanitizeArtistEnrichment = (value: unknown, onDrop?: (reason: string) => void): StoredArtistEnrichment =>
+    sanitize(value, ARTIST_FIELDS, onDrop) as StoredArtistEnrichment;
 
 /** How to tell two entries in a list field apart. */
 const identity = (value: unknown): string => {
@@ -252,15 +286,15 @@ const identity = (value: unknown): string => {
  * onto canonical rows and read as a single answer — so an unnamed field has no
  * business in it. The per-provider payloads keep every one of them.
  */
-export function mergeEnrichment(parts: StoredEnrichment[]): Partial<TrackEnrichment> {
-    const merged: Partial<TrackEnrichment> = {};
+function merge(parts: Record<string, unknown>[], spec: FieldSpec): Record<string, unknown> {
+    const merged: Record<string, unknown> = {};
     const lists = new Map<string, { seen: Set<string>; values: unknown[] }>();
 
     for (const part of parts) {
         for (const [key, value] of Object.entries(part)) {
             if (value === undefined || key === 'extra') continue;
 
-            if ((LIST_FIELDS as readonly string[]).includes(key)) {
+            if (spec.lists.includes(key)) {
                 const list = lists.get(key) ?? { seen: new Set<string>(), values: [] };
                 for (const entry of value as unknown[]) {
                     const marker = identity(entry);
@@ -282,3 +316,9 @@ export function mergeEnrichment(parts: StoredEnrichment[]): Partial<TrackEnrichm
 
     return merged;
 }
+
+export const mergeEnrichment = (parts: StoredEnrichment[]): Partial<TrackEnrichment> => merge(parts, TRACK_FIELDS) as Partial<TrackEnrichment>;
+
+/** {@link mergeEnrichment} for several plugins' answers about one artist. */
+export const mergeArtistEnrichment = (parts: StoredArtistEnrichment[]): Partial<ArtistEnrichment> =>
+    merge(parts, ARTIST_FIELDS) as Partial<ArtistEnrichment>;

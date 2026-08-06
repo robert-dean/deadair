@@ -74,7 +74,19 @@ export interface EnrichmentPlugin {
     instance: EnrichmentPluginInstance;
     /** {@link EnrichmentPluginInstance.priority}, defaulted. Lower wins on merge. */
     priority: number;
+    /** Whether `enrichArtist` is there to call. Optional in the SDK, so absent is normal, not broken. */
+    enrichesArtists: boolean;
 }
+
+/**
+ * Whether an instance answers about artists as well as recordings.
+ *
+ * Deliberately not part of {@link ENRICHMENT_METHODS}: `enrichArtist` is
+ * optional in the SDK the way `resolveStreamUrl` is, so a source that only
+ * knows recordings must stay a usable enrichment plugin rather than being
+ * rejected for a method it was never required to write.
+ */
+export const implementsArtistEnrichment = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).enrichArtist === 'function';
 
 /** The same declaration-and-implementation rule as {@link implementsCatalog}, for enrichment. */
 export const implementsEnrichment = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
@@ -98,5 +110,5 @@ export const asEnrichmentPlugin = (record: PluginRecord): EnrichmentPlugin | und
     const instance = record.instance as EnrichmentPluginInstance;
     const priority = typeof instance.priority === 'number' && Number.isFinite(instance.priority) ? instance.priority : DEFAULT_ENRICHMENT_PRIORITY;
 
-    return { record, manifest: record.manifest, instance, priority };
+    return { record, manifest: record.manifest, instance, priority, enrichesArtists: implementsArtistEnrichment(instance) };
 };

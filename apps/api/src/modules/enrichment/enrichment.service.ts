@@ -1,11 +1,25 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { ENRICHMENT_MATCH_KEY_ARTIST_TITLE, ENRICHMENT_MATCH_KEY_ISRC, type TrackEnrichment, type TrackRef } from '@deadair/plugin-sdk';
+import {
+    ENRICHMENT_MATCH_KEY_ARTIST_TITLE,
+    ENRICHMENT_MATCH_KEY_ISRC,
+    type ArtistEnrichment,
+    type ArtistRef,
+    type TrackEnrichment,
+    type TrackRef,
+} from '@deadair/plugin-sdk';
 import { asEnrichmentPlugin, type EnrichmentPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
-import { mergeEnrichment, sanitizeEnrichment, type StoredEnrichment } from './enrichment.merge.js';
-import { EnrichmentRepository, type EnrichableTrack } from './enrichment.repository.js';
+import {
+    mergeArtistEnrichment,
+    mergeEnrichment,
+    sanitizeArtistEnrichment,
+    sanitizeEnrichment,
+    type StoredArtistEnrichment,
+    type StoredEnrichment,
+} from './enrichment.merge.js';
+import { EnrichmentRepository, type EnrichableArtist, type EnrichableTrack } from './enrichment.repository.js';
 
 /**
  * How long a stored payload is trusted before the walk asks again.
@@ -55,14 +69,21 @@ export interface EnrichmentPassSummary {
     failed: number;
 }
 
-/** What one track's pass did, for the job's log line. */
-export interface EnrichmentTrackOutcome {
-    trackId: string;
+/** What one entity's pass did, for the job's log line. */
+export interface EnrichmentEntityOutcome {
     /** Plugins that had something to say, and therefore have a stored payload. */
     providers: string[];
-    /** Canonical columns this pass filled in. Empty is the normal case for a track already complete. */
+    /** Canonical columns this pass filled in. Empty is the normal case for a row already complete. */
     promoted: string[];
     failures: EnrichmentFailure[];
+}
+
+export interface EnrichmentTrackOutcome extends EnrichmentEntityOutcome {
+    trackId: string;
+}
+
+export interface EnrichmentArtistOutcome extends EnrichmentEntityOutcome {
+    artistId: string;
 }
 
 /**
@@ -78,12 +99,31 @@ export interface EnrichOptions {
     signal?: AbortSignal;
 }
 
+/** {@link EnrichOptions} plus what each provider called this artist last time. */
+export interface ArtistEnrichOptions extends EnrichOptions {
+    /** Provider id to the id that provider fetched under, from its stored row. */
+    refs?: Record<string, string>;
+}
+
 export interface EnrichmentResult {
     /** Every plugin's answer folded together in priority order. */
     enrichment: Partial<TrackEnrichment>;
     /** The answers themselves, in the order they were merged. Empty answers are dropped. */
     contributions: EnrichmentContribution[];
     failures: EnrichmentFailure[];
+}
+
+export interface ArtistEnrichmentResult {
+    enrichment: Partial<ArtistEnrichment>;
+    contributions: ArtistEnrichmentContribution[];
+    failures: EnrichmentFailure[];
+}
+
+/** One plugin's answer about an artist, kept apart from the merge because it is stored per provider. */
+export interface ArtistEnrichmentContribution {
+    pluginId: string;
+    priority: number;
+    enrichment: StoredArtistEnrichment;
 }
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -113,7 +153,8 @@ export const toTrackRef = (track: EnrichableTrack): TrackRef => ({
  * looked up first. Provenance, not identity — the schema is explicit that this
  * column records what was asked, even when the answer later proves wrong.
  */
-const providerRef = (contribution: EnrichmentContribution): string | undefined => contribution.enrichment.externalIds?.[0]?.id;
+const providerRef = (contribution: { enrichment: { externalIds?: { id: string }[] } }): string | undefined =>
+    contribution.enrichment.externalIds?.[0]?.id;
 
 /**
  * Whether it is worth asking this plugin about this track.
@@ -174,6 +215,22 @@ export class EnrichmentService {
     }
 
     /**
+     * The subset of {@link providers} that also answers about artists.
+     *
+     * A separate list rather than a flag checked at the call site, because the
+     * artist walk's selection query counts providers: an artist held to a bar
+     * that included a track-only plugin would stay outstanding forever, which
+     * is the same trap `isrcOnlyProviderIds` exists to avoid for tracks.
+     */
+    artistProviders(): EnrichmentPlugin[] {
+        return this.providers().filter(plugin => plugin.enrichesArtists);
+    }
+
+    artistProviderIds(): string[] {
+        return this.artistProviders().map(plugin => plugin.record.id);
+    }
+
+    /**
      * The providers that can only match on ISRC, which the selection query has
      * to know about to avoid holding an ISRC-less track to a bar it can never
      * clear. See `listTracksNeedingEnrichment`.
@@ -229,6 +286,48 @@ export class EnrichmentService {
     }
 
     /**
+     * Asks the capable plugins about one artist.
+     *
+     * The sibling of {@link enrich}, and separate from it rather than a mode of
+     * it: the answers have a different shape, land in a different table, and
+     * are asked for once per artist rather than once per track, which is the
+     * entire reason the method exists.
+     *
+     * Each plugin is handed its own `providerRef`, so two sources that both
+     * know this artist under their own ids each get theirs back.
+     */
+    async enrichArtist(ref: ArtistRef, options: ArtistEnrichOptions = {}): Promise<ArtistEnrichmentResult> {
+        const { only, refs, signal } = options;
+        const contributions: ArtistEnrichmentContribution[] = [];
+        const failures: EnrichmentFailure[] = [];
+
+        for (const plugin of this.artistProviders()) {
+            if (signal?.aborted) break;
+            if (only && !only.includes(plugin.record.id)) continue;
+
+            const pluginId = plugin.record.id;
+            const scoped: ArtistRef = { ...ref, providerRef: refs?.[pluginId] };
+
+            try {
+                const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichArtist', async () =>
+                    plugin.instance.enrichArtist!(scoped),
+                );
+                const enrichment = sanitizeArtistEnrichment(answer, reason =>
+                    this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
+                );
+                if (Object.keys(enrichment).length === 0) continue;
+                contributions.push({ pluginId, priority: plugin.priority, enrichment });
+            } catch (error) {
+                const message = errorText(error);
+                failures.push({ pluginId, message });
+                this.logger.warn('artist enrichment plugin failed', { pluginId, artist: ref.name, error: message });
+            }
+        }
+
+        return { enrichment: mergeArtistEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures };
+    }
+
+    /**
      * Enriches one catalog track and writes what came back.
      *
      * The payloads are stored per provider, exactly as each plugin said them,
@@ -255,6 +354,67 @@ export class EnrichmentService {
         const promoted = result.contributions.length === 0 ? [] : await this.promote(track, result.enrichment);
 
         return { trackId: track.id, providers: result.contributions.map(contribution => contribution.pluginId), promoted, failures: result.failures };
+    }
+
+    /**
+     * Enriches one catalog artist and writes what came back.
+     *
+     * The same shape as {@link enrichCatalogTrack}, one table over. Only the
+     * artist's own image is promoted: `mbid` comes off the *track* pass, free
+     * with the recording's artist credit, and `name` is not a gap anything can
+     * fill.
+     */
+    async enrichCatalogArtist(artist: EnrichableArtist, options: ArtistEnrichOptions = {}): Promise<EnrichmentArtistOutcome> {
+        const result = await this.enrichArtist({ name: artist.name, mbid: artist.mbid }, options);
+
+        for (const contribution of result.contributions) {
+            await this.enrichmentRepository.saveArtistEnrichment(
+                artist.id,
+                contribution.pluginId,
+                providerRef(contribution),
+                contribution.enrichment,
+                ENRICHMENT_TTL_MS,
+            );
+        }
+
+        const promoted =
+            result.contributions.length === 0
+                ? []
+                : await this.enrichmentRepository.promoteArtist(artist.id, { imageUrl: result.enrichment.imageUrl });
+
+        return {
+            artistId: artist.id,
+            providers: result.contributions.map(contribution => contribution.pluginId),
+            promoted,
+            failures: result.failures,
+        };
+    }
+
+    /** One batch of artists that have not heard from every artist provider lately. */
+    async enrichPendingArtists(limit: number, signal?: AbortSignal): Promise<EnrichmentPassSummary> {
+        const summary: EnrichmentPassSummary = { scanned: 0, enriched: 0, promoted: 0, failed: 0 };
+
+        const providers = this.artistProviderIds();
+        if (providers.length === 0) return summary;
+
+        const artists = await this.enrichmentRepository.listArtistsNeedingEnrichment(providers, limit);
+
+        for (const artist of artists) {
+            if (signal?.aborted) break;
+            summary.scanned++;
+
+            try {
+                const outcome = await this.enrichCatalogArtist(artist, { only: artist.outstanding, refs: artist.refs, signal });
+                if (outcome.providers.length > 0) summary.enriched++;
+                summary.promoted += outcome.promoted.length;
+                if (outcome.failures.length > 0) summary.failed++;
+            } catch (error) {
+                summary.failed++;
+                this.logger.warn('enrichment pass skipped an artist', { artistId: artist.id, error: errorText(error) });
+            }
+        }
+
+        return summary;
     }
 
     /**

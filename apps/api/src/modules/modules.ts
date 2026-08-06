@@ -11,6 +11,7 @@ import { StreamModule } from './stream/stream.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { PlayoutModule } from './playout/playout.module.js';
+import { EnrichmentModule } from './enrichment/enrichment.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 
@@ -42,6 +43,11 @@ export const modules: ServerKitModule[] = [
     // for a track's stream URL, and its ready() reads the bridge secret the
     // StreamModule above has already seeded and materialized.
     PlayoutModule,
+    // After PluginsModule for the same reason as PlaylistsModule: it fans a
+    // track out across every enrichment plugin through the registry and the
+    // invoker. It also writes catalog rows, but through its own repository, so
+    // it does not need CatalogModule.
+    EnrichmentModule,
     // Must stay last: its shutdown hook closes the process-level RotatingLogStore,
     // and every other module's shutdown logging has to be flushed through
     // FileTeeLogger before that happens.

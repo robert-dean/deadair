@@ -1,4 +1,10 @@
-import { PLUGIN_CAPABILITY_CATALOG, type MusicProviderPluginInstance, type PluginManifest } from '@deadair/plugin-sdk';
+import {
+    PLUGIN_CAPABILITY_CATALOG,
+    PLUGIN_CAPABILITY_ENRICHMENT,
+    type EnrichmentPluginInstance,
+    type MusicProviderPluginInstance,
+    type PluginManifest,
+} from '@deadair/plugin-sdk';
 import type { PluginRecord } from './types/plugin.record.js';
 
 /**
@@ -50,4 +56,47 @@ export const asCatalogPlugin = (record: PluginRecord): CatalogPlugin | undefined
     if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
     if (!implementsCatalog(record.manifest, record.instance)) return undefined;
     return { record, manifest: record.manifest, instance: record.instance as MusicProviderPluginInstance };
+};
+
+/** The one method an enrichment plugin exists to provide. */
+export const ENRICHMENT_METHODS = ['enrichTrack'] as const satisfies ReadonlyArray<keyof EnrichmentPluginInstance>;
+
+/**
+ * Where an enrichment plugin sorts when several answer for the same track, for
+ * a plugin that declared the capability and then forgot to say. Mid-scale, per
+ * the SDK's own guidance: not the canonical source, not a guess.
+ */
+export const DEFAULT_ENRICHMENT_PRIORITY = 500;
+
+export interface EnrichmentPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: EnrichmentPluginInstance;
+    /** {@link EnrichmentPluginInstance.priority}, defaulted. Lower wins on merge. */
+    priority: number;
+}
+
+/** The same declaration-and-implementation rule as {@link implementsCatalog}, for enrichment. */
+export const implementsEnrichment = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_ENRICHMENT)) return false;
+    return ENRICHMENT_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The enrichment-capable view of a record, or `undefined` when it is not one.
+ *
+ * The sibling of {@link asCatalogPlugin}, and it carries `priority` because
+ * that number is the whole ordering: enrichment is a fan-out where several
+ * plugins answer the same question and the merge has to know which answer to
+ * believe. Reading it here rather than at each call site means one plugin
+ * cannot sort differently for two callers.
+ */
+export const asEnrichmentPlugin = (record: PluginRecord): EnrichmentPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsEnrichment(record.manifest, record.instance)) return undefined;
+
+    const instance = record.instance as EnrichmentPluginInstance;
+    const priority = typeof instance.priority === 'number' && Number.isFinite(instance.priority) ? instance.priority : DEFAULT_ENRICHMENT_PRIORITY;
+
+    return { record, manifest: record.manifest, instance, priority };
 };

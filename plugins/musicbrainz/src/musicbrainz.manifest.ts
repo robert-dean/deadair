@@ -11,6 +11,15 @@ export const DEFAULT_BASE_URL = 'https://musicbrainz.org/ws/2';
 export const MUSICBRAINZ_WEB_ORIGIN = 'https://musicbrainz.org';
 
 /**
+ * Cover art lives here, and this plugin never calls it: a release document
+ * already says whether a front cover exists, so the URL is derived and handed
+ * on for whoever renders it. That is why the archive is absent from
+ * `permissions.network`, and it has to stay absent unless something here
+ * actually starts fetching one.
+ */
+export const COVER_ART_ORIGIN = 'https://coverartarchive.org';
+
+/**
  * Requests per second the public service asks anonymous clients to keep. Declared
  * on the manifest's network entries rather than implemented here: `host.fetch`
  * paces the call itself, parking it until there is headroom.

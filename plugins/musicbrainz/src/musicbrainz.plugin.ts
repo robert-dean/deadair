@@ -9,9 +9,15 @@ import {
 
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
-import { mapRecording, selectRelease } from './musicbrainz.mapping.js';
+import { mapRecording, mapRelease, selectRelease } from './musicbrainz.mapping.js';
 import { buildRecordingQuery, selectByIsrc, selectRecording, type RecordingMatch } from './musicbrainz.match.js';
-import type { MusicBrainzArtistRef, MusicBrainzIsrcResponse, MusicBrainzRecording, MusicBrainzRecordingSearchResponse } from './musicbrainz.types.js';
+import type {
+    MusicBrainzArtistRef,
+    MusicBrainzIsrcResponse,
+    MusicBrainzRecording,
+    MusicBrainzRecordingSearchResponse,
+    MusicBrainzRelease,
+} from './musicbrainz.types.js';
 
 export { musicbrainzManifest } from './musicbrainz.manifest.js';
 
@@ -23,6 +29,17 @@ const RECORDING_INC = 'artist-credits+releases+release-groups+isrcs+genres+tags'
 
 /** What the ISRC and search lookups ask for, which is only what scoring needs to choose. */
 const CANDIDATE_INC = 'artist-credits+releases';
+
+/** The label. `cover-art-archive` arrives on any release lookup and needs no `inc` of its own. */
+const RELEASE_INC = 'labels';
+
+/**
+ * Budget below which an optional lookup is not worth starting: one second of
+ * pacing plus the request itself, rounded up. Under this, the call would spend
+ * the caller's remaining deadline waiting for a rate-limit slot and be
+ * abandoned before the answer arrived.
+ */
+const OPTIONAL_STEP_MIN_MS = 2_000;
 
 function errorText(error: unknown): string {
     if (error instanceof Error) return error.message;
@@ -42,8 +59,11 @@ function errorText(error: unknown): string {
  * Every request goes through `host.fetch`, which paces them at the one per
  * second MusicBrainz asks anonymous clients to keep. That pacing is declared
  * on the manifest's network entries, not implemented here, and it is why the
- * request count per track matters as much as it does: two is the floor, and
- * each one costs a second of the caller's budget.
+ * request count per track matters as much as it does: each one costs a second
+ * of the caller's budget. Identity is worth spending that on and is allowed to
+ * fail the call; everything after it goes through {@link optional}, which
+ * checks `host.remainingMs()` first and drops the step rather than the
+ * enrichment.
  */
 export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     /** Canonical source, per the SDK's own scale. Lower runs first and wins conflicts on merge. */
@@ -54,6 +74,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     private host?: PluginHost;
     private client?: MusicBrainzClient;
     private matchScore = DEFAULT_MATCH_SCORE;
+    private includeArtwork = true;
 
     async init(host: PluginHost): Promise<void> {
         this.host = host;
@@ -63,6 +84,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.length > 0 ? config.baseUrl : DEFAULT_BASE_URL;
         const matchScore = Number(config.matchScore);
         this.matchScore = Number.isFinite(matchScore) ? matchScore : DEFAULT_MATCH_SCORE;
+        this.includeArtwork = config.includeArtwork !== false;
 
         // No contact address means no client at all rather than a client that
         // will be refused on every call: MusicBrainz blocks unidentified
@@ -108,7 +130,47 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         if (!match) return {};
 
         const recording = await this.loadRecording(match.recording);
-        return mapRecording(recording, selectRelease(recording, ref), ref);
+        const summary = selectRelease(recording, ref);
+
+        // The release detail goes underneath, so what the recording knows wins
+        // and this only fills the gaps it left. See `mapRelease`.
+        const release = await this.optional('release', () => this.loadRelease(summary?.id));
+        return { ...mapRelease(release ?? summary, this.includeArtwork), ...mapRecording(recording, summary, ref) };
+    }
+
+    /**
+     * Runs a step the enrichment would rather have than fail over.
+     *
+     * Two ways out, and both return `undefined` instead of throwing. The budget
+     * check comes first: at one request per second, an optional lookup started
+     * with no time left is a second of the caller's deadline spent on a result
+     * that arrives after the call is abandoned. The catch is the second: an
+     * identified track with no label on it is a good answer, and an upstream
+     * hiccup on the third request should not throw away the two that worked.
+     */
+    private async optional<T>(step: string, run: () => Promise<T | undefined>): Promise<T | undefined> {
+        const remainingMs = (await this.host?.remainingMs()) ?? 0;
+        if (remainingMs < OPTIONAL_STEP_MIN_MS) {
+            this.host?.logger.debug('musicbrainz skipped an optional lookup, out of budget', { step, remainingMs });
+            return undefined;
+        }
+
+        try {
+            return await run();
+        } catch (error) {
+            this.host?.logger.debug('musicbrainz dropped an optional lookup', { step, reason: errorText(error) });
+            return undefined;
+        }
+    }
+
+    /**
+     * `/release/{id}?inc=labels`, for the label and the cover art flag. The
+     * release summary carried on the recording has neither: it is the stub
+     * MusicBrainz embeds, not the entity.
+     */
+    private async loadRelease(releaseId: string | undefined): Promise<MusicBrainzRelease | undefined> {
+        if (!releaseId) return undefined;
+        return this.client!.get<MusicBrainzRelease>(`release/${releaseId}`, { inc: RELEASE_INC });
     }
 
     /** The ISRC when there is one, the search when there is not. */

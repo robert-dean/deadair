@@ -35,6 +35,15 @@ export interface MusicBrainzArtistCredit {
     artist?: MusicBrainzArtistRef;
 }
 
+/** One label's involvement in a release, and the catalogue number it issued it under. */
+export interface MusicBrainzLabelInfo {
+    'catalog-number'?: string;
+    label?: {
+        id?: string;
+        name?: string;
+    };
+}
+
 export interface MusicBrainzRelease {
     id?: string;
     title?: string;
@@ -47,6 +56,19 @@ export interface MusicBrainzRelease {
         id?: string;
         'primary-type'?: string;
         'first-release-date'?: string;
+    };
+    /** Present only under `inc=labels`. Several entries when a release was a joint issue. */
+    'label-info'?: MusicBrainzLabelInfo[];
+    /**
+     * What the Cover Art Archive holds for this release. Returned on any
+     * release lookup, which is why artwork costs no request of its own:
+     * `front` is the answer to "is there a cover", and the URL is derivable.
+     */
+    'cover-art-archive'?: {
+        artwork?: boolean;
+        front?: boolean;
+        back?: boolean;
+        count?: number;
     };
 }
 

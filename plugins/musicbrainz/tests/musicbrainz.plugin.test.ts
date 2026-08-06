@@ -126,8 +126,8 @@ describe('enrichTrack', () => {
 
         await plugin.enrichTrack({ ...ref, isrc: 'GBAAA9400123' });
 
-        expect(host.calls).toHaveLength(2);
         expect(host.calls[0]!.url).toContain('isrc/GBAAA9400123');
+        expect(host.calls.some(call => call.url.includes('recording?query'))).toBe(false);
     });
 
     it('falls back to the search when the ISRC is one MusicBrainz has never seen', async () => {
@@ -138,7 +138,8 @@ describe('enrichTrack', () => {
 
         const enrichment = await plugin.enrichTrack({ ...ref, isrc: 'GBAAA0000000' });
 
-        expect(host.calls).toHaveLength(3);
+        expect(host.calls[0]!.url).toContain('isrc/GBAAA0000000');
+        expect(host.calls[1]!.url).toContain('recording?query');
         expect(enrichment.title).toBe('Glory Box');
     });
 

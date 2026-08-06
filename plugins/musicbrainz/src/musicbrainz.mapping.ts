@@ -11,7 +11,7 @@
 
 import type { ExternalId, ExternalLink, TrackEnrichment, TrackRef } from '@deadair/plugin-sdk';
 
-import { MUSICBRAINZ_WEB_ORIGIN } from './musicbrainz.manifest.js';
+import { COVER_ART_ORIGIN, MUSICBRAINZ_WEB_ORIGIN } from './musicbrainz.manifest.js';
 import { baseForm } from './musicbrainz.match.js';
 import type { MusicBrainzRecording, MusicBrainzRelease, MusicBrainzTag } from './musicbrainz.types.js';
 
@@ -78,6 +78,54 @@ export function selectRelease(recording: MusicBrainzRecording, ref: TrackRef): M
 /** `https://musicbrainz.org/recording/<id>`, the page a human can read. */
 export function webUrl(entity: string, mbid: string): string {
     return `${MUSICBRAINZ_WEB_ORIGIN}/${entity}/${mbid}`;
+}
+
+/**
+ * The Cover Art Archive front cover for a release, when there is one.
+ *
+ * Minted rather than fetched. The archive's URL scheme is stable and the
+ * release document already says whether a front cover exists, so this costs no
+ * request and `coverartarchive.org` never has to appear in the manifest's
+ * allowlist: the URL is for whoever renders it, not for this plugin to open.
+ *
+ * `front-500` rather than the full-size original, which is routinely several
+ * megabytes of scanned gatefold.
+ */
+export function coverArtUrl(release: MusicBrainzRelease | undefined): string | undefined {
+    if (!release?.id || release['cover-art-archive']?.front !== true) return undefined;
+    return `${COVER_ART_ORIGIN}/release/${release.id}/front-500`;
+}
+
+/**
+ * The release half of an enrichment: what the recording document could not
+ * answer without a second lookup.
+ *
+ * `releaseDate` is here as a fallback only. The date that matters is the
+ * recording's first release, and the caller layers this underneath
+ * {@link mapRecording} so this one fills the gap rather than overwriting it:
+ * for a track whose recording has no first-release-date, the date of the
+ * release it was found on is a better answer than nothing.
+ */
+export function mapRelease(release: MusicBrainzRelease | undefined, includeArtwork: boolean): Partial<TrackEnrichment> {
+    if (!release) return {};
+
+    const enrichment: Partial<TrackEnrichment> = {};
+
+    const label = release['label-info']?.map(info => info.label?.name).find(name => name && name.length > 0);
+    if (label) enrichment.label = label;
+
+    if (release.date) {
+        enrichment.releaseDate = release.date;
+        const year = yearOf(release.date);
+        if (year !== undefined) enrichment.year = year;
+    }
+
+    if (includeArtwork) {
+        const artwork = coverArtUrl(release);
+        if (artwork) enrichment.artworkUrl = artwork;
+    }
+
+    return enrichment;
 }
 
 /**

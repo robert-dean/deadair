@@ -224,6 +224,52 @@ export class EnrichmentRepository extends DataRepository {
     }
 
     /**
+     * Remembers that a provider was asked about this track and had nothing.
+     *
+     * An empty payload under a short TTL, which is what takes the provider out
+     * of the track's outstanding list until it lapses. Without it a track
+     * nothing can identify has no row for anybody, so it is outstanding on
+     * every pass forever and re-costs every source each time.
+     *
+     * **On conflict the existing payload is left alone and only the expiry
+     * moves.** A provider that answered last month and answers nothing today
+     * has not retracted what it said: an upstream hiccup, a temporary 404 or a
+     * changed id all look like this. Keep believing what we had, and ask again
+     * sooner than the full TTL would have.
+     */
+    async recordTrackEnrichmentMiss(trackId: string, provider: string, ttlMs: number): Promise<void> {
+        const expiresAt = sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`;
+
+        await this.db
+            .insertInto('deadair.trackEnrichment')
+            .values({ trackId, provider, providerRef: null, data: '{}' as unknown as never, fetchedAt: sql<never>`now()`, expiresAt })
+            .onConflict(oc => oc.columns(['trackId', 'provider']).doUpdateSet({ expiresAt }))
+            .execute();
+    }
+
+    /** {@link recordTrackEnrichmentMiss} for an artist. */
+    async recordArtistEnrichmentMiss(artistId: string, provider: string, ttlMs: number): Promise<void> {
+        const expiresAt = sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`;
+
+        await this.db
+            .insertInto('deadair.artistEnrichment')
+            .values({ artistId, provider, providerRef: null, data: '{}' as unknown as never, fetchedAt: sql<never>`now()`, expiresAt })
+            .onConflict(oc => oc.columns(['artistId', 'provider']).doUpdateSet({ expiresAt }))
+            .execute();
+    }
+
+    /** {@link recordTrackEnrichmentMiss} for an album. */
+    async recordAlbumEnrichmentMiss(albumId: string, provider: string, ttlMs: number): Promise<void> {
+        const expiresAt = sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`;
+
+        await this.db
+            .insertInto('deadair.albumEnrichment')
+            .values({ albumId, provider, providerRef: null, data: '{}' as unknown as never, fetchedAt: sql<never>`now()`, expiresAt })
+            .onConflict(oc => oc.columns(['albumId', 'provider']).doUpdateSet({ expiresAt }))
+            .execute();
+    }
+
+    /**
      * Identity and gap-filling onto `deadair.tracks`.
      *
      * `mbid` is guarded by both a null check and a "nobody else has it" check.

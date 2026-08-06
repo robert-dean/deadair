@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import { PluginError, type PluginManifest, type TrackRef } from '@deadair/plugin-sdk';
 
-import { ENRICHMENT_TTL_MS, EnrichmentService, toTrackRef } from '../../../src/modules/enrichment/enrichment.service.js';
+import { ENRICHMENT_MISS_TTL_MS, ENRICHMENT_TTL_MS, EnrichmentService, toTrackRef } from '../../../src/modules/enrichment/enrichment.service.js';
 import type { EnrichableTrack, PendingTrack, TrackPromotion } from '../../../src/modules/enrichment/enrichment.repository.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
@@ -71,6 +71,9 @@ function fakeRepository() {
     return {
         listTracksNeedingEnrichment: vi.fn(async () => []),
         saveTrackEnrichment: vi.fn(async () => {}),
+        recordTrackEnrichmentMiss: vi.fn(async () => {}),
+        recordArtistEnrichmentMiss: vi.fn(async () => {}),
+        recordAlbumEnrichmentMiss: vi.fn(async () => {}),
         listArtistsNeedingEnrichment: vi.fn(async () => []),
         saveArtistEnrichment: vi.fn(async () => {}),
         listAlbumsNeedingEnrichment: vi.fn(async () => []),
@@ -236,7 +239,7 @@ describe('enrich', () => {
 
     it('has nothing to say when no enrichment plugin is installed', async () => {
         service = build([]);
-        await expect(service.enrich(ref)).resolves.toEqual({ enrichment: {}, contributions: [], failures: [] });
+        await expect(service.enrich(ref)).resolves.toEqual({ enrichment: {}, contributions: [], failures: [], misses: [] });
     });
 
     it('asks only the providers it was told the track is waiting on', async () => {
@@ -376,7 +379,7 @@ describe('artist enrichment', () => {
 
         const result = await service.enrichArtist({ name: 'Portishead' });
 
-        expect(result).toEqual({ enrichment: {}, contributions: [], failures: [] });
+        expect(result).toEqual({ enrichment: {}, contributions: [], failures: [], misses: [] });
     });
 
     it('hands each plugin the id that plugin itself fetched under last time', async () => {
@@ -417,13 +420,14 @@ describe('artist enrichment', () => {
         expect(outcome.promoted).toEqual(['artist.imageUrl']);
     });
 
-    it('writes nothing for an artist nobody could say anything about', async () => {
+    it('remembers a miss for an artist nobody could say anything about', async () => {
         service = build([record(MUSICBRAINZ, {}, { enrichArtist: vi.fn(async () => ({})) })]);
 
         const outcome = await service.enrichCatalogArtist(artist);
 
         expect(repository.saveArtistEnrichment).not.toHaveBeenCalled();
         expect(repository.promoteArtist).not.toHaveBeenCalled();
+        expect(repository.recordArtistEnrichmentMiss).toHaveBeenCalledWith('artist-1', MUSICBRAINZ, ENRICHMENT_MISS_TTL_MS);
         expect(outcome).toEqual({ artistId: 'artist-1', providers: [], promoted: [], failures: [] });
     });
 
@@ -509,6 +513,7 @@ describe('album enrichment', () => {
 
         expect(repository.saveAlbumEnrichment).not.toHaveBeenCalled();
         expect(repository.promoteAlbum).not.toHaveBeenCalled();
+        expect(repository.recordAlbumEnrichmentMiss).toHaveBeenCalledWith('album-1', MUSICBRAINZ, ENRICHMENT_MISS_TTL_MS);
         expect(outcome.promoted).toEqual([]);
     });
 
@@ -583,14 +588,35 @@ describe('enrichCatalogTrack', () => {
         expect(outcome.promoted).toContain('album.imageUrl');
     });
 
-    it('writes nothing at all for a track nothing could identify', async () => {
+    it('remembers a miss for a track nothing could identify, so the walk stops asking', async () => {
         service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => ({})) })]);
 
         const outcome = await service.enrichCatalogTrack(catalogTrack);
 
         expect(repository.saveTrackEnrichment).not.toHaveBeenCalled();
         expect(repository.promoteTrack).not.toHaveBeenCalled();
+        expect(repository.recordTrackEnrichmentMiss).toHaveBeenCalledWith('track-1', MUSICBRAINZ, ENRICHMENT_MISS_TTL_MS);
         expect(outcome).toEqual({ trackId: 'track-1', providers: [], promoted: [], failures: [] });
+    });
+
+    it('remembers nothing about a provider that threw, because a bad minute is not evidence', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => Promise.reject(new PluginError('down'))) })]);
+
+        await service.enrichCatalogTrack(catalogTrack);
+
+        expect(repository.recordTrackEnrichmentMiss).not.toHaveBeenCalled();
+    });
+
+    it('remembers a miss only for the provider that had nothing', async () => {
+        service = build([
+            record(MUSICBRAINZ, {}, { priority: 100, enrichTrack: vi.fn(async () => ({ artist: 'Portishead' })) }),
+            record(OTHER, {}, { priority: 500, enrichTrack: vi.fn(async () => ({})) }),
+        ]);
+
+        await service.enrichCatalogTrack(catalogTrack);
+
+        expect(repository.recordTrackEnrichmentMiss).toHaveBeenCalledTimes(1);
+        expect(repository.recordTrackEnrichmentMiss).toHaveBeenCalledWith('track-1', OTHER, ENRICHMENT_MISS_TTL_MS);
     });
 
     it('does not reach for an album a track does not belong to', async () => {

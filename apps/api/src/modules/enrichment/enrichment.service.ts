@@ -38,6 +38,22 @@ import { EnrichmentRepository, type EnrichableAlbum, type EnrichableArtist, type
 export const ENRICHMENT_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
+ * How long "that provider had nothing" is trusted.
+ *
+ * Much shorter than a real answer, and never permanent. MusicBrainz gains
+ * recordings constantly, so a track it does not have today may exist next
+ * month: the cost of asking again is one request, and the cost of never asking
+ * again is a track that stays anonymous forever. A week is also short enough
+ * that a bad week for an upstream cannot poison the catalog for longer than
+ * one.
+ *
+ * Without this the walk has no way to converge. A track nothing can identify
+ * has no row for any provider, so it is outstanding on every pass, forever,
+ * and re-costs every source each time.
+ */
+export const ENRICHMENT_MISS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
  * The `externalIds` sources the host promotes onto canonical columns.
  *
  * Naming MusicBrainz here is not the host playing favourites with a plugin:
@@ -121,7 +137,19 @@ export interface ArtistEnrichOptions extends EnrichOptions {
     refs?: Record<string, string>;
 }
 
-export interface EnrichmentResult {
+/**
+ * Plugins that were asked, could have matched, and said they had nothing.
+ *
+ * Deliberately not the same list as `failures`. A plugin that threw is
+ * evidence about the plugin or its upstream, not about the recording, and
+ * remembering a bad minute as "this source does not have this track" would
+ * make it last a week.
+ */
+export interface EnrichmentMisses {
+    misses: string[];
+}
+
+export interface EnrichmentResult extends EnrichmentMisses {
     /** Every plugin's answer folded together in priority order. */
     enrichment: Partial<TrackEnrichment>;
     /** The answers themselves, in the order they were merged. Empty answers are dropped. */
@@ -129,7 +157,7 @@ export interface EnrichmentResult {
     failures: EnrichmentFailure[];
 }
 
-export interface ArtistEnrichmentResult {
+export interface ArtistEnrichmentResult extends EnrichmentMisses {
     enrichment: Partial<ArtistEnrichment>;
     contributions: ArtistEnrichmentContribution[];
     failures: EnrichmentFailure[];
@@ -148,7 +176,7 @@ export interface AlbumEnrichmentContribution {
     enrichment: StoredAlbumEnrichment;
 }
 
-export interface AlbumEnrichmentResult {
+export interface AlbumEnrichmentResult extends EnrichmentMisses {
     enrichment: Partial<AlbumEnrichment>;
     contributions: AlbumEnrichmentContribution[];
     failures: EnrichmentFailure[];
@@ -295,6 +323,7 @@ export class EnrichmentService {
         const { only, signal } = options;
         const contributions: EnrichmentContribution[] = [];
         const failures: EnrichmentFailure[] = [];
+        const misses: string[] = [];
 
         for (const plugin of this.providers()) {
             if (signal?.aborted) break;
@@ -309,8 +338,13 @@ export class EnrichmentService {
                 );
                 // An empty answer is the ordinary "I do not have this track".
                 // Recording it as a contribution would write an empty payload
-                // over whatever that provider knew last month.
-                if (Object.keys(enrichment).length === 0) continue;
+                // over whatever that provider knew last month, so it is
+                // remembered as a miss instead — which is a shorter-lived and
+                // much weaker claim.
+                if (Object.keys(enrichment).length === 0) {
+                    misses.push(pluginId);
+                    continue;
+                }
                 contributions.push({ pluginId, priority: plugin.priority, enrichment });
             } catch (error) {
                 const message = errorText(error);
@@ -319,7 +353,7 @@ export class EnrichmentService {
             }
         }
 
-        return { enrichment: mergeEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures };
+        return { enrichment: mergeEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures, misses };
     }
 
     /**
@@ -337,6 +371,7 @@ export class EnrichmentService {
         const { only, refs, signal } = options;
         const contributions: ArtistEnrichmentContribution[] = [];
         const failures: EnrichmentFailure[] = [];
+        const misses: string[] = [];
 
         for (const plugin of this.artistProviders()) {
             if (signal?.aborted) break;
@@ -352,7 +387,10 @@ export class EnrichmentService {
                 const enrichment = sanitizeArtistEnrichment(answer, reason =>
                     this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
                 );
-                if (Object.keys(enrichment).length === 0) continue;
+                if (Object.keys(enrichment).length === 0) {
+                    misses.push(pluginId);
+                    continue;
+                }
                 contributions.push({ pluginId, priority: plugin.priority, enrichment });
             } catch (error) {
                 const message = errorText(error);
@@ -361,7 +399,7 @@ export class EnrichmentService {
             }
         }
 
-        return { enrichment: mergeArtistEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures };
+        return { enrichment: mergeArtistEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures, misses };
     }
 
     /** {@link enrichArtist} for a record. */
@@ -369,6 +407,7 @@ export class EnrichmentService {
         const { only, refs, signal } = options;
         const contributions: AlbumEnrichmentContribution[] = [];
         const failures: EnrichmentFailure[] = [];
+        const misses: string[] = [];
 
         for (const plugin of this.albumProviders()) {
             if (signal?.aborted) break;
@@ -382,7 +421,10 @@ export class EnrichmentService {
                 const enrichment = sanitizeAlbumEnrichment(answer, reason =>
                     this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
                 );
-                if (Object.keys(enrichment).length === 0) continue;
+                if (Object.keys(enrichment).length === 0) {
+                    misses.push(pluginId);
+                    continue;
+                }
                 contributions.push({ pluginId, priority: plugin.priority, enrichment });
             } catch (error) {
                 const message = errorText(error);
@@ -391,7 +433,7 @@ export class EnrichmentService {
             }
         }
 
-        return { enrichment: mergeAlbumEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures };
+        return { enrichment: mergeAlbumEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures, misses };
     }
 
     /**
@@ -412,6 +454,10 @@ export class EnrichmentService {
                 contribution.enrichment,
                 ENRICHMENT_TTL_MS,
             );
+        }
+
+        for (const pluginId of result.misses) {
+            await this.enrichmentRepository.recordAlbumEnrichmentMiss(album.id, pluginId, ENRICHMENT_MISS_TTL_MS);
         }
 
         const ids = result.enrichment.externalIds ?? [];
@@ -461,9 +507,12 @@ export class EnrichmentService {
      * including everything no column exists for. Only then is the merged view
      * promoted onto the canonical rows, and only into the gaps.
      *
-     * A track nothing could identify is not an error and leaves no row. There is
-     * no "we tried and failed" marker, deliberately: the next pass costs one
-     * search, and a marker would be a second thing to keep true.
+     * A provider that answered nothing gets a miss row under a much shorter
+     * TTL. That is the only thing that makes the walk converge: a track nothing
+     * can identify would otherwise have no row for anybody, stay outstanding on
+     * every pass forever, and re-cost every source each time. A provider that
+     * *failed* gets nothing, because a bad minute is not evidence about the
+     * recording.
      */
     async enrichCatalogTrack(track: EnrichableTrack, options: EnrichOptions = {}): Promise<EnrichmentTrackOutcome> {
         const result = await this.enrich(toTrackRef(track), options);
@@ -476,6 +525,10 @@ export class EnrichmentService {
                 contribution.enrichment,
                 ENRICHMENT_TTL_MS,
             );
+        }
+
+        for (const pluginId of result.misses) {
+            await this.enrichmentRepository.recordTrackEnrichmentMiss(track.id, pluginId, ENRICHMENT_MISS_TTL_MS);
         }
 
         const promoted = result.contributions.length === 0 ? [] : await this.promote(track, result.enrichment);
@@ -502,6 +555,10 @@ export class EnrichmentService {
                 contribution.enrichment,
                 ENRICHMENT_TTL_MS,
             );
+        }
+
+        for (const pluginId of result.misses) {
+            await this.enrichmentRepository.recordArtistEnrichmentMiss(artist.id, pluginId, ENRICHMENT_MISS_TTL_MS);
         }
 
         const promoted =

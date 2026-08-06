@@ -3,6 +3,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import {
     ENRICHMENT_MATCH_KEY_ARTIST_TITLE,
     ENRICHMENT_MATCH_KEY_ISRC,
+    type AlbumEnrichment,
+    type AlbumRef,
     type ArtistEnrichment,
     type ArtistRef,
     type TrackEnrichment,
@@ -12,14 +14,17 @@ import { asEnrichmentPlugin, type EnrichmentPlugin } from '#modules/plugins/plug
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import {
+    mergeAlbumEnrichment,
     mergeArtistEnrichment,
     mergeEnrichment,
+    sanitizeAlbumEnrichment,
     sanitizeArtistEnrichment,
     sanitizeEnrichment,
+    type StoredAlbumEnrichment,
     type StoredArtistEnrichment,
     type StoredEnrichment,
 } from './enrichment.merge.js';
-import { EnrichmentRepository, type EnrichableArtist, type EnrichableTrack } from './enrichment.repository.js';
+import { EnrichmentRepository, type EnrichableAlbum, type EnrichableArtist, type EnrichableTrack } from './enrichment.repository.js';
 
 /**
  * How long a stored payload is trusted before the walk asks again.
@@ -43,6 +48,13 @@ export const ENRICHMENT_TTL_MS = 90 * 24 * 60 * 60 * 1000;
  */
 export const SOURCE_MUSICBRAINZ_RECORDING = 'musicbrainz';
 export const SOURCE_MUSICBRAINZ_ARTIST = 'musicbrainz-artist';
+
+/**
+ * A release *group*, not a release. `albums.mbid` is documented as the
+ * release-group id, and the distinction is real: a record is the work, and the
+ * pressing an operator holds a copy of is one of many.
+ */
+export const SOURCE_MUSICBRAINZ_RELEASE_GROUP = 'musicbrainz-release-group';
 
 /** What one plugin contributed, kept apart from the merge because it is stored per provider. */
 export interface EnrichmentContribution {
@@ -86,6 +98,10 @@ export interface EnrichmentArtistOutcome extends EnrichmentEntityOutcome {
     artistId: string;
 }
 
+export interface EnrichmentAlbumOutcome extends EnrichmentEntityOutcome {
+    albumId: string;
+}
+
 /**
  * How to run one fan-out.
  *
@@ -124,6 +140,18 @@ export interface ArtistEnrichmentContribution {
     pluginId: string;
     priority: number;
     enrichment: StoredArtistEnrichment;
+}
+
+export interface AlbumEnrichmentContribution {
+    pluginId: string;
+    priority: number;
+    enrichment: StoredAlbumEnrichment;
+}
+
+export interface AlbumEnrichmentResult {
+    enrichment: Partial<AlbumEnrichment>;
+    contributions: AlbumEnrichmentContribution[];
+    failures: EnrichmentFailure[];
 }
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -230,6 +258,15 @@ export class EnrichmentService {
         return this.artistProviders().map(plugin => plugin.record.id);
     }
 
+    /** {@link artistProviders} for records. */
+    albumProviders(): EnrichmentPlugin[] {
+        return this.providers().filter(plugin => plugin.enrichesAlbums);
+    }
+
+    albumProviderIds(): string[] {
+        return this.albumProviders().map(plugin => plugin.record.id);
+    }
+
     /**
      * The providers that can only match on ISRC, which the selection query has
      * to know about to avoid holding an ISRC-less track to a bar it can never
@@ -325,6 +362,96 @@ export class EnrichmentService {
         }
 
         return { enrichment: mergeArtistEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures };
+    }
+
+    /** {@link enrichArtist} for a record. */
+    async enrichAlbum(ref: AlbumRef, options: ArtistEnrichOptions = {}): Promise<AlbumEnrichmentResult> {
+        const { only, refs, signal } = options;
+        const contributions: AlbumEnrichmentContribution[] = [];
+        const failures: EnrichmentFailure[] = [];
+
+        for (const plugin of this.albumProviders()) {
+            if (signal?.aborted) break;
+            if (only && !only.includes(plugin.record.id)) continue;
+
+            const pluginId = plugin.record.id;
+            const scoped: AlbumRef = { ...ref, providerRef: refs?.[pluginId] };
+
+            try {
+                const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichAlbum', async () => plugin.instance.enrichAlbum!(scoped));
+                const enrichment = sanitizeAlbumEnrichment(answer, reason =>
+                    this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
+                );
+                if (Object.keys(enrichment).length === 0) continue;
+                contributions.push({ pluginId, priority: plugin.priority, enrichment });
+            } catch (error) {
+                const message = errorText(error);
+                failures.push({ pluginId, message });
+                this.logger.warn('album enrichment plugin failed', { pluginId, album: ref.name, artist: ref.artist, error: message });
+            }
+        }
+
+        return { enrichment: mergeAlbumEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures };
+    }
+
+    /**
+     * Enriches one catalog album and writes what came back.
+     *
+     * `mbid` is promoted from the merged view here rather than from the track
+     * pass, because a release-group id is the album's identity and no other
+     * pass is looking one up.
+     */
+    async enrichCatalogAlbum(album: EnrichableAlbum, options: ArtistEnrichOptions = {}): Promise<EnrichmentAlbumOutcome> {
+        const result = await this.enrichAlbum({ name: album.name, artist: album.artistName, mbid: album.mbid }, options);
+
+        for (const contribution of result.contributions) {
+            await this.enrichmentRepository.saveAlbumEnrichment(
+                album.id,
+                contribution.pluginId,
+                providerRef(contribution),
+                contribution.enrichment,
+                ENRICHMENT_TTL_MS,
+            );
+        }
+
+        const ids = result.enrichment.externalIds ?? [];
+        const promoted =
+            result.contributions.length === 0
+                ? []
+                : await this.enrichmentRepository.promoteAlbum(album.id, {
+                      mbid: ids.find(entry => entry.source === SOURCE_MUSICBRAINZ_RELEASE_GROUP)?.id,
+                      year: result.enrichment.year,
+                      imageUrl: result.enrichment.artworkUrl,
+                  });
+
+        return { albumId: album.id, providers: result.contributions.map(contribution => contribution.pluginId), promoted, failures: result.failures };
+    }
+
+    /** One batch of albums that have not heard from every album provider lately. */
+    async enrichPendingAlbums(limit: number, signal?: AbortSignal): Promise<EnrichmentPassSummary> {
+        const summary: EnrichmentPassSummary = { scanned: 0, enriched: 0, promoted: 0, failed: 0 };
+
+        const providers = this.albumProviderIds();
+        if (providers.length === 0) return summary;
+
+        const albums = await this.enrichmentRepository.listAlbumsNeedingEnrichment(providers, limit);
+
+        for (const album of albums) {
+            if (signal?.aborted) break;
+            summary.scanned++;
+
+            try {
+                const outcome = await this.enrichCatalogAlbum(album, { only: album.outstanding, refs: album.refs, signal });
+                if (outcome.providers.length > 0) summary.enriched++;
+                summary.promoted += outcome.promoted.length;
+                if (outcome.failures.length > 0) summary.failed++;
+            } catch (error) {
+                summary.failed++;
+                this.logger.warn('enrichment pass skipped an album', { albumId: album.id, error: errorText(error) });
+            }
+        }
+
+        return summary;
     }
 
     /**

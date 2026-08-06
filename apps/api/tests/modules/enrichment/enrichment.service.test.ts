@@ -43,6 +43,7 @@ interface InstanceOptions {
     enrichTrack?: unknown;
     /** Absent means a plugin that never wrote the optional method, which is the normal case. */
     enrichArtist?: unknown;
+    enrichAlbum?: unknown;
 }
 
 function instance(options: InstanceOptions = {}) {
@@ -53,6 +54,7 @@ function instance(options: InstanceOptions = {}) {
         enrichTrack: options.enrichTrack ?? vi.fn(async () => ({ artist: 'Portishead' })),
     };
     if (options.enrichArtist) built.enrichArtist = options.enrichArtist;
+    if (options.enrichAlbum) built.enrichAlbum = options.enrichAlbum;
     return built;
 }
 
@@ -71,6 +73,13 @@ function fakeRepository() {
         saveTrackEnrichment: vi.fn(async () => {}),
         listArtistsNeedingEnrichment: vi.fn(async () => []),
         saveArtistEnrichment: vi.fn(async () => {}),
+        listAlbumsNeedingEnrichment: vi.fn(async () => []),
+        saveAlbumEnrichment: vi.fn(async () => {}),
+        promoteAlbum: vi.fn(async (_id: string, promotion: Record<string, unknown>) =>
+            Object.keys(promotion)
+                .filter(key => promotion[key] !== undefined)
+                .map(key => `album.${key}`),
+        ),
         promoteArtist: vi.fn(async (_id: string, promotion: { imageUrl?: string }) => (promotion.imageUrl ? ['artist.imageUrl'] : [])),
         promoteTrack: vi.fn(async (_id: string, promotion: TrackPromotion) =>
             Object.keys(promotion).filter(key => promotion[key as keyof TrackPromotion] !== undefined),
@@ -451,6 +460,77 @@ describe('artist enrichment', () => {
 
         expect(outcome.providers).toEqual([OTHER]);
         expect(outcome.failures).toHaveLength(1);
+    });
+});
+
+describe('album enrichment', () => {
+    const album = { id: 'album-1', name: 'Dummy', artistName: 'Portishead' };
+    const record_group = 'b0000000-0000-4000-8000-000000000003';
+    const answer = {
+        name: 'Dummy',
+        year: 1994,
+        label: 'Go! Beat',
+        artworkUrl: 'https://coverartarchive.test/dummy.jpg',
+        externalIds: [{ source: 'musicbrainz-release-group', id: record_group }],
+    };
+
+    it('counts only the plugins that answer about records', () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichAlbum: vi.fn(async () => answer) }), record(OTHER)]);
+        expect(service.albumProviderIds()).toEqual([MUSICBRAINZ]);
+    });
+
+    it('asks with the artist, because a title alone does not identify a record', async () => {
+        const enrichAlbum = vi.fn(async () => answer);
+        service = build([record(MUSICBRAINZ, {}, { enrichAlbum })]);
+
+        await service.enrichCatalogAlbum({ ...album, mbid: record_group });
+
+        expect(enrichAlbum).toHaveBeenCalledWith({ name: 'Dummy', artist: 'Portishead', mbid: record_group, providerRef: undefined });
+    });
+
+    it('promotes the release group, the year and the cover onto the album row', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichAlbum: vi.fn(async () => answer) })]);
+
+        const outcome = await service.enrichCatalogAlbum(album);
+
+        expect(repository.saveAlbumEnrichment).toHaveBeenCalledWith('album-1', MUSICBRAINZ, record_group, expect.any(Object), ENRICHMENT_TTL_MS);
+        expect(repository.promoteAlbum).toHaveBeenCalledWith('album-1', {
+            mbid: record_group,
+            year: 1994,
+            imageUrl: answer.artworkUrl,
+        });
+        expect(outcome.providers).toEqual([MUSICBRAINZ]);
+    });
+
+    it('writes nothing for a record nobody knew', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichAlbum: vi.fn(async () => ({})) })]);
+
+        const outcome = await service.enrichCatalogAlbum(album);
+
+        expect(repository.saveAlbumEnrichment).not.toHaveBeenCalled();
+        expect(repository.promoteAlbum).not.toHaveBeenCalled();
+        expect(outcome.promoted).toEqual([]);
+    });
+
+    it('walks the batch with each album its own outstanding list and refs', async () => {
+        const enrichAlbum = vi.fn(async () => answer);
+        service = build([record(MUSICBRAINZ, {}, { enrichAlbum })]);
+        repository.listAlbumsNeedingEnrichment.mockResolvedValue([
+            { ...album, outstanding: [MUSICBRAINZ], refs: { [MUSICBRAINZ]: 'rg-cached' } },
+        ] as never);
+
+        const summary = await service.enrichPendingAlbums(25);
+
+        expect(enrichAlbum).toHaveBeenCalledWith({ name: 'Dummy', artist: 'Portishead', mbid: undefined, providerRef: 'rg-cached' });
+        expect(summary).toMatchObject({ scanned: 1, enriched: 1 });
+    });
+
+    it('does not go near the database when no plugin answers about records', async () => {
+        service = build([record(MUSICBRAINZ)]);
+
+        await service.enrichPendingAlbums(25);
+
+        expect(repository.listAlbumsNeedingEnrichment).not.toHaveBeenCalled();
     });
 });
 

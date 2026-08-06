@@ -76,6 +76,8 @@ export interface EnrichmentPlugin {
     priority: number;
     /** Whether `enrichArtist` is there to call. Optional in the SDK, so absent is normal, not broken. */
     enrichesArtists: boolean;
+    /** Whether `enrichAlbum` is there to call. */
+    enrichesAlbums: boolean;
 }
 
 /**
@@ -87,6 +89,9 @@ export interface EnrichmentPlugin {
  * rejected for a method it was never required to write.
  */
 export const implementsArtistEnrichment = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).enrichArtist === 'function';
+
+/** {@link implementsArtistEnrichment} for records. */
+export const implementsAlbumEnrichment = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).enrichAlbum === 'function';
 
 /** The same declaration-and-implementation rule as {@link implementsCatalog}, for enrichment. */
 export const implementsEnrichment = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
@@ -110,5 +115,12 @@ export const asEnrichmentPlugin = (record: PluginRecord): EnrichmentPlugin | und
     const instance = record.instance as EnrichmentPluginInstance;
     const priority = typeof instance.priority === 'number' && Number.isFinite(instance.priority) ? instance.priority : DEFAULT_ENRICHMENT_PRIORITY;
 
-    return { record, manifest: record.manifest, instance, priority, enrichesArtists: implementsArtistEnrichment(instance) };
+    return {
+        record,
+        manifest: record.manifest,
+        instance,
+        priority,
+        enrichesArtists: implementsArtistEnrichment(instance),
+        enrichesAlbums: implementsAlbumEnrichment(instance),
+    };
 };

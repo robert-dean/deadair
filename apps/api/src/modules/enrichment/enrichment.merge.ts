@@ -1,4 +1,4 @@
-import type { ArtistEnrichment, ExternalId, ExternalLink, TrackEnrichment } from '@deadair/plugin-sdk';
+import type { AlbumEnrichment, ArtistEnrichment, ExternalId, ExternalLink, TrackEnrichment } from '@deadair/plugin-sdk';
 
 /**
  * Taking several plugins' answers about one track and turning them into one
@@ -40,6 +40,13 @@ const TRACK_FIELDS: FieldSpec = {
 const ARTIST_FIELDS: FieldSpec = {
     text: ['name', 'biography', 'imageUrl'],
     number: [],
+    strings: ['genres', 'facts'],
+    lists: ['genres', 'facts', 'externalIds', 'links'],
+};
+
+const ALBUM_FIELDS: FieldSpec = {
+    text: ['name', 'artist', 'releaseDate', 'label', 'artworkUrl'],
+    number: ['year'],
     strings: ['genres', 'facts'],
     lists: ['genres', 'facts', 'externalIds', 'links'],
 };
@@ -86,6 +93,9 @@ export type StoredEnrichment = Partial<TrackEnrichment> & { extra?: Record<strin
 
 /** {@link StoredEnrichment} for an artist. */
 export type StoredArtistEnrichment = Partial<ArtistEnrichment> & { extra?: Record<string, unknown> };
+
+/** {@link StoredEnrichment} for a record. */
+export type StoredAlbumEnrichment = Partial<AlbumEnrichment> & { extra?: Record<string, unknown> };
 
 const text = (value: unknown, max = MAX_TEXT): string | undefined => {
     if (typeof value !== 'string') return undefined;
@@ -262,6 +272,10 @@ export const sanitizeEnrichment = (value: unknown, onDrop?: (reason: string) => 
 export const sanitizeArtistEnrichment = (value: unknown, onDrop?: (reason: string) => void): StoredArtistEnrichment =>
     sanitize(value, ARTIST_FIELDS, onDrop) as StoredArtistEnrichment;
 
+/** {@link sanitizeEnrichment} for what a plugin said about a record. */
+export const sanitizeAlbumEnrichment = (value: unknown, onDrop?: (reason: string) => void): StoredAlbumEnrichment =>
+    sanitize(value, ALBUM_FIELDS, onDrop) as StoredAlbumEnrichment;
+
 /** How to tell two entries in a list field apart. */
 const identity = (value: unknown): string => {
     if (typeof value === 'string') return value.toLowerCase();
@@ -322,3 +336,7 @@ export const mergeEnrichment = (parts: StoredEnrichment[]): Partial<TrackEnrichm
 /** {@link mergeEnrichment} for several plugins' answers about one artist. */
 export const mergeArtistEnrichment = (parts: StoredArtistEnrichment[]): Partial<ArtistEnrichment> =>
     merge(parts, ARTIST_FIELDS) as Partial<ArtistEnrichment>;
+
+/** {@link mergeEnrichment} for several plugins' answers about one record. */
+export const mergeAlbumEnrichment = (parts: StoredAlbumEnrichment[]): Partial<AlbumEnrichment> =>
+    merge(parts, ALBUM_FIELDS) as Partial<AlbumEnrichment>;

@@ -50,6 +50,30 @@ export interface PendingArtist extends EnrichableArtist {
     refs: Record<string, string>;
 }
 
+/** A canonical album, in the shape the enrichment fan-out needs to ask about it. */
+export interface EnrichableAlbum {
+    id: string;
+    name: string;
+    /** The album's artist. A title alone does not identify a record. */
+    artistName: string;
+    /** MusicBrainz release-group id, once something has promoted one. */
+    mbid?: string;
+}
+
+/** {@link PendingArtist} for a record. */
+export interface PendingAlbum extends EnrichableAlbum {
+    outstanding: string[];
+    refs: Record<string, string>;
+}
+
+/** What an album's merged enrichment is allowed to write onto `deadair.albums`. */
+export interface AlbumPromotion {
+    /** MusicBrainz release-group id. Written once and never revised. */
+    mbid?: string;
+    year?: number;
+    imageUrl?: string;
+}
+
 /** What the merged enrichment is allowed to write onto the canonical rows. */
 export interface TrackPromotion {
     /** MusicBrainz recording id. Written once and never revised. */
@@ -339,6 +363,116 @@ export class EnrichmentRepository extends DataRepository {
             .executeTakeFirst();
 
         return (result.numUpdatedRows ?? 0n) > 0n ? ['artist.imageUrl'] : [];
+    }
+
+    /** Albums that have not heard from every album provider lately. {@link listArtistsNeedingEnrichment}, one table over. */
+    async listAlbumsNeedingEnrichment(providers: string[], limit: number): Promise<PendingAlbum[]> {
+        if (providers.length === 0) return [];
+
+        const rows = await sql<{
+            id: string;
+            name: string;
+            artist_name: string;
+            mbid: string | null;
+            outstanding: string[];
+            refs: Record<string, string | null> | null;
+        }>`
+            select al.id,
+                   al.name,
+                   ar.name as artist_name,
+                   al.mbid,
+                   pending.providers as outstanding,
+                   refs.map as refs
+              from deadair.albums al
+              join deadair.artists ar on ar.id = al.artist_id
+              cross join lateral (
+                  select array(
+                      select candidate.provider
+                        from unnest(${providers}::text[]) as candidate(provider)
+                       where not exists (select 1
+                                           from deadair.album_enrichment ae
+                                          where ae.album_id = al.id
+                                            and ae.provider = candidate.provider
+                                            and (ae.expires_at is null or ae.expires_at > now()))
+                  ) as providers
+              ) pending
+              left join lateral (
+                  select jsonb_object_agg(ae.provider, ae.provider_ref) as map
+                    from deadair.album_enrichment ae
+                   where ae.album_id = al.id and ae.provider_ref is not null
+              ) refs on true
+             where al.merged_into_id is null
+               and cardinality(pending.providers) > 0
+             order by al.created_at asc, al.id asc
+             limit ${limit}
+        `.execute(this.db);
+
+        return rows.rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            artistName: row.artist_name,
+            mbid: nullable(row.mbid),
+            outstanding: row.outstanding,
+            refs: Object.fromEntries(Object.entries(row.refs ?? {}).filter((entry): entry is [string, string] => entry[1] !== null)),
+        }));
+    }
+
+    /** One provider's payload for one album. The {@link saveTrackEnrichment} rule, per album. */
+    async saveAlbumEnrichment(albumId: string, provider: string, providerRef: string | undefined, data: unknown, ttlMs: number): Promise<void> {
+        const row = {
+            albumId,
+            provider,
+            providerRef: providerRef ?? null,
+            data: JSON.stringify(data) as unknown as never,
+            fetchedAt: sql<never>`now()`,
+            expiresAt: sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`,
+        };
+
+        await this.db
+            .insertInto('deadair.albumEnrichment')
+            .values(row)
+            .onConflict(oc => oc.columns(['albumId', 'provider']).doUpdateSet(row))
+            .execute();
+    }
+
+    /**
+     * Gap-filling onto `deadair.albums`, plus the release-group id.
+     *
+     * `mbid` here is a release-group rather than a release: a record is the
+     * work, and the pressing an operator happens to hold a copy of is one of
+     * many. Same unique-column guard as {@link promoteTrack}, for the same
+     * reason — two catalog albums resolving to one release group is a real
+     * outcome, not a constraint violation worth failing a pass over.
+     */
+    async promoteAlbum(albumId: string, promotion: AlbumPromotion): Promise<string[]> {
+        const promoted: string[] = [];
+
+        if (isUuid(promotion.mbid)) {
+            const result = await sql`
+                update deadair.albums
+                   set mbid = ${promotion.mbid}::uuid
+                 where id = ${albumId}::uuid
+                   and mbid is null
+                   and not exists (select 1 from deadair.albums other where other.mbid = ${promotion.mbid}::uuid)
+            `.execute(this.db);
+            if ((result.numAffectedRows ?? 0n) > 0n) promoted.push('album.mbid');
+        }
+
+        if (promotion.year !== undefined) {
+            const result = await this.db
+                .updateTable('deadair.albums')
+                .set({ year: promotion.year })
+                .where('id', '=', albumId)
+                .where('year', 'is', null)
+                .executeTakeFirst();
+            if ((result.numUpdatedRows ?? 0n) > 0n) promoted.push('album.year');
+        }
+
+        if (promotion.imageUrl !== undefined && (await this.promoteAlbumArtwork(albumId, promotion.imageUrl))) {
+            promoted.push('album.imageUrl');
+        }
+
+        return promoted;
     }
 
     /** The artist's MusicBrainz id, under the same unique-column guard as {@link promoteTrack}. */

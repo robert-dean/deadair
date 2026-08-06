@@ -22,7 +22,8 @@ export interface EnrichmentPayload {
 }
 
 /**
- * The scheduled enrichment walk: tracks, then the artists behind them.
+ * The scheduled enrichment walk: tracks, then the artists and records behind
+ * them.
  *
  * A plain `Job` rather than a `TransactionalJob`, for the same reason
  * `CatalogSyncJob` is: this is a long walk with rate-limited network in the
@@ -48,15 +49,18 @@ export class EnrichmentJob implements Job<EnrichmentPayload> {
         overrideJobActor(this.container as ScopedContainer, this.context);
         const limit = payload?.limit ?? BATCH_SIZE;
 
-        // Tracks first, and in the same run rather than a job of their own. The
-        // artist pass wants `artists.mbid`, which the track pass promotes for
-        // free off the recording's artist credit, and two jobs would put two
-        // walks on the same one-request-per-second limiter.
+        // Tracks first, and all three in the same run rather than three jobs.
+        // The artist pass wants `artists.mbid`, which the track pass promotes
+        // for free off the recording's artist credit, and separate jobs would
+        // put three walks on the same one-request-per-second limiter.
         const tracks = await this.enrichment.enrichPending(limit, signal);
         const artists = await this.enrichment.enrichPendingArtists(limit, signal);
+        const albums = await this.enrichment.enrichPendingAlbums(limit, signal);
 
         // Quiet when there was nothing to do: with a cron this frequent, an
         // idle station would otherwise write a line every few minutes saying so.
-        if (tracks.scanned > 0 || artists.scanned > 0) this.logger.info('enrichment pass', { job: this.context.id, tracks, artists });
+        if (tracks.scanned + artists.scanned + albums.scanned > 0) {
+            this.logger.info('enrichment pass', { job: this.context.id, tracks, artists, albums });
+        }
     }
 }

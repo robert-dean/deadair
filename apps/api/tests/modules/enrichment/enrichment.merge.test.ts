@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
     mergeArtistEnrichment,
     mergeEnrichment,
+    sanitizeAlbumEnrichment,
     sanitizeArtistEnrichment,
     sanitizeEnrichment,
 } from '../../../src/modules/enrichment/enrichment.merge.js';
@@ -126,6 +127,18 @@ describe('the artist spec', () => {
         expect(mergeArtistEnrichment([{ facts: ['a'] }, { facts: ['b'], name: 'Portishead' }])).toEqual({
             facts: ['a', 'b'],
             name: 'Portishead',
+        });
+    });
+});
+
+describe('the album spec', () => {
+    it('keeps what belongs to a record and treats the rest as unnamed', () => {
+        expect(sanitizeAlbumEnrichment({ name: 'Dummy', artist: 'Portishead', year: 1994, label: 'Go! Beat', bpm: 90 })).toEqual({
+            name: 'Dummy',
+            artist: 'Portishead',
+            year: 1994,
+            label: 'Go! Beat',
+            extra: { bpm: 90 },
         });
     });
 });

@@ -72,6 +72,35 @@ export interface MusicBrainzRelease {
     };
 }
 
+/** A dated span. `ended` is the only reliable way to tell "still going" from "we do not know". */
+export interface MusicBrainzLifeSpan {
+    begin?: string;
+    end?: string;
+    ended?: boolean;
+}
+
+/**
+ * One relationship an entity has. Under `inc=url-rels` these are links out,
+ * and `type` is the vocabulary MusicBrainz curates: `official homepage`,
+ * `wikidata`, `wikipedia`, `discogs`, `youtube`, and a long tail.
+ */
+export interface MusicBrainzRelation {
+    type?: string;
+    url?: { id?: string; resource?: string };
+}
+
+/** The artist entity, as returned by `/artist/{mbid}`. */
+export interface MusicBrainzArtist extends MusicBrainzArtistRef {
+    /** `Person`, `Group`, `Orchestra`, `Choir`, `Character`, `Other`. */
+    type?: string;
+    country?: string;
+    area?: { name?: string };
+    /** Where a group formed or a person was born, which is more specific than `area`. */
+    'begin-area'?: MusicBrainzArtist['area'];
+    'life-span'?: MusicBrainzLifeSpan;
+    relations?: MusicBrainzRelation[];
+}
+
 export interface MusicBrainzRecording {
     id?: string;
     title?: string;

@@ -40,8 +40,9 @@ const recordingDetail = {
 let host: FakePluginHost;
 let plugin: MusicBrainzPlugin;
 
+/** Artist background is off throughout: this suite is about the release, and its request would only add noise. */
 const initialize = async (config: Record<string, unknown> = {}): Promise<void> => {
-    host.seedConfig({ contactEmail: 'station@example.test', matchScore: 90, includeArtwork: true, ...config });
+    host.seedConfig({ contactEmail: 'station@example.test', matchScore: 90, includeArtwork: true, includeArtistFacts: false, ...config });
     await plugin.init(host);
 };
 

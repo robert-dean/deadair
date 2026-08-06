@@ -1,0 +1,210 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import type { TrackRef } from '@deadair/plugin-sdk';
+
+import { artistFacts, mapArtist, wikidataId } from '../src/musicbrainz.artist.js';
+import { mergeEnrichment } from '../src/musicbrainz.mapping.js';
+import { MusicBrainzPlugin } from '../src/musicbrainz.plugin.js';
+import type { MusicBrainzArtist } from '../src/musicbrainz.types.js';
+import { createFakePluginHost, type FakePluginHost } from './fake.plugin.host.js';
+
+const ref: TrackRef = { artist: 'Portishead', title: 'Glory Box', album: 'Dummy' };
+
+const portishead: MusicBrainzArtist = {
+    id: 'art-1',
+    name: 'Portishead',
+    type: 'Group',
+    country: 'GB',
+    area: { name: 'United Kingdom' },
+    'begin-area': { name: 'Bristol' },
+    'life-span': { begin: '1991' },
+    relations: [
+        { type: 'official homepage', url: { resource: 'https://portishead.co.uk/' } },
+        { type: 'wikidata', url: { resource: 'https://www.wikidata.org/wiki/Q483407' } },
+        { type: 'discogs', url: { resource: 'https://www.discogs.com/artist/1234' } },
+    ],
+};
+
+const searchResult = {
+    recordings: [
+        {
+            id: 'rec-1',
+            score: 100,
+            title: 'Glory Box',
+            'artist-credit': [{ name: 'Portishead', artist: { id: 'art-1', name: 'Portishead' } }],
+            releases: [{ id: 'rel-1', title: 'Dummy' }],
+        },
+    ],
+};
+
+const recordingDetail = {
+    id: 'rec-1',
+    title: 'Glory Box',
+    'first-release-date': '1994-08-22',
+    'artist-credit': [{ name: 'Portishead', artist: { id: 'art-1', name: 'Portishead' } }],
+    releases: [{ id: 'rel-1', title: 'Dummy', 'release-group': { 'primary-type': 'Album' } }],
+};
+
+let host: FakePluginHost;
+let plugin: MusicBrainzPlugin;
+
+const initialize = async (config: Record<string, unknown> = {}): Promise<void> => {
+    host.seedConfig({ contactEmail: 'station@example.test', matchScore: 90, includeArtistFacts: true, ...config });
+    await plugin.init(host);
+};
+
+/** The search, the recording detail and the release detail every enrichment makes. */
+const queueMatch = (): void => {
+    host.queueResponse({ body: JSON.stringify(searchResult) });
+    host.queueResponse({ body: JSON.stringify(recordingDetail) });
+    host.queueResponse({ body: JSON.stringify({ id: 'rel-1', title: 'Dummy' }) });
+};
+
+beforeEach(() => {
+    host = createFakePluginHost();
+    plugin = new MusicBrainzPlugin();
+});
+
+describe('wikidataId', () => {
+    it('reads the entity id out of a Wikidata URL', () => {
+        expect(wikidataId('https://www.wikidata.org/wiki/Q483407')).toBe('Q483407');
+        expect(wikidataId('https://www.wikidata.org/wiki/Q483407#identifiers')).toBe('Q483407');
+        expect(wikidataId('https://en.wikipedia.org/wiki/Portishead_(band)')).toBeUndefined();
+        expect(wikidataId(undefined)).toBeUndefined();
+    });
+});
+
+describe('artistFacts', () => {
+    it('says where a group formed and when', () => {
+        expect(artistFacts(portishead)).toEqual(['Portishead formed in Bristol in 1991.']);
+    });
+
+    it('says a person was born rather than formed', () => {
+        const person: MusicBrainzArtist = {
+            name: 'Beth Gibbons',
+            type: 'Person',
+            'begin-area': { name: 'Exeter' },
+            'life-span': { begin: '1965-01-04' },
+        };
+        expect(artistFacts(person)).toEqual(['Beth Gibbons was born in Exeter in 1965.']);
+    });
+
+    it('closes the span only when it actually ended', () => {
+        const ended: MusicBrainzArtist = { name: 'The Smiths', type: 'Group', 'life-span': { begin: '1982', end: '1987', ended: true } };
+        expect(artistFacts(ended)).toEqual(['The Smiths formed in 1982.', 'Active from 1982 to 1987.']);
+    });
+
+    it('drops the sentence rather than leaving a hole in it', () => {
+        expect(artistFacts({ name: 'Unknown', type: 'Group' })).toEqual([]);
+        expect(artistFacts({ type: 'Group', 'life-span': { begin: '1991' } })).toEqual([]);
+    });
+
+    it('passes on the disambiguation, which is the one MusicBrainz wrote for humans', () => {
+        expect(artistFacts({ name: 'Nirvana', type: 'Group', disambiguation: '90s US grunge band' })).toEqual(['Nirvana: 90s US grunge band.']);
+    });
+});
+
+describe('mapArtist', () => {
+    it('maps the links, the wikidata id and the facts', () => {
+        const enrichment = mapArtist(portishead);
+
+        expect(enrichment.links).toEqual([
+            { label: 'Official site', url: 'https://portishead.co.uk/' },
+            { label: 'Wikidata', url: 'https://www.wikidata.org/wiki/Q483407' },
+            { label: 'Discogs', url: 'https://www.discogs.com/artist/1234' },
+            { label: 'MusicBrainz artist', url: 'https://musicbrainz.org/artist/art-1' },
+        ]);
+        expect(enrichment.externalIds).toEqual([{ source: 'wikidata', id: 'Q483407' }]);
+        expect(enrichment.facts).toHaveLength(1);
+    });
+
+    it('has nothing to say about an artist it was never given', () => {
+        expect(mapArtist(undefined)).toEqual({});
+    });
+
+    it('stays JSON-safe, because the payload crosses the plugin boundary', () => {
+        const enrichment = mapArtist(portishead);
+        expect(structuredClone(enrichment)).toEqual(enrichment);
+    });
+});
+
+describe('mergeEnrichment', () => {
+    it('lets the first contribution decide a scalar', () => {
+        expect(mergeEnrichment({ year: 1994 }, { year: 2008 }).year).toBe(1994);
+    });
+
+    it('accumulates the list fields instead of replacing them', () => {
+        const merged = mergeEnrichment(
+            { links: [{ label: 'MusicBrainz recording', url: 'https://musicbrainz.org/recording/rec-1' }] },
+            { links: [{ label: 'Official site', url: 'https://portishead.co.uk/' }] },
+        );
+        expect(merged.links).toHaveLength(2);
+    });
+
+    it('keeps one entry per link and per external id', () => {
+        const link = { label: 'MusicBrainz artist', url: 'https://musicbrainz.org/artist/art-1' };
+        const merged = mergeEnrichment(
+            { links: [link], externalIds: [{ source: 'wikidata', id: 'Q483407' }] },
+            { links: [{ ...link, label: 'Artist page' }], externalIds: [{ source: 'wikidata', id: 'Q483407' }] },
+        );
+        expect(merged.links).toEqual([link]);
+        expect(merged.externalIds).toHaveLength(1);
+    });
+
+    it('leaves out a field nobody contributed', () => {
+        expect(mergeEnrichment({ year: 1994 }, {})).toEqual({ year: 1994 });
+    });
+});
+
+describe('enrichTrack with the artist lookup', () => {
+    it('adds the artist facts and links to the match', async () => {
+        await initialize();
+        queueMatch();
+        host.queueResponse({ body: JSON.stringify(portishead) });
+
+        const enrichment = await plugin.enrichTrack(ref);
+
+        expect(host.calls[3]!.url).toContain('artist/art-1?inc=url-rels');
+        expect(enrichment.facts).toEqual(['Portishead formed in Bristol in 1991.']);
+        expect(enrichment.externalIds).toContainEqual({ source: 'wikidata', id: 'Q483407' });
+        expect(enrichment.links?.map(link => link.label)).toEqual([
+            'MusicBrainz recording',
+            'MusicBrainz artist',
+            'Official site',
+            'Wikidata',
+            'Discogs',
+        ]);
+    });
+
+    it('does not ask when the operator turned artist background off', async () => {
+        await initialize({ includeArtistFacts: false });
+        queueMatch();
+
+        const enrichment = await plugin.enrichTrack(ref);
+
+        expect(host.calls).toHaveLength(3);
+        expect(enrichment.facts).toBeUndefined();
+    });
+
+    it('skips the lookup when the release detail used the budget up', async () => {
+        await initialize();
+        queueMatch();
+        host.seedRemainingMs(1_500);
+
+        const enrichment = await plugin.enrichTrack(ref);
+
+        expect(host.calls).toHaveLength(2);
+        expect(enrichment.title).toBe('Glory Box');
+    });
+
+    it('drops the lookup rather than the enrichment when it fails', async () => {
+        await initialize();
+        queueMatch();
+        host.queueResponse({ status: 500, ok: false, body: '' });
+
+        const enrichment = await plugin.enrichTrack(ref);
+
+        expect(enrichment.facts).toBeUndefined();
+        expect(enrichment.title).toBe('Glory Box');
+    });
+});

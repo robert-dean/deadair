@@ -9,9 +9,11 @@ import {
 
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
-import { mapRecording, mapRelease, selectRelease } from './musicbrainz.mapping.js';
+import { mapArtist } from './musicbrainz.artist.js';
+import { mapRecording, mapRelease, mergeEnrichment, selectRelease } from './musicbrainz.mapping.js';
 import { buildRecordingQuery, selectByIsrc, selectRecording, type RecordingMatch } from './musicbrainz.match.js';
 import type {
+    MusicBrainzArtist,
     MusicBrainzArtistRef,
     MusicBrainzIsrcResponse,
     MusicBrainzRecording,
@@ -32,6 +34,9 @@ const CANDIDATE_INC = 'artist-credits+releases';
 
 /** The label. `cover-art-archive` arrives on any release lookup and needs no `inc` of its own. */
 const RELEASE_INC = 'labels';
+
+/** Links out. The artist's own area and life span come with the entity itself. */
+const ARTIST_INC = 'url-rels';
 
 /**
  * Budget below which an optional lookup is not worth starting: one second of
@@ -75,6 +80,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     private client?: MusicBrainzClient;
     private matchScore = DEFAULT_MATCH_SCORE;
     private includeArtwork = true;
+    private includeArtistFacts = true;
 
     async init(host: PluginHost): Promise<void> {
         this.host = host;
@@ -85,6 +91,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         const matchScore = Number(config.matchScore);
         this.matchScore = Number.isFinite(matchScore) ? matchScore : DEFAULT_MATCH_SCORE;
         this.includeArtwork = config.includeArtwork !== false;
+        this.includeArtistFacts = config.includeArtistFacts !== false;
 
         // No contact address means no client at all rather than a client that
         // will be refused on every call: MusicBrainz blocks unidentified
@@ -132,10 +139,15 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         const recording = await this.loadRecording(match.recording);
         const summary = selectRelease(recording, ref);
 
-        // The release detail goes underneath, so what the recording knows wins
-        // and this only fills the gaps it left. See `mapRelease`.
         const release = await this.optional('release', () => this.loadRelease(summary?.id));
-        return { ...mapRelease(release ?? summary, this.includeArtwork), ...mapRecording(recording, summary, ref) };
+        const artist = this.includeArtistFacts
+            ? await this.optional('artist', () => this.loadArtist(recording['artist-credit']?.[0]?.artist?.id))
+            : undefined;
+
+        // Priority order, not spread order: the recording decides the scalars
+        // it owns, the release fills what it left, and every list field
+        // accumulates across all three. See `mergeEnrichment`.
+        return mergeEnrichment(mapRecording(recording, summary, ref), mapRelease(release ?? summary, this.includeArtwork), mapArtist(artist));
     }
 
     /**
@@ -171,6 +183,19 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     private async loadRelease(releaseId: string | undefined): Promise<MusicBrainzRelease | undefined> {
         if (!releaseId) return undefined;
         return this.client!.get<MusicBrainzRelease>(`release/${releaseId}`, { inc: RELEASE_INC });
+    }
+
+    /**
+     * `/artist/{id}?inc=url-rels`, for the background and the links out.
+     *
+     * Only the relations are asked for. The artist's own genres are broader
+     * than the track's and would drown the recording's in the merge, and the
+     * point of this request is the things a recording document cannot say:
+     * where they are from, when they were around, and where to read more.
+     */
+    private async loadArtist(artistId: string | undefined): Promise<MusicBrainzArtist | undefined> {
+        if (!artistId) return undefined;
+        return this.client!.get<MusicBrainzArtist>(`artist/${artistId}`, { inc: ARTIST_INC });
     }
 
     /** The ISRC when there is one, the search when there is not. */

@@ -75,6 +75,61 @@ export function selectRelease(recording: MusicBrainzRecording, ref: TrackRef): M
     return [...pool].sort((left, right) => order(left).localeCompare(order(right)))[0];
 }
 
+/** The fields that accumulate across contributions instead of being decided by one of them. */
+const LIST_FIELDS = ['genres', 'moods', 'facts', 'externalIds', 'links'] as const;
+
+/** How to tell two entries in a list field apart. Anything without one is compared by value. */
+const identity = (value: unknown): string => {
+    if (typeof value === 'string') return value;
+    const record = value as { source?: string; id?: string; url?: string };
+    if (record.url) return record.url;
+    if (record.source && record.id) return `${record.source}:${record.id}`;
+    return JSON.stringify(value);
+};
+
+/**
+ * Combines this plugin's own contributions into one enrichment, most
+ * authoritative first.
+ *
+ * Not the same operation the host performs across plugins, and it should not
+ * be: within one plugin the recording, its release and its artist are three
+ * views of the same match, so scalars are decided by whichever view is closest
+ * to the question (the recording knows the year; the release knows the label)
+ * while the lists are additive. Spreading these objects instead would let the
+ * artist's `links` silently replace the recording's.
+ */
+export function mergeEnrichment(...parts: Partial<TrackEnrichment>[]): Partial<TrackEnrichment> {
+    const merged: Partial<TrackEnrichment> = {};
+    const lists = new Map<string, { seen: Set<string>; values: unknown[] }>();
+
+    for (const part of parts) {
+        for (const [key, value] of Object.entries(part)) {
+            if (value === undefined) continue;
+
+            if ((LIST_FIELDS as readonly string[]).includes(key)) {
+                const list = lists.get(key) ?? { seen: new Set<string>(), values: [] };
+                for (const entry of value as unknown[]) {
+                    const marker = identity(entry);
+                    if (list.seen.has(marker)) continue;
+                    list.seen.add(marker);
+                    list.values.push(entry);
+                }
+                lists.set(key, list);
+                continue;
+            }
+
+            // First writer wins: the parts arrive in priority order.
+            if (!(key in merged)) Object.assign(merged, { [key]: value });
+        }
+    }
+
+    for (const [key, list] of lists) {
+        if (list.values.length > 0) Object.assign(merged, { [key]: list.values });
+    }
+
+    return merged;
+}
+
 /** `https://musicbrainz.org/recording/<id>`, the page a human can read. */
 export function webUrl(entity: string, mbid: string): string {
     return `${MUSICBRAINZ_WEB_ORIGIN}/${entity}/${mbid}`;

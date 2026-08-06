@@ -1,7 +1,6 @@
 /**
- * The artist entity to the parts of an enrichment that are about the person or
- * the band rather than the recording: `facts`, `links`, and the Wikidata id
- * that lets anything downstream go further.
+ * The artist entity to an `ArtistEnrichment`: `facts`, `links`, and the
+ * Wikidata id that lets anything downstream go further.
  *
  * `facts` is the load-bearing one, and the SDK is specific about what it wants:
  * short lines, each independently speakable. They end up in a DJ's mouth, so
@@ -10,9 +9,9 @@
  * in 1991") is worse than no sentence.
  */
 
-import type { ExternalId, ExternalLink, TrackEnrichment } from '@deadair/plugin-sdk';
+import type { ArtistEnrichment, ExternalId, ExternalLink } from '@deadair/plugin-sdk';
 
-import { webUrl, yearOf } from './musicbrainz.mapping.js';
+import { SOURCE_MUSICBRAINZ_ARTIST, webUrl, yearOf } from './musicbrainz.mapping.js';
 import type { MusicBrainzArtist, MusicBrainzRelation } from './musicbrainz.types.js';
 
 export const SOURCE_WIKIDATA = 'wikidata';
@@ -83,10 +82,12 @@ function artistLinks(relations: MusicBrainzRelation[] | undefined): ExternalLink
     return links;
 }
 
-export function mapArtist(artist: MusicBrainzArtist | undefined): Partial<TrackEnrichment> {
+export function mapArtist(artist: MusicBrainzArtist | undefined): Partial<ArtistEnrichment> {
     if (!artist) return {};
 
-    const enrichment: Partial<TrackEnrichment> = {};
+    const enrichment: Partial<ArtistEnrichment> = {};
+
+    if (artist.name) enrichment.name = artist.name;
 
     const facts = artistFacts(artist);
     if (facts.length > 0) enrichment.facts = facts;
@@ -95,7 +96,10 @@ export function mapArtist(artist: MusicBrainzArtist | undefined): Partial<TrackE
     if (artist.id) links.push({ label: 'MusicBrainz artist', url: webUrl('artist', artist.id) });
     if (links.length > 0) enrichment.links = links;
 
+    // The MusicBrainz id first, because the host reads the first entry back as
+    // the id this answer was fetched under and hands it to us again next time.
     const externalIds: ExternalId[] = [];
+    if (artist.id) externalIds.push({ source: SOURCE_MUSICBRAINZ_ARTIST, id: artist.id });
     const wikidata = wikidataId(artist.relations?.find(relation => relation.type === 'wikidata')?.url?.resource);
     if (wikidata) externalIds.push({ source: SOURCE_WIKIDATA, id: wikidata });
     if (externalIds.length > 0) enrichment.externalIds = externalIds;

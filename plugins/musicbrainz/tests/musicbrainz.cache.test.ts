@@ -135,34 +135,6 @@ describe('enrichTrack with the cache', () => {
         expect(host.calls).toHaveLength(1);
     });
 
-    it('reuses an artist across the tracks that share them', async () => {
-        await initialize();
-        queueFullPass();
-        await plugin.enrichTrack(ref);
-
-        // A different song by the same artist: everything but the artist lookup runs again.
-        host.queueResponse({ body: JSON.stringify({ recordings: [{ ...searchResult.recordings[0], id: 'rec-2', title: 'Sour Times' }] }) });
-        host.queueResponse({ body: JSON.stringify({ ...recordingDetail, id: 'rec-2', title: 'Sour Times' }) });
-        host.queueResponse({ body: JSON.stringify({ id: 'rel-1', title: 'Dummy' }) });
-
-        const second = await plugin.enrichTrack({ ...ref, title: 'Sour Times' });
-
-        expect(second.facts).toEqual(['Portishead formed in Bristol in 1991.']);
-        expect(host.calls.filter(call => call.url.includes('artist/art-1'))).toHaveLength(1);
-    });
-
-    it('does not remember an artist lookup that never happened', async () => {
-        await initialize();
-        host.queueResponse({ body: JSON.stringify(searchResult) });
-        host.queueResponse({ body: JSON.stringify(recordingDetail) });
-        host.queueResponse({ body: JSON.stringify({ id: 'rel-1', title: 'Dummy' }) });
-        host.queueResponse({ status: 503, ok: false, body: '' });
-
-        await plugin.enrichTrack(ref);
-
-        expect(host.storageKeys().some(key => key.includes(':artist:'))).toBe(false);
-    });
-
     it('does not answer out of a cache filled under different settings', async () => {
         await initialize();
         queueFullPass();
@@ -189,6 +161,5 @@ describe('enrichTrack with the cache', () => {
         };
 
         expect(expiryOf(':match:')).toBeGreaterThanOrEqual(before + MATCH_TTL_MS);
-        expect(expiryOf(':artist:')).toBeGreaterThanOrEqual(before + ARTIST_TTL_MS);
     });
 });

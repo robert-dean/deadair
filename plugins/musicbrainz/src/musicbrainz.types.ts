@@ -127,6 +127,17 @@ export interface MusicBrainzRecordingSearchResponse {
     recordings?: MusicBrainzSearchRecording[];
 }
 
+/** An artist as it comes back from `/artist?query=`, carrying the search engine's confidence. */
+export interface MusicBrainzSearchArtist extends MusicBrainzArtist {
+    /** 0-100. Present on search results only. */
+    score?: number;
+}
+
+export interface MusicBrainzArtistSearchResponse {
+    count?: number;
+    artists?: MusicBrainzSearchArtist[];
+}
+
 /** `/isrc/{isrc}`: the recordings that carry it, with no score, because the code is the match. */
 export interface MusicBrainzIsrcResponse {
     isrc?: string;

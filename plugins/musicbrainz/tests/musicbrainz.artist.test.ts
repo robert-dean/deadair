@@ -114,8 +114,14 @@ describe('mapArtist', () => {
             { label: 'Discogs', url: 'https://www.discogs.com/artist/1234' },
             { label: 'MusicBrainz artist', url: 'https://musicbrainz.org/artist/art-1' },
         ]);
-        expect(enrichment.externalIds).toEqual([{ source: 'wikidata', id: 'Q483407' }]);
+        // The MusicBrainz id first: the host reads the first entry back as the
+        // id this answer was fetched under, and hands it over next time.
+        expect(enrichment.externalIds).toEqual([
+            { source: 'musicbrainz-artist', id: 'art-1' },
+            { source: 'wikidata', id: 'Q483407' },
+        ]);
         expect(enrichment.facts).toHaveLength(1);
+        expect(enrichment.name).toBe('Portishead');
     });
 
     it('has nothing to say about an artist it was never given', () => {
@@ -156,54 +162,65 @@ describe('mergeEnrichment', () => {
     });
 });
 
-describe('enrichTrack with the artist lookup', () => {
-    it('adds the artist facts and links to the match', async () => {
+describe('enrichArtist', () => {
+    it('looks the artist up directly when the host already has an mbid', async () => {
         await initialize();
-        queueMatch();
         host.queueResponse({ body: JSON.stringify(portishead) });
 
-        const enrichment = await plugin.enrichTrack(ref);
+        const enrichment = await plugin.enrichArtist({ name: 'Portishead', mbid: 'art-1' });
 
-        expect(host.calls[3]!.url).toContain('artist/art-1?inc=url-rels');
+        expect(host.calls).toHaveLength(1);
+        expect(host.calls[0]!.url).toContain('artist/art-1?inc=url-rels');
         expect(enrichment.facts).toEqual(['Portishead formed in Bristol in 1991.']);
-        expect(enrichment.externalIds).toContainEqual({ source: 'wikidata', id: 'Q483407' });
-        expect(enrichment.links?.map(link => link.label)).toEqual([
-            'MusicBrainz recording',
-            'MusicBrainz artist',
-            'Official site',
-            'Wikidata',
-            'Discogs',
-        ]);
+        expect(enrichment.links?.map(link => link.label)).toEqual(['Official site', 'Wikidata', 'Discogs', 'MusicBrainz artist']);
     });
 
-    it('does not ask when the operator turned artist background off', async () => {
+    it('falls back to the id it answered under last time', async () => {
+        await initialize();
+        host.queueResponse({ body: JSON.stringify(portishead) });
+
+        await plugin.enrichArtist({ name: 'Portishead', providerRef: 'art-1' });
+
+        expect(host.calls[0]!.url).toContain('artist/art-1');
+    });
+
+    it('searches by name the first time anything asks', async () => {
+        await initialize();
+        host.queueResponse({ body: JSON.stringify({ artists: [{ id: 'art-1', name: 'Portishead' }] }) });
+        host.queueResponse({ body: JSON.stringify(portishead) });
+
+        const enrichment = await plugin.enrichArtist({ name: 'Portishead' });
+
+        expect(host.calls[0]!.url).toContain('artist?query=');
+        expect(host.calls[1]!.url).toContain('artist/art-1');
+        expect(enrichment.name).toBe('Portishead');
+    });
+
+    it('says nothing when the search finds nobody, which the host remembers as a miss', async () => {
+        await initialize();
+        host.queueResponse({ body: JSON.stringify({ artists: [] }) });
+
+        await expect(plugin.enrichArtist({ name: 'Nobody At All' })).resolves.toEqual({});
+        expect(host.calls).toHaveLength(1);
+    });
+
+    it('does not ask at all when the operator turned artist background off', async () => {
         await initialize({ includeArtistFacts: false });
+
+        await expect(plugin.enrichArtist({ name: 'Portishead', mbid: 'art-1' })).resolves.toEqual({});
+        expect(host.calls).toHaveLength(0);
+    });
+});
+
+describe('enrichTrack no longer pays for the artist', () => {
+    it('makes no artist request of its own', async () => {
+        await initialize();
         queueMatch();
 
         const enrichment = await plugin.enrichTrack(ref);
 
         expect(host.calls).toHaveLength(3);
-        expect(enrichment.facts).toBeUndefined();
-    });
-
-    it('skips the lookup when the release detail used the budget up', async () => {
-        await initialize();
-        queueMatch();
-        host.seedRemainingMs(1_500);
-
-        const enrichment = await plugin.enrichTrack(ref);
-
-        expect(host.calls).toHaveLength(2);
-        expect(enrichment.title).toBe('Glory Box');
-    });
-
-    it('drops the lookup rather than the enrichment when it fails', async () => {
-        await initialize();
-        queueMatch();
-        host.queueResponse({ status: 500, ok: false, body: '' });
-
-        const enrichment = await plugin.enrichTrack(ref);
-
+        expect(host.calls.some(call => call.url.includes('artist/'))).toBe(false);
         expect(enrichment.facts).toBeUndefined();
         expect(enrichment.title).toBe('Glory Box');
     });

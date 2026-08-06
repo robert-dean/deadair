@@ -1,4 +1,6 @@
 import {
+    type ArtistEnrichment,
+    type ArtistRef,
     type EnrichmentMatchKey,
     type EnrichmentPluginInstance,
     type PluginConnectionResult,
@@ -10,12 +12,13 @@ import {
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
-import { ARTIST_TTL_MS, cacheFingerprint, MATCH_TTL_MS, MISS_TTL_MS, MusicBrainzCache, type CachedEnrichment } from './musicbrainz.cache.js';
+import { cacheFingerprint, MATCH_TTL_MS, MISS_TTL_MS, MusicBrainzCache, type CachedEnrichment } from './musicbrainz.cache.js';
 import { mapRecording, mapRelease, mergeEnrichment, selectRelease } from './musicbrainz.mapping.js';
-import { buildRecordingQuery, selectByIsrc, selectRecording, type RecordingMatch } from './musicbrainz.match.js';
+import { buildRecordingQuery, escapeLucene, selectByIsrc, selectRecording, type RecordingMatch } from './musicbrainz.match.js';
 import type {
     MusicBrainzArtist,
     MusicBrainzArtistRef,
+    MusicBrainzArtistSearchResponse,
     MusicBrainzIsrcResponse,
     MusicBrainzRecording,
     MusicBrainzRecordingSearchResponse,
@@ -70,6 +73,10 @@ function errorText(error: unknown): string {
  * fail the call; everything after it goes through {@link optional}, which
  * checks `host.remainingMs()` first and drops the step rather than the
  * enrichment.
+ *
+ * That budget is also why the artist lives in `enrichArtist` rather than in
+ * `enrichTrack`. The host asks about an artist once per artist, so the answer
+ * covers every track they appear on instead of being bought again for each.
  */
 export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     /** Canonical source, per the SDK's own scale. Lower runs first and wins conflicts on merge. */
@@ -159,7 +166,32 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         return enrichment ?? {};
     }
 
-    /** The whole request sequence for a track the cache had never seen. `undefined` is a genuine miss. */
+    /**
+     * What MusicBrainz knows about an artist rather than about one of their
+     * recordings.
+     *
+     * Asked once per artist by the host, which is the whole reason this is a
+     * method and not a step inside `enrichTrack`. A rotation revisits the same
+     * few hundred artists constantly and an artist's background changes on a
+     * scale of years, so paying for this per track was paying forty times for
+     * one answer.
+     *
+     * Identity first, and free when the host already has it: `mbid` is what the
+     * track pass promoted onto `artists.mbid`, and `providerRef` is the id this
+     * plugin itself answered under last time. They are the same id here, and
+     * either one turns a search into a lookup.
+     */
+    async enrichArtist(ref: ArtistRef): Promise<Partial<ArtistEnrichment>> {
+        if (!this.client || !this.includeArtistFacts) return {};
+
+        const artistId = ref.mbid ?? ref.providerRef ?? (await this.searchArtist(ref.name));
+        if (!artistId) return {};
+
+        const artist = await this.loadArtist(artistId);
+        return mapArtist(artist);
+    }
+
+    /** The whole request sequence for one track. `undefined` is a genuine miss. */
     private async resolve(ref: TrackRef): Promise<Partial<TrackEnrichment> | undefined> {
         const match = await this.identify(ref);
         if (!match) return undefined;
@@ -168,39 +200,31 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         const summary = selectRelease(recording, ref);
 
         const release = await this.optional('release', () => this.loadRelease(summary?.id));
-        const artist = this.includeArtistFacts ? await this.artistContribution(recording['artist-credit']?.[0]?.artist?.id) : {};
 
         // Priority order, not spread order: the recording decides the scalars
         // it owns, the release fills what it left, and every list field
-        // accumulates across all three. See `mergeEnrichment`.
-        return mergeEnrichment(mapRecording(recording, summary, ref), mapRelease(release ?? summary, this.includeArtwork), artist);
+        // accumulates across both. See `mergeEnrichment`.
+        return mergeEnrichment(mapRecording(recording, summary, ref), mapRelease(release ?? summary, this.includeArtwork));
     }
 
     /**
-     * The artist's contribution, cached by MBID rather than by track.
+     * `/artist?query=`, for an artist the host has no id for yet.
      *
-     * This is the entry that pays for itself fastest. A rotation revisits the
-     * same few hundred artists constantly, and an artist's background changes
-     * on a scale of years, so one lookup covers every track they appear on
-     * until the entry ages out.
+     * One result, and no scoring: an artist name is a far less ambiguous
+     * question than a recording title, and the failure mode of a wrong artist
+     * here is a stored payload against a canonical row rather than the DJ
+     * introducing the wrong song. `undefined` when the search says nothing,
+     * which the host remembers as a miss on a short clock.
      */
-    private async artistContribution(artistId: string | undefined): Promise<Partial<TrackEnrichment>> {
-        if (!artistId) return {};
+    private async searchArtist(name: string): Promise<string | undefined> {
+        const response = await this.client!.get<MusicBrainzArtistSearchResponse>('artist', {
+            query: `artist:"${escapeLucene(name)}"`,
+            limit: '1',
+        });
 
-        const key = this.cache?.artistKey(artistId);
-        const cached = key === undefined ? undefined : await this.cache?.read<CachedEnrichment>(key);
-        if (cached) return cached.value ?? {};
-
-        const artist = await this.optional('artist', () => this.loadArtist(artistId));
-        // Only a lookup that actually answered is remembered. A step skipped for
-        // budget or dropped on an error is not evidence that the artist has
-        // nothing to say, and caching it as a miss would make one bad minute
-        // last a month.
-        if (!artist) return {};
-
-        const contribution = mapArtist(artist);
-        if (key !== undefined) await this.cache?.write(key, contribution, ARTIST_TTL_MS);
-        return contribution;
+        const found = response.artists?.[0];
+        if (!found?.id) this.host?.logger.debug('musicbrainz found no artist by that name', { artist: name });
+        return found?.id;
     }
 
     /**

@@ -107,7 +107,7 @@ export const musicbrainzManifest: PluginManifest = {
             label: 'Look up artist background',
             type: 'boolean',
             default: true,
-            help: 'Where the artist is from, when they were active, and links out. One extra request per artist.',
+            help: 'Where the artist is from, when they were active, and links out. Looked up once per artist rather than once per track, so a rotation of a few hundred artists costs a few hundred requests in total.',
         },
         {
             key: 'includeArtwork',

@@ -515,15 +515,25 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
      *
      * Artist and title together, because a title alone is not a record: half
      * the catalogue has a "Greatest Hits".
+     *
+     * The title is searched in its {@link baseForm}, which is what makes this
+     * work on a real library. A provider's album names are full of pressing
+     * detail that MusicBrainz keeps on the release rather than the release
+     * group — "Jagged Little Pill (2015 Remaster)", "Check Your Head (Deluxe
+     * Edition/Remastered/2009)" — and the query is a quoted phrase, so every
+     * one of those tokens has to appear, in order, in a title that is really
+     * just "Jagged Little Pill". They matched nothing, which cost a request and
+     * then a week-long miss row, on most of the remastered catalogue.
      */
     private async searchReleaseGroup(ref: AlbumRef): Promise<string | undefined> {
+        const title = baseForm(ref.name) || ref.name;
         const response = await this.client!.get<MusicBrainzReleaseGroupSearchResponse>('release-group', {
-            query: `releasegroup:"${escapeLucene(ref.name)}" AND artist:"${escapeLucene(ref.artist)}"`,
+            query: `releasegroup:"${escapeLucene(title)}" AND artist:"${escapeLucene(ref.artist)}"`,
             limit: '1',
         });
 
         const found = response['release-groups']?.[0];
-        if (!found?.id) this.host?.logger.debug('musicbrainz found no release group', { album: ref.name, artist: ref.artist });
+        if (!found?.id) this.host?.logger.debug('musicbrainz found no release group', { album: ref.name, searched: title, artist: ref.artist });
         return found?.id;
     }
 

@@ -273,3 +273,67 @@ describe('enrichTracks: the contract the host relies on', () => {
         expect(await plugin.enrichTracks(dummy)).toEqual(dummy.map(() => ({})));
     });
 });
+
+describe('searchReleaseGroup', () => {
+    /** The search, plus the two lookups that follow a hit, so a test only asserts on the query. */
+    const albumRoutes: [RegExp, unknown][] = [
+        [/release-group\?/, { 'release-groups': [{ id: 'rg-1' }] }],
+        [/release-group\/rg-1/, { id: 'rg-1', title: 'A record', releases: [{ id: 'rel-1' }] }],
+        [/release\/rel-1/, { id: 'rel-1', title: 'A record' }],
+    ];
+
+    // `URLSearchParams` writes spaces as `+`, which `decodeURIComponent` does
+    // not undo, so the plus has to come out first or a multi-word title never
+    // matches what the assertion is looking for.
+    const queryFor = (): string => decodeURIComponent(host.calls[0]!.url.replace(/\+/g, ' '));
+
+    /**
+     * A provider's album names carry pressing detail that MusicBrainz keeps on
+     * the release, not the release group. The query is a quoted phrase, so
+     * every token has to appear in order — and "Jagged Little Pill (2015
+     * Remaster)" cannot match a release group titled "Jagged Little Pill".
+     */
+    it.each([
+        ['Jagged Little Pill (2015 Remaster)', 'jagged little pill'],
+        ['First Band On The Moon (Remastered)', 'first band on the moon'],
+        ['Check Your Head (Deluxe Edition/Remastered/2009)', 'check your head'],
+        ['Mellon Collie And The Infinite Sadness (Deluxe Edition)', 'mellon collie and the infinite sadness'],
+        ['Nevermind - Remastered', 'nevermind'],
+    ])('searches %s as %s', async (album, expected) => {
+        await initialize();
+        route(albumRoutes);
+
+        await plugin.enrichAlbum({ name: album, artist: 'Someone' });
+
+        expect(queryFor()).toContain(`releasegroup:"${expected}"`);
+    });
+
+    it('leaves a plain title alone rather than mangling it', async () => {
+        await initialize();
+        route(albumRoutes);
+
+        await plugin.enrichAlbum({ name: 'Dummy', artist: 'Portishead' });
+
+        expect(queryFor()).toContain('releasegroup:"dummy"');
+    });
+
+    it('falls back to the raw name when stripping would leave nothing to search for', async () => {
+        await initialize();
+        route(albumRoutes);
+
+        await plugin.enrichAlbum({ name: '(Untitled)', artist: 'Someone' });
+
+        // Escaped, because `escapeLucene` will not let a bracket become query
+        // structure — but the raw title, not the empty string.
+        expect(queryFor()).toContain(String.raw`releasegroup:"\(Untitled\)"`);
+    });
+
+    it('uses the same stripped title on the batch tracklist path', async () => {
+        await initialize();
+        route([...albumRoutes, [/release\/rel-1/, tracklistRelease]]);
+
+        await plugin.enrichTracks(dummy.map(track => ({ ...track, album: 'Dummy (2014 Remaster)' })));
+
+        expect(queryFor()).toContain('releasegroup:"dummy"');
+    });
+});

@@ -12,8 +12,8 @@
 #
 # Its config comes from the process env, which the entrypoint sources from radio.env (`set -a`):
 #   PLAYOUT_BRIDGE_SECRET   signs the track URLs; the same secret gating /control/*
-#   SPOTIFY_LOGIN_URL       the app's login route, for Spotify credentials (set in compose)
-#   SPOTIFY_LOGIN_SECRET    that route's own secret
+#   SPOTIFY_LOGIN_URL       the app's login route, fallen back to until the app pushes (set in compose)
+#   SPOTIFY_LOGIN_SECRET    gates POST /session, and that route
 #   SHIM_ADDR               listen address (default :3679)
 #
 # Diagnostics go to a log on the mounted volume: nothing here is attached to a terminal, and the

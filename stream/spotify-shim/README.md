@@ -37,7 +37,7 @@ Its config comes from the process env, which the entrypoint sources from `radio.
 | --- | --- |
 | `PLAYOUT_BRIDGE_SECRET` | signs track URLs; the same secret gating `/control/*` |
 | `SPOTIFY_LOGIN_URL` | the app's login route, for Spotify credentials (set in compose) |
-| `SPOTIFY_LOGIN_SECRET` | that route's own secret |
+| `SPOTIFY_LOGIN_SECRET` | gates `POST /session`, and the app's login route it falls back to |
 | `SHIM_ADDR` | listen address, default `:3679` |
 
 Note that `docker compose exec` does NOT inherit the entrypoint shell's sourced `radio.env`, so an
@@ -49,12 +49,21 @@ docker compose exec -T liquidsoap sh -c 'set -a; . /streamconfig/radio.env; dead
 
 (And in zsh, do not capture that into a variable called `path` — it is bound to `$PATH`.)
 
-Two endpoints:
+Three endpoints:
 
 ```
-GET /health         → {"ok":true,"session":false}
-GET /track/{id}?t=  → the track as audio/ogg
+GET  /health         → {"ok":true,"session":false}
+POST /session        ← the app hands over a Spotify login
+GET  /track/{id}?t=  → the track as audio/ogg
 ```
+
+`POST /session` takes `{"username","accessToken","expiresAt"}` (unix **milli**seconds, matching the
+app's plugin boundary) behind `X-Spotify-Login-Secret`, and answers **202** without waiting for the
+login: the caller is the app, mid-resolve, inside a deadline it has to produce a URL within. The
+connection is warmed in the background instead, so the fetch that follows a couple of minutes later
+finds a session already up. A push naming a different account drops the live session; a refreshed
+token on the same account does not, because an authenticated accesspoint does not stop being
+authenticated when the token that opened it is renewed.
 
 Liquidsoap fetches a queued item with **no headers from us**, so authorization rides in the query
 string, as it already does for the app's rendered-segment route. The token is
@@ -62,10 +71,15 @@ string, as it already does for the app's rendered-segment route. The token is
 because the app and the shim are separate processes and an HMAC needs only the secret both already
 hold. The shim refuses to start without one.
 
-The session is built lazily on the first fetch and rebuilt after a failure. That is deliberate: the
-container comes up before the app that mints credentials, a station in Navidrome mode never needs a
-Spotify login at all, and the only reliable signal that an accesspoint connection has gone is a
-request failing on it. Failures back off so a down app cannot become a reconnect storm.
+The session is built lazily — on a pushed login, or failing that on the first fetch — and rebuilt
+after a failure. That is deliberate: the container comes up before the app that mints credentials, a
+station in Navidrome mode never needs a Spotify login at all, and the only reliable signal that an
+accesspoint connection has gone is a request failing on it. Failures back off so a down app cannot
+become a reconnect storm, and a push carrying new credentials clears that backoff, since new
+credentials are exactly what a rejected login might have been waiting for.
+
+Until the first push arrives the shim falls back to whatever it was started with: the app's login
+route (`-login-url`), or a `-username`/`-token` pair given on the command line.
 
 ## Build (standalone)
 

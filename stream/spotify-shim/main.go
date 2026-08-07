@@ -72,12 +72,19 @@ func run(addr, secret, loginURL, loginSecret, username, token, uri, out, sign st
 	if loginURL != "" && username == "" {
 		creds = loginCredentials{url: loginURL, secret: loginSecret}
 	}
+	// The app pushes a login to POST /session as it resolves each track; whatever was configured
+	// above is what answers until the first push lands. A `-username` given on the command line
+	// still wins for as long as nobody pushes, which is what makes one-shot mode independent of
+	// whether an app is running at all.
+	pushed := &pushedCredentials{fallback: creds}
 
 	srv := &server{
-		sessions:     newSessionHolder(creds, log, client),
+		sessions:     newSessionHolder(pushed, log, client),
 		client:       client,
 		log:          log,
 		secret:       secret,
+		loginSecret:  loginSecret,
+		pushed:       pushed,
 		bitrate:      bitrate,
 		fetchTimeout: fetchTimeout,
 	}

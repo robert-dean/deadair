@@ -98,6 +98,44 @@ func (h *sessionHolder) get(ctx context.Context) (*session, error) {
 	return sess, nil
 }
 
+// Warm the session in the background, so a login that has to happen anyway does not happen inside
+// the fetch of an item that is about to air.
+//
+// Errors are logged and dropped: this is speculative work, and the fetch path opens (and reports)
+// its own session if this never succeeded. The backoff in get() still applies, so a station whose
+// credentials are rejected does not turn every push into another login attempt.
+func (h *sessionHolder) warm(timeout time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if _, err := h.get(ctx); err != nil {
+		h.log.WithError(err).Debugf("could not warm the session after a pushed login")
+	}
+}
+
+// Drop any live session and forget the backoff, so the next request logs in again from scratch.
+// For a push that names a DIFFERENT account: the live accesspoint is authenticated as the old one,
+// and every track it serves after that would come from the wrong library.
+func (h *sessionHolder) reset() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.current.close()
+	h.current = nil
+	h.lastFailure, h.backoff = time.Time{}, 0
+}
+
+// Forget the backoff without touching a live session.
+//
+// For a push carrying a NEW token on the same account. The backoff exists to stop a rejected login
+// becoming a reconnect storm, and a rejected login is exactly what fresh credentials might fix, so
+// holding one off after a push would make the shim wait out a delay whose reason has just been
+// addressed. The session itself is left alone: an authenticated accesspoint does not stop being
+// authenticated because the token that opened it was refreshed.
+func (h *sessionHolder) clearBackoff() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.lastFailure, h.backoff = time.Time{}, 0
+}
+
 // Drop the session so the next request builds a fresh one. Called when a fetch fails on it: an
 // accesspoint that has gone away fails every later request identically until it is replaced.
 func (h *sessionHolder) invalidate(dead *session) {
@@ -195,6 +233,52 @@ func connect(ctx context.Context, log librespot.Logger, client *http.Client, use
 // fixed pair passed on the command line (how an operator debugs one track).
 type credentialSource interface {
 	fetch(ctx context.Context, client *http.Client) (username, token string, err error)
+}
+
+// The last login the app pushed to POST /session.
+//
+// This is the direction the arrangement runs in: the app resolves a rundown item, and hands over a
+// login on the way past. A push therefore lands minutes before the fetch it is for, which is what
+// makes a stored token safe to reuse — it is never much older than the track it opens.
+//
+// `fallback` is whatever source was configured at startup, used until the first push arrives, so a
+// shim that comes up beside an app that does not push yet still works.
+type pushedCredentials struct {
+	mu        sync.Mutex
+	username  string
+	token     string
+	expiresAt time.Time
+	fallback  credentialSource
+}
+
+func (c *pushedCredentials) fetch(ctx context.Context, client *http.Client) (string, string, error) {
+	c.mu.Lock()
+	username, token, expiresAt := c.username, c.token, c.expiresAt
+	c.mu.Unlock()
+
+	if username == "" || token == "" {
+		return c.fallback.fetch(ctx, client)
+	}
+	// Reported rather than fallen back on. An expired push means the app stopped pushing (it is
+	// down, or the station has been off air for longer than a token lives), and saying so names the
+	// cause; the next resolve pushes a fresh one on its own.
+	if !expiresAt.IsZero() && time.Now().After(expiresAt) {
+		return "", "", fmt.Errorf("the pushed login expired at %s; the app pushes a fresh one when it next resolves a track", expiresAt.UTC().Format(time.RFC3339))
+	}
+	return username, token, nil
+}
+
+// Record a pushed login, reporting what about it changed: whether it names a different account, and
+// whether it is different at all. The two answers cost the session different things — see
+// {@link sessionHolder.reset} and {@link sessionHolder.clearBackoff}.
+func (c *pushedCredentials) store(username, token string, expiresAt time.Time) (accountChanged, credentialsChanged bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	accountChanged = c.username != "" && c.username != username
+	credentialsChanged = c.username != username || c.token != token
+	c.username, c.token, c.expiresAt = username, token, expiresAt
+	return accountChanged, credentialsChanged
 }
 
 type staticCredentials struct{ username, token string }

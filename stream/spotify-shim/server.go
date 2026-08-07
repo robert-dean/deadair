@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -14,8 +16,9 @@ import (
 // The HTTP half: one track per request, so Liquidsoap's request.queue can fetch a Spotify track
 // the same way it fetches a pre-signed Subsonic URL.
 //
-//	GET /health        → {"ok":true,"session":false}
-//	GET /track/{id}?t= → the track as audio/ogg
+//	GET  /health        → {"ok":true,"session":false}
+//	POST /session       ← the app hands over a Spotify login
+//	GET  /track/{id}?t= → the track as audio/ogg
 //
 // Liquidsoap curl-downloads a queued item with NO headers from us, which is why the authorization
 // rides in the query string. Same constraint the app's rendered-segment route already works
@@ -27,7 +30,13 @@ type server struct {
 	log      librespot.Logger
 	// Signs and verifies track URLs. Shared with the app as PLAYOUT_BRIDGE_SECRET, the same secret
 	// gating Liquidsoap's /control/* endpoints.
-	secret  string
+	secret string
+	// Gates POST /session, and deliberately NOT the same secret as the one above: that one moves
+	// track ids around, while this one decides whose Spotify account this shim fetches as. Shared
+	// with the app as SPOTIFY_LOGIN_SECRET.
+	loginSecret string
+	// Where a pushed login lands. The session holder reads through it.
+	pushed  *pushedCredentials
 	bitrate int
 	// How long a fetch may take before it is abandoned. Generous: a track arrives in about a
 	// second, but a cold session has a login in front of it.
@@ -37,6 +46,7 @@ type server struct {
 func (s *server) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("POST /session", s.handleSession)
 	mux.HandleFunc("GET /track/{id}", s.handleTrack)
 	// HEAD needs its OWN pattern. Go's router matches HEAD against a "GET" pattern, so without
 	// this the full handler answers it: Liquidsoap sniffs each item with a HEAD before
@@ -52,6 +62,73 @@ func (s *server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	// that logs in would make every container restart hit Spotify whether or not the station is
 	// even in Spotify mode.
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "session": s.sessions.live()})
+}
+
+// The body of POST /session: the login the app lends this shim.
+//
+// `expiresAt` is unix MILLIseconds, matching the app's plugin boundary, where every timestamp is an
+// integer in milliseconds. Omitted means "no expiry stated", which is honoured as "usable until
+// Spotify says otherwise" rather than treated as already expired.
+type sessionPush struct {
+	Username    string `json:"username"`
+	AccessToken string `json:"accessToken"`
+	ExpiresAt   int64  `json:"expiresAt"`
+}
+
+// Take a Spotify login from the app.
+//
+// Answers 202 without waiting for the login itself. The caller is inside a plugin invocation with a
+// deadline it has to resolve a track within, and a cold Spotify login is several round trips: this
+// route exists to make the fetch that comes later fast, so blocking the resolve on it would spend
+// the very budget it is trying to protect. The connection is warmed in the background instead, and
+// the fetch path still opens its own session if that has not finished (or failed).
+func (s *server) handleSession(w http.ResponseWriter, r *http.Request) {
+	if s.loginSecret == "" {
+		// Nothing could match, so this is not a refusal of this caller: the route cannot serve
+		// anyone until the app seeds the secret. Mirrors what the app answers in the same state.
+		http.Error(w, "no login secret configured", http.StatusNotFound)
+		return
+	}
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Spotify-Login-Secret")), []byte(s.loginSecret)) != 1 {
+		s.log.Warnf("rejected a session push: the login secret did not match")
+		http.Error(w, "denied", http.StatusUnauthorized)
+		return
+	}
+
+	var push sessionPush
+	// Capped: this is a small JSON object, and an unbounded read on a route that accepts a body is
+	// a way to spend the container's memory.
+	if err := json.NewDecoder(io.LimitReader(r.Body, 8<<10)).Decode(&push); err != nil {
+		s.log.WithError(err).Warnf("rejected a malformed session push")
+		http.Error(w, "malformed body", http.StatusBadRequest)
+		return
+	}
+	if push.Username == "" || push.AccessToken == "" {
+		http.Error(w, "username and accessToken are both required", http.StatusBadRequest)
+		return
+	}
+
+	var expiresAt time.Time
+	if push.ExpiresAt > 0 {
+		expiresAt = time.UnixMilli(push.ExpiresAt)
+	}
+	accountChanged, credentialsChanged := s.pushed.store(push.Username, push.AccessToken, expiresAt)
+
+	switch {
+	case accountChanged:
+		s.log.Infof("took a session push for %s, replacing a session on a different account", push.Username)
+		s.sessions.reset()
+	case credentialsChanged:
+		s.log.Infof("took a session push for %s", push.Username)
+		s.sessions.clearBackoff()
+	default:
+		// The app pushes on every resolve, so most pushes say nothing new. Logging those at info
+		// would put a line per track in the log for an event that changed nothing.
+		s.log.Debugf("took a session push for %s, unchanged", push.Username)
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	go s.sessions.warm(s.fetchTimeout)
 }
 
 // Answer a HEAD without touching Spotify.

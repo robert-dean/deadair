@@ -6,6 +6,7 @@ import type { PgBossJobRegistration } from '@maroonedsoftware/jobbroker/pgboss';
 import { CatalogPlaceholderJob } from '#modules/catalog/ingest/catalog.placeholder.job.js';
 import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
+import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 
 /**
  * What a job name maps to. The bare constructor is the short form for an
@@ -81,5 +82,20 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: EnrichmentJob,
         cron: '*/15 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // Every ten minutes, and also sent by the sync whenever it added tracks, so a new arrival's
+    // cover is local rather than hotlinked within minutes. Its queue is the catalog's own
+    // `image_url` columns, so it picks up art from ingest and from the enrichment walk alike
+    // without either of them knowing it exists.
+    //
+    // One retry, no dead-letter queue, for the reason the enrichment pass gives: a URL that failed
+    // still has no bytes, so it is still outstanding and the next pass picks it up under its own
+    // backoff. The work is its own record. `expiresIn` sits above a full batch of timeouts and
+    // below the interval, so a wedged run is reclaimed before the next one starts.
+    'catalog.cache_art': {
+        job: ArtCacheJob,
+        cron: '*/10 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 };

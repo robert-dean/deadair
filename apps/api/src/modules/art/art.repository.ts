@@ -106,21 +106,66 @@ export class ArtRepository extends DataRepository {
      *
      * The row is kept rather than deleted: without it the sweeper cannot tell a URL it has never
      * seen from one that 404s every time, and a dead cover would be re-fetched on every pass
-     * forever. `attempts` drives the backoff the caller computes.
+     * forever.
+     *
+     * The backoff doubles per attempt up to `maxRetryMs`, computed in SQL off the row's own
+     * `attempts` so it needs no read first and two concurrent failures cannot both write the same
+     * delay from the same stale count.
      */
-    async recordFailure(sourceUrl: string, error: string, retryInMs: number): Promise<void> {
-        const nextAttemptAt = sql<never>`now() + make_interval(secs => ${retryInMs / 1000})`;
+    async recordFailure(sourceUrl: string, error: string, baseRetryMs: number, maxRetryMs: number): Promise<void> {
+        // Cast both bounds: `least()` over two untyped bind parameters resolves to text, and
+        // `make_interval(secs => text)` is not a function that exists.
+        const baseSecs = sql<number>`${baseRetryMs / 1000}::double precision`;
+        const maxSecs = sql<number>`${maxRetryMs / 1000}::double precision`;
 
         await this.db
             .insertInto('deadair.artAssets')
-            .values({ sourceUrl, attempts: 1, lastError: error, nextAttemptAt })
+            .values({
+                sourceUrl,
+                attempts: 1,
+                lastError: error,
+                nextAttemptAt: sql<never>`now() + make_interval(secs => least(${baseSecs}, ${maxSecs}))`,
+            })
             .onConflict(oc =>
                 oc.column('sourceUrl').doUpdateSet(eb => ({
                     attempts: eb('deadair.artAssets.attempts', '+', 1),
                     lastError: error,
-                    nextAttemptAt,
+                    nextAttemptAt: sql<never>`now() + make_interval(
+                        secs => least(${baseSecs} * power(2, deadair.art_assets.attempts), ${maxSecs})
+                    )`,
                 })),
             )
             .execute();
+    }
+
+    /**
+     * The next upstream art URLs worth fetching.
+     *
+     * The queue is the catalog itself rather than a table of its own: `artists.image_url` and
+     * `albums.image_url` are written by enrichment and by ingest, neither of which knows this table
+     * exists, so anything that promotes an art URL is swept without having to be told. A URL
+     * appearing on twenty albums is one row here, because the union is over distinct URLs.
+     *
+     * Merged rows are excluded for the same reason catalog reads exclude them: nothing will ever
+     * render their art. Never-attempted URLs come first, so one permanently dead cover cannot keep
+     * a fresh batch from being cached.
+     */
+    async listPendingSourceUrls(limit: number): Promise<string[]> {
+        const rows = await sql<{ url: string }>`
+            with candidates as (
+                select image_url as url from deadair.artists where image_url is not null and merged_into_id is null
+                union
+                select image_url as url from deadair.albums where image_url is not null and merged_into_id is null
+            )
+            select candidates.url
+              from candidates
+              left join deadair.art_assets on deadair.art_assets.source_url = candidates.url
+             where deadair.art_assets.checksum is null
+               and (deadair.art_assets.next_attempt_at is null or deadair.art_assets.next_attempt_at <= now())
+             order by coalesce(deadair.art_assets.attempts, 0), candidates.url
+             limit ${limit}
+        `.execute(this.db);
+
+        return rows.rows.map(row => row.url);
     }
 }

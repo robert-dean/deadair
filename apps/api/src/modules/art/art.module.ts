@@ -1,7 +1,9 @@
 import { Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { ArtCacheService } from './art.cache.service.js';
 import { ArtRepository } from './art.repository.js';
+import { ArtService } from './art.service.js';
 import { ArtStore } from './art.store.js';
 
 /** Where cached art is written when `ART_DIR` is unset. Alongside `logs/`, and gitignored with it. */
@@ -24,7 +26,10 @@ export const ArtModule: ServerKitModule = {
             .asSingleton();
 
         // Scoped, like every other repository: per-request on the request path, per-run in the job
-        // the sweeper executes as.
+        // the sweeper executes as. The two services above it share that lifetime, one serving the
+        // bytes and one fetching them.
         registry.register(ArtRepository).useClass(ArtRepository).asScoped();
+        registry.register(ArtService).useClass(ArtService).asScoped();
+        registry.register(ArtCacheService).useClass(ArtCacheService).asScoped();
     },
 };

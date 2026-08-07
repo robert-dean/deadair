@@ -404,11 +404,12 @@ describe('CatalogSyncService.syncAll', () => {
 
             await service.syncAll();
 
-            // Both follow-ups have the same trigger: a track the library did not
-            // have before is what gives either of them new work.
+            // All three follow-ups have the same trigger: a track the library did
+            // not have before is what gives any of them new work.
             expect(jobs.sent).toEqual([
                 { name: 'catalog.resolve_placeholders', payload: {} },
                 { name: 'catalog.enrich', payload: {} },
+                { name: 'catalog.cache_art', payload: {} },
             ]);
         });
 
@@ -448,7 +449,7 @@ describe('CatalogSyncService.syncAll', () => {
 
             await service.syncAll();
 
-            expect(jobs.sent.map(sent => sent.name)).toEqual(['catalog.resolve_placeholders', 'catalog.enrich']);
+            expect(jobs.sent.map(sent => sent.name)).toEqual(['catalog.resolve_placeholders', 'catalog.enrich', 'catalog.cache_art']);
         });
 
         it('reports a sync that succeeded even when the enqueue failed', async () => {

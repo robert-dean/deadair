@@ -107,7 +107,28 @@ export class CatalogSyncService {
 
         await this.retryPlaceholders(summaries);
         await this.enrichNewTracks(summaries);
+        await this.cacheNewArt(summaries);
         return summaries;
+    }
+
+    /**
+     * Asks the art sweep to run, on the same "only if this changed something"
+     * rule as its two siblings: a walk that created nothing brought in no new
+     * cover, and the ten-minute schedule already covers everything else.
+     *
+     * Best-effort for the same reason, and more so than either of them: art is
+     * a nicety, and until it is cached the console simply shows the provider's
+     * own URL as it always has.
+     */
+    private async cacheNewArt(summaries: readonly PluginSyncSummary[]): Promise<void> {
+        const created = summaries.reduce((total, summary) => total + summary.created, 0);
+        if (created === 0) return;
+
+        try {
+            await this.jobBroker.send('catalog.cache_art', {});
+        } catch (error) {
+            this.logger.warn('could not queue the art cache pass', { error: this.errorText(error), created });
+        }
     }
 
     /**

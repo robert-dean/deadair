@@ -129,6 +129,31 @@ describe('TransportBar', () => {
         expect(stop).toHaveBeenCalledOnce();
     });
 
+    it('shows the cover of what is on air', () => {
+        renderBar(playoutStatus({ nowPlaying: { item: playoutItem({ artworkUrl: 'art/asset-1' }), startedAt: 1 } }));
+
+        expect(screen.getByRole('img', { name: 'Windowlicker' })).toHaveAttribute('src', '/api/art/asset-1');
+    });
+
+    it('leaves the artwork square out entirely while nothing is on air', () => {
+        // The placeholder next to "Starting…" reads as a second thing being wrong,
+        // rather than as art the station simply does not hold.
+        renderBar(playoutStatus({ nowPlaying: undefined }));
+
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
+        expect(screen.getByText('Starting…')).toBeInTheDocument();
+    });
+
+    it('names the album only with the panel open, where there is room for it', () => {
+        const status = playoutStatus({ nowPlaying: { item: playoutItem({ album: 'Windowlicker', year: 1999 }), startedAt: 1 } });
+
+        const { rerender } = renderBar(status);
+        expect(screen.queryByText(/1999/)).not.toBeInTheDocument();
+
+        rerender(<TransportBar status={status} expanded onToggleExpanded={vi.fn()} />);
+        expect(screen.getByText('Windowlicker (1999)')).toBeInTheDocument();
+    });
+
     it('says what an empty running order means rather than showing a blank list', () => {
         renderBar(playoutStatus({ upNext: [], queuedCount: 0 }), true);
 

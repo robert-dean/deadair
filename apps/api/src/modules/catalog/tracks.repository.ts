@@ -57,4 +57,47 @@ export class TracksRepository extends DataRepository {
 
         return { total: Number(total), data };
     }
+
+    /**
+     * The canonical rows behind a batch of one provider's ids: what the catalog
+     * knows about tracks a caller is holding by binding alone.
+     *
+     * The direction ingest does not go. It resolves a provider item TO a canonical
+     * row; this asks the same question of rows that already exist, which is what
+     * anything holding a `(plugin_id, external_id)` pair — the running order, the
+     * station playlist — needs to say more about a track than the provider bothered
+     * to tell it.
+     *
+     * Batched because the caller has a whole playlist: one query for a hundred
+     * tracks rather than a hundred round trips behind a request an operator is
+     * waiting on. Ids the catalog has never seen are simply absent from the result,
+     * so a caller learns nothing rather than being handed an empty row to
+     * misinterpret.
+     *
+     * A binding marked `missing_at` still answers. It means this provider stopped
+     * offering the track, which says nothing about what the work IS, and the
+     * metadata is the whole question here.
+     */
+    async findByBindings(pluginId: string, externalIds: readonly string[]) {
+        if (externalIds.length === 0) return [];
+
+        return this.db
+            .selectFrom('deadair.trackSources')
+            .innerJoin('deadair.tracks', 'deadair.tracks.id', 'deadair.trackSources.trackId')
+            // Left, like the list above: a single ingested outside any release is still a track.
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .select([
+                'deadair.trackSources.externalId',
+                'deadair.tracks.id as trackId',
+                'deadair.tracks.year',
+                'deadair.albums.name as albumName',
+            ])
+            .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
+            .where('deadair.trackSources.pluginId', '=', pluginId)
+            .where('deadair.trackSources.externalId', 'in', [...externalIds])
+            // A merged row is a duplicate the catalog has already disowned; its metadata
+            // is the same work described twice, and reading it would report the loser.
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .execute();
+    }
 }

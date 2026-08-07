@@ -2,12 +2,14 @@ import { timingSafeEqual } from 'node:crypto';
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
+import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
+import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutPusher } from './playout.pusher.js';
-import { Rundown, type RundownItem } from './rundown.js';
+import { Rundown, type RundownItem, type RundownTrack } from './rundown.js';
 import type {
     PlayoutAiredQuery,
     PlayoutBridgeHeaders,
@@ -38,6 +40,7 @@ export class PlayoutService {
         private readonly rundown: Rundown,
         private readonly pusher: PlayoutPusher,
         private readonly playlists: PlaylistsService,
+        private readonly tracks: TracksRepository,
         private readonly endpoint: LiquidsoapEndpoint,
         private readonly control: PlayoutControlClient,
         private readonly stream: StreamService,
@@ -111,15 +114,7 @@ export class PlayoutService {
             throw httpError(422).withDetails({ message: 'that playlist has no tracks to play' });
         }
 
-        this.rundown.load(
-            tracks.map(track => ({
-                pluginId: input.pluginId,
-                externalId: track.id,
-                title: track.title,
-                artists: track.artists,
-                ...(track.durationMs === undefined ? {} : { durationMs: track.durationMs }),
-            })),
-        );
+        this.rundown.load(await this.toRundownTracks(input.pluginId, tracks));
         this.logger.info('playout: loaded a playlist into the running order', {
             plugin: input.pluginId,
             playlist: input.playlistId,
@@ -183,6 +178,61 @@ export class PlayoutService {
     }
 
     /**
+     * One provider's playlist as running-order items, with whatever the local
+     * catalog can add to them.
+     *
+     * A provider describes the copy it will serve, and that stays authoritative
+     * for title, artists and duration: it is the thing that will actually play.
+     * The catalog knows the WORK — its canonical id, its release year, and a cover
+     * the station has already cached — and none of that reaches a console
+     * otherwise, which is why the mount and the transport bar have been unlabelled.
+     *
+     * Cover art prefers the catalog's answer because {@link artUrl} has already
+     * resolved it to the local copy where one exists; the provider's URL is the
+     * fallback for a track the catalog has never seen.
+     *
+     * Never fails the load. Metadata is decoration and airing is the job, so a
+     * catalog read that throws costs the covers and nothing else.
+     */
+    private async toRundownTracks(pluginId: string, tracks: readonly CatalogTrack[]): Promise<RundownTrack[]> {
+        const known = await this.catalogMetadata(pluginId, tracks);
+
+        return tracks.map(track => {
+            const row = known.get(track.id);
+            const album = track.album ?? row?.albumName ?? undefined;
+            const artworkUrl = row?.albumImageUrl ?? track.artworkUrl;
+            return {
+                pluginId,
+                externalId: track.id,
+                title: track.title,
+                artists: track.artists,
+                ...(track.durationMs === undefined ? {} : { durationMs: track.durationMs }),
+                ...(album === undefined ? {} : { album }),
+                ...(artworkUrl == null ? {} : { artworkUrl }),
+                ...(row?.year == null ? {} : { year: row.year }),
+                ...(row?.trackId === undefined ? {} : { trackId: row.trackId }),
+            };
+        });
+    }
+
+    /** The catalog's rows for these bindings, by provider id. Empty when the catalog cannot answer. */
+    private async catalogMetadata(pluginId: string, tracks: readonly CatalogTrack[]) {
+        try {
+            const rows = await this.tracks.findByBindings(
+                pluginId,
+                tracks.map(track => track.id),
+            );
+            return new Map(rows.map(row => [row.externalId, row]));
+        } catch (error) {
+            this.logger.warn('playout: could not read catalog metadata for a playlist; airing it without', {
+                plugin: pluginId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return new Map();
+        }
+    }
+
+    /**
      * Gate an internal call on the shared bridge secret.
      *
      * Constant-time, because this is a bare secret compared on every boundary:
@@ -211,6 +261,10 @@ function toPlayoutItem(item: RundownItem): PlayoutItem {
         title: item.title,
         artists: item.artists,
         ...(item.durationMs === undefined ? {} : { durationMs: item.durationMs }),
+        ...(item.album === undefined ? {} : { album: item.album }),
+        ...(item.artworkUrl === undefined ? {} : { artworkUrl: item.artworkUrl }),
+        ...(item.year === undefined ? {} : { year: item.year }),
+        ...(item.trackId === undefined ? {} : { trackId: item.trackId }),
     };
 }
 

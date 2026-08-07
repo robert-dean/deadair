@@ -39,6 +39,21 @@ export interface RundownItem {
     title: string;
     artists: string[];
     durationMs?: number;
+    album?: string;
+    /** Cover art: the station's own cached copy where there is one, the provider's URL otherwise. */
+    artworkUrl?: string;
+    year?: number;
+    /**
+     * The canonical `deadair.tracks` id, when the catalog holds this track.
+     *
+     * Separate from the identity above rather than replacing it, because the two
+     * answer different questions and only one of them can play audio: `pluginId` +
+     * `externalId` is the copy a provider will actually serve, while this is the
+     * work itself. Absent for anything the catalog has never seen, which is an
+     * ordinary state and not a failure — a station can air a track it has not
+     * ingested.
+     */
+    trackId?: string;
 }
 
 /** An item handed over, with the URL the player was told to fetch. */

@@ -13,6 +13,7 @@ import type { PlayoutControlClient } from '../../../src/modules/playout/liquidso
 import type { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import type { Rundown } from '../../../src/modules/playout/rundown.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
+import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { StreamService } from '../../../src/modules/stream/stream.service.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -23,8 +24,11 @@ interface Options {
     bridgeSecret?: string;
     markAired?: boolean;
     /** What the playlists read answers with, or an error to throw from it. */
-    tracks?: { id: string; title: string; artists: string[]; durationMs?: number }[];
+    tracks?: { id: string; title: string; artists: string[]; durationMs?: number; album?: string; artworkUrl?: string }[];
     playlistError?: Error;
+    /** What the local catalog knows about those provider ids, and whether it can be asked at all. */
+    catalogRows?: { externalId: string; trackId: string; year: number | null; albumName: string | null; albumImageUrl: string | null }[];
+    catalogError?: Error;
     /** Whether the stream took a skip, and whether it is reachable at all. */
     skipLands?: boolean;
     streamUp?: boolean;
@@ -75,11 +79,19 @@ function build(options: Options = {}) {
 
     const stream = { settings: async () => ({}) } as unknown as StreamService;
 
+    const tracks = {
+        findByBindings: vi.fn(async () => {
+            if (options.catalogError) throw options.catalogError;
+            return options.catalogRows ?? [];
+        }),
+    } as unknown as TracksRepository;
+
     return {
-        service: new PlayoutService(rundown, pusher, playlists, endpoint, control, stream, logger),
+        service: new PlayoutService(rundown, pusher, playlists, tracks, endpoint, control, stream, logger),
         rundown,
         pusher,
         playlists,
+        tracks,
     };
 }
 
@@ -121,6 +133,75 @@ describe('PlayoutService.playPlaylist', () => {
         await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
 
         expect(rundown.load).toHaveBeenCalledWith([{ pluginId: 'deadair.spotify', externalId: 'trk_9', title: 'B Side', artists: ['Someone'] }]);
+    });
+
+    it('keeps what the provider says about the copy it will actually serve', async () => {
+        // The provider describes the thing that will play. The catalog describes the
+        // work, and must not overwrite the album printed on the copy being aired.
+        const { service, rundown } = build({
+            tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], album: 'The Single' }],
+            catalogRows: [{ externalId: 'trk_9', trackId: 'cat-1', year: 1979, albumName: 'The Album', albumImageUrl: null }],
+        });
+
+        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(rundown.load).toHaveBeenCalledWith([expect.objectContaining({ album: 'The Single', year: 1979, trackId: 'cat-1' })]);
+    });
+
+    it('takes the catalog cover over the provider one, because it may already be cached locally', async () => {
+        // `artUrl` has resolved this to the station's own copy where there is one, so
+        // a console does not hotlink a provider CDN on every poll of the transport.
+        const { service, rundown } = build({
+            tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], artworkUrl: 'https://provider.test/cover.jpg' }],
+            catalogRows: [{ externalId: 'trk_9', trackId: 'cat-1', year: null, albumName: null, albumImageUrl: 'art/asset-1' }],
+        });
+
+        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(rundown.load).toHaveBeenCalledWith([expect.objectContaining({ artworkUrl: 'art/asset-1' })]);
+    });
+
+    it('falls back to the provider cover for a track the catalog has never seen', async () => {
+        const { service, rundown } = build({
+            tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], artworkUrl: 'https://provider.test/cover.jpg' }],
+            catalogRows: [],
+        });
+
+        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        const [[loaded]] = vi.mocked(rundown.load).mock.calls as unknown as [Record<string, unknown>[][]];
+        expect(loaded![0]).toEqual({
+            pluginId: 'deadair.spotify',
+            externalId: 'trk_9',
+            title: 'B Side',
+            artists: ['Someone'],
+            artworkUrl: 'https://provider.test/cover.jpg',
+        });
+    });
+
+    it('airs the playlist anyway when the catalog read fails', async () => {
+        // Metadata is decoration; airing is the job. A catalog that is unhappy costs
+        // the covers, not the broadcast.
+        const { service, rundown, pusher } = build({ catalogError: new Error('the pool is gone') });
+
+        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(rundown.load).toHaveBeenCalledWith([expect.objectContaining({ externalId: 'trk_1' })]);
+        expect(pusher.reconcile).toHaveBeenCalledOnce();
+    });
+
+    it('asks the catalog once for the whole playlist rather than once per track', async () => {
+        const { service, tracks } = build({
+            tracks: [
+                { id: 'trk_1', title: 'One', artists: ['A'] },
+                { id: 'trk_2', title: 'Two', artists: ['B'] },
+            ],
+        });
+
+        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(tracks.findByBindings).toHaveBeenCalledOnce();
+        expect(tracks.findByBindings).toHaveBeenCalledWith('deadair.spotify', ['trk_1', 'trk_2']);
     });
 
     it('refuses an empty playlist instead of reporting a station that plays nothing', async () => {

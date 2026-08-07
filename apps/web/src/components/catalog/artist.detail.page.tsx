@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { CATALOG_PAGE_SIZE, catalogArtistAlbumsOptions, catalogArtistEnrichmentOptions, catalogArtistOptions } from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { Artwork } from './artwork';
+import { Artwork } from '../shared/artwork';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 

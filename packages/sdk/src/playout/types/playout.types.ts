@@ -21,11 +21,18 @@ export interface PlayoutItem {
     artists: string[];
     /** Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string */
     durationMs?: number;
+    album?: string;
+    /** The locally cached cover where there is one, the provider's URL otherwise */
+    artworkUrl?: string;
+    /** First release year, when the catalog knows one */
+    year?: number;
+    /** The canonical `deadair.tracks` id, when this item is a track the catalog holds. Absent for anything the catalog has never seen */
+    trackId?: string;
 }
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L36)
+ * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L40)
  */
 export interface PlayoutAiredQuery {
     /** The id the app put on the pushed uri's `annotate:` metadata */
@@ -34,7 +41,7 @@ export interface PlayoutAiredQuery {
 
 /**
  * The shared secret gating the internal playout bridge, in both directions
- * generated from [PlayoutBridgeHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L40)
+ * generated from [PlayoutBridgeHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L44)
  */
 export interface PlayoutBridgeHeaders {
     'x-playout-secret': string;
@@ -42,7 +49,7 @@ export interface PlayoutBridgeHeaders {
 
 /**
  * What the PLAYER says is airing, which is not the same as what was last handed to it
- * generated from [PlayoutNowPlaying](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L21)
+ * generated from [PlayoutNowPlaying](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L25)
  */
 export interface PlayoutNowPlaying {
     item: PlayoutItem;
@@ -54,7 +61,7 @@ export interface PlayoutNowPlaying {
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L27)
+ * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L31)
  */
 export interface PlayoutStatus {
     /** Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds */

@@ -1,6 +1,7 @@
 import { Group, ScrollArea, Stack, Text } from '@mantine/core';
 import type { PlayoutItem } from '@deadair/sdk';
 
+import { Artwork } from '../shared/artwork';
 import { formatDuration } from '../shared/format.duration';
 
 export interface TransportQueueProps {
@@ -44,6 +45,7 @@ export function TransportQueue({ upNext, queuedCount }: TransportQueueProps) {
                             <Text size="xs" c="dimmed" ff="monospace" w={20} ta="right">
                                 {index + 1}
                             </Text>
+                            <Artwork src={item.artworkUrl} alt={item.title} size={24} radius="xs" />
                             <Text size="sm" truncate style={{ flex: 1, minWidth: 0 }}>
                                 {item.title}
                             </Text>

@@ -4,7 +4,7 @@ import { Center, Image, Text } from '@mantine/core';
 import { artSrc } from '../../api/art';
 
 export interface ArtworkProps {
-    /** An `imageUrl` straight off a catalog row, in either of the two spellings it arrives in. */
+    /** An `imageUrl` or `artworkUrl` straight off an API row, in any of the spellings it arrives in. */
     src?: string;
     /** What the art is of. Doubles as the placeholder's initial, so pass the name, not "cover art". */
     alt: string;
@@ -19,10 +19,10 @@ const initial = (alt: string): string => [...alt.trim()][0]?.toUpperCase() ?? ''
 /**
  * A square of cover art, or a square where it would be.
  *
- * One component for every catalog surface, because the interesting part is the absence: most of
- * this catalog has no art at all until the ingest and the enrichment walk have both been past, and
- * four call sites inventing four different empty states would make a half-filled library look
- * broken rather than unfinished. The placeholder is deliberately quiet — an initial, not an icon
+ * One component for every surface that shows art — the catalog pages and the transport alike —
+ * because the interesting part is the absence: most of this catalog has no art at all until the
+ * ingest and the enrichment walk have both been past, and each call site inventing its own empty
+ * state would make a half-filled library look broken rather than unfinished. The placeholder is deliberately quiet — an initial, not an icon
  * and not a "no image" label, which would draw the eye to every gap in a list of fifty rows.
  *
  * A URL that fails to load falls back to the same placeholder. Art is hotlinked from the provider

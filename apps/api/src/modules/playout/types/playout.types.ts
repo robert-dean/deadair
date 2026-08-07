@@ -26,12 +26,20 @@ export const PlayoutItem = z.strictObject({
         .min(0)
         .optional()
         .describe('Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string'),
+    album: z.string().max(400).optional(),
+    artworkUrl: z.string().max(2000).optional().describe("The locally cached cover where there is one, the provider's URL otherwise"),
+    year: z.coerce.number().int().min(0).optional().describe('First release year, when the catalog knows one'),
+    trackId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe('The canonical `deadair.tracks` id, when this item is a track the catalog holds. Absent for anything the catalog has never seen'),
 });
 export type PlayoutItem = z.infer<typeof PlayoutItem>;
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L36)
+ * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L40)
  */
 export const PlayoutAiredQuery = z.strictObject({
     item: z.string().min(1).max(100).describe("The id the app put on the pushed uri's `annotate:` metadata"),
@@ -40,7 +48,7 @@ export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
  * The shared secret gating the internal playout bridge, in both directions
- * generated from [PlayoutBridgeHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L40)
+ * generated from [PlayoutBridgeHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L44)
  */
 export const PlayoutBridgeHeaders = z.strictObject({
     'x-playout-secret': z.string().min(1).max(200),
@@ -49,7 +57,7 @@ export type PlayoutBridgeHeaders = z.infer<typeof PlayoutBridgeHeaders>;
 
 /**
  * What the PLAYER says is airing, which is not the same as what was last handed to it
- * generated from [PlayoutNowPlaying](file://./../../../../data/contracts/playout/playout.types.ck#L21)
+ * generated from [PlayoutNowPlaying](file://./../../../../data/contracts/playout/playout.types.ck#L25)
  */
 export const PlayoutNowPlaying = z.strictObject({
     item: PlayoutItem,
@@ -65,7 +73,7 @@ export type PlayoutNowPlaying = z.infer<typeof PlayoutNowPlaying>;
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../data/contracts/playout/playout.types.ck#L27)
+ * generated from [PlayoutStatus](file://./../../../../data/contracts/playout/playout.types.ck#L31)
  */
 export const PlayoutStatus = z.strictObject({
     streamUp: z

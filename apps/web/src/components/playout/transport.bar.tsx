@@ -2,6 +2,7 @@ import { ActionIcon, Button, Divider, Group, Paper, Progress, Stack, Text, Toolt
 import type { PlayoutStatus } from '@deadair/sdk';
 
 import { useSkipCurrent, useStopPlayout } from '../../api/playout.queries';
+import { Artwork } from '../shared/artwork';
 import { formatDuration } from '../shared/format.duration';
 import { OnAirBadge } from './on.air.badge';
 import { usePlayhead } from './playhead';
@@ -64,6 +65,9 @@ export function TransportBar({ status, expanded, onToggleExpanded }: TransportBa
         <Paper radius={0} px="lg" py="xs" h="100%" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
             <Stack gap="xs" h="100%">
                 <Group justify="space-between" wrap="nowrap" gap="lg">
+                    {/* Only while something is on air: an empty square over "Starting…" reads as a
+                        second thing being wrong rather than as art the station does not have. */}
+                    {nowPlaying ? <Artwork src={nowPlaying.item.artworkUrl} alt={nowPlaying.item.title} size={expanded ? 40 : 32} /> : undefined}
                     <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
                         {nowPlaying ? (
                             <>
@@ -74,6 +78,15 @@ export function TransportBar({ status, expanded, onToggleExpanded }: TransportBa
                                     <Text size="sm" c="dimmed" truncate>
                                         {nowPlaying.item.artists.join(', ')}
                                     </Text>
+                                    {/* The album earns its place only with the panel open. The strip
+                                        sits under every page, and the title and artist are what
+                                        identify a track. */}
+                                    {expanded && nowPlaying.item.album ? (
+                                        <Text size="xs" c="dimmed" truncate visibleFrom="sm">
+                                            {nowPlaying.item.album}
+                                            {nowPlaying.item.year ? ` (${nowPlaying.item.year})` : ''}
+                                        </Text>
+                                    ) : undefined}
                                 </Group>
                                 {playhead ? (
                                     <Group gap="xs" wrap="nowrap">

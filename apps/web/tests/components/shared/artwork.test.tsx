@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent } from '@testing-library/react';
 
-import { Artwork } from '../../../src/components/catalog/artwork';
+import { Artwork } from '../../../src/components/shared/artwork';
 import { render, screen } from '../../utils/render';
 
 // `artSrc` reads the API base off the client module, which drags the whole SDK and the session

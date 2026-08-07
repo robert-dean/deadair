@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CATALOG_PAGE_SIZE, catalogTracksOptions } from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { formatDuration } from '../shared/format.duration';
-import { Artwork } from './artwork';
+import { Artwork } from '../shared/artwork';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
 import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';

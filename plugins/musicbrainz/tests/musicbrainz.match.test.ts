@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { TrackRef } from '@deadair/plugin-sdk';
 
 import {
+    albumSearchTitle,
     baseForm,
     buildRecordingQuery,
     escapeLucene,
@@ -141,5 +142,53 @@ describe('selectByIsrc', () => {
 
     it('returns nothing when the code resolved to no recordings', () => {
         expect(selectByIsrc([], ref())).toBeUndefined();
+    });
+});
+
+describe('albumSearchTitle', () => {
+    /** Pressing detail a provider prints, which MusicBrainz keeps on the release. */
+    it.each([
+        ['Jagged Little Pill (2015 Remaster)', 'Jagged Little Pill'],
+        ['First Band On The Moon (Remastered)', 'First Band On The Moon'],
+        ['Check Your Head (Deluxe Edition/Remastered/2009)', 'Check Your Head'],
+        ['Garbage (20th Anniversary Deluxe Edition/Remastered)', 'Garbage'],
+        ['Mellon Collie And The Infinite Sadness (Deluxe Edition)', 'Mellon Collie And The Infinite Sadness'],
+        ['Rust In Peace (2004 Remix / Expanded Edition)', 'Rust In Peace'],
+        ['...And Justice for All (Remastered Deluxe Box Set)', '...And Justice for All'],
+        ['Moving Pictures (2011 Remaster)', 'Moving Pictures'],
+        ['Nevermind - Remastered', 'Nevermind'],
+        ['Ride The Lightning (Deluxe Remaster)', 'Ride The Lightning'],
+    ])('takes the pressing detail off %s', (raw, expected) => {
+        expect(albumSearchTitle(raw)).toBe(expected);
+    });
+
+    /**
+     * The regression this replaced `baseForm` for. A comparison form strips
+     * punctuation so two strings we both hold compare equal; a query has to
+     * survive being read by a service whose index has the original.
+     */
+    it.each([
+        "School's Out",
+        "Why Can't We Be Friends?",
+        'The Raw & The Cooked',
+        'George Thorogood & the Destroyers',
+        "Don't Shoot Me I'm Only The Piano Player",
+        'R&G (Rhythm & Gangsta): The Masterpiece',
+        "(What's the Story) Morning Glory?",
+        'Sgt. Pepper’s Lonely Hearts Club Band',
+    ])('leaves %s exactly as it is', raw => {
+        expect(albumSearchTitle(raw)).toBe(raw);
+    });
+
+    it('keeps a dash that is part of the title rather than a pressing suffix', () => {
+        expect(albumSearchTitle('Songs for the Deaf - Live')).toBe('Songs for the Deaf - Live');
+    });
+
+    it('falls back to the raw title when there would be nothing left to search for', () => {
+        expect(albumSearchTitle('(Deluxe Edition)')).toBe('(Deluxe Edition)');
+    });
+
+    it('collapses the whitespace a removed group leaves behind', () => {
+        expect(albumSearchTitle('Aqualung  (25th Anniversary Edition)')).toBe('Aqualung');
     });
 });

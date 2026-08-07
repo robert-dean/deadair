@@ -305,11 +305,16 @@ describe('searchReleaseGroup', () => {
      * Remaster)" cannot match a release group titled "Jagged Little Pill".
      */
     it.each([
-        ['Jagged Little Pill (2015 Remaster)', 'jagged little pill'],
-        ['First Band On The Moon (Remastered)', 'first band on the moon'],
-        ['Check Your Head (Deluxe Edition/Remastered/2009)', 'check your head'],
-        ['Mellon Collie And The Infinite Sadness (Deluxe Edition)', 'mellon collie and the infinite sadness'],
-        ['Nevermind - Remastered', 'nevermind'],
+        ['Jagged Little Pill (2015 Remaster)', 'Jagged Little Pill'],
+        ['First Band On The Moon (Remastered)', 'First Band On The Moon'],
+        ['Check Your Head (Deluxe Edition/Remastered/2009)', 'Check Your Head'],
+        ['Mellon Collie And The Infinite Sadness (Deluxe Edition)', 'Mellon Collie And The Infinite Sadness'],
+        ['Nevermind - Remastered', 'Nevermind'],
+        // The case a comparison form got wrong: punctuation survives. The
+        // ampersand arrives Lucene-escaped, which is the point — escaped, not
+        // dropped.
+        ["School's Out", "School's Out"],
+        ['The Raw & The Cooked', String.raw`The Raw \& The Cooked`],
     ])('searches %s as %s', async (album, expected) => {
         await initialize();
         route(albumRoutes);
@@ -325,18 +330,18 @@ describe('searchReleaseGroup', () => {
 
         await plugin.enrichAlbum({ name: 'Dummy', artist: 'Portishead' });
 
-        expect(queryFor()).toContain('releasegroup:"dummy"');
+        expect(queryFor()).toContain('releasegroup:"Dummy"');
     });
 
     it('falls back to the raw name when stripping would leave nothing to search for', async () => {
         await initialize();
         route(albumRoutes);
 
-        await plugin.enrichAlbum({ name: '(Untitled)', artist: 'Someone' });
+        await plugin.enrichAlbum({ name: '(Deluxe Edition)', artist: 'Someone' });
 
         // Escaped, because `escapeLucene` will not let a bracket become query
         // structure — but the raw title, not the empty string.
-        expect(queryFor()).toContain(String.raw`releasegroup:"\(Untitled\)"`);
+        expect(queryFor()).toContain(String.raw`releasegroup:"\(Deluxe Edition\)"`);
     });
 
     it('uses the same stripped title on the batch tracklist path', async () => {
@@ -345,7 +350,7 @@ describe('searchReleaseGroup', () => {
 
         await plugin.enrichTracks(dummy.map(track => ({ ...track, album: 'Dummy (2014 Remaster)' })));
 
-        expect(queryFor()).toContain('releasegroup:"dummy"');
+        expect(queryFor()).toContain('releasegroup:"Dummy"');
     });
 });
 

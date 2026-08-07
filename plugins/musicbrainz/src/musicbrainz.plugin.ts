@@ -18,6 +18,7 @@ import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, REQUEST_TIMEOUT_MS, TEST_ARTIST_
 import { mapArtist } from './musicbrainz.artist.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup, selectReleaseGroup } from './musicbrainz.mapping.js';
 import {
+    albumSearchTitle,
     buildIsrcBatchQuery,
     buildRecordingQuery,
     escapeLucene,
@@ -589,17 +590,20 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
      * Artist and title together, because a title alone is not a record: half
      * the catalogue has a "Greatest Hits".
      *
-     * The title is searched in its {@link baseForm}, which is what makes this
-     * work on a real library. A provider's album names are full of pressing
-     * detail that MusicBrainz keeps on the release rather than the release
-     * group — "Jagged Little Pill (2015 Remaster)", "Check Your Head (Deluxe
-     * Edition/Remastered/2009)" — and the query is a quoted phrase, so every
-     * one of those tokens has to appear, in order, in a title that is really
-     * just "Jagged Little Pill". They matched nothing, which cost a request and
-     * then a week-long miss row, on most of the remastered catalogue.
+     * The title goes through {@link albumSearchTitle}, which takes off the
+     * pressing detail a provider prints and MusicBrainz keeps on the release
+     * rather than the release group — "Jagged Little Pill (2015 Remaster)",
+     * "Check Your Head (Deluxe Edition/Remastered/2009)". The query is a quoted
+     * phrase, so every one of those tokens would otherwise have to appear, in
+     * order, in a title that is really just "Jagged Little Pill". They matched
+     * nothing, which cost a request and then a week-long miss row, on most of
+     * the remastered catalogue.
+     *
+     * Not `baseForm`: that is a comparison form and it mangles a query. See
+     * `albumSearchTitle` for what that cost.
      */
     private async searchReleaseGroup(ref: AlbumRef): Promise<string | undefined> {
-        const title = baseForm(ref.name) || ref.name;
+        const title = albumSearchTitle(ref.name);
         const response = await this.client!.get<MusicBrainzReleaseGroupSearchResponse>('release-group', {
             query: `releasegroup:"${escapeLucene(title)}" AND artist:"${escapeLucene(ref.artist)}"`,
             limit: String(RELEASE_GROUP_SEARCH_LIMIT),

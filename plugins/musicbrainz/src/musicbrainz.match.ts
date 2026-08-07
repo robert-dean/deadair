@@ -283,6 +283,48 @@ export function buildIsrcBatchQuery(isrcs: string[]): string {
 }
 
 /**
+ * The words that mark a bracketed group or a dashed tail as pressing detail
+ * rather than part of the title.
+ *
+ * A list rather than "strip every parenthetical", which is what {@link baseForm}
+ * does and what makes it wrong for this: `R&G (Rhythm & Gangsta): The
+ * Masterpiece` and `(What's the Story) Morning Glory?` keep their brackets
+ * because nothing in them says re-issue.
+ */
+const PRESSING_DETAIL = /remaster|deluxe|expanded|anniversary|edition|re-?issue|bonus|legacy|collector|box set|super/i;
+
+/**
+ * An album title as a *search term*, with the pressing detail taken off and
+ * everything else left exactly as it was.
+ *
+ * Deliberately not {@link baseForm}, which is a comparison form: it lowercases
+ * and replaces every punctuation mark with a space so that two strings we both
+ * hold compare equal. Sending that to a search engine means sending a mangled
+ * string to a service whose index has the original — `School's Out` goes out as
+ * `school s out`, `Why Can't We Be Friends?` as `why can t we be friends`, and
+ * `The Raw & The Cooked` loses its ampersand. As a quoted phrase, none of them
+ * match. A comparison form and a query are not the same thing, and using one as
+ * the other is the mistake this exists to correct.
+ *
+ * What does have to go is the detail a provider prints and MusicBrainz keeps on
+ * the release rather than the release group: `Jagged Little Pill (2015
+ * Remaster)`, `Nevermind - Remastered`, `Check Your Head (Deluxe
+ * Edition/Remastered/2009)`.
+ */
+export function albumSearchTitle(name: string): string {
+    const withoutPressing = name
+        .replace(/[([{][^)\]}]*[)\]}]/g, group => (PRESSING_DETAIL.test(group) ? ' ' : group))
+        .split(/\s+[-–—]\s+/)
+        .filter((part, index) => index === 0 || !PRESSING_DETAIL.test(part))
+        .join(' - ');
+
+    const cleaned = withoutPressing.replace(/\s+/g, ' ').trim();
+    // A title that was nothing but pressing detail is not a better search term
+    // than the thing the operator actually has.
+    return cleaned.length > 0 ? cleaned : name.trim();
+}
+
+/**
  * The Lucene query for a recording search: the title and the artist, both
  * required, both as literal phrases.
  *

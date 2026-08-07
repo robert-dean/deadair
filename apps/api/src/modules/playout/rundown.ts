@@ -125,6 +125,7 @@ export class Rundown {
 
     private readonly changeListeners = new Set<() => void>();
     private readonly resetListeners = new Set<(standingDown: boolean) => void>();
+    private readonly airedListeners = new Set<(item: RundownItem) => void>();
 
     constructor(
         private readonly resolver: TrackResolver,
@@ -150,6 +151,30 @@ export class Rundown {
         // already playing, and only the order behind it has changed.
         this.announceReset(false);
         this.emit();
+    }
+
+    /**
+     * Add to the END of the running order, keeping everything already in it.
+     *
+     * The counterpart to {@link load}: that one is a change of plan, this one is
+     * the plan continuing. Nothing is abandoned and no reset is announced, so the
+     * player keeps whatever it is already holding and simply has more behind it.
+     *
+     * This is how a station that never runs dry is fed. A top-up expressed as
+     * `load(everythingSoFar.concat(more))` would retract items the player has
+     * already downloaded and hand them straight back, which is audible at the
+     * boundary and pointless.
+     *
+     * Returns the items as minted, so a caller that has to correlate its own plan
+     * with the running order does not have to go looking for them.
+     */
+    append(tracks: readonly RundownTrack[]): RundownItem[] {
+        if (tracks.length === 0) return [];
+
+        const items = tracks.map(track => ({ ...track, id: randomUUID() }));
+        this.queue.push(...items);
+        this.emit();
+        return items;
     }
 
     /**
@@ -350,6 +375,27 @@ export class Rundown {
     }
 
     /**
+     * Subscribe to an item actually going ON AIR. Returns the unsubscribe.
+     *
+     * Fires exactly once per item, from the one place that can honestly say it
+     * started: whichever of the notify or a reading got here first. Not on
+     * {@link next}, which runs an item ahead of the listener, and not again for an
+     * item already airing when a second confirmation arrives.
+     *
+     * This is the trigger for everything that has to be true of what was HEARD —
+     * play history, now-playing metadata, a back-announce — and using the
+     * hand-over instead is precisely how all three end up a track early.
+     *
+     * Listeners are called synchronously and must not throw or block: this runs on
+     * the boundary, and the next item is being fetched behind it. A listener with
+     * real work to do hands it off (a job, a bus publish) and returns.
+     */
+    onAired(listener: (item: RundownItem) => void): () => void {
+        this.airedListeners.add(listener);
+        return () => this.airedListeners.delete(listener);
+    }
+
+    /**
      * Reconcile what the player is holding against what we think we handed it.
      *
      * `queued` excludes the item on air, so it is exactly `served.length` when
@@ -424,6 +470,25 @@ export class Rundown {
         // Something this process handed over is on air, so the player has moved
         // past everything it was told to drop.
         this.abandoned.clear();
+        this.announceAired(item);
+    }
+
+    /**
+     * Tell the listeners an item started.
+     *
+     * Each one is isolated, unlike the change listeners: this is the only
+     * notification that cannot be recovered by the next reconcile tick, so one
+     * subscriber throwing must not cost the others the event. The rundown itself
+     * has already committed the state by the time this runs.
+     */
+    private announceAired(item: RundownItem): void {
+        for (const listener of this.airedListeners) {
+            try {
+                listener(item);
+            } catch (error) {
+                this.logger.warn(`rundown: an aired listener threw (${error instanceof Error ? error.message : String(error)})`);
+            }
+        }
     }
 
     /** Remember ids the station has retracted, so a reading that still names one is understood. */

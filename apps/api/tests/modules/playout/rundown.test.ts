@@ -387,3 +387,146 @@ describe('Rundown.load and reset', () => {
         expect(announced).toEqual([false, true]);
     });
 });
+
+describe('Rundown.append', () => {
+    it('adds to the end without disturbing what the player already holds', async () => {
+        // The whole point of appending rather than reloading: a top-up must not
+        // retract items the player has already downloaded and hand them back.
+        const rundown = rundownWith(['a', 'b']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        const served = await rundown.next();
+
+        rundown.append([track('c')]);
+
+        expect(rundown.nowPlaying()?.item.externalId).toBe('a');
+        expect(rundown.servedCount()).toBe(1);
+        expect(rundown.upcoming().map(entry => entry.externalId)).toEqual([served!.item.externalId, 'c']);
+    });
+
+    it('announces no reset, because the plan is continuing rather than changing', () => {
+        // A reset is what makes the pusher flush the player's queue. An append that
+        // announced one would drop the very items it is topping up behind.
+        const rundown = rundownWith(['a']);
+        const resets: boolean[] = [];
+        rundown.onReset(standingDown => resets.push(standingDown));
+
+        rundown.append([track('b')]);
+
+        expect(resets).toEqual([]);
+    });
+
+    it('wakes the pusher, so a station that had drained starts again', () => {
+        const rundown = rundownWith([]);
+        const changed = vi.fn();
+        rundown.onChange(changed);
+
+        rundown.append([track('a')]);
+
+        expect(changed).toHaveBeenCalled();
+        expect(rundown.hasProgramme()).toBe(true);
+    });
+
+    it('says nothing for an empty append', () => {
+        const rundown = rundownWith(['a']);
+        const changed = vi.fn();
+        rundown.onChange(changed);
+
+        expect(rundown.append([])).toEqual([]);
+        expect(changed).not.toHaveBeenCalled();
+    });
+
+    it('gives back the items it minted, so a caller can correlate its own plan', () => {
+        const rundown = rundownWith([]);
+
+        const [item] = rundown.append([track('a')]);
+
+        expect(item!.externalId).toBe('a');
+        expect(rundown.upcoming()[0]!.id).toBe(item!.id);
+    });
+});
+
+describe('Rundown.onAired', () => {
+    it('fires when the player confirms an item, not when it was handed over', async () => {
+        // Handing over runs an item ahead of the listener. History, now-playing and
+        // any back-announce hung off `next()` are all a track early.
+        const rundown = rundownWith(['a', 'b']);
+        const aired: string[] = [];
+        rundown.onAired(item => aired.push(item.externalId));
+
+        const pulled = await rundown.next();
+        await rundown.next();
+        expect(aired).toEqual([]);
+
+        rundown.markAired(pulled!.item.id);
+        expect(aired).toEqual(['a']);
+    });
+
+    it('fires once per item, however many times the player confirms it', async () => {
+        // The notify and the reading both name the same item; only the first is news.
+        const rundown = rundownWith(['a']);
+        const aired: string[] = [];
+        rundown.onAired(item => aired.push(item.externalId));
+
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        rundown.markAired(pulled!.item.id);
+        rundown.reconcile({ queued: 0, ready: true, onAir: pulled!.item.id });
+
+        expect(aired).toEqual(['a']);
+    });
+
+    it('fires for an item a reading is the first to name', async () => {
+        // A dropped notify must not lose the event: the reconcile is the recovery
+        // path for exactly this, and history cannot afford to miss a track.
+        const rundown = rundownWith(['a']);
+        const aired: string[] = [];
+        rundown.onAired(item => aired.push(item.externalId));
+
+        const pulled = await rundown.next();
+        rundown.reconcile({ queued: 0, ready: true, onAir: pulled!.item.id });
+
+        expect(aired).toEqual(['a']);
+    });
+
+    it('says nothing about an id this process never handed over', () => {
+        // A Liquidsoap that outlived a restart is still playing something. There is
+        // nothing truthful to record about it, so it is not invented into history.
+        const rundown = rundownWith(['a']);
+        const aired = vi.fn();
+        rundown.onAired(aired);
+
+        rundown.reconcile({ queued: 0, ready: true, onAir: 'from-a-previous-session' });
+
+        expect(aired).not.toHaveBeenCalled();
+    });
+
+    it('keeps going when a listener throws, and does not take the boundary down with it', async () => {
+        // This runs on the track boundary with the next item already fetching. One
+        // broken subscriber must cost its own event and nothing else.
+        const rundown = rundownWith(['a']);
+        const aired: string[] = [];
+        rundown.onAired(() => {
+            throw new Error('a subscriber blew up');
+        });
+        rundown.onAired(item => aired.push(item.externalId));
+
+        const pulled = await rundown.next();
+        expect(() => rundown.markAired(pulled!.item.id)).not.toThrow();
+
+        expect(aired).toEqual(['a']);
+        expect(rundown.nowPlaying()?.item.externalId).toBe('a');
+    });
+
+    it('stops firing once unsubscribed', async () => {
+        const rundown = rundownWith(['a', 'b']);
+        const aired = vi.fn();
+        const unsubscribe = rundown.onAired(aired);
+        unsubscribe();
+
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+
+        expect(aired).not.toHaveBeenCalled();
+    });
+});

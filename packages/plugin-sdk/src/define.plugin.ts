@@ -1,5 +1,5 @@
 import type { EnrichmentProvider } from './capabilities/enrichment.js';
-import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderPlayout } from './capabilities/music.provider.js';
+import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { PluginLifecycle } from './plugin.lifecycle.js';
 
@@ -26,7 +26,11 @@ export interface DeadairPlugin<TInstance extends PluginInstance = PluginInstance
  * Instance shape for a `music-provider` plugin. Every capability method is
  * optional: implement the subset you declared in `manifest.capabilities`.
  */
-export type MusicProviderPluginInstance = PluginLifecycle & Partial<MusicProviderCatalog> & Partial<MusicProviderPlayout> & Partial<MusicProviderOAuth>;
+export type MusicProviderPluginInstance = PluginLifecycle &
+    Partial<MusicProviderCatalog> &
+    Partial<MusicProviderStream> &
+    Partial<MusicProviderSteer> &
+    Partial<MusicProviderOAuth>;
 
 /** Instance shape for an `enrichment` plugin. */
 export type EnrichmentPluginInstance = PluginLifecycle & EnrichmentProvider;

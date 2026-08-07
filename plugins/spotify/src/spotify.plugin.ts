@@ -22,7 +22,7 @@ export { spotifyManifest } from './spotify.manifest.js';
 /** How long a resolved Spotify Connect device id is trusted before the next lookup re-checks it. */
 const DEVICE_ID_CACHE_TTL_MS = 60_000;
 
-/** Surfaced when a playout call 404s and there is no device left to fall back on. */
+/** Surfaced when a steer call 404s and there is no device left to fall back on. */
 const NO_ACTIVE_DEVICE_MESSAGE = 'no active Spotify device; open Spotify or start the go-librespot bridge';
 
 function errorText(error: unknown): string {
@@ -242,7 +242,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
         }
     }
 
-    // --- playout -------------------------------------------------------------
+    // --- steer ---------------------------------------------------------------
 
     /**
      * Queues tracks in order. Unlike `play`/`pause`/`skip`, this doesn't route

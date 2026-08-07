@@ -1,17 +1,14 @@
 import {
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_ENRICHMENT,
+    PLUGIN_CAPABILITY_STREAM,
     type EnrichmentPluginInstance,
     type MusicProviderPluginInstance,
     type PluginManifest,
 } from '@deadair/plugin-sdk';
 import type { PluginRecord } from './types/plugin.record.js';
 
-/**
- * The catalog methods a plugin has to actually have before anything may call
- * one. `resolveStreamUrl` is deliberately absent: the SDK marks it optional for
- * "steer only" providers that play audio themselves and never hand out a URL.
- */
+/** The catalog methods a plugin has to actually have before anything may call one. */
 export const CATALOG_METHODS = ['listPlaylists', 'getPlaylistTracks'] as const satisfies ReadonlyArray<keyof MusicProviderPluginInstance>;
 
 /**
@@ -55,6 +52,46 @@ export const implementsCatalog = (manifest: PluginManifest | undefined, instance
 export const asCatalogPlugin = (record: PluginRecord): CatalogPlugin | undefined => {
     if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
     if (!implementsCatalog(record.manifest, record.instance)) return undefined;
+    return { record, manifest: record.manifest, instance: record.instance as MusicProviderPluginInstance };
+};
+
+/**
+ * The two ways a plugin can get the station audio, either of which earns the
+ * `stream` capability.
+ *
+ * Checked with `some` rather than the `every` the other capabilities use, and
+ * that is the whole difference between them: `catalog` is a set of methods that
+ * are all needed to browse, while `stream` is one job with two mutually
+ * exclusive routes. Spotify has no URL to hand out (its audio comes off the CDN
+ * encrypted) and lends the shim a login instead; a Subsonic server mints a URL
+ * and keeps its credentials. A plugin that writes both is not expected, and a
+ * plugin that writes neither is "steer only".
+ */
+export const STREAM_METHODS = ['resolveStreamUrl', 'getSessionCredentials'] as const satisfies ReadonlyArray<keyof MusicProviderPluginInstance>;
+
+/** A plugin narrowed to "can get us audio, right now". */
+export interface StreamPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: MusicProviderPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `stream` capability. */
+export const implementsStream = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_STREAM)) return false;
+    return STREAM_METHODS.some(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The stream-capable view of a record, or `undefined` when it is not one.
+ *
+ * Callers still check for the specific method they need afterwards: this answers
+ * "may I ask this plugin for audio at all", not "does it answer the way I am
+ * about to ask".
+ */
+export const asStreamPlugin = (record: PluginRecord): StreamPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsStream(record.manifest, record.instance)) return undefined;
     return { record, manifest: record.manifest, instance: record.instance as MusicProviderPluginInstance };
 };
 

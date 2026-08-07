@@ -340,30 +340,37 @@ specific identifier first.
 
 ## Music providers
 
-A `music-provider` declares any subset of three sub-capabilities and lists the
+A `music-provider` declares any subset of four sub-capabilities and lists the
 ones it implements in `manifest.capabilities`:
 
 - **`catalog`** — `searchTracks`, `getTrack`, `listPlaylists`,
-  `getPlaylistTracks`, and optionally `resolveStreamUrl` and
-  `getSessionCredentials`. Implement
-  `resolveStreamUrl` when you can hand the host a playable URL that the audio
-  consumer can fetch directly; omit it and implement `playout` instead when
-  your provider plays audio itself and only takes instructions. A byte-level
-  streaming protocol for the rare case where no such URL can be minted is
-  specified in `docs/decisions/plugin-streaming.md`, but it is not implemented
-  and there is no `host.streams` to call.
+  `getPlaylistTracks`. Being browsable, and nothing more: a provider that can
+  be searched but whose audio deadair cannot get at is a legitimate thing to
+  be, and it declares this alone.
+- **`stream`** — getting the station audio to play, by either of two routes.
+  Declare it if you implement either one; a provider that implements neither
+  plays its own audio and declares `steer` instead.
 
-  `getSessionCredentials` covers a third, narrower case: the audio is
-  reachable, but only to a process speaking a protocol the plugin does not, so
-  a station-side helper opens its own session with the provider. It returns a
+  `resolveStreamUrl` is the ordinary route: hand back a complete URL the audio
+  consumer can fetch directly, carrying its own authentication, because it is
+  fetched with no headers from us. Prefer it whenever there is a URL to mint. A
+  byte-level protocol for the rare case where there is not is specified in
+  `docs/decisions/plugin-streaming.md`, but it is not implemented and there is
+  no `host.streams` to call.
+
+  `getSessionCredentials` is the narrower one: the audio is reachable, but only
+  to a process speaking a protocol the plugin does not, so a station-side helper
+  opens its own session with the provider. It returns a
   `{ username, accessToken }` the helper logs in with, while the plugin keeps
   the account and the token refresh. Spotify is the reason it exists — its
   tracks come off the CDN encrypted and are fetched by a separate binary beside
   Liquidsoap. **Do not implement it to hand out credentials for an ordinary
   HTTP fetch**: mint a URL in `resolveStreamUrl` instead and keep the
   credentials inside the plugin, which is both simpler and narrower.
-- **`playout`** — `enqueue`, `play`, `pause`, `skip`, `getPlaybackState`. This
-  is the "steer" half: the provider owns the audio output.
+- **`steer`** — `enqueue`, `play`, `pause`, `skip`, `getPlaybackState`. The
+  provider owns the audio output and deadair only tells it what to do. Named
+  from the plugin's side on purpose: deadair's own `playout` module is the
+  opposite end of this, the one that owns the running order.
 - **`oauth`** — `getAuthorizeUrl(state)` and `handleCallback(params)`. The host
   owns the redirect endpoint (`host.oauth.getRedirectUri()`) and the token
   vault (`saveTokens` / `getTokens`); you only build the authorize URL and

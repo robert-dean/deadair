@@ -18,7 +18,7 @@ function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
         name: 'Spotify',
         version: '1.0.0',
         kind: 'music-provider',
-        capabilities: ['catalog', 'playout'],
+        capabilities: ['catalog', 'steer'],
         apiVersion: '^1.0.0',
         permissions: { network: [], storage: false, oauth: false },
         configFields: [],

@@ -4,6 +4,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import type { MusicProviderPluginInstance } from '@deadair/plugin-sdk';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
+import { asStreamPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { pluginHttpError } from '#modules/plugins/plugin.error.http.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
@@ -217,14 +218,15 @@ export class PlayoutService {
         await this.requireLoginSecret(headers['x-spotify-login-secret']);
 
         const record = this.registry.get(SPOTIFY_PLUGIN_ID);
-        const instance = record?.instance as MusicProviderPluginInstance | undefined;
-        if (record?.status !== 'active' || typeof instance?.getSessionCredentials !== 'function') {
+        const plugin = record ? asStreamPlugin(record) : undefined;
+        const instance = plugin?.instance;
+        if (typeof instance?.getSessionCredentials !== 'function') {
             throw httpError(503).withDetails({ message: 'the Spotify plugin is not running, so it cannot supply a session login' });
         }
 
         let credentials: Awaited<ReturnType<NonNullable<MusicProviderPluginInstance['getSessionCredentials']>>>;
         try {
-            credentials = await this.invoker.invoke(SPOTIFY_PLUGIN_ID, 'catalog.getSessionCredentials', async () =>
+            credentials = await this.invoker.invoke(SPOTIFY_PLUGIN_ID, 'stream.getSessionCredentials', async () =>
                 instance.getSessionCredentials!(),
             );
         } catch (error) {

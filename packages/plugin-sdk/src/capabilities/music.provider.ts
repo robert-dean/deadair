@@ -1,9 +1,10 @@
 /**
- * The `music-provider` kind. A provider declares any subset of the three
- * sub-capabilities below: `catalog` (it can be searched and browsed),
- * `playout` (it can be told to make sound), and `oauth` (it needs a user to
- * authorise it first). Spotify implements all three; a plain SMB library
- * implements only `catalog`.
+ * The `music-provider` kind. A provider declares any subset of the four
+ * sub-capabilities below: `catalog` (it can be searched and browsed), `stream`
+ * (it can get the station audio to play), `steer` (it owns its own audio output
+ * and takes instructions), and `oauth` (it needs a user to authorise it first).
+ * Spotify declares all four; a plain SMB library declares `catalog` and
+ * `stream`.
  *
  * Every shape here is JSON-safe. Durations are integers in milliseconds,
  * never `Date` or `Duration` objects.
@@ -124,11 +125,28 @@ export interface MusicProviderCatalog {
     listPlaylists(options?: ListPlaylistsOptions): Promise<ProviderPlaylist[]>;
 
     getPlaylistTracks(playlistId: string, options?: GetPlaylistTracksOptions): Promise<ProviderTrack[]>;
+}
 
+/**
+ * Getting the station actual audio, by whichever of two routes the provider
+ * supports. A provider implements one of them or neither; implementing neither
+ * is what "steer only" means (it plays audio itself and never hands anything
+ * over, e.g. a remote Spotify Connect device).
+ *
+ * One capability rather than two, deliberately, even though the routes are not
+ * the same act — one mints a URL, the other lends an access token to a separate
+ * process. From the station's side the question is the same one, "can this
+ * plugin get me audio?", and each call site asks for the specific method it
+ * needs. The difference the capability name elides is documented on the methods.
+ */
+export interface MusicProviderStream {
     /**
-     * Turn a track id into something the host can actually play. Omit when the
-     * provider is "steer only" (it plays audio itself and never hands out a
-     * URL, e.g. a remote Spotify Connect device).
+     * Turn a track id into something the host can actually play: a complete URL
+     * that carries its own authentication, because the player fetches it with no
+     * headers from us.
+     *
+     * The ordinary route, and the one to prefer. Omit it only when there is
+     * genuinely no URL to mint.
      */
     resolveStreamUrl?(trackId: string): Promise<ProviderStream | undefined>;
 
@@ -155,8 +173,16 @@ export interface PlaybackState {
     durationMs?: number;
 }
 
-/** Transport control, for providers that own their own audio output. */
-export interface MusicProviderPlayout {
+/**
+ * Transport control, for providers that own their own audio output: deadair
+ * tells them what to do rather than playing anything itself.
+ *
+ * Named for what the plugin is asked to do, not for what the station calls the
+ * job. deadair's own `playout` module is the other end of this — it owns the
+ * running order and drives the player — so a capability by that name would have
+ * meant the opposite thing to anyone reading both.
+ */
+export interface MusicProviderSteer {
     /** Append track ids to the provider's own queue. */
     enqueue(trackIds: string[]): Promise<void>;
     /** Start (or resume). With `trackId`, start that track immediately. */
@@ -176,7 +202,7 @@ export interface MusicProviderOAuth {
 }
 
 /**
- * Convenience alias for a provider implementing all three sub-capabilities.
+ * Convenience alias for a provider implementing every sub-capability.
  * Implement the individual interfaces instead when you only support some.
  */
-export interface MusicProvider extends MusicProviderCatalog, MusicProviderPlayout, MusicProviderOAuth {}
+export interface MusicProvider extends MusicProviderCatalog, MusicProviderStream, MusicProviderSteer, MusicProviderOAuth {}

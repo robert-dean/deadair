@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import type { MusicProviderPluginInstance } from '@deadair/plugin-sdk';
+import { asStreamPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { TrackResolver } from '../playout.capability.js';
@@ -9,11 +9,12 @@ import type { RundownItem } from '../rundown.js';
 /**
  * The generic path: ask the plugin that owns the track for a stream URL.
  *
- * `resolveStreamUrl` is optional in the SDK precisely because not every provider
- * has one — a "steer only" provider plays its own audio and never hands out a
- * URL — so a plugin without it simply declines here and a built-in resolver gets
- * its turn. Any future serve-capable plugin (a local library, a Subsonic server)
- * needs nothing but this.
+ * `resolveStreamUrl` is one of the two routes the `stream` capability covers,
+ * and it is optional precisely because not every provider has one — Spotify
+ * lends the shim a login instead, and a "steer only" provider plays its own
+ * audio and hands over nothing at all. A plugin without it simply declines here
+ * and the next resolver gets its turn. Any future URL-minting plugin (a local
+ * library, a Subsonic server) needs nothing but this.
  *
  * Goes through {@link PluginInvoker} like every other call into plugin code, so
  * a provider that hangs costs one item rather than the running order.
@@ -30,13 +31,14 @@ export class PluginTrackResolver extends TrackResolver {
 
     async resolve(item: RundownItem): Promise<string | undefined> {
         const record = this.registry.get(item.pluginId);
-        if (!record || record.status !== 'active' || !record.instance) return undefined;
+        const plugin = record ? asStreamPlugin(record) : undefined;
+        if (!plugin) return undefined;
 
-        const instance = record.instance as MusicProviderPluginInstance;
+        const instance = plugin.instance;
         if (typeof instance.resolveStreamUrl !== 'function') return undefined;
 
         try {
-            const stream = await this.invoker.invoke(item.pluginId, 'catalog.resolveStreamUrl', async () =>
+            const stream = await this.invoker.invoke(item.pluginId, 'stream.resolveStreamUrl', async () =>
                 instance.resolveStreamUrl!(item.externalId),
             );
             return stream?.url;

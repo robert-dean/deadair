@@ -9,7 +9,7 @@ const validManifest = (): PluginManifest => ({
     name: 'Spotify',
     version: '1.0.0',
     kind: 'music-provider',
-    capabilities: ['catalog', 'playout'],
+    capabilities: ['catalog', 'stream', 'steer'],
     apiVersion: '^1.0.0',
     permissions: {
         network: ['api.spotify.com'],

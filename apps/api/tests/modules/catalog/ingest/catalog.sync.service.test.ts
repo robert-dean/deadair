@@ -164,7 +164,7 @@ describe('CatalogSyncService.syncAll', () => {
 
         it('skips a plugin whose manifest does not declare the catalog capability', async () => {
             const { resolver, ingested } = fakeResolver();
-            const { service } = build([record(SPOTIFY_ID, { manifest: manifest({ capabilities: ['playout'] }) })], resolver);
+            const { service } = build([record(SPOTIFY_ID, { manifest: manifest({ capabilities: ['steer'] }) })], resolver);
 
             await expect(service.syncAll()).resolves.toEqual([]);
             expect(ingested).toEqual([]);

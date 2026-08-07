@@ -6,6 +6,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
+import type { PluginManifest } from '@deadair/plugin-sdk';
 
 import { PlayoutService } from '../../../src/modules/playout/playout.service.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
@@ -23,6 +24,9 @@ const BRIDGE_SECRET = 'bridge-secret';
 const LOGIN_SECRET = 'login-secret';
 
 const credentials = { username: 'the-station', accessToken: 'BQC_token' };
+
+/** Enough of a manifest for `asStreamPlugin` to accept the record: it declares `stream`. */
+const streamManifest = () => ({ capabilities: ['catalog', 'stream'] }) as unknown as PluginManifest;
 
 interface Options {
     bridgeSecret?: string;
@@ -81,9 +85,12 @@ function build(options: Options = {}) {
         resolve: async () => 'http://127.0.0.1:8005',
     } as unknown as LiquidsoapEndpoint;
 
+    // The manifest is part of the fixture, not decoration: `asStreamPlugin` requires
+    // the plugin to declare `stream` as well as implement one of its methods, so a
+    // record carrying only an instance is refused exactly as a real one would be.
     const record =
         options.record === undefined
-            ? { status: 'active', instance: { getSessionCredentials: async () => credentials } }
+            ? { status: 'active', manifest: streamManifest(), instance: { getSessionCredentials: async () => credentials } }
             : (options.record ?? undefined);
     const registry = { get: vi.fn(() => record) } as unknown as PluginRegistry;
 
@@ -323,7 +330,9 @@ describe('PlayoutService.spotifySessionLogin', () => {
     it('answers 503 when the plugin cannot supply a login yet', async () => {
         // Nobody has authorised Spotify. The shim asks on its first fetch, long before
         // that has happened, and retries on its own.
-        const { service } = build({ record: { status: 'active', instance: { getSessionCredentials: async () => undefined } } });
+        const { service } = build({
+            record: { status: 'active', manifest: streamManifest(), instance: { getSessionCredentials: async () => undefined } },
+        });
 
         expect(await statusOf(service.spotifySessionLogin({ 'x-spotify-login-secret': LOGIN_SECRET }))).toBe(503);
     });
@@ -333,6 +342,7 @@ describe('PlayoutService.spotifySessionLogin', () => {
         // plugin's own vocabulary survives the trip out.
         const failing = {
             status: 'active',
+            manifest: streamManifest(),
             instance: {
                 getSessionCredentials: async () => {
                     const error = new Error('upstream is down') as Error & { code: string };

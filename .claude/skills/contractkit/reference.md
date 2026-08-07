@@ -22,8 +22,15 @@ options {
 }
 ```
 
-`subarea` is also supported and nests the SDK one level deeper (`sdk.<area>.<subarea>.method`).
-Nothing in this repo uses it yet.
+`subarea` nests the SDK one level deeper (`sdk.<area>.<subarea>.method`). `authentication.factor.ck`
+and `authentication.sessions.ck` use it.
+
+The options block also accepts a `security` block (the file-level floor — see SKILL.md) and
+`request: { headers: { ... } }` / `response: { headers: { ... } }`, which merge declared headers into
+every operation in the file. Nothing here uses the header defaults yet.
+
+A `#` comment is **not** legal directly in the options block body. It is legal inside `keys { }`,
+`services { }` and `security { }`.
 
 ## Contracts
 
@@ -43,11 +50,27 @@ contract CatalogQuery: Pagination & {    # intersection: inherits Pagination's f
 
 - Scalars: `string` `number` `int` `bigint` `boolean` `date` `time` `datetime` `duration`
   `interval` `email` `url` `uuid` `object` `json` `binary` `unknown` `null`.
-- Constraints go in parens: `int(min=, max=)`, `string(min=, max=, len=)`.
-- `enum(asc, desc) = desc` for closed sets, `array(Artist)` for lists.
+  **`date` / `time` / `datetime` / `duration` / `interval` generate Luxon objects over ISO-8601
+  strings**, not numbers — `duration` is a `Duration` parsed from `"PT3M42S"`. `binary` is a
+  `Buffer` on the server and a `Blob` in the SDK.
+- Constraints go in parens: `int(min=, max=)`, `string(min=, max=, len=)`, and `string(regex=/.../)`
+  (see `registration.types.ck` for the E.164 phone field).
+- `enum(asc, desc) = desc` for closed sets, `array(Artist)` for lists, `record(string, unknown)` for
+  open maps, `literal("code")` for a fixed value, `discriminated(by=grant_type, A | B)` for a tagged
+  union. `|` is a plain union, `&` an intersection.
 - `?` marks optional, `readonly` marks server-supplied, `writeonly` marks never-returned.
+  `deprecated` and `override` are also field modifiers; nothing here uses them yet.
+- A contract may carry `mode(strict|strip|loose)` to set how unknown keys are handled
+  (`PluginOAuthCallbackQuery` uses `mode(strip)` because OAuth providers add their own params).
+  `mode` also attaches to `params:`, `query:` and `headers:`. Defaults: params `strict`, query
+  `strict`, headers `strip`.
+- A contract may carry `format(input=snake, output=snake)` to name fields in camelCase while the
+  wire stays snake_case. The auth token contracts use `format(output=snake)`. Read the SKILL.md note
+  before extending this — inheritance across multiple bases is not fully implemented.
 - `#` starts a comment. A comment on the same line as a field or operation becomes the JSDoc on the
-  generated member, so write them for the reader of the SDK.
+  generated member — and so does one on the line *above* it. Both end up in the public SDK, so write
+  them for the reader of the SDK, not for the next contract author. A free comment before an
+  `operation` becomes that route's description and surfaces on any verb that has none of its own.
 - Cross-file references resolve project-wide, so `Pagination` from `shared/pagination.ck` is usable
   anywhere without an import.
 
@@ -61,24 +84,29 @@ operation /catalog/artists/{id}/albums: {
     get: {                                # The albums credited to one artist
         name: List artist albums
         service: AlbumsService.listAlbumsByArtist
-        security: {
-            policy: none
-        }
         query: CatalogQuery
         response: {
             200: {
-                application/json: {
-                    meta: Pagination
-                    data: array(Album)
-                }
+                application/json: AlbumPage
             }
         }
     }
 }
 ```
 
-- `operation(internal)` generates the router but no SDK method.
+No `security` block on the verb: this file declares `policy: platform.view` once in its `options`
+block and every operation inherits it. And the paged response is a named contract rather than an
+inline `{ meta, data }` object, so the SDK returns `AlbumPage` instead of an anonymous type the
+console cannot import.
+
+- `operation(internal)` generates the router but no SDK method. `deprecated` and `public` are the
+  other route modifiers, and they also attach to a verb (`get(deprecated): { ... }`); `deprecated`
+  puts `@deprecated` on the generated member. Nothing here uses either yet.
 - Verb keys: `get` `post` `put` `patch` `delete`.
+- `security:` sits on the verb, the route, or the file's options block, nearest wins. See SKILL.md.
+- A verb may also carry `signature:` (emits `requireSignature`, an HMAC over the raw body — for
+  webhooks) and `plugins: { name: "path.yml" }` (hands a codegen plugin a per-operation override
+  file). Neither is used here.
 - `name:` becomes the camelCased SDK method name; `sdk:` overrides it verbatim.
 - `params:` sits on the operation, not the verb, and must cover every `{brace}` in the path.
 - `query:` and `request:` take a contract name or an inline object. `request:` is keyed by content

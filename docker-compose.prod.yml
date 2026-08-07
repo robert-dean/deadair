@@ -19,6 +19,18 @@ services:
             - ./apps/api/.env
         environment:
             PORT: 3000
+        # Both directories are runtime state the container writes and would otherwise
+        # lose on every replacement: the art cache would re-fetch every image from
+        # upstream and GET /art/:id would 404 for rows whose files vanished, and the
+        # rotating log history would disappear exactly when it's wanted. Paths match
+        # the code defaults (ART_DIR in art.module.ts, LOGS_DIR in setup.server.ts)
+        # against the image's /app/apps/api workdir, so no env override is needed.
+        # media/ is mounted whole rather than media/art: it is the root for locally
+        # cached media bytes, and anything that lands beside art/ later is persisted
+        # already instead of needing another compose edit.
+        volumes:
+            - ./.docvol/media:/app/apps/api/media
+            - ./.docvol/logs:/app/apps/api/logs
         depends_on:
             db:
                 condition: service_healthy

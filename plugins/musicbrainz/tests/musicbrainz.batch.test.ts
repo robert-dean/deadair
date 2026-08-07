@@ -185,29 +185,40 @@ describe('enrichTracks: a batch of ISRCs in one search', () => {
         })),
     };
 
-    it('identifies the whole chunk with one search instead of one lookup per code', async () => {
+    it('describes the whole chunk from one search, with no per-recording lookup at all', async () => {
         await initialize();
-        route([
-            [/recording\?/, pool],
-            [/recording\/rec-/, { id: 'rec-0', title: 'Mysterons', 'artist-credit': credit }],
-        ]);
+        // Deliberately no `recording/{id}` route: a request for one is an
+        // unrouted-request throw, which is the assertion. Spending a paced
+        // lookup per identified track is what made the first version of this
+        // path overrun its deadline and lose the entire batch.
+        route([[/recording\?/, pool]]);
+
+        const answers = await plugin.enrichTracks(singles);
+
+        expect(paths()).toEqual(['recording']);
+        expect(host.calls[0]!.url).toContain('isrc%3AGBAAA9400001+OR+isrc%3AGBAAA9400002');
+        expect(answers.map(answer => answer.title)).toEqual(['Mysterons', 'Sour Times', 'Strangers']);
+    });
+
+    it('asks for barely more results than codes, so the response cannot blow the body cap', async () => {
+        await initialize();
+        route([[/recording\?/, pool]]);
 
         await plugin.enrichTracks(singles);
 
-        expect(paths().filter(path => path === 'recording')).toHaveLength(1);
-        expect(host.calls[0]!.url).toContain('isrc%3AGBAAA9400001+OR+isrc%3AGBAAA9400002');
+        // A search document carries every release the recording appeared on. At
+        // limit=100 the real service answered 5.26MB and the host refused it,
+        // losing the chunk.
+        const limit = Number(new URL(host.calls[0]!.url).searchParams.get('limit'));
+        expect(limit).toBe(singles.length + 5);
+        expect(limit).toBeLessThanOrEqual(40);
     });
 
     it('scores the pool back against each ref rather than reading it positionally', async () => {
         await initialize();
         // Deliberately returned in an order that does not match the refs, which
         // is what a real search does: relevance order, not request order.
-        route([
-            [/recording\?/, { recordings: [...pool.recordings].reverse() }],
-            [/recording\/rec-0/, { id: 'rec-0', title: 'Mysterons', 'artist-credit': credit }],
-            [/recording\/rec-1/, { id: 'rec-1', title: 'Sour Times', 'artist-credit': credit }],
-            [/recording\/rec-2/, { id: 'rec-2', title: 'Strangers', 'artist-credit': credit }],
-        ]);
+        route([[/recording\?/, { recordings: [...pool.recordings].reverse() }]]);
 
         const answers = await plugin.enrichTracks(singles);
 

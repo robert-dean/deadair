@@ -78,11 +78,19 @@ const RELEASE_TRACKLIST_INC = 'recordings+artist-credits+isrcs+release-groups';
 const TRACKLIST_MIN_TRACKS = 3;
 
 /**
- * ISRCs per batched search. The service takes a `limit` up to 100, but a query
- * is a URL and a hundred OR'd terms is a long one, so this is the conservative
- * half of that.
+ * ISRCs per batched search.
+ *
+ * The same as {@link MAX_BATCH_SIZE}, so one `enrichTracks` call is one search
+ * and never two. It was fifty, which is what the query syntax will take but not
+ * what the response will fit in: see {@link MusicBrainzPlugin.searchIsrcBatch}.
  */
-const ISRC_BATCH_SIZE = 50;
+const ISRC_BATCH_SIZE = 25;
+
+/** Hard ceiling on results asked for, well under the host's five megabyte body cap. */
+const ISRC_SEARCH_LIMIT = 40;
+
+/** Slack over the chunk size, for the codes that resolve to more than one recording. */
+const ISRC_SEARCH_HEADROOM = 5;
 
 /**
  * Refs handed over in one {@link MusicBrainzPlugin.enrichTracks} call.
@@ -276,6 +284,11 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
             // The per-ref path is allowed to fail without taking the batch with
             // it: the requests already spent on the other refs are real, and a
             // miss here is recoverable next pass while losing them is not.
+            // This is the tail, and the expensive part: two paced requests per
+            // ref, where everything above answered many refs at once. `optional`
+            // sheds it as soon as the budget runs low, which is what stops a
+            // slow upstream from spending the whole invocation here and having
+            // the host abandon the call with every answer above still in hand.
             const resolved = await this.optional('track', () => this.resolve(refs[index]!));
             if (resolved) answers[index] = resolved;
         }
@@ -395,15 +408,28 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     }
 
     /**
-     * Strategy two: everything left that carries an ISRC, in one search per
-     * fifty codes.
+     * Strategy two: everything left that carries an ISRC, identified and
+     * described by a single search.
      *
-     * The pool the search returns is scored against every ref rather than
-     * assumed to be in order, because a search document does not reliably echo
-     * the code it matched. A recording is allowed to answer only one ref: two
-     * refs that genuinely are the same recording are rare, and letting one
-     * document satisfy both would hide a mismatch rather than fall through to
-     * the per-ref path that would catch it.
+     * The answers are mapped straight out of the search documents. That is the
+     * whole point, and it was the mistake in the first version of this method:
+     * it identified twenty-five tracks in one request and then spent one
+     * `recording/{id}` lookup on each of them to fill in the genres, which is
+     * twenty-five paced seconds — past the batch call's deadline, so the
+     * invocation was killed and every one of those answers, including the
+     * identification that had already succeeded, was thrown away. A batch path
+     * that ends in a per-entity lookup is not a batch path.
+     *
+     * What a search document cannot give is `genres`, so a track described this
+     * way has none. That is the same trade the tracklist path already makes,
+     * and it is the right one: the alternative on a rate-limited source is not
+     * "the same answer plus genres", it is no answer at all.
+     *
+     * The pool is scored against every ref rather than assumed to be in order,
+     * because a search document does not reliably echo the code it matched. A
+     * recording may answer only one ref: two refs that genuinely are the same
+     * recording are rare, and letting one document satisfy both would hide a
+     * mismatch rather than fall through to the per-ref path that would catch it.
      */
     private async resolveByIsrcBatch(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
         const withIsrc = outstanding.filter(index => refs[index]!.isrc);
@@ -423,11 +449,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
                 if (!match?.recording.id) continue;
 
                 taken.add(match.recording.id);
-                // The search document is thin by design, so the full recording
-                // still costs a request — but the *identification* of the whole
-                // chunk cost one between them, which is the saving.
-                const recording = await this.loadRecording(match.recording);
-                answers[index] = mapRecording(recording, selectRelease(recording, refs[index]!), refs[index]!);
+                answers[index] = mapRecording(match.recording, selectRelease(match.recording, refs[index]!), refs[index]!);
                 answered.add(index);
             }
 
@@ -449,11 +471,21 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         return this.client!.get<MusicBrainzRelease>(`release/${chosen.id}`, { inc: RELEASE_TRACKLIST_INC });
     }
 
-    /** One `recording?query=isrc:A OR isrc:B …`, for a whole chunk of codes. */
+    /**
+     * One `recording?query=isrc:A OR isrc:B …`, for a whole chunk of codes.
+     *
+     * `limit` is barely above the number of codes asked about, and that is a
+     * size limit rather than a relevance one. A search document carries every
+     * release the recording appears on, which for a charting single is
+     * hundreds; at a hundred results the response came back over five megabytes
+     * and the host refused it outright, losing the whole chunk. A little
+     * headroom over the chunk covers the codes that map to more than one
+     * recording, and nothing more.
+     */
     private async searchIsrcBatch(isrcs: string[]): Promise<MusicBrainzRecording[]> {
         const response = await this.client!.get<MusicBrainzRecordingSearchResponse>('recording', {
             query: buildIsrcBatchQuery(isrcs),
-            limit: String(Math.min(100, isrcs.length * 2)),
+            limit: String(Math.min(ISRC_SEARCH_LIMIT, isrcs.length + ISRC_SEARCH_HEADROOM)),
         });
 
         return response.recordings ?? [];

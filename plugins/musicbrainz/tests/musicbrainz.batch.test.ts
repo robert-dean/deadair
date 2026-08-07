@@ -396,3 +396,58 @@ describe('enrichTracks: staying inside the invocation budget', () => {
         expect(host.calls.some(call => call.url.includes('/isrc/'))).toBe(true);
     });
 });
+
+describe('enrichTracks: the record a title track shares its name with', () => {
+    /** AC/DC: three album tracks, and a single that outranks the album on the search. */
+    const acdc: TrackRef[] = [
+        { artist: 'AC/DC', title: 'Hells Bells', album: 'Back In Black' },
+        { artist: 'AC/DC', title: 'Back In Black', album: 'Back In Black' },
+        { artist: 'AC/DC', title: 'You Shook Me All Night Long', album: 'Back In Black' },
+    ];
+
+    const acdcCredit = [{ name: 'AC/DC', artist: { id: 'acdc', name: 'AC/DC' } }];
+
+    const track = (id: string, title: string) => ({ recording: { id, title, 'artist-credit': acdcCredit } });
+
+    it('follows the album release group, not the single that ties with it', async () => {
+        await initialize();
+        route([
+            [
+                /release-group\?/,
+                {
+                    'release-groups': [
+                        { id: 'rg-single', score: 100, title: 'Back in Black', 'primary-type': 'Single' },
+                        { id: 'rg-album', score: 100, title: 'Back in Black', 'primary-type': 'Album' },
+                    ],
+                },
+            ],
+            [/release-group\/rg-album/, { id: 'rg-album', title: 'Back in Black', releases: [{ id: 'rel-album' }] }],
+            // The single's release group is a trap: routing it proves the code
+            // never asks for it rather than throwing an unrouted request.
+            [/release-group\/rg-single/, { id: 'rg-single', title: 'Back in Black', releases: [{ id: 'rel-single' }] }],
+            [
+                /release\/rel-album/,
+                {
+                    id: 'rel-album',
+                    title: 'Back in Black',
+                    media: [
+                        {
+                            tracks: [
+                                track('rec-hells', 'Hells Bells'),
+                                track('rec-back', 'Back in Black'),
+                                track('rec-shook', 'You Shook Me All Night Long'),
+                            ],
+                        },
+                    ],
+                },
+            ],
+            [/release\/rel-single/, { id: 'rel-single', title: 'Back in Black', media: [{ tracks: [track('rec-back', 'Back in Black')] }] }],
+        ]);
+
+        const answers = await plugin.enrichTracks(acdc);
+
+        expect(paths()).toContain('release-group/rg-album');
+        expect(paths()).not.toContain('release-group/rg-single');
+        expect(answers.map(answer => answer.title)).toEqual(['Hells Bells', 'Back in Black', 'You Shook Me All Night Long']);
+    });
+});

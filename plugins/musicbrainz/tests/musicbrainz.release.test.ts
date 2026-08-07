@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { TrackRef } from '@deadair/plugin-sdk';
 
-import { coverArtUrl, mapAlbum, selectReleaseFromGroup } from '../src/musicbrainz.mapping.js';
+import { coverArtUrl, mapAlbum, selectReleaseFromGroup, selectReleaseGroup } from '../src/musicbrainz.mapping.js';
 import { MusicBrainzPlugin } from '../src/musicbrainz.plugin.js';
 import type { MusicBrainzRelease, MusicBrainzReleaseGroup } from '../src/musicbrainz.types.js';
 import { createFakePluginHost, type FakePluginHost } from './fake.plugin.host.js';
@@ -206,5 +206,72 @@ describe('enrichTrack no longer pays for the release', () => {
 
         expect(enrichment.releaseDate).toBe('1994-08-22');
         expect(enrichment.year).toBe(1994);
+    });
+});
+
+/**
+ * The real answer to `releasegroup:"back in black" AND artist:"AC/DC"`, in the
+ * order the live service returns it. The single ties with the album at 100 and
+ * comes first, which is the whole problem.
+ */
+const backInBlack = [
+    { id: 'rg-single', score: 100, title: 'Back in Black', 'primary-type': 'Single' },
+    { id: 'rg-album', score: 100, title: 'Back in Black', 'primary-type': 'Album' },
+    { id: 'rg-videos', score: 90, title: 'Back in Black (The Videos)', 'primary-type': 'Other' },
+    { id: 'rg-rocker', score: 90, title: 'Rocker / Back in Black', 'primary-type': 'Single' },
+    {
+        id: 'rg-live',
+        score: 84,
+        title: 'Back in Black Live: American Radio Broadcasts',
+        'primary-type': 'Album',
+        'secondary-types': ['Compilation', 'Live'],
+    },
+];
+
+describe('selectReleaseGroup', () => {
+    it('takes the album over the single it is tied with', () => {
+        expect(selectReleaseGroup(backInBlack)?.id).toBe('rg-album');
+    });
+
+    it('prefers a record to a short record to a single', () => {
+        const tied = [
+            { id: 'single', score: 100, 'primary-type': 'Single' },
+            { id: 'ep', score: 100, 'primary-type': 'EP' },
+            { id: 'album', score: 100, 'primary-type': 'Album' },
+        ];
+        expect(selectReleaseGroup(tied)?.id).toBe('album');
+        expect(selectReleaseGroup(tied.slice(0, 2))?.id).toBe('ep');
+    });
+
+    it('puts a compilation or a live record below every plain one, whatever its type', () => {
+        const candidates = [
+            { id: 'live-album', score: 100, 'primary-type': 'Album', 'secondary-types': ['Live'] },
+            { id: 'single', score: 100, 'primary-type': 'Single' },
+        ];
+        expect(selectReleaseGroup(candidates)?.id).toBe('single');
+    });
+
+    it('does not reach past a genuine tie into a worse match', () => {
+        // The single is what the search actually found; the album named here is
+        // a different record that merely shares some words.
+        const candidates = [
+            { id: 'single', score: 100, 'primary-type': 'Single' },
+            { id: 'other-album', score: 60, 'primary-type': 'Album' },
+        ];
+        expect(selectReleaseGroup(candidates)?.id).toBe('single');
+    });
+
+    it('falls back to the best score when nothing has a type at all', () => {
+        expect(
+            selectReleaseGroup([
+                { id: 'a', score: 80 },
+                { id: 'b', score: 95 },
+            ])?.id,
+        ).toBe('b');
+    });
+
+    it('ignores a candidate with no id, and says nothing when none are usable', () => {
+        expect(selectReleaseGroup([{ score: 100, 'primary-type': 'Album' }])).toBeUndefined();
+        expect(selectReleaseGroup([])).toBeUndefined();
     });
 });

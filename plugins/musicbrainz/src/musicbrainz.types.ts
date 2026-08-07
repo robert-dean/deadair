@@ -172,6 +172,12 @@ export interface MusicBrainzReleaseGroup {
     id?: string;
     title?: string;
     'primary-type'?: string;
+    /**
+     * `Compilation`, `Live`, `Remix`, `Soundtrack` and friends. Present when a
+     * release group is a re-presentation of a record rather than the record:
+     * the thing an operator's "Back In Black" almost never means.
+     */
+    'secondary-types'?: string[];
     'first-release-date'?: string;
     disambiguation?: string;
     'artist-credit'?: MusicBrainzArtistCredit[];

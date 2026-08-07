@@ -16,7 +16,7 @@ import { ListenBrainzClient, ListenBrainzRequestError, LOOKUP_BATCH_SIZE, METADA
 import { lookupKey, mapListenBrainz, resultKey, toLookupQuery } from './listenbrainz.mapping.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, REQUEST_TIMEOUT_MS, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
-import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup } from './musicbrainz.mapping.js';
+import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup, selectReleaseGroup } from './musicbrainz.mapping.js';
 import {
     buildIsrcBatchQuery,
     buildRecordingQuery,
@@ -43,6 +43,14 @@ export { musicbrainzManifest } from './musicbrainz.manifest.js';
 
 /** Candidates to score. Deep enough to get past a run of remasters, shallow enough to stay one page. */
 const SEARCH_LIMIT = 10;
+
+/**
+ * Release-group candidates to choose between. More than one, because a title
+ * track and its album share a name and both score 100 — see
+ * {@link selectReleaseGroup}. Few, because the choice is between near-ties and
+ * a deeper page only adds records that are not this one.
+ */
+const RELEASE_GROUP_SEARCH_LIMIT = 5;
 
 /** What the recording lookup asks for: everything phase-one mapping reads, in one request. */
 const RECORDING_INC = 'artist-credits+releases+release-groups+isrcs+genres+tags';
@@ -594,10 +602,10 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         const title = baseForm(ref.name) || ref.name;
         const response = await this.client!.get<MusicBrainzReleaseGroupSearchResponse>('release-group', {
             query: `releasegroup:"${escapeLucene(title)}" AND artist:"${escapeLucene(ref.artist)}"`,
-            limit: '1',
+            limit: String(RELEASE_GROUP_SEARCH_LIMIT),
         });
 
-        const found = response['release-groups']?.[0];
+        const found = selectReleaseGroup(response['release-groups'] ?? []);
         if (!found?.id) this.host?.logger.debug('musicbrainz found no release group', { album: ref.name, searched: title, artist: ref.artist });
         return found?.id;
     }

@@ -82,6 +82,60 @@ const earliest = (releases: MusicBrainzRelease[]): MusicBrainzRelease | undefine
     [...releases].sort((left, right) => releaseOrder(left).localeCompare(releaseOrder(right)))[0];
 
 /**
+ * How far below the best a candidate release group may score and still be
+ * considered. Wide enough to let an album that tied with a single through,
+ * narrow enough that a different record entirely never gets in.
+ */
+const RELEASE_GROUP_SCORE_BAND = 10;
+
+/** Ranking among primary types: a record beats a short record beats a single. */
+const PRIMARY_TYPE_RANK: Record<string, number> = { album: 0, ep: 1, single: 2 };
+
+/** Everything else — `Other`, `Broadcast`, or a type MusicBrainz has and this does not. */
+const UNRANKED_PRIMARY_TYPE = 3;
+
+/**
+ * A re-presentation of a record sorts below every plain one, whatever its type.
+ * Large enough that no primary-type ranking can climb over it.
+ */
+const SECONDARY_TYPE_PENALTY = 10;
+
+const releaseGroupRank = (group: MusicBrainzReleaseGroup): number => {
+    const primary = PRIMARY_TYPE_RANK[(group['primary-type'] ?? '').toLowerCase()] ?? UNRANKED_PRIMARY_TYPE;
+    return primary + ((group['secondary-types']?.length ?? 0) > 0 ? SECONDARY_TYPE_PENALTY : 0);
+};
+
+/**
+ * Which release group a search actually meant, out of the several that match a
+ * title exactly.
+ *
+ * Taking the first result was wrong, and quietly so. A title track and its
+ * album share a name, so `releasegroup:"back in black" AND artist:"AC/DC"`
+ * answers with the *single* at score 100 and the *album* at score 100, in that
+ * order — and everything downstream then works off a release group with two
+ * tracks on it. The album pass stored a single's id as `albums.mbid`, and the
+ * batch tracklist path fetched a two-track release and matched none of the
+ * album's tracks against it:
+ *
+ *     musicbrainz answered a record from its tracklist | album=Back In Black
+ *     asked=3 matched=0
+ *
+ * So the score picks the contenders and the type picks between them. The band
+ * keeps this from reaching past a genuine tie into a worse match, and the
+ * secondary-type penalty is what stops a live album or a compilation of the
+ * same name winning on primary type alone.
+ */
+export function selectReleaseGroup(candidates: (MusicBrainzReleaseGroup & { score?: number })[]): MusicBrainzReleaseGroup | undefined {
+    const usable = candidates.filter(group => group.id);
+    if (usable.length === 0) return undefined;
+
+    const best = Math.max(...usable.map(group => group.score ?? 0));
+    const contenders = usable.filter(group => (group.score ?? 0) >= best - RELEASE_GROUP_SCORE_BAND);
+
+    return [...contenders].sort((left, right) => releaseGroupRank(left) - releaseGroupRank(right) || (right.score ?? 0) - (left.score ?? 0))[0];
+}
+
+/**
  * The pressing to read a label and a cover off, out of everything in a release
  * group.
  *

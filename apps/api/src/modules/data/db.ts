@@ -204,6 +204,21 @@ export interface DeadairArtistSources {
   uri: string | null;
 }
 
+export interface DeadairLineups {
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  items: Generated<Json>;
+  mode: Generated<"rotation" | "setlist" | "feature">;
+  name: string;
+  onEnd: Generated<"extend" | "repeat" | "resume" | "rotation" | "stop">;
+  revision: Generated<number>;
+  rules: Json | null;
+  source: Generated<string>;
+  sourcePlaylistId: string | null;
+  sourcePluginId: string | null;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairLoginEvents {
   actorId: string;
   factorId: string | null;
@@ -239,6 +254,20 @@ export interface DeadairPermissionsRelationTuples {
   subjectNamespace: string;
   subjectRelation: Generated<string>;
   updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairPlayHistory {
+  airedAt: Generated<DateTime>;
+  artistKey: string;
+  artists: string;
+  createdAt: Generated<DateTime>;
+  externalId: string;
+  id: Generated<string>;
+  pluginId: string;
+  songKey: string;
+  source: Generated<string>;
+  title: string;
+  trackId: string | null;
 }
 
 export interface DeadairPlaylists {
@@ -285,6 +314,18 @@ export interface DeadairSettings {
   key: string;
   updatedAt: Generated<DateTime>;
   value: string | null;
+}
+
+export interface DeadairStationAir {
+  active: Generated<boolean>;
+  createdAt: Generated<DateTime>;
+  cursor: Generated<number>;
+  defaultLineupId: string | null;
+  lineupId: string | null;
+  resumeCursor: number | null;
+  resumeLineupId: string | null;
+  slot: Generated<string>;
+  updatedAt: Generated<DateTime>;
 }
 
 export interface DeadairTrackEnrichment {
@@ -355,14 +396,17 @@ export interface DB {
   "deadair.artistEnrichment": DeadairArtistEnrichment;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
+  "deadair.lineups": DeadairLineups;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
+  "deadair.playHistory": DeadairPlayHistory;
   "deadair.playlists": DeadairPlaylists;
   "deadair.playlistTracks": DeadairPlaylistTracks;
   "deadair.pluginConfigs": DeadairPluginConfigs;
   "deadair.pluginStorage": DeadairPluginStorage;
   "deadair.settings": DeadairSettings;
+  "deadair.stationAir": DeadairStationAir;
   "deadair.trackEnrichment": DeadairTrackEnrichment;
   "deadair.tracks": DeadairTracks;
   "deadair.trackSources": DeadairTrackSources;

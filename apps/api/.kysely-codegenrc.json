@@ -22,7 +22,9 @@
             "deadair.actors_authenticator_factors.type": "'totp' | 'hotp'",
             "deadair.actors_authenticator_factors.algorithm": "'sha1' | 'sha256' | 'sha512'",
             "deadair.actor_session_events.event_type": "'created' | 'refreshed' | 'revoked' | 'expired' | 'step_up' | 'validation_failed'",
-            "deadair.plugin_configs.log_level": "Generated<'debug' | 'info' | 'warn' | 'error'>"
+            "deadair.plugin_configs.log_level": "Generated<'debug' | 'info' | 'warn' | 'error'>",
+            "deadair.lineups.mode": "Generated<'rotation' | 'setlist' | 'feature'>",
+            "deadair.lineups.on_end": "Generated<'extend' | 'repeat' | 'resume' | 'rotation' | 'stop'>"
         }
     },
     "partitions": false,

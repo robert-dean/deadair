@@ -25,7 +25,9 @@ import {
     providerStreamFixture,
     providerTrackFixture,
     searchTracksOptionsFixture,
+    trackEnrichmentBatchFixture,
     trackEnrichmentFixture,
+    trackRefBatchFixture,
     trackRefFixture,
 } from './boundary.payloads.fixture.js';
 
@@ -50,6 +52,8 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['PlaybackState', playbackStateFixture],
         ['TrackRef', trackRefFixture],
         ['Partial<TrackEnrichment>', trackEnrichmentFixture],
+        ['TrackRef[]', trackRefBatchFixture],
+        ['Partial<TrackEnrichment>[]', trackEnrichmentBatchFixture],
         ['ArtistRef', artistRefFixture],
         ['Partial<ArtistEnrichment>', artistEnrichmentFixture],
         ['AlbumRef', albumRefFixture],

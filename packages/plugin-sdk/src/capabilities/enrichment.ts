@@ -173,8 +173,35 @@ export interface EnrichmentProvider {
     /** Which of the {@link TrackRef} fields this plugin can actually match on. */
     matchKeys: EnrichmentMatchKey[];
 
+    /**
+     * How many refs this plugin will take in one {@link enrichTracks} call.
+     *
+     * The host chunks to it, so a batch call is a small fixed number of upstream
+     * round trips and can be given a deadline that means something. Ignored by a
+     * plugin that does not implement `enrichTracks`.
+     */
+    maxBatchSize?: number;
+
     /** Return only the fields you actually resolved. Return `{}` on no match. */
     enrichTrack(ref: TrackRef): Promise<Partial<TrackEnrichment>>;
+
+    /**
+     * The same question as {@link enrichTrack}, asked about several tracks at
+     * once. Optional, the way {@link enrichArtist} is: the host loops
+     * `enrichTrack` for any plugin that does not write it, so implementing it is
+     * an optimisation and never a requirement.
+     *
+     * Implement it only where the upstream can genuinely answer about many at
+     * once. A source paced at a request per second is the case this exists for:
+     * one query that identifies twenty-five tracks costs a second, where
+     * twenty-five `enrichTrack` calls cost twenty-five.
+     *
+     * Index-aligned with `refs`: entry `i` is the answer about `refs[i]`, the
+     * returned array is the same length, and `{}` at a position is a miss
+     * exactly as it is for `enrichTrack`. A source that could only account for
+     * some of the batch returns `{}` for the rest rather than a short array.
+     */
+    enrichTracks?(refs: TrackRef[]): Promise<Partial<TrackEnrichment>[]>;
 
     /**
      * Optional, the way a music provider's `resolveStreamUrl` is: a source

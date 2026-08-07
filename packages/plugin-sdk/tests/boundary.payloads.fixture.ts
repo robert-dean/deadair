@@ -291,6 +291,16 @@ export const trackEnrichmentFixture: Partial<TrackEnrichment> = {
     links: [externalLinkFixture],
 };
 
+/**
+ * The bulk form of the same question. An array crosses the boundary as an
+ * array: nothing about `enrichTracks` relaxes the rule, and a batch is the
+ * easiest place to smuggle a live object in behind a payload that looked fine
+ * on its own.
+ */
+export const trackRefBatchFixture: TrackRef[] = [trackRefFixture, { artist: 'Boards of Canada', title: 'Roygbiv' }];
+
+export const trackEnrichmentBatchFixture: Partial<TrackEnrichment>[] = [trackEnrichmentFixture, {}];
+
 export const artistRefFixture: ArtistRef = {
     name: 'Radiohead',
     mbid: 'a74b1b7f-71a5-4011-9441-d0b5e4122711',

@@ -177,8 +177,13 @@ export class EnrichmentRepository extends DataRepository {
      * an enrichment plugin can match on, and it is a property of the recording
      * rather than of the provider, so any binding's copy will do.
      *
-     * Oldest first, so a backlog drains in the order it arrived rather than
-     * starving whatever sorts last.
+     * Clustered by album, then oldest first, so a backlog still drains in the
+     * order it arrived rather than starving whatever sorts last. The clustering
+     * is what makes a batch worth asking in bulk: a source that can identify a
+     * whole record in one request only gets to do so if the record's tracks
+     * arrive together, and interleaving them by creation date would scatter a
+     * twelve track album across five passes. Tracks with no album sort last,
+     * where they cost a batch-capable source nothing.
      */
     async listTracksNeedingEnrichment(providers: string[], isrcOnly: string[], limit: number): Promise<PendingTrack[]> {
         if (providers.length === 0) return [];
@@ -230,7 +235,7 @@ export class EnrichmentRepository extends DataRepository {
               ) pending
              where t.merged_into_id is null
                and cardinality(pending.providers) > 0
-             order by t.created_at asc, t.id asc
+             order by t.album_id asc nulls last, t.created_at asc, t.id asc
              limit ${limit}
         `.execute(this.db);
 

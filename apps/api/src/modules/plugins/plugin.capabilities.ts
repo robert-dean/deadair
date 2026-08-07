@@ -78,7 +78,32 @@ export interface EnrichmentPlugin {
     enrichesArtists: boolean;
     /** Whether `enrichAlbum` is there to call. */
     enrichesAlbums: boolean;
+    /** Whether `enrichTracks` is there to call, i.e. whether this source can be asked in bulk. */
+    enrichesBatches: boolean;
+    /**
+     * {@link EnrichmentPluginInstance.maxBatchSize}, defaulted and clamped.
+     *
+     * Read here rather than at the call site for the reason `priority` is: the
+     * host does the chunking, so one plugin must not be chunked two ways by two
+     * callers. Meaningless unless {@link enrichesBatches}.
+     */
+    maxBatchSize: number;
 }
+
+/**
+ * How many refs a batch-capable plugin is handed when it names no number of its
+ * own. Deliberately modest: it is the size of one upstream query for the sources
+ * this exists for, and a plugin that can take more says so.
+ */
+export const DEFAULT_ENRICHMENT_BATCH_SIZE = 25;
+
+/**
+ * Above this, a batch call stops being a small fixed number of round trips and
+ * starts being a walk with a deadline it cannot meet. A plugin asking for more
+ * is clamped rather than refused: the number is an optimisation hint, and
+ * getting it wrong should cost throughput, not the capability.
+ */
+export const MAX_ENRICHMENT_BATCH_SIZE = 100;
 
 /**
  * Whether an instance answers about artists as well as recordings.
@@ -92,6 +117,16 @@ export const implementsArtistEnrichment = (instance: unknown): boolean => typeof
 
 /** {@link implementsArtistEnrichment} for records. */
 export const implementsAlbumEnrichment = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).enrichAlbum === 'function';
+
+/** {@link implementsArtistEnrichment} for the bulk form of the recording question. */
+export const implementsBatchEnrichment = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).enrichTracks === 'function';
+
+/** {@link EnrichmentPluginInstance.maxBatchSize}, defaulted and held between 1 and the ceiling. */
+export const enrichmentBatchSize = (instance: EnrichmentPluginInstance): number => {
+    const declared = instance.maxBatchSize;
+    if (typeof declared !== 'number' || !Number.isFinite(declared) || declared < 1) return DEFAULT_ENRICHMENT_BATCH_SIZE;
+    return Math.min(Math.floor(declared), MAX_ENRICHMENT_BATCH_SIZE);
+};
 
 /** The same declaration-and-implementation rule as {@link implementsCatalog}, for enrichment. */
 export const implementsEnrichment = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
@@ -122,5 +157,7 @@ export const asEnrichmentPlugin = (record: PluginRecord): EnrichmentPlugin | und
         priority,
         enrichesArtists: implementsArtistEnrichment(instance),
         enrichesAlbums: implementsAlbumEnrichment(instance),
+        enrichesBatches: implementsBatchEnrichment(instance),
+        maxBatchSize: enrichmentBatchSize(instance),
     };
 };

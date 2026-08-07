@@ -69,6 +69,20 @@ export const ENRICH_ARTIST_TIMEOUT_MS = 2 * UPSTREAM_REQUEST_BUDGET_MS;
 export const ENRICH_ALBUM_TIMEOUT_MS = 3 * UPSTREAM_REQUEST_BUDGET_MS;
 
 /**
+ * How long the walk waits on one `enrichTracks` chunk.
+ *
+ * Not scaled by the number of refs in the chunk, which is the whole point of the
+ * method existing: a batch call is a small fixed number of upstream round trips
+ * because the host chunks to the plugin's own `maxBatchSize`. A source that
+ * answers about twenty-five tracks in one query costs one query's time.
+ *
+ * Four rather than two, because a batch path is allowed to fall back: identify
+ * the batch in one request, and then spend a couple more on the refs that one
+ * request could not account for.
+ */
+export const ENRICH_TRACK_BATCH_TIMEOUT_MS = 4 * UPSTREAM_REQUEST_BUDGET_MS;
+
+/**
  * How long "that provider had nothing" is trusted.
  *
  * Much shorter than a real answer, and never permanent. MusicBrainz gains
@@ -162,6 +176,20 @@ export interface EnrichOptions {
     signal?: AbortSignal;
 }
 
+/**
+ * One track's place in a batch: the question, and the providers it is waiting on.
+ *
+ * `only` is per ref rather than per batch because that is how the walk's
+ * selection query reports it — two tracks in the same batch can be outstanding
+ * on different providers, and holding both to the union would re-ask a source
+ * that answered one of them last week.
+ */
+export interface BatchEnrichRequest {
+    ref: TrackRef;
+    /** Providers this ref is waiting on. Absent means every capable provider. */
+    only?: string[];
+}
+
 /** {@link EnrichOptions} plus what each provider called this artist last time. */
 export interface ArtistEnrichOptions extends EnrichOptions {
     /** Provider id to the id that provider fetched under, from its stored row. */
@@ -214,6 +242,13 @@ export interface AlbumEnrichmentResult extends EnrichmentMisses {
 }
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/** What one track has heard so far, while the fan-out is still walking the providers. */
+interface TrackAccumulator {
+    contributions: EnrichmentContribution[];
+    failures: EnrichmentFailure[];
+    misses: string[];
+}
 
 /**
  * A catalog row as the question a plugin is asked.
@@ -351,42 +386,142 @@ export class EnrichmentService {
      * have, never something different.
      */
     async enrich(ref: TrackRef, options: EnrichOptions = {}): Promise<EnrichmentResult> {
-        const { only, signal } = options;
-        const contributions: EnrichmentContribution[] = [];
-        const failures: EnrichmentFailure[] = [];
-        const misses: string[] = [];
+        const [result] = await this.enrichBatch([{ ref, only: options.only }], options.signal);
+        return result!;
+    }
+
+    /**
+     * {@link enrich} for several tracks at once, index-aligned with `requests`.
+     *
+     * The reason this exists rather than a loop over {@link enrich}: enrichment
+     * sources are paced in single requests per second, and some of them can
+     * answer about a whole batch in one query. A plugin that implements
+     * `enrichTracks` is handed its refs in chunks of its own `maxBatchSize`; one
+     * that does not is looped exactly as before, so this is a fast path and
+     * never a new requirement on a plugin.
+     *
+     * Still sequential across plugins, for the reason the single-track path was:
+     * parallelism buys nothing except several plugins simultaneously parked on
+     * their limiters, all spending the same deadline.
+     */
+    async enrichBatch(requests: BatchEnrichRequest[], signal?: AbortSignal): Promise<EnrichmentResult[]> {
+        const accumulators = requests.map(() => ({
+            contributions: [] as EnrichmentContribution[],
+            failures: [] as EnrichmentFailure[],
+            misses: [] as string[],
+        }));
 
         for (const plugin of this.providers()) {
             if (signal?.aborted) break;
-            if (only && !only.includes(plugin.record.id)) continue;
-            if (!canMatch(plugin, ref)) continue;
 
-            const pluginId = plugin.record.id;
-            try {
-                const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichTrack', async () => plugin.instance.enrichTrack(ref), {
-                    timeoutMs: ENRICH_TRACK_TIMEOUT_MS,
-                });
-                const enrichment = sanitizeEnrichment(answer, reason =>
-                    this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
-                );
-                // An empty answer is the ordinary "I do not have this track".
-                // Recording it as a contribution would write an empty payload
-                // over whatever that provider knew last month, so it is
-                // remembered as a miss instead — which is a shorter-lived and
-                // much weaker claim.
-                if (Object.keys(enrichment).length === 0) {
-                    misses.push(pluginId);
-                    continue;
+            // The positions this plugin is both wanted for and able to answer.
+            // Indices rather than refs, because every answer has to find its way
+            // back to the request it belongs to.
+            const applicable = requests
+                .map((request, index) => ({ request, index }))
+                .filter(({ request }) => !request.only || request.only.includes(plugin.record.id))
+                .filter(({ request }) => canMatch(plugin, request.ref));
+
+            if (applicable.length === 0) continue;
+
+            if (plugin.enrichesBatches) {
+                for (let cursor = 0; cursor < applicable.length; cursor += plugin.maxBatchSize) {
+                    if (signal?.aborted) break;
+                    await this.askInBulk(plugin, applicable.slice(cursor, cursor + plugin.maxBatchSize), accumulators);
                 }
-                contributions.push({ pluginId, priority: plugin.priority, enrichment });
-            } catch (error) {
-                const message = errorText(error);
-                failures.push({ pluginId, message });
-                this.logger.warn('enrichment plugin failed', { pluginId, artist: ref.artist, title: ref.title, error: message });
+                continue;
+            }
+
+            for (const { request, index } of applicable) {
+                if (signal?.aborted) break;
+                await this.askOne(plugin, request.ref, accumulators[index]!);
             }
         }
 
-        return { enrichment: mergeEnrichment(contributions.map(contribution => contribution.enrichment)), contributions, failures, misses };
+        return accumulators.map(accumulator => ({
+            enrichment: mergeEnrichment(accumulator.contributions.map(contribution => contribution.enrichment)),
+            contributions: accumulator.contributions,
+            failures: accumulator.failures,
+            misses: accumulator.misses,
+        }));
+    }
+
+    /**
+     * One `enrichTracks` chunk, with the per-ref path as its safety net.
+     *
+     * A plugin that answers with the wrong number of entries has a bug, not an
+     * opinion: the entries cannot be aligned to the refs they are about, and
+     * storing them anyway would file one track's facts against another. That is
+     * far worse than being slow, so the chunk is re-asked one ref at a time.
+     */
+    private async askInBulk(
+        plugin: EnrichmentPlugin,
+        chunk: { request: BatchEnrichRequest; index: number }[],
+        accumulators: TrackAccumulator[],
+    ): Promise<void> {
+        const pluginId = plugin.record.id;
+        const refs = chunk.map(({ request }) => request.ref);
+
+        let answers: Partial<TrackEnrichment>[];
+        try {
+            answers = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichTracks', async () => plugin.instance.enrichTracks!(refs), {
+                timeoutMs: ENRICH_TRACK_BATCH_TIMEOUT_MS,
+            });
+        } catch (error) {
+            const message = errorText(error);
+            for (const { index } of chunk) accumulators[index]!.failures.push({ pluginId, message });
+            this.logger.warn('enrichment plugin failed on a batch', { pluginId, refs: refs.length, error: message });
+            return;
+        }
+
+        if (!Array.isArray(answers) || answers.length !== refs.length) {
+            this.logger.warn('enrichment plugin answered a batch with the wrong shape, falling back to one at a time', {
+                pluginId,
+                asked: refs.length,
+                answered: Array.isArray(answers) ? answers.length : typeof answers,
+            });
+            for (const { request, index } of chunk) await this.askOne(plugin, request.ref, accumulators[index]!);
+            return;
+        }
+
+        chunk.forEach(({ index }, position) => this.record(plugin, answers[position], accumulators[index]!));
+    }
+
+    /** One `enrichTrack` call, recorded against the ref it was about. */
+    private async askOne(plugin: EnrichmentPlugin, ref: TrackRef, accumulator: TrackAccumulator): Promise<void> {
+        const pluginId = plugin.record.id;
+        try {
+            const answer = await this.pluginInvoker.invoke(pluginId, 'enrichment.enrichTrack', async () => plugin.instance.enrichTrack(ref), {
+                timeoutMs: ENRICH_TRACK_TIMEOUT_MS,
+            });
+            this.record(plugin, answer, accumulator);
+        } catch (error) {
+            const message = errorText(error);
+            accumulator.failures.push({ pluginId, message });
+            this.logger.warn('enrichment plugin failed', { pluginId, artist: ref.artist, title: ref.title, error: message });
+        }
+    }
+
+    /**
+     * One plugin's answer about one track, sanitized and filed.
+     *
+     * An empty answer is the ordinary "I do not have this track". Recording it
+     * as a contribution would write an empty payload over whatever that provider
+     * knew last month, so it is remembered as a miss instead — which is a
+     * shorter-lived and much weaker claim.
+     */
+    private record(plugin: EnrichmentPlugin, answer: Partial<TrackEnrichment> | undefined, accumulator: TrackAccumulator): void {
+        const pluginId = plugin.record.id;
+        const enrichment = sanitizeEnrichment(answer ?? {}, reason =>
+            this.logger.warn('enrichment plugin returned something unstorable', { pluginId, reason }),
+        );
+
+        if (Object.keys(enrichment).length === 0) {
+            accumulator.misses.push(pluginId);
+            return;
+        }
+
+        accumulator.contributions.push({ pluginId, priority: plugin.priority, enrichment });
     }
 
     /**
@@ -553,8 +688,19 @@ export class EnrichmentService {
      * recording.
      */
     async enrichCatalogTrack(track: EnrichableTrack, options: EnrichOptions = {}): Promise<EnrichmentTrackOutcome> {
-        const result = await this.enrich(toTrackRef(track), options);
+        return this.writeTrackResult(track, await this.enrich(toTrackRef(track), options));
+    }
 
+    /**
+     * The write half of {@link enrichCatalogTrack}, shared with the batch walk.
+     *
+     * Split out rather than duplicated because the ordering here is the part
+     * that matters and must not drift between the two callers: payloads first,
+     * then misses, then promotion off the merged view — and promotion only when
+     * something actually answered, so a pass where every provider missed does
+     * not touch the canonical row at all.
+     */
+    private async writeTrackResult(track: EnrichableTrack, result: EnrichmentResult): Promise<EnrichmentTrackOutcome> {
         for (const contribution of result.contributions) {
             await this.enrichmentRepository.saveTrackEnrichment(
                 track.id,
@@ -658,19 +804,39 @@ export class EnrichmentService {
         if (providers.length === 0) return summary;
 
         const tracks = await this.enrichmentRepository.listTracksNeedingEnrichment(providers, this.isrcOnlyProviderIds(), limit);
+        if (tracks.length === 0) return summary;
 
-        for (const track of tracks) {
-            if (signal?.aborted) break;
+        // The whole batch is asked at once, so a provider that can answer in
+        // bulk sees the shape it needs. The selection query hands them over
+        // clustered by album, which is what lets a source spend one request on a
+        // record instead of one per track on it.
+        const results = await this.enrichBatch(
+            tracks.map(track => ({ ref: toTrackRef(track), only: track.outstanding })),
+            signal,
+        );
+
+        // Written one at a time, deliberately: a write that fails is one track's
+        // problem, and the rest of a batch that cost real upstream requests
+        // should still land.
+        for (const [index, track] of tracks.entries()) {
+            const result = results[index]!;
+
+            // Nothing heard at all, from anybody. That is an abort part way
+            // through the fan-out rather than an answer, so the track is left
+            // exactly as it was — no miss row, and not counted as scanned. It is
+            // still outstanding, and the next pass will reach it.
+            if (result.contributions.length === 0 && result.misses.length === 0 && result.failures.length === 0) continue;
+
             summary.scanned++;
 
             try {
-                const outcome = await this.enrichCatalogTrack(track, { only: track.outstanding, signal });
+                const outcome = await this.writeTrackResult(track, result);
                 if (outcome.providers.length > 0) summary.enriched++;
                 summary.promoted += outcome.promoted.length;
                 if (outcome.failures.length > 0) summary.failed++;
             } catch (error) {
                 summary.failed++;
-                this.logger.warn('enrichment pass skipped a track', { trackId: track.id, error: errorText(error) });
+                this.logger.warn('enrichment pass could not store a track', { trackId: track.id, error: errorText(error) });
             }
         }
 

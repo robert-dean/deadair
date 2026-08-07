@@ -52,6 +52,9 @@ interface InstanceOptions {
     /** Absent means a plugin that never wrote the optional method, which is the normal case. */
     enrichArtist?: unknown;
     enrichAlbum?: unknown;
+    /** Absent means a source that can only be asked one track at a time, which is the normal case. */
+    enrichTracks?: unknown;
+    maxBatchSize?: number;
 }
 
 function instance(options: InstanceOptions = {}) {
@@ -63,6 +66,8 @@ function instance(options: InstanceOptions = {}) {
     };
     if (options.enrichArtist) built.enrichArtist = options.enrichArtist;
     if (options.enrichAlbum) built.enrichAlbum = options.enrichAlbum;
+    if (options.enrichTracks) built.enrichTracks = options.enrichTracks;
+    if (options.maxBatchSize !== undefined) built.maxBatchSize = options.maxBatchSize;
     return built;
 }
 
@@ -680,5 +685,103 @@ describe('enrichCatalogTrack', () => {
         expect(outcome.providers).toEqual([OTHER]);
         expect(outcome.failures).toHaveLength(1);
         expect(repository.saveTrackEnrichment).toHaveBeenCalledTimes(1);
+    });
+});
+
+/**
+ * The bulk form of the fan-out. What matters here is not that it is faster —
+ * nothing in this file makes a request — but that a batch answer lands against
+ * the right track, and that a plugin which cannot be trusted to align its own
+ * answers is not allowed to file one track's facts under another.
+ */
+describe('enrichBatch', () => {
+    const second: TrackRef = { artist: 'Massive Attack', title: 'Teardrop', album: 'Mezzanine' };
+
+    it('loops a plugin that never wrote enrichTracks, one call per ref', async () => {
+        const enrichTrack = vi.fn(async (asked: TrackRef) => ({ title: asked.title }));
+        service = build([record(MUSICBRAINZ, {}, { enrichTrack })]);
+
+        const results = await service.enrichBatch([{ ref }, { ref: second }]);
+
+        expect(enrichTrack).toHaveBeenCalledTimes(2);
+        expect(results.map(result => result.enrichment.title)).toEqual(['Glory Box', 'Teardrop']);
+    });
+
+    it('asks a batch-capable plugin once for the whole batch', async () => {
+        const enrichTracks = vi.fn(async (refs: TrackRef[]) => refs.map(asked => ({ title: asked.title })));
+        service = build([record(MUSICBRAINZ, {}, { enrichTracks, enrichTrack: vi.fn() })]);
+
+        const results = await service.enrichBatch([{ ref }, { ref: second }]);
+
+        expect(enrichTracks).toHaveBeenCalledTimes(1);
+        expect(enrichTracks.mock.calls[0]![0]).toHaveLength(2);
+        expect(results.map(result => result.enrichment.title)).toEqual(['Glory Box', 'Teardrop']);
+    });
+
+    it('chunks to the plugin maxBatchSize rather than handing over the whole batch', async () => {
+        const enrichTracks = vi.fn(async (refs: TrackRef[]) => refs.map(() => ({ artist: 'Portishead' })));
+        service = build([record(MUSICBRAINZ, {}, { enrichTracks, maxBatchSize: 2 })]);
+
+        await service.enrichBatch([{ ref }, { ref: second }, { ref }, { ref: second }, { ref }]);
+
+        expect(enrichTracks.mock.calls.map(call => call[0].length)).toEqual([2, 2, 1]);
+    });
+
+    it('falls back to one at a time when a batch answer is the wrong length', async () => {
+        const enrichTracks = vi.fn(async () => [{ artist: 'Portishead' }]);
+        const enrichTrack = vi.fn(async (asked: TrackRef) => ({ title: asked.title }));
+        service = build([record(MUSICBRAINZ, {}, { enrichTracks, enrichTrack })]);
+
+        const results = await service.enrichBatch([{ ref }, { ref: second }]);
+
+        expect(enrichTrack).toHaveBeenCalledTimes(2);
+        expect(results.map(result => result.enrichment.title)).toEqual(['Glory Box', 'Teardrop']);
+    });
+
+    it('records a failed batch against every ref in the chunk, and does not retry them', async () => {
+        const enrichTracks = vi.fn(async () => {
+            throw new PluginError('upstream is down');
+        });
+        const enrichTrack = vi.fn();
+        service = build([record(MUSICBRAINZ, {}, { enrichTracks, enrichTrack })]);
+
+        const results = await service.enrichBatch([{ ref }, { ref: second }]);
+
+        expect(enrichTrack).not.toHaveBeenCalled();
+        expect(results.map(result => result.failures.map(failure => failure.pluginId))).toEqual([[MUSICBRAINZ], [MUSICBRAINZ]]);
+    });
+
+    it('remembers an empty entry as that provider missing that track, not as a payload', async () => {
+        const enrichTracks = vi.fn(async () => [{ artist: 'Portishead' }, {}]);
+        service = build([record(MUSICBRAINZ, {}, { enrichTracks })]);
+
+        const results = await service.enrichBatch([{ ref }, { ref: second }]);
+
+        expect(results[0]!.contributions).toHaveLength(1);
+        expect(results[0]!.misses).toEqual([]);
+        expect(results[1]!.contributions).toEqual([]);
+        expect(results[1]!.misses).toEqual([MUSICBRAINZ]);
+    });
+
+    it('only puts a ref in the chunk when that ref is waiting on that provider', async () => {
+        const enrichTracks = vi.fn(async (refs: TrackRef[]) => refs.map(() => ({ artist: 'Portishead' })));
+        service = build([record(MUSICBRAINZ, {}, { enrichTracks })]);
+
+        await service.enrichBatch([
+            { ref, only: [OTHER] },
+            { ref: second, only: [MUSICBRAINZ] },
+        ]);
+
+        expect(enrichTracks.mock.calls[0]![0]).toEqual([second]);
+    });
+
+    it('keeps an ISRC-only provider out of the chunk for a track that has no ISRC', async () => {
+        const enrichTracks = vi.fn(async (refs: TrackRef[]) => refs.map(() => ({ artist: 'Portishead' })));
+        service = build([record(MUSICBRAINZ, {}, { enrichTracks, matchKeys: ['isrc'] })]);
+
+        const withIsrc: TrackRef = { ...second, isrc: 'GBAYE0000351' };
+        await service.enrichBatch([{ ref }, { ref: withIsrc }]);
+
+        expect(enrichTracks.mock.calls[0]![0]).toEqual([withIsrc]);
     });
 });

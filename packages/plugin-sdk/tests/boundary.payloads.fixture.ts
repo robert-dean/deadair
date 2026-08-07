@@ -4,7 +4,6 @@ import type { HostFetchInit, HostFetchResponse, PluginOAuth, TrackFetchRequest }
 import type {
     PlaybackState,
     ProviderPlaylist,
-    ProviderSessionCredentials,
     ProviderStream,
     ProviderTrack,
 } from '../src/capabilities/music.provider.js';
@@ -236,12 +235,6 @@ export const providerStreamFixture: ProviderStream = {
     url: 'https://stream.example.com/trk_1.mp3?sig=abc',
     expiresAt: 1_893_456_000_000,
     mimeType: 'audio/mpeg',
-};
-
-export const providerSessionCredentialsFixture: ProviderSessionCredentials = {
-    username: 'the-station',
-    accessToken: 'BQC_not_a_real_token',
-    expiresAt: 1_893_456_000_000,
 };
 
 export const trackFetchRequestFixture: TrackFetchRequest = {

@@ -33,8 +33,8 @@ type server struct {
 	secret string
 	// Gates POST /session, and deliberately NOT the same secret as the one above: that one moves
 	// track ids around, while this one decides whose Spotify account this shim fetches as. Shared
-	// with the app as SPOTIFY_LOGIN_SECRET.
-	loginSecret string
+	// with the app as SPOTIFY_SHIM_SECRET.
+	shimSecret string
 	// Where a pushed login lands. The session holder reads through it.
 	pushed  *pushedCredentials
 	bitrate int
@@ -83,13 +83,13 @@ type sessionPush struct {
 // the very budget it is trying to protect. The connection is warmed in the background instead, and
 // the fetch path still opens its own session if that has not finished (or failed).
 func (s *server) handleSession(w http.ResponseWriter, r *http.Request) {
-	if s.loginSecret == "" {
+	if s.shimSecret == "" {
 		// Nothing could match, so this is not a refusal of this caller: the route cannot serve
 		// anyone until the app seeds the secret. Mirrors what the app answers in the same state.
 		http.Error(w, "no login secret configured", http.StatusNotFound)
 		return
 	}
-	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Spotify-Login-Secret")), []byte(s.loginSecret)) != 1 {
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Spotify-Login-Secret")), []byte(s.shimSecret)) != 1 {
 		s.log.Warnf("rejected a session push: the login secret did not match")
 		http.Error(w, "denied", http.StatusUnauthorized)
 		return

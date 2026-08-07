@@ -39,7 +39,7 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     sourcePassword: 'source-pw',
     adminPassword: 'admin-pw',
     harborPassword: 'harbor-pw',
-    spotifyLoginSecret: 'login-secret',
+    spotifyShimSecret: 'shim-secret',
     playoutBridgeSecret: 'bridge-secret',
     ...overrides,
 });
@@ -92,7 +92,7 @@ describe('writeStreamConfig', () => {
         const env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
         expect(env.get('PLAYOUT_BRIDGE_SECRET')).toBe('bridge-secret');
         expect(env.get('PLAYOUT_AIRED_URL')).toBe('http://host.docker.internal:3333/api/playout/aired');
-        expect(env.get('SPOTIFY_LOGIN_SECRET')).toBe('login-secret');
+        expect(env.get('SPOTIFY_SHIM_SECRET')).toBe('shim-secret');
         expect(env.get('HARBOR_PASSWORD')).toBe('harbor-pw');
     });
 

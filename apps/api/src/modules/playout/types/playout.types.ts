@@ -5,7 +5,7 @@ import { z } from 'zod';
  * generated from [PlayoutPlaylistInput](file://./../../../../data/contracts/playout/playout.types.ck#L7)
  */
 export const PlayoutPlaylistInput = z.strictObject({
-    pluginId: z.string().min(1).max(200).describe('The plugin playlist to load into the running order'),
+    pluginId: z.string().min(1).max(200),
     playlistId: z.string().min(1).max(400),
 });
 export type PlayoutPlaylistInput = z.infer<typeof PlayoutPlaylistInput>;
@@ -43,35 +43,16 @@ export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
  * generated from [PlayoutBridgeHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L40)
  */
 export const PlayoutBridgeHeaders = z.strictObject({
-    'x-playout-secret': z.string().min(1).max(200).describe('The shared secret gating the internal playout bridge, in both directions'),
+    'x-playout-secret': z.string().min(1).max(200),
 });
 export type PlayoutBridgeHeaders = z.infer<typeof PlayoutBridgeHeaders>;
-
-/**
- * The shared secret gating the track shim's login route
- * generated from [SpotifyLoginHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L44)
- */
-export const SpotifyLoginHeaders = z.strictObject({
-    'x-spotify-login-secret': z.string().min(1).max(200).describe("The shared secret gating the track shim's login route"),
-});
-export type SpotifyLoginHeaders = z.infer<typeof SpotifyLoginHeaders>;
-
-/**
- * A login for the track shim to open its own Spotify session with. Machine-to-machine: this never reaches a browser
- * generated from [SpotifySessionLogin](file://./../../../../data/contracts/playout/playout.types.ck#L48)
- */
-export const SpotifySessionLogin = z.strictObject({
-    username: z.string().min(1).max(200).describe("The connected account's Spotify id, which is what librespot logs in with"),
-    accessToken: z.string().min(1).max(4000),
-});
-export type SpotifySessionLogin = z.infer<typeof SpotifySessionLogin>;
 
 /**
  * What the PLAYER says is airing, which is not the same as what was last handed to it
  * generated from [PlayoutNowPlaying](file://./../../../../data/contracts/playout/playout.types.ck#L21)
  */
 export const PlayoutNowPlaying = z.strictObject({
-    item: PlayoutItem.describe('What the PLAYER says is airing, which is not the same as what was last handed to it'),
+    item: PlayoutItem,
     startedAt: z.coerce.number().int().min(0).describe('Unix epoch millis, as observed when the player reported it'),
     remainingMs: z.coerce
         .number()

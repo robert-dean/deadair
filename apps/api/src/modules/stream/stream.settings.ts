@@ -34,12 +34,12 @@ export const STREAM_KEYS = {
      */
     harborPassword: 'stream.harborPassword',
     /**
-     * Shared secret gating the internal Spotify login route, which hands the track
-     * shim a username and access token to open its session with. Materialized as
-     * `SPOTIFY_LOGIN_SECRET` so the shim inherits it from the entrypoint's sourced
+     * Shared secret gating the track shim's `POST /session`, which is how the app
+     * hands it the login it opens its own Spotify session with. Materialized as
+     * `SPOTIFY_SHIM_SECRET` so the shim inherits it from the entrypoint's sourced
      * radio.env, with no container-side config.
      */
-    spotifyLoginSecret: 'stream.spotifyLoginSecret',
+    spotifyShimSecret: 'stream.spotifyShimSecret',
     /**
      * Shared secret gating the playout bridge in both directions: Liquidsoap's air
      * confirmation to us, and our pushes to its `/control/*` endpoints. Without it
@@ -53,7 +53,7 @@ export const STREAM_SECRET_KEYS: string[] = [
     STREAM_KEYS.sourcePassword,
     STREAM_KEYS.adminPassword,
     STREAM_KEYS.harborPassword,
-    STREAM_KEYS.spotifyLoginSecret,
+    STREAM_KEYS.spotifyShimSecret,
     STREAM_KEYS.playoutBridgeSecret,
 ];
 
@@ -74,8 +74,8 @@ export interface StreamSettings {
     adminPassword?: string;
     /** Decrypted harbor push password, `undefined` when unset. */
     harborPassword?: string;
-    /** Decrypted Spotify login secret, `undefined` when unset. */
-    spotifyLoginSecret?: string;
+    /** Decrypted track shim secret, `undefined` when unset. */
+    spotifyShimSecret?: string;
     /** Decrypted playout bridge secret, `undefined` when unset. */
     playoutBridgeSecret?: string;
 }
@@ -114,7 +114,7 @@ export async function resolveStreamSettings(repository: SettingsRepository, encr
         sourcePassword: decrypt(values.get(STREAM_KEYS.sourcePassword)),
         adminPassword: decrypt(values.get(STREAM_KEYS.adminPassword)),
         harborPassword: decrypt(values.get(STREAM_KEYS.harborPassword)),
-        spotifyLoginSecret: decrypt(values.get(STREAM_KEYS.spotifyLoginSecret)),
+        spotifyShimSecret: decrypt(values.get(STREAM_KEYS.spotifyShimSecret)),
         playoutBridgeSecret: decrypt(values.get(STREAM_KEYS.playoutBridgeSecret)),
     };
 }

@@ -45,10 +45,9 @@ const httpClientTimeout = 30 * time.Second
 func main() {
 	addr := flag.String("addr", envOr("SHIM_ADDR", ":3679"), "listen address for serve mode")
 	secret := flag.String("secret", os.Getenv("PLAYOUT_BRIDGE_SECRET"), "shared secret that signs track URLs (PLAYOUT_BRIDGE_SECRET)")
-	loginURL := flag.String("login-url", os.Getenv("SPOTIFY_LOGIN_URL"), "app route that mints a Spotify login (SPOTIFY_LOGIN_URL)")
-	loginSecret := flag.String("login-secret", os.Getenv("SPOTIFY_LOGIN_SECRET"), "X-Spotify-Login-Secret for that route (SPOTIFY_LOGIN_SECRET)")
-	username := flag.String("username", "", "Spotify username, instead of asking the app")
-	token := flag.String("token", "", "Spotify access token, instead of asking the app")
+	shimSecret := flag.String("shim-secret", os.Getenv("SPOTIFY_SHIM_SECRET"), "X-Spotify-Login-Secret gating POST /session (SPOTIFY_SHIM_SECRET)")
+	username := flag.String("username", "", "Spotify username, instead of waiting for the app to push one")
+	token := flag.String("token", "", "Spotify access token, instead of waiting for the app to push one")
 	bitrate := flag.Int("bitrate", envIntOr("SHIM_BITRATE", 320), "preferred bitrate; the nearest available Ogg file is used")
 	fetchTimeout := flag.Duration("fetch-timeout", 90*time.Second, "how long one track fetch may take")
 	uri := flag.String("uri", "", "one-shot mode: fetch this track and exit")
@@ -57,33 +56,28 @@ func main() {
 	verbose := flag.Bool("v", false, "log go-librespot's own chatter")
 	flag.Parse()
 
-	if err := run(*addr, *secret, *loginURL, *loginSecret, *username, *token, *uri, *out, *sign, *bitrate, *fetchTimeout, *verbose); err != nil {
+	if err := run(*addr, *secret, *shimSecret, *username, *token, *uri, *out, *sign, *bitrate, *fetchTimeout, *verbose); err != nil {
 		fmt.Fprintf(os.Stderr, "shim: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(addr, secret, loginURL, loginSecret, username, token, uri, out, sign string, bitrate int, fetchTimeout time.Duration, verbose bool) error {
+func run(addr, secret, shimSecret, username, token, uri, out, sign string, bitrate int, fetchTimeout time.Duration, verbose bool) error {
 	// One-shot mode writes audio to stdout, so every diagnostic goes to stderr either way.
 	var log librespot.Logger = &stderrLogger{quiet: !verbose}
 	client := &http.Client{Timeout: httpClientTimeout}
 
-	var creds credentialSource = staticCredentials{username: username, token: token}
-	if loginURL != "" && username == "" {
-		creds = loginCredentials{url: loginURL, secret: loginSecret}
-	}
-	// The app pushes a login to POST /session as it resolves each track; whatever was configured
-	// above is what answers until the first push lands. A `-username` given on the command line
-	// still wins for as long as nobody pushes, which is what makes one-shot mode independent of
-	// whether an app is running at all.
-	pushed := &pushedCredentials{fallback: creds}
+	// The app pushes a login to POST /session as it resolves each track. A `-username`/`-token`
+	// pair given on the command line answers until one lands, which is what makes one-shot mode
+	// independent of whether an app is running at all.
+	pushed := &pushedCredentials{fallback: staticCredentials{username: username, token: token}}
 
 	srv := &server{
 		sessions:     newSessionHolder(pushed, log, client),
 		client:       client,
 		log:          log,
 		secret:       secret,
-		loginSecret:  loginSecret,
+		shimSecret:   shimSecret,
 		pushed:       pushed,
 		bitrate:      bitrate,
 		fetchTimeout: fetchTimeout,

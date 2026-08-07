@@ -76,30 +76,6 @@ export interface ProviderStream {
     mimeType?: string;
 }
 
-/**
- * Credentials for a station-side helper that opens its OWN session with the
- * provider, rather than going through the plugin.
- *
- * This exists for one shape of provider: the audio is reachable, but only to a
- * process speaking a protocol the plugin does not (Spotify's, whose tracks come
- * off its CDN encrypted and are fetched by a separate binary beside
- * Liquidsoap). The plugin still owns the account and the token refresh; it just
- * lends the helper enough to log in.
- *
- * Do NOT implement this to hand out credentials for an ordinary HTTP fetch. A
- * provider whose audio can be fetched with a URL should mint one in
- * {@link MusicProviderCatalog.resolveStreamUrl} and keep its credentials to
- * itself, which is both simpler and narrower.
- */
-export interface ProviderSessionCredentials {
-    /** The account the helper should log in as. */
-    username: string;
-    /** A currently-valid access token. The plugin owns refreshing it. */
-    accessToken: string;
-    /** Unix epoch millis after which `accessToken` must be re-requested. */
-    expiresAt?: number;
-}
-
 export interface SearchTracksOptions {
     limit?: number;
     offset?: number;
@@ -128,16 +104,16 @@ export interface MusicProviderCatalog {
 }
 
 /**
- * Getting the station actual audio, by whichever of two routes the provider
- * supports. A provider implements one of them or neither; implementing neither
- * is what "steer only" means (it plays audio itself and never hands anything
- * over, e.g. a remote Spotify Connect device).
+ * Getting the station actual audio: one method, because it is one job.
  *
- * One capability rather than two, deliberately, even though the routes are not
- * the same act — one mints a URL, the other lends an access token to a separate
- * process. From the station's side the question is the same one, "can this
- * plugin get me audio?", and each call site asks for the specific method it
- * needs. The difference the capability name elides is documented on the methods.
+ * A provider that cannot answer it plays its own audio and never hands anything
+ * over, which is what "steer only" means (a remote Spotify Connect device, say).
+ *
+ * How the audio reaches the player is the provider's business, not the caller's.
+ * Most mint a URL out of their own head. A provider whose audio is reachable
+ * only to a process speaking a protocol it does not — Spotify's, whose tracks
+ * come off the CDN encrypted — lends the station's fetcher a login through
+ * `host.trackFetcher` and returns the URL that comes back. Both answer here.
  */
 export interface MusicProviderStream {
     /**
@@ -145,21 +121,12 @@ export interface MusicProviderStream {
      * that carries its own authentication, because the player fetches it with no
      * headers from us.
      *
-     * The ordinary route, and the one to prefer. Omit it only when there is
-     * genuinely no URL to mint.
+     * Optional only so a "steer only" provider can leave it out. Resolves to
+     * `undefined` when the provider is not connected yet, or when this station
+     * has nothing that can serve the track: the host reads that as "not
+     * available", skips the item, and holds nothing against the plugin.
      */
     resolveStreamUrl?(trackId: string): Promise<ProviderStream | undefined>;
-
-    /**
-     * Lend a station-side helper a login for this provider. Omit unless the
-     * provider genuinely needs one; see {@link ProviderSessionCredentials} for
-     * when that is and, more importantly, when it is not.
-     *
-     * Resolves to `undefined` when the provider is not connected, which the host
-     * treats as "not available yet" rather than an error: the helper comes up
-     * with its container, long before an operator has authorised anything.
-     */
-    getSessionCredentials?(): Promise<ProviderSessionCredentials | undefined>;
 }
 
 export type PlaybackStatus = 'playing' | 'paused' | 'stopped';

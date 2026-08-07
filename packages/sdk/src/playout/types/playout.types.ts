@@ -3,7 +3,6 @@
  * generated from [PlayoutPlaylistInput](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L7)
  */
 export interface PlayoutPlaylistInput {
-    /** The plugin playlist to load into the running order */
     pluginId: string;
     playlistId: string;
 }
@@ -38,27 +37,7 @@ export interface PlayoutAiredQuery {
  * generated from [PlayoutBridgeHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L40)
  */
 export interface PlayoutBridgeHeaders {
-    /** The shared secret gating the internal playout bridge, in both directions */
     'x-playout-secret': string;
-}
-
-/**
- * The shared secret gating the track shim's login route
- * generated from [SpotifyLoginHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L44)
- */
-export interface SpotifyLoginHeaders {
-    /** The shared secret gating the track shim's login route */
-    'x-spotify-login-secret': string;
-}
-
-/**
- * A login for the track shim to open its own Spotify session with. Machine-to-machine: this never reaches a browser
- * generated from [SpotifySessionLogin](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L48)
- */
-export interface SpotifySessionLogin {
-    /** The connected account's Spotify id, which is what librespot logs in with */
-    username: string;
-    accessToken: string;
 }
 
 /**
@@ -66,7 +45,6 @@ export interface SpotifySessionLogin {
  * generated from [PlayoutNowPlaying](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L21)
  */
 export interface PlayoutNowPlaying {
-    /** What the PLAYER says is airing, which is not the same as what was last handed to it */
     item: PlayoutItem;
     /** Unix epoch millis, as observed when the player reported it */
     startedAt: number;

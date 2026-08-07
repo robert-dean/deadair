@@ -2,12 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
-import type { MusicProviderPluginInstance } from '@deadair/plugin-sdk';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
-import { asStreamPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { pluginHttpError } from '#modules/plugins/plugin.error.http.js';
-import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
-import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
@@ -19,12 +14,7 @@ import type {
     PlayoutItem,
     PlayoutPlaylistInput,
     PlayoutStatus,
-    SpotifyLoginHeaders,
-    SpotifySessionLogin,
 } from './types/playout.types.js';
-
-/** The plugin the track shim borrows a session from. */
-const SPOTIFY_PLUGIN_ID = 'deadair.spotify';
 
 /**
  * How much of the running order a status answer carries.
@@ -35,12 +25,12 @@ const SPOTIFY_PLUGIN_ID = 'deadair.spotify';
 const UP_NEXT_LIMIT = 10;
 
 /**
- * The playout surface: the console's transport, and the stream container's two
- * inbound calls.
+ * The playout surface: the console's transport, plus the one call the stream
+ * container makes inbound.
  *
- * The console half reads and drives the running order. The container half —
- * Liquidsoap confirming what went on air, and the track shim asking for a login
- * — never reaches a browser, and neither is in the SDK.
+ * The console half reads and drives the running order. The container half is
+ * Liquidsoap confirming what went on air, which never reaches a browser and is
+ * not in the SDK.
  */
 @Injectable()
 export class PlayoutService {
@@ -50,8 +40,6 @@ export class PlayoutService {
         private readonly playlists: PlaylistsService,
         private readonly endpoint: LiquidsoapEndpoint,
         private readonly control: PlayoutControlClient,
-        private readonly registry: PluginRegistry,
-        private readonly invoker: PluginInvoker,
         private readonly stream: StreamService,
         private readonly logger: Logger,
     ) {}
@@ -191,80 +179,6 @@ export class PlayoutService {
 
         if (!this.rundown.markAired(query.item)) {
             this.logger.warn('playout: aired notify named an item the rundown does not hold', { item: query.item });
-        }
-    }
-
-    /**
-     * Mint a login for the track shim from the connected Spotify plugin.
-     *
-     * The shim runs beside Liquidsoap and opens its own session with Spotify,
-     * because a Spotify track comes off the CDN encrypted and cannot be handed
-     * over as a URL the way any other source's audio can. What it borrows is a
-     * username and a live access token; the plugin keeps the account, the
-     * refresh token and the vault.
-     *
-     * The token in this response never reaches a browser: the route generates no
-     * SDK client, and the only caller is a process on the same host presenting a
-     * secret out of `radio.env`.
-     *
-     * @throws 404 while the login secret is unseeded, 401 on a secret mismatch,
-     *   503 when no connected Spotify plugin can supply a login — which the shim
-     *   treats as retryable, because it comes up long before anyone has
-     *   authorised anything. A plugin that throws is translated by
-     *   {@link pluginHttpError}, so an expired authorisation reads as 502 and an
-     *   unreachable Spotify as 503 rather than both as a bare 500.
-     */
-    async spotifySessionLogin(headers: SpotifyLoginHeaders): Promise<SpotifySessionLogin> {
-        await this.requireLoginSecret(headers['x-spotify-login-secret']);
-
-        // Asked of the record directly rather than through `asStreamPlugin`:
-        // lending a login is no longer one of the ways a plugin earns `stream`,
-        // now that the Spotify plugin resolves its own URL. This route is the
-        // last caller of the old arrangement and goes with it.
-        const record = this.registry.get(SPOTIFY_PLUGIN_ID);
-        const instance = record?.status === 'active' ? (record.instance as MusicProviderPluginInstance | undefined) : undefined;
-        if (typeof instance?.getSessionCredentials !== 'function') {
-            throw httpError(503).withDetails({ message: 'the Spotify plugin is not running, so it cannot supply a session login' });
-        }
-
-        let credentials: Awaited<ReturnType<NonNullable<MusicProviderPluginInstance['getSessionCredentials']>>>;
-        try {
-            credentials = await this.invoker.invoke(SPOTIFY_PLUGIN_ID, 'stream.getSessionCredentials', async () =>
-                instance.getSessionCredentials!(),
-            );
-        } catch (error) {
-            // The plugin's own vocabulary, translated. Without this an unreachable
-            // Spotify — or a token refresh that fails — is a bare 500, which the shim
-            // can only report as a number; mapped, an expired authorisation is a 502
-            // and a network blip a 503, and the shim's backoff treats them sensibly.
-            throw pluginHttpError(SPOTIFY_PLUGIN_ID, error);
-        }
-
-        if (!credentials) {
-            throw httpError(503).withDetails({ message: 'Spotify is not connected; authorise the plugin in the console first' });
-        }
-
-        // Deliberately not logged with the token, and not at info: this runs on the
-        // shim's first fetch and after every reconnect, which is worth seeing.
-        this.logger.info('playout: handed the track shim a Spotify session login', { username: credentials.username });
-        return { username: credentials.username, accessToken: credentials.accessToken };
-    }
-
-    /**
-     * Gate the shim's login on its own secret, which is separate from the bridge
-     * one on purpose: this route hands out an access token, while the bridge only
-     * moves item ids, so one leaking must not spend the other.
-     *
-     * Read per call rather than cached like the bridge secret, because this is
-     * not on the reconcile loop — the shim asks once per session.
-     */
-    private async requireLoginSecret(presented: string): Promise<void> {
-        const { spotifyLoginSecret } = await this.stream.settings();
-        if (!spotifyLoginSecret) {
-            throw httpError(404).withDetails({ message: 'no Spotify login secret is seeded, so this endpoint is disabled' });
-        }
-        if (!safeEqual(presented, spotifyLoginSecret)) {
-            throw httpError(401).withDetails({ message: 'invalid Spotify login secret' });
         }
     }
 

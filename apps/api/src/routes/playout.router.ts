@@ -1,13 +1,6 @@
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { PlayoutService } from '#src/modules/playout/playout.service.js';
-import {
-    PlayoutAiredQuery,
-    PlayoutBridgeHeaders,
-    PlayoutPlaylistInput,
-    PlayoutStatus,
-    SpotifyLoginHeaders,
-    SpotifySessionLogin,
-} from '../modules/playout/types/playout.types.js';
+import { PlayoutAiredQuery, PlayoutBridgeHeaders, PlayoutPlaylistInput, PlayoutStatus } from '../modules/playout/types/playout.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -70,25 +63,8 @@ PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' })
 });
 
 /**
- * Mints a login for the station-side track shim from the connected Spotify plugin
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L94)
- * anonymous access, no security required
- * @internal
- */
-PlayoutRouter.get('/playout/spotify/session-login', async ctx => {
-    const headers = await parseAndValidate(ctx.headers, SpotifyLoginHeaders.strip());
-
-    const service = ctx.container.get(PlayoutService);
-    const result: SpotifySessionLogin = await service.spotifySessionLogin(headers);
-
-    ctx.status = 200;
-    ctx.type = 'application/json';
-    ctx.body = result;
-});
-
-/**
  * Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L110)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L89)
  * anonymous access, no security required
  * @internal
  */

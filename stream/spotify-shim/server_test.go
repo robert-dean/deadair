@@ -70,7 +70,7 @@ func TestHeadStillRequiresAValidToken(t *testing.T) {
 
 // ── POST /session ────────────────────────────────────────────────────────────
 
-const loginSecret = "login-secret"
+const shimSecret = "shim-secret"
 
 // Refuses every request, so the background warm-connect a push kicks off fails at its first round
 // trip instead of reaching Spotify from a test.
@@ -88,7 +88,7 @@ func pushableServer() (*server, *pushedCredentials) {
 	return &server{
 		log:          log,
 		secret:       secret,
-		loginSecret:  loginSecret,
+		shimSecret:   shimSecret,
 		pushed:       pushed,
 		sessions:     newSessionHolder(pushed, log, &http.Client{Transport: offlineTransport{}}),
 		fetchTimeout: time.Second,
@@ -107,7 +107,7 @@ func TestSessionPushIsWhatTheNextFetchUses(t *testing.T) {
 	srv, pushed := pushableServer()
 	rec := httptest.NewRecorder()
 	srv.routes().ServeHTTP(rec, pushRequest(`{"username":"station","accessToken":"tok","expiresAt":`+
-		strconv.FormatInt(time.Now().Add(time.Hour).UnixMilli(), 10)+`}`, loginSecret))
+		strconv.FormatInt(time.Now().Add(time.Hour).UnixMilli(), 10)+`}`, shimSecret))
 
 	if rec.Result().StatusCode != http.StatusAccepted {
 		t.Fatalf("push answered %d, want 202", rec.Result().StatusCode)
@@ -140,7 +140,7 @@ func TestSessionPushRequiresTheSecret(t *testing.T) {
 // answering 401 would send an operator looking for a mismatch that does not exist.
 func TestSessionPushIsDisabledWithoutASecret(t *testing.T) {
 	srv, _ := pushableServer()
-	srv.loginSecret = ""
+	srv.shimSecret = ""
 	rec := httptest.NewRecorder()
 	srv.routes().ServeHTTP(rec, pushRequest(`{"username":"station","accessToken":"tok"}`, ""))
 
@@ -160,7 +160,7 @@ func TestSessionPushRejectsAnUnusableBody(t *testing.T) {
 	} {
 		srv, pushed := pushableServer()
 		rec := httptest.NewRecorder()
-		srv.routes().ServeHTTP(rec, pushRequest(body, loginSecret))
+		srv.routes().ServeHTTP(rec, pushRequest(body, shimSecret))
 
 		if rec.Result().StatusCode != http.StatusBadRequest {
 			t.Fatalf("%s: answered %d, want 400", name, rec.Result().StatusCode)

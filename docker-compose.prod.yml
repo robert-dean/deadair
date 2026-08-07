@@ -19,6 +19,12 @@ services:
             - ./apps/api/.env
         environment:
             PORT: 3000
+            # Where this app reaches the track shim to hand it a Spotify login. The default
+            # (127.0.0.1:3679) is right for an app on the host, which sees the published port;
+            # from inside the compose network the shim is the liquidsoap service. Not the same
+            # address as the one baked into the signed URL, which is what LIQUIDSOAP fetches on,
+            # and that stays loopback because the shim shares its container.
+            SPOTIFY_SHIM_CONTROL_URL: http://liquidsoap:3679
         # Both directories are runtime state the container writes and would otherwise
         # lose on every replacement: the art cache would re-fetch every image from
         # upstream and GET /art/:id would 404 for rows whose files vanished, and the

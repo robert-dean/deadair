@@ -6,7 +6,6 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
-import type { PluginManifest } from '@deadair/plugin-sdk';
 
 import { PlayoutService } from '../../../src/modules/playout/playout.service.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
@@ -14,25 +13,14 @@ import type { PlayoutControlClient } from '../../../src/modules/playout/liquidso
 import type { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import type { Rundown } from '../../../src/modules/playout/rundown.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
-import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
-import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { StreamService } from '../../../src/modules/stream/stream.service.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
 const BRIDGE_SECRET = 'bridge-secret';
-const LOGIN_SECRET = 'login-secret';
-
-const credentials = { username: 'the-station', accessToken: 'BQC_token' };
-
-/** Enough of a manifest for `asStreamPlugin` to accept the record: it declares `stream`. */
-const streamManifest = () => ({ capabilities: ['catalog', 'stream'] }) as unknown as PluginManifest;
 
 interface Options {
     bridgeSecret?: string;
-    loginSecret?: string;
-    /** The Spotify plugin record the registry answers with. `null` means "not installed". */
-    record?: unknown;
     markAired?: boolean;
     /** What the playlists read answers with, or an error to throw from it. */
     tracks?: { id: string; title: string; artists: string[]; durationMs?: number }[];
@@ -85,20 +73,10 @@ function build(options: Options = {}) {
         resolve: async () => 'http://127.0.0.1:8005',
     } as unknown as LiquidsoapEndpoint;
 
-    // The manifest is part of the fixture, not decoration: `asStreamPlugin` requires
-    // the plugin to declare `stream` as well as implement one of its methods, so a
-    // record carrying only an instance is refused exactly as a real one would be.
-    const record =
-        options.record === undefined
-            ? { status: 'active', manifest: streamManifest(), instance: { getSessionCredentials: async () => credentials } }
-            : (options.record ?? undefined);
-    const registry = { get: vi.fn(() => record) } as unknown as PluginRegistry;
-
-    const invoker = { invoke: vi.fn(async (_id: string, _label: string, call: () => Promise<unknown>) => call()) } as unknown as PluginInvoker;
-    const stream = { settings: async () => ({ spotifyLoginSecret: options.loginSecret ?? LOGIN_SECRET }) } as unknown as StreamService;
+    const stream = { settings: async () => ({}) } as unknown as StreamService;
 
     return {
-        service: new PlayoutService(rundown, pusher, playlists, endpoint, control, registry, invoker, stream, logger),
+        service: new PlayoutService(rundown, pusher, playlists, endpoint, control, stream, logger),
         rundown,
         pusher,
         playlists,
@@ -285,74 +263,6 @@ describe('PlayoutService.confirmAired', () => {
     it('does not accept the login secret in place of the bridge one', async () => {
         const { service } = build();
 
-        expect(await statusOf(service.confirmAired({ item: 'item-1' }, { 'x-playout-secret': LOGIN_SECRET }))).toBe(401);
-    });
-});
-
-describe('PlayoutService.spotifySessionLogin', () => {
-    it('mints a login when the secret matches and the plugin is connected', async () => {
-        const { service } = build();
-
-        expect(await service.spotifySessionLogin({ 'x-spotify-login-secret': LOGIN_SECRET })).toEqual(credentials);
-    });
-
-    it('rejects a mismatched secret', async () => {
-        const { service } = build();
-
-        expect(await statusOf(service.spotifySessionLogin({ 'x-spotify-login-secret': 'wrong' }))).toBe(401);
-    });
-
-    it('answers 404 while the login secret is unseeded', async () => {
-        const { service } = build({ loginSecret: '' });
-
-        expect(await statusOf(service.spotifySessionLogin({ 'x-spotify-login-secret': '' }))).toBe(404);
-    });
-
-    it('does not accept the bridge secret in place of the login one', async () => {
-        // The point of them being separate: this route hands out an access token.
-        const { service } = build();
-
-        expect(await statusOf(service.spotifySessionLogin({ 'x-spotify-login-secret': BRIDGE_SECRET }))).toBe(401);
-    });
-
-    it('answers 503 when the plugin is not installed', async () => {
-        const { service } = build({ record: null });
-
-        expect(await statusOf(service.spotifySessionLogin({ 'x-spotify-login-secret': LOGIN_SECRET }))).toBe(503);
-    });
-
-    it('answers 503 when the plugin is installed but not running', async () => {
-        const { service } = build({ record: { status: 'disabled', instance: undefined } });
-
-        expect(await statusOf(service.spotifySessionLogin({ 'x-spotify-login-secret': LOGIN_SECRET }))).toBe(503);
-    });
-
-    it('answers 503 when the plugin cannot supply a login yet', async () => {
-        // Nobody has authorised Spotify. The shim asks on its first fetch, long before
-        // that has happened, and retries on its own.
-        const { service } = build({
-            record: { status: 'active', manifest: streamManifest(), instance: { getSessionCredentials: async () => undefined } },
-        });
-
-        expect(await statusOf(service.spotifySessionLogin({ 'x-spotify-login-secret': LOGIN_SECRET }))).toBe(503);
-    });
-
-    it('translates a plugin failure rather than letting it surface as a bare 500', async () => {
-        // An unreachable Spotify or a dead refresh token is diagnosable only if the
-        // plugin's own vocabulary survives the trip out.
-        const failing = {
-            status: 'active',
-            manifest: streamManifest(),
-            instance: {
-                getSessionCredentials: async () => {
-                    const error = new Error('upstream is down') as Error & { code: string };
-                    error.code = 'unavailable';
-                    throw error;
-                },
-            },
-        };
-        const { service } = build({ record: failing });
-
-        expect(await statusOf(service.spotifySessionLogin({ 'x-spotify-login-secret': LOGIN_SECRET }))).not.toBe(200);
+        expect(await statusOf(service.confirmAired({ item: 'item-1' }, { 'x-playout-secret': 'not-the-bridge-secret' }))).toBe(401);
     });
 });

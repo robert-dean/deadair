@@ -78,31 +78,10 @@ operation /playout/stop: {
 
 # ── The stream container's half ────────────────────────────────────────────────────────
 #
-# Both are declared `internal` so they generate into the router but never into the SDK:
-# the SPA has no business calling either, and the only clients are processes in the stream
-# container. `security: none` because neither caller is an actor or holds a session — each
-# presents a shared secret instead, which the service checks in constant time.
-
-# The track shim's bootstrap. It opens its Spotify session lazily, on its first fetch, by
-# asking here for the account already linked in the console — so there is no second set of
-# credentials anywhere, and the token flows machine-to-machine without touching a browser.
-#
-# Gated on its own secret rather than the playout one: this hands out an access token, while
-# the bridge secret only moves item ids around, and a shim that leaked one should not also
-# be able to drain the other.
-operation(internal) /playout/spotify/session-login: {
-    get: { # Mints a login for the station-side track shim from the connected Spotify plugin
-        name: Spotify session login
-        service: PlayoutService.spotifySessionLogin
-        security: none
-        headers: SpotifyLoginHeaders
-        response: {
-            200: {
-                application/json: SpotifySessionLogin
-            }
-        }
-    }
-}
+# Declared `internal` so it generates into the router but never into the SDK: the SPA has
+# no business calling it, and the only client is a process in the stream container.
+# `security: none` because that caller is not an actor and holds no session — it presents a
+# shared secret instead, which the service checks in constant time.
 
 # Liquidsoap's air confirmation, gated on the bridge secret — the same one the app presents
 # when pushing to its /control/* endpoints, materialized into radio.env by the stream module.

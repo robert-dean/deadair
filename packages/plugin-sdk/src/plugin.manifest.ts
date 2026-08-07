@@ -21,11 +21,10 @@ export type PluginKind = KnownPluginKind | (string & Record<never, never>);
 export const PLUGIN_CAPABILITY_CATALOG = 'catalog';
 
 /**
- * The plugin can get the station audio to play, by minting a URL
- * (`resolveStreamUrl`) or by lending a station-side helper a login
- * (`getSessionCredentials`). Separate from {@link PLUGIN_CAPABILITY_CATALOG} so
- * a manifest can say it: "will fetch audio from your server" is a thing an
- * operator should read before installing, and it used to be invisible.
+ * The plugin can get the station audio to play (`resolveStreamUrl`). Separate
+ * from {@link PLUGIN_CAPABILITY_CATALOG} so a manifest can say it: "will fetch
+ * audio from your server" is a thing an operator should read before installing,
+ * and it used to be invisible.
  */
 export const PLUGIN_CAPABILITY_STREAM = 'stream';
 

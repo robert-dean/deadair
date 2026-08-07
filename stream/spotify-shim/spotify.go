@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -178,7 +177,7 @@ func (h *sessionHolder) noteFailure() {
 // Log in as the station's account and stand up the two clients a fetch needs. This mirrors
 // session.NewSessionFromOptions, minus the dealer, mercury and the event manager: nothing here
 // registers a Connect device or announces a player, which is the point. The account is the same
-// one the console is linked to: the app hands out its login (see loginCredentials).
+// one the console is linked to: the app pushes its login (see pushedCredentials).
 func connect(ctx context.Context, log librespot.Logger, client *http.Client, username, token string) (*session, error) {
 	deviceId, err := randomDeviceId()
 	if err != nil {
@@ -229,8 +228,8 @@ func connect(ctx context.Context, log librespot.Logger, client *http.Client, use
 
 // ── credentials ──────────────────────────────────────────────────────────────
 
-// Where a login comes from. Two implementations: the app's login route (how the container runs) and a
-// fixed pair passed on the command line (how an operator debugs one track).
+// Where a login comes from. Two implementations: whatever the app last pushed (how the container
+// runs) and a fixed pair passed on the command line (how an operator debugs one track).
 type credentialSource interface {
 	fetch(ctx context.Context, client *http.Client) (username, token string, err error)
 }
@@ -241,8 +240,8 @@ type credentialSource interface {
 // login on the way past. A push therefore lands minutes before the fetch it is for, which is what
 // makes a stored token safe to reuse — it is never much older than the track it opens.
 //
-// `fallback` is whatever source was configured at startup, used until the first push arrives, so a
-// shim that comes up beside an app that does not push yet still works.
+// `fallback` is whatever was passed on the command line, used until the first push arrives, so
+// one-shot mode works with no app in the picture at all.
 type pushedCredentials struct {
 	mu        sync.Mutex
 	username  string
@@ -285,58 +284,9 @@ type staticCredentials struct{ username, token string }
 
 func (c staticCredentials) fetch(context.Context, *http.Client) (string, string, error) {
 	if c.username == "" || c.token == "" {
-		return "", "", fmt.Errorf("no credentials: pass -username and -token, or -login-url to fetch them")
+		return "", "", fmt.Errorf("no credentials: wait for the app to push a login, or pass -username and -token")
 	}
 	return c.username, c.token, nil
-}
-
-// Asks the app's internal, secret-gated login route for a username + access token, so the shim
-// uses the account already linked in the console rather than a second set of secrets.
-type loginCredentials struct{ url, secret string }
-
-func (c loginCredentials) fetch(ctx context.Context, client *http.Client) (string, string, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.url, nil)
-	if err != nil {
-		return "", "", fmt.Errorf("invalid login url: %w", err)
-	}
-	req.Header.Set("X-Spotify-Login-Secret", c.secret)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("login request failed (is the app up?): %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	switch resp.StatusCode {
-	case 200:
-	case 204:
-		// Kept as a valid "nothing to give you" answer. The app currently prefers a 503 for
-		// that case, which carries a reason a human can act on; this stays so an older or
-		// newer app answering 204 is still reported rather than falling to the default.
-		return "", "", fmt.Errorf("login route answered 204: the app has no Spotify login to mint")
-	case 401:
-		return "", "", fmt.Errorf("login route answered 401: the secret did not match stream.spotifyLoginSecret (it is SPOTIFY_LOGIN_SECRET in the materialized radio.env; rebuild the stream image if this container predates that rename)")
-	case 404:
-		return "", "", fmt.Errorf("login route answered 404: no login secret is seeded yet, so the endpoint is disabled")
-	case 503:
-		// The plugin is installed but not usable yet: not running, or nobody has authorised
-		// Spotify in the console. Retryable, which the caller's backoff already handles.
-		return "", "", fmt.Errorf("login route answered 503: Spotify is not connected in the console, so no login can be minted")
-	default:
-		return "", "", fmt.Errorf("login route returned %d", resp.StatusCode)
-	}
-
-	var body struct {
-		Username    string `json:"username"`
-		AccessToken string `json:"accessToken"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", "", fmt.Errorf("failed decoding the login response: %w", err)
-	}
-	if body.Username == "" || body.AccessToken == "" {
-		return "", "", fmt.Errorf("login response carried no username/accessToken")
-	}
-	return body.Username, body.AccessToken, nil
 }
 
 // A client token for the spclient calls. Copied from session.retrieveClientToken, which is

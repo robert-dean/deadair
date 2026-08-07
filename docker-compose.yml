@@ -118,17 +118,11 @@ services:
         image: deadair-liquidsoap
         container_name: deadair-liquidsoap
         restart: unless-stopped
-        # Reach the host-run app (pnpm dev) for the Spotify login the shim opens its session with.
-        # Override SPOTIFY_LOGIN_URL to http://app:3333/... when running the app in-container
-        # (--profile app). No /api prefix: the API mounts its routers at the root, and the prefix
-        # the SPA uses is added and stripped by the dev proxy in front of it.
-        # No SPOTIFY_LOGIN_SECRET here: the app seeds it in the DB and
-        # materializes it into radio.env, which the entrypoint sources (`set -a`), so the shim
-        # inherits it — no host export or compose env needed.
-        extra_hosts:
-            - 'host.docker.internal:host-gateway'
-        environment:
-            SPOTIFY_LOGIN_URL: ${SPOTIFY_LOGIN_URL:-http://host.docker.internal:3333/playout/spotify/session-login}
+        # Nothing to configure for the Spotify login: the app PUSHES one to the shim's
+        # POST /session as it resolves each track, gated on SPOTIFY_SHIM_SECRET, which the
+        # app seeds in the DB and materializes into radio.env for the entrypoint to source
+        # (`set -a`). So the shim needs no host export, no compose env, and no route back
+        # to the app at all.
         # 8005 is the harbor voice input: the host-run app (pnpm dev) pushes rendered DJ
         # audio to http://127.0.0.1:8005/dj; the in-container app reaches it as liquidsoap:8005.
         # Must match HARBOR_PORT in radio.env. The playout control endpoints (/control/status,
@@ -136,7 +130,8 @@ services:
         # since harbor dispatches by path. localhost-only — never expose the harbor publicly.
         # 3679 is the Spotify track shim (stream/spotify-shim): the app resolves a rundown item to
         # a signed URL on it, and Liquidsoap downloads the track from it ahead of air. Published on
-        # localhost so a host-run app (pnpm dev) can reach it for diagnostics.
+        # localhost so a host-run app (pnpm dev) can reach it — to push the Spotify login, and for
+        # diagnostics. An app in the compose network uses SPOTIFY_SHIM_CONTROL_URL instead.
         ports:
             - '127.0.0.1:3679:3679'
             - '127.0.0.1:8005:8005'

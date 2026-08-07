@@ -48,8 +48,9 @@ describe('asStreamPlugin', () => {
         // Including the ones with no URL of their own: Spotify's plugin lends the
         // shim a login through `host.trackFetcher` and returns the URL that comes
         // back, so from here it is a provider that resolves a URL like any other.
+        // There is no second route to ask about, which is the point.
         expect(implementsStream(manifest(['stream']), { resolveStreamUrl })).toBe(true);
-        expect(implementsStream(manifest(['stream']), { getSessionCredentials: async () => undefined })).toBe(false);
+        expect(implementsStream(manifest(['stream']), { play: async () => {} })).toBe(false);
     });
 });
 

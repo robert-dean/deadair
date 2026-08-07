@@ -173,7 +173,7 @@ export function writeStreamConfig({
             // Materialized here rather than set on the container so the track shim inherits
             // it from the entrypoint's `set -a; . radio.env`, and the app validates the
             // header against the same stored value. One source of truth, no compose env.
-            `SPOTIFY_LOGIN_SECRET=${shell(settings.spotifyLoginSecret ?? '')}`,
+            `SPOTIFY_SHIM_SECRET=${shell(settings.spotifyShimSecret ?? '')}`,
             // The playout bridge. The app pushes items to /control/*, which is gated on this
             // secret; AIRED_URL is the other direction, since an item is pushed and
             // downloaded one item AHEAD of air and only Liquidsoap knows when it started.

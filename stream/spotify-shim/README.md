@@ -36,8 +36,7 @@ Its config comes from the process env, which the entrypoint sources from `radio.
 | | |
 | --- | --- |
 | `PLAYOUT_BRIDGE_SECRET` | signs track URLs; the same secret gating `/control/*` |
-| `SPOTIFY_LOGIN_URL` | the app's login route, for Spotify credentials (set in compose) |
-| `SPOTIFY_LOGIN_SECRET` | gates `POST /session`, and the app's login route it falls back to |
+| `SPOTIFY_SHIM_SECRET` | gates `POST /session`, where the app hands over a Spotify login |
 | `SHIM_ADDR` | listen address, default `:3679` |
 
 Note that `docker compose exec` does NOT inherit the entrypoint shell's sourced `radio.env`, so an
@@ -78,8 +77,8 @@ accesspoint connection has gone is a request failing on it. Failures back off so
 become a reconnect storm, and a push carrying new credentials clears that backoff, since new
 credentials are exactly what a rejected login might have been waiting for.
 
-Until the first push arrives the shim falls back to whatever it was started with: the app's login
-route (`-login-url`), or a `-username`/`-token` pair given on the command line.
+Until the first push arrives the shim falls back to a `-username`/`-token` pair given on the
+command line, which is what makes one-shot mode work with no app in the picture at all.
 
 ## Build (standalone)
 
@@ -96,16 +95,16 @@ is compiled against that tag's internals, so a bump is a real compatibility even
 
 ## Run one track by hand
 
-`-uri` switches to one-shot mode: fetch a single track and exit, which is how you answer "is the
-login working, and is this track fetchable?" without involving Liquidsoap or the app. Credentials
-come from the app's internal login route, so it uses the account already linked in the console:
+`-uri` switches to one-shot mode: fetch a single track and exit, which is how you answer "is this
+login working, and is this track fetchable?" without involving Liquidsoap or the app. Nothing
+pushes to a one-shot process, so it takes the login on the command line:
 
 ```bash
-/tmp/deadair-shim -uri spotify:track:4PTG3Z6ehGkBFwjybzWkR8 -login-url http://localhost:3333/api/playout/spotify/session-login -login-secret "$SPOTIFY_LOGIN_SECRET" -o /tmp/track.ogg -v
+/tmp/deadair-shim -uri spotify:track:4PTG3Z6ehGkBFwjybzWkR8 -username "$SPOTIFY_ACCOUNT_ID" -token "$SPOTIFY_ACCESS_TOKEN" -o /tmp/track.ogg -v
 ```
 
-Note `-login-secret` gates that route; `-secret` is the one that signs track URLs. Or pass
-`-username` / `-token` directly to skip the login route. Then confirm it is real audio:
+Note `-shim-secret` gates `POST /session`; `-secret` is the one that signs track URLs, and neither
+is involved here. Then confirm it is real audio:
 
 ```bash
 ffplay -autoexit /tmp/track.ogg

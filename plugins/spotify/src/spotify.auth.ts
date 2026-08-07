@@ -140,12 +140,12 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
 
     /**
      * A live access token and its expiry, for the station-side helper that opens
-     * its own Spotify session (see `getSessionCredentials` on the plugin).
+     * its own Spotify session (see `resolveStreamUrl` on the plugin).
      *
      * Resolves to `undefined` when nothing is stored, rather than throwing the
-     * way {@link resolveBearer} does: the helper asks on its first fetch, which
-     * may well be before anyone has authorised the plugin, and "not connected
-     * yet" is an ordinary answer there rather than a failure.
+     * way {@link resolveBearer} does: a track is resolved whenever one is due,
+     * which may well be before anyone has authorised the plugin, and "not
+     * connected yet" is an ordinary answer there rather than a failure.
      *
      * A stored-but-stale token is still refreshed, because handing the helper an
      * expired one would fail inside a different process with no way back here.

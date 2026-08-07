@@ -174,21 +174,20 @@ the shim is built against that tag's internals, so a bump is a real compatibilit
 
 ### 2. Log in via the console (no separate Spotify login)
 
-The shim bootstraps its login from the account you already linked in the console. On its first
-fetch it asks the app's **internal, secret-gated login route**
-(`GET /playout/spotify/session-login`, JSON) for a username + access token and opens its own
-session with them. The token flows machine-to-machine and is never shown in the browser. No Connect
-device is registered.
+The shim gets its login from the account you already linked in the console. Every time the app
+resolves a Spotify item it **pushes** a username + access token to the shim's secret-gated
+`POST /session`, so the shim always holds a token no older than the track it is about to fetch. The
+token flows machine-to-machine and is never shown in the browser. No Connect device is registered.
 
 That secret needs **no manual setup**: on first boot the app seeds a strong random
-`stream.spotifyLoginSecret` in the DB (alongside the Icecast/harbor secrets, see
-`ensureStreamSecrets`), validates the shim's `X-Spotify-Login-Secret` header against it, and
-materializes the same value into `radio.env` as `SPOTIFY_LOGIN_SECRET`.
+`stream.spotifyShimSecret` in the DB (alongside the Icecast/harbor secrets, see
+`ensureStreamSecrets`), presents it as `X-Spotify-Login-Secret` on every push, and materializes the
+same value into `radio.env` as `SPOTIFY_SHIM_SECRET` for the shim to check it against.
 
-The session is built **lazily** on the first track fetch and rebuilt after a failure — the
-container comes up before the app that mints credentials, a station playing another source never
-needs a Spotify login at all, and the only reliable signal that a session has gone is a fetch
-failing on it.
+The session is built **lazily** — warmed in the background when a push lands, opened on the first
+fetch otherwise — and rebuilt after a failure. The container comes up before the app that mints
+credentials, a station playing another source never needs a Spotify login at all, and the only
+reliable signal that a session has gone is a fetch failing on it.
 
 ### 3. Play something
 

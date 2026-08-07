@@ -49,8 +49,8 @@ export const StreamModule: ServerKitModule = {
 
             // After the seed, so a first boot hands over the secrets it just wrote
             // rather than the empty pair it read a moment earlier.
-            const { playoutBridgeSecret, spotifyLoginSecret } = await stream.settings();
-            container.get(SpotifyShimClient).useSecrets(playoutBridgeSecret ?? '', spotifyLoginSecret ?? '');
+            const { playoutBridgeSecret, spotifyShimSecret } = await stream.settings();
+            container.get(SpotifyShimClient).useSecrets(playoutBridgeSecret ?? '', spotifyShimSecret ?? '');
         } finally {
             await scope.disposeAsync();
         }

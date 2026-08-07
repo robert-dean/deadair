@@ -28,6 +28,32 @@ export const RATE_PER_SECOND = 10;
 export const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
+ * The most items this plugin will ask for in one call.
+ *
+ * Subsonic's own ceiling for `search3` counts is 500. The host asks in pages of
+ * fifty, so this is a guard against a caller asking for the whole library at
+ * once rather than a number anything normally reaches.
+ */
+export const MAX_PAGE_SIZE = 500;
+
+/**
+ * The id of the virtual playlist that is the whole library.
+ *
+ * A Subsonic server's only enumeration path through the SDK's catalog interface
+ * is playlists, and plenty of libraries have none — someone who rips their own
+ * CDs and lets deadair do the picking has a full library and an empty playlist
+ * list, and would sync nothing at all. So the plugin offers one playlist the
+ * server did not: every song, paged.
+ *
+ * Prefixed so it cannot collide with a real playlist id. Navidrome's are UUIDs,
+ * which never contain a colon.
+ */
+export const EVERYTHING_PLAYLIST_ID = 'navidrome:all';
+
+/** What that virtual playlist calls itself in the console. */
+export const EVERYTHING_PLAYLIST_NAME = 'Everything';
+
+/**
  * Formats the operator can ask Liquidsoap to be handed.
  *
  * `raw` is the default and means Navidrome sends the file as it is stored, which
@@ -56,8 +82,8 @@ export const navidromeManifest: PluginManifest = {
     // Grows with the methods that make each one true, never ahead of them: the
     // host requires a capability to be declared AND implemented, and a manifest
     // that promises one it cannot do is its author's bug rather than anything an
-    // operator can fix. `catalog` and `stream` land with the code behind them.
-    capabilities: [],
+    // operator can fix. `stream` lands with the code behind it.
+    capabilities: ['catalog'],
     apiVersion: '^1.0.0',
     description: 'Search and browse a Navidrome library, and air its tracks.',
     homepage: 'https://www.navidrome.org',

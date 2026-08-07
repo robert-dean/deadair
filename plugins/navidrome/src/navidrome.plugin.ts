@@ -1,5 +1,10 @@
 import {
     PluginError,
+    type AlbumEnrichment,
+    type AlbumRef,
+    type ArtistEnrichment,
+    type ArtistRef,
+    type EnrichmentMatchKey,
     type GetPlaylistTracksOptions,
     type ListPlaylistsOptions,
     type MusicProviderPluginInstance,
@@ -9,13 +14,34 @@ import {
     type ProviderStream,
     type ProviderTrack,
     type SearchTracksOptions,
+    type TrackEnrichment,
+    type TrackRef,
 } from '@deadair/plugin-sdk';
 
 import { SubsonicAuth } from './navidrome.auth.js';
 import { SubsonicClient, isNotFound } from './navidrome.client.js';
+import { mapAlbumEnrichment, mapArtistEnrichment, mapTrackEnrichment } from './navidrome.enrichment.js';
 import { mapPlaylist, mapTrack, mapTracks } from './navidrome.mapping.js';
-import { configSchema, EVERYTHING_PLAYLIST_ID, EVERYTHING_PLAYLIST_NAME, MAX_PAGE_SIZE, type NavidromeConfig } from './navidrome.manifest.js';
-import type { PingResponse, PlaylistResponse, PlaylistsResponse, SearchResponse, SongResponse, SubsonicChild } from './navidrome.types.js';
+import {
+    configSchema,
+    ENRICHMENT_CANDIDATES,
+    EVERYTHING_PLAYLIST_ID,
+    EVERYTHING_PLAYLIST_NAME,
+    MAX_PAGE_SIZE,
+    type NavidromeConfig,
+} from './navidrome.manifest.js';
+import { baseForm, normalize, selectSong } from './navidrome.match.js';
+import type {
+    AlbumResponse,
+    ArtistInfoResponse,
+    PingResponse,
+    PlaylistResponse,
+    PlaylistsResponse,
+    SearchResponse,
+    SongResponse,
+    SubsonicArtist,
+    SubsonicChild,
+} from './navidrome.types.js';
 
 export { navidromeManifest } from './navidrome.manifest.js';
 
@@ -211,6 +237,72 @@ export class NavidromePlugin implements MusicProviderPluginInstance {
         };
     }
 
+    // --- enrichment ----------------------------------------------------------
+
+    /**
+     * Supplementary, not canonical. MusicBrainz at 100 decides a spelling or a
+     * year when both have one; this fills the gaps, and for a track MusicBrainz
+     * has never heard of — a bootleg, a self-release, a local band — it is the
+     * only description that exists.
+     */
+    readonly priority = 600;
+
+    /** Subsonic exposes no ISRC, so artist-and-title is the only key there is. */
+    readonly matchKeys: EnrichmentMatchKey[] = ['artist-title'];
+
+    /**
+     * What the file's own tags say about a recording.
+     *
+     * `{}` for a track the library does not have, which is the common case on a
+     * station whose catalog also holds another provider's tracks. The host reads
+     * that as a miss and records it on a short clock rather than as a failure, so
+     * a track that is not here costs one search a week.
+     *
+     * Deliberately no `enrichTracks`. The batch method exists for a source paced
+     * at a request per second, where one query answering twenty-five tracks is
+     * the difference between one second and twenty-five. Subsonic has no bulk
+     * lookup at all, so a batch here would be twenty-five searches under a single
+     * chunk deadline instead of twenty-five under twenty-five — strictly worse,
+     * because a slow tail would throw away answers the per-ref path keeps.
+     */
+    async enrichTrack(ref: TrackRef): Promise<Partial<TrackEnrichment>> {
+        const song = await this.findSong(ref);
+        return song ? mapTrackEnrichment(song) : {};
+    }
+
+    /**
+     * What the server knows about an artist.
+     *
+     * `ref.providerRef` is this plugin's own id from last time, so a second pass
+     * is a lookup rather than another search. That is the whole reason the host
+     * hands it back.
+     */
+    async enrichArtist(ref: ArtistRef): Promise<Partial<ArtistEnrichment>> {
+        const artist = ref.providerRef ? { id: ref.providerRef, name: ref.name } : await this.findArtist(ref.name);
+        if (!artist?.id) return {};
+
+        // The biography and the image come from Navidrome's metadata agents, which
+        // may have nothing. Cheap enough to always ask, since the id is in hand.
+        const body = await this.require().get<ArtistInfoResponse>('getArtistInfo2.view', { id: artist.id });
+        return mapArtistEnrichment(artist, body.artistInfo2);
+    }
+
+    /** What the tags say about a record. Same `providerRef`-first shape. */
+    async enrichAlbum(ref: AlbumRef): Promise<Partial<AlbumEnrichment>> {
+        const albumId = ref.providerRef ?? (await this.findAlbumId(ref));
+        if (!albumId) return {};
+
+        try {
+            const body = await this.require().get<AlbumResponse>('getAlbum.view', { id: albumId });
+            return body.album ? mapAlbumEnrichment(body.album, this.artworkUrl(body.album)) : {};
+        } catch (error) {
+            // A stale `providerRef` — the record was removed, or the library was
+            // rescanned into new ids — is a miss, not a failure.
+            if (isNotFound(error)) return {};
+            throw error;
+        }
+    }
+
     async dispose(): Promise<void> {
         this.client = undefined;
         this.config = undefined;
@@ -218,6 +310,55 @@ export class NavidromePlugin implements MusicProviderPluginInstance {
     }
 
     // --- plumbing ------------------------------------------------------------
+
+    /**
+     * The song in the library that is the track being asked about, if any.
+     *
+     * Searched by artist and title together, then scored: Subsonic search is a
+     * substring match with no useful relevance order, so taking the first result
+     * would attribute a live version's tags to the album track. See
+     * {@link selectSong} for what counts as convincing.
+     */
+    private async findSong(ref: TrackRef): Promise<SubsonicChild | undefined> {
+        const body = await this.require().get<SearchResponse>('search3.view', {
+            query: `${ref.artist} ${ref.title}`,
+            songCount: ENRICHMENT_CANDIDATES,
+            artistCount: 0,
+            albumCount: 0,
+        });
+
+        return selectSong(body.searchResult3?.song, { artist: ref.artist, title: ref.title, album: ref.album });
+    }
+
+    /** The artist by that name, when the library has exactly one convincing candidate. */
+    private async findArtist(name: string): Promise<SubsonicArtist | undefined> {
+        const body = await this.require().get<SearchResponse>('search3.view', {
+            query: name,
+            artistCount: ENRICHMENT_CANDIDATES,
+            albumCount: 0,
+            songCount: 0,
+        });
+
+        const wanted = normalize(name);
+        return (body.searchResult3?.artist ?? []).find(candidate => candidate.id && candidate.name && normalize(candidate.name) === wanted);
+    }
+
+    /** The record's id, matched on title and artist so a same-named record by someone else is not it. */
+    private async findAlbumId(ref: AlbumRef): Promise<string | undefined> {
+        const body = await this.require().get<SearchResponse>('search3.view', {
+            query: `${ref.artist} ${ref.name}`,
+            albumCount: ENRICHMENT_CANDIDATES,
+            artistCount: 0,
+            songCount: 0,
+        });
+
+        const wantedName = baseForm(ref.name);
+        const wantedArtist = normalize(ref.artist);
+        return (body.searchResult3?.album ?? []).find(
+            candidate =>
+                candidate.id && candidate.name && baseForm(candidate.name) === wantedName && normalize(candidate.artist ?? '') === wantedArtist,
+        )?.id;
+    }
 
     /** Songs as `ProviderTrack`s, each with its cover art URL minted. */
     private toTracks(songs: SubsonicChild[] | undefined): ProviderTrack[] {

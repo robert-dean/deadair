@@ -29,6 +29,31 @@ picking is a complete setup with an empty playlist list. So this plugin offers
 one playlist the server did not: **Everything**, which is the whole library,
 paged. It appears after your real playlists.
 
+## It also enriches
+
+The same plugin is an enrichment source, because your files carry facts no
+external service has: a bootleg, a self-release, a local band, a compilation
+somebody tagged by hand. MusicBrainz has never heard of any of them, and the
+tags are the only description that exists.
+
+It sorts at priority **600**, which is supplementary — MusicBrainz at 100 wins
+when both have an opinion, and this fills the gaps. It matches on artist and
+title, since Subsonic exposes no ISRC, and scores the candidates rather than
+taking the first result: a library holding an album track, a live version and a
+greatest-hits copy returns all three, and the right one is not reliably first.
+
+A track the library does not have gets an empty answer, which the host records
+as a miss on a short clock rather than as a failure. So enriching a catalog that
+is mostly some other provider's tracks costs one search per track per week, not
+a stream of errors.
+
+There is deliberately no batch form. `enrichTracks` exists for sources paced at
+a request per second, where one query answering twenty-five tracks is the
+difference between one second and twenty-five. Subsonic has no bulk lookup, so a
+batch here would be twenty-five searches under a single deadline instead of
+twenty-five under twenty-five — strictly worse, since a slow tail would throw
+away answers the per-track path keeps.
+
 ## What it does not do
 
 No `steer`. That capability is for a provider that owns its own audio output and

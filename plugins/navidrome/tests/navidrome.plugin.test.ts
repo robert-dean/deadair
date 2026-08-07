@@ -278,3 +278,121 @@ describe('resolveStreamUrl', () => {
         expect(host.calls).toHaveLength(0);
     });
 });
+
+describe('enrichTrack', () => {
+    const ref = { artist: 'Portishead', title: 'Roads', album: 'Dummy' };
+
+    it('scores the candidates rather than trusting the first one back', async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(
+            ok({
+                searchResult3: {
+                    song: [
+                        { id: 'live', title: 'Roads - Live', artist: 'Portishead', year: 1998 },
+                        { id: 'album', title: 'Roads', artist: 'Portishead', album: 'Dummy', year: 1994 },
+                    ],
+                },
+            }),
+        );
+
+        const enrichment = await plugin.enrichTrack(ref);
+
+        expect(enrichment.providerRef).toBe('album');
+        expect(enrichment.year).toBe(1994);
+    });
+
+    it('says nothing about a track the library does not have', async () => {
+        // A station whose catalog also holds another provider's tracks asks about
+        // all of them. The host reads `{}` as a miss on a short clock, not a
+        // failure, so a track that is not here costs one search a week.
+        const { host, plugin } = await build();
+        host.queueResponse(ok({ searchResult3: { song: [{ id: 'other', title: 'Roads', artist: 'Someone Else' }] } }));
+
+        await expect(plugin.enrichTrack(ref)).resolves.toEqual({});
+    });
+
+    it('asks in one search rather than one per field', async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(ok({ searchResult3: { song: [] } }));
+
+        await plugin.enrichTrack(ref);
+
+        expect(host.calls).toHaveLength(1);
+        expect(paramsOf(host).get('query')).toBe('Portishead Roads');
+    });
+
+    it('declares no batch form, because Subsonic has no bulk lookup to batch onto', async () => {
+        // The batch method exists for a source paced at a request per second. Here
+        // it would be N searches under one chunk deadline instead of N under N.
+        const { plugin } = await build();
+
+        expect((plugin as unknown as { enrichTracks?: unknown }).enrichTracks).toBeUndefined();
+        expect((plugin as unknown as { maxBatchSize?: unknown }).maxBatchSize).toBeUndefined();
+    });
+
+    it('sorts below MusicBrainz and matches on artist-and-title, since Subsonic has no ISRC', async () => {
+        const { plugin } = await build();
+
+        expect(plugin.priority).toBe(600);
+        expect(plugin.matchKeys).toEqual(['artist-title']);
+    });
+});
+
+describe('enrichArtist', () => {
+    it('reuses the ref it was handed instead of searching again', async () => {
+        // The whole point of the host giving it back: a second pass is a lookup.
+        const { host, plugin } = await build();
+        host.queueResponse(ok({ artistInfo2: { biography: 'Formed in Bristol in 1991.' } }));
+
+        const enrichment = await plugin.enrichArtist({ name: 'Portishead', providerRef: 'artist-1' });
+
+        expect(host.calls).toHaveLength(1);
+        expect(new URL(host.calls[0]!.url).pathname).toBe('/rest/getArtistInfo2.view');
+        expect(enrichment.biography).toBe('Formed in Bristol in 1991.');
+    });
+
+    it('searches when it has never answered about this artist before', async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(ok({ searchResult3: { artist: [{ id: 'artist-1', name: 'Portishead' }] } }));
+        host.queueResponse(ok({ artistInfo2: { largeImageUrl: 'http://large' } }));
+
+        const enrichment = await plugin.enrichArtist({ name: 'Portishead' });
+
+        expect(new URL(host.calls[0]!.url).pathname).toBe('/rest/search3.view');
+        expect(enrichment.providerRef).toBe('artist-1');
+    });
+
+    it('says nothing about an artist the library has never heard of', async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(ok({ searchResult3: { artist: [{ id: 'other', name: 'Someone Else' }] } }));
+
+        await expect(plugin.enrichArtist({ name: 'Portishead' })).resolves.toEqual({});
+    });
+});
+
+describe('enrichAlbum', () => {
+    it('looks the record up by the ref it kept', async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(ok({ album: { id: 'album-1', name: 'Dummy', artist: 'Portishead', year: 1994 } }));
+
+        const enrichment = await plugin.enrichAlbum({ name: 'Dummy', artist: 'Portishead', providerRef: 'album-1' });
+
+        expect(new URL(host.calls[0]!.url).pathname).toBe('/rest/getAlbum.view');
+        expect(enrichment.year).toBe(1994);
+    });
+
+    it('needs the artist to agree, so a same-named record by someone else is not it', async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(ok({ searchResult3: { album: [{ id: 'other', name: 'Dummy', artist: 'Someone Else' }] } }));
+
+        await expect(plugin.enrichAlbum({ name: 'Dummy', artist: 'Portishead' })).resolves.toEqual({});
+    });
+
+    it('treats a ref that has gone stale as a miss rather than a failure', async () => {
+        // A rescan can renumber a library, and records get deleted.
+        const { host, plugin } = await build();
+        host.queueResponse(failed(70, 'Album not found'));
+
+        await expect(plugin.enrichAlbum({ name: 'Dummy', artist: 'Portishead', providerRef: 'gone' })).resolves.toEqual({});
+    });
+});

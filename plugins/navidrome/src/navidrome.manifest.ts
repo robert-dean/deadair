@@ -54,6 +54,16 @@ export const EVERYTHING_PLAYLIST_ID = 'navidrome:all';
 export const EVERYTHING_PLAYLIST_NAME = 'Everything';
 
 /**
+ * Candidates an enrichment lookup asks for before scoring them.
+ *
+ * Subsonic search is a substring match in no useful order, so the answer is
+ * often not first: a library holding an album track, a live version and a
+ * greatest-hits copy returns all three. Deep enough to get past that run,
+ * shallow enough to stay one small response.
+ */
+export const ENRICHMENT_CANDIDATES = 10;
+
+/**
  * Formats the operator can ask Liquidsoap to be handed.
  *
  * `raw` is the default and means Navidrome sends the file as it is stored, which
@@ -82,10 +92,10 @@ export const navidromeManifest: PluginManifest = {
     // Grows with the methods that make each one true, never ahead of them: the
     // host requires a capability to be declared AND implemented, and a manifest
     // that promises one it cannot do is its author's bug rather than anything an
-    // operator can fix. `enrichment` lands with the code behind it.
-    capabilities: ['catalog', 'stream'],
+    // operator can fix.
+    capabilities: ['catalog', 'stream', 'enrichment'],
     apiVersion: '^1.0.0',
-    description: 'Search and browse a Navidrome library, and air its tracks.',
+    description: "Search and browse a Navidrome library, air its tracks, and read the facts in its files' tags.",
     homepage: 'https://www.navidrome.org',
     permissions: {
         // The operator names the server, so there is no hostname to write down at

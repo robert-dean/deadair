@@ -9,6 +9,7 @@ import { render, screen, waitFor } from '../../utils/render';
 const listArtists = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
+    BASE_URL: '/api',
     sdk: { catalog: { listArtists: (...args: unknown[]) => listArtists(...args) } },
 }));
 
@@ -22,7 +23,7 @@ vi.mock('@tanstack/react-router', () => ({
     ),
 }));
 
-const artist = (overrides: Partial<{ id: string; name: string; albumCount: number; trackCount: number }> = {}) => ({
+const artist = (overrides: Partial<{ id: string; name: string; albumCount: number; trackCount: number; imageUrl: string }> = {}) => ({
     id: '11111111-1111-4111-8111-111111111111',
     name: 'Sigur Rós',
     rating: 0,
@@ -53,6 +54,16 @@ describe('CatalogArtistsPage', () => {
         expect(screen.getByText('104')).toBeInTheDocument();
     });
 
+    it('shows an artist’s art, and stands in with an initial for one who has none', async () => {
+        listArtists.mockResolvedValue(page([artist({ imageUrl: 'art/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }), artist({ id: 'b', name: 'Mogwai' })]));
+
+        render(<CatalogArtistsPage page={0} search="" onPageChange={noop} onSearchChange={noop} />);
+
+        expect(await screen.findByRole('img', { name: 'Sigur Rós' })).toHaveAttribute('src', '/api/art/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+        expect(screen.queryByRole('img', { name: 'Mogwai' })).not.toBeInTheDocument();
+        expect(screen.getByText('M')).toBeInTheDocument();
+    });
+
     it('says the catalog is empty, not that a search missed, when nothing has been ingested', async () => {
         listArtists.mockResolvedValue(page([]));
 
@@ -70,7 +81,9 @@ describe('CatalogArtistsPage', () => {
     });
 
     it('surfaces a failed read as an alert rather than an empty catalog', async () => {
-        listArtists.mockRejectedValue(new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'the database is unreachable' }, new Headers()));
+        listArtists.mockRejectedValue(
+            new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'the database is unreachable' }, new Headers()),
+        );
 
         render(<CatalogArtistsPage page={0} search="" onPageChange={noop} onSearchChange={noop} />);
 

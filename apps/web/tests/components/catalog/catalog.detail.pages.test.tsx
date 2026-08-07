@@ -12,6 +12,7 @@ const getAlbum = vi.fn();
 const listAlbumTracks = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
+    BASE_URL: '/api',
     sdk: {
         catalog: {
             getArtist: (...args: unknown[]) => getArtist(...args),
@@ -44,7 +45,9 @@ afterEach(() => {
 describe('ArtistDetailPage', () => {
     it('heads the page with the artist and lists their albums', async () => {
         getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 0, albumCount: 1, trackCount: 11 });
-        listArtistAlbums.mockResolvedValue(page([{ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 0, trackCount: 8 }]));
+        listArtistAlbums.mockResolvedValue(
+            page([{ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 0, trackCount: 8 }]),
+        );
 
         render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
 
@@ -52,6 +55,29 @@ describe('ArtistDetailPage', () => {
         expect(screen.getByText('1 album • 11 tracks')).toBeInTheDocument();
         expect(await screen.findByText('( )')).toBeInTheDocument();
         expect(screen.getByText('2002')).toBeInTheDocument();
+    });
+
+    it('heads the page with the artist’s art and puts a cover against each album', async () => {
+        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 0, albumCount: 1, trackCount: 11, imageUrl: 'art/aaaa' });
+        listArtistAlbums.mockResolvedValue(
+            page([
+                {
+                    id: ALBUM_ID,
+                    name: '( )',
+                    artistId: ARTIST_ID,
+                    artistName: 'Sigur Rós',
+                    year: 2002,
+                    rating: 0,
+                    trackCount: 8,
+                    imageUrl: 'art/bbbb',
+                },
+            ]),
+        );
+
+        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+
+        expect(await screen.findByRole('img', { name: 'Sigur Rós' })).toHaveAttribute('src', '/api/art/aaaa');
+        expect(await screen.findByRole('img', { name: '( )' })).toHaveAttribute('src', '/api/art/bbbb');
     });
 
     it('says an artist with no albums may still have tracks, rather than implying they have nothing', async () => {
@@ -99,6 +125,16 @@ describe('AlbumDetailPage', () => {
         expect(await screen.findByText('Vaka')).toBeInTheDocument();
         expect(screen.getByText('6:34')).toBeInTheDocument();
         expect(screen.getByText('Back to Sigur Rós')).toBeInTheDocument();
+    });
+
+    it('heads the page with the cover, and with an initial for a record that has none', async () => {
+        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 0, trackCount: 0 });
+        listAlbumTracks.mockResolvedValue(page([]));
+
+        render(<AlbumDetailPage albumId={ALBUM_ID} page={0} onPageChange={noop} />);
+
+        expect(await screen.findByText('(')).toBeInTheDocument();
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
     });
 
     it('renders a track with no duration as a blank cell rather than 0:00', async () => {

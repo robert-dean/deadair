@@ -8,6 +8,7 @@ import { render, screen } from '../../utils/render';
 const listTracks = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
+    BASE_URL: '/api',
     sdk: { catalog: { listTracks: (...args: unknown[]) => listTracks(...args) } },
 }));
 
@@ -44,6 +45,22 @@ afterEach(() => {
 });
 
 describe('CatalogTracksPage', () => {
+    // A recording has no art of its own, so the thumbnail is the record's, and a single filed
+    // outside any release has none to borrow.
+    it('shows the record’s cover against a track, and nothing against one that has no record', async () => {
+        listTracks.mockResolvedValue(
+            page([
+                track({ albumImageUrl: 'https://i.scdn.co/image/abc' }),
+                track({ id: 'b', title: 'Untitled', albumId: undefined, albumName: undefined, albumImageUrl: undefined }),
+            ]),
+        );
+
+        render(<CatalogTracksPage page={0} search="" onPageChange={noop} onSearchChange={noop} />);
+
+        expect(await screen.findByRole('img', { name: '( )' })).toHaveAttribute('src', 'https://i.scdn.co/image/abc');
+        expect(screen.queryByRole('img', { name: 'Untitled' })).not.toBeInTheDocument();
+    });
+
     it('renders the title, artist, album and duration of each track', async () => {
         listTracks.mockResolvedValue(page([track()]));
 

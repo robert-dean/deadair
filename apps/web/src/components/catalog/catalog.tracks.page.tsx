@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CATALOG_PAGE_SIZE, catalogTracksOptions } from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { formatDuration } from '../shared/format.duration';
+import { Artwork } from './artwork';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
 
@@ -67,6 +68,7 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
                     <Table highlightOnHover>
                         <Table.Thead>
                             <Table.Tr>
+                                <Table.Th w={52} />
                                 <Table.Th>Title</Table.Th>
                                 <Table.Th>Artist</Table.Th>
                                 <Table.Th>Album</Table.Th>
@@ -76,9 +78,18 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
                         <Table.Tbody>
                             {rows.map(track => (
                                 <Table.Tr key={track.id}>
+                                    {/* The record's cover, since nothing hangs art off a recording. Blank for a
+                                        single ingested outside any release, which has no record to borrow from. */}
+                                    <Table.Td>
+                                        <Artwork src={track.albumImageUrl} alt={track.albumName ?? track.title} size={36} />
+                                    </Table.Td>
                                     <Table.Td>{track.title}</Table.Td>
                                     <Table.Td>
-                                        <Anchor renderRoot={props => <Link to="/catalog/artists/$artistId" params={{ artistId: track.artistId }} {...props} />}>
+                                        <Anchor
+                                            renderRoot={props => (
+                                                <Link to="/catalog/artists/$artistId" params={{ artistId: track.artistId }} {...props} />
+                                            )}
+                                        >
                                             {track.artistName}
                                         </Anchor>
                                     </Table.Td>
@@ -89,7 +100,9 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
                                             ''
                                         ) : (
                                             <Anchor
-                                                renderRoot={props => <Link to="/catalog/albums/$albumId" params={{ albumId: track.albumId }} {...props} />}
+                                                renderRoot={props => (
+                                                    <Link to="/catalog/albums/$albumId" params={{ albumId: track.albumId }} {...props} />
+                                                )}
                                             >
                                                 {track.albumName}
                                             </Anchor>

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { CATALOG_PAGE_SIZE, catalogArtistsOptions } from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { Artwork } from './artwork';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
 
@@ -62,6 +63,7 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
                     <Table highlightOnHover>
                         <Table.Thead>
                             <Table.Tr>
+                                <Table.Th w={56} />
                                 <Table.Th>Artist</Table.Th>
                                 <Table.Th w={120}>Albums</Table.Th>
                                 <Table.Th w={120}>Tracks</Table.Th>
@@ -71,9 +73,14 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
                             {rows.map(artist => (
                                 <Table.Tr key={artist.id}>
                                     <Table.Td>
+                                        <Artwork src={artist.imageUrl} alt={artist.name} size={40} />
+                                    </Table.Td>
+                                    <Table.Td>
                                         {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
                                             the router's own types, and with them the check that `params` matches the path. */}
-                                        <Anchor renderRoot={props => <Link to="/catalog/artists/$artistId" params={{ artistId: artist.id }} {...props} />}>
+                                        <Anchor
+                                            renderRoot={props => <Link to="/catalog/artists/$artistId" params={{ artistId: artist.id }} {...props} />}
+                                        >
                                             {artist.name}
                                         </Anchor>
                                     </Table.Td>

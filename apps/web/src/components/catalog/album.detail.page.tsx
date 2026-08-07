@@ -1,10 +1,11 @@
-import { Alert, Anchor, Card, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { CATALOG_PAGE_SIZE, catalogAlbumOptions, catalogAlbumTracksOptions } from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { formatDuration } from '../shared/format.duration';
+import { Artwork } from './artwork';
 import { CatalogPagination } from './catalog.pagination';
 
 export interface AlbumDetailPageProps {
@@ -20,26 +21,32 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
-                    router's own types, and with them the check that `params` matches the path. */}
-                {album.data ? (
-                    <Anchor renderRoot={props => <Link to="/catalog/artists/$artistId" params={{ artistId: album.data.artistId }} {...props} />} size="sm">
-                        {`Back to ${album.data.artistName}`}
-                    </Anchor>
-                ) : (
-                    <Anchor renderRoot={props => <Link to="/catalog" {...props} />} size="sm">
-                        Back to catalog
-                    </Anchor>
-                )}
-                <Title order={1}>{album.data?.name ?? 'Album'}</Title>
-                {album.data ? (
-                    <Text c="dimmed" size="sm">
-                        {album.data.artistName}
-                        {album.data.year === undefined ? '' : ` • ${album.data.year}`}
-                    </Text>
-                ) : undefined}
-            </Stack>
+            <Group align="flex-start" gap="md" wrap="nowrap">
+                {album.data ? <Artwork src={album.data.imageUrl} alt={album.data.name} size={160} /> : undefined}
+                <Stack gap={4}>
+                    {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
+                        router's own types, and with them the check that `params` matches the path. */}
+                    {album.data ? (
+                        <Anchor
+                            renderRoot={props => <Link to="/catalog/artists/$artistId" params={{ artistId: album.data.artistId }} {...props} />}
+                            size="sm"
+                        >
+                            {`Back to ${album.data.artistName}`}
+                        </Anchor>
+                    ) : (
+                        <Anchor renderRoot={props => <Link to="/catalog" {...props} />} size="sm">
+                            Back to catalog
+                        </Anchor>
+                    )}
+                    <Title order={1}>{album.data?.name ?? 'Album'}</Title>
+                    {album.data ? (
+                        <Text c="dimmed" size="sm">
+                            {album.data.artistName}
+                            {album.data.year === undefined ? '' : ` • ${album.data.year}`}
+                        </Text>
+                    ) : undefined}
+                </Stack>
+            </Group>
 
             {album.error ? (
                 <Alert color="red" title="This album could not be loaded">

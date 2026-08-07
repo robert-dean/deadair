@@ -7,14 +7,23 @@ import { EnrichmentService } from './enrichment.service.js';
 /**
  * Rows examined per run, per kind.
  *
- * Small, because the clock here belongs to the upstream: MusicBrainz asks
- * anonymous clients for one request per second and a track costs a few, so this
- * is really a statement that a run takes a couple of minutes rather than a
- * quarter of an hour. Sized to finish comfortably inside the cron interval, so
- * two runs do not normally overlap — and if they ever do, every write on this
- * path is idempotent, so the cost is duplicated work rather than a wrong row.
+ * The clock here belongs to the upstream: MusicBrainz asks anonymous clients for
+ * one request per second, so this number is really a statement about how long a
+ * run takes. The arithmetic, worst case, with no plugin implementing a batch
+ * path — a track costs 2 requests, an artist 2, an album 3, so three passes of
+ * `n` rows cost `7n` seconds. At 75 that is about nine minutes inside a fifteen
+ * minute interval: one pass at a time, with room for the upstream to be slow.
+ *
+ * It was 25, which spent under three minutes of every fifteen and left the walk
+ * idle for the other twelve — a sixth of the allowance the public service
+ * actually grants. A plugin that implements `enrichTracks` collapses the track
+ * third of that to a handful of requests, which buys headroom rather than a
+ * bigger number here.
+ *
+ * If two runs ever do overlap, every write on this path is idempotent, so the
+ * cost is duplicated work rather than a wrong row.
  */
-const BATCH_SIZE = 25;
+const BATCH_SIZE = 75;
 
 export interface EnrichmentPayload {
     /** Overrides {@link BATCH_SIZE} for one run. Absent, as it always is from cron, means the default. */

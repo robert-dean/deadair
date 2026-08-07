@@ -66,9 +66,10 @@ export const JobMappings: Record<JobNames, JobMapping> = {
 
     // Every quarter hour, and also sent by the sync whenever it added tracks, so
     // a new arrival is described in minutes rather than waiting for a slow
-    // sweep. The interval is small because the batch is: an enrichment source
-    // paced at a request per second cannot be hurried, so throughput comes from
-    // running often rather than from running long.
+    // sweep. Throughput comes from the batch filling the interval rather than
+    // from running more often: an enrichment source paced at a request per
+    // second cannot be hurried, and a second run inside the same window would
+    // only queue behind the first on the same limiter.
     //
     // One run walks tracks, then artists, then albums, because the later passes
     // match on ids the track pass promotes.
@@ -76,12 +77,13 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // One retry, no dead-letter queue. A track that failed still has no fresh
     // enrichment row, so it is still outstanding and the next pass picks it up —
     // the work is its own record, and there is nothing a dead-letter row would
-    // preserve. `expiresIn` is comfortably above a full batch and below the
+    // preserve. `expiresIn` is comfortably above a full batch (see `BATCH_SIZE`
+    // in `enrichment.job.ts`, about nine minutes of paced requests) and below the
     // interval, so a wedged run is reclaimed before the next one starts.
     'catalog.enrich': {
         job: EnrichmentJob,
         cron: '*/15 * * * *',
-        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 10 }) },
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 12 }) },
     },
 
     // Every ten minutes, and also sent by the sync whenever it added tracks, so a new arrival's

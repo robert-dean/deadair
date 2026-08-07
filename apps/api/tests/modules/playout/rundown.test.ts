@@ -341,6 +341,41 @@ describe('Rundown.load and reset', () => {
         expect(rundown.hasProgramme()).toBe(true);
     });
 
+    it('does not report the item it just stood down on as an id from another session', async () => {
+        // Stop drops what is on air here, but Liquidsoap skips in its streaming loop
+        // rather than in the request that asked for it, so the very next reading can
+        // still name that item. Treating that as an unexplainable id prints a
+        // diagnostic for a foreign Liquidsoap every single time an operator presses
+        // Stop, which sends them looking for a fault that did not happen.
+        const rundown = rundownWith(['a']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        rundown.reset();
+        vi.mocked(logger.warn).mockClear();
+
+        rundown.reconcile({ queued: 0, ready: true, onAir: pulled!.item.id });
+
+        expect(logger.warn).not.toHaveBeenCalled();
+        // Still stood down: it is nobody's running order now, it is just not a fault.
+        expect(rundown.nowPlaying()).toBeUndefined();
+        expect(rundown.hasProgramme()).toBe(false);
+    });
+
+    it('still reports an id from a session before this process started', async () => {
+        // The suppression above is scoped to ids this process handed over, so the
+        // case it exists for — a Liquidsoap that outlived an app restart — is still
+        // reported.
+        const rundown = rundownWith(['a']);
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        rundown.reset();
+        vi.mocked(logger.warn).mockClear();
+
+        rundown.reconcile({ queued: 0, ready: true, onAir: 'from-a-previous-session' });
+
+        expect(logger.warn).toHaveBeenCalledOnce();
+    });
+
     it('tells a replacement from a stand-down, because only one of them cuts the listener off', async () => {
         const rundown = rundownWith(['a']);
         const announced: boolean[] = [];

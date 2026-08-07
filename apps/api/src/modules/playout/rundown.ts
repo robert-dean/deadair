@@ -110,6 +110,18 @@ export class Rundown {
     private airing?: AiringItem;
     /** The last unexplainable id the player named, so it is reported once rather than every tick. */
     private unknownOnAir?: string;
+    /**
+     * Ids this process handed over and then dropped on purpose: a stand-down, or
+     * a running order replaced while the player still held items from the old one.
+     *
+     * The player does not stop on the same instant the command is given —
+     * `/control/offair` and `/control/flush` both skip in Liquidsoap's streaming
+     * loop, not in the request that asked for them — so the next reading can still
+     * name an item the rundown has just forgotten. Without this, that reading looks
+     * exactly like an id from a session before this process started, and Stop
+     * prints a diagnostic for a fault that did not happen.
+     */
+    private abandoned = new Set<string>();
 
     private readonly changeListeners = new Set<() => void>();
     private readonly resetListeners = new Set<(standingDown: boolean) => void>();
@@ -130,6 +142,9 @@ export class Rundown {
      */
     load(tracks: readonly RundownTrack[]): void {
         this.queue = tracks.map(track => ({ ...track, id: randomUUID() }));
+        // What is on air is NOT abandoned here — it keeps playing, and the reading
+        // that names it is the truth. Only what was handed over and retracted is.
+        this.abandon(this.served.map(entry => entry.item.id));
         this.served = [];
         // Not a stand-down: the station is still on air, playing the item it was
         // already playing, and only the order behind it has changed.
@@ -148,6 +163,7 @@ export class Rundown {
      */
     reset(): void {
         this.queue = [];
+        this.abandon([...this.served.map(entry => entry.item.id), ...(this.airing ? [this.airing.item.id] : [])]);
         this.served = [];
         this.airing = undefined;
         this.announceReset(true);
@@ -296,6 +312,10 @@ export class Rundown {
     reconcile(reading: QueueStatus): void {
         if (reading.ready === undefined) return;
 
+        // The player has caught up with whatever it was told to drop, so there is
+        // nothing left to recognise and the set does not outlive the command.
+        if (reading.onAir === undefined) this.abandoned.clear();
+
         // Whether the reading names an item this process can speak for. False is the
         // one thing the reading is certain about: whatever we still hold is NOT on air.
         const named = reading.onAir === undefined || this.observeOnAir(reading.onAir);
@@ -387,6 +407,10 @@ export class Rundown {
             this.unknownOnAir = undefined;
             return true;
         }
+        // Ours, dropped a moment ago and not yet stopped. The clock still stands
+        // down — it is genuinely not part of any running order now — but there is
+        // no fault to report.
+        if (this.abandoned.has(id)) return false;
         if (this.unknownOnAir !== id) {
             this.unknownOnAir = id;
             this.logger.warn(`rundown: the player is airing item ${id}, which this process never handed it — standing the clock down`);
@@ -397,6 +421,14 @@ export class Rundown {
     private setAiring(item: RundownItem): void {
         this.airing = { item, startedAt: Date.now(), observedAt: Date.now() };
         this.unknownOnAir = undefined;
+        // Something this process handed over is on air, so the player has moved
+        // past everything it was told to drop.
+        this.abandoned.clear();
+    }
+
+    /** Remember ids the station has retracted, so a reading that still names one is understood. */
+    private abandon(ids: readonly string[]): void {
+        for (const id of ids) this.abandoned.add(id);
     }
 
     /** Take the airing item off air: the player says it is not producing it. */

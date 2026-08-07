@@ -1,8 +1,12 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { CandidatesRepository } from './candidates.repository.js';
+import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { LineupRepository } from './lineup.repository.js';
+import { PickResolver } from './pick.resolver.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
+import { SetGenerator } from './set.generator.js';
 import { StationAirRepository } from './station.air.repository.js';
 
 /**
@@ -24,5 +28,12 @@ export const DirectorModule: ServerKitModule = {
         registry.register(LineupRepository).useClass(LineupRepository).asScoped();
         registry.register(StationAirRepository).useClass(StationAirRepository).asScoped();
         registry.register(PlayHistoryRepository).useClass(PlayHistoryRepository).asScoped();
+        registry.register(CandidatesRepository).useClass(CandidatesRepository).asScoped();
+
+        // The selection seam. Bound to the deterministic catalog draw; an LLM DJ
+        // later replaces this one line and nothing downstream of the token changes,
+        // which is the whole reason a pick is a NAME rather than an id.
+        registry.register(SetGenerator).useClass(CatalogSetGenerator).asScoped();
+        registry.register(PickResolver).useClass(PickResolver).asScoped();
     },
 };

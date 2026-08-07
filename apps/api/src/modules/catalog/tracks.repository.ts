@@ -59,6 +59,42 @@ export class TracksRepository extends DataRepository {
     }
 
     /**
+     * What the catalog can say about a batch of canonical tracks, for display.
+     *
+     * The other direction from {@link findByBindings}: that one starts from a
+     * provider's id, this one from the work itself. What both exist for is the
+     * same — anything holding a track has to be able to name its record, its year
+     * and its cover without three more queries.
+     *
+     * Ids the catalog does not hold are simply absent from the result.
+     */
+    async findByIds(trackIds: readonly string[]) {
+        if (trackIds.length === 0) return new Map<string, { title: string; credit: string; album?: string; year?: number; artworkUrl?: string }>();
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .select(['deadair.tracks.id', 'deadair.tracks.title', 'deadair.tracks.artists', 'deadair.tracks.year', 'deadair.albums.name as albumName'])
+            .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
+            .where('deadair.tracks.id', 'in', [...trackIds])
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .execute();
+
+        return new Map(
+            rows.map(row => [
+                row.id,
+                {
+                    title: row.title,
+                    credit: row.artists,
+                    ...(row.albumName == null ? {} : { album: row.albumName }),
+                    ...(row.year == null ? {} : { year: row.year }),
+                    ...(row.albumImageUrl == null ? {} : { artworkUrl: row.albumImageUrl }),
+                },
+            ]),
+        );
+    }
+
+    /**
      * The canonical rows behind a batch of one provider's ids: what the catalog
      * knows about tracks a caller is holding by binding alone.
      *

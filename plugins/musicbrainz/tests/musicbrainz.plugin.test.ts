@@ -46,8 +46,12 @@ beforeEach(() => {
 
 describe('manifest', () => {
     it('declares the pacing MusicBrainz asks for, on one bucket for both hostnames', () => {
+        // ListenBrainz is paced here too, on its own bucket — see
+        // `listenbrainz.test.ts`. What this asserts is the MusicBrainz half:
+        // both of its hostnames draw on one limiter, because the published
+        // limit covers the service rather than the host.
         const paced = musicbrainzManifest.permissions.network.filter(entry => typeof entry !== 'string' && 'host' in entry);
-        expect(paced).toEqual([
+        expect(paced.filter(entry => (entry as { host: string }).host.includes('musicbrainz.org'))).toEqual([
             { host: 'musicbrainz.org', ratePerSecond: 1, bucket: 'musicbrainz' },
             { host: '*.musicbrainz.org', ratePerSecond: 1, bucket: 'musicbrainz' },
         ]);
@@ -104,7 +108,12 @@ describe('testConnection', () => {
     it('passes on a real artist document', async () => {
         await initialize();
         host.queueResponse({ body: '{"id":"art-1","name":"Pink Floyd"}' });
-        await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Connected to MusicBrainz.' });
+        // No token is seeded here, so the message says which path the
+        // station is actually on rather than a bare "connected".
+        await expect(plugin.testConnection()).resolves.toEqual({
+            ok: true,
+            message: 'Connected to MusicBrainz. No ListenBrainz token, so enrichment runs one request per second.',
+        });
     });
 });
 

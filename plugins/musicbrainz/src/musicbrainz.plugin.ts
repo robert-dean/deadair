@@ -12,6 +12,8 @@ import {
 } from '@deadair/plugin-sdk';
 
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
+import { ListenBrainzClient, ListenBrainzRequestError, LOOKUP_BATCH_SIZE, METADATA_BATCH_SIZE } from './listenbrainz.client.js';
+import { lookupKey, mapListenBrainz, resultKey, toLookupQuery } from './listenbrainz.mapping.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup } from './musicbrainz.mapping.js';
@@ -143,6 +145,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
 
     private host?: PluginHost;
     private client?: MusicBrainzClient;
+    private listenBrainz?: ListenBrainzClient;
     private matchScore = DEFAULT_MATCH_SCORE;
     private includeArtwork = true;
     private includeArtistFacts = true;
@@ -163,12 +166,24 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         // traffic, and one clear config error beats a 403 per track.
         this.client = contactEmail.length > 0 ? new MusicBrainzClient(host, baseUrl, contactEmail) : undefined;
 
-        host.logger.info('musicbrainz enrichment ready', { configured: this.client !== undefined, baseUrl });
+        // The fast path, when the operator supplied a token. Absent is the
+        // ordinary case and costs nothing: every path below falls back to the
+        // web service, so a station with no token is exactly as correct and
+        // only slower.
+        const token = (await host.secrets.get('listenBrainzToken'))?.trim() ?? '';
+        this.listenBrainz = token.length > 0 ? new ListenBrainzClient(host, token) : undefined;
+
+        host.logger.info('musicbrainz enrichment ready', {
+            configured: this.client !== undefined,
+            baseUrl,
+            listenBrainz: this.listenBrainz !== undefined,
+        });
     }
 
     async dispose(): Promise<void> {
         this.host = undefined;
         this.client = undefined;
+        this.listenBrainz = undefined;
     }
 
     async testConnection(): Promise<PluginConnectionResult> {
@@ -181,7 +196,23 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
             // from whatever is listening on the configured address.
             if (!artist.name) return { ok: false, message: 'That URL answered, but not with a MusicBrainz artist. Check the web service path.' };
 
-            return { ok: true, message: 'Connected to MusicBrainz.' };
+            // Both transports are reported, because "connected" is not the
+            // question an operator is really asking here: they want to know
+            // whether the token they just pasted in is doing anything.
+            if (!this.listenBrainz) {
+                return { ok: true, message: 'Connected to MusicBrainz. No ListenBrainz token, so enrichment runs one request per second.' };
+            }
+
+            try {
+                await this.listenBrainz.lookup([{ artist_name: 'Portishead', recording_name: 'Glory Box' }]);
+                return { ok: true, message: 'Connected to MusicBrainz, with ListenBrainz batching enabled.' };
+            } catch (error) {
+                const reason = error instanceof ListenBrainzRequestError ? `HTTP ${error.status}` : errorText(error);
+                return {
+                    ok: true,
+                    message: `Connected to MusicBrainz, but ListenBrainz refused the token (${reason}). Enrichment will fall back to one request per second.`,
+                };
+            }
         } catch (error) {
             if (error instanceof MusicBrainzRequestError) return { ok: false, message: `MusicBrainz replied HTTP ${error.status}.` };
             return { ok: false, message: errorText(error) };
@@ -237,6 +268,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         // the same recording on two different pressings.
         let outstanding = refs.map((_ref, index) => index);
 
+        outstanding = await this.resolveByListenBrainz(refs, outstanding, answers);
         outstanding = await this.resolveByRelease(refs, outstanding, answers);
         outstanding = await this.resolveByIsrcBatch(refs, outstanding, answers);
 
@@ -249,6 +281,69 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         }
 
         return answers;
+    }
+
+    /**
+     * Strategy zero, and the one that changes the order of magnitude: the whole
+     * batch through ListenBrainz, in two requests.
+     *
+     * One `metadata/lookup` turns up to fifty artist-and-title pairs into
+     * MusicBrainz ids; one `metadata/recording` describes every id it returned.
+     * Twenty-five tracks that would cost thirty-eight paced requests on the web
+     * service cost two here, on a limiter with a hundred times the headroom.
+     *
+     * Skipped entirely when no token is configured, which is the default. Every
+     * ref it cannot account for falls through to the MusicBrainz paths below, so
+     * this is a shortcut and never the only way through.
+     *
+     * The lookup's answers are matched to refs by the echoed `_arg` fields
+     * rather than by position: a pair it could not resolve is absent from the
+     * response, so the array is not parallel to the one that was sent.
+     */
+    private async resolveByListenBrainz(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
+        if (!this.listenBrainz || outstanding.length === 0) return outstanding;
+
+        const answered = new Set<number>();
+
+        for (let cursor = 0; cursor < outstanding.length; cursor += LOOKUP_BATCH_SIZE) {
+            const chunk = outstanding.slice(cursor, cursor + LOOKUP_BATCH_SIZE);
+
+            const results = await this.optional('listenbrainz lookup', async () =>
+                this.listenBrainz!.lookup(chunk.map(index => toLookupQuery(refs[index]!))),
+            );
+            if (!results || results.length === 0) continue;
+
+            const byKey = new Map(results.filter(result => result.recording_mbid).map(result => [resultKey(result), result]));
+            if (byKey.size === 0) continue;
+
+            // One metadata request for everything the lookup identified. A
+            // failure here is not fatal: the ids alone are a real answer, and
+            // mapping without the metadata block is exactly what happens.
+            const mbids = [...byKey.values()].map(result => result.recording_mbid!);
+            const metadata =
+                (await this.optional('listenbrainz metadata', async () =>
+                    this.listenBrainz!.recordingMetadata(mbids.slice(0, METADATA_BATCH_SIZE)),
+                )) ?? {};
+
+            for (const index of chunk) {
+                const ref = refs[index]!;
+                const result = byKey.get(lookupKey(ref.artist, ref.title));
+                if (!result?.recording_mbid) continue;
+
+                const mapped = mapListenBrainz(result, metadata[result.recording_mbid], ref);
+                if (Object.keys(mapped).length === 0) continue;
+
+                answers[index] = mapped;
+                answered.add(index);
+            }
+
+            this.host?.logger.debug('listenbrainz answered a batch', {
+                asked: chunk.length,
+                matched: chunk.filter(index => answered.has(index)).length,
+            });
+        }
+
+        return outstanding.filter(index => !answered.has(index));
     }
 
     /**

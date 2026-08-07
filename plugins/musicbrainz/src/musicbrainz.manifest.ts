@@ -27,6 +27,33 @@ export const COVER_ART_ORIGIN = 'https://coverartarchive.org';
 export const PUBLIC_RATE_PER_SECOND = 1;
 
 /**
+ * ListenBrainz, which publishes the same organisation's data over endpoints that
+ * take a whole batch at once.
+ *
+ * This is the way out of the one-request-per-second ceiling for an operator who
+ * cannot run a mirror, and it is why this plugin has two transports rather than
+ * two plugins: it is MusicBrainz data under MusicBrainz ids, so a second plugin
+ * would only give the merge two near-identical sources to order against each
+ * other.
+ */
+export const LISTENBRAINZ_ORIGIN = 'https://api.listenbrainz.org';
+
+/**
+ * Its own bucket, deliberately. A published limit covers a service, and pacing
+ * ListenBrainz at the rate MusicBrainz asks for would throw away the entire
+ * reason for calling it.
+ */
+export const LISTENBRAINZ_BUCKET = 'listenbrainz';
+
+/**
+ * Requests per second for ListenBrainz. Far above MusicBrainz's, and still a
+ * declared ceiling rather than an invitation: the service publishes its budget
+ * in `X-RateLimit-*` headers on every response, and this number only has to be
+ * low enough never to be the thing that exhausts it.
+ */
+export const LISTENBRAINZ_RATE_PER_SECOND = 5;
+
+/**
  * One limiter for every hostname MusicBrainz answers on. The published limit
  * covers the service, not the host, so two entries against two buckets would
  * quietly buy twice the allowance and get the station blocked.
@@ -82,6 +109,10 @@ export const musicbrainzManifest: PluginManifest = {
         network: [
             { host: 'musicbrainz.org', ratePerSecond: PUBLIC_RATE_PER_SECOND, bucket: MUSICBRAINZ_BUCKET },
             { host: '*.musicbrainz.org', ratePerSecond: PUBLIC_RATE_PER_SECOND, bucket: MUSICBRAINZ_BUCKET },
+            // After the MusicBrainz entries, so a `baseUrl` left pointing at the
+            // public service is still matched by them first, and on its own
+            // bucket, because its budget is nothing to do with theirs.
+            { host: 'api.listenbrainz.org', ratePerSecond: LISTENBRAINZ_RATE_PER_SECOND, bucket: LISTENBRAINZ_BUCKET },
             { fromConfig: 'baseUrl' },
         ],
         // No storage. Everything this plugin learns is stored by the host,
@@ -104,7 +135,16 @@ export const musicbrainzManifest: PluginManifest = {
             label: 'Web service URL',
             type: 'url',
             default: DEFAULT_BASE_URL,
-            help: 'Point this at your own musicbrainz-docker mirror to skip the one-request-per-second limit the public service asks for.',
+            help: 'Point this at your own musicbrainz-docker mirror to skip the one-request-per-second limit the public service asks for. If running a mirror is more than you want, a ListenBrainz token below gets you most of the same speed for none of the setup.',
+        },
+        {
+            key: 'listenBrainzToken',
+            label: 'ListenBrainz token',
+            // A `secret`, so the host encrypts it and the settings card never
+            // reads it back. It is read through `host.secrets.get`, not
+            // `host.config.get`, which is why it is absent from `configSchema`.
+            type: 'secret',
+            help: 'Free, from your ListenBrainz profile settings. ListenBrainz publishes the same data as MusicBrainz over endpoints that answer about fifty tracks at once, so a token turns a catalog that would take days into one that takes minutes. Leave it blank to stay on the public MusicBrainz service.',
         },
         {
             key: 'matchScore',

@@ -19,9 +19,8 @@ const record = (capabilities: string[], instance: Record<string, unknown>, statu
     instance: instance as unknown as PluginInstance,
 });
 
-/** Both routes to `stream`, and the catalog methods, as bare stubs. */
+/** The `stream` method, and the catalog methods, as bare stubs. */
 const resolveStreamUrl = async () => ({ url: 'https://example.test/a.mp3' });
-const getSessionCredentials = async () => ({ username: 'station', accessToken: 'token' });
 const catalogMethods = { listPlaylists: async () => [], getPlaylistTracks: async () => [] };
 
 describe('asStreamPlugin', () => {
@@ -29,17 +28,11 @@ describe('asStreamPlugin', () => {
         expect(asStreamPlugin(record(['catalog', 'stream'], { resolveStreamUrl }))).toBeDefined();
     });
 
-    it('accepts a plugin that lends a login instead', () => {
-        // Spotify's shape: no URL to hand out, because its audio comes off the CDN
-        // encrypted, so the shim opens its own session. Same capability, other route.
-        expect(asStreamPlugin(record(['catalog', 'stream'], { getSessionCredentials }))).toBeDefined();
-    });
-
-    it('refuses a plugin that declares stream and implements neither route', () => {
+    it('refuses a plugin that declares stream and does not implement it', () => {
         expect(asStreamPlugin(record(['catalog', 'stream'], catalogMethods))).toBeUndefined();
     });
 
-    it('refuses a plugin that implements a route but never declared it', () => {
+    it('refuses a plugin that implements the method but never declared it', () => {
         // The operator was never shown "this plugin will fetch audio", so the host
         // does not act on it. An undeclared capability is not a capability.
         expect(asStreamPlugin(record(['catalog'], { resolveStreamUrl }))).toBeUndefined();
@@ -51,12 +44,12 @@ describe('asStreamPlugin', () => {
         }
     });
 
-    it('is satisfied by either method, unlike catalog which needs all of its own', () => {
-        // The asymmetry is deliberate: `catalog` is several methods that are all
-        // needed to browse, `stream` is one job with two mutually exclusive routes.
+    it('asks the same method of every source, however its audio reaches the player', () => {
+        // Including the ones with no URL of their own: Spotify's plugin lends the
+        // shim a login through `host.trackFetcher` and returns the URL that comes
+        // back, so from here it is a provider that resolves a URL like any other.
         expect(implementsStream(manifest(['stream']), { resolveStreamUrl })).toBe(true);
-        expect(implementsStream(manifest(['stream']), { getSessionCredentials })).toBe(true);
-        expect(asCatalogPlugin(record(['catalog'], { listPlaylists: async () => [] }))).toBeUndefined();
+        expect(implementsStream(manifest(['stream']), { getSessionCredentials: async () => undefined })).toBe(false);
     });
 });
 

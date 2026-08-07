@@ -6,7 +6,7 @@ import {
     type PluginConnectionResult,
     type PluginHost,
     type ProviderPlaylist,
-    type ProviderSessionCredentials,
+    type ProviderStream,
     type ProviderTrack,
     type SearchTracksOptions,
     PluginError,
@@ -191,21 +191,23 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
     }
 
     /**
-     * Lend the track shim a login.
+     * A URL the player can fetch this track from.
      *
-     * Spotify's audio is the case `ProviderSessionCredentials` exists for: the
-     * tracks come off the CDN encrypted, so they are fetched by a separate
-     * binary running beside Liquidsoap that speaks Spotify's own protocol. This
-     * plugin cannot hand out a URL for that, which is why it implements no
-     * `resolveStreamUrl` — but it does own the account, so it lends the helper a
-     * username and a live token and keeps the refresh.
+     * Spotify's audio is the case `host.trackFetcher` exists for: the tracks
+     * come off the CDN encrypted, so there is no Spotify URL to mint at all.
+     * They are fetched by a separate binary running beside Liquidsoap that
+     * speaks Spotify's own protocol, and what it needs from this plugin is a
+     * login. So the session goes out through the host, which hands it to that
+     * binary and signs a URL on it; the account, the refresh and the vault stay
+     * here, and the credentials are never stored on the way past.
      *
-     * `undefined` rather than a throw when the plugin is unconfigured or
-     * unconnected: the shim asks on its first fetch, which can easily precede
-     * anyone authorising anything, and it retries on its own.
+     * `undefined` rather than a throw at every step where the answer is "not
+     * yet": unconfigured, unauthorised, or a station whose stream half was never
+     * set up. All three are ordinary states — the running order simply skips the
+     * item — and none of them is worth counting against the plugin's health.
      */
-    async getSessionCredentials(): Promise<ProviderSessionCredentials | undefined> {
-        if (!this.clientId || !this.auth) return undefined;
+    async resolveStreamUrl(trackId: string): Promise<ProviderStream | undefined> {
+        if (!this.clientId || !this.auth || !this.host) return undefined;
 
         const tokens = await this.auth.sessionTokens();
         if (!tokens) return undefined;
@@ -216,7 +218,10 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
         const username = await this.getCurrentUserId();
         if (!username) return undefined;
 
-        return { username, accessToken: tokens.accessToken, expiresAt: tokens.expiresAt };
+        return this.host.trackFetcher.serve({
+            trackId,
+            session: { username, accessToken: tokens.accessToken, expiresAt: tokens.expiresAt },
+        });
     }
 
     /**

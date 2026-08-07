@@ -352,6 +352,60 @@ describe('SpotifyPlugin', () => {
         });
     });
 
+    describe('stream', () => {
+        /** The profile lookup `resolveStreamUrl` makes for the account id librespot logs in with. */
+        const profileResponse = () => apiResponse({ id: 'station-account', display_name: 'The Station' });
+
+        it('lends the fetcher a login and hands back the URL it gets', async () => {
+            // Spotify has no URL to mint — its audio comes off the CDN encrypted — so
+            // the whole method is: prove who we are, and let the station's fetcher
+            // turn that into something the player can download.
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(profileResponse());
+
+            const stream = await plugin.resolveStreamUrl('track-1');
+
+            expect(stream?.url).toBe('http://127.0.0.1:3679/track/song-1?t=signed');
+            expect(host.trackFetcher.serve).toHaveBeenCalledWith({
+                trackId: 'track-1',
+                session: { username: 'station-account', accessToken: 'access-1', expiresAt: expect.any(Number) },
+            });
+        });
+
+        it('declines when nobody has authorised Spotify yet', async () => {
+            // An ordinary state, not a fault: the item is skipped and the running
+            // order carries on.
+            const host = createFakePluginHost();
+            host.seedConfig({ clientId: CLIENT_ID, redirectUri: REDIRECT_URI });
+            const plugin = new SpotifyPlugin();
+            await plugin.init(host);
+
+            expect(await plugin.resolveStreamUrl('track-1')).toBeUndefined();
+            expect(host.trackFetcher.serve).not.toHaveBeenCalled();
+        });
+
+        it('declines when the account id cannot be resolved', async () => {
+            // Without it the accesspoint rejects the token, so handing the fetcher a
+            // login it cannot use would only move the failure onto the air.
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ error: 'nope' }, { status: 500, ok: false }));
+
+            expect(await plugin.resolveStreamUrl('track-1')).toBeUndefined();
+            expect(host.trackFetcher.serve).not.toHaveBeenCalled();
+        });
+
+        it('passes through a station that has no fetcher', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(profileResponse());
+            host.seedFetchedTrack(undefined);
+
+            expect(await plugin.resolveStreamUrl('track-1')).toBeUndefined();
+        });
+    });
+
     describe('playout', () => {
         it('enqueue adds every trackId, with no device resolution call when deviceName is unset', async () => {
             const host = createFakePluginHost();

@@ -46,11 +46,11 @@ export const spotifyManifest: PluginManifest = {
     name: 'Spotify',
     version: '0.0.1',
     kind: 'music-provider',
-    // `stream` is earned through `getSessionCredentials`, not `resolveStreamUrl`:
-    // Spotify's audio comes off the CDN encrypted, so there is no URL to mint. The
-    // one Liquidsoap fetches is minted app-side by `SpotifyShimResolver` and signed
-    // with the playout bridge secret, because the shim is our infrastructure rather
-    // than part of Spotify. This plugin's half is lending that shim a login.
+    // `stream` the long way round: Spotify's audio comes off the CDN encrypted, so
+    // there is no Spotify URL to mint. The one Liquidsoap fetches points at the
+    // track shim beside it, and this plugin gets it by lending that shim a login
+    // through `host.trackFetcher` — which is what the `trackFetcher` permission
+    // below discloses.
     capabilities: ['catalog', 'stream', 'steer', 'oauth'],
     apiVersion: '^1.0.0',
     description: 'Search Spotify, browse your playlists, and pull tracks into the rotation.',
@@ -59,6 +59,7 @@ export const spotifyManifest: PluginManifest = {
         network: ['accounts.spotify.com', 'api.spotify.com'],
         storage: true,
         oauth: true,
+        trackFetcher: true,
     },
     configFields: [
         {

@@ -7,7 +7,6 @@ import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { CompositeTrackResolver, TrackResolver } from './playout.capability.js';
 import { PluginTrackResolver } from './providers/plugin.resolver.js';
-import { SpotifyShimResolver } from './providers/spotify.shim.resolver.js';
 import { PlayoutPusher } from './playout.pusher.js';
 import { PlayoutService } from './playout.service.js';
 import { Rundown } from './rundown.js';
@@ -30,16 +29,15 @@ export const PlayoutModule: ServerKitModule = {
         registry.register(LiquidsoapEndpoint).useClass(LiquidsoapEndpoint).asSingleton();
         registry.register(PlayoutControlClient).useClass(PlayoutControlClient).asSingleton();
 
-        // The resolver chain, asked in order. The plugin-native path goes first
-        // because it is the general one: any provider that can mint a stream URL
-        // answers for its own tracks and needs nothing here. The shim resolver is
-        // the exception behind it — Spotify's audio is encrypted on the CDN, so
-        // the URL points at our own binary rather than at Spotify.
+        // The resolver chain, which is one link long: every provider answers for
+        // its own tracks through `resolveStreamUrl`, including the ones whose audio
+        // reaches the player by way of a station-side helper. The composite stays
+        // because the chain is the seam — a source deadair serves itself rather
+        // than through a plugin would be a second link, not a rewrite of this one.
         registry.register(PluginTrackResolver).useClass(PluginTrackResolver).asSingleton();
-        registry.register(SpotifyShimResolver).useClass(SpotifyShimResolver).asSingleton();
         registry
             .register(TrackResolver)
-            .useFactory(container => new CompositeTrackResolver([container.get(PluginTrackResolver), container.get(SpotifyShimResolver)]))
+            .useFactory(container => new CompositeTrackResolver([container.get(PluginTrackResolver)]))
             .asSingleton();
 
         registry.register(Rundown).useClass(Rundown).asSingleton();

@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import type { HostFetchInit, HostFetchMethod, HostFetchResponse, PluginHost } from '@deadair/plugin-sdk';
+import type { HostFetchInit, HostFetchMethod, HostFetchResponse, PluginHost, ProviderStream } from '@deadair/plugin-sdk';
 
 /** One `host.fetch` call, recorded with only the fields tests care about. */
 export interface RecordedFetchCall {
@@ -42,6 +42,8 @@ export interface FakePluginHost extends PluginHost {
     seedTokens(tokens: Record<string, string>): void;
     /** Read the oauth vault directly, bypassing `host.oauth.getTokens`. */
     getVaultTokens(): Record<string, string> | undefined;
+    /** Set what `host.trackFetcher.serve()` answers with; `undefined` means "this station has no fetcher". */
+    seedFetchedTrack(stream: ProviderStream | undefined): void;
 }
 
 /**
@@ -76,6 +78,7 @@ export function createFakePluginHost(): FakePluginHost {
     const secretsData = new Map<string, string>();
     let tokens: Record<string, string> | undefined;
     let remainingMs = DEFAULT_REMAINING_MS;
+    let fetchedTrack: ProviderStream | undefined = { url: 'http://127.0.0.1:3679/track/song-1?t=signed', expiresAt: 1_893_456_000_000 };
 
     const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<HostFetchResponse> => {
         calls.push({ url, method: init?.method, headers: init?.headers, body: init?.body });
@@ -109,6 +112,7 @@ export function createFakePluginHost(): FakePluginHost {
             getTokens: vi.fn(async () => tokens),
         },
         events: { emit: vi.fn() },
+        trackFetcher: { serve: vi.fn(async () => fetchedTrack) },
         calls,
         seedRemainingMs(ms) {
             remainingMs = ms;
@@ -139,6 +143,9 @@ export function createFakePluginHost(): FakePluginHost {
         },
         getVaultTokens() {
             return tokens;
+        },
+        seedFetchedTrack(stream) {
+            fetchedTrack = stream;
         },
     };
 

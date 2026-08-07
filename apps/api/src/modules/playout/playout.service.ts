@@ -217,9 +217,12 @@ export class PlayoutService {
     async spotifySessionLogin(headers: SpotifyLoginHeaders): Promise<SpotifySessionLogin> {
         await this.requireLoginSecret(headers['x-spotify-login-secret']);
 
+        // Asked of the record directly rather than through `asStreamPlugin`:
+        // lending a login is no longer one of the ways a plugin earns `stream`,
+        // now that the Spotify plugin resolves its own URL. This route is the
+        // last caller of the old arrangement and goes with it.
         const record = this.registry.get(SPOTIFY_PLUGIN_ID);
-        const plugin = record ? asStreamPlugin(record) : undefined;
-        const instance = plugin?.instance;
+        const instance = record?.status === 'active' ? (record.instance as MusicProviderPluginInstance | undefined) : undefined;
         if (typeof instance?.getSessionCredentials !== 'function') {
             throw httpError(503).withDetails({ message: 'the Spotify plugin is not running, so it cannot supply a session login' });
         }

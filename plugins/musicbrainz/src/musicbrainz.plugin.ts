@@ -15,7 +15,16 @@ import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup } from './musicbrainz.mapping.js';
-import { buildRecordingQuery, escapeLucene, selectByIsrc, selectRecording, type RecordingMatch } from './musicbrainz.match.js';
+import {
+    buildIsrcBatchQuery,
+    buildRecordingQuery,
+    escapeLucene,
+    selectByIsrc,
+    selectFromTracklist,
+    selectRecording,
+    baseForm,
+    type RecordingMatch,
+} from './musicbrainz.match.js';
 import type {
     MusicBrainzArtist,
     MusicBrainzArtistRef,
@@ -47,6 +56,40 @@ const ARTIST_INC = 'url-rels';
 
 /** What the release-group lookup asks for: the pressings to choose from, plus the record's own vocabulary. */
 const RELEASE_GROUP_INC = 'artist-credits+releases+genres+tags';
+
+/**
+ * What the batch path's release lookup asks for: the whole tracklist, with
+ * enough on each recording to match a ref against it and then map it.
+ *
+ * No `genres`, which a release lookup will not take. That is the one thing a
+ * track identified this way gives up, and it is why {@link enrichTracks} only
+ * takes this path for a record with several outstanding tracks on it: a genre
+ * per track is worth less than the twenty requests it would cost to keep.
+ */
+const RELEASE_TRACKLIST_INC = 'recordings+artist-credits+isrcs+release-groups';
+
+/**
+ * Outstanding tracks on one record below which the release lookup is not worth
+ * it. Two tracks cost two requests either way (a release-group search plus the
+ * release), so the path only starts paying at three.
+ */
+const TRACKLIST_MIN_TRACKS = 3;
+
+/**
+ * ISRCs per batched search. The service takes a `limit` up to 100, but a query
+ * is a URL and a hundred OR'd terms is a long one, so this is the conservative
+ * half of that.
+ */
+const ISRC_BATCH_SIZE = 50;
+
+/**
+ * Refs handed over in one {@link MusicBrainzPlugin.enrichTracks} call.
+ *
+ * The host chunks to this, and it is sized to the batch identification step:
+ * one OR'd ISRC search covers the whole chunk, so a bigger number would not buy
+ * another request's worth of saving while a smaller one would waste the query.
+ */
+const MAX_BATCH_SIZE = 25;
 
 /**
  * Budget below which an optional lookup is not worth starting: the one second
@@ -95,6 +138,9 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
 
     readonly matchKeys: EnrichmentMatchKey[] = ['isrc', 'artist-title'];
 
+    /** See {@link enrichTracks}: sized to one batched ISRC search. */
+    readonly maxBatchSize = MAX_BATCH_SIZE;
+
     private host?: PluginHost;
     private client?: MusicBrainzClient;
     private matchScore = DEFAULT_MATCH_SCORE;
@@ -134,6 +180,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
             // the answer is a MusicBrainz artist document and not merely a 200
             // from whatever is listening on the configured address.
             if (!artist.name) return { ok: false, message: 'That URL answered, but not with a MusicBrainz artist. Check the web service path.' };
+
             return { ok: true, message: 'Connected to MusicBrainz.' };
         } catch (error) {
             if (error instanceof MusicBrainzRequestError) return { ok: false, message: `MusicBrainz replied HTTP ${error.status}.` };
@@ -157,6 +204,164 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     async enrichTrack(ref: TrackRef): Promise<Partial<TrackEnrichment>> {
         if (!this.client) return {};
         return (await this.resolve(ref)) ?? {};
+    }
+
+    /**
+     * The same question as {@link enrichTrack} about a whole batch, answered in
+     * as few requests as the batch's shape allows.
+     *
+     * Three strategies, cheapest per track first, each one handing what it could
+     * not account for to the next:
+     *
+     * 1. **A record at a time.** Refs that share an album, three or more of
+     *    them, are answered by one `release/{id}?inc=recordings` lookup: two
+     *    requests for the whole record instead of two per track on it. The
+     *    catalog arrives clustered by album precisely so this can happen.
+     * 2. **The rest of the ISRCs, together.** One `recording?query=isrc:A OR
+     *    isrc:B …` identifies up to fifty codes in a single request. The results
+     *    do not say which code answered which, so they are scored back against
+     *    the refs rather than read positionally.
+     * 3. **One at a time**, which is {@link enrichTrack}'s path, for whatever is
+     *    left: no album, no ISRC, or simply not found by the two above.
+     *
+     * The array returned is index-aligned with `refs` and the same length, per
+     * the SDK contract. A ref nothing could account for is `{}`, which the host
+     * stores as a miss on a short clock rather than as an answer.
+     */
+    async enrichTracks(refs: TrackRef[]): Promise<Partial<TrackEnrichment>[]> {
+        const answers: Partial<TrackEnrichment>[] = refs.map(() => ({}));
+        if (!this.client) return answers;
+
+        // Positions rather than refs throughout: every answer has to find its
+        // way back to the slot it belongs in, and two refs in a batch can be
+        // the same recording on two different pressings.
+        let outstanding = refs.map((_ref, index) => index);
+
+        outstanding = await this.resolveByRelease(refs, outstanding, answers);
+        outstanding = await this.resolveByIsrcBatch(refs, outstanding, answers);
+
+        for (const index of outstanding) {
+            // The per-ref path is allowed to fail without taking the batch with
+            // it: the requests already spent on the other refs are real, and a
+            // miss here is recoverable next pass while losing them is not.
+            const resolved = await this.optional('track', () => this.resolve(refs[index]!));
+            if (resolved) answers[index] = resolved;
+        }
+
+        return answers;
+    }
+
+    /**
+     * Strategy one: the refs that share a record, answered off its tracklist.
+     *
+     * Returns the positions this could not account for. A group whose release
+     * could not be identified is handed on whole rather than half-answered, and
+     * so is any individual track the tracklist did not contain — a provider's
+     * "album" is often a deluxe edition or a compilation whose contents do not
+     * line up with the release MusicBrainz chose.
+     */
+    private async resolveByRelease(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
+        const groups = new Map<string, number[]>();
+        for (const index of outstanding) {
+            const album = refs[index]!.album;
+            if (!album) continue;
+            const key = `${baseForm(refs[index]!.artist)} ${baseForm(album)}`;
+            groups.set(key, [...(groups.get(key) ?? []), index]);
+        }
+
+        const answered = new Set<number>();
+
+        for (const indices of groups.values()) {
+            if (indices.length < TRACKLIST_MIN_TRACKS) continue;
+
+            const release = await this.optional('release tracklist', () => this.loadTracklist(refs[indices[0]!]!));
+            if (!release) continue;
+
+            const tracklist = (release.media ?? [])
+                .flatMap(medium => medium.tracks ?? [])
+                .flatMap(track => (track.recording ? [track.recording] : []));
+            if (tracklist.length === 0) continue;
+
+            for (const index of indices) {
+                const match = selectFromTracklist(tracklist, refs[index]!, this.matchScore);
+                if (!match) continue;
+                answers[index] = mapRecording(match.recording, release, refs[index]!);
+                answered.add(index);
+            }
+
+            this.host?.logger.debug('musicbrainz answered a record from its tracklist', {
+                album: refs[indices[0]!]!.album,
+                asked: indices.length,
+                matched: indices.filter(index => answered.has(index)).length,
+            });
+        }
+
+        return outstanding.filter(index => !answered.has(index));
+    }
+
+    /**
+     * Strategy two: everything left that carries an ISRC, in one search per
+     * fifty codes.
+     *
+     * The pool the search returns is scored against every ref rather than
+     * assumed to be in order, because a search document does not reliably echo
+     * the code it matched. A recording is allowed to answer only one ref: two
+     * refs that genuinely are the same recording are rare, and letting one
+     * document satisfy both would hide a mismatch rather than fall through to
+     * the per-ref path that would catch it.
+     */
+    private async resolveByIsrcBatch(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
+        const withIsrc = outstanding.filter(index => refs[index]!.isrc);
+        if (withIsrc.length < 2) return outstanding;
+
+        const answered = new Set<number>();
+
+        for (let cursor = 0; cursor < withIsrc.length; cursor += ISRC_BATCH_SIZE) {
+            const chunk = withIsrc.slice(cursor, cursor + ISRC_BATCH_SIZE);
+            const pool = await this.optional('isrc batch', () => this.searchIsrcBatch(chunk.map(index => refs[index]!.isrc!)));
+            if (!pool || pool.length === 0) continue;
+
+            const taken = new Set<string>();
+            for (const index of chunk) {
+                const available = pool.filter(recording => recording.id && !taken.has(recording.id));
+                const match = selectRecording(available, refs[index]!, this.matchScore);
+                if (!match?.recording.id) continue;
+
+                taken.add(match.recording.id);
+                // The search document is thin by design, so the full recording
+                // still costs a request — but the *identification* of the whole
+                // chunk cost one between them, which is the saving.
+                const recording = await this.loadRecording(match.recording);
+                answers[index] = mapRecording(recording, selectRelease(recording, refs[index]!), refs[index]!);
+                answered.add(index);
+            }
+
+            this.host?.logger.debug('musicbrainz identified a batch of isrcs in one search', { asked: chunk.length, matched: taken.size });
+        }
+
+        return outstanding.filter(index => !answered.has(index));
+    }
+
+    /** The record a ref names, as a release with its whole tracklist on it. */
+    private async loadTracklist(ref: TrackRef): Promise<MusicBrainzRelease | undefined> {
+        const groupId = await this.searchReleaseGroup({ name: ref.album!, artist: ref.artist });
+        if (!groupId) return undefined;
+
+        const group = await this.loadReleaseGroup(groupId);
+        const chosen = selectReleaseFromGroup(group);
+        if (!chosen?.id) return undefined;
+
+        return this.client!.get<MusicBrainzRelease>(`release/${chosen.id}`, { inc: RELEASE_TRACKLIST_INC });
+    }
+
+    /** One `recording?query=isrc:A OR isrc:B …`, for a whole chunk of codes. */
+    private async searchIsrcBatch(isrcs: string[]): Promise<MusicBrainzRecording[]> {
+        const response = await this.client!.get<MusicBrainzRecordingSearchResponse>('recording', {
+            query: buildIsrcBatchQuery(isrcs),
+            limit: String(Math.min(100, isrcs.length * 2)),
+        });
+
+        return response.recordings ?? [];
     }
 
     /**

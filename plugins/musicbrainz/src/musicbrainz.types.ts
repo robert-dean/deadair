@@ -70,6 +70,40 @@ export interface MusicBrainzRelease {
         back?: boolean;
         count?: number;
     };
+    /**
+     * The tracklist, present only under `inc=recordings`. One entry per disc,
+     * which is why this is nested: a double album is two `media` with their own
+     * track numbering, and flattening them is the caller's job.
+     */
+    media?: MusicBrainzMedium[];
+}
+
+/** One disc of a release. `tracks` is present only under `inc=recordings`. */
+export interface MusicBrainzMedium {
+    position?: number;
+    format?: string;
+    'track-count'?: number;
+    tracks?: MusicBrainzTrack[];
+}
+
+/**
+ * One track on a medium.
+ *
+ * A track and its recording are not the same thing, and the difference matters
+ * here: the track is this release's presentation of a performance (its number,
+ * its printed title) and the recording is the performance itself, which is what
+ * carries the id, the ISRCs and the first release date. `title` is omitted by
+ * MusicBrainz when it does not differ from the recording's, so read it with the
+ * recording as the fallback rather than on its own.
+ */
+export interface MusicBrainzTrack {
+    id?: string;
+    title?: string;
+    number?: string;
+    position?: number;
+    length?: number;
+    'artist-credit'?: MusicBrainzArtistCredit[];
+    recording?: MusicBrainzRecording;
 }
 
 /** A dated span. `ended` is the only reliable way to tell "still going" from "we do not know". */

@@ -41,6 +41,18 @@ const ASSUMED_SEARCH_SCORE = 50;
 const ISRC_BASE_SCORE = 100;
 
 /**
+ * What a track on an already-identified release starts from.
+ *
+ * High, and deliberately so. The hard question — which record is this — has
+ * already been answered by the release lookup, so the only thing left is which
+ * track on it, and a tracklist is a closed set of a dozen candidates rather
+ * than the whole database. Starting from the search engine's assumed 50 would
+ * put every one of them under a default `matchScore` of 90 and throw away a
+ * release lookup that had already succeeded.
+ */
+const TRACKLIST_BASE_SCORE = 95;
+
+/**
  * Escapes a value for use inside a quoted Lucene phrase.
  *
  * Every special is escaped rather than only the quote and the backslash. A
@@ -219,6 +231,55 @@ export function selectByIsrc(candidates: MusicBrainzRecording[], ref: TrackRef):
 
     scored.sort((left, right) => right.score - left.score || releaseDateOrder(left.recording).localeCompare(releaseDateOrder(right.recording)));
     return scored[0];
+}
+
+/**
+ * The recording on a release's tracklist that answers this ref, if any.
+ *
+ * ISRC first, because it is exact and the tracklist carries them under
+ * `inc=isrcs`. Only when there is no code, or it matches nothing, does this
+ * fall back to scoring the titles — with {@link TRACKLIST_BASE_SCORE}, since
+ * the release is already identified and the remaining question is a small one.
+ *
+ * Position is deliberately never used. A provider's track number is its own
+ * pressing's, and a deluxe edition, a bonus disc or a hidden track puts it out
+ * of step with MusicBrainz's within one record.
+ */
+export function selectFromTracklist(tracklist: MusicBrainzRecording[], ref: TrackRef, minScore: number): RecordingMatch | undefined {
+    const usable = tracklist.filter(recording => recording.id);
+    if (usable.length === 0) return undefined;
+
+    if (ref.isrc) {
+        const wanted = ref.isrc.toUpperCase();
+        const byCode = usable.find(recording => recording.isrcs?.some(code => code.toUpperCase() === wanted));
+        if (byCode) return { recording: byCode, score: ISRC_BASE_SCORE };
+    }
+
+    const scored: RecordingMatch[] = [];
+    for (const recording of usable) {
+        const score = scoreCandidate(recording, ref, TRACKLIST_BASE_SCORE);
+        if (score !== undefined && score >= minScore) scored.push({ recording, score });
+    }
+
+    scored.sort((left, right) => right.score - left.score);
+    return scored[0];
+}
+
+/**
+ * One Lucene query that asks about several ISRCs at once.
+ *
+ * This is the batch form of identification, and it is the reason a paced source
+ * can describe a catalog at all: twenty-five codes cost one request and one
+ * second, where twenty-five `/isrc/{code}` lookups cost twenty-five of each.
+ *
+ * The results do not reliably say which code each recording answered — a
+ * search document carries `isrcs` only sometimes — so the caller must match the
+ * returned pool back to its refs by scoring rather than by position. Codes are
+ * upper-cased for the reason the single lookup does it: an ISRC is defined as
+ * upper case and providers are not consistent about it.
+ */
+export function buildIsrcBatchQuery(isrcs: string[]): string {
+    return isrcs.map(isrc => `isrc:${escapeLucene(isrc.toUpperCase())}`).join(' OR ');
 }
 
 /**

@@ -149,6 +149,10 @@ export class ArtRepository extends DataRepository {
      * Merged rows are excluded for the same reason catalog reads exclude them: nothing will ever
      * render their art. Never-attempted URLs come first, so one permanently dead cover cannot keep
      * a fresh batch from being cached.
+     *
+     * This is also where a provider minting per-call-varying art URLs would surface, as a queue
+     * that refills with new URLs for the same images as fast as it is drained. See the note on
+     * source-URL stability in `art.module.ts`.
      */
     async listPendingSourceUrls(limit: number): Promise<string[]> {
         const rows = await sql<{ url: string }>`

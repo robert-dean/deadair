@@ -62,6 +62,14 @@ your package is just a package.
    undo it in `dispose()`.
 6. **Secrets are write-only.** A `secret` config field is encrypted at rest and
    never read back into the settings UI. Read it with `host.secrets.get()`.
+7. **A URL you hand back to be stored must be stable.** `artworkUrl` is kept,
+   and the host's art cache is keyed by the URL string itself, so the same
+   image has to mint the same URL every time you are asked about it. If yours
+   carries credentials, fix the varying part — a salt, a nonce, a timestamp —
+   once in `init()` and reuse it for art. Vary it per call and every mention
+   becomes a new row and another download of identical bytes; nothing errors,
+   it just never caches. `resolveStreamUrl` is under no such rule, because
+   nothing stores what it returns.
 
 ## A complete minimal plugin
 

@@ -24,9 +24,9 @@ export const CatalogRouter = ServerKitRouter();
 
 /**
  * Every artist the station has ingested, ordered by name
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L24)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L27)
  */
-CatalogRouter.get('/catalog/artists', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/artists', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
 
     const resultType = z.strictObject({
@@ -43,9 +43,9 @@ CatalogRouter.get('/catalog/artists', requirePolicy({ policy: false }), async ct
 
 /**
  * One artist. 404s on an id that was merged away, since reads never return merged rows
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L43)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L46)
  */
-CatalogRouter.get('/catalog/artists/:id', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/artists/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -63,9 +63,9 @@ CatalogRouter.get('/catalog/artists/:id', requirePolicy({ policy: false }), asyn
 
 /**
  * What every enrichment provider said about this artist, and when each of them said it
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L58)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L61)
  */
-CatalogRouter.get('/catalog/artists/:id/enrichment', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/artists/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -83,9 +83,9 @@ CatalogRouter.get('/catalog/artists/:id/enrichment', requirePolicy({ policy: fal
 
 /**
  * The albums credited to one artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L73)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L76)
  */
-CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -108,9 +108,9 @@ CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: false }
 });
 
 /**
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L89)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L92)
  */
-CatalogRouter.get('/catalog/albums', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/albums', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
 
     const resultType = z.strictObject({
@@ -126,9 +126,9 @@ CatalogRouter.get('/catalog/albums', requirePolicy({ policy: false }), async ctx
 });
 
 /**
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L108)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L111)
  */
-CatalogRouter.get('/catalog/albums/:id', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/albums/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -146,9 +146,9 @@ CatalogRouter.get('/catalog/albums/:id', requirePolicy({ policy: false }), async
 
 /**
  * The record's own enrichment: the label, pressing and cover belong to the release, not to a track on it
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L123)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L126)
  */
-CatalogRouter.get('/catalog/albums/:id/enrichment', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/albums/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -166,9 +166,9 @@ CatalogRouter.get('/catalog/albums/:id/enrichment', requirePolicy({ policy: fals
 
 /**
  * One album's tracks
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L138)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L141)
  */
-CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -192,9 +192,9 @@ CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: false })
 
 /**
  * What the providers said about one recording, including everything no canonical column holds
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L157)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L160)
  */
-CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -212,9 +212,9 @@ CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: fals
 
 /**
  * Every track, flat. The only way to answer "do we have this song?" without knowing its artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L169)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L172)
  */
-CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: false }), async ctx => {
+CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
 
     const resultType = z.strictObject({

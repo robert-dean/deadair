@@ -23,9 +23,9 @@ export const PluginsRouter = ServerKitRouter();
 
 /**
  * Lists every plugin the host knows about, optionally narrowed to one kind
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L18)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L27)
  */
-PluginsRouter.get('/plugins', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.get('/plugins', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, PluginListQuery.strict());
 
     const service = ctx.container.get(PluginsService);
@@ -38,7 +38,7 @@ PluginsRouter.get('/plugins', requirePolicy({ policy: false }), async ctx => {
 
 /**
  * Rescans the mounted plugin directory: registers new plugins, unloads removed ones
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L32)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L46)
  */
 PluginsRouter.post('/plugins/rescan', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PluginsService);
@@ -51,9 +51,9 @@ PluginsRouter.post('/plugins/rescan', requirePolicy({ policy: 'platform.manage' 
 
 /**
  * One plugin, including its stored non-secret configuration and last error
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L50)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L61)
  */
-PluginsRouter.get('/plugins/:id', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.get('/plugins/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -71,9 +71,9 @@ PluginsRouter.get('/plugins/:id', requirePolicy({ policy: false }), async ctx =>
 
 /**
  * Validates against the plugin's own config schema, encrypts secrets, persists, and reinitializes
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L65)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L81)
  */
-PluginsRouter.put('/plugins/:id/config', requirePolicy({ policy: false }), bodyParserMiddleware(['json']), async ctx => {
+PluginsRouter.put('/plugins/:id/config', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -93,9 +93,9 @@ PluginsRouter.put('/plugins/:id/config', requirePolicy({ policy: false }), bodyP
 
 /**
  * Enables a plugin without resubmitting its configuration
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L83)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L99)
  */
-PluginsRouter.post('/plugins/:id/enable', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.post('/plugins/:id/enable', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -113,9 +113,9 @@ PluginsRouter.post('/plugins/:id/enable', requirePolicy({ policy: false }), asyn
 
 /**
  * Disables a plugin and tears its instance down, keeping its configuration
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L98)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L114)
  */
-PluginsRouter.post('/plugins/:id/disable', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.post('/plugins/:id/disable', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -133,9 +133,9 @@ PluginsRouter.post('/plugins/:id/disable', requirePolicy({ policy: false }), asy
 
 /**
  * Reapplies the plugin's stored configuration: disposes the running instance and initializes it again
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L113)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L129)
  */
-PluginsRouter.post('/plugins/:id/reload', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.post('/plugins/:id/reload', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -153,9 +153,9 @@ PluginsRouter.post('/plugins/:id/reload', requirePolicy({ policy: false }), asyn
 
 /**
  * Runs the plugin's own `testConnection()` through the invoker
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L128)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L144)
  */
-PluginsRouter.post('/plugins/:id/test', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.post('/plugins/:id/test', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -173,9 +173,9 @@ PluginsRouter.post('/plugins/:id/test', requirePolicy({ policy: false }), async 
 
 /**
  * Returns the plugin's buffered log lines at or above the current log level
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L143)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L163)
  */
-PluginsRouter.get('/plugins/:id/logs', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.get('/plugins/:id/logs', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -195,9 +195,9 @@ PluginsRouter.get('/plugins/:id/logs', requirePolicy({ policy: false }), async c
 
 /**
  * Streams the plugin's full retained log as a plain-text attachment
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L159)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L179)
  */
-PluginsRouter.get('/plugins/:id/logs/download', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.get('/plugins/:id/logs/download', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -216,9 +216,9 @@ PluginsRouter.get('/plugins/:id/logs/download', requirePolicy({ policy: false })
 
 /**
  * Sets the minimum severity the plugin's log store retains going forward
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L177)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L197)
  */
-PluginsRouter.put('/plugins/:id/logs/level', requirePolicy({ policy: false }), bodyParserMiddleware(['json']), async ctx => {
+PluginsRouter.put('/plugins/:id/logs/level', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -238,9 +238,9 @@ PluginsRouter.put('/plugins/:id/logs/level', requirePolicy({ policy: false }), b
 
 /**
  * Reports where to send the operator for the provider's consent screen
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L195)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L215)
  */
-PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -258,9 +258,9 @@ PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: false 
 
 /**
  * Forgets the plugin's stored OAuth tokens and reinitializes it
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L213)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L233)
  */
-PluginsRouter.delete('/plugins/:id/oauth', requirePolicy({ policy: false }), async ctx => {
+PluginsRouter.delete('/plugins/:id/oauth', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
@@ -278,7 +278,7 @@ PluginsRouter.delete('/plugins/:id/oauth', requirePolicy({ policy: false }), asy
 
 /**
  * Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L228)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L248)
  * anonymous access, no security required
  */
 PluginsRouter.get('/plugins/:id/oauth/callback', async ctx => {

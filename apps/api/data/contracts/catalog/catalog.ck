@@ -9,11 +9,14 @@ options {
         EnrichmentReadService: "#src/modules/enrichment/enrichment.read.service.js"
     }
     security: {
-        # The floor for every operation in this file, cascading file -> route -> operation. A
-        # session is required and no policy is checked: reading the catalog is what any signed-in
-        # console does. Nothing here overrides it; an operation that needed to would declare its
-        # own `security` block.
-        policy: none
+        # The floor for every operation in this file, cascading file -> route -> operation. The
+        # catalog is entirely reads, so it sits on the read floor that `playout.ck` already uses:
+        # `platform.view`, which both platform roles grant. Nothing here overrides it.
+        #
+        # Not `policy: none`. That spelling still requires a session, but it accepts ANY signed-in
+        # actor, including one holding no platform role at all — which today is every account that
+        # came in through `/auth/login/register`, since only onboarding writes a role tuple.
+        policy: platform.view
     }
 }
 

@@ -6,10 +6,10 @@ options {
         PlaylistsService: "#src/modules/playlists/playlists.service.js"
     }
     security: {
-        # The floor for every operation in this file, cascading file -> route -> operation. Both
-        # reads fan out to plugins on behalf of a signed-in console, so a session and no policy.
-        # Nothing overrides it.
-        policy: none
+        # The floor for both operations in this file, cascading file -> route -> operation. Both
+        # are reads that fan out to plugins on behalf of the console, so they sit on the same
+        # `platform.view` read floor as the catalog and the playout status. Nothing overrides it.
+        policy: platform.view
     }
 }
 

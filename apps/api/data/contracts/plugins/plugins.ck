@@ -6,11 +6,20 @@ options {
         PluginsService: "#src/modules/plugins/plugins.service.js"
     }
     security: {
-        # The floor for every operation in this file, cascading file -> route -> operation: a
-        # session, no policy. Two operations override it and say so at their own verb —
-        # `/plugins/rescan` needs `platform.manage`, and the OAuth callback is anonymous because
-        # the provider redirects a browser into it. Everything else inherits this.
-        policy: none
+        # The floor for every operation in this file, cascading file -> route -> operation.
+        # Configuring a plugin stores its credentials and reinitializes it, so the floor is the
+        # operator gate rather than the read one, and it is the STRICT end on purpose: a route
+        # added here without a security block inherits `platform.manage` and is over-gated, which
+        # is a bug report. The other way round it would be a quiet hole.
+        #
+        # Three operations override it downward and say why at their own verb: the two summary
+        # reads, and the OAuth callback the provider redirects a browser into.
+        #
+        # Object-scoped `plugin.configure` / `plugin.oauth` from core.perm would be the more
+        # precise gate — they are what the `operator` grant was designed for — but they cannot be
+        # named here yet. `requirePolicy` asserts with `{ session }` only, so a policy has no
+        # plugin id to scope on. That needs a policy class first, not a contract change.
+        policy: platform.manage
     }
 }
 
@@ -18,6 +27,11 @@ operation /plugins: {
     get: { # Lists every plugin the host knows about, optionally narrowed to one kind
         name: List plugins
         service: PluginsService.listPlugins
+        # A read, so it drops to the view floor. `PluginSummary` carries no configured values —
+        # `secretsConfigured` is one boolean per secret field, never the secret.
+        security: {
+            policy: platform.view
+        }
         query: PluginListQuery
         response: {
             200: {
@@ -32,9 +46,6 @@ operation /plugins/rescan: {
     post: { # Rescans the mounted plugin directory: registers new plugins, unloads removed ones
         name: Rescan plugins
         service: PluginsService.rescanPlugins
-        security: {
-            policy: platform.manage
-        }
         response: {
             200: {
                 application/json: array(PluginSummary)
@@ -50,6 +61,11 @@ operation /plugins/{id}: {
     get: { # One plugin, including its stored non-secret configuration and last error
         name: Get plugin
         service: PluginsService.getPlugin
+        # A read, so it drops to the view floor. `PluginDetail` adds the stored NON-secret config
+        # and the last error; the secrets themselves are still only reported as booleans.
+        security: {
+            policy: platform.view
+        }
         response: {
             200: {
                 application/json: PluginDetail
@@ -140,6 +156,10 @@ operation /plugins/{id}/logs: {
     params: {
         id: string(min=1, max=200)
     }
+    # Both log reads stay on the file's `platform.manage` floor rather than dropping to
+    # `platform.view` with the other reads. Plugin log output is whatever the plugin chose to
+    # write, including upstream error bodies, and a careless plugin can put a token in a line.
+    # Treat it as operator-only until the log store can promise otherwise.
     get: { # Returns the plugin's buffered log lines at or above the current log level
         name: Get plugin logs
         service: PluginsService.getPluginLogs

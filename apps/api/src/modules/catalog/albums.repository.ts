@@ -3,17 +3,25 @@ import { ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import { DB } from '../data/db.js';
 import { CatalogListQuery, likeContains } from './catalog.query.js';
+import { artUrl } from './catalog.art.js';
 
-/** `nameKey` is a match key for ingest and never read out; `artistName` is joined in below. */
+/**
+ * `nameKey` is a match key for ingest and never read out; `artistName` is joined in below.
+ *
+ * `imageUrl` is not among them: it is selected through {@link artUrl}, which prefers the locally
+ * cached copy over the upstream URL the column holds.
+ */
 const ALBUM_COLUMNS = [
     'deadair.albums.id',
     'deadair.albums.name',
     'deadair.albums.artistId',
     'deadair.albums.year',
-    'deadair.albums.imageUrl',
     'deadair.albums.rating',
     'deadair.artists.name as artistName',
 ] as const;
+
+/** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
+const ALBUM_IMAGE_COLUMN = 'deadair.albums.image_url';
 
 function trackCount(eb: ExpressionBuilder<DB, 'deadair.albums' | 'deadair.artists'>) {
     return eb
@@ -50,6 +58,7 @@ export class AlbumsRepository extends DataRepository {
         const { total } = await scoped.select(eb => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow();
         const data = await scoped
             .select(ALBUM_COLUMNS)
+            .select(artUrl(ALBUM_IMAGE_COLUMN))
             .select(eb => [trackCount(eb)])
             .orderBy('deadair.albums.name', sort)
             .orderBy('deadair.albums.id', 'asc')
@@ -68,6 +77,7 @@ export class AlbumsRepository extends DataRepository {
             .where('deadair.albums.id', '=', id)
             .where('deadair.albums.mergedIntoId', 'is', null)
             .select(ALBUM_COLUMNS)
+            .select(artUrl(ALBUM_IMAGE_COLUMN))
             .select(eb => [trackCount(eb)])
             .executeTakeFirst();
 

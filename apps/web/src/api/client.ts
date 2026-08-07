@@ -5,7 +5,7 @@ import { refreshSession } from '../auth/session.refresher';
 import { isInvalidToken } from './sdk.error';
 
 /** The SPA is served from the same origin as the API, so a relative prefix is enough. */
-const BASE_URL = '/api';
+export const BASE_URL = '/api';
 
 const baseFetch = createSdkFetch({
     baseUrl: BASE_URL,

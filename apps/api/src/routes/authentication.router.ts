@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
+import { ServerKitRouter, bodyParserMiddleware } from '@maroonedsoftware/koa';
 import { AuthenticationRegistrationService } from '#src/modules/authentication/authentication.registration.service.js';
 import { AuthenticationService } from '#src/modules/authentication/authentication.service.js';
 import {
@@ -106,9 +106,10 @@ AuthenticationRouter.get('/auth/login/oidc/callback', async ctx => {
 /**
  * This is an internal endpoint handling the redirect routing for magic links. When the user follows the link the browser will direct the user to this endpoint which renders as a blank page, and then the user will be redirected to the provided magic link url.
  * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L91)
+ * anonymous access, no security required
  * @internal
  */
-AuthenticationRouter.get('/auth/login/link/redirect', requirePolicy(), async ctx => {
+AuthenticationRouter.get('/auth/login/link/redirect', async ctx => {
     const query = await parseAndValidate(
         ctx.query,
         z.strictObject({

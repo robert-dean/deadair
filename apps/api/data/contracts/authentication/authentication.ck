@@ -91,6 +91,10 @@ operation(internal) /auth/login/link/redirect: {
     get: { # This is an internal endpoint handling the redirect routing for magic links. When the user follows the link the browser will direct the user to this endpoint which renders as a blank page, and then the user will be redirected to the provided magic link url.
         name: MagicLink Redirect
         service: AuthenticationService.magicLinkRedirect
+        # Anonymous by necessity, and stated rather than left off: an omitted security block is not
+        # public, it generates a bare `requirePolicy()`, which is a session-plus-MFA gate. The only
+        # caller here is a browser following a link out of an email, carrying no session at all.
+        security: none
         query: {
             token: string(max=100) # The magic link token
             token_type: string(max=100) # The token type

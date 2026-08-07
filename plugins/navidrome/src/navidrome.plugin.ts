@@ -160,6 +160,17 @@ export class NavidromePlugin implements MusicProviderPluginInstance {
             const mapped = mapPlaylist(playlist, this.artworkUrl(playlist));
             if (mapped) playlists.push(mapped);
         }
+
+        // Worth a line, because zero is both plausible and confusing: `getPlaylists`
+        // answers with the playlists this account OWNS plus any marked public, so a
+        // dedicated deadair account sees none of the ones an operator made under
+        // their own login. From outside, that is indistinguishable from a plugin
+        // that only ever offers "Everything".
+        if (playlists.length === 0) {
+            this.host?.logger.info('navidrome returned no playlists for this account; only owned and public ones are visible', {
+                user: this.config?.username,
+            });
+        }
         playlists.push({ id: EVERYTHING_PLAYLIST_ID, name: EVERYTHING_PLAYLIST_NAME, description: 'Every song in the library.' });
 
         // Subsonic returns the whole list in one response, so paging is applied here

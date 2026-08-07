@@ -120,7 +120,7 @@ export const navidromeManifest: PluginManifest = {
             label: 'Username',
             type: 'string',
             required: true,
-            help: 'A Navidrome account deadair reads the library as. A dedicated one is worth making.',
+            help: 'The Navidrome account deadair reads the library as. Playlists are per-account: this one sees the playlists it owns plus any marked public, so a dedicated account will not see playlists you made under your own login.',
         },
         {
             key: 'password',

@@ -13,13 +13,29 @@ it directly. No shim, no helper process, no session to lend.
 | field | what it is |
 | ----- | ---------- |
 | Server URL | The root of your server (`http://navidrome.local:4533`), without `/rest`. |
-| Username | An account deadair reads the library as. Worth making a dedicated one. |
+| Username | The account deadair reads the library as. See the note below before reaching for a dedicated one. |
 | Password | That account's password. Stored encrypted, and never sent as-is: every request carries a salted MD5 of it, which is what Subsonic specifies. |
 | Stream format | `Original file` unless your library holds something the player cannot decode. Transcoding costs the Navidrome machine CPU for every track aired. |
 | Maximum bitrate | Only applies when transcoding. Blank means no limit. |
 
 Press **Test connection** once it is filled in: `ping` is authenticated, so a
 success proves the URL, the account and the password together.
+
+### Which account, and why it decides what you see
+
+Playlists in Navidrome belong to a user. `getPlaylists` returns the ones the
+authenticated account **owns**, plus any marked **public** — so a dedicated
+`deadair` account sees none of the playlists you made under your own login, and
+the plugin will offer only "Everything".
+
+Two ways out, and the second is usually better:
+
+- Point the plugin at the account that owns the playlists.
+- Keep the dedicated account and mark the playlists you want aired as public in
+  Navidrome (the playlist's own settings).
+
+Nothing else is account-scoped this way: the library, its tracks and their tags
+are the same whichever account reads them. It is only playlists.
 
 ## The "Everything" playlist
 

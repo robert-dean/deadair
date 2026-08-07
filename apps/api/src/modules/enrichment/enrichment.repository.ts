@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
+import { DateTime } from 'luxon';
 import { DataRepository } from '../data/data.repository.js';
 
 /** A canonical track, in the shape the enrichment fan-out needs to ask about it. */
@@ -74,6 +75,21 @@ export interface AlbumPromotion {
     imageUrl?: string;
 }
 
+/**
+ * One stored payload, as the read side hands it back.
+ *
+ * `data` is deliberately `unknown`. It is jsonb, so what comes out is whatever
+ * went in, and the only thing that has ever validated it is the sanitizer the
+ * write path ran — which the read path runs again rather than trusting.
+ */
+export interface StoredProviderPayload {
+    provider: string;
+    providerRef?: string;
+    data: unknown;
+    fetchedAt: DateTime;
+    expiresAt?: DateTime;
+}
+
 /** What the merged enrichment is allowed to write onto the canonical rows. */
 export interface TrackPromotion {
     /** MusicBrainz recording id. Written once and never revised. */
@@ -88,6 +104,38 @@ const nullable = <T>(value: T | null | undefined): T | undefined => (value == nu
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const isUuid = (value: string | undefined): value is string => value !== undefined && UUID.test(value);
+
+/** One row of a canonical entity left-joined to its enrichment, before the nulls are read. */
+interface JoinedEnrichmentRow {
+    provider: string | null;
+    providerRef: string | null;
+    data: unknown;
+    fetchedAt: DateTime | null;
+    expiresAt: DateTime | null;
+}
+
+/**
+ * The left join's rows as payloads: no rows at all is `undefined` (no such
+ * entity), and rows that carry no provider are the join's own null row for an
+ * entity nothing has stored anything about yet.
+ */
+function storedPayloads(rows: JoinedEnrichmentRow[]): StoredProviderPayload[] | undefined {
+    if (rows.length === 0) return undefined;
+
+    const payloads: StoredProviderPayload[] = [];
+    for (const row of rows) {
+        if (row.provider == null || row.fetchedAt == null) continue;
+        payloads.push({
+            provider: row.provider,
+            providerRef: nullable(row.providerRef),
+            data: row.data,
+            fetchedAt: row.fetchedAt,
+            expiresAt: nullable(row.expiresAt),
+        });
+    }
+
+    return payloads;
+}
 
 /**
  * The enrichment tables, plus the narrow promotion of what they hold onto the
@@ -537,6 +585,61 @@ export class EnrichmentRepository extends DataRepository {
         `.execute(this.db);
 
         return (result.numAffectedRows ?? 0n) > 0n;
+    }
+
+    /**
+     * Every provider's stored payload for one track, newest fetch first.
+     *
+     * A left join off `deadair.tracks` rather than a select on the enrichment
+     * table alone, so one query answers two different questions. No rows at all
+     * means there is no such track (or it was merged away, which reads never
+     * return), and the caller owes a 404. Rows with no `provider` mean the track
+     * exists and the walk has simply not reached it yet, which is a 200 holding
+     * nothing.
+     *
+     * Miss rows come back like any other. They are payloads that happen to be
+     * empty, and telling a caller "asked, nothing found" apart from "never
+     * asked" is exactly what they are for.
+     */
+    async findTrackEnrichment(trackId: string): Promise<StoredProviderPayload[] | undefined> {
+        const rows = await this.db
+            .selectFrom('deadair.tracks as t')
+            .leftJoin('deadair.trackEnrichment as te', 'te.trackId', 't.id')
+            .where('t.id', '=', trackId)
+            .where('t.mergedIntoId', 'is', null)
+            .select(['te.provider', 'te.providerRef', 'te.data', 'te.fetchedAt', 'te.expiresAt'])
+            .orderBy('te.fetchedAt', 'desc')
+            .execute();
+
+        return storedPayloads(rows);
+    }
+
+    /** {@link findTrackEnrichment} for an artist. */
+    async findArtistEnrichment(artistId: string): Promise<StoredProviderPayload[] | undefined> {
+        const rows = await this.db
+            .selectFrom('deadair.artists as a')
+            .leftJoin('deadair.artistEnrichment as ae', 'ae.artistId', 'a.id')
+            .where('a.id', '=', artistId)
+            .where('a.mergedIntoId', 'is', null)
+            .select(['ae.provider', 'ae.providerRef', 'ae.data', 'ae.fetchedAt', 'ae.expiresAt'])
+            .orderBy('ae.fetchedAt', 'desc')
+            .execute();
+
+        return storedPayloads(rows);
+    }
+
+    /** {@link findTrackEnrichment} for a record. */
+    async findAlbumEnrichment(albumId: string): Promise<StoredProviderPayload[] | undefined> {
+        const rows = await this.db
+            .selectFrom('deadair.albums as al')
+            .leftJoin('deadair.albumEnrichment as ale', 'ale.albumId', 'al.id')
+            .where('al.id', '=', albumId)
+            .where('al.mergedIntoId', 'is', null)
+            .select(['ale.provider', 'ale.providerRef', 'ale.data', 'ale.fetchedAt', 'ale.expiresAt'])
+            .orderBy('ale.fetchedAt', 'desc')
+            .execute();
+
+        return storedPayloads(rows);
     }
 
     /** Cover art for an album that has none. The same "fill the gap, never overwrite" rule. */

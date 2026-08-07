@@ -6,6 +6,7 @@ options {
         ArtistsService: "#src/modules/catalog/artists.service.js"
         AlbumsService: "#src/modules/catalog/albums.service.js"
         TracksService: "#src/modules/catalog/tracks.service.js"
+        EnrichmentReadService: "#src/modules/enrichment/enrichment.read.service.js"
     }
 }
 
@@ -44,6 +45,24 @@ operation /catalog/artists/{id}: {
         response: {
             200: {
                 application/json: Artist
+            }
+        }
+    }
+}
+
+operation /catalog/artists/{id}/enrichment: {
+    params: {
+        id: uuid
+    }
+    get: { # What every enrichment provider said about this artist, and when each of them said it
+        name: Get artist enrichment
+        service: EnrichmentReadService.getArtistEnrichment
+        security: {
+            policy: none
+        }
+        response: {
+            200: {
+                application/json: ArtistEnrichmentDetail
             }
         }
     }
@@ -108,6 +127,24 @@ operation /catalog/albums/{id}: {
     }
 }
 
+operation /catalog/albums/{id}/enrichment: {
+    params: {
+        id: uuid
+    }
+    get: { # The record's own enrichment: the label, pressing and cover belong to the release, not to a track on it
+        name: Get album enrichment
+        service: EnrichmentReadService.getAlbumEnrichment
+        security: {
+            policy: none
+        }
+        response: {
+            200: {
+                application/json: AlbumEnrichmentDetail
+            }
+        }
+    }
+}
+
 operation /catalog/albums/{id}/tracks: {
     params: {
         id: uuid
@@ -125,6 +162,24 @@ operation /catalog/albums/{id}/tracks: {
                     meta: Pagination
                     data: array(Track)
                 }
+            }
+        }
+    }
+}
+
+operation /catalog/tracks/{id}/enrichment: {
+    params: {
+        id: uuid
+    }
+    get: { # What the providers said about one recording, including everything no canonical column holds
+        name: Get track enrichment
+        service: EnrichmentReadService.getTrackEnrichment
+        security: {
+            policy: none
+        }
+        response: {
+            200: {
+                application/json: TrackEnrichmentDetail
             }
         }
     }

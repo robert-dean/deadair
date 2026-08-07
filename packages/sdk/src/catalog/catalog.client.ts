@@ -1,7 +1,16 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { parseJson, buildQueryString } from '../sdk-options.js';
 import type { Pagination } from '../shared/types/pagination.js';
-import type { Album, Artist, CatalogQuery, CatalogQueryInput, Track } from './types/catalog.types.js';
+import type {
+    Album,
+    AlbumEnrichmentDetail,
+    Artist,
+    ArtistEnrichmentDetail,
+    CatalogQuery,
+    CatalogQueryInput,
+    Track,
+    TrackEnrichmentDetail,
+} from './types/catalog.types.js';
 
 export class CatalogClient {
     constructor(private fetch: SdkFetch) {}
@@ -25,6 +34,15 @@ export class CatalogClient {
     async getArtist(id: string): Promise<Artist> {
         const result = await this.fetch(`/catalog/artists/${encodeURIComponent(id)}`, { method: 'GET' });
         return await parseJson<Artist>(result);
+    }
+
+    /**
+     * @name Get artist enrichment
+     * @description What every enrichment provider said about this artist, and when each of them said it
+     */
+    async getArtistEnrichment(id: string): Promise<ArtistEnrichmentDetail> {
+        const result = await this.fetch(`/catalog/artists/${encodeURIComponent(id)}/enrichment`, { method: 'GET' });
+        return await parseJson<ArtistEnrichmentDetail>(result);
     }
 
     /**
@@ -55,6 +73,15 @@ export class CatalogClient {
     }
 
     /**
+     * @name Get album enrichment
+     * @description The record's own enrichment: the label, pressing and cover belong to the release, not to a track on it
+     */
+    async getAlbumEnrichment(id: string): Promise<AlbumEnrichmentDetail> {
+        const result = await this.fetch(`/catalog/albums/${encodeURIComponent(id)}/enrichment`, { method: 'GET' });
+        return await parseJson<AlbumEnrichmentDetail>(result);
+    }
+
+    /**
      * @name List album tracks
      * @description One album's tracks
      */
@@ -64,6 +91,15 @@ export class CatalogClient {
             method: 'GET',
         });
         return await parseJson<{ meta: Pagination; data: Track[] }>(result);
+    }
+
+    /**
+     * @name Get track enrichment
+     * @description What the providers said about one recording, including everything no canonical column holds
+     */
+    async getTrackEnrichment(id: string): Promise<TrackEnrichmentDetail> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/enrichment`, { method: 'GET' });
+        return await parseJson<TrackEnrichmentDetail>(result);
     }
 
     /**

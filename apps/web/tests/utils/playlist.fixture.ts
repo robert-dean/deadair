@@ -13,7 +13,13 @@ export function catalogPlaylist(overrides: Partial<CatalogPlaylist> = {}): Catal
     };
 }
 
-/** A plugin that could not be reached while assembling the catalog page. */
+/**
+ * A plugin that could not be listed while assembling the catalog page.
+ *
+ * Not only "unreachable": the API reports a plugin it never contacted for the same reason it
+ * reports a call that failed, because a quarantined or misconfigured one cannot offer playlists
+ * either. This default is the mid-call failure; pass a `message` for the other shape.
+ */
 export function catalogSourceError(overrides: Partial<CatalogSourceError> = {}): CatalogSourceError {
     return {
         pluginId: 'deadair.navidrome',
@@ -37,7 +43,7 @@ export function catalogTrack(overrides: Partial<CatalogTrack> = {}): CatalogTrac
         id: 'track-1',
         title: 'Good Times',
         artists: ['Chic'],
-        album: 'C\'est Chic',
+        album: "C'est Chic",
         durationMs: 218000,
         ...overrides,
     };

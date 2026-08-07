@@ -7,6 +7,7 @@ import { CatalogPlaceholderJob } from '#modules/catalog/ingest/catalog.placehold
 import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
+import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 
 /**
  * What a job name maps to. The bare constructor is the short form for an
@@ -100,5 +101,20 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: ArtCacheJob,
         cron: '*/10 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 5 }) },
+    },
+
+    // No cron: the director sends this when a lineup it is airing runs short, which
+    // is the only event that means anything here. A schedule would top up lineups
+    // nobody is listening to and leave the one on air to the same trigger anyway.
+    //
+    // One retry and no dead-letter queue, for the reason the enrichment pass gives:
+    // a lineup that failed to grow is still short, so the next boundary sends this
+    // again under the director's own guard. The work is its own record. `expiresIn`
+    // is short because there is nothing slow in a run today — a sample, two history
+    // reads and one write — and a wedged run must be reclaimed well before the
+    // lineup it was meant to refill actually drains.
+    'director.extend_lineup': {
+        job: ExtendLineupJob,
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 3 }) },
     },
 };

@@ -77,13 +77,14 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // One retry, no dead-letter queue. A track that failed still has no fresh
     // enrichment row, so it is still outstanding and the next pass picks it up —
     // the work is its own record, and there is nothing a dead-letter row would
-    // preserve. `expiresIn` is comfortably above a full batch (see `BATCH_SIZE`
-    // in `enrichment.job.ts`, about nine minutes of paced requests) and below the
-    // interval, so a wedged run is reclaimed before the next one starts.
+    // preserve. `expiresIn` sits above a full run and below the interval, so a
+    // wedged run is reclaimed before the next one starts: the walk stops asking
+    // for work at `RUN_BUDGET_MS` (11 minutes) and can overshoot by at most the
+    // batch call already in flight, so thirteen clears it either way.
     'catalog.enrich': {
         job: EnrichmentJob,
         cron: '*/15 * * * *',
-        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 12 }) },
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
     },
 
     // Every ten minutes, and also sent by the sync whenever it added tracks, so a new arrival's

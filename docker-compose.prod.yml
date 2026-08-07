@@ -31,6 +31,11 @@ services:
         volumes:
             - ./.docvol/media:/app/apps/api/media
             - ./.docvol/logs:/app/apps/api/logs
+            # PLUGINS_DIR, where an operator drops a plugin the image does not ship.
+            # Without this the mount point is a path inside the container that nothing
+            # populates and nothing survives, which makes operator-installed plugins a
+            # feature a deployed station does not actually have.
+            - ./.docvol/plugins:/app/apps/api/data/plugins
         depends_on:
             db:
                 condition: service_healthy

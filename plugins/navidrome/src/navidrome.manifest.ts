@@ -82,8 +82,8 @@ export const navidromeManifest: PluginManifest = {
     // Grows with the methods that make each one true, never ahead of them: the
     // host requires a capability to be declared AND implemented, and a manifest
     // that promises one it cannot do is its author's bug rather than anything an
-    // operator can fix. `stream` lands with the code behind it.
-    capabilities: ['catalog'],
+    // operator can fix. `enrichment` lands with the code behind it.
+    capabilities: ['catalog', 'stream'],
     apiVersion: '^1.0.0',
     description: 'Search and browse a Navidrome library, and air its tracks.',
     homepage: 'https://www.navidrome.org',

@@ -43,6 +43,11 @@ media/
 # Docker volume data (bind-mounted host paths)
 .docvol/
 
+# Operator-installed plugins (PLUGINS_DIR). Theirs, not the repo's — and in a dev
+# checkout it is where you symlink a plugin you are working on, which is a local
+# arrangement rather than something to commit.
+apps/api/data/plugins/
+
 # The rights-cleared music bed is the operator's own library, mounted at /music.
 # The directory has to exist for the bind mount; its contents are never committed.
 stream/music/*

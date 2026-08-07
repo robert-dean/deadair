@@ -208,3 +208,73 @@ describe('dispose', () => {
         await expect(plugin.searchTracks('anything')).rejects.toMatchObject({ code: 'config' });
     });
 });
+
+describe('resolveStreamUrl', () => {
+    it('mints a URL the player can fetch with no headers of its own', async () => {
+        // The whole reason this plugin needs no station-side helper: Subsonic
+        // authenticates in the query string, so the URL carries its own login.
+        const { plugin } = await build();
+
+        const stream = await plugin.resolveStreamUrl('song-1');
+        const url = new URL(stream!.url);
+
+        expect(url.origin + url.pathname).toBe(`${BASE_URL}/rest/stream.view`);
+        expect(url.searchParams.get('id')).toBe('song-1');
+        expect(url.searchParams.get('t')).toMatch(/^[0-9a-f]{32}$/);
+        expect(url.searchParams.get('s')).toBeTruthy();
+    });
+
+    it('asks for the original file by default, and claims no mime type for it', async () => {
+        // With `format=raw` the server sends whatever the file is. Naming a type
+        // would be a claim this plugin cannot back.
+        const { plugin } = await build();
+
+        const stream = await plugin.resolveStreamUrl('song-1');
+
+        expect(new URL(stream!.url).searchParams.get('format')).toBe('raw');
+        expect(stream).not.toHaveProperty('mimeType');
+    });
+
+    it('never expires the URL, because a Subsonic token does not', async () => {
+        const { plugin } = await build();
+        expect(await plugin.resolveStreamUrl('song-1')).not.toHaveProperty('expiresAt');
+    });
+
+    it('carries the bitrate only when something is actually being transcoded', async () => {
+        const host = createFakePluginHost();
+        host.seedConfig({ baseUrl: BASE_URL, username: 'station', streamFormat: 'mp3', maxBitRate: 192 });
+        host.seedSecret('password', 'hunter2');
+        const plugin = new NavidromePlugin();
+        await plugin.init(host);
+
+        const stream = await plugin.resolveStreamUrl('song-1');
+        const url = new URL(stream!.url);
+
+        expect(url.searchParams.get('format')).toBe('mp3');
+        expect(url.searchParams.get('maxBitRate')).toBe('192');
+        expect(stream?.mimeType).toBe('audio/mpeg');
+    });
+
+    it('omits an unset bitrate rather than sending a zero Subsonic reads as "no limit"', async () => {
+        const host = createFakePluginHost();
+        host.seedConfig({ baseUrl: BASE_URL, username: 'station', streamFormat: 'opus' });
+        host.seedSecret('password', 'hunter2');
+        const plugin = new NavidromePlugin();
+        await plugin.init(host);
+
+        const stream = await plugin.resolveStreamUrl('song-1');
+
+        expect(new URL(stream!.url).searchParams.has('maxBitRate')).toBe(false);
+    });
+
+    it('costs no request of its own', async () => {
+        // Checking the id first would spend a round trip to learn something that can
+        // change between the check and the fetch anyway. A lost id 404s at fetch
+        // time and one item is skipped.
+        const { host, plugin } = await build();
+
+        await plugin.resolveStreamUrl('song-1');
+
+        expect(host.calls).toHaveLength(0);
+    });
+});

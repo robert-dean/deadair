@@ -6,6 +6,7 @@ import {
     type PluginConnectionResult,
     type PluginHost,
     type ProviderPlaylist,
+    type ProviderStream,
     type ProviderTrack,
     type SearchTracksOptions,
 } from '@deadair/plugin-sdk';
@@ -31,6 +32,15 @@ const clampCount = (limit: number | undefined): number | undefined => {
 };
 
 /**
+ * What a transcode will be.
+ *
+ * Only stated when we asked for one: with `format=raw` the server sends whatever
+ * the file happens to be, and guessing at that from a `suffix` would be a claim
+ * this plugin cannot back.
+ */
+const MIME_TYPES: Record<string, string> = { mp3: 'audio/mpeg', opus: 'audio/ogg' };
+
+/**
  * Navidrome as a deadair `music-provider`: an operator's own library, over the
  * Subsonic API that Navidrome and its relatives all speak.
  *
@@ -50,6 +60,7 @@ const clampCount = (limit: number | undefined): number | undefined => {
 export class NavidromePlugin implements MusicProviderPluginInstance {
     private host?: PluginHost;
     private client?: SubsonicClient;
+    private config?: NavidromeConfig;
 
     async init(host: PluginHost): Promise<void> {
         this.host = host;
@@ -58,6 +69,7 @@ export class NavidromePlugin implements MusicProviderPluginInstance {
         const password = await host.secrets.get('password');
         if (!password) throw new PluginError('Navidrome password is not configured').withCode('config');
 
+        this.config = config;
         this.client = new SubsonicClient(host, config.baseUrl, new SubsonicAuth(config.username, password));
         host.logger.info('navidrome ready', { server: config.baseUrl, user: config.username });
     }
@@ -166,8 +178,42 @@ export class NavidromePlugin implements MusicProviderPluginInstance {
         return this.toTracks(body.searchResult3?.song);
     }
 
+    // --- stream --------------------------------------------------------------
+
+    /**
+     * A URL the player can fetch on its own.
+     *
+     * This is the ordinary shape the SDK was designed around and the reason this
+     * plugin needs no station-side helper: Subsonic authenticates in the query
+     * string, so the URL carries its own credentials, which is exactly what the
+     * player requires — it fetches with no headers from us.
+     *
+     * No `expiresAt`. A Subsonic token does not expire, and claiming a lifetime
+     * would make the rundown re-resolve URLs that never went stale.
+     *
+     * Not checked against the library first. A `stream` call for an id the server
+     * lost 404s at fetch time, one item is skipped, and the alternative is
+     * spending a round trip per item to learn something that can change between
+     * the check and the fetch anyway.
+     */
+    async resolveStreamUrl(trackId: string): Promise<ProviderStream | undefined> {
+        const format = this.config?.streamFormat ?? 'raw';
+
+        return {
+            url: this.require().url('stream.view', {
+                id: trackId,
+                format,
+                // Only meaningful to a transcode, and Subsonic reads a zero as "no
+                // limit" rather than as absent — so an unset one is left out.
+                maxBitRate: format === 'raw' ? undefined : this.config?.maxBitRate,
+            }),
+            ...(format === 'raw' ? {} : { mimeType: MIME_TYPES[format] }),
+        };
+    }
+
     async dispose(): Promise<void> {
         this.client = undefined;
+        this.config = undefined;
         this.host = undefined;
     }
 

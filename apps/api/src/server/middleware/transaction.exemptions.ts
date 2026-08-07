@@ -36,9 +36,16 @@ export const infraExemption: TransactionExemption = ({ method, path }) => method
 // authz is ReBAC / public-kind, so they don't rely on org RLS.
 export const streamingExemption: TransactionExemption = ({ path }) => path.startsWith('/media/') || path.endsWith('/content');
 
+// The public now-playing answer is served entirely out of memory: the rundown holds what is on air
+// and the station's name is pushed into the service at boot. It touches no tenant data and needs no
+// org GUC, and it is polled — by a hi-fi streamer, a station page, whatever is displaying the track
+// — every few seconds by every consumer at once, which is not a reason to spend a pooled connection
+// and a transaction each time. Anything that grows a database read here has to come out of this list.
+export const nowPlayingExemption: TransactionExemption = ({ method, path }) => method === 'GET' && path === '/nowplaying';
+
 // The exemptions applied by default. Compose additional ones onto this list where the middleware is
 // wired (setup.middleware) when a new opt-out route is introduced.
-export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [infraExemption, streamingExemption];
+export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [infraExemption, streamingExemption, nowPlayingExemption];
 
 export const isTransactionExempt = (request: ExemptionRequest, exemptions: readonly TransactionExemption[]): boolean =>
     exemptions.some(exemption => exemption(request));

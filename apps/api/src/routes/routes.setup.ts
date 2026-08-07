@@ -4,6 +4,7 @@ import { AuthenticationSessionsRouter } from './authentication.sessions.router.j
 import { ArtRouter } from './art.router.js';
 import { CatalogRouter } from './catalog.router.js';
 import { PlaylistsRouter } from './playlists.router.js';
+import { NowplayingRouter } from './nowplaying.router.js';
 import { PlayoutRouter } from './playout.router.js';
 import { PluginsRouter } from './plugins.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
@@ -16,6 +17,7 @@ export const routers = [
     CatalogRouter,
     PlaylistsRouter,
     PlayoutRouter,
+    NowplayingRouter,
     PluginsRouter,
     OnboardingRouter,
 ];

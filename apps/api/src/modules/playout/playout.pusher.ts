@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { annotateUri, ITEM_KEY } from './annotate.js';
+import { annotateUri, itemAnnotations } from './annotate.js';
 import { PLAYOUT_LEAD, PlayoutControlClient } from './liquidsoap.control.js';
 import { Rundown } from './rundown.js';
 
@@ -173,7 +173,7 @@ export class PlayoutPusher {
                 // and loading a new order will wake us through onChange.
                 if (!pulled) return;
 
-                const landed = await this.control.push(annotateUri({ [ITEM_KEY]: pulled.item.id }, pulled.url));
+                const landed = await this.control.push(annotateUri(itemAnnotations(pulled.item), pulled.url));
                 if (!landed) {
                     // Already popped, so put it back at the head rather than losing it:
                     // nothing aired, and the next pass should offer the same thing again.

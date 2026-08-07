@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import { parseReading, PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
-import { annotateUri, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
+import { annotateUri, itemAnnotations, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 
 describe('parseReading', () => {
@@ -249,5 +249,37 @@ describe('annotateUri', () => {
 
     it('returns the bare uri when there is nothing to annotate', () => {
         expect(annotateUri({}, 'file:///x.mp3')).toBe('file:///x.mp3');
+    });
+});
+
+describe('itemAnnotations', () => {
+    const item = {
+        id: 'item-1',
+        pluginId: 'deadair.spotify',
+        externalId: 'trk_1',
+        title: 'Windowlicker',
+        artists: ['Aphex Twin', 'Someone Else'],
+    };
+
+    it('labels the mount with what the app knows, because the file cannot', () => {
+        // Liquidsoap plays a file it fetched from a URL we handed it, and a Spotify
+        // item carries no usable tags. These names are Liquidsoap's own, and
+        // output.icecast builds the ICY stream title out of them.
+        expect(itemAnnotations({ ...item, album: 'Windowlicker' })).toEqual({
+            deadair_item: 'item-1',
+            title: 'Windowlicker',
+            artist: 'Aphex Twin, Someone Else',
+            album: 'Windowlicker',
+        });
+    });
+
+    it('still carries the id, which is the half the app reads back', () => {
+        expect(itemAnnotations(item)[ITEM_KEY]).toBe('item-1');
+    });
+
+    it('omits what it does not know rather than sending it blank', () => {
+        // An `artist=""` overwrites the file's own tags with nothing, and for a local
+        // library those tags are better than silence on the mount.
+        expect(itemAnnotations({ ...item, artists: [] })).toEqual({ deadair_item: 'item-1', title: 'Windowlicker' });
     });
 });

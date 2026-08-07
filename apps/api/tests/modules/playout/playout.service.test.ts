@@ -12,8 +12,7 @@ import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap
 import type { PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
 import type { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import type { Rundown } from '../../../src/modules/playout/rundown.js';
-import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
-import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
+import type { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
 import type { StreamService } from '../../../src/modules/stream/stream.service.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -23,12 +22,8 @@ const BRIDGE_SECRET = 'bridge-secret';
 interface Options {
     bridgeSecret?: string;
     markAired?: boolean;
-    /** What the playlists read answers with, or an error to throw from it. */
-    tracks?: { id: string; title: string; artists: string[]; durationMs?: number; album?: string; artworkUrl?: string }[];
-    playlistError?: Error;
-    /** What the local catalog knows about those provider ids, and whether it can be asked at all. */
-    catalogRows?: { externalId: string; trackId: string; year: number | null; albumName: string | null; albumImageUrl: string | null }[];
-    catalogError?: Error;
+    /** What the import throws, if anything: the plugin narrowing lives inside it. */
+    importError?: Error;
     /** Whether the stream took a skip, and whether it is reachable at all. */
     skipLands?: boolean;
     streamUp?: boolean;
@@ -58,16 +53,13 @@ function build(options: Options = {}) {
         isOnAir: vi.fn(() => options.onAir ?? true),
     } as unknown as PlayoutControlClient;
 
-    const playlists = {
-        getPlaylistTracks: vi.fn(async () => {
-            if (options.playlistError) throw options.playlistError;
-            return {
-                pluginId: 'deadair.spotify',
-                playlistId: 'pl_1',
-                tracks: options.tracks ?? [{ id: 'trk_1', title: 'A Track', artists: ['An Artist'] }],
-            };
+    const director = {
+        importPlaylist: vi.fn(async () => {
+            if (options.importError) throw options.importError;
+            return { id: 'lineup-1' };
         }),
-    } as unknown as PlaylistsService;
+        putOnAir: vi.fn(async () => ({ active: true, cursor: 0, remaining: 0 })),
+    } as unknown as DirectorConsoleService;
 
     // Deliberately always resolves an address, even when the stream is down: that is
     // exactly what a pinned LIQUIDSOAP_CONTROL_URL does, and `streamUp` must not be
@@ -79,19 +71,11 @@ function build(options: Options = {}) {
 
     const stream = { settings: async () => ({}) } as unknown as StreamService;
 
-    const tracks = {
-        findByBindings: vi.fn(async () => {
-            if (options.catalogError) throw options.catalogError;
-            return options.catalogRows ?? [];
-        }),
-    } as unknown as TracksRepository;
-
     return {
-        service: new PlayoutService(rundown, pusher, playlists, tracks, endpoint, control, stream, logger),
+        service: new PlayoutService(rundown, pusher, director, endpoint, control, stream, logger),
         rundown,
         pusher,
-        playlists,
-        tracks,
+        director,
     };
 }
 
@@ -106,119 +90,36 @@ const statusOf = async (call: Promise<unknown>): Promise<number> => {
 };
 
 describe('PlayoutService.playPlaylist', () => {
-    it('loads the playlist and hands the first item over without waiting for the tick', async () => {
+    it('imports the playlist as a lineup and puts that on air', async () => {
+        // The shortcut stays, because it is a useful one, but it goes the long way
+        // round: two paths writing the running order would give the station two
+        // writers with no idea of each other, and whichever ran last would win.
+        const { service, director } = build();
+
+        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(director.importPlaylist).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+        expect(director.putOnAir).toHaveBeenCalledWith('lineup-1');
+    });
+
+    it('hands the first item over without waiting for the tick', async () => {
         // Otherwise the console's own response describes a station that has not started
         // yet, and the operator sees a stopped transport for up to a reconcile interval.
-        const { service, rundown, pusher } = build();
+        const { service, pusher } = build();
 
         await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
 
-        expect(rundown.load).toHaveBeenCalledOnce();
         expect(pusher.reconcile).toHaveBeenCalledOnce();
     });
 
-    it('maps a catalog track onto the source-keyed identity the rundown uses', async () => {
-        const { service, rundown } = build({ tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], durationMs: 1_000 }] });
-
-        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
-
-        expect(rundown.load).toHaveBeenCalledWith([
-            { pluginId: 'deadair.spotify', externalId: 'trk_9', title: 'B Side', artists: ['Someone'], durationMs: 1_000 },
-        ]);
-    });
-
-    it('omits a duration the provider did not report, rather than inventing a zero', async () => {
-        const { service, rundown } = build({ tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'] }] });
-
-        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
-
-        expect(rundown.load).toHaveBeenCalledWith([{ pluginId: 'deadair.spotify', externalId: 'trk_9', title: 'B Side', artists: ['Someone'] }]);
-    });
-
-    it('keeps what the provider says about the copy it will actually serve', async () => {
-        // The provider describes the thing that will play. The catalog describes the
-        // work, and must not overwrite the album printed on the copy being aired.
-        const { service, rundown } = build({
-            tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], album: 'The Single' }],
-            catalogRows: [{ externalId: 'trk_9', trackId: 'cat-1', year: 1979, albumName: 'The Album', albumImageUrl: null }],
-        });
-
-        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
-
-        expect(rundown.load).toHaveBeenCalledWith([expect.objectContaining({ album: 'The Single', year: 1979, trackId: 'cat-1' })]);
-    });
-
-    it('takes the catalog cover over the provider one, because it may already be cached locally', async () => {
-        // `artUrl` has resolved this to the station's own copy where there is one, so
-        // a console does not hotlink a provider CDN on every poll of the transport.
-        const { service, rundown } = build({
-            tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], artworkUrl: 'https://provider.test/cover.jpg' }],
-            catalogRows: [{ externalId: 'trk_9', trackId: 'cat-1', year: null, albumName: null, albumImageUrl: 'art/asset-1' }],
-        });
-
-        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
-
-        expect(rundown.load).toHaveBeenCalledWith([expect.objectContaining({ artworkUrl: 'art/asset-1' })]);
-    });
-
-    it('falls back to the provider cover for a track the catalog has never seen', async () => {
-        const { service, rundown } = build({
-            tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], artworkUrl: 'https://provider.test/cover.jpg' }],
-            catalogRows: [],
-        });
-
-        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
-
-        const [[loaded]] = vi.mocked(rundown.load).mock.calls as unknown as [Record<string, unknown>[][]];
-        expect(loaded![0]).toEqual({
-            pluginId: 'deadair.spotify',
-            externalId: 'trk_9',
-            title: 'B Side',
-            artists: ['Someone'],
-            artworkUrl: 'https://provider.test/cover.jpg',
-        });
-    });
-
-    it('airs the playlist anyway when the catalog read fails', async () => {
-        // Metadata is decoration; airing is the job. A catalog that is unhappy costs
-        // the covers, not the broadcast.
-        const { service, rundown, pusher } = build({ catalogError: new Error('the pool is gone') });
-
-        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
-
-        expect(rundown.load).toHaveBeenCalledWith([expect.objectContaining({ externalId: 'trk_1' })]);
-        expect(pusher.reconcile).toHaveBeenCalledOnce();
-    });
-
-    it('asks the catalog once for the whole playlist rather than once per track', async () => {
-        const { service, tracks } = build({
-            tracks: [
-                { id: 'trk_1', title: 'One', artists: ['A'] },
-                { id: 'trk_2', title: 'Two', artists: ['B'] },
-            ],
-        });
-
-        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
-
-        expect(tracks.findByBindings).toHaveBeenCalledOnce();
-        expect(tracks.findByBindings).toHaveBeenCalledWith('deadair.spotify', ['trk_1', 'trk_2']);
-    });
-
-    it('refuses an empty playlist instead of reporting a station that plays nothing', async () => {
-        const { service, rundown } = build({ tracks: [] });
-
-        expect(await statusOf(service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(422);
-        expect(rundown.load).not.toHaveBeenCalled();
-    });
-
-    it('lets the playlists read own the plugin narrowing', async () => {
-        // 403/404/501/503 all come from PlaylistsService.requireCatalogCapable, so a
-        // plugin the actor cannot see answers identically here and on the listing.
+    it('lets the import own the refusals it always owned', async () => {
+        // 403/404/422/501/503 still come from the plugin narrowing inside the import,
+        // so this route answers exactly as it did when it read the playlist itself.
         const forbidden = Object.assign(new Error('Forbidden'), { status: 403 });
-        const { service, rundown } = build({ playlistError: forbidden });
+        const { service, director } = build({ importError: forbidden });
 
         expect(await statusOf(service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(403);
-        expect(rundown.load).not.toHaveBeenCalled();
+        expect(director.putOnAir).not.toHaveBeenCalled();
     });
 });
 

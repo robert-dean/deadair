@@ -150,6 +150,11 @@ export class Lineup {
         return this.snapshot.onEnd;
     }
 
+    /** Who built it: `import` or `director`. Recorded against everything it airs. */
+    get source(): string {
+        return this.snapshot.source;
+    }
+
     get rules(): LineupRules {
         return this.snapshot.rules ?? {};
     }

@@ -2,14 +2,12 @@ import { timingSafeEqual } from 'node:crypto';
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
-import { TracksRepository } from '#modules/catalog/tracks.repository.js';
-import { PlaylistsService } from '#modules/playlists/playlists.service.js';
-import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
+import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutPusher } from './playout.pusher.js';
-import { Rundown, type RundownItem, type RundownTrack } from './rundown.js';
+import { Rundown, type RundownItem } from './rundown.js';
 import type {
     PlayoutAiredQuery,
     PlayoutBridgeHeaders,
@@ -39,8 +37,9 @@ export class PlayoutService {
     constructor(
         private readonly rundown: Rundown,
         private readonly pusher: PlayoutPusher,
-        private readonly playlists: PlaylistsService,
-        private readonly tracks: TracksRepository,
+        // The station's programming lives with the director; this surface is the
+        // transport, and its one write goes through there rather than around it.
+        private readonly director: DirectorConsoleService,
         private readonly endpoint: LiquidsoapEndpoint,
         private readonly control: PlayoutControlClient,
         private readonly stream: StreamService,
@@ -94,32 +93,21 @@ export class PlayoutService {
     }
 
     /**
-     * Load a plugin playlist into the running order and start airing it.
+     * Play a plugin playlist: import it as a lineup and put that on air.
      *
-     * Reads the tracks through {@link PlaylistsService} rather than calling the
-     * plugin directly, so the same narrowing applies as when the console lists
-     * them: an actor who cannot see the plugin gets the same 403 whether or not
-     * it is installed, and a plugin that is not catalog-capable answers 501
-     * rather than failing halfway through a load.
+     * A delegate, not an implementation. The station's programming is the
+     * director's, and this route predates it — keeping a second path that wrote
+     * the running order directly would give the station two writers with no idea
+     * of each other, and whichever ran last would win. So the shortcut stays,
+     * because it is a genuinely useful one, and it goes the long way round.
      *
-     * Replaces whatever was queued. What is on air finishes: changing the
-     * running order is not a reason to cut the listener off mid-track.
-     *
-     * @throws 422 when the playlist has no tracks. Loading an empty order would
-     *   report success and then silently play nothing.
+     * The 403/404/422/501/503 answers all still come from the same place they
+     * always did: the import reads through `PlaylistsService`, which narrows on
+     * the actor's view of the plugin.
      */
     async playPlaylist(input: PlayoutPlaylistInput): Promise<PlayoutStatus> {
-        const { tracks } = await this.playlists.getPlaylistTracks(input.pluginId, input.playlistId);
-        if (tracks.length === 0) {
-            throw httpError(422).withDetails({ message: 'that playlist has no tracks to play' });
-        }
-
-        this.rundown.load(await this.toRundownTracks(input.pluginId, tracks));
-        this.logger.info('playout: loaded a playlist into the running order', {
-            plugin: input.pluginId,
-            playlist: input.playlistId,
-            tracks: tracks.length,
-        });
+        const lineup = await this.director.importPlaylist({ pluginId: input.pluginId, playlistId: input.playlistId });
+        await this.director.putOnAir(lineup.id);
 
         // Hand the first item over now rather than waiting out the reconcile tick,
         // so the console's own response already reflects a station that is starting.
@@ -174,61 +162,6 @@ export class PlayoutService {
 
         if (!this.rundown.markAired(query.item)) {
             this.logger.warn('playout: aired notify named an item the rundown does not hold', { item: query.item });
-        }
-    }
-
-    /**
-     * One provider's playlist as running-order items, with whatever the local
-     * catalog can add to them.
-     *
-     * A provider describes the copy it will serve, and that stays authoritative
-     * for title, artists and duration: it is the thing that will actually play.
-     * The catalog knows the WORK — its canonical id, its release year, and a cover
-     * the station has already cached — and none of that reaches a console
-     * otherwise, which is why the mount and the transport bar have been unlabelled.
-     *
-     * Cover art prefers the catalog's answer because {@link artUrl} has already
-     * resolved it to the local copy where one exists; the provider's URL is the
-     * fallback for a track the catalog has never seen.
-     *
-     * Never fails the load. Metadata is decoration and airing is the job, so a
-     * catalog read that throws costs the covers and nothing else.
-     */
-    private async toRundownTracks(pluginId: string, tracks: readonly CatalogTrack[]): Promise<RundownTrack[]> {
-        const known = await this.catalogMetadata(pluginId, tracks);
-
-        return tracks.map(track => {
-            const row = known.get(track.id);
-            const album = track.album ?? row?.albumName ?? undefined;
-            const artworkUrl = row?.albumImageUrl ?? track.artworkUrl;
-            return {
-                pluginId,
-                externalId: track.id,
-                title: track.title,
-                artists: track.artists,
-                ...(track.durationMs === undefined ? {} : { durationMs: track.durationMs }),
-                ...(album === undefined ? {} : { album }),
-                ...(artworkUrl == null ? {} : { artworkUrl }),
-                ...(row?.year == null ? {} : { year: row.year }),
-                ...(row?.trackId === undefined ? {} : { trackId: row.trackId }),
-            };
-        });
-    }
-
-    /** The catalog's rows for these bindings, by provider id. Empty when the catalog cannot answer. */
-    private async catalogMetadata(pluginId: string, tracks: readonly CatalogTrack[]) {
-        try {
-            const rows = await this.tracks.findByBindings(
-                pluginId,
-                tracks.map(track => track.id),
-            );
-            return new Map(rows.map(row => [row.externalId, row]));
-        } catch (error) {
-            this.logger.warn('playout: could not read catalog metadata for a playlist; airing it without', {
-                plugin: pluginId,
-                error: error instanceof Error ? error.message : String(error),
-            });
-            return new Map();
         }
     }
 

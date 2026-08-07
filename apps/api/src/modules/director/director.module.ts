@@ -1,8 +1,11 @@
-import { Registry } from 'injectkit';
+import { Container, Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
+import { DirectorConsoleService } from './director.console.service.js';
+import { DirectorService } from './director.service.js';
+import { ExtendLineupJob } from './extend.lineup.job.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PickResolver } from './pick.resolver.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -10,14 +13,12 @@ import { SetGenerator } from './set.generator.js';
 import { StationAirRepository } from './station.air.repository.js';
 
 /**
- * The station's programming: the lineups it means to air, and which one is on.
+ * The station's programming: the lineups it means to air, which one is on, and
+ * the actor that keeps the running order full from it.
  *
  * Registered after PlayoutModule, whose singleton `Rundown` the director drives,
  * and after CatalogModule and PlaylistsModule, which are where its tracks come
  * from. Nothing in the chassis reaches back into it.
- *
- * Storage only, so far. The reactor that keeps the rundown topped up from a
- * lineup arrives with the rest of the director.
  */
 export const DirectorModule: ServerKitModule = {
     name: 'Director',
@@ -35,5 +36,27 @@ export const DirectorModule: ServerKitModule = {
         // which is the whole reason a pick is a NAME rather than an id.
         registry.register(SetGenerator).useClass(CatalogSetGenerator).asScoped();
         registry.register(PickResolver).useClass(PickResolver).asScoped();
+        registry.register(ExtendLineupJob).useClass(ExtendLineupJob).asScoped();
+
+        // The reactor is a singleton by necessity, not for tidiness: it holds the
+        // rundown subscriptions and the lineup on air, and a per-request copy would
+        // give every caller a different, empty view of what the station is doing.
+        registry.register(DirectorService).useClass(DirectorService).asSingleton();
+        // Its request-facing half is scoped like any other service, and only holds a
+        // reference to the singleton above.
+        registry.register(DirectorConsoleService).useClass(DirectorConsoleService).asScoped();
+    },
+
+    ready: async (container: Container, signal: AbortSignal) => {
+        if (signal.aborted) return;
+
+        // In `ready` rather than `start`: it reads what was on air before the restart,
+        // which is work the first request does not depend on, and it drives a rundown
+        // whose own pusher only begins in PlayoutModule's ready.
+        await container.get(DirectorService).start();
+    },
+
+    shutdown: async (container: Container) => {
+        container.get(DirectorService).stop();
     },
 };

@@ -87,6 +87,40 @@ export function catalogAlbumTracksOptions(id: string, input: CatalogPageInput) {
     });
 }
 
+/**
+ * How long a stored enrichment read stays fresh.
+ *
+ * Far longer than the catalog's own minute, because these rows barely move: a payload is trusted
+ * for ninety days before the walk asks its provider again, and nothing in the console writes one.
+ * The only thing that changes underneath is a background pass, which no amount of refetching would
+ * catch at the moment it happens.
+ */
+const ENRICHMENT_STALE_TIME = 10 * 60_000;
+
+export function catalogArtistEnrichmentOptions(id: string) {
+    return queryOptions({
+        queryKey: queryKeys.catalog.artistEnrichment(id),
+        queryFn: () => sdk.catalog.getArtistEnrichment(id),
+        staleTime: ENRICHMENT_STALE_TIME,
+    });
+}
+
+export function catalogAlbumEnrichmentOptions(id: string) {
+    return queryOptions({
+        queryKey: queryKeys.catalog.albumEnrichment(id),
+        queryFn: () => sdk.catalog.getAlbumEnrichment(id),
+        staleTime: ENRICHMENT_STALE_TIME,
+    });
+}
+
+export function catalogTrackEnrichmentOptions(id: string) {
+    return queryOptions({
+        queryKey: queryKeys.catalog.trackEnrichment(id),
+        queryFn: () => sdk.catalog.getTrackEnrichment(id),
+        staleTime: ENRICHMENT_STALE_TIME,
+    });
+}
+
 export function catalogTracksOptions(input: CatalogPageInput) {
     return queryOptions({
         queryKey: queryKeys.catalog.tracks(input.page, input.search),

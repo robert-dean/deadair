@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Alert, Anchor, Card, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -8,6 +9,7 @@ import { formatDuration } from '../shared/format.duration';
 import { Artwork } from './artwork';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
+import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
 
 export interface CatalogTracksPageProps {
     page: number;
@@ -25,6 +27,7 @@ export interface CatalogTracksPageProps {
 export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }: CatalogTracksPageProps) {
     const tracks = useQuery(catalogTracksOptions({ page, search }));
     const rows = tracks.data?.data ?? [];
+    const expansion = useTrackExpansion();
 
     return (
         <Stack gap="lg">
@@ -69,6 +72,7 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
                         <Table.Thead>
                             <Table.Tr>
                                 <Table.Th w={52} />
+                                <Table.Th w={44} />
                                 <Table.Th>Title</Table.Th>
                                 <Table.Th>Artist</Table.Th>
                                 <Table.Th>Album</Table.Th>
@@ -77,39 +81,51 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
                         </Table.Thead>
                         <Table.Tbody>
                             {rows.map(track => (
-                                <Table.Tr key={track.id}>
-                                    {/* The record's cover, since nothing hangs art off a recording. Blank for a
+                                <Fragment key={track.id}>
+                                    <Table.Tr>
+                                        {/* The record's cover, since nothing hangs art off a recording. Blank for a
                                         single ingested outside any release, which has no record to borrow from. */}
-                                    <Table.Td>
-                                        <Artwork src={track.albumImageUrl} alt={track.albumName ?? track.title} size={36} />
-                                    </Table.Td>
-                                    <Table.Td>{track.title}</Table.Td>
-                                    <Table.Td>
-                                        <Anchor
-                                            renderRoot={props => (
-                                                <Link to="/catalog/artists/$artistId" params={{ artistId: track.artistId }} {...props} />
-                                            )}
-                                        >
-                                            {track.artistName}
-                                        </Anchor>
-                                    </Table.Td>
-                                    {/* A track ingested outside any release has no album, which is a
-                                        blank cell rather than a broken link. */}
-                                    <Table.Td>
-                                        {track.albumId === undefined ? (
-                                            ''
-                                        ) : (
+                                        <Table.Td>
+                                            <Artwork src={track.albumImageUrl} alt={track.albumName ?? track.title} size={36} />
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <TrackExpandButton
+                                                open={expansion.isOpen(track.id)}
+                                                title={track.title}
+                                                onToggle={() => {
+                                                    expansion.toggle(track.id);
+                                                }}
+                                            />
+                                        </Table.Td>
+                                        <Table.Td>{track.title}</Table.Td>
+                                        <Table.Td>
                                             <Anchor
                                                 renderRoot={props => (
-                                                    <Link to="/catalog/albums/$albumId" params={{ albumId: track.albumId }} {...props} />
+                                                    <Link to="/catalog/artists/$artistId" params={{ artistId: track.artistId }} {...props} />
                                                 )}
                                             >
-                                                {track.albumName}
+                                                {track.artistName}
                                             </Anchor>
-                                        )}
-                                    </Table.Td>
-                                    <Table.Td>{formatDuration(track.durationMs)}</Table.Td>
-                                </Table.Tr>
+                                        </Table.Td>
+                                        {/* A track ingested outside any release has no album, which is a
+                                        blank cell rather than a broken link. */}
+                                        <Table.Td>
+                                            {track.albumId === undefined ? (
+                                                ''
+                                            ) : (
+                                                <Anchor
+                                                    renderRoot={props => (
+                                                        <Link to="/catalog/albums/$albumId" params={{ albumId: track.albumId }} {...props} />
+                                                    )}
+                                                >
+                                                    {track.albumName}
+                                                </Anchor>
+                                            )}
+                                        </Table.Td>
+                                        <Table.Td>{formatDuration(track.durationMs)}</Table.Td>
+                                    </Table.Tr>
+                                    <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={6} />
+                                </Fragment>
                             ))}
                         </Table.Tbody>
                     </Table>

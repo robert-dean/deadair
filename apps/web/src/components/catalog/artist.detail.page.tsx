@@ -2,10 +2,11 @@ import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from 
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { CATALOG_PAGE_SIZE, catalogArtistAlbumsOptions, catalogArtistOptions } from '../../api/catalog.queries';
+import { CATALOG_PAGE_SIZE, catalogArtistAlbumsOptions, catalogArtistEnrichmentOptions, catalogArtistOptions } from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { Artwork } from './artwork';
 import { CatalogPagination } from './catalog.pagination';
+import { EnrichmentPanel } from './enrichment.panel';
 
 export interface ArtistDetailPageProps {
     artistId: string;
@@ -16,6 +17,7 @@ export interface ArtistDetailPageProps {
 export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailPageProps) {
     const artist = useQuery(catalogArtistOptions(artistId));
     const albums = useQuery(catalogArtistAlbumsOptions(artistId, { page }));
+    const enrichment = useQuery(catalogArtistEnrichmentOptions(artistId));
     const rows = albums.data?.data ?? [];
 
     return (
@@ -52,6 +54,18 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                     {apiErrorMessage(albums.error, 'The catalog is unavailable.')}
                 </Alert>
             ) : undefined}
+
+            {/* Suppressed while the artist itself is failing: one alert about an artist who is not
+                there is enough, and a second about their enrichment says nothing new. */}
+            {artist.error ? undefined : (
+                <EnrichmentPanel
+                    merged={enrichment.data?.merged}
+                    sources={enrichment.data?.sources}
+                    isPending={enrichment.isPending}
+                    error={enrichment.error}
+                    emptyMessage="No provider has been asked about this artist yet. The enrichment pass picks up what it has not seen, oldest first."
+                />
+            )}
 
             {albums.isPending && !artist.error ? <Skeleton height={200} radius="sm" /> : undefined}
 

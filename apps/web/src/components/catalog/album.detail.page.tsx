@@ -1,12 +1,15 @@
+import { Fragment } from 'react';
 import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { CATALOG_PAGE_SIZE, catalogAlbumOptions, catalogAlbumTracksOptions } from '../../api/catalog.queries';
+import { CATALOG_PAGE_SIZE, catalogAlbumEnrichmentOptions, catalogAlbumOptions, catalogAlbumTracksOptions } from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from './artwork';
 import { CatalogPagination } from './catalog.pagination';
+import { EnrichmentPanel } from './enrichment.panel';
+import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
 
 export interface AlbumDetailPageProps {
     albumId: string;
@@ -17,7 +20,9 @@ export interface AlbumDetailPageProps {
 export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPageProps) {
     const album = useQuery(catalogAlbumOptions(albumId));
     const tracks = useQuery(catalogAlbumTracksOptions(albumId, { page }));
+    const enrichment = useQuery(catalogAlbumEnrichmentOptions(albumId));
     const rows = tracks.data?.data ?? [];
+    const expansion = useTrackExpansion();
 
     return (
         <Stack gap="lg">
@@ -60,6 +65,18 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                 </Alert>
             ) : undefined}
 
+            {/* Suppressed while the album itself is failing: one alert about a record that is not
+                there is enough, and a second about its enrichment says nothing new. */}
+            {album.error ? undefined : (
+                <EnrichmentPanel
+                    merged={enrichment.data?.merged}
+                    sources={enrichment.data?.sources}
+                    isPending={enrichment.isPending}
+                    error={enrichment.error}
+                    emptyMessage="No provider has been asked about this record yet. The enrichment pass picks up what it has not seen, oldest first."
+                />
+            )}
+
             {tracks.isPending && !album.error ? <Skeleton height={200} radius="sm" /> : undefined}
 
             {tracks.data && rows.length === 0 ? (
@@ -75,6 +92,7 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                     <Table>
                         <Table.Thead>
                             <Table.Tr>
+                                <Table.Th w={44} />
                                 <Table.Th>Title</Table.Th>
                                 <Table.Th>Credit</Table.Th>
                                 <Table.Th w={120}>Duration</Table.Th>
@@ -82,13 +100,25 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                         </Table.Thead>
                         <Table.Tbody>
                             {rows.map(track => (
-                                <Table.Tr key={track.id}>
-                                    <Table.Td>{track.title}</Table.Td>
-                                    {/* The credit as written on the release, which is not the same
-                                        as the canonical artist this album hangs off. */}
-                                    <Table.Td>{track.artists}</Table.Td>
-                                    <Table.Td>{formatDuration(track.durationMs)}</Table.Td>
-                                </Table.Tr>
+                                <Fragment key={track.id}>
+                                    <Table.Tr>
+                                        <Table.Td>
+                                            <TrackExpandButton
+                                                open={expansion.isOpen(track.id)}
+                                                title={track.title}
+                                                onToggle={() => {
+                                                    expansion.toggle(track.id);
+                                                }}
+                                            />
+                                        </Table.Td>
+                                        <Table.Td>{track.title}</Table.Td>
+                                        {/* The credit as written on the release, which is not the same
+                                            as the canonical artist this album hangs off. */}
+                                        <Table.Td>{track.artists}</Table.Td>
+                                        <Table.Td>{formatDuration(track.durationMs)}</Table.Td>
+                                    </Table.Tr>
+                                    <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={4} />
+                                </Fragment>
                             ))}
                         </Table.Tbody>
                     </Table>

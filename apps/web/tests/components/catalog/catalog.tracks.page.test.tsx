@@ -1,15 +1,22 @@
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 
 import { CatalogTracksPage } from '../../../src/components/catalog/catalog.tracks.page';
-import { render, screen } from '../../utils/render';
+import { render, screen, waitFor } from '../../utils/render';
 
 const listTracks = vi.fn();
+const getTrackEnrichment = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     BASE_URL: '/api',
-    sdk: { catalog: { listTracks: (...args: unknown[]) => listTracks(...args) } },
+    sdk: {
+        catalog: {
+            listTracks: (...args: unknown[]) => listTracks(...args),
+            getTrackEnrichment: (...args: unknown[]) => getTrackEnrichment(...args),
+        },
+    },
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -89,6 +96,31 @@ describe('CatalogTracksPage', () => {
         render(<CatalogTracksPage page={0} search="zzz" onPageChange={noop} onSearchChange={noop} />);
 
         expect(await screen.findByText('Nothing matches “zzz”')).toBeInTheDocument();
+    });
+
+    // A page of fifty tracks would be fifty enrichment requests if the rows fetched on render, so
+    // the panel is not mounted until the operator opens one.
+    it('asks for a track’s enrichment only once its row is opened', async () => {
+        listTracks.mockResolvedValue(page([track()]));
+        getTrackEnrichment.mockResolvedValue({
+            trackId: '33333333-3333-4333-8333-333333333333',
+            merged: { label: 'Fat Cat' },
+            sources: [
+                { provider: 'deadair.musicbrainz', fetchedAt: '2026-08-02T09:00:00.000Z', stale: false, found: true, data: { label: 'Fat Cat' } },
+            ],
+        });
+
+        render(<CatalogTracksPage page={0} search="" onPageChange={noop} onSearchChange={noop} />);
+        await screen.findByText('Vaka');
+
+        expect(getTrackEnrichment).not.toHaveBeenCalled();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Show what is known about Vaka' }));
+
+        await waitFor(() => {
+            expect(getTrackEnrichment).toHaveBeenCalledWith('33333333-3333-4333-8333-333333333333');
+        });
+        expect(await screen.findByText('Fat Cat')).toBeInTheDocument();
     });
 
     it('surfaces a failed read as an alert', async () => {

@@ -44,9 +44,13 @@ export const queryKeys = {
         artists: (page: number, search?: string) => ['catalog', 'artists', page, search ?? ''] as const,
         artist: (id: string) => ['catalog', 'artist', id] as const,
         artistAlbums: (id: string, page: number, search?: string) => ['catalog', 'artist', id, 'albums', page, search ?? ''] as const,
+        /** What every enrichment provider stored about one row. Read only; the walk is the writer. */
+        artistEnrichment: (id: string) => ['catalog', 'artist', id, 'enrichment'] as const,
         albums: (page: number, search?: string) => ['catalog', 'albums', page, search ?? ''] as const,
         album: (id: string) => ['catalog', 'album', id] as const,
         albumTracks: (id: string, page: number, search?: string) => ['catalog', 'album', id, 'tracks', page, search ?? ''] as const,
+        albumEnrichment: (id: string) => ['catalog', 'album', id, 'enrichment'] as const,
         tracks: (page: number, search?: string) => ['catalog', 'tracks', page, search ?? ''] as const,
+        trackEnrichment: (id: string) => ['catalog', 'track', id, 'enrichment'] as const,
     },
 } as const;

@@ -21,7 +21,7 @@ options {
 }
 
 # The station's own catalog, as opposed to /playlists, which fans out to whatever the enabled
-# plugins can offer right now. Everything here is a session-gated read of canonical rows.
+# plugins can offer right now. Everything here is a `platform.view` read of canonical rows.
 
 operation /catalog/artists: {
     get: { # Every artist the station has ingested, ordered by name
@@ -30,10 +30,7 @@ operation /catalog/artists: {
         query: CatalogQuery
         response: {
             200: {
-                application/json: {
-                    meta: Pagination
-                    data: array(Artist)
-                }
+                application/json: ArtistPage
             }
         }
     }
@@ -79,10 +76,7 @@ operation /catalog/artists/{id}/albums: {
         query: CatalogQuery
         response: {
             200: {
-                application/json: {
-                    meta: Pagination
-                    data: array(Album)
-                }
+                application/json: AlbumPage
             }
         }
     }
@@ -95,10 +89,7 @@ operation /catalog/albums: {
         query: CatalogQuery
         response: {
             200: {
-                application/json: {
-                    meta: Pagination
-                    data: array(Album)
-                }
+                application/json: AlbumPage
             }
         }
     }
@@ -144,10 +135,7 @@ operation /catalog/albums/{id}/tracks: {
         query: CatalogQuery
         response: {
             200: {
-                application/json: {
-                    meta: Pagination
-                    data: array(Track)
-                }
+                application/json: TrackPage
             }
         }
     }
@@ -175,10 +163,7 @@ operation /catalog/tracks: {
         query: CatalogQuery
         response: {
             200: {
-                application/json: {
-                    meta: Pagination
-                    data: array(Track)
-                }
+                application/json: TrackPage
             }
         }
     }

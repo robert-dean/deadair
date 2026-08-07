@@ -1,15 +1,16 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { parseJson, buildQueryString } from '../sdk-options.js';
-import type { Pagination } from '../shared/types/pagination.js';
 import type {
     Album,
     AlbumEnrichmentDetail,
+    AlbumPage,
     Artist,
     ArtistEnrichmentDetail,
+    ArtistPage,
     CatalogQuery,
     CatalogQueryInput,
-    Track,
     TrackEnrichmentDetail,
+    TrackPage,
 } from './types/catalog.types.js';
 
 export class CatalogClient {
@@ -19,12 +20,12 @@ export class CatalogClient {
      * @name List artists
      * @description Every artist the station has ingested, ordered by name
      */
-    async listArtists(query?: CatalogQueryInput): Promise<{ meta: Pagination; data: Artist[] }> {
+    async listArtists(query?: CatalogQueryInput): Promise<ArtistPage> {
         const qs = buildQueryString(query);
         const result = await this.fetch(`/catalog/artists${qs}`, {
             method: 'GET',
         });
-        return await parseJson<{ meta: Pagination; data: Artist[] }>(result);
+        return await parseJson<ArtistPage>(result);
     }
 
     /**
@@ -49,21 +50,21 @@ export class CatalogClient {
      * @name List artist albums
      * @description The albums credited to one artist
      */
-    async listArtistAlbums(id: string, query?: CatalogQueryInput): Promise<{ meta: Pagination; data: Album[] }> {
+    async listArtistAlbums(id: string, query?: CatalogQueryInput): Promise<AlbumPage> {
         const qs = buildQueryString(query);
         const result = await this.fetch(`/catalog/artists/${encodeURIComponent(id)}/albums${qs}`, {
             method: 'GET',
         });
-        return await parseJson<{ meta: Pagination; data: Album[] }>(result);
+        return await parseJson<AlbumPage>(result);
     }
 
     /** @name List albums */
-    async listAlbums(query?: CatalogQueryInput): Promise<{ meta: Pagination; data: Album[] }> {
+    async listAlbums(query?: CatalogQueryInput): Promise<AlbumPage> {
         const qs = buildQueryString(query);
         const result = await this.fetch(`/catalog/albums${qs}`, {
             method: 'GET',
         });
-        return await parseJson<{ meta: Pagination; data: Album[] }>(result);
+        return await parseJson<AlbumPage>(result);
     }
 
     /** @name Get album */
@@ -85,12 +86,12 @@ export class CatalogClient {
      * @name List album tracks
      * @description One album's tracks
      */
-    async listAlbumTracks(id: string, query?: CatalogQueryInput): Promise<{ meta: Pagination; data: Track[] }> {
+    async listAlbumTracks(id: string, query?: CatalogQueryInput): Promise<TrackPage> {
         const qs = buildQueryString(query);
         const result = await this.fetch(`/catalog/albums/${encodeURIComponent(id)}/tracks${qs}`, {
             method: 'GET',
         });
-        return await parseJson<{ meta: Pagination; data: Track[] }>(result);
+        return await parseJson<TrackPage>(result);
     }
 
     /**
@@ -106,11 +107,11 @@ export class CatalogClient {
      * @name List tracks
      * @description Every track, flat. The only way to answer "do we have this song?" without knowing its artist
      */
-    async listTracks(query?: CatalogQueryInput): Promise<{ meta: Pagination; data: Track[] }> {
+    async listTracks(query?: CatalogQueryInput): Promise<TrackPage> {
         const qs = buildQueryString(query);
         const result = await this.fetch(`/catalog/tracks${qs}`, {
             method: 'GET',
         });
-        return await parseJson<{ meta: Pagination; data: Track[] }>(result);
+        return await parseJson<TrackPage>(result);
     }
 }

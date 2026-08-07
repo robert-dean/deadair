@@ -56,6 +56,28 @@ contract CatalogQuery: Pagination & {
     search?: string(min=1, max=200)
 }
 
+# One page of each row type. Declared rather than inlined on the five list operations, so the shape
+# has a name the console can import instead of restating `{ meta, data }` at every call site.
+#
+# Three near-identical contracts because the DSL has no generics. That is the honest expression of
+# it: a union would type `data` as "artists or albums or tracks" and lose which one a given
+# operation returns.
+
+contract ArtistPage: { # One page of artists, with the totals the request was counted against
+    meta: Pagination
+    data: array(Artist)
+}
+
+contract AlbumPage: { # One page of albums
+    meta: Pagination
+    data: array(Album)
+}
+
+contract TrackPage: { # One page of tracks
+    meta: Pagination
+    data: array(Track)
+}
+
 # What enrichment stored, read back. Three payload shapes because the SDK has three: a recording,
 # a performer and a record are asked about separately and know different things. The caps mirror
 # the ones `enrichment.merge.ts` sanitizes to; change them together.

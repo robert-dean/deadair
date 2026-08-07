@@ -112,7 +112,7 @@ export interface CatalogQueryInput extends PaginationInput {
  * What enrichment stored, read back. Three payload shapes because the SDK has three: a recording,
  * a performer and a record are asked about separately and know different things. The caps mirror
  * the ones `enrichment.merge.ts` sanitizes to; change them together.
- * generated from [EnrichmentExternalId](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L63)
+ * generated from [EnrichmentExternalId](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L85)
  */
 export interface EnrichmentExternalId {
     /** e.g. `musicbrainz`, `wikidata` */
@@ -123,7 +123,7 @@ export interface EnrichmentExternalId {
 /**
  * Narrowed to http(s) by the host before it is stored, since the console renders these as
  * something a human clicks.
- * generated from [EnrichmentLink](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L70)
+ * generated from [EnrichmentLink](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L92)
  */
 export interface EnrichmentLink {
     label: string;
@@ -131,11 +131,64 @@ export interface EnrichmentLink {
 }
 
 /**
+ * One page of each row type. Declared rather than inlined on the five list operations, so the shape
+ * has a name the console can import instead of restating `{ meta, data }` at every call site.
+ *
+ * Three near-identical contracts because the DSL has no generics. That is the honest expression of
+ * it: a union would type `data` as "artists or albums or tracks" and lose which one a given
+ * operation returns.
+ * generated from [ArtistPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L66)
+ */
+export interface ArtistPage {
+    /** One page of artists, with the totals the request was counted against */
+    meta: Pagination;
+    data: Artist[];
+}
+
+export interface ArtistPageInput {
+    /** One page of artists, with the totals the request was counted against */
+    meta: PaginationInput;
+    data: ArtistInput[];
+}
+
+/**
+ * One page of albums
+ * generated from [AlbumPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L71)
+ */
+export interface AlbumPage {
+    /** One page of albums */
+    meta: Pagination;
+    data: Album[];
+}
+
+export interface AlbumPageInput {
+    /** One page of albums */
+    meta: PaginationInput;
+    data: AlbumInput[];
+}
+
+/**
+ * One page of tracks
+ * generated from [TrackPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L76)
+ */
+export interface TrackPage {
+    /** One page of tracks */
+    meta: Pagination;
+    data: Track[];
+}
+
+export interface TrackPageInput {
+    /** One page of tracks */
+    meta: PaginationInput;
+    data: TrackInput[];
+}
+
+/**
  * `releaseDate` is a string and not `datetime` because it is a partial date: MusicBrainz answers
  * `1997`, `1997-06` or `1997-06-24` depending on what is actually known about the release, and the
  * SDK types it the same way. A `datetime` would reject the first two or invent a day and a time
  * for them, which is a precision the source never claimed.
- * generated from [TrackEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L79)
+ * generated from [TrackEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L101)
  */
 export interface TrackEnrichmentData {
     artist?: string;
@@ -161,7 +214,7 @@ export interface TrackEnrichmentData {
 }
 
 /**
- * generated from [ArtistEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L99)
+ * generated from [ArtistEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L121)
  */
 export interface ArtistEnrichmentData {
     name?: string;
@@ -175,7 +228,7 @@ export interface ArtistEnrichmentData {
 }
 
 /**
- * generated from [AlbumEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L110)
+ * generated from [AlbumEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L132)
  */
 export interface AlbumEnrichmentData {
     name?: string;
@@ -196,7 +249,7 @@ export interface AlbumEnrichmentData {
 /**
  * One provider's stored answer. `found: false` is a recorded miss, which is a fact rather than a
  * failure: the provider was asked, had nothing, and is not asked again until `expiresAt`.
- * generated from [TrackEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L126)
+ * generated from [TrackEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L148)
  */
 export interface TrackEnrichmentSource {
     provider: string;
@@ -215,7 +268,7 @@ export interface TrackEnrichmentSourceInput {
 }
 
 /**
- * generated from [ArtistEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L136)
+ * generated from [ArtistEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L158)
  */
 export interface ArtistEnrichmentSource {
     provider: string;
@@ -232,7 +285,7 @@ export interface ArtistEnrichmentSourceInput {
 }
 
 /**
- * generated from [AlbumEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L146)
+ * generated from [AlbumEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L168)
  */
 export interface AlbumEnrichmentSource {
     provider: string;
@@ -252,7 +305,7 @@ export interface AlbumEnrichmentSourceInput {
  * Every provider's answer, plus the same merge the promotion step used, so the console and the
  * canonical columns cannot tell different stories. `sources` is empty on a row the walk has not
  * reached yet.
- * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L159)
+ * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L181)
  */
 export interface TrackEnrichmentDetail {
     trackId: string;
@@ -266,7 +319,7 @@ export interface TrackEnrichmentDetailInput {
 }
 
 /**
- * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L165)
+ * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L187)
  */
 export interface ArtistEnrichmentDetail {
     artistId: string;
@@ -280,7 +333,7 @@ export interface ArtistEnrichmentDetailInput {
 }
 
 /**
- * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L171)
+ * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L193)
  */
 export interface AlbumEnrichmentDetail {
     albumId: string;

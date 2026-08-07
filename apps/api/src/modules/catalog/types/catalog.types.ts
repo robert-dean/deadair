@@ -112,7 +112,7 @@ export type CatalogQueryInput = z.infer<typeof CatalogQueryInput>;
  * What enrichment stored, read back. Three payload shapes because the SDK has three: a recording,
  * a performer and a record are asked about separately and know different things. The caps mirror
  * the ones `enrichment.merge.ts` sanitizes to; change them together.
- * generated from [EnrichmentExternalId](file://./../../../../data/contracts/catalog/catalog.types.ck#L63)
+ * generated from [EnrichmentExternalId](file://./../../../../data/contracts/catalog/catalog.types.ck#L85)
  */
 export const EnrichmentExternalId = z.strictObject({
     source: z.string().min(1).max(200).describe('e.g. `musicbrainz`, `wikidata`'),
@@ -123,7 +123,7 @@ export type EnrichmentExternalId = z.infer<typeof EnrichmentExternalId>;
 /**
  * Narrowed to http(s) by the host before it is stored, since the console renders these as
  * something a human clicks.
- * generated from [EnrichmentLink](file://./../../../../data/contracts/catalog/catalog.types.ck#L70)
+ * generated from [EnrichmentLink](file://./../../../../data/contracts/catalog/catalog.types.ck#L92)
  */
 export const EnrichmentLink = z.strictObject({
     label: z.string().min(1).max(200),
@@ -132,11 +132,64 @@ export const EnrichmentLink = z.strictObject({
 export type EnrichmentLink = z.infer<typeof EnrichmentLink>;
 
 /**
+ * One page of each row type. Declared rather than inlined on the five list operations, so the shape
+ * has a name the console can import instead of restating `{ meta, data }` at every call site.
+ *
+ * Three near-identical contracts because the DSL has no generics. That is the honest expression of
+ * it: a union would type `data` as "artists or albums or tracks" and lose which one a given
+ * operation returns.
+ * generated from [ArtistPage](file://./../../../../data/contracts/catalog/catalog.types.ck#L66)
+ */
+export const ArtistPage = z.strictObject({
+    meta: Pagination.describe('One page of artists, with the totals the request was counted against'),
+    data: z.array(Artist),
+});
+export type ArtistPage = z.infer<typeof ArtistPage>;
+
+export const ArtistPageInput = z.strictObject({
+    meta: PaginationInput.describe('One page of artists, with the totals the request was counted against'),
+    data: z.array(ArtistInput),
+});
+export type ArtistPageInput = z.infer<typeof ArtistPageInput>;
+
+/**
+ * One page of albums
+ * generated from [AlbumPage](file://./../../../../data/contracts/catalog/catalog.types.ck#L71)
+ */
+export const AlbumPage = z.strictObject({
+    meta: Pagination.describe('One page of albums'),
+    data: z.array(Album),
+});
+export type AlbumPage = z.infer<typeof AlbumPage>;
+
+export const AlbumPageInput = z.strictObject({
+    meta: PaginationInput.describe('One page of albums'),
+    data: z.array(AlbumInput),
+});
+export type AlbumPageInput = z.infer<typeof AlbumPageInput>;
+
+/**
+ * One page of tracks
+ * generated from [TrackPage](file://./../../../../data/contracts/catalog/catalog.types.ck#L76)
+ */
+export const TrackPage = z.strictObject({
+    meta: Pagination.describe('One page of tracks'),
+    data: z.array(Track),
+});
+export type TrackPage = z.infer<typeof TrackPage>;
+
+export const TrackPageInput = z.strictObject({
+    meta: PaginationInput.describe('One page of tracks'),
+    data: z.array(TrackInput),
+});
+export type TrackPageInput = z.infer<typeof TrackPageInput>;
+
+/**
  * `releaseDate` is a string and not `datetime` because it is a partial date: MusicBrainz answers
  * `1997`, `1997-06` or `1997-06-24` depending on what is actually known about the release, and the
  * SDK types it the same way. A `datetime` would reject the first two or invent a day and a time
  * for them, which is a precision the source never claimed.
- * generated from [TrackEnrichmentData](file://./../../../../data/contracts/catalog/catalog.types.ck#L79)
+ * generated from [TrackEnrichmentData](file://./../../../../data/contracts/catalog/catalog.types.ck#L101)
  */
 export const TrackEnrichmentData = z.strictObject({
     artist: z.string().max(2000).optional(),
@@ -163,7 +216,7 @@ export const TrackEnrichmentData = z.strictObject({
 export type TrackEnrichmentData = z.infer<typeof TrackEnrichmentData>;
 
 /**
- * generated from [ArtistEnrichmentData](file://./../../../../data/contracts/catalog/catalog.types.ck#L99)
+ * generated from [ArtistEnrichmentData](file://./../../../../data/contracts/catalog/catalog.types.ck#L121)
  */
 export const ArtistEnrichmentData = z.strictObject({
     name: z.string().max(2000).optional(),
@@ -178,7 +231,7 @@ export const ArtistEnrichmentData = z.strictObject({
 export type ArtistEnrichmentData = z.infer<typeof ArtistEnrichmentData>;
 
 /**
- * generated from [AlbumEnrichmentData](file://./../../../../data/contracts/catalog/catalog.types.ck#L110)
+ * generated from [AlbumEnrichmentData](file://./../../../../data/contracts/catalog/catalog.types.ck#L132)
  */
 export const AlbumEnrichmentData = z.strictObject({
     name: z.string().max(2000).optional(),
@@ -198,7 +251,7 @@ export type AlbumEnrichmentData = z.infer<typeof AlbumEnrichmentData>;
 /**
  * One provider's stored answer. `found: false` is a recorded miss, which is a fact rather than a
  * failure: the provider was asked, had nothing, and is not asked again until `expiresAt`.
- * generated from [TrackEnrichmentSource](file://./../../../../data/contracts/catalog/catalog.types.ck#L126)
+ * generated from [TrackEnrichmentSource](file://./../../../../data/contracts/catalog/catalog.types.ck#L148)
  */
 export const TrackEnrichmentSource = z.strictObject({
     provider: z.string().min(1).max(200),
@@ -219,7 +272,7 @@ export const TrackEnrichmentSourceInput = z.strictObject({
 export type TrackEnrichmentSourceInput = z.infer<typeof TrackEnrichmentSourceInput>;
 
 /**
- * generated from [ArtistEnrichmentSource](file://./../../../../data/contracts/catalog/catalog.types.ck#L136)
+ * generated from [ArtistEnrichmentSource](file://./../../../../data/contracts/catalog/catalog.types.ck#L158)
  */
 export const ArtistEnrichmentSource = z.strictObject({
     provider: z.string().min(1).max(200),
@@ -238,7 +291,7 @@ export const ArtistEnrichmentSourceInput = z.strictObject({
 export type ArtistEnrichmentSourceInput = z.infer<typeof ArtistEnrichmentSourceInput>;
 
 /**
- * generated from [AlbumEnrichmentSource](file://./../../../../data/contracts/catalog/catalog.types.ck#L146)
+ * generated from [AlbumEnrichmentSource](file://./../../../../data/contracts/catalog/catalog.types.ck#L168)
  */
 export const AlbumEnrichmentSource = z.strictObject({
     provider: z.string().min(1).max(200),
@@ -260,7 +313,7 @@ export type AlbumEnrichmentSourceInput = z.infer<typeof AlbumEnrichmentSourceInp
  * Every provider's answer, plus the same merge the promotion step used, so the console and the
  * canonical columns cannot tell different stories. `sources` is empty on a row the walk has not
  * reached yet.
- * generated from [TrackEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L159)
+ * generated from [TrackEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L181)
  */
 export const TrackEnrichmentDetail = z.strictObject({
     trackId: z.uuid(),
@@ -276,7 +329,7 @@ export const TrackEnrichmentDetailInput = z.strictObject({
 export type TrackEnrichmentDetailInput = z.infer<typeof TrackEnrichmentDetailInput>;
 
 /**
- * generated from [ArtistEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L165)
+ * generated from [ArtistEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L187)
  */
 export const ArtistEnrichmentDetail = z.strictObject({
     artistId: z.uuid(),
@@ -292,7 +345,7 @@ export const ArtistEnrichmentDetailInput = z.strictObject({
 export type ArtistEnrichmentDetailInput = z.infer<typeof ArtistEnrichmentDetailInput>;
 
 /**
- * generated from [AlbumEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L171)
+ * generated from [AlbumEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L193)
  */
 export const AlbumEnrichmentDetail = z.strictObject({
     albumId: z.uuid(),

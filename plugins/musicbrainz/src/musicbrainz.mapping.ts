@@ -215,8 +215,10 @@ export function mapAlbum(
         if (artwork) enrichment.artworkUrl = artwork;
     }
 
-    // The release group first: it is what `albums.mbid` holds, and what the
-    // host reads back as the id this answer was fetched under.
+    // The release group is this answer's identity here: it is what `albums.mbid`
+    // holds and what turns the next album pass into a lookup.
+    if (group?.id) enrichment.providerRef = group.id;
+
     const externalIds: ExternalId[] = [];
     const links: ExternalLink[] = [];
     if (group?.id) {
@@ -265,6 +267,9 @@ export function mapRecording(recording: MusicBrainzRecording, release: MusicBrai
 
     const isrc = recording.isrcs?.[0] ?? ref.isrc;
     if (isrc) enrichment.isrc = isrc;
+
+    // The recording is what was looked up, so it is the ref this answer carries.
+    if (recording.id) enrichment.providerRef = recording.id;
 
     const externalIds: ExternalId[] = [];
     const links: ExternalLink[] = [];

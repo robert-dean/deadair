@@ -84,6 +84,18 @@ export interface AlbumRef {
  * plugin returns a `Partial<TrackEnrichment>` containing only what it knows.
  */
 export interface TrackEnrichment {
+    /**
+     * Your own id for this thing, so the next pass can be a lookup rather than
+     * another search. The mirror of the `providerRef` on the ref you were
+     * handed: the host stores it against your plugin and gives it back to you,
+     * and only to you.
+     *
+     * Say it outright whenever you have one. It is not identity and it is not a
+     * claim about anyone else's ids — put those in {@link externalIds}, in
+     * whatever order suits you.
+     */
+    providerRef: string;
+
     /** Canonical artist name, if the source has a better spelling than the provider. */
     artist: string;
     title: string;
@@ -124,6 +136,9 @@ export interface TrackEnrichment {
  * constantly, and an artist's background changes on a scale of years.
  */
 export interface ArtistEnrichment {
+    /** Your own id for this artist. See {@link TrackEnrichment.providerRef}. */
+    providerRef: string;
+
     /** Canonical artist name, if the source has a better spelling than the provider. */
     name: string;
     /** Free-text background. DJ patter fodder. */
@@ -145,6 +160,9 @@ export interface ArtistEnrichment {
  * record, or for a compilation whose tracks were licensed separately.
  */
 export interface AlbumEnrichment {
+    /** Your own id for this record. See {@link TrackEnrichment.providerRef}. */
+    providerRef: string;
+
     name: string;
     /** Canonical artist name for the album, which is not always the track's. */
     artist: string;

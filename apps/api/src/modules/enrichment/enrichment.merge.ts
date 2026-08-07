@@ -28,13 +28,27 @@ interface FieldSpec {
     strings: readonly string[];
     /** Everything that accumulates across plugins rather than being decided by one. */
     lists: readonly string[];
+    /**
+     * Fields that belong to the plugin that said them and to nobody else.
+     *
+     * Sanitized like text, so they survive into that plugin's stored payload,
+     * and then skipped by the merge the way `extra` is. `providerRef` is the
+     * whole category: it is one source's id for this thing, handed back to that
+     * source next pass, and a merged view — which gets promoted onto canonical
+     * rows and read as a single answer — has no business carrying it.
+     */
+    perProvider: readonly string[];
 }
+
+/** Every spec's {@link FieldSpec.perProvider}, since the reason is the same for all three. */
+const PER_PROVIDER_FIELDS = ['providerRef'] as const;
 
 const TRACK_FIELDS: FieldSpec = {
     text: ['artist', 'title', 'album', 'releaseDate', 'biography', 'musicalKey', 'label', 'isrc', 'artworkUrl'],
     number: ['year', 'bpm'],
     strings: ['genres', 'moods', 'facts'],
     lists: ['genres', 'moods', 'facts', 'externalIds', 'links'],
+    perProvider: PER_PROVIDER_FIELDS,
 };
 
 const ARTIST_FIELDS: FieldSpec = {
@@ -42,6 +56,7 @@ const ARTIST_FIELDS: FieldSpec = {
     number: [],
     strings: ['genres', 'facts'],
     lists: ['genres', 'facts', 'externalIds', 'links'],
+    perProvider: PER_PROVIDER_FIELDS,
 };
 
 const ALBUM_FIELDS: FieldSpec = {
@@ -49,6 +64,7 @@ const ALBUM_FIELDS: FieldSpec = {
     number: ['year'],
     strings: ['genres', 'facts'],
     lists: ['genres', 'facts', 'externalIds', 'links'],
+    perProvider: PER_PROVIDER_FIELDS,
 };
 
 /**
@@ -153,7 +169,7 @@ const links = (value: unknown): ExternalLink[] | undefined => {
 };
 
 /** Every key a spec understands. Anything else is `extra`. */
-const knownFields = (spec: FieldSpec): Set<string> => new Set<string>([...spec.text, ...spec.number, ...spec.lists]);
+const knownFields = (spec: FieldSpec): Set<string> => new Set<string>([...spec.text, ...spec.number, ...spec.lists, ...spec.perProvider]);
 
 /**
  * Whether a value can be stored as-is: JSON-safe, and not nested past
@@ -254,6 +270,13 @@ function sanitize(value: unknown, spec: FieldSpec, onDrop?: (reason: string) => 
         if (parsed) clean[field] = parsed;
     }
 
+    // Capped at 200 rather than MAX_TEXT: this is an upstream's identifier, and the
+    // read contract that hands `providerRef` back out caps it there too.
+    for (const field of spec.perProvider) {
+        const parsed = text(raw[field], 200);
+        if (parsed !== undefined) clean[field] = parsed;
+    }
+
     const ids = externalIds(raw.externalIds);
     if (ids) clean.externalIds = ids;
     const linkList = links(raw.links);
@@ -299,6 +322,10 @@ const identity = (value: unknown): string => {
  * whatever each plugin meant by them, and the merged view is what gets promoted
  * onto canonical rows and read as a single answer — so an unnamed field has no
  * business in it. The per-provider payloads keep every one of them.
+ *
+ * {@link FieldSpec.perProvider} is skipped for the same reason and a sharper
+ * one: `providerRef` is one source's id for this thing, and merging it would
+ * hand the lowest-priority answer's ref to whoever read the merged view.
  */
 function merge(parts: Record<string, unknown>[], spec: FieldSpec): Record<string, unknown> {
     const merged: Record<string, unknown> = {};
@@ -306,7 +333,7 @@ function merge(parts: Record<string, unknown>[], spec: FieldSpec): Record<string
 
     for (const part of parts) {
         for (const [key, value] of Object.entries(part)) {
-            if (value === undefined || key === 'extra') continue;
+            if (value === undefined || key === 'extra' || spec.perProvider.includes(key)) continue;
 
             if (spec.lists.includes(key)) {
                 const list = lists.get(key) ?? { seen: new Set<string>(), values: [] };

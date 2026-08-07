@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    mergeAlbumEnrichment,
     mergeArtistEnrichment,
     mergeEnrichment,
     sanitizeAlbumEnrichment,
@@ -101,6 +102,29 @@ describe('sanitizeEnrichment', () => {
         expect(sanitizeEnrichment(undefined)).toEqual({});
         expect(sanitizeEnrichment('nope')).toEqual({});
         expect(sanitizeEnrichment([{ artist: 'Portishead' }])).toEqual({});
+    });
+});
+
+describe('providerRef', () => {
+    it('survives sanitizing as a known field rather than falling into extra', () => {
+        // It used to land in `extra`, where nothing read it, which is why the host
+        // was left inferring the ref from `externalIds` instead.
+        expect(sanitizeEnrichment({ providerRef: 'mb-1', artist: 'Portishead' })).toEqual({ providerRef: 'mb-1', artist: 'Portishead' });
+        expect(sanitizeArtistEnrichment({ providerRef: 'mb-1' })).toEqual({ providerRef: 'mb-1' });
+        expect(sanitizeAlbumEnrichment({ providerRef: 'rg-1' })).toEqual({ providerRef: 'rg-1' });
+    });
+
+    it('is capped like an identifier rather than like prose', () => {
+        expect(sanitizeEnrichment({ providerRef: 'x'.repeat(500) }).providerRef).toHaveLength(200);
+    });
+
+    it('never reaches the merged view, whichever plugin said it', () => {
+        // One source's private id for this thing. The merged view is promoted onto
+        // canonical rows and read as a single answer, so carrying a ref there would
+        // attribute the first plugin's id to everybody.
+        expect(mergeEnrichment([{ providerRef: 'mb-1', artist: 'Portishead' }, { providerRef: 'local-42' }])).toEqual({ artist: 'Portishead' });
+        expect(mergeArtistEnrichment([{ providerRef: 'mb-1', name: 'Portishead' }])).toEqual({ name: 'Portishead' });
+        expect(mergeAlbumEnrichment([{ providerRef: 'rg-1', name: 'Dummy' }])).toEqual({ name: 'Dummy' });
     });
 });
 

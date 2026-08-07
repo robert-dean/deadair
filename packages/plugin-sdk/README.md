@@ -321,7 +321,7 @@ async enrichArtist(ref: ArtistRef): Promise<Partial<ArtistEnrichment>> {
     if (!id) return {};
 
     const body = jsonBody<{ bio?: string; image?: string }>(await this.request(`/artists/${id}`));
-    return { biography: body.bio, imageUrl: body.image, externalIds: [{ source: 'recordbin', id }] };
+    return { providerRef: id, biography: body.bio, imageUrl: body.image, externalIds: [{ source: 'recordbin', id }] };
 }
 ```
 
@@ -333,10 +333,16 @@ is still stored against the track, so a single with no album, or a
 compilation whose tracks were licensed separately, is still described
 correctly by `TrackEnrichment.label`.
 
-The first `externalIds` entry you return is remembered as the id that answer
-was fetched under, and handed back as `providerRef` next time. That is what
-turns a second pass into a lookup instead of another search, so list your most
-specific identifier first.
+The `providerRef` you return is remembered as the id that answer was fetched
+under, and handed back to you — and only to you — as `ref.providerRef` next
+time. That is what turns a second pass into a lookup instead of another search,
+so state it whenever you have one.
+
+It is deliberately separate from `externalIds`, which answers a different
+question: what this thing is called *elsewhere*. List those in whatever order
+you like, including ids that are not yours. A local library that reads a
+MusicBrainz id out of a file's tags should absolutely report it, and doing so
+must not cost it its own ref.
 
 ## Music providers
 

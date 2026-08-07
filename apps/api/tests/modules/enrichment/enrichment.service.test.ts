@@ -440,6 +440,37 @@ describe('artist enrichment', () => {
         expect(otherArtist).toHaveBeenCalledWith({ name: 'Portishead', mbid: 'mb-1', providerRef: 'discogs-99' });
     });
 
+    it('records the ref the plugin stated, not whichever id it happened to list first', async () => {
+        // The case this exists for: a source that knows a foreign id and says so.
+        // Reading `externalIds[0]` here would store MusicBrainz's id as this
+        // plugin's own ref and hand it back to the wrong source next pass, where
+        // every lookup would miss and nothing would ever say why.
+        const enrichArtist = vi.fn(async () => ({
+            name: 'Portishead',
+            providerRef: 'local-42',
+            externalIds: [
+                { source: 'musicbrainz-artist', id: 'a0000000-0000-4000-8000-000000000002' },
+                { source: 'localhost-library', id: 'local-42' },
+            ],
+        }));
+        service = build([record(OTHER, {}, { enrichArtist })]);
+
+        await service.enrichCatalogArtist(artist);
+
+        expect(repository.saveArtistEnrichment).toHaveBeenCalledWith('artist-1', OTHER, 'local-42', expect.any(Object), ENRICHMENT_TTL_MS);
+    });
+
+    it('stores no ref at all for a plugin that stated none', async () => {
+        // Silence is an answer: the plugin is telling the host it has nothing to be
+        // handed back, and borrowing an `externalIds` entry would invent one.
+        const enrichArtist = vi.fn(async () => ({ biography: 'A Bristol group.', externalIds: [{ source: 'wikidata', id: 'Q123' }] }));
+        service = build([record(OTHER, {}, { enrichArtist })]);
+
+        await service.enrichCatalogArtist(artist);
+
+        expect(repository.saveArtistEnrichment).toHaveBeenCalledWith('artist-1', OTHER, undefined, expect.any(Object), ENRICHMENT_TTL_MS);
+    });
+
     it('merges the answers under the same priority rule as a track', async () => {
         service = build([
             record(MUSICBRAINZ, {}, { priority: 100, enrichArtist: vi.fn(async () => ({ name: 'Portishead', facts: ['a'] })) }),
@@ -518,6 +549,9 @@ describe('album enrichment', () => {
     const album = { id: 'album-1', name: 'Dummy', artistName: 'Portishead' };
     const record_group = 'b0000000-0000-4000-8000-000000000003';
     const answer = {
+        // Stated, not inferred from the list below: the two answer different
+        // questions, and a plugin listing a foreign id first must not lose its ref.
+        providerRef: record_group,
         name: 'Dummy',
         year: 1994,
         label: 'Go! Beat',
@@ -588,6 +622,7 @@ describe('album enrichment', () => {
 
 describe('enrichCatalogTrack', () => {
     const answer = {
+        providerRef: 'a0000000-0000-4000-8000-000000000001',
         artist: 'Portishead',
         year: 1994,
         genres: ['trip hop', 'downtempo'],

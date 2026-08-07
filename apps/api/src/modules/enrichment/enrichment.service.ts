@@ -268,15 +268,20 @@ export const toTrackRef = (track: EnrichableTrack): TrackRef => ({
 });
 
 /**
- * The id a stored payload was fetched under.
+ * The id a stored payload was fetched under, as the plugin stated it.
  *
- * The first `externalIds` entry, which is the convention the SDK's own example
- * follows: a plugin lists its most specific identifier for the thing it just
- * looked up first. Provenance, not identity — the schema is explicit that this
- * column records what was asked, even when the answer later proves wrong.
+ * Asked for rather than inferred. This used to read the first `externalIds`
+ * entry on the theory that a plugin lists its own identifier first, which
+ * MusicBrainz happens to do and nothing guarantees: a source that knows a
+ * foreign id — a local library reading an mbid out of file tags — would have had
+ * somebody else's identifier recorded as its own and handed back to it next
+ * pass, missing every lookup silently. `externalIds` is now free to be listed in
+ * any order, because it answers a different question.
+ *
+ * Provenance, not identity — the schema is explicit that this column records
+ * what was asked, even when the answer later proves wrong.
  */
-const providerRef = (contribution: { enrichment: { externalIds?: { id: string }[] } }): string | undefined =>
-    contribution.enrichment.externalIds?.[0]?.id;
+const providerRef = (contribution: { enrichment: { providerRef?: string } }): string | undefined => contribution.enrichment.providerRef;
 
 /**
  * Whether it is worth asking this plugin about this track.

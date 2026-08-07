@@ -81,6 +81,9 @@ describe('coverArtUrl', () => {
 describe('mapAlbum', () => {
     it('reads the title, the label, the date and the artwork', () => {
         expect(mapAlbum(releaseGroup, releaseDetail, true)).toEqual({
+            // The release group, because that is what this answer was fetched under
+            // and what the host hands back next pass.
+            providerRef: 'rg-1',
             name: 'Dummy',
             artist: 'Portishead',
             label: 'Go! Beat',

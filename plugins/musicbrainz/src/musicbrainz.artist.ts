@@ -96,8 +96,11 @@ export function mapArtist(artist: MusicBrainzArtist | undefined): Partial<Artist
     if (artist.id) links.push({ label: 'MusicBrainz artist', url: webUrl('artist', artist.id) });
     if (links.length > 0) enrichment.links = links;
 
-    // The MusicBrainz id first, because the host reads the first entry back as
-    // the id this answer was fetched under and hands it to us again next time.
+    // The artist mbid is what this answer was fetched under, so state it: the host
+    // stores it against this plugin and hands it back next pass, turning a search
+    // into a lookup.
+    if (artist.id) enrichment.providerRef = artist.id;
+
     const externalIds: ExternalId[] = [];
     if (artist.id) externalIds.push({ source: SOURCE_MUSICBRAINZ_ARTIST, id: artist.id });
     const wikidata = wikidataId(artist.relations?.find(relation => relation.type === 'wikidata')?.url?.resource);

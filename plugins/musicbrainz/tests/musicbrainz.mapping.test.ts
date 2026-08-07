@@ -119,7 +119,7 @@ describe('mapRecording', () => {
 
     it('omits the fields it could not resolve rather than emptying them', () => {
         const enrichment = mapRecording({ id: 'bare' }, undefined, ref);
-        expect(Object.keys(enrichment).sort()).toEqual(['externalIds', 'links']);
+        expect(Object.keys(enrichment).sort()).toEqual(['externalIds', 'links', 'providerRef']);
     });
 
     it('stays JSON-safe, because the payload crosses the plugin boundary', () => {

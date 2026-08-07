@@ -3,16 +3,13 @@ import { ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import { DB } from '../data/db.js';
 import { CatalogListQuery, likeContains } from './catalog.query.js';
-import { artUrl } from './catalog.art.js';
-
-/** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
-const ARTIST_IMAGE_COLUMN = 'deadair.artists.image_url';
+import { artistArtUrl } from './catalog.art.js';
 
 /**
  * The columns the `Artist` contract carries. `artistKey` is a match key for ingest, never read out.
  *
- * `imageUrl` is not among them: it is selected through {@link artUrl}, which prefers the locally
- * cached copy over the upstream URL the column holds.
+ * `imageUrl` is not among them: it is selected through {@link artistArtUrl}, which prefers the
+ * locally cached copy over the upstream URL the column holds, and an album cover over neither.
  */
 const ARTIST_COLUMNS = ['deadair.artists.id', 'deadair.artists.name', 'deadair.artists.mbid', 'deadair.artists.rating'] as const;
 
@@ -55,7 +52,7 @@ export class ArtistsRepository extends DataRepository {
         const { total } = await scoped.select(eb => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow();
         const data = await scoped
             .select(ARTIST_COLUMNS)
-            .select(artUrl(ARTIST_IMAGE_COLUMN))
+            .select(artistArtUrl())
             .select(eb => [albumCount(eb), trackCount(eb)])
             .orderBy('deadair.artists.name', sort)
             // Names collide, and a paged list whose order is undefined between ties both drops and
@@ -75,7 +72,7 @@ export class ArtistsRepository extends DataRepository {
             .where('deadair.artists.id', '=', id)
             .where('deadair.artists.mergedIntoId', 'is', null)
             .select(ARTIST_COLUMNS)
-            .select(artUrl(ARTIST_IMAGE_COLUMN))
+            .select(artistArtUrl())
             .select(eb => [albumCount(eb), trackCount(eb)])
             .executeTakeFirst();
 

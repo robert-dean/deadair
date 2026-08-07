@@ -28,6 +28,7 @@ contract Album: {
     name: string
     artistId: readonly uuid
     artistName: readonly string # Joined, so a list renders without a second request per row
+    mbid?: uuid # MusicBrainz release-group id, absent until enrichment resolves one
     year?: int
     imageUrl?: string # Absolute upstream URL, or an API-relative path to the local copy
     rating: int(min=-1, max=1) = 0
@@ -41,6 +42,7 @@ contract Track: {
     artistName: readonly string
     albumId?: readonly uuid # Absent on a single ingested outside any release: `tracks.album_id` is nullable
     albumName?: readonly string
+    albumImageUrl?: readonly string # The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording
     artists: string # Display credit as written on the release ("X feat. Y"), not a join key
     genre?: string
     year?: int

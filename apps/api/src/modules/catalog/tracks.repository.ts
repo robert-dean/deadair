@@ -1,6 +1,10 @@
 import { Injectable } from 'injectkit';
 import { DataRepository } from '../data/data.repository.js';
 import { CatalogListQuery, likeContains } from './catalog.query.js';
+import { artUrl } from './catalog.art.js';
+
+/** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
+const ALBUM_IMAGE_COLUMN = 'deadair.albums.image_url';
 
 /** `titleKey` is a match key for ingest and never read out; the two names are joined in below. */
 const TRACK_COLUMNS = [
@@ -42,6 +46,9 @@ export class TracksRepository extends DataRepository {
         const { total } = await scoped.select(eb => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow();
         const data = await scoped
             .select(TRACK_COLUMNS)
+            // A track's art is its record's: nothing hangs a cover off a recording. Off the join
+            // that is already there, so a list of fifty rows still costs one query.
+            .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
             .orderBy('deadair.tracks.title', sort)
             .orderBy('deadair.tracks.id', 'asc')
             .limit(limit)

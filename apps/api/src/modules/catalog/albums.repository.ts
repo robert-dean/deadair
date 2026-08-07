@@ -15,6 +15,7 @@ const ALBUM_COLUMNS = [
     'deadair.albums.id',
     'deadair.albums.name',
     'deadair.albums.artistId',
+    'deadair.albums.mbid',
     'deadair.albums.year',
     'deadair.albums.rating',
     'deadair.artists.name as artistName',

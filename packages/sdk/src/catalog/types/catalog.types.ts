@@ -45,6 +45,8 @@ export interface Album {
     artistId: string;
     /** Joined, so a list renders without a second request per row */
     artistName: string;
+    /** MusicBrainz release-group id, absent until enrichment resolves one */
+    mbid?: string;
     year?: number;
     /** Absolute upstream URL, or an API-relative path to the local copy */
     imageUrl?: string;
@@ -54,6 +56,8 @@ export interface Album {
 
 export interface AlbumInput {
     name: string;
+    /** MusicBrainz release-group id, absent until enrichment resolves one */
+    mbid?: string;
     year?: number;
     /** Absolute upstream URL, or an API-relative path to the local copy */
     imageUrl?: string;
@@ -61,7 +65,7 @@ export interface AlbumInput {
 }
 
 /**
- * generated from [Track](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L37)
+ * generated from [Track](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L38)
  */
 export interface Track {
     id: string;
@@ -71,6 +75,8 @@ export interface Track {
     /** Absent on a single ingested outside any release: `tracks.album_id` is nullable */
     albumId?: string;
     albumName?: string;
+    /** The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording */
+    albumImageUrl?: string;
     /** Display credit as written on the release ("X feat. Y"), not a join key */
     artists: string;
     genre?: string;
@@ -92,7 +98,7 @@ export interface TrackInput {
 /**
  * Pagination plus a name filter. Every list operation here takes it, so the console's search box
  * narrows server-side rather than filtering one page client-side and lying about the total.
- * generated from [CatalogQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L53)
+ * generated from [CatalogQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L55)
  */
 export interface CatalogQuery extends Pagination {
     search?: string;
@@ -106,7 +112,7 @@ export interface CatalogQueryInput extends PaginationInput {
  * What enrichment stored, read back. Three payload shapes because the SDK has three: a recording,
  * a performer and a record are asked about separately and know different things. The caps mirror
  * the ones `enrichment.merge.ts` sanitizes to; change them together.
- * generated from [EnrichmentExternalId](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L61)
+ * generated from [EnrichmentExternalId](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L63)
  */
 export interface EnrichmentExternalId {
     /** e.g. `musicbrainz`, `wikidata` */
@@ -117,7 +123,7 @@ export interface EnrichmentExternalId {
 /**
  * Narrowed to http(s) by the host before it is stored, since the console renders these as
  * something a human clicks.
- * generated from [EnrichmentLink](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L68)
+ * generated from [EnrichmentLink](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L70)
  */
 export interface EnrichmentLink {
     label: string;
@@ -129,7 +135,7 @@ export interface EnrichmentLink {
  * `1997`, `1997-06` or `1997-06-24` depending on what is actually known about the release, and the
  * SDK types it the same way. A `datetime` would reject the first two or invent a day and a time
  * for them, which is a precision the source never claimed.
- * generated from [TrackEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L77)
+ * generated from [TrackEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L79)
  */
 export interface TrackEnrichmentData {
     artist?: string;
@@ -155,7 +161,7 @@ export interface TrackEnrichmentData {
 }
 
 /**
- * generated from [ArtistEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L97)
+ * generated from [ArtistEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L99)
  */
 export interface ArtistEnrichmentData {
     name?: string;
@@ -169,7 +175,7 @@ export interface ArtistEnrichmentData {
 }
 
 /**
- * generated from [AlbumEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L108)
+ * generated from [AlbumEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L110)
  */
 export interface AlbumEnrichmentData {
     name?: string;
@@ -190,7 +196,7 @@ export interface AlbumEnrichmentData {
 /**
  * One provider's stored answer. `found: false` is a recorded miss, which is a fact rather than a
  * failure: the provider was asked, had nothing, and is not asked again until `expiresAt`.
- * generated from [TrackEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L124)
+ * generated from [TrackEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L126)
  */
 export interface TrackEnrichmentSource {
     provider: string;
@@ -209,7 +215,7 @@ export interface TrackEnrichmentSourceInput {
 }
 
 /**
- * generated from [ArtistEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L134)
+ * generated from [ArtistEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L136)
  */
 export interface ArtistEnrichmentSource {
     provider: string;
@@ -226,7 +232,7 @@ export interface ArtistEnrichmentSourceInput {
 }
 
 /**
- * generated from [AlbumEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L144)
+ * generated from [AlbumEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L146)
  */
 export interface AlbumEnrichmentSource {
     provider: string;
@@ -246,7 +252,7 @@ export interface AlbumEnrichmentSourceInput {
  * Every provider's answer, plus the same merge the promotion step used, so the console and the
  * canonical columns cannot tell different stories. `sources` is empty on a row the walk has not
  * reached yet.
- * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L157)
+ * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L159)
  */
 export interface TrackEnrichmentDetail {
     trackId: string;
@@ -260,7 +266,7 @@ export interface TrackEnrichmentDetailInput {
 }
 
 /**
- * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L163)
+ * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L165)
  */
 export interface ArtistEnrichmentDetail {
     artistId: string;
@@ -274,7 +280,7 @@ export interface ArtistEnrichmentDetailInput {
 }
 
 /**
- * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L169)
+ * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L171)
  */
 export interface AlbumEnrichmentDetail {
     albumId: string;

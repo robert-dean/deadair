@@ -7,15 +7,20 @@ options {
         AuthenticationService: "#src/modules/authentication/authentication.service.js"
         AuthenticationRegistrationService: "#src/modules/authentication/authentication.registration.service.js"
     }
+    security: {
+        # The floor for every operation in this file, cascading file -> route -> operation: an
+        # authenticated session, no policy. Managing your own factors is something you do while
+        # signed in, and it deliberately stops at "signed in" — a role or MFA gate here would make
+        # enrolling your FIRST factor impossible. `/auth/factors/start` overrides this to anonymous
+        # and says why at its own verb: it is the one route here reached mid-login.
+        policy: none
+    }
 }
 
 operation /auth/factors: {
     get: { # List authentication factors
         name: List factors
         service: AuthenticationService.listFactors
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: array(AuthenticationFactor)
@@ -28,9 +33,6 @@ operation /auth/factors/register: {
     post: { # Register an authentication factor
         name: Register factor
         service: AuthenticationRegistrationService.registerFactor
-        security: {
-            policy: none
-        }
         request: {
             application/json: AuthenticationFactorRegistration
         }
@@ -46,9 +48,6 @@ operation /auth/factors/verify: {
     post: { # Verify an authentication factor registration
         name: Verify factor registration
         service: AuthenticationRegistrationService.verifyFactorRegistration
-        security: {
-            policy: none
-        }
         request: {
             application/json: AuthenticationFactorRegistrationVerification
         }
@@ -80,9 +79,6 @@ operation /auth/mfa/start: {
     post: { # Mint a fresh MFA challenge for the *current* authenticated session so the SPA can satisfy a `step_up_required` denial. Optionally filters eligible factors against an inbound `StepUpRequirement` hint. Returns `enrollment_required` when no enrolled factor matches the requirement so the SPA can route the user into enrollment instead of getting stuck.
         name: Start MFA challenge
         service: AuthenticationService.startStepUpChallenge
-        security: {
-            policy: none
-        }
         request: {
             application/json: StepUpStartRequest
         }

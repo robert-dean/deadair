@@ -5,15 +5,19 @@ options {
     services: {
         PluginsService: "#src/modules/plugins/plugins.service.js"
     }
+    security: {
+        # The floor for every operation in this file, cascading file -> route -> operation: a
+        # session, no policy. Two operations override it and say so at their own verb —
+        # `/plugins/rescan` needs `platform.manage`, and the OAuth callback is anonymous because
+        # the provider redirects a browser into it. Everything else inherits this.
+        policy: none
+    }
 }
 
 operation /plugins: {
     get: { # Lists every plugin the host knows about, optionally narrowed to one kind
         name: List plugins
         service: PluginsService.listPlugins
-        security: {
-            policy: none
-        }
         query: PluginListQuery
         response: {
             200: {
@@ -46,9 +50,6 @@ operation /plugins/{id}: {
     get: { # One plugin, including its stored non-secret configuration and last error
         name: Get plugin
         service: PluginsService.getPlugin
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: PluginDetail
@@ -64,9 +65,6 @@ operation /plugins/{id}/config: {
     put: { # Validates against the plugin's own config schema, encrypts secrets, persists, and reinitializes
         name: Update plugin configuration
         service: PluginsService.updatePluginConfig
-        security: {
-            policy: none
-        }
         request: {
             application/json: PluginConfigInput
         }
@@ -85,9 +83,6 @@ operation /plugins/{id}/enable: {
     post: { # Enables a plugin without resubmitting its configuration
         name: Enable plugin
         service: PluginsService.enablePlugin
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: PluginDetail
@@ -103,9 +98,6 @@ operation /plugins/{id}/disable: {
     post: { # Disables a plugin and tears its instance down, keeping its configuration
         name: Disable plugin
         service: PluginsService.disablePlugin
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: PluginDetail
@@ -121,9 +113,6 @@ operation /plugins/{id}/reload: {
     post: { # Reapplies the plugin's stored configuration: disposes the running instance and initializes it again
         name: Reload plugin
         service: PluginsService.reloadPlugin
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: PluginDetail
@@ -139,9 +128,6 @@ operation /plugins/{id}/test: {
     post: { # Runs the plugin's own `testConnection()` through the invoker
         name: Test plugin connection
         service: PluginsService.testPlugin
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: PluginTestResult
@@ -157,9 +143,6 @@ operation /plugins/{id}/logs: {
     get: { # Returns the plugin's buffered log lines at or above the current log level
         name: Get plugin logs
         service: PluginsService.getPluginLogs
-        security: {
-            policy: none
-        }
         query: PluginLogQuery
         response: {
             200: {
@@ -176,9 +159,6 @@ operation /plugins/{id}/logs/download: {
     get: { # Streams the plugin's full retained log as a plain-text attachment
         name: Download plugin logs
         service: PluginsService.downloadPluginLogs
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 headers: {
@@ -197,9 +177,6 @@ operation /plugins/{id}/logs/level: {
     put: { # Sets the minimum severity the plugin's log store retains going forward
         name: Set plugin log level
         service: PluginsService.setPluginLogLevel
-        security: {
-            policy: none
-        }
         request: {
             application/json: PluginLogLevelInput
         }
@@ -218,9 +195,6 @@ operation /plugins/{id}/oauth/authorize: {
     get: { # Reports where to send the operator for the provider's consent screen
         name: Start plugin OAuth authorization
         service: PluginsService.startOAuthAuthorization
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 # The URL is reported rather than redirected to. This route sits behind the
@@ -239,9 +213,6 @@ operation /plugins/{id}/oauth: {
     delete: { # Forgets the plugin's stored OAuth tokens and reinitializes it
         name: Disconnect plugin OAuth
         service: PluginsService.disconnectOAuth
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: PluginDetail

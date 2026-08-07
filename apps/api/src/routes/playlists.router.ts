@@ -11,7 +11,7 @@ export const PlaylistsRouter = ServerKitRouter();
 
 /**
  * Fans out across every installed plugin that declares AND implements the `catalog` capability
- * from [playlists.ck](file://./../../data/contracts/playlists/playlists.ck#L11)
+ * from [playlists.ck](file://./../../data/contracts/playlists/playlists.ck#L17)
  */
 PlaylistsRouter.get('/playlists', requirePolicy({ policy: false }), async ctx => {
     const service = ctx.container.get(PlaylistsService);
@@ -24,7 +24,7 @@ PlaylistsRouter.get('/playlists', requirePolicy({ policy: false }), async ctx =>
 
 /**
  * One playlist's tracks from one plugin
- * from [playlists.ck](file://./../../data/contracts/playlists/playlists.ck#L30)
+ * from [playlists.ck](file://./../../data/contracts/playlists/playlists.ck#L33)
  */
 PlaylistsRouter.get('/playlists/:pluginId/:playlistId/tracks', requirePolicy({ policy: false }), async ctx => {
     const { pluginId, playlistId } = await parseAndValidate(

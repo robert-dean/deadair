@@ -24,7 +24,7 @@ export const AuthenticationRouter = ServerKitRouter();
 
 /**
  * Request authenticated token
- * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L12)
+ * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L20)
  * anonymous access, no security required
  */
 AuthenticationRouter.post('/auth/token', bodyParserMiddleware(['urlencoded', 'json']), async ctx => {
@@ -40,7 +40,7 @@ AuthenticationRouter.post('/auth/token', bodyParserMiddleware(['urlencoded', 'js
 
 /**
  * Register a new login
- * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L29)
+ * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L36)
  * anonymous access, no security required
  */
 AuthenticationRouter.post('/auth/login/register', bodyParserMiddleware(['json']), async ctx => {
@@ -56,7 +56,7 @@ AuthenticationRouter.post('/auth/login/register', bodyParserMiddleware(['json'])
 
 /**
  * Verify a login registration
- * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L45)
+ * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L51)
  * anonymous access, no security required
  */
 AuthenticationRouter.post('/auth/login/verify', bodyParserMiddleware(['json']), async ctx => {
@@ -72,7 +72,7 @@ AuthenticationRouter.post('/auth/login/verify', bodyParserMiddleware(['json']), 
 
 /**
  * Start a password-less login process
- * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L61)
+ * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L66)
  * anonymous access, no security required
  */
 AuthenticationRouter.post('/auth/login/start', bodyParserMiddleware(['json']), async ctx => {
@@ -88,7 +88,7 @@ AuthenticationRouter.post('/auth/login/start', bodyParserMiddleware(['json']), a
 
 /**
  * OIDC callback endpoint. The IdP redirects the user-agent here with `code` and `state`. Server completes the authorization, issues a session, and returns an HTML page that hands the token back to the SPA.
- * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L77)
+ * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L81)
  * anonymous access, no security required
  * @internal
  */
@@ -105,7 +105,7 @@ AuthenticationRouter.get('/auth/login/oidc/callback', async ctx => {
 
 /**
  * This is an internal endpoint handling the redirect routing for magic links. When the user follows the link the browser will direct the user to this endpoint which renders as a blank page, and then the user will be redirected to the provided magic link url.
- * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L91)
+ * from [authentication.ck](file://./../../data/contracts/authentication/authentication.ck#L94)
  * anonymous access, no security required
  * @internal
  */

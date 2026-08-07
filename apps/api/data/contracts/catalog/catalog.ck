@@ -8,6 +8,13 @@ options {
         TracksService: "#src/modules/catalog/tracks.service.js"
         EnrichmentReadService: "#src/modules/enrichment/enrichment.read.service.js"
     }
+    security: {
+        # The floor for every operation in this file, cascading file -> route -> operation. A
+        # session is required and no policy is checked: reading the catalog is what any signed-in
+        # console does. Nothing here overrides it; an operation that needed to would declare its
+        # own `security` block.
+        policy: none
+    }
 }
 
 # The station's own catalog, as opposed to /playlists, which fans out to whatever the enabled
@@ -18,9 +25,6 @@ operation /catalog/artists: {
         name: List artists
         service: ArtistsService.listArtists
         query: CatalogQuery
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: {
@@ -39,9 +43,6 @@ operation /catalog/artists/{id}: {
     get: { # One artist. 404s on an id that was merged away, since reads never return merged rows
         name: Get artist
         service: ArtistsService.getArtist
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: Artist
@@ -57,9 +58,6 @@ operation /catalog/artists/{id}/enrichment: {
     get: { # What every enrichment provider said about this artist, and when each of them said it
         name: Get artist enrichment
         service: EnrichmentReadService.getArtistEnrichment
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: ArtistEnrichmentDetail
@@ -76,9 +74,6 @@ operation /catalog/artists/{id}/albums: {
         name: List artist albums
         service: AlbumsService.listAlbumsByArtist
         query: CatalogQuery
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: {
@@ -95,9 +90,6 @@ operation /catalog/albums: {
         name: List albums
         service: AlbumsService.listAlbums
         query: CatalogQuery
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: {
@@ -116,9 +108,6 @@ operation /catalog/albums/{id}: {
     get: {
         name: Get album
         service: AlbumsService.getAlbum
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: Album
@@ -134,9 +123,6 @@ operation /catalog/albums/{id}/enrichment: {
     get: { # The record's own enrichment: the label, pressing and cover belong to the release, not to a track on it
         name: Get album enrichment
         service: EnrichmentReadService.getAlbumEnrichment
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: AlbumEnrichmentDetail
@@ -153,9 +139,6 @@ operation /catalog/albums/{id}/tracks: {
         name: List album tracks
         service: TracksService.listTracksByAlbum
         query: CatalogQuery
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: {
@@ -174,9 +157,6 @@ operation /catalog/tracks/{id}/enrichment: {
     get: { # What the providers said about one recording, including everything no canonical column holds
         name: Get track enrichment
         service: EnrichmentReadService.getTrackEnrichment
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: TrackEnrichmentDetail
@@ -190,9 +170,6 @@ operation /catalog/tracks: {
         name: List tracks
         service: TracksService.listTracks
         query: CatalogQuery
-        security: {
-            policy: none
-        }
         response: {
             200: {
                 application/json: {

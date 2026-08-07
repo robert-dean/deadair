@@ -9,7 +9,7 @@ import { parseAndValidate } from '@maroonedsoftware/zod';
 export const OnboardingRouter = ServerKitRouter();
 
 /**
- * from [onboarding.ck](file://./../../data/contracts/onboarding/onboarding.ck#L11)
+ * from [onboarding.ck](file://./../../data/contracts/onboarding/onboarding.ck#L15)
  * anonymous access, no security required
  */
 OnboardingRouter.get('/onboarding', async ctx => {
@@ -22,7 +22,7 @@ OnboardingRouter.get('/onboarding', async ctx => {
 });
 
 /**
- * from [onboarding.ck](file://./../../data/contracts/onboarding/onboarding.ck#L21)
+ * from [onboarding.ck](file://./../../data/contracts/onboarding/onboarding.ck#L24)
  * anonymous access, no security required
  */
 OnboardingRouter.post('/onboarding', bodyParserMiddleware(['json']), async ctx => {

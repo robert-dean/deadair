@@ -24,7 +24,7 @@ export const CatalogRouter = ServerKitRouter();
 
 /**
  * Every artist the station has ingested, ordered by name
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L17)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L24)
  */
 CatalogRouter.get('/catalog/artists', requirePolicy({ policy: false }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
@@ -43,7 +43,7 @@ CatalogRouter.get('/catalog/artists', requirePolicy({ policy: false }), async ct
 
 /**
  * One artist. 404s on an id that was merged away, since reads never return merged rows
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L39)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L43)
  */
 CatalogRouter.get('/catalog/artists/:id', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -63,7 +63,7 @@ CatalogRouter.get('/catalog/artists/:id', requirePolicy({ policy: false }), asyn
 
 /**
  * What every enrichment provider said about this artist, and when each of them said it
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L57)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L58)
  */
 CatalogRouter.get('/catalog/artists/:id/enrichment', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -83,7 +83,7 @@ CatalogRouter.get('/catalog/artists/:id/enrichment', requirePolicy({ policy: fal
 
 /**
  * The albums credited to one artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L75)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L73)
  */
 CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -108,7 +108,7 @@ CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: false }
 });
 
 /**
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L94)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L89)
  */
 CatalogRouter.get('/catalog/albums', requirePolicy({ policy: false }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
@@ -126,7 +126,7 @@ CatalogRouter.get('/catalog/albums', requirePolicy({ policy: false }), async ctx
 });
 
 /**
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L116)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L108)
  */
 CatalogRouter.get('/catalog/albums/:id', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -146,7 +146,7 @@ CatalogRouter.get('/catalog/albums/:id', requirePolicy({ policy: false }), async
 
 /**
  * The record's own enrichment: the label, pressing and cover belong to the release, not to a track on it
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L134)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L123)
  */
 CatalogRouter.get('/catalog/albums/:id/enrichment', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -166,7 +166,7 @@ CatalogRouter.get('/catalog/albums/:id/enrichment', requirePolicy({ policy: fals
 
 /**
  * One album's tracks
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L152)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L138)
  */
 CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -192,7 +192,7 @@ CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: false })
 
 /**
  * What the providers said about one recording, including everything no canonical column holds
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L174)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L157)
  */
 CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: false }), async ctx => {
     const { id } = await parseAndValidate(
@@ -212,7 +212,7 @@ CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: fals
 
 /**
  * Every track, flat. The only way to answer "do we have this song?" without knowing its artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L189)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L169)
  */
 CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: false }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());

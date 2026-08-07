@@ -14,7 +14,7 @@ contract CatalogPlaylist: {
     id: string(min=1, max=400)
     name: string(min=1, max=200)
     description?: string(max=2000)
-    trackCount?: number
+    trackCount?: int(min=0)
     artworkUrl?: string(max=2000)
     permissions?: array(PlaylistPermission) # What the SOURCE permits on this playlist's items, not what this actor may do. Empty means the source permits nothing; absent means it did not say
 }
@@ -25,7 +25,7 @@ contract CatalogTrack: {
     title: string(min=1, max=400)
     artists: array(string(min=1, max=200)) # Ordered, primary artist first. Empty array if the provider genuinely has none
     album?: string(max=400)
-    durationMs?: number
+    durationMs?: int(min=0)
     isrc?: string(max=100)
     artworkUrl?: string(max=2000)
 }

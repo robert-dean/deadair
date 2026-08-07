@@ -15,13 +15,13 @@ contract PlayoutItem: { # One item in the running order, as the console sees it
     externalId: string(min=1, max=400) # The track's id in its plugin's id space
     title: string(min=1, max=400)
     artists: array(string(min=1, max=200))
-    durationMs?: number
+    durationMs?: int(min=0) # Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string
 }
 
 contract PlayoutNowPlaying: { # What the PLAYER says is airing, which is not the same as what was last handed to it
     item: PlayoutItem
-    startedAt: number # Unix epoch millis, as observed when the player reported it
-    remainingMs?: number # The decoder's own countdown, absent when it cannot say. It leads the listener by the encoder and client buffers
+    startedAt: int(min=0) # Unix epoch millis, as observed when the player reported it
+    remainingMs?: int(min=0) # The decoder's own countdown, absent when it cannot say. It leads the listener by the encoder and client buffers
 }
 
 contract PlayoutStatus: { # The station's transport, as one reading
@@ -30,7 +30,7 @@ contract PlayoutStatus: { # The station's transport, as one reading
     mountPath: string(min=1, max=200) # Same-origin path of the Icecast mount, for a console that wants to monitor what it is driving. A path rather than a URL: the browser reaches Icecast through whatever edge served the SPA, never at the address the app itself uses
     nowPlaying?: PlayoutNowPlaying
     upNext: array(PlayoutItem) # Waiting here, in order. Excludes what the player already holds
-    queuedCount: number # How many items are waiting in total, of which `upNext` is the head
+    queuedCount: int(min=0) # How many items are waiting in total, of which `upNext` is the head
 }
 
 contract PlayoutAiredQuery: { # Which rundown item Liquidsoap has just started playing

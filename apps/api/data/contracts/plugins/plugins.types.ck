@@ -57,7 +57,7 @@ contract PluginLogPage: {
 }
 
 contract PluginLogQuery: {
-    limit?: number(min=1, max=2000)
+    limit?: int(min=1, max=2000)
     level?: PluginLogLevel
 }
 

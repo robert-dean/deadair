@@ -119,7 +119,7 @@ export type PluginLogEntry = z.infer<typeof PluginLogEntry>;
  * generated from [PluginLogQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L59)
  */
 export const PluginLogQuery = z.strictObject({
-    limit: z.coerce.number().min(1).max(2000).optional(),
+    limit: z.coerce.number().int().min(1).max(2000).optional(),
     level: PluginLogLevel.optional(),
 });
 export type PluginLogQuery = z.infer<typeof PluginLogQuery>;

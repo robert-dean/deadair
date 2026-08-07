@@ -20,6 +20,7 @@ export interface PlayoutItem {
     externalId: string;
     title: string;
     artists: string[];
+    /** Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string */
     durationMs?: number;
 }
 

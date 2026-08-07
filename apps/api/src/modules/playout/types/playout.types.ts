@@ -20,7 +20,12 @@ export const PlayoutItem = z.strictObject({
     externalId: z.string().min(1).max(400).describe("The track's id in its plugin's id space"),
     title: z.string().min(1).max(400),
     artists: z.array(z.string().min(1).max(200)),
-    durationMs: z.coerce.number().optional(),
+    durationMs: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe('Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string'),
 });
 export type PlayoutItem = z.infer<typeof PlayoutItem>;
 
@@ -67,9 +72,11 @@ export type SpotifySessionLogin = z.infer<typeof SpotifySessionLogin>;
  */
 export const PlayoutNowPlaying = z.strictObject({
     item: PlayoutItem.describe('What the PLAYER says is airing, which is not the same as what was last handed to it'),
-    startedAt: z.coerce.number().describe('Unix epoch millis, as observed when the player reported it'),
+    startedAt: z.coerce.number().int().min(0).describe('Unix epoch millis, as observed when the player reported it'),
     remainingMs: z.coerce
         .number()
+        .int()
+        .min(0)
         .optional()
         .describe("The decoder's own countdown, absent when it cannot say. It leads the listener by the encoder and client buffers"),
 });
@@ -97,6 +104,6 @@ export const PlayoutStatus = z.strictObject({
         ),
     nowPlaying: PlayoutNowPlaying.optional(),
     upNext: z.array(PlayoutItem).describe('Waiting here, in order. Excludes what the player already holds'),
-    queuedCount: z.coerce.number().describe('How many items are waiting in total, of which `upNext` is the head'),
+    queuedCount: z.coerce.number().int().min(0).describe('How many items are waiting in total, of which `upNext` is the head'),
 });
 export type PlayoutStatus = z.infer<typeof PlayoutStatus>;

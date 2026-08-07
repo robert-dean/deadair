@@ -16,7 +16,7 @@ export const CatalogTrack = z.strictObject({
     title: z.string().min(1).max(400),
     artists: z.array(z.string().min(1).max(200)).describe('Ordered, primary artist first. Empty array if the provider genuinely has none'),
     album: z.string().max(400).optional(),
-    durationMs: z.coerce.number().optional(),
+    durationMs: z.coerce.number().int().min(0).optional(),
     isrc: z.string().max(100).optional(),
     artworkUrl: z.string().max(2000).optional(),
 });
@@ -42,7 +42,7 @@ export const CatalogPlaylist = z.strictObject({
     id: z.string().min(1).max(400),
     name: z.string().min(1).max(200),
     description: z.string().max(2000).optional(),
-    trackCount: z.coerce.number().optional(),
+    trackCount: z.coerce.number().int().min(0).optional(),
     artworkUrl: z.string().max(2000).optional(),
     permissions: z
         .array(PlaylistPermission)

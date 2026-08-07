@@ -7,14 +7,15 @@ import { TracksService } from '#src/modules/catalog/tracks.service.js';
 import {
     Album,
     AlbumEnrichmentDetail,
+    AlbumPage,
     Artist,
     ArtistEnrichmentDetail,
+    ArtistPage,
     CatalogQuery,
     CatalogQueryInput,
-    Track,
     TrackEnrichmentDetail,
+    TrackPage,
 } from '../modules/catalog/types/catalog.types.js';
-import { Pagination } from '../modules/shared/types/pagination.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -29,12 +30,8 @@ export const CatalogRouter = ServerKitRouter();
 CatalogRouter.get('/catalog/artists', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
 
-    const resultType = z.strictObject({
-        meta: Pagination,
-        data: z.array(Artist),
-    });
     const service = ctx.container.get(ArtistsService);
-    const result: z.infer<typeof resultType> = await service.listArtists(query);
+    const result: ArtistPage = await service.listArtists(query);
 
     ctx.status = 200;
     ctx.type = 'application/json';
@@ -43,7 +40,7 @@ CatalogRouter.get('/catalog/artists', requirePolicy({ policy: 'platform.view' })
 
 /**
  * One artist. 404s on an id that was merged away, since reads never return merged rows
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L46)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L43)
  */
 CatalogRouter.get('/catalog/artists/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -63,7 +60,7 @@ CatalogRouter.get('/catalog/artists/:id', requirePolicy({ policy: 'platform.view
 
 /**
  * What every enrichment provider said about this artist, and when each of them said it
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L61)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L58)
  */
 CatalogRouter.get('/catalog/artists/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -83,7 +80,7 @@ CatalogRouter.get('/catalog/artists/:id/enrichment', requirePolicy({ policy: 'pl
 
 /**
  * The albums credited to one artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L76)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L73)
  */
 CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -95,12 +92,8 @@ CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: 'platfo
 
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
 
-    const resultType = z.strictObject({
-        meta: Pagination,
-        data: z.array(Album),
-    });
     const service = ctx.container.get(AlbumsService);
-    const result: z.infer<typeof resultType> = await service.listAlbumsByArtist(id, query);
+    const result: AlbumPage = await service.listAlbumsByArtist(id, query);
 
     ctx.status = 200;
     ctx.type = 'application/json';
@@ -108,17 +101,13 @@ CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: 'platfo
 });
 
 /**
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L92)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L86)
  */
 CatalogRouter.get('/catalog/albums', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
 
-    const resultType = z.strictObject({
-        meta: Pagination,
-        data: z.array(Album),
-    });
     const service = ctx.container.get(AlbumsService);
-    const result: z.infer<typeof resultType> = await service.listAlbums(query);
+    const result: AlbumPage = await service.listAlbums(query);
 
     ctx.status = 200;
     ctx.type = 'application/json';
@@ -126,7 +115,7 @@ CatalogRouter.get('/catalog/albums', requirePolicy({ policy: 'platform.view' }),
 });
 
 /**
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L111)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L102)
  */
 CatalogRouter.get('/catalog/albums/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -146,7 +135,7 @@ CatalogRouter.get('/catalog/albums/:id', requirePolicy({ policy: 'platform.view'
 
 /**
  * The record's own enrichment: the label, pressing and cover belong to the release, not to a track on it
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L126)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L117)
  */
 CatalogRouter.get('/catalog/albums/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -166,7 +155,7 @@ CatalogRouter.get('/catalog/albums/:id/enrichment', requirePolicy({ policy: 'pla
 
 /**
  * One album's tracks
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L141)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L132)
  */
 CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -178,12 +167,8 @@ CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: 'platfor
 
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
 
-    const resultType = z.strictObject({
-        meta: Pagination,
-        data: z.array(Track),
-    });
     const service = ctx.container.get(TracksService);
-    const result: z.infer<typeof resultType> = await service.listTracksByAlbum(id, query);
+    const result: TrackPage = await service.listTracksByAlbum(id, query);
 
     ctx.status = 200;
     ctx.type = 'application/json';
@@ -192,7 +177,7 @@ CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: 'platfor
 
 /**
  * What the providers said about one recording, including everything no canonical column holds
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L160)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L148)
  */
 CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -212,17 +197,13 @@ CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'pla
 
 /**
  * Every track, flat. The only way to answer "do we have this song?" without knowing its artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L172)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L160)
  */
 CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
 
-    const resultType = z.strictObject({
-        meta: Pagination,
-        data: z.array(Track),
-    });
     const service = ctx.container.get(TracksService);
-    const result: z.infer<typeof resultType> = await service.listTracks(query);
+    const result: TrackPage = await service.listTracks(query);
 
     ctx.status = 200;
     ctx.type = 'application/json';

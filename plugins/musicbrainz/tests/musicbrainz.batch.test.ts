@@ -348,3 +348,51 @@ describe('searchReleaseGroup', () => {
         expect(queryFor()).toContain('releasegroup:"dummy"');
     });
 });
+
+describe('enrichTracks: staying inside the invocation budget', () => {
+    const many: TrackRef[] = Array.from({ length: 12 }, (_value, index) => ({
+        artist: 'Portishead',
+        title: `Track ${index}`,
+        isrc: `GBAAA940${String(index).padStart(4, '0')}`,
+    }));
+
+    it('chunks the ISRC search small enough that the response cannot exceed the body cap', async () => {
+        await initialize();
+        route([[/recording\?/, { recordings: [] }]]);
+
+        await plugin.enrichTracks(many);
+
+        // Twelve codes, so two searches rather than one oversized one.
+        const limits = host.calls.filter(call => call.url.includes('recording?')).map(call => Number(new URL(call.url).searchParams.get('limit')));
+        expect(limits).toHaveLength(2);
+        expect(Math.max(...limits)).toBeLessThanOrEqual(20);
+    });
+
+    it('stops short of the per-track tail rather than spending a budget it cannot finish in', async () => {
+        await initialize();
+        route([
+            [/recording\?/, { recordings: [] }],
+            [/isrc\//, { recordings: [] }],
+        ]);
+        // Enough for the batched searches, not enough to start a two-request ref.
+        host.seedRemainingMs(3_000);
+
+        const answers = await plugin.enrichTracks(many);
+
+        expect(answers).toHaveLength(many.length);
+        expect(host.calls.some(call => call.url.includes('/isrc/'))).toBe(false);
+    });
+
+    it('enters the tail when there is room for it', async () => {
+        await initialize();
+        route([
+            [/recording\?/, { recordings: [] }],
+            [/isrc\//, { recordings: [] }],
+        ]);
+        host.seedRemainingMs(60_000);
+
+        await plugin.enrichTracks(many.slice(0, 2));
+
+        expect(host.calls.some(call => call.url.includes('/isrc/'))).toBe(true);
+    });
+});

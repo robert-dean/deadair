@@ -14,7 +14,7 @@ import {
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
 import { ListenBrainzClient, ListenBrainzRequestError, LOOKUP_BATCH_SIZE, METADATA_BATCH_SIZE } from './listenbrainz.client.js';
 import { lookupKey, mapListenBrainz, resultKey, toLookupQuery } from './listenbrainz.mapping.js';
-import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
+import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, REQUEST_TIMEOUT_MS, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup } from './musicbrainz.mapping.js';
 import {
@@ -80,17 +80,41 @@ const TRACKLIST_MIN_TRACKS = 3;
 /**
  * ISRCs per batched search.
  *
- * The same as {@link MAX_BATCH_SIZE}, so one `enrichTracks` call is one search
- * and never two. It was fifty, which is what the query syntax will take but not
- * what the response will fit in: see {@link MusicBrainzPlugin.searchIsrcBatch}.
+ * Small, and the reason is response size rather than query syntax. A search
+ * result carries every release its recording appeared on — hundreds, for
+ * anything that charted — and the search endpoint takes no `inc` to suppress
+ * them, so `limit` bounds the number of documents but not their weight. At
+ * twenty-five codes the answer still came back over the host's five megabyte
+ * body cap and the whole chunk was refused:
+ *
+ *     plugin fetch failed | error=response body is 5243627 bytes, over the
+ *     5242880 byte limit
+ *
+ * Ten still turns ten `/isrc/{code}` lookups into one request, which is the
+ * saving that matters, and leaves room for a batch of unusually well-released
+ * tracks. A chunk that blows the cap anyway is dropped by {@link optional} and
+ * its refs fall through to the per-ref path, so this degrades rather than
+ * breaks.
  */
-const ISRC_BATCH_SIZE = 25;
+const ISRC_BATCH_SIZE = 10;
 
-/** Hard ceiling on results asked for, well under the host's five megabyte body cap. */
-const ISRC_SEARCH_LIMIT = 40;
+/** Hard ceiling on results asked for, whatever the chunk size. */
+const ISRC_SEARCH_LIMIT = 20;
 
 /** Slack over the chunk size, for the codes that resolve to more than one recording. */
 const ISRC_SEARCH_HEADROOM = 5;
+
+/**
+ * Budget below which the per-ref tail is not worth entering.
+ *
+ * Sized to a slow request rather than to a fast one, because that is the case
+ * it exists for. {@link OPTIONAL_STEP_MIN_MS} asks only for a rate-limit slot's
+ * worth of headroom, which is right for a single optional lookup inside a
+ * per-entity call — but in a batch it meant the tail kept starting two-request
+ * refs with two seconds left, each of which could take ten, until the whole
+ * invocation was killed and every answer the batch was holding went with it.
+ */
+const TAIL_MIN_MS = REQUEST_TIMEOUT_MS + 2_000;
 
 /**
  * Refs handed over in one {@link MusicBrainzPlugin.enrichTracks} call.
@@ -281,6 +305,15 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         outstanding = await this.resolveByIsrcBatch(refs, outstanding, answers);
 
         for (const index of outstanding) {
+            // Checked here rather than left to `optional`, which would let a
+            // ref start with far less time than it needs. Stopping early leaves
+            // those refs outstanding for the next pass, which is strictly
+            // better than losing the whole call's work to a timeout.
+            if (((await this.host?.remainingMs()) ?? 0) < TAIL_MIN_MS) {
+                this.host?.logger.debug('musicbrainz stopped short of the per-track tail, out of budget', { remaining: outstanding.length });
+                break;
+            }
+
             // The per-ref path is allowed to fail without taking the batch with
             // it: the requests already spent on the other refs are real, and a
             // miss here is recoverable next pass while losing them is not.

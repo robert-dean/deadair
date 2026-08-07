@@ -1,5 +1,6 @@
 import type { SdkOptions } from './sdk-options.js';
 import { createSdkFetch } from './sdk-options.js';
+import { ArtClient } from './art/art.client.js';
 import { AuthenticationClient } from './authentication/authentication.client.js';
 import { CatalogClient } from './catalog/catalog.client.js';
 import { OnboardingClient } from './onboarding/onboarding.client.js';
@@ -8,6 +9,7 @@ import { PlayoutClient } from './playout/playout.client.js';
 import { PluginsClient } from './plugins/plugins.client.js';
 
 export class DeadairSdk {
+    readonly art: ArtClient;
     readonly authentication: AuthenticationClient;
     readonly catalog: CatalogClient;
     readonly onboarding: OnboardingClient;
@@ -17,6 +19,7 @@ export class DeadairSdk {
 
     constructor(options: SdkOptions) {
         const sdkFetch = options.fetch ?? createSdkFetch(options);
+        this.art = new ArtClient(sdkFetch);
         this.authentication = new AuthenticationClient(sdkFetch);
         this.catalog = new CatalogClient(sdkFetch);
         this.onboarding = new OnboardingClient(sdkFetch);

@@ -13,6 +13,7 @@ import { Redis } from 'ioredis';
 import { auditContextMiddleware } from './middleware/audit.context.middleware.js';
 import { authorizationContextMiddleware } from './middleware/authorization.context.middleware.js';
 import { refreshCookieMiddleware } from './middleware/refresh.cookie.middleware.js';
+import { conditionalGetMiddleware } from './middleware/conditional.get.middleware.js';
 
 export const setupMiddleware = (container: Container) => {
     const middlewares: ServerKitMiddleware[] = [];
@@ -56,6 +57,11 @@ export const setupMiddleware = (container: Container) => {
     // the still-object token body, moves the refresh token into an httpOnly cookie, and strips it
     // before json serializes. No-op unless the client opted into cookie-based refresh.
     middlewares.push(refreshCookieMiddleware());
+    // Last, so it is the innermost hook and sees the response a route actually produced. It exists
+    // because ContractKit's generated routers pin their status, so no service can answer 304
+    // itself; this turns a fresh 200 carrying an ETag into one. See the middleware for why it keys
+    // off the ETag rather than off any particular route.
+    middlewares.push(conditionalGetMiddleware());
 
     return middlewares;
 };

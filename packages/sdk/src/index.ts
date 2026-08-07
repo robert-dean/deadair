@@ -1,4 +1,5 @@
 // Auto-generated barrel file
+export * from './art/art.client.js';
 export * from './authentication/authentication.client.js';
 export * from './authentication/authentication.factor.client.js';
 export * from './authentication/authentication.sessions.client.js';

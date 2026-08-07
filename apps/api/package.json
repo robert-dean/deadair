@@ -55,7 +55,7 @@
     },
     "devDependencies": {
         "@contractkit/cli": "^0.10.3",
-        "@contractkit/plugin-typescript": "^0.28.2",
+        "@contractkit/plugin-typescript": "^0.29.0",
         "@deadair/plugin-musicbrainz": "workspace:*",
         "@deadair/plugin-spotify": "workspace:*",
         "@maroonedsoftware/permissions-dsl": "^0.5.0",

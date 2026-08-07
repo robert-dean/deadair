@@ -1,22 +1,12 @@
-// The token this mints is verified by a different process, written in a different
-// language: `verifyToken` in stream/spotify-shim/token.go. Nothing in TypeScript
-// can catch a divergence, and the symptom would be every Spotify fetch 401ing on
-// air with a working-looking app.
-//
-// So the wire format is pinned here against the SAME vector the Go suite pins
-// (TestTokenMatchesTheAppsWireFormat), and a change to either side fails its own
-// tests instead.
+// What this resolver still owns is which items it answers for and where it points
+// them. The wire format it signs with is pinned in the stream module's own suite,
+// beside the code that mints it (spotify.shim.client.test.ts).
 
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import {
-    DEFAULT_SHIM_BASE_URL,
-    signTrackToken,
-    spotifyTrackUrl,
-    SpotifyShimResolver,
-    TRACK_URL_TTL_MS,
-} from '../../../src/modules/playout/providers/spotify.shim.resolver.js';
+import { TRACK_URL_TTL_MS } from '../../../src/modules/stream/spotify.shim.client.js';
+import { SpotifyShimResolver } from '../../../src/modules/playout/providers/spotify.shim.resolver.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 import type { RundownItem } from '../../../src/modules/playout/rundown.js';
 
@@ -40,51 +30,6 @@ const item = (overrides: Partial<RundownItem> = {}): RundownItem => ({
     title: 'A Track',
     artists: ['An Artist'],
     ...overrides,
-});
-
-describe('signTrackToken', () => {
-    it('reproduces the vector the Go verifier pins', () => {
-        expect(signTrackToken(VECTOR.secret, VECTOR.trackId, VECTOR.expirySeconds * 1000)).toBe(VECTOR.token);
-    });
-
-    it('signs the expiry, not just the id', () => {
-        // The expiry travels in the clear, so without it in the MAC anyone holding an
-        // expired URL could rewrite the expiry and keep using it.
-        const a = signTrackToken(VECTOR.secret, VECTOR.trackId, 1_700_000_000_000);
-        const b = signTrackToken(VECTOR.secret, VECTOR.trackId, 1_700_000_060_000);
-
-        expect(a.split('.')[1]).not.toBe(b.split('.')[1]);
-    });
-
-    it('signs the track id, so one URL cannot be pointed at another track', () => {
-        const a = signTrackToken(VECTOR.secret, 'trackA', VECTOR.expirySeconds * 1000);
-        const b = signTrackToken(VECTOR.secret, 'trackB', VECTOR.expirySeconds * 1000);
-
-        expect(a).not.toBe(b);
-    });
-
-    it('length-prefixes the fields so no two pairs sign the same bytes', () => {
-        // "ab" + "1234" and "ab1" + "234" concatenate identically; the length prefix
-        // is what keeps them apart. Mirrors the Go suite's boundary test.
-        const a = signTrackToken(VECTOR.secret, 'ab', 1234 * 1000);
-        const b = signTrackToken(VECTOR.secret, 'ab1', 234 * 1000);
-
-        expect(a.split('.')[1]).not.toBe(b.split('.')[1]);
-    });
-
-    it('truncates the expiry to whole seconds, which is what the shim parses', () => {
-        expect(signTrackToken(VECTOR.secret, VECTOR.trackId, VECTOR.expirySeconds * 1000 + 999)).toBe(VECTOR.token);
-    });
-});
-
-describe('spotifyTrackUrl', () => {
-    it('builds the route the shim serves', () => {
-        expect(spotifyTrackUrl(DEFAULT_SHIM_BASE_URL, 'abc', '123.sig')).toBe('http://127.0.0.1:3679/track/abc?t=123.sig');
-    });
-
-    it('escapes the token, so a signature is never mangled in the query string', () => {
-        expect(spotifyTrackUrl('http://x', 'abc', 'a+b/c=')).toContain('t=a%2Bb%2Fc%3D');
-    });
 });
 
 describe('SpotifyShimResolver', () => {

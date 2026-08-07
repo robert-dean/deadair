@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { HostFetchInit, HostFetchResponse, PluginOAuth } from '../src/plugin.host.js';
+import type { HostFetchInit, HostFetchResponse, PluginOAuth, TrackFetchRequest } from '../src/plugin.host.js';
 import type {
     PlaybackState,
     ProviderPlaylist,
@@ -242,6 +242,15 @@ export const providerSessionCredentialsFixture: ProviderSessionCredentials = {
     username: 'the-station',
     accessToken: 'BQC_not_a_real_token',
     expiresAt: 1_893_456_000_000,
+};
+
+export const trackFetchRequestFixture: TrackFetchRequest = {
+    trackId: '4PTG3Z6ehGkBFwjybzWkR8',
+    session: {
+        username: 'the-station',
+        accessToken: 'BQC_not_a_real_token',
+        expiresAt: 1_893_456_000_000,
+    },
 };
 
 export const searchTracksOptionsFixture = { limit: 20, offset: 40 };

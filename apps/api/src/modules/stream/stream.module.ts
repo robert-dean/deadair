@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { SpotifyShimClient } from './spotify.shim.client.js';
 import { StreamService } from './stream.service.js';
 
 /**
@@ -23,6 +24,11 @@ export const StreamModule: ServerKitModule = {
     setup: async (registry: Registry, _config: AppConfig) => {
         // Scoped: it depends on the scoped `SettingsRepository` and `EncryptionProvider`.
         registry.register(StreamService).useClass(StreamService).asScoped();
+
+        // Singleton, and holds the two stream secrets pushed into it at `ready`:
+        // it is reached from `PluginHostFactory`, which is itself a singleton
+        // built long before any request scope exists.
+        registry.register(SpotifyShimClient).useClass(SpotifyShimClient).asSingleton();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {
@@ -40,6 +46,11 @@ export const StreamModule: ServerKitModule = {
                 logger.info('stream: seeded the missing stream secrets; restart icecast and liquidsoap once to adopt them');
             }
             await stream.materialize();
+
+            // After the seed, so a first boot hands over the secrets it just wrote
+            // rather than the empty pair it read a moment earlier.
+            const { playoutBridgeSecret, spotifyLoginSecret } = await stream.settings();
+            container.get(SpotifyShimClient).useSecrets(playoutBridgeSecret ?? '', spotifyLoginSecret ?? '');
         } finally {
             await scope.disposeAsync();
         }

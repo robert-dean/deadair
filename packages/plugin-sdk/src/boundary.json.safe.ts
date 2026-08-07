@@ -40,7 +40,7 @@ import type {
     SearchTracksOptions,
 } from './capabilities/music.provider.js';
 import type { ConfigField, ConfigFieldOption } from './plugin.config.fields.js';
-import type { HostFetchInit, HostFetchResponse } from './plugin.host.js';
+import type { HostFetchInit, HostFetchResponse, TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { NetworkPermissionFromConfig, NetworkPermissionHost, PluginPermissions } from './plugin.permissions.js';
@@ -124,6 +124,8 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ProviderPlaylist: IsJsonSafe<ProviderPlaylist>;
     ProviderStream: IsJsonSafe<ProviderStream>;
     ProviderSessionCredentials: IsJsonSafe<ProviderSessionCredentials>;
+    TrackFetchSession: IsJsonSafe<TrackFetchSession>;
+    TrackFetchRequest: IsJsonSafe<TrackFetchRequest>;
     SearchTracksOptions: IsJsonSafe<SearchTracksOptions>;
     ListPlaylistsOptions: IsJsonSafe<ListPlaylistsOptions>;
     GetPlaylistTracksOptions: IsJsonSafe<GetPlaylistTracksOptions>;
@@ -157,6 +159,8 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ProviderPlaylist',
     'ProviderStream',
     'ProviderSessionCredentials',
+    'TrackFetchSession',
+    'TrackFetchRequest',
     'SearchTracksOptions',
     'ListPlaylistsOptions',
     'GetPlaylistTracksOptions',
@@ -187,6 +191,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'PluginConfigAccess',
     'PluginOAuth',
     'PluginEvents',
+    'PluginTrackFetcher',
     'PluginHost',
     'PluginLifecycle',
     'MusicProviderCatalog',

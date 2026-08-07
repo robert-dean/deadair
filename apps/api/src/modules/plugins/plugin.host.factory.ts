@@ -14,7 +14,9 @@ import type {
     PluginPermissions,
     PluginSecrets,
     PluginStorage,
+    PluginTrackFetcher,
 } from '@deadair/plugin-sdk';
+import { SpotifyShimClient } from '#modules/stream/spotify.shim.client.js';
 import { PluginConfigService } from './plugin.config.service.js';
 import { invocationRemainingMs } from './plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
@@ -266,6 +268,7 @@ export class PluginHostFactory {
         private readonly pluginConfigService: PluginConfigService,
         private readonly pluginStorageRepository: PluginStorageRepository,
         private readonly pluginLog: PluginLog,
+        private readonly spotifyShimClient: SpotifyShimClient,
     ) {}
 
     /** One host per plugin. Cheap: the only per-host state is its rate limiters. */
@@ -291,6 +294,7 @@ export class PluginHostFactory {
             config: this.createConfig(manifest),
             oauth: this.createOAuth(manifest),
             events: this.createEvents(manifest, logger),
+            trackFetcher: this.createTrackFetcher(manifest),
         };
     }
 
@@ -361,6 +365,35 @@ export class PluginHostFactory {
             list: async prefix => {
                 guard();
                 return this.pluginStorageRepository.listKeys(manifest.id, prefix);
+            },
+        };
+    }
+
+    /**
+     * The station's track fetcher, for the one provider shape that cannot mint a
+     * URL of its own: audio that is reachable, but only to a process speaking a
+     * protocol the plugin does not.
+     *
+     * Wired straight to the Spotify shim rather than to a registry of fetchers,
+     * because there is exactly one and inventing a lookup for it would describe a
+     * generality the station does not have. The SDK's side is general because it
+     * is a published contract; this side is a binary in a sibling container.
+     *
+     * The session the plugin hands over goes to the shim and nowhere else: it is
+     * not stored, not logged, and not readable back.
+     */
+    private createTrackFetcher(manifest: PluginManifest): PluginTrackFetcher {
+        // `internal` for the same reason as the storage guard above.
+        const guard = (): void => {
+            if (!manifest.permissions.trackFetcher) {
+                throw new PluginError(`plugin "${manifest.id}" does not declare the "trackFetcher" permission`).withCode('internal');
+            }
+        };
+
+        return {
+            serve: async request => {
+                guard();
+                return this.spotifyShimClient.serve(request.trackId, request.session);
             },
         };
     }

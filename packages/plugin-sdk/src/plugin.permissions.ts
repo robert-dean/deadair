@@ -96,6 +96,17 @@ export interface PluginPermissions {
 
     /** Whether the plugin may use `host.oauth` (redirect URI + token vault). */
     oauth: boolean;
+
+    /**
+     * Whether the plugin may use `host.trackFetcher` (lend the station's
+     * fetcher a login, get back a URL).
+     *
+     * Optional, unlike the two above, because almost no plugin wants it: a
+     * provider whose audio can be fetched with a URL mints one itself. Making
+     * it required would put a `false` in every manifest to disclaim something
+     * only one provider has ever needed.
+     */
+    trackFetcher?: boolean;
 }
 
 // Finite and positive: a zero or a NaN would compute a limiter window of
@@ -115,4 +126,5 @@ export const pluginPermissionsSchema = z.object({
     network: z.array(networkPermissionSchema),
     storage: z.boolean(),
     oauth: z.boolean(),
+    trackFetcher: z.boolean().optional(),
 });

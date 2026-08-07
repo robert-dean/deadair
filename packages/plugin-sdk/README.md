@@ -306,6 +306,36 @@ it, including the time `host.fetch` parks waiting for rate-limit headroom, and
 `host.fetch` caps its own timeout by it. Read a small number as advice to wrap
 up, not as permission to run that long.
 
+## When your audio needs a helper to fetch it
+
+Almost every provider answers `resolveStreamUrl` out of its own head: it knows a
+URL, it signs one, it hands it back. `host.trackFetcher` is for the one shape
+that cannot — audio that is reachable, but only to a process speaking a protocol
+you do not.
+
+Spotify is the case it exists for. Its tracks come off the CDN encrypted, so
+there is no URL to mint at all; a separate binary runs beside the audio player,
+speaks Spotify's own protocol, and re-serves the track as plain audio over HTTP.
+You lend it a login, and get back the URL you were going to return anyway:
+
+```ts
+async resolveStreamUrl(trackId: string): Promise<ProviderStream | undefined> {
+    const session = await this.currentSession();          // your account, your refresh
+    if (!session) return undefined;                       // not connected yet
+
+    return host.trackFetcher.serve({ trackId, session });
+}
+```
+
+The login goes to the fetcher and nowhere else: it is not stored, not written to
+config, and not readable back out of the host. `serve` resolves to `undefined`
+when the operator's station has no fetcher configured, which you pass straight
+through — an item nobody can resolve is skipped, not an error.
+
+Requires the `trackFetcher` permission. **Do not reach for it when your audio can
+simply be fetched.** Mint the URL yourself and keep your credentials to yourself,
+which is both simpler and narrower.
+
 ## Enriching artists and albums, not just tracks
 
 `enrichTrack` is the only method an enrichment plugin must write.

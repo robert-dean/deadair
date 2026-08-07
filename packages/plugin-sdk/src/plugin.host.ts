@@ -13,6 +13,8 @@
  * they have to.
  */
 
+import type { MusicProviderStream, ProviderStream } from './capabilities/music.provider.js';
+
 /** Structured logging. Goes to the host's logger, tagged with the plugin id. */
 export interface PluginLogger {
     debug(message: string, meta?: Record<string, unknown>): void;
@@ -123,6 +125,56 @@ export interface PluginEvents {
 }
 
 /**
+ * A login the station's track fetcher opens its own session with.
+ *
+ * Handed to {@link PluginTrackFetcher.serve} and nowhere else: it is not
+ * persisted, not written to config, and not readable back out of the host. The
+ * plugin still owns the account and the refresh.
+ */
+export interface TrackFetchSession {
+    /** The account the fetcher should log in as. */
+    username: string;
+    /** A currently-valid access token. */
+    accessToken: string;
+    /** Unix epoch millis after which `accessToken` stops working. */
+    expiresAt?: number;
+}
+
+export interface TrackFetchRequest {
+    /** Provider-scoped track id, exactly as the plugin's own catalog reports it. */
+    trackId: string;
+    session: TrackFetchSession;
+}
+
+/**
+ * The station's own track fetcher: a helper process, running beside the audio
+ * player, that speaks a provider's protocol and re-serves the result as plain
+ * audio over HTTP.
+ *
+ * This exists for one shape of provider: the audio is reachable, but only to a
+ * process speaking a protocol the plugin does not. Spotify is the reason —
+ * its tracks come off the CDN encrypted and are fetched by a separate binary
+ * beside Liquidsoap. Without this, such a provider could not implement
+ * {@link MusicProviderStream.resolveStreamUrl} at all, because there is no URL
+ * for it to mint.
+ *
+ * Do NOT reach for this when your provider's audio can simply be fetched. Mint
+ * the URL yourself and keep your credentials to yourself, which is both simpler
+ * and narrower. Requires the `trackFetcher` permission.
+ */
+export interface PluginTrackFetcher {
+    /**
+     * Lend the fetcher a login and get back a URL for one track.
+     *
+     * Resolves to `undefined` when this station has no fetcher configured,
+     * which a plugin should pass straight through as "cannot resolve this
+     * item" rather than treat as an error: an operator who never set the
+     * stream side up is a normal state, not a fault.
+     */
+    serve(request: TrackFetchRequest): Promise<ProviderStream | undefined>;
+}
+
+/**
  * The single object handed to a plugin at init, and the sanctioned way to get
  * at the outside world: network, persistence, secrets, tokens.
  *
@@ -191,4 +243,6 @@ export interface PluginHost {
     oauth: PluginOAuth;
 
     events: PluginEvents;
+
+    trackFetcher: PluginTrackFetcher;
 }

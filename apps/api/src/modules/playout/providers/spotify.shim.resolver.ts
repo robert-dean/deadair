@@ -1,6 +1,6 @@
-import { createHmac } from 'node:crypto';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { DEFAULT_SHIM_BASE_URL, signTrackToken, spotifyTrackUrl, TRACK_URL_TTL_MS } from '#modules/stream/spotify.shim.client.js';
 import { LiquidsoapEndpoint } from '../liquidsoap.endpoint.js';
 import { TrackResolver } from '../playout.capability.js';
 import type { RundownItem } from '../rundown.js';
@@ -27,19 +27,6 @@ import type { RundownItem } from '../rundown.js';
 
 /** The plugin whose items this resolver answers for. */
 const SPOTIFY_PLUGIN_ID = 'deadair.spotify';
-
-/** Where the shim listens inside the stream container (`SHIM_ADDR` in spotify-shim-run.sh). */
-export const DEFAULT_SHIM_BASE_URL = 'http://127.0.0.1:3679';
-
-/**
- * How long a signed track URL stays valid.
- *
- * Comfortably longer than the gap between an item being pushed and the player
- * fetching it (the pusher keeps one item of lead), and short enough that a URL
- * which ends up in a log is not replayable for the rest of the day. Matches
- * `tokenTTL` in the shim, which enforces its own view of it.
- */
-export const TRACK_URL_TTL_MS = 30 * 60_000;
 
 @Injectable()
 export class SpotifyShimResolver extends TrackResolver {
@@ -78,32 +65,4 @@ export class SpotifyShimResolver extends TrackResolver {
     private baseUrl(): string {
         return this.config.get('SPOTIFY_SHIM_URL', DEFAULT_SHIM_BASE_URL).replace(/\/+$/, '');
     }
-}
-
-/** The shim's per-track URL. Exported for tests and for diagnosing a pushed item. */
-export function spotifyTrackUrl(base: string, trackId: string, token: string): string {
-    return `${base}/track/${encodeURIComponent(trackId)}?t=${encodeURIComponent(token)}`;
-}
-
-/**
- * Sign a track URL for the shim: `<expiry-unix>.<base64url(hmac-sha256)>`.
- *
- * MUST match `verifyToken` in `stream/spotify-shim/token.go` byte for byte,
- * including the length-prefixed MAC input — that prefixing is what stops one
- * `(id, expiry)` pair being re-cut into another that signs the same bytes. Both
- * sides pin the same test vector, so changing the wire format on one without the
- * other fails a suite rather than silently 401ing every fetch on air.
- *
- * Signed rather than one-time because the shim is a separate process: a random
- * token would need shared state, where an HMAC needs only the secret both
- * already hold. It rides in the query string because Liquidsoap fetches a queued
- * item with no headers from us.
- */
-export function signTrackToken(secret: string, trackId: string, expiresAtMs: number): string {
-    const expiry = String(Math.floor(expiresAtMs / 1000));
-    return `${expiry}.${trackMac(secret, trackId, expiry)}`;
-}
-
-function trackMac(secret: string, trackId: string, expiry: string): string {
-    return createHmac('sha256', secret).update(`${trackId.length}:${trackId}:${expiry.length}:${expiry}`).digest('base64url');
 }

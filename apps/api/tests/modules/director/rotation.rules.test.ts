@@ -1,0 +1,170 @@
+// Every rule here is a small decision that is easy to get subtly wrong and
+// impossible to hear going wrong. A repeat window that never matches sounds
+// exactly like a station with a small library, and a cooldown keyed on the wrong
+// thing is dodged by every track with a guest artist on it. So these are tested
+// against the cases that produce those silences, not just the happy path.
+
+import { describe, expect, it } from 'vitest';
+
+import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
+import {
+    capPerArtist,
+    DEFAULT_RULES,
+    filterByHistory,
+    rejectDisliked,
+    resolveRules,
+    spaceArtists,
+    weightOf,
+    type RotationCandidate,
+} from '../../../src/modules/director/rotation.rules.js';
+
+const candidate = (title: string, artists: string[], rating?: number): RotationCandidate => ({
+    songKey: songKey(title, artists),
+    artistKey: artistKey(artists),
+    ...(rating === undefined ? {} : { rating }),
+});
+
+const none = { songKeys: new Set<string>(), artistKeys: new Set<string>() };
+
+describe('rotation keys', () => {
+    it('counts a featured credit as the lead artist', () => {
+        // Otherwise a cooldown is dodged by any track with a guest on it, which is
+        // the common case in exactly the genres with a deep catalogue to work through.
+        expect(artistKey(['Aphex Twin', 'Someone Else'])).toBe(artistKey(['Aphex Twin']));
+    });
+
+    it('folds the spellings the catalog folds', () => {
+        expect(artistKey(['Beyoncé'])).toBe(artistKey(['Beyonce']));
+        expect(songKey("Don't Stop Me Now", ['Queen'])).toBe(songKey('Dont Stop Me Now', ['Queen']));
+    });
+
+    it('keeps two acts sharing a title apart', () => {
+        // "Crazy" by two different artists is two songs, and suppressing one because
+        // the other aired would be wrong.
+        expect(songKey('Crazy', ['Gnarls Barkley'])).not.toBe(songKey('Crazy', ['Patsy Cline']));
+    });
+
+    it('treats a track credited to nobody as matching nothing', () => {
+        // The alternative herds every uncredited track under one key and cools them
+        // all down together.
+        expect(artistKey([])).toBe('');
+    });
+});
+
+describe('resolveRules', () => {
+    it('gives a rotation the station defaults', () => {
+        expect(resolveRules('rotation')).toEqual(DEFAULT_RULES);
+    });
+
+    it('turns everything off for a setlist', () => {
+        // The whole mechanism behind a Christmas list: it is played across a month
+        // precisely because it repeats, and a repeat window would suppress the very
+        // tracks it exists to play.
+        expect(resolveRules('setlist')).toEqual({
+            repeatWindowDays: 0,
+            artistCooldownMinutes: 0,
+            maxPerArtist: 0,
+            autoExtend: false,
+        });
+    });
+
+    it('turns everything off for a feature, which is one artist by definition', () => {
+        expect(resolveRules('feature').artistCooldownMinutes).toBe(0);
+        expect(resolveRules('feature').autoExtend).toBe(false);
+    });
+
+    it('lets a lineup override the baseline field by field', () => {
+        // An operator who wants a cooldown inside a long setlist can have one; that
+        // is why the mode sets a baseline rather than branching in the reactor.
+        const rules = resolveRules('setlist', { artistCooldownMinutes: 30 });
+
+        expect(rules.artistCooldownMinutes).toBe(30);
+        expect(rules.repeatWindowDays).toBe(0);
+    });
+
+    it('lets a rotation turn a rule off with zero, rather than reading it as unset', () => {
+        expect(resolveRules('rotation', { repeatWindowDays: 0 }).repeatWindowDays).toBe(0);
+    });
+
+    it('lets a rotation turn auto-extend off', () => {
+        expect(resolveRules('rotation', { autoExtend: false }).autoExtend).toBe(false);
+    });
+});
+
+describe('filterByHistory', () => {
+    it('drops a song inside the repeat window', () => {
+        const recent = { songKeys: new Set([songKey('A', ['One'])]), artistKeys: new Set<string>() };
+
+        expect(filterByHistory([candidate('A', ['One']), candidate('B', ['Two'])], recent).map(c => c.songKey)).toEqual([songKey('B', ['Two'])]);
+    });
+
+    it('drops every song by an artist inside the cooldown', () => {
+        const recent = { songKeys: new Set<string>(), artistKeys: new Set([artistKey(['One'])]) };
+
+        expect(filterByHistory([candidate('A', ['One']), candidate('B', ['One'])], recent)).toEqual([]);
+    });
+
+    it('suppresses nothing when the windows are empty', () => {
+        // Which is also what a disabled rule produces, so `0` costs no query rather
+        // than needing a branch at the call site.
+        expect(filterByHistory([candidate('A', ['One'])], none)).toHaveLength(1);
+    });
+});
+
+describe('rejectDisliked', () => {
+    it('drops a disliked candidate', () => {
+        expect(rejectDisliked([candidate('A', ['One'], -1), candidate('B', ['Two'], 0)]).map(c => c.songKey)).toEqual([songKey('B', ['Two'])]);
+    });
+
+    it('keeps everything the catalog has no opinion on', () => {
+        expect(rejectDisliked([candidate('A', ['One'])])).toHaveLength(1);
+    });
+
+    it('favours a liked track without promising it', () => {
+        expect(weightOf(candidate('A', ['One'], 1))).toBe(2);
+        expect(weightOf(candidate('B', ['Two'], 0))).toBe(1);
+    });
+});
+
+describe('capPerArtist', () => {
+    it('keeps at most the cap, in the order offered', () => {
+        const picks = [candidate('A', ['One']), candidate('B', ['One']), candidate('C', ['One']), candidate('D', ['Two'])];
+
+        expect(capPerArtist(picks, 2).map(c => c.songKey)).toEqual([songKey('A', ['One']), songKey('B', ['One']), songKey('D', ['Two'])]);
+    });
+
+    it('is disabled by zero', () => {
+        const picks = [candidate('A', ['One']), candidate('B', ['One'])];
+
+        expect(capPerArtist(picks, 0)).toHaveLength(2);
+    });
+});
+
+describe('spaceArtists', () => {
+    it('never puts the same artist back to back', () => {
+        // Two tracks by one act in a row is the most audible sign of a shuffle that
+        // is not being programmed, and the cap alone cannot prevent it.
+        const spaced = spaceArtists([candidate('A', ['One']), candidate('B', ['One']), candidate('C', ['Two'])]);
+
+        expect(spaced.map(c => c.artistKey)).toEqual([artistKey(['One']), artistKey(['Two']), artistKey(['One'])]);
+    });
+
+    it('keeps every candidate it was given', () => {
+        const picks = [candidate('A', ['One']), candidate('B', ['One']), candidate('C', ['Two']), candidate('D', ['Three'])];
+
+        expect(spaceArtists(picks)).toHaveLength(4);
+        expect(new Set(spaceArtists(picks).map(c => c.songKey)).size).toBe(4);
+    });
+
+    it('gives back a single-artist batch in its original order rather than stalling', () => {
+        // Nothing can be done about it, and looping forever looking for a different
+        // artist is the failure mode a greedy pass has to be written against.
+        const picks = [candidate('A', ['One']), candidate('B', ['One'])];
+
+        expect(spaceArtists(picks).map(c => c.songKey)).toEqual([songKey('A', ['One']), songKey('B', ['One'])]);
+    });
+
+    it('handles an empty batch', () => {
+        expect(spaceArtists([])).toEqual([]);
+    });
+});

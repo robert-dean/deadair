@@ -1,0 +1,182 @@
+import type { LineupMode, LineupRules } from './lineup.js';
+
+/**
+ * The rules that shape a generated set: what not to play again yet, and how not
+ * to play too much of one artist at once.
+ *
+ * Pure, and deliberately separate from both the SQL that gathers candidates and
+ * the generator that picks between them. Each rule is a small decision that is
+ * easy to get subtly wrong and impossible to hear going wrong — a repeat window
+ * that never matches sounds exactly like a station with a small library — so
+ * they are table-tested rather than trusted.
+ *
+ * Everything here is advisory about WHAT to play. The one thing that is not is
+ * the dislike filter, which is an instruction; see {@link rejectDisliked}.
+ */
+
+/** The rules as the director actually applies them, with nothing left to default. */
+export interface ResolvedRules {
+    /** Days a song is suppressed after airing. `0` disables the window. */
+    repeatWindowDays: number;
+    /** Minutes an artist is suppressed after airing. `0` disables the cooldown. */
+    artistCooldownMinutes: number;
+    /** Most tracks by one artist in a generated batch. `0` disables the cap. */
+    maxPerArtist: number;
+    /** Whether the director may generate more when the lineup runs short. */
+    autoExtend: boolean;
+}
+
+/**
+ * The station's defaults, until they become operator settings.
+ *
+ * Three days is long enough that a listener over an afternoon never hears a
+ * repeat and short enough that a modest library does not starve. Forty minutes
+ * of artist cooldown is roughly the length of a listening session, which is the
+ * span over which hearing the same act twice is noticeable.
+ */
+export const DEFAULT_RULES: ResolvedRules = {
+    repeatWindowDays: 3,
+    artistCooldownMinutes: 40,
+    maxPerArtist: 2,
+    autoExtend: true,
+};
+
+/** Every rule off. What a lineup that is not a rotation resolves to. */
+const NO_RULES: ResolvedRules = {
+    repeatWindowDays: 0,
+    artistCooldownMinutes: 0,
+    maxPerArtist: 0,
+    autoExtend: false,
+};
+
+/**
+ * What rules apply to one lineup: its mode decides the baseline, its own
+ * overrides adjust it field by field.
+ *
+ * A `setlist` and a `feature` start from everything OFF, and that is the whole
+ * mechanism behind them. A Christmas setlist is played across a month precisely
+ * because it repeats; running it under a repeat window would suppress the very
+ * tracks it exists to play, and an artist cooldown would refuse to air two
+ * Bing Crosby records in an evening. A feature is one artist by definition.
+ *
+ * The overrides still apply on top, so an operator who wants a cooldown inside a
+ * long setlist can have one. That is why this is a baseline rather than a
+ * hard-coded branch in the reactor.
+ */
+export const resolveRules = (mode: LineupMode, overrides?: LineupRules): ResolvedRules => {
+    const base = mode === 'rotation' ? DEFAULT_RULES : NO_RULES;
+    return {
+        repeatWindowDays: overrides?.repeatWindowDays ?? base.repeatWindowDays,
+        artistCooldownMinutes: overrides?.artistCooldownMinutes ?? base.artistCooldownMinutes,
+        maxPerArtist: overrides?.maxPerArtist ?? base.maxPerArtist,
+        autoExtend: overrides?.autoExtend ?? base.autoExtend,
+    };
+};
+
+/** The minimum a candidate has to carry to be judged. */
+export interface RotationCandidate {
+    songKey: string;
+    artistKey: string;
+    /**
+     * The lowest rating across the track, its record and its artist: `-1`
+     * disliked, `0` unrated, `1` liked. Absent for anything the catalog has no
+     * opinion on.
+     */
+    rating?: number;
+}
+
+/** What the station has aired lately, as the rules read it. */
+export interface RecentlyAired {
+    /** Songs inside the repeat window. Empty when the window is off. */
+    songKeys: ReadonlySet<string>;
+    /** Artists inside the cooldown. Empty when the cooldown is off. */
+    artistKeys: ReadonlySet<string>;
+}
+
+/**
+ * Drop anything the station has played too recently.
+ *
+ * Both sets are already scoped to their window by the caller, so an empty set
+ * means "nothing is suppressed" — which is also exactly what a disabled rule
+ * produces, and is why a rule of `0` costs no query rather than needing a branch
+ * here.
+ */
+export const filterByHistory = <T extends RotationCandidate>(candidates: readonly T[], recent: RecentlyAired): T[] =>
+    candidates.filter(candidate => !recent.songKeys.has(candidate.songKey) && !recent.artistKeys.has(candidate.artistKey));
+
+/**
+ * Drop anything the operator has disliked.
+ *
+ * **Not a rotation rule, and not disable-able by a lineup.** A dislike is an
+ * instruction about what the station may play, not a preference about how often;
+ * a setlist that turned the rules off must still not air a record its owner
+ * marked `-1`. It reads the LOWEST rating across the track, its album and its
+ * artist, so disliking an artist stops the station playing them rather than
+ * stopping it playing one of their songs.
+ */
+export const rejectDisliked = <T extends RotationCandidate>(candidates: readonly T[]): T[] =>
+    candidates.filter(candidate => candidate.rating !== -1);
+
+/**
+ * How much a candidate should be favoured when sampling.
+ *
+ * A liked track is twice as likely to be drawn, and no more: `1` is a weight and
+ * not a promise. A station that always played its liked tracks would have a
+ * library of a few dozen songs and would still be obeying the repeat window
+ * while it did it.
+ */
+export const weightOf = (candidate: RotationCandidate): number => (candidate.rating === 1 ? 2 : 1);
+
+/**
+ * Keep at most `max` tracks by any one artist, in the order they were offered.
+ *
+ * The cap the repeat window cannot express: nothing here has aired yet, so the
+ * cooldown has nothing to say about a batch that happens to be six tracks by the
+ * same act. `0` disables it.
+ */
+export const capPerArtist = <T extends RotationCandidate>(candidates: readonly T[], max: number): T[] => {
+    if (max <= 0) return [...candidates];
+
+    const counts = new Map<string, number>();
+    const kept: T[] = [];
+    for (const candidate of candidates) {
+        const seen = counts.get(candidate.artistKey) ?? 0;
+        if (seen >= max) continue;
+        counts.set(candidate.artistKey, seen + 1);
+        kept.push(candidate);
+    }
+    return kept;
+};
+
+/**
+ * Reorder so the same artist is never back to back.
+ *
+ * Cosmetic in a way the other rules are not: it changes nothing about WHICH
+ * tracks air, only the order they air in. But two tracks by one act in a row is
+ * the single most audible sign of a shuffle that is not being programmed, and
+ * the cap alone cannot prevent it — two is under any sensible cap and still
+ * sounds wrong when they are adjacent.
+ *
+ * Greedy and single-pass: it takes the next candidate whose artist differs from
+ * the one just placed, and falls back to the head when every remaining candidate
+ * is by that artist. So a batch that is entirely one artist comes back in its
+ * original order rather than looping, and no reordering is ever worse than the
+ * input.
+ */
+export const spaceArtists = <T extends RotationCandidate>(candidates: readonly T[]): T[] => {
+    const pending = [...candidates];
+    const spaced: T[] = [];
+    let previous: string | undefined;
+
+    while (pending.length > 0) {
+        let index = pending.findIndex(candidate => candidate.artistKey !== previous);
+        // Everything left is by the artist just placed. Nothing can be done about it,
+        // so keep the given order rather than stalling.
+        if (index < 0) index = 0;
+
+        const [next] = pending.splice(index, 1);
+        spaced.push(next!);
+        previous = next!.artistKey;
+    }
+    return spaced;
+};

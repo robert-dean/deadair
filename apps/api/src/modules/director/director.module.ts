@@ -2,6 +2,7 @@ import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { LineupRepository } from './lineup.repository.js';
+import { PlayHistoryRepository } from './play.history.repository.js';
 import { StationAirRepository } from './station.air.repository.js';
 
 /**
@@ -22,5 +23,6 @@ export const DirectorModule: ServerKitModule = {
         // the request path.
         registry.register(LineupRepository).useClass(LineupRepository).asScoped();
         registry.register(StationAirRepository).useClass(StationAirRepository).asScoped();
+        registry.register(PlayHistoryRepository).useClass(PlayHistoryRepository).asScoped();
     },
 };

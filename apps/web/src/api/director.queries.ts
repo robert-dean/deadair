@@ -1,12 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type {
-    EditLineupInput,
-    ExtendLineupInput,
-    ImportLineupInput,
-    Lineup,
-    MoveLineupItemInput,
-    PutOnAirInput,
-} from '@deadair/sdk';
+import type { EditLineupInput, ExtendLineupInput, ImportLineupInput, Lineup, MoveLineupItemInput, PutOnAirInput } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';

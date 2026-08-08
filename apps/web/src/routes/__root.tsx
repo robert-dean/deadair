@@ -82,6 +82,9 @@ export function RootLayout() {
                             <Anchor component={Link} to="/playlists" size="sm">
                                 Playlists
                             </Anchor>
+                            <Anchor component={Link} to="/lineups" size="sm">
+                                Lineups
+                            </Anchor>
                             <Anchor component={Link} to="/plugins" size="sm">
                                 Plugins
                             </Anchor>

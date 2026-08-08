@@ -15,6 +15,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as CatalogTracksRouteImport } from './routes/catalog/tracks'
+import { Route as LineupsIndexRouteImport } from './routes/lineups/index'
+import { Route as LineupsLineupIdRouteImport } from './routes/lineups/$lineupId'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
 import { Route as CatalogAlbumsAlbumIdRouteImport } from './routes/catalog/albums/$albumId'
@@ -51,6 +53,16 @@ const CatalogIndexRoute = CatalogIndexRouteImport.update({
 const CatalogTracksRoute = CatalogTracksRouteImport.update({
   id: '/catalog/tracks',
   path: '/catalog/tracks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LineupsIndexRoute = LineupsIndexRouteImport.update({
+  id: '/lineups/',
+  path: '/lineups/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LineupsLineupIdRoute = LineupsLineupIdRouteImport.update({
+  id: '/lineups/$lineupId',
+  path: '/lineups/$lineupId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlaylistsIndexRoute = PlaylistsIndexRouteImport.update({
@@ -96,7 +108,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/catalog/tracks': typeof CatalogTracksRoute
+  '/lineups/$lineupId': typeof LineupsLineupIdRoute
   '/catalog/': typeof CatalogIndexRoute
+  '/lineups/': typeof LineupsIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
@@ -111,7 +125,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/catalog/tracks': typeof CatalogTracksRoute
+  '/lineups/$lineupId': typeof LineupsLineupIdRoute
   '/catalog': typeof CatalogIndexRoute
+  '/lineups': typeof LineupsIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
@@ -127,7 +143,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/catalog/tracks': typeof CatalogTracksRoute
+  '/lineups/$lineupId': typeof LineupsLineupIdRoute
   '/catalog/': typeof CatalogIndexRoute
+  '/lineups/': typeof LineupsIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
@@ -144,7 +162,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/catalog/tracks'
+    | '/lineups/$lineupId'
     | '/catalog/'
+    | '/lineups/'
     | '/playlists/'
     | '/plugins/'
     | '/catalog/albums/$albumId'
@@ -159,7 +179,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/catalog/tracks'
+    | '/lineups/$lineupId'
     | '/catalog'
+    | '/lineups'
     | '/playlists'
     | '/plugins'
     | '/catalog/albums/$albumId'
@@ -174,7 +196,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/catalog/tracks'
+    | '/lineups/$lineupId'
     | '/catalog/'
+    | '/lineups/'
     | '/playlists/'
     | '/plugins/'
     | '/catalog/albums/$albumId'
@@ -190,7 +214,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   CatalogTracksRoute: typeof CatalogTracksRoute
+  LineupsLineupIdRoute: typeof LineupsLineupIdRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
+  LineupsIndexRoute: typeof LineupsIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
   CatalogAlbumsAlbumIdRoute: typeof CatalogAlbumsAlbumIdRoute
@@ -242,6 +268,20 @@ declare module '@tanstack/react-router' {
       path: '/catalog/tracks'
       fullPath: '/catalog/tracks'
       preLoaderRoute: typeof CatalogTracksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lineups/': {
+      id: '/lineups/'
+      path: '/lineups'
+      fullPath: '/lineups/'
+      preLoaderRoute: typeof LineupsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lineups/$lineupId': {
+      id: '/lineups/$lineupId'
+      path: '/lineups/$lineupId'
+      fullPath: '/lineups/$lineupId'
+      preLoaderRoute: typeof LineupsLineupIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/playlists/': {
@@ -302,7 +342,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   CatalogTracksRoute: CatalogTracksRoute,
+  LineupsLineupIdRoute: LineupsLineupIdRoute,
   CatalogIndexRoute: CatalogIndexRoute,
+  LineupsIndexRoute: LineupsIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,
   CatalogAlbumsAlbumIdRoute: CatalogAlbumsAlbumIdRoute,

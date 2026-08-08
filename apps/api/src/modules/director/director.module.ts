@@ -5,7 +5,6 @@ import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
 import { DirectorService } from './director.service.js';
-import { ExtendLineupJob } from './extend.lineup.job.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PickResolver } from './pick.resolver.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -36,7 +35,9 @@ export const DirectorModule: ServerKitModule = {
         // which is the whole reason a pick is a NAME rather than an id.
         registry.register(SetGenerator).useClass(CatalogSetGenerator).asScoped();
         registry.register(PickResolver).useClass(PickResolver).asScoped();
-        registry.register(ExtendLineupJob).useClass(ExtendLineupJob).asScoped();
+        // ExtendLineupJob is deliberately NOT registered here. JobsModule registers
+        // every class in `JobMappings` itself, transient, and registering it twice is
+        // a boot failure rather than a merge.
 
         // The reactor is a singleton by necessity, not for tidiness: it holds the
         // rundown subscriptions and the lineup on air, and a per-request copy would

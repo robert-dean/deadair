@@ -17,6 +17,7 @@ import { PlayHistoryRepository } from '../../../src/modules/director/play.histor
 import { StationAirRepository, type StationAir } from '../../../src/modules/director/station.air.repository.js';
 import { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
 import { AIR_MODE_KEY, type AirMode } from '../../../src/modules/playout/air.mode.js';
+import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
 
@@ -102,7 +103,11 @@ function build(options: Options = {}) {
 
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as PgBossJobBroker;
 
-    const director = new DirectorService(rundown, container, jobs, logger);
+    // A stub: what the gate does to the mount is PlayoutPusher's, and is tested there.
+    // What matters here is only that the mode reaches it.
+    const audience = { useMode: vi.fn() } as unknown as AudienceWatch;
+
+    const director = new DirectorService(rundown, audience, container, jobs, logger);
 
     return {
         director,
@@ -113,6 +118,7 @@ function build(options: Options = {}) {
         history,
         airRepository,
         settings,
+        audience,
         seed: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(track)),
         setAir: (next: StationAir | undefined) => {
             air = next;
@@ -211,6 +217,15 @@ describe('DirectorService reading the air mode', () => {
         await director.start();
 
         expect(director.status().airMode).toBe('audience');
+    });
+
+    it('publishes the mode to the transport, which is what acts on it', async () => {
+        const { director, audience, seed } = build({ airMode: 'always' });
+        await seed();
+
+        await director.start();
+
+        expect(audience.useMode).toHaveBeenCalledWith('always');
     });
 
     it('re-reads the mode with the row, so a change made elsewhere is noticed', async () => {

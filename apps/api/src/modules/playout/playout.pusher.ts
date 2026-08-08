@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { annotateUri, itemAnnotations } from './annotate.js';
+import { AudienceWatch } from './audience.watch.js';
 import { PLAYOUT_LEAD, PlayoutControlClient } from './liquidsoap.control.js';
 import { Rundown } from './rundown.js';
 
@@ -60,6 +61,7 @@ export class PlayoutPusher {
     constructor(
         private readonly rundown: Rundown,
         private readonly control: PlayoutControlClient,
+        private readonly audience: AudienceWatch,
         private readonly logger: Logger,
     ) {}
 
@@ -80,6 +82,22 @@ export class PlayoutPusher {
             this.rundown.onReset(standingDown => {
                 const handed = standingDown ? this.control.releaseOnAir() : this.control.flush();
                 void handed.catch(() => undefined);
+            }),
+        );
+
+        // The audience gate. Only the OPENING edge is acted on, and only to bring the
+        // reconcile forward: the first listener should not wait out a tick to hear
+        // something.
+        //
+        // The closing edge is deliberately not handled at all. Letting the lease lapse
+        // takes the station off air within CONTROL_TTL_S, and by then nobody has been
+        // listening for a full linger window, so there is no ear for the difference.
+        // Handing the mount back explicitly would also drop Liquidsoap's queue,
+        // throwing away the resolved item that is the whole point of staying warm. The
+        // operator's own Stop still releases, because that one is heard.
+        this.unsubscribes.push(
+            this.audience.onChange(open => {
+                if (open) this.tick();
             }),
         );
 
@@ -141,11 +159,18 @@ export class PlayoutPusher {
             // with the same reading as /control/status, so holding the station on air
             // costs nothing beyond the poll this loop was already making.
             //
-            // Asserted only while there is a programme. An app that is merely running
-            // must not hold a mount it has nothing to put on — which is precisely the
-            // state a restart leaves behind, with the rundown empty and Liquidsoap
-            // still holding an item from a process that no longer exists.
-            const reading = this.rundown.hasProgramme() ? await this.control.assertOnAir() : await this.control.status();
+            // Asserted only while there is a programme AND somebody to hear it.
+            //
+            // The first half is the dead-man switch: an app that is merely running must
+            // not hold a mount it has nothing to put on, which is precisely the state a
+            // restart leaves behind, with the rundown empty and Liquidsoap still holding
+            // an item from a process that no longer exists.
+            //
+            // The second is the audience gate. Producing audio costs a provider fetch
+            // and a download per track, and an empty mount is the one case where nobody
+            // benefits from spending them. `always` mode opens the gate permanently and
+            // gets exactly the behaviour this loop had before the gate existed.
+            const reading = this.onAirNow() ? await this.control.assertOnAir() : await this.control.status();
             // Stream not up, or not yet reachable. Try again next tick.
             if (!reading) return;
 
@@ -184,6 +209,18 @@ export class PlayoutPusher {
         } finally {
             this.busy = false;
         }
+    }
+
+    /**
+     * Whether the station should be holding the mount at this instant.
+     *
+     * Both conditions, in one place, because they are asked together everywhere:
+     * something to air, and somebody to hear it. Neither is remembered. The
+     * rundown and the audience watch are each the only thing that knows its own
+     * half, and a copy kept here would be the thing that goes stale.
+     */
+    private onAirNow(): boolean {
+        return this.rundown.hasProgramme() && this.audience.gateOpen();
     }
 
     /**

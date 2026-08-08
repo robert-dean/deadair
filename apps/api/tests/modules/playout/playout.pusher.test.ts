@@ -11,6 +11,7 @@ import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
 import { PLAYOUT_LEAD, type PlayoutControlClient, type QueueStatus } from '../../../src/modules/playout/liquidsoap.control.js';
 import type { Logger } from '@maroonedsoftware/logger';
+import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -88,6 +89,33 @@ function scriptedControl() {
 }
 
 /**
+ * The audience gate, as the pusher sees it.
+ *
+ * Open by default, because most of these tests are about the transport rather
+ * than the gate: a station with listeners is the ordinary case, and the gate's
+ * own behaviour is tested where it is named.
+ */
+function stubAudience(open = true) {
+    const listeners = new Set<(open: boolean) => void>();
+    const audience = {
+        gateOpen: vi.fn(() => open),
+        onChange: vi.fn((listener: (open: boolean) => void) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+        }),
+    };
+    return {
+        audience: audience as unknown as AudienceWatch,
+        spy: audience,
+        /** Move the gate and announce it, the way a real reading would. */
+        set: (next: boolean) => {
+            open = next;
+            for (const listener of listeners) listener(next);
+        },
+    };
+}
+
+/**
  * A station with the first item ON AIR and the second already handed over: the
  * state an operator skip actually happens in, and the only one where "which item
  * does the answer name" is a question at all.
@@ -96,7 +124,7 @@ async function onAirStation(ids: string[]) {
     const rundown = new Rundown(new StubResolver(), logger);
     rundown.load(ids.map(track));
     const { control, pushed } = scriptedControl();
-    const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, logger);
+    const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience().audience, logger);
 
     // Hand the first item over…
     await pusher.reconcile();
@@ -110,11 +138,12 @@ async function onAirStation(ids: string[]) {
     return { rundown, pusher, control, pushed, first, second };
 }
 
-function setup(ids: string[], reading: QueueStatus | undefined, options: { pushLands?: boolean } = {}) {
+function setup(ids: string[], reading: QueueStatus | undefined, options: { pushLands?: boolean; audience?: boolean } = {}) {
     const rundown = new Rundown(new StubResolver(), logger);
     rundown.load(ids.map(track));
     const { control, pushed, spy } = stubControl(reading, options);
-    return { rundown, pusher: new PlayoutPusher(rundown, control, logger), pushed, spy };
+    const gate = stubAudience(options.audience ?? true);
+    return { rundown, pusher: new PlayoutPusher(rundown, control, gate.audience, logger), pushed, spy, gate };
 }
 
 describe('PlayoutPusher.reconcile', () => {
@@ -253,6 +282,53 @@ describe('PlayoutPusher.reconcile', () => {
 
         expect(spy.assertOnAir).not.toHaveBeenCalled();
         expect(spy.status).toHaveBeenCalledOnce();
+    });
+
+    it('does not renew the lease while nobody is listening', async () => {
+        // The audience gate. There is a programme and a reachable stream, and the
+        // station still must not hold the mount: every track it aired would be a
+        // provider fetch and a download spent on an empty room.
+        const { pusher, spy } = setup(['a'], { queued: 0, ready: true }, { audience: false });
+
+        await pusher.reconcile();
+
+        expect(spy.assertOnAir).not.toHaveBeenCalled();
+        expect(spy.status).toHaveBeenCalledOnce();
+    });
+
+    it('renews the lease as soon as somebody is listening', async () => {
+        const { pusher, spy, gate } = setup(['a'], { queued: 0, ready: true }, { audience: false });
+        await pusher.reconcile();
+
+        gate.set(true);
+        await pusher.reconcile();
+
+        expect(spy.assertOnAir).toHaveBeenCalledOnce();
+    });
+
+    it('keeps handing items over with the gate shut, so one is ready when it opens', async () => {
+        // Off air is not idle. Liquidsoap does not consume a queue it is not airing,
+        // so an item pushed now is an item already downloaded when the first listener
+        // arrives, and the difference is whether they hear music or silence.
+        const { pusher, pushed } = setup(['a', 'b'], { queued: 0, ready: false }, { audience: false });
+
+        await pusher.reconcile();
+
+        expect(pushed.length).toBeGreaterThan(0);
+    });
+
+    it('does not hand the mount back when the audience leaves', async () => {
+        // Letting the lease lapse is what takes the station off air, and it is enough:
+        // nobody has been listening for a whole linger window by then. Releasing would
+        // also drop Liquidsoap's queue, throwing away the resolved item that makes the
+        // next listener's start instant.
+        const { pusher, spy, gate } = setup(['a'], { queued: 1, ready: true, onAir: 'x' });
+        await pusher.reconcile();
+
+        gate.set(false);
+        await pusher.reconcile();
+
+        expect(spy.releaseOnAir).not.toHaveBeenCalled();
     });
 });
 

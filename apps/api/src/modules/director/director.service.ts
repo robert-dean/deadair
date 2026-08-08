@@ -2,6 +2,7 @@ import { Container, Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { AIR_MODE_KEY, DEFAULT_AIR_MODE, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
+import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { Rundown, type RundownItem } from '#modules/playout/rundown.js';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import type { Lineup } from './lineup.js';
@@ -93,6 +94,7 @@ export class DirectorService {
 
     constructor(
         private readonly rundown: Rundown,
+        private readonly audience: AudienceWatch,
         private readonly container: Container,
         private readonly jobs: PgBossJobBroker,
         private readonly logger: Logger,
@@ -401,6 +403,9 @@ export class DirectorService {
 
         this.air = air;
         this.airMode = airMode;
+        // Published rather than kept: the transport is what acts on it, every couple of
+        // seconds, and it has no scope of its own to read a setting from.
+        this.audience.useMode(airMode);
         this.airReadAt = Date.now();
         return this.air;
     }

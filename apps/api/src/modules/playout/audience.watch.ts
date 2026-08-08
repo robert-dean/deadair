@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { IcecastStatsClient } from '#modules/stream/icecast.stats.client.js';
+import { DEFAULT_AIR_MODE, type AirMode } from './air.mode.js';
 
 /**
  * Who is listening, and whether that is enough to hold the mount.
@@ -43,7 +44,9 @@ export class AudienceWatch {
     private lastHeardAt = 0;
     /** What {@link hasAudience} said at the previous evaluation, so an edge can be announced once. */
     private announced = false;
-    private readonly listeners = new Set<(present: boolean) => void>();
+    /** What the audience is allowed to decide. Published by the director; see {@link useMode}. */
+    private mode: AirMode = DEFAULT_AIR_MODE;
+    private readonly listeners = new Set<(open: boolean) => void>();
     /** One poll at a time: a slow Icecast must not stack requests behind the interval. */
     private polling = false;
 
@@ -95,6 +98,35 @@ export class AudienceWatch {
     }
 
     /**
+     * Publish what the station's air mode is.
+     *
+     * Pushed in by `DirectorService`, which re-reads the setting on its own
+     * throttle, rather than read here: this is polled from a singleton with no
+     * request scope, and a settings query every few seconds to answer a question
+     * the director has already answered is a query for nothing.
+     *
+     * Announces immediately if it moved the gate, so switching to `always` puts a
+     * silent station on air on the instant rather than at the next poll.
+     */
+    useMode(mode: AirMode): void {
+        if (mode === this.mode) return;
+
+        this.mode = mode;
+        this.settle();
+    }
+
+    /**
+     * Whether the mount lease may be renewed at all: the audience gate.
+     *
+     * The station's second condition, and the one this class exists for. The
+     * first is having a programme to air, which is the rundown's to answer;
+     * `PlayoutPusher` needs both to be true, and asks each of them for its own.
+     */
+    gateOpen(): boolean {
+        return this.mode === 'always' || this.hasAudience();
+    }
+
+    /**
      * Take a count from something other than the poll — Icecast's own listener
      * hooks, which land the moment a client connects rather than up to a poll
      * later.
@@ -109,14 +141,15 @@ export class AudienceWatch {
     }
 
     /**
-     * Subscribe to the audience arriving or leaving. Returns the unsubscribe.
+     * Subscribe to the gate opening or closing. Returns the unsubscribe.
      *
-     * Edges only, and after the linger window rather than on the raw count: the
-     * subscriber is the thing that holds or hands back the mount, and it should
-     * hear "there is an audience" and "there is no longer one", not every
-     * fluctuation in between.
+     * Edges only, and on {@link gateOpen} rather than the raw count: the
+     * subscriber is the thing that holds the mount, and it should hear "the
+     * station may air now" and "it may not", not every fluctuation in a number.
+     * That also means a mode change announces itself, which is what makes
+     * switching to `always` take effect at once.
      */
-    onChange(listener: (present: boolean) => void): () => void {
+    onChange(listener: (open: boolean) => void): () => void {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);
     }
@@ -163,22 +196,22 @@ export class AudienceWatch {
      * its own to hang it on.
      */
     private settle(): void {
-        const present = this.hasAudience();
-        if (present === this.announced) return;
-        this.announced = present;
+        const open = this.gateOpen();
+        if (open === this.announced) return;
+        this.announced = open;
 
         this.logger.info(
-            present
-                ? `audience: somebody is listening to ${this.stats.mountPath()}`
-                : `audience: nobody has been listening to ${this.stats.mountPath()} for ${AUDIENCE_LINGER_MS}ms`,
+            open
+                ? `audience: the station may air (${this.mode === 'always' ? 'always on' : `somebody is listening to ${this.stats.mountPath()}`})`
+                : `audience: nobody has been listening to ${this.stats.mountPath()} for ${AUDIENCE_LINGER_MS}ms; the station stops airing`,
         );
         for (const listener of this.listeners) {
             try {
-                listener(present);
+                listener(open);
             } catch (error) {
                 // A subscriber that throws must not stop the others hearing it, and must
                 // not kill the poll loop that got here.
-                this.logger.warn(`audience: a listener threw on the ${present ? 'arrive' : 'leave'} edge (${message(error)})`);
+                this.logger.warn(`audience: a listener threw on the ${open ? 'open' : 'close'} edge (${message(error)})`);
             }
         }
     }

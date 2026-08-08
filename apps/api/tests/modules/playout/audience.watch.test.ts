@@ -131,6 +131,50 @@ describe('AudienceWatch', () => {
         watch.stop();
     });
 
+    it('holds the gate open in `always` mode, with nobody listening', async () => {
+        const { stats } = stubStats(0);
+        const watch = new AudienceWatch(stats, logger);
+
+        expect(watch.gateOpen()).toBe(false);
+
+        watch.useMode('always');
+
+        expect(watch.gateOpen()).toBe(true);
+        // The count itself is unchanged: `always` is a decision about the mount, not a
+        // claim that somebody is out there.
+        expect(watch.listenerCount()).toBe(0);
+    });
+
+    it('announces a mode change, so switching to `always` airs at once', () => {
+        const { stats } = stubStats(0);
+        const watch = new AudienceWatch(stats, logger);
+        const edges: boolean[] = [];
+        watch.onChange(open => edges.push(open));
+
+        watch.useMode('always');
+        watch.useMode('always');
+        watch.useMode('audience');
+
+        expect(edges).toEqual([true, false]);
+    });
+
+    it('does not close the gate on an empty room in `always` mode', async () => {
+        const { stats, answer } = stubStats(2);
+        const watch = new AudienceWatch(stats, logger);
+        watch.useMode('always');
+        const edges: boolean[] = [];
+        watch.onChange(open => edges.push(open));
+
+        watch.start();
+        await tick(0);
+        answer(0);
+        await tick(120_000);
+
+        expect(watch.gateOpen()).toBe(true);
+        expect(edges).toEqual([]);
+        watch.stop();
+    });
+
     it('takes a pushed count without waiting for the poll', () => {
         const { stats } = stubStats(0);
         const watch = new AudienceWatch(stats, logger);

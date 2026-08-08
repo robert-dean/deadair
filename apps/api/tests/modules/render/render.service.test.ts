@@ -2,6 +2,7 @@ import { IsHttpError } from '@maroonedsoftware/errors';
 import { describe, expect, it, vi } from 'vitest';
 
 import { RenderService } from '../../../src/modules/render/render.service.js';
+import { SAMPLE_TEXT } from '../../../src/modules/render/voice.sample.store.js';
 import type { SegmentLibrary } from '../../../src/modules/render/segment.library.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { SegmentStore } from '../../../src/modules/render/segment.store.js';
@@ -30,7 +31,21 @@ const PLANNED: Segment = {
     script: 'That was Boards of Canada.',
 };
 
-const service = (options: { segment?: Segment; segments?: Segment[]; bytes?: Buffer; planned?: Segment } = {}) => {
+const SPEAKER = { record: { id: 'deadair.kokoro' } };
+
+interface ServiceOptions {
+    segment?: Segment;
+    segments?: Segment[];
+    bytes?: Buffer;
+    planned?: Segment;
+    /** `null` means nothing can speak. */
+    speaker?: null;
+    voices?: { id: string; label: string }[];
+    sample?: Buffer;
+    speakAs?: () => Promise<string>;
+}
+
+const service = (options: ServiceOptions = {}) => {
     const findById = vi.fn().mockResolvedValue(options.segment);
     const list = vi.fn().mockResolvedValue(options.segments ?? []);
     const read = vi.fn().mockResolvedValue(options.bytes);
@@ -38,6 +53,21 @@ const service = (options: { segment?: Segment; segments?: Segment[]; bytes?: Buf
     const plan = vi.fn().mockResolvedValue(options.planned ?? PLANNED);
     const send = vi.fn().mockResolvedValue(undefined);
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+
+    // `undefined`, not `null`: that is what the service checks for, and a fake answering
+    // something else would test a branch the real code never takes.
+    const speaker = vi.fn().mockResolvedValue(options.speaker === null ? undefined : SPEAKER);
+    const speakers = vi.fn().mockReturnValue(options.speaker === null ? [] : [SPEAKER]);
+    const voices = vi.fn().mockResolvedValue(options.voices ?? []);
+    const speakAs = vi.fn(options.speakAs ?? (async () => 'mp3'));
+    const sampleRead = vi.fn().mockResolvedValue(options.sample);
+    const settingsGet = vi.fn().mockResolvedValue(undefined);
+
+    const samples = {
+        keyFor: (pluginId: string, voiceId: string) => `key:${pluginId}:${voiceId}`,
+        extensions: ['mp3', 'wav'],
+        read: sampleRead,
+    };
 
     return {
         service: new RenderService(
@@ -47,6 +77,9 @@ const service = (options: { segment?: Segment; segments?: Segment[]; bytes?: Buf
                 scan,
             } as unknown as SegmentLibrary,
             { send } as never,
+            { speaker, speakers, voices, speakAs } as never,
+            samples as never,
+            { get: settingsGet } as never,
             logger as never,
         ),
         findById,
@@ -54,6 +87,9 @@ const service = (options: { segment?: Segment; segments?: Segment[]; bytes?: Buf
         scan,
         plan,
         send,
+        speakAs,
+        sampleRead,
+        voices,
     };
 };
 
@@ -172,5 +208,83 @@ describe('RenderService.createSegment', () => {
         await render.createSegment({ label: 'back-announce', script: 'That was that.' });
 
         expect(order).toEqual(['plan', 'send']);
+    });
+});
+
+describe('RenderService.listVoices', () => {
+    it('reports the voices and which plugin answered', async () => {
+        const { service: render } = service({ voices: [{ id: 'host', label: 'Station host' }] });
+
+        expect(await render.listVoices()).toEqual({ voices: [{ id: 'host', label: 'Station host' }], pluginId: 'deadair.kokoro' });
+    });
+
+    it('answers an empty list with a reason rather than failing', async () => {
+        // A console drawing an empty list wants to explain it; a 503 would leave it guessing.
+        const { service: render } = service({ speaker: null });
+
+        const result = await render.listVoices();
+
+        expect(result.voices).toEqual([]);
+        expect(result.reason).toMatch(/install and enable/);
+        expect(result.pluginId).toBeUndefined();
+    });
+});
+
+describe('RenderService.getVoiceSample', () => {
+    it('renders on a miss and serves what came back', async () => {
+        const { service: render, speakAs, sampleRead } = service();
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('spoken'));
+
+        const response = await render.getVoiceSample('host');
+
+        expect(speakAs).toHaveBeenCalledWith(SPEAKER, 'key:deadair.kokoro:host', expect.anything(), {
+            text: SAMPLE_TEXT,
+            voice: 'host',
+        });
+        expect(response.contentType).toBe('audio/mpeg');
+        expect(response.body).toEqual(Buffer.from('spoken'));
+    });
+
+    it('serves a hit without asking the engine again', async () => {
+        // The whole point of the cache: the first click waits for a synthesis and no later one does.
+        const { service: render, speakAs } = service({ sample: Buffer.from('already rendered') });
+
+        const response = await render.getVoiceSample('host');
+
+        expect(speakAs).not.toHaveBeenCalled();
+        expect(response.body).toEqual(Buffer.from('already rendered'));
+    });
+
+    it('validates on the cache key, so a remapped voice is a different ETag', async () => {
+        const { service: render } = service({ sample: Buffer.from('already rendered') });
+
+        expect((await render.getVoiceSample('host')).headers.etag).toBe('"key:deadair.kokoro:host"');
+    });
+
+    it('asks for the plugin default when no voice is named, rather than for a voice called ""', async () => {
+        const { service: render, speakAs, sampleRead } = service();
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('spoken'));
+
+        await render.getVoiceSample('');
+
+        expect(speakAs).toHaveBeenCalledWith(SPEAKER, 'key:deadair.kokoro:', expect.anything(), { text: SAMPLE_TEXT });
+    });
+
+    it('answers 503 when nothing can speak', async () => {
+        const { service: render } = service({ speaker: null });
+
+        expect(await status(render.getVoiceSample('host'))).toBe(503);
+    });
+
+    it('answers 502 when the engine refuses', async () => {
+        const { service: render, sampleRead } = service({
+            speakAs: async () => {
+                throw new Error('the engine is down');
+            },
+        });
+        sampleRead.mockResolvedValue(undefined);
+
+        // Not a 404: the voice asked for is fine, the station is not.
+        expect(await status(render.getVoiceSample('host'))).toBe(502);
     });
 });

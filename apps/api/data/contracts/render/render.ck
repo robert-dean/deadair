@@ -65,6 +65,54 @@ operation /segments/scan: {
     }
 }
 
+operation /voices: {
+    get: { # The voices the station can be asked to speak in
+        name: List voices
+        service: RenderService.listVoices
+        response: {
+            200: {
+                application/json: VoiceList
+            }
+        }
+    }
+}
+
+# A preview, never something that can air: samples live in their own store, have no row in
+# `deadair.segments`, and so cannot be planted by the break planner or named by a lineup.
+#
+# Rendered on the first ask and cached under a key derived from the plugin, the voice and the fixed
+# sample line, so remapping a voice mints a new key rather than serving the old one back. The first
+# click therefore waits for a synthesis and no later one does.
+#
+# Unlike `/segments/{id}/audio` this is NOT anonymous: that route is open because Liquidsoap fetches
+# it, and nothing but a signed-in operator ever fetches this. The console reads it through the SDK
+# and plays a blob, because a bearer token cannot ride on an <audio src>.
+operation /voices/{voiceId}/sample: {
+    params: {
+        voiceId: string
+    }
+    get: { # A short line spoken in one voice, so an operator can hear it before choosing it
+        name: Get voice sample
+        service: RenderService.getVoiceSample
+        response: {
+            200: {
+                audio/mpeg: binary
+                audio/wav: binary
+                audio/ogg: binary
+                audio/flac: binary
+                audio/mp4: binary
+                headers: {
+                    cache-control?: string
+                    etag?: string
+                }
+            }
+            # As the segment audio route: produced by the conditional-GET middleware from the ETag
+            # rather than by the service, so it is documented here and not returned there.
+            304:
+        }
+    }
+}
+
 operation /segments/{id}/audio: {
     params: {
         id: uuid

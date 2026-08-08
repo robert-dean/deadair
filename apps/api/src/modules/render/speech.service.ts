@@ -7,6 +7,7 @@ import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { explainNoSpeaker, selectSpeechPlugin, SPEECH_PLUGIN_KEY } from './speech.settings.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentExtension } from './segment.store.js';
+import type { VoiceSampleStore } from './voice.sample.store.js';
 
 /**
  * How long one `speak` may take before the host abandons it.
@@ -153,6 +154,36 @@ export class SpeechService {
         } finally {
             // Always, including the ordinary path: `closeStream` is idempotent by contract, and a
             // stream the plugin already finished is exactly the case it promises to no-op on.
+            await this.closeQuietly(plugin, handle.streamId);
+        }
+    }
+
+    /**
+     * As {@link SpeechService.speakWith}, but filed under a key the caller chose and streamed
+     * straight there.
+     *
+     * For a cache whose name answers "which voice, saying which line" rather than "which bytes".
+     * Same drain, same store, different naming — see {@link VoiceSampleStore}.
+     */
+    async speakAs(plugin: SpeechPlugin, key: string, store: VoiceSampleStore, request: SpeechRequest): Promise<SegmentExtension> {
+        const pluginId = plugin.record.id;
+
+        const handle = await this.pluginInvoker.invoke(pluginId, 'speech.speak', async () => plugin.instance.speak(request), {
+            timeoutMs: SPEAK_TIMEOUT_MS,
+        });
+
+        const ext = EXTENSION_BY_MIME.get(handle.mime.split(';')[0]!.trim().toLowerCase());
+        if (ext === undefined) {
+            await this.closeQuietly(plugin, handle.streamId);
+            throw new PluginError(`plugin "${pluginId}" answered with "${handle.mime}", which the segment store cannot hold`).withCode(
+                'unsupported',
+            );
+        }
+
+        try {
+            await store.writeStreamAs(key, this.drain(plugin, handle.streamId), ext);
+            return ext;
+        } finally {
             await this.closeQuietly(plugin, handle.streamId);
         }
     }

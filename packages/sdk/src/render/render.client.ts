@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, readContentType } from '../sdk-options.js';
-import type { Segment, SegmentCreate, SegmentList, SegmentScanResult } from './types/render.types.js';
+import type { Segment, SegmentCreate, SegmentList, SegmentScanResult, VoiceList } from './types/render.types.js';
 
 export class RenderClient {
     constructor(private fetch: SdkFetch) {}
@@ -34,6 +34,47 @@ export class RenderClient {
     async scanTheSegmentInbox(): Promise<SegmentScanResult> {
         const result = await this.fetch(`/segments/scan`, { method: 'POST' });
         return await parseJson<SegmentScanResult>(result);
+    }
+
+    /**
+     * @name List voices
+     * @description The voices the station can be asked to speak in
+     */
+    async listVoices(): Promise<VoiceList> {
+        const result = await this.fetch(`/voices`, { method: 'GET' });
+        return await parseJson<VoiceList>(result);
+    }
+
+    /**
+     * @name Get voice sample
+     * @description A short line spoken in one voice, so an operator can hear it before choosing it
+     */
+    async getVoiceSample(
+        voiceId: string,
+    ): Promise<
+        | {
+              status: 200;
+              contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
+              data: Blob;
+              headers: { cacheControl?: string; etag?: string };
+          }
+        | { status: 304 }
+    > {
+        const result = await this.fetch(`/voices/${encodeURIComponent(voiceId)}/sample`, {
+            method: 'GET',
+            expectStatuses: [304],
+        });
+        switch (result.status) {
+            case 304:
+                return { status: 304 };
+            default:
+                return {
+                    status: 200,
+                    contentType: readContentType(result) as 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4',
+                    data: await result.blob(),
+                    headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
+                };
+        }
     }
 
     /**

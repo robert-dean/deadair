@@ -42,8 +42,19 @@ export const SegmentCreate = z.strictObject({
 export type SegmentCreate = z.infer<typeof SegmentCreate>;
 
 /**
+ * A voice the station can be asked to speak in
+ * generated from [Voice](file://./../../../../data/contracts/render/render.types.ck#L32)
+ */
+export const Voice = z.strictObject({
+    id: z.string().max(100).describe("What to pass as a segment's `voice`. Empty means the plugin's own default"),
+    label: z.string().min(1).max(200).describe('What the console calls it'),
+    description: z.string().max(500).optional().describe('What it sounds like, or what it maps to on the engine'),
+});
+export type Voice = z.infer<typeof Voice>;
+
+/**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L32)
+ * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L44)
  */
 export const SegmentScanResult = z.strictObject({
     scanned: z.coerce.number().int().min(0).describe('Audio files seen, whether or not they were already known'),
@@ -60,3 +71,14 @@ export const SegmentList = z.strictObject({
     segments: z.array(Segment),
 });
 export type SegmentList = z.infer<typeof SegmentList>;
+
+/**
+ * The voices the station's current speech plugin offers
+ * generated from [VoiceList](file://./../../../../data/contracts/render/render.types.ck#L38)
+ */
+export const VoiceList = z.strictObject({
+    voices: z.array(Voice),
+    pluginId: z.string().max(200).optional().describe('Which plugin answered. Absent when nothing can speak'),
+    reason: z.string().max(500).optional().describe('Why there are no voices, when there are none'),
+});
+export type VoiceList = z.infer<typeof VoiceList>;

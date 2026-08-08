@@ -1,0 +1,37 @@
+import { queryOptions, useQuery } from '@tanstack/react-query';
+
+import { sdk } from './client';
+import { queryKeys } from './query.keys';
+
+export const voicesOptions = queryOptions({
+    queryKey: queryKeys.voices.list(),
+    queryFn: () => sdk.render.listVoices(),
+});
+
+/** The voices the station can be asked to speak in, and which plugin answered. */
+export function useVoices(enabled: boolean) {
+    return useQuery({ ...voicesOptions, enabled });
+}
+
+/**
+ * Fetch one voice's sample and hand back an object URL to play it with.
+ *
+ * Not an `<audio src>` pointing at the route, and that is the whole reason this function exists:
+ * the console holds its bearer token in memory, an `<audio>` element sends no Authorization header,
+ * and the sample route is deliberately not anonymous the way segment audio is. So the bytes come
+ * through the SDK, which does carry the token, and the player is pointed at a blob.
+ *
+ * The caller owns the URL and must `revokeObjectURL` it: an object URL pins its blob in memory
+ * until it is revoked or the document goes away.
+ */
+export async function fetchVoiceSample(voiceId: string): Promise<string> {
+    const result = await sdk.render.getVoiceSample(voiceId);
+
+    // The route documents a 304 because the conditional-GET middleware can produce one, and the
+    // generated client types it as an arm of the union. This caller never sends a validator, so
+    // there is nothing for the server to match and nothing cached to fall back on if it somehow
+    // did — which makes an empty answer a real failure rather than a case to handle silently.
+    if (result.status !== 200) throw new Error(`the sample for "${voiceId}" came back with no audio (${result.status})`);
+
+    return URL.createObjectURL(result.data);
+}

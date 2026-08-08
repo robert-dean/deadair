@@ -42,8 +42,21 @@ export interface SegmentCreate {
 }
 
 /**
+ * A voice the station can be asked to speak in
+ * generated from [Voice](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L32)
+ */
+export interface Voice {
+    /** What to pass as a segment's `voice`. Empty means the plugin's own default */
+    id: string;
+    /** What the console calls it */
+    label: string;
+    /** What it sounds like, or what it maps to on the engine */
+    description?: string;
+}
+
+/**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L32)
+ * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L44)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -60,4 +73,16 @@ export interface SegmentScanResult {
  */
 export interface SegmentList {
     segments: Segment[];
+}
+
+/**
+ * The voices the station's current speech plugin offers
+ * generated from [VoiceList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L38)
+ */
+export interface VoiceList {
+    voices: Voice[];
+    /** Which plugin answered. Absent when nothing can speak */
+    pluginId?: string;
+    /** Why there are no voices, when there are none */
+    reason?: string;
 }

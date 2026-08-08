@@ -29,6 +29,18 @@ contract SegmentList: { # Everything the station can play that is not a record
     segments: array(Segment)
 }
 
+contract Voice: { # A voice the station can be asked to speak in
+    id: string(max=100) # What to pass as a segment's `voice`. Empty means the plugin's own default
+    label: string(min=1, max=200) # What the console calls it
+    description?: string(max=500) # What it sounds like, or what it maps to on the engine
+}
+
+contract VoiceList: { # The voices the station's current speech plugin offers
+    voices: array(Voice)
+    pluginId?: string(max=200) # Which plugin answered. Absent when nothing can speak
+    reason?: string(max=500) # Why there are no voices, when there are none
+}
+
 contract SegmentScanResult: { # What one pass over the inbox did
     scanned: int(min=0) # Audio files seen, whether or not they were already known
     imported: int(min=0) # Segments the station did not have before this pass

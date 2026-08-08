@@ -2,10 +2,14 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
-import type { SegmentCreate, SegmentList, SegmentScanResult, Segment as SegmentView } from './types/render.types.js';
+import { SettingsRepository } from '#modules/settings/settings.repository.js';
+import type { SegmentCreate, SegmentList, SegmentScanResult, Segment as SegmentView, VoiceList } from './types/render.types.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
-import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType } from './segment.store.js';
+import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType, type SegmentExtension } from './segment.store.js';
+import { SpeechService } from './speech.service.js';
+import { explainNoSpeaker, SPEECH_PLUGIN_KEY } from './speech.settings.js';
+import { SAMPLE_TEXT, VoiceSampleStore } from './voice.sample.store.js';
 
 /**
  * What a segment is when nobody says.
@@ -46,6 +50,9 @@ export class RenderService {
         private readonly store: SegmentStore,
         private readonly library: SegmentLibrary,
         private readonly jobs: PgBossJobBroker,
+        private readonly speech: SpeechService,
+        private readonly samples: VoiceSampleStore,
+        private readonly settings: SettingsRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -107,11 +114,94 @@ export class RenderService {
         };
     }
 
+    /**
+     * The voices the station can be asked to speak in.
+     *
+     * Answers rather than throwing when nothing can speak, with `reason` saying which of the three
+     * ways that happens it is (nothing installed, several installed and none chosen, or a chosen one
+     * that is not running). A console drawing an empty list wants to explain it; a 503 would leave
+     * it guessing.
+     */
+    async listVoices(): Promise<VoiceList> {
+        const plugin = await this.speech.speaker();
+        if (plugin === undefined) {
+            const candidates = this.speech.speakers();
+            return { voices: [], reason: explainNoSpeaker(candidates, await this.settings.get(SPEECH_PLUGIN_KEY)) };
+        }
+
+        const voices = await this.speech.voices(plugin);
+        return { voices, pluginId: plugin.record.id };
+    }
+
+    /**
+     * A short line spoken in one voice, rendered on the first ask and cached after.
+     *
+     * The cache is the filesystem: the key is derived from the plugin, the voice and the fixed
+     * sample line, so a hit is the file being there and a remapped voice mints a different key
+     * rather than serving the old audio back. Nothing records the mapping, because the name is the
+     * mapping.
+     *
+     * `ext` is not part of the key, so a store that already holds this sample in one format is
+     * probed for each: an operator who changes the plugin's output format gets a re-render on the
+     * next click rather than a stale file under a name that no longer matches.
+     *
+     * @throws 503 when nothing can speak, 502 when the engine refused. Both are about the station
+     * rather than about the voice asked for, which is why neither is a 404.
+     */
+    async getVoiceSample(voiceId: string): Promise<SegmentAudioResponse> {
+        const plugin = await this.speech.speaker();
+        if (plugin === undefined) {
+            const candidates = this.speech.speakers();
+            throw httpError(503).withDetails({ message: explainNoSpeaker(candidates, await this.settings.get(SPEECH_PLUGIN_KEY)) });
+        }
+
+        const key = this.samples.keyFor(plugin.record.id, voiceId);
+
+        for (const ext of this.samples.extensions) {
+            const cached = await this.samples.read(key, ext);
+            if (cached !== undefined) return sampleResponse(cached, key, ext);
+        }
+
+        let ext: SegmentExtension;
+        try {
+            // An empty `voiceId` means the plugin's own default, which is exactly what an absent
+            // `voice` means to it, so it is dropped rather than passed as an empty string.
+            ext = await this.speech.speakAs(plugin, key, this.samples, {
+                text: SAMPLE_TEXT,
+                ...(voiceId.length === 0 ? {} : { voice: voiceId }),
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.warn('render: could not render a voice sample', { plugin: plugin.record.id, voice: voiceId, error: message });
+            throw httpError(502).withDetails({ message });
+        }
+
+        const bytes = await this.samples.read(key, ext);
+        if (bytes === undefined) throw httpError(502).withDetails({ message: 'the sample was rendered and then could not be read back' });
+
+        this.logger.info('render: rendered a voice sample', { plugin: plugin.record.id, voice: voiceId, ext });
+        return sampleResponse(bytes, key, ext);
+    }
+
     /** Take whatever is in the inbox into the library. */
     async scanLibrary(): Promise<SegmentScanResult> {
         return await this.library.scan();
     }
 }
+
+/**
+ * A cached sample, as the audio route hands it over.
+ *
+ * The ETag is the cache key rather than a hash of the bytes, and for once those are different
+ * things: the key already identifies this voice saying this line, so a re-render of identical audio
+ * is the same ETag and a remapped voice is a different one. Which is exactly what a validator should
+ * mean here.
+ */
+const sampleResponse = (body: Buffer, key: string, ext: SegmentExtension): SegmentAudioResponse => ({
+    contentType: SEGMENT_CONTENT_TYPES[ext],
+    body,
+    headers: { cacheControl: CACHE_CONTROL, etag: `"${key}"` },
+});
 
 /** A row as the console reads it. The checksum stays here: it is a filename, not an answer. */
 const toView = (segment: Segment): SegmentView => ({

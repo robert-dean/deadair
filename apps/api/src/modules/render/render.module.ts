@@ -8,12 +8,22 @@ import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository } from './segment.repository.js';
 import { SegmentStore } from './segment.store.js';
 import { SpeechService } from './speech.service.js';
+import { VoiceSampleStore } from './voice.sample.store.js';
 
 /** Where segment audio is written when `SEGMENT_DIR` is unset. Alongside `media/art`, and gitignored with it. */
 const DEFAULT_SEGMENT_DIR = './media/segments';
 
 /** Where an operator drops audio for the station to take in, when `SEGMENT_LIBRARY_DIR` is unset. */
 const DEFAULT_LIBRARY_DIR = join(DEFAULT_SEGMENT_DIR, 'inbox');
+
+/**
+ * Where rendered voice previews are cached, when `VOICE_SAMPLE_DIR` is unset.
+ *
+ * Beside the segment store and deliberately not inside it: a sample is not a segment, and the one
+ * thing that must never happen is a preview finding its way into the library the planner chooses
+ * from. Separate roots make that a filesystem fact rather than a convention.
+ */
+const DEFAULT_SAMPLE_DIR = './media/voice-samples';
 
 /**
  * Segments: the things the station plays that are not records.
@@ -74,6 +84,12 @@ export const RenderModule: ServerKitModule = {
         // Scoped with the repositories and the plugin registry it reads. It owns no loop and holds
         // no state between calls: everything about one render lives in the call, and the stream it
         // drains belongs to the plugin instance rather than to this.
+        // Singleton, like SegmentStore: a directory root and nothing else.
+        registry
+            .register(VoiceSampleStore)
+            .useFactory(() => new VoiceSampleStore(config.get('VOICE_SAMPLE_DIR', DEFAULT_SAMPLE_DIR)))
+            .asSingleton();
+
         registry.register(SpeechService).useClass(SpeechService).asScoped();
 
         registry.register(RenderService).useClass(RenderService).asScoped();

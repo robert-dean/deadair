@@ -24,6 +24,13 @@ export const queryKeys = {
         logs: (id: string, query?: { limit?: number; level?: string }) =>
             query === undefined ? (['plugins', 'logs', id] as const) : (['plugins', 'logs', id, query.limit ?? 'all', query.level ?? 'all'] as const),
     },
+    /**
+     * The voices the station can speak in. One key: it is the current speech plugin's answer, and
+     * there is only ever one of those.
+     */
+    voices: {
+        list: () => ['voices', 'list'] as const,
+    },
     playlists: {
         list: () => ['playlists', 'list'] as const,
         tracks: (pluginId: string, playlistId: string) => ['playlists', 'tracks', pluginId, playlistId] as const,

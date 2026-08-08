@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as VoicesRouteImport } from './routes/voices'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as CatalogTracksRouteImport } from './routes/catalog/tracks'
 import { Route as LineupsIndexRouteImport } from './routes/lineups/index'
@@ -43,6 +44,11 @@ const LoginRoute = LoginRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VoicesRoute = VoicesRouteImport.update({
+  id: '/voices',
+  path: '/voices',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogIndexRoute = CatalogIndexRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/voices': typeof VoicesRoute
   '/catalog/tracks': typeof CatalogTracksRoute
   '/lineups/$lineupId': typeof LineupsLineupIdRoute
   '/catalog/': typeof CatalogIndexRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/voices': typeof VoicesRoute
   '/catalog/tracks': typeof CatalogTracksRoute
   '/lineups/$lineupId': typeof LineupsLineupIdRoute
   '/catalog': typeof CatalogIndexRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/voices': typeof VoicesRoute
   '/catalog/tracks': typeof CatalogTracksRoute
   '/lineups/$lineupId': typeof LineupsLineupIdRoute
   '/catalog/': typeof CatalogIndexRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/onboarding'
+    | '/voices'
     | '/catalog/tracks'
     | '/lineups/$lineupId'
     | '/catalog/'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/onboarding'
+    | '/voices'
     | '/catalog/tracks'
     | '/lineups/$lineupId'
     | '/catalog'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/onboarding'
+    | '/voices'
     | '/catalog/tracks'
     | '/lineups/$lineupId'
     | '/catalog/'
@@ -213,6 +225,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  VoicesRoute: typeof VoicesRoute
   CatalogTracksRoute: typeof CatalogTracksRoute
   LineupsLineupIdRoute: typeof LineupsLineupIdRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
@@ -254,6 +267,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/voices': {
+      id: '/voices'
+      path: '/voices'
+      fullPath: '/voices'
+      preLoaderRoute: typeof VoicesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalog/': {
@@ -341,6 +361,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  VoicesRoute: VoicesRoute,
   CatalogTracksRoute: CatalogTracksRoute,
   LineupsLineupIdRoute: LineupsLineupIdRoute,
   CatalogIndexRoute: CatalogIndexRoute,

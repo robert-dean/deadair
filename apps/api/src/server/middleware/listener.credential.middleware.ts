@@ -26,9 +26,14 @@ export const LISTENER_HOOK_PATH = '/playout/listener';
 
 export const listenerCredentialMiddleware = (): ServerKitMiddleware => {
     return async (ctx, next) => {
-        if (ctx.path === LISTENER_HOOK_PATH && !ctx.req.headers['x-playout-secret']) {
+        if (ctx.path === LISTENER_HOOK_PATH) {
             const password = basicPassword(ctx.req.headers.authorization);
-            if (password) ctx.req.headers['x-playout-secret'] = password;
+            if (password && !ctx.req.headers['x-playout-secret']) ctx.req.headers['x-playout-secret'] = password;
+            // Moved, not copied. The authentication middleware behind this would
+            // otherwise try to resolve a session from a `basic` scheme it has no handler
+            // for, and warn about it once per listener arriving and once per listener
+            // leaving — a log line per connection, saying nothing.
+            if (password) delete ctx.req.headers.authorization;
         }
         await next();
     };

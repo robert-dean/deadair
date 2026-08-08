@@ -27,6 +27,9 @@ describe('listenerCredentialMiddleware', () => {
         await run(ctx);
 
         expect(ctx.req.headers['x-playout-secret']).toBe('the-secret');
+        // Moved rather than copied: left in place, the authentication middleware behind
+        // this warns about an unknown `basic` scheme once per listener, forever.
+        expect(ctx.req.headers.authorization).toBeUndefined();
     });
 
     it('leaves a secret the caller sent directly alone', async () => {
@@ -39,6 +42,15 @@ describe('listenerCredentialMiddleware', () => {
         await run(ctx);
 
         expect(ctx.req.headers['x-playout-secret']).toBe('sent-directly');
+    });
+
+    it('leaves a header it could make nothing of alone', async () => {
+        const ctx = request(LISTENER_HOOK_PATH, { authorization: 'Bearer not-a-basic-credential' });
+
+        await run(ctx);
+
+        expect(ctx.req.headers.authorization).toBe('Bearer not-a-basic-credential');
+        expect(ctx.req.headers['x-playout-secret']).toBeUndefined();
     });
 
     it('touches nothing on any other path', async () => {

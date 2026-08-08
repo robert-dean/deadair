@@ -388,18 +388,16 @@ export class DirectorService {
     private async readAir(force = false): Promise<StationAir | undefined> {
         if (!force && this.active && Date.now() - this.airReadAt < AIR_TTL_MS) return this.air;
 
-        // Both in one scope: they are read together on every pass, and the air mode is
-        // a setting an operator can change from anywhere, so it has to be re-read on
-        // the same terms as the row rather than remembered from boot.
-        const [air, airMode] = await this.inScope(async scope =>
-            Promise.all([
-                scope.get(StationAirRepository).get(MAIN_SLOT),
-                scope
-                    .get(SettingsRepository)
-                    .get(AIR_MODE_KEY)
-                    .then(raw => parseAirMode(raw)),
-            ]),
-        );
+        // Both in one scope, and strictly one after the other. A scope owns a single
+        // pooled connection inside a single transaction, so issuing the two reads
+        // concurrently races them onto it: the first to finish ends the transaction and
+        // the second fails with "Transaction is already committed", which reaches here
+        // as a restore that silently commits nothing and a station that never airs.
+        const [air, airMode] = await this.inScope(async scope => {
+            const row = await scope.get(StationAirRepository).get(MAIN_SLOT);
+            const mode = parseAirMode(await scope.get(SettingsRepository).get(AIR_MODE_KEY));
+            return [row, mode] as const;
+        });
 
         this.air = air;
         this.airMode = airMode;

@@ -145,16 +145,24 @@ Two things about that push are worth knowing before they surprise you:
 
 Once the last listener goes, the audience **lingers for a minute** before the gate closes: a player
 reconnecting drops to zero for a second or two and comes straight back, and rebuilding a mount for
-that is audible where the gap is not. Nothing then hands the mount back explicitly: the lease is
-simply not renewed, and lapses within `CONTROL_TTL_S`. That matters, because `POST /control/offair`
-would also drop Liquidsoap's queue, and what is in that queue is deliberate: the app keeps **one
-item handed over and downloaded while off air**, so the first listener hears music rather than a
-track being fetched in front of them. Liquidsoap never pulls a source it is not airing, so the item
-simply waits (and is re-fetched if it has been waiting a quarter of an hour, since a signed uri
-perishes).
+that is audible where the gap is not. The app then calls `POST /control/offair` immediately rather
+than letting the lease lapse, and **the queue stays empty while the gate is shut**.
 
-The station therefore **resumes where it stopped**: the lineup cursor does not move while nobody is
-listening, and the track that was next is what the next listener hears.
+Both of those are for the same measured reason, which is worth stating because the opposite is the
+intuitive guess: **Liquidsoap keeps consuming the playout queue whether or not `driving()` selects
+it.** With the gate shut and an item queued, the reading's `remainingMs` still falls in lockstep
+with the wall clock. A source inside the streaming graph is ticked by its clock; the gate above it
+only decides whether anyone hears the result. So an item left in the queue plays out to an empty
+mount, and a station left to "warm up" works through its whole lineup at one provider fetch and one
+download per track, which is precisely the cost this gate exists to avoid.
+
+The first listener therefore waits a second or two while the head of the running order is resolved
+and fetched. Buying that back means freezing the source in `radio.liq` (a separate clock, or
+`source.dynamic`), not queueing ahead from the app.
+
+What the player gives up on the way down is not lost: `Rundown.reconcile` takes back every item the
+player turns out not to be holding, so the station **resumes where it stopped** rather than skipping
+whatever was in flight. Only the track that was part-played is dropped.
 
 When the lease lapses, the source stays connected to Icecast and airs **digital silence**: a
 listener keeps their connection and hears the station come back rather than having to reconnect to

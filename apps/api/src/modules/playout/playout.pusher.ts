@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { annotateUri, itemAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
-import { PLAYOUT_LEAD, PlayoutControlClient } from './liquidsoap.control.js';
+import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown } from './rundown.js';
 
 /**
@@ -31,30 +31,26 @@ import { Rundown } from './rundown.js';
 const LEAD = PLAYOUT_LEAD;
 
 /**
- * How many items to keep handed over while the station is NOT on air.
+ * How many items to hand over while the station is NOT on air. None.
  *
- * Off air is not idle. Liquidsoap does not consume a queue it is not airing (the
- * programme sits behind a `switch` on deadair's lease, and an unselected source
- * is never pulled), so an item handed over now is an item already resolved and
- * downloaded the moment the lease is renewed. That is the difference between the
- * first listener hearing music and hearing a few seconds of silence while a
- * track is fetched.
+ * This looks like a missed optimisation and is not. An item pushed while the
+ * gate is shut was supposed to sit there resolved, so the first listener heard
+ * music instead of a fetch. **Liquidsoap does not work that way, measured on the
+ * running stack:** with `driving` false the reading's `remainingMs` still falls
+ * in lockstep with the wall clock, because a source inside the streaming graph
+ * keeps being ticked by its clock whether or not the gate above it selects it.
+ * The item plays out to nobody.
  *
- * One rather than {@link LEAD}, because the whole point is a fast start and only
- * the first item buys that. Three would be three provider fetches and three
- * downloads held for a mount nobody is listening to.
+ * Which turns a warm queue into precisely the thing this whole gate exists to
+ * stop: the station works through its lineup, one provider fetch and one
+ * download per track, for an empty mount. It also breaks resume-where-it-stopped,
+ * because the running order advances while nobody is listening.
+ *
+ * So the queue stays empty until somebody is there, and the fetch happens in
+ * front of the first listener. Freezing it instead would take a change in
+ * `radio.liq` (a separate clock, or `source.dynamic`), not a constant here.
  */
-const WARM_LEAD = 1;
-
-/**
- * How long a warm item is trusted before it is thrown away and fetched again.
- *
- * A resolved uri is perishable: the Spotify shim signs them, and a provider
- * token behind one expires. An item pushed at midnight and first played at
- * breakfast would fail to resolve in front of the listener it was kept for,
- * which is the one moment this is supposed to protect.
- */
-const WARM_STALE_MS = 15 * 60 * 1000;
+const WARM_LEAD = 0;
 
 /** Safety net for anything that does not emit a change: a restart, a dropped push. */
 const TICK_MS = 2000;
@@ -83,8 +79,6 @@ export class PlayoutPusher {
     private readonly unsubscribes: (() => void)[] = [];
     /** One reconcile at a time: `next()` emits a change, which would otherwise re-enter here. */
     private busy = false;
-    /** When the current warm item was handed over, so a stale one can be replaced. Unset while on air. */
-    private warmedAt?: number;
 
     constructor(
         private readonly rundown: Rundown,
@@ -113,16 +107,10 @@ export class PlayoutPusher {
             }),
         );
 
-        // The audience gate. Only the OPENING edge is acted on, and only to bring the
-        // reconcile forward: the first listener should not wait out a tick to hear
-        // something.
-        //
-        // The closing edge is deliberately not handled at all. Letting the lease lapse
-        // takes the station off air within CONTROL_TTL_S, and by then nobody has been
-        // listening for a full linger window, so there is no ear for the difference.
-        // Handing the mount back explicitly would also drop Liquidsoap's queue,
-        // throwing away the resolved item that is the whole point of staying warm. The
-        // operator's own Stop still releases, because that one is heard.
+        // The audience gate. Only the opening edge needs a nudge, to bring the reconcile
+        // forward so the first listener is not waiting out a tick before anything is
+        // even handed over. Closing is handled by the reconcile itself, which is the one
+        // place that knows what the player is actually holding: see `handBack`.
         this.unsubscribes.push(
             this.audience.onChange(open => {
                 if (open) this.tick();
@@ -210,11 +198,11 @@ export class PlayoutPusher {
             // memory of it.
             this.rundown.reconcile(reading);
 
-            // A warm item that has been sitting too long is dropped and fetched again
-            // rather than kept: see WARM_STALE_MS. Safe here and nowhere else, because
-            // off air there is nothing to interrupt, and the top-up below immediately
-            // hands over a freshly resolved replacement.
-            if (!onAir && (await this.rewarmIfStale(reading.queued))) return;
+            // Off air with the player still holding something: take it back. Every pass
+            // rather than only on the falling edge, because the state has causes that
+            // are not edges — an app restarting in front of a Liquidsoap that outlived
+            // it, a release that did not land, a mode changed while nothing was running.
+            if (!onAir && (await this.handBack(reading))) return;
 
             // Whichever of the two says the player is holding MORE.
             //
@@ -243,39 +231,43 @@ export class PlayoutPusher {
                     this.rundown.unserve(pulled.item.id);
                     return;
                 }
-                // Only a hand-over made off air is perishable in a way anything can do
-                // something about: on air, the item is played within minutes.
-                if (!onAir) this.warmedAt ??= Date.now();
             }
-            if (onAir) this.warmedAt = undefined;
         } finally {
             this.busy = false;
         }
     }
 
     /**
-     * Throw away a warm item that has been waiting past {@link WARM_STALE_MS}, so
-     * the next pass resolves a fresh one.
+     * Take back everything the player is holding, because nobody is listening.
      *
-     * `flush` drops what is queued and leaves what the player is holding as
-     * current, which off air is a frozen item rather than audio: nobody hears
-     * this. The rundown takes those items back through its own reconcile of the
-     * reading the flush answered with, so nothing is lost from the running order,
-     * only from the player's hands.
+     * The counterpart to not pushing while the gate is shut, and just as
+     * necessary: Liquidsoap consumes its queue whether or not `driving()` selects
+     * it (see {@link WARM_LEAD}), so anything left there plays out to an empty
+     * mount at a download per track. Not pushing only stops the station getting
+     * any deeper into that.
      *
-     * @returns whether it flushed, in which case the caller should stop: the
-     *   depth it was about to push against has just changed.
+     * `releaseOnAir` rather than `flush`, because the item the player calls
+     * current is being consumed too, and flush leaves it alone. Nobody hears the
+     * cut: that is what the gate being shut means.
+     *
+     * Nothing is lost from the running order. The reading this answers with is
+     * reconciled, and `Rundown.reconcile` re-queues every item the player turns
+     * out not to be holding, so the station resumes where it stopped. Only the
+     * part-played item is dropped.
+     *
+     * @returns whether it took anything back, in which case the caller should
+     *   stop: the depth it was about to push against no longer exists.
      */
-    private async rewarmIfStale(queued: number): Promise<boolean> {
-        if (this.warmedAt === undefined || queued === 0) return false;
-        if (Date.now() - this.warmedAt < WARM_STALE_MS) return false;
+    private async handBack(reading: QueueStatus): Promise<boolean> {
+        // Nothing held, nothing to do. Checked rather than released blindly, or this
+        // would fire a command at Liquidsoap every couple of seconds forever.
+        if (reading.queued === 0 && reading.onAir === undefined && reading.ready !== true) return false;
 
-        this.warmedAt = undefined;
-        const reading = await this.control.flush();
-        if (!reading) return false;
+        const released = await this.control.releaseOnAir();
+        if (!released) return false;
 
-        this.rundown.reconcile(reading);
-        this.logger.info('playout: the item kept ready off air had gone stale; fetching it again');
+        this.rundown.reconcile(released);
+        this.logger.info('playout: nobody is listening; taking back what the player was holding');
         return true;
     }
 

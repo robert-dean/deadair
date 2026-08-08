@@ -306,92 +306,58 @@ describe('PlayoutPusher.reconcile', () => {
         expect(spy.assertOnAir).toHaveBeenCalledOnce();
     });
 
-    it('keeps handing items over with the gate shut, so one is ready when it opens', async () => {
-        // Off air is not idle. Liquidsoap does not consume a queue it is not airing,
-        // so an item pushed now is an item already downloaded when the first listener
-        // arrives, and the difference is whether they hear music or silence.
-        const { pusher, pushed } = setup(['a', 'b'], { queued: 0, ready: false }, { audience: false });
+    it('hands over nothing while the gate is shut', async () => {
+        // Not an optimisation missed: Liquidsoap keeps consuming a queue whether or not
+        // the gate above it is open (measured on the running stack), so an item handed
+        // over now plays out to an empty mount and takes a download with it. That is
+        // the exact cost this gate exists to avoid.
+        const { pusher, pushed } = setup(['a', 'b', 'c'], { queued: 0, ready: false }, { audience: false });
 
         await pusher.reconcile();
 
-        expect(pushed.length).toBeGreaterThan(0);
+        expect(pushed).toHaveLength(0);
     });
 
-    it('keeps exactly one item warm off air, and the full lead on air', async () => {
-        // The warm item is a fast start, not a running order: only the first one buys
-        // that, and every extra is a provider fetch and a download held for a mount
-        // nobody is listening to.
-        const off = setup(['a', 'b', 'c', 'd'], { queued: 0, ready: false }, { audience: false });
-        await off.pusher.reconcile();
-        expect(off.pushed).toHaveLength(1);
-
-        const on = setup(['a', 'b', 'c', 'd'], { queued: 0, ready: true });
-        await on.pusher.reconcile();
-        expect(on.pushed).toHaveLength(PLAYOUT_LEAD);
-    });
-
-    it('fetches the warm item again once it has been sitting too long', async () => {
-        // A resolved uri is perishable: the shim signs them, and the token behind one
-        // expires. An item pushed at midnight must not be what fails to resolve in
-        // front of the listener who finally turns up at breakfast.
-        vi.useFakeTimers();
-        try {
-            const rundown = new Rundown(new StubResolver(), logger);
-            rundown.load(['a', 'b'].map(track));
-
-            // A player that reports back what it is holding, so the pusher sees its own
-            // warm item on the next pass rather than an empty queue.
-            let queued = 0;
-            const pushed: string[] = [];
-            const control = {
-                status: vi.fn(async () => ({ queued, ready: false })),
-                assertOnAir: vi.fn(async () => ({ queued, ready: true })),
-                releaseOnAir: vi.fn(async () => ({ queued, ready: false })),
-                push: vi.fn(async (uri: string) => {
-                    pushed.push(uri);
-                    queued += 1;
-                    return true;
-                }),
-                flush: vi.fn(async () => {
-                    queued = 0;
-                    return { queued, ready: false };
-                }),
-                skip: vi.fn(async () => ({ queued, ready: false })),
-            };
-            const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience(false).audience, logger);
-
-            await pusher.reconcile();
-            expect(pushed).toHaveLength(1);
-
-            // Well inside the window: what is held is still worth holding.
-            vi.advanceTimersByTime(60_000);
-            await pusher.reconcile();
-            expect(control.flush).not.toHaveBeenCalled();
-            expect(pushed).toHaveLength(1);
-
-            vi.advanceTimersByTime(20 * 60 * 1000);
-            await pusher.reconcile();
-            expect(control.flush).toHaveBeenCalledOnce();
-
-            // And the next pass replaces it, so the station is warm again rather than
-            // empty: the flush is only half of a re-warm.
-            await pusher.reconcile();
-            expect(pushed).toHaveLength(2);
-            expect(control.flush).toHaveBeenCalledOnce();
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-
-    it('does not hand the mount back when the audience leaves', async () => {
-        // Letting the lease lapse is what takes the station off air, and it is enough:
-        // nobody has been listening for a whole linger window by then. Releasing would
-        // also drop Liquidsoap's queue, throwing away the resolved item that makes the
-        // next listener's start instant.
-        const { pusher, spy, gate } = setup(['a'], { queued: 1, ready: true, onAir: 'x' });
+    it('hands the full lead over the moment somebody listens', async () => {
+        const { pusher, pushed, gate } = setup(['a', 'b', 'c'], { queued: 0, ready: false }, { audience: false });
         await pusher.reconcile();
+
+        gate.set(true);
+        await pusher.reconcile();
+
+        expect(pushed).toHaveLength(PLAYOUT_LEAD);
+    });
+
+    it('takes back what the player holds once nobody is listening', async () => {
+        // Letting the lease lapse would leave Liquidsoap playing everything already
+        // handed over, to nobody, at a download each. Releasing drops the queue, and
+        // the reading it answers with puts those items back in the running order.
+        const { pusher, spy, gate } = setup(['a', 'b'], { queued: 1, ready: true, onAir: 'x' });
+        await pusher.reconcile();
+        expect(spy.releaseOnAir).not.toHaveBeenCalled();
 
         gate.set(false);
+        await pusher.reconcile();
+
+        expect(spy.releaseOnAir).toHaveBeenCalledOnce();
+    });
+
+    it('takes back what a Liquidsoap that outlived the app is holding', async () => {
+        // No edge to hang it on: the app came up with the gate already shut, in front
+        // of a player still holding items from a process that no longer exists. Those
+        // are being consumed right now, which is why this is checked every pass.
+        const { pusher, spy } = setup([], { queued: 2, ready: true, onAir: 'x' }, { audience: false });
+
+        await pusher.reconcile();
+
+        expect(spy.releaseOnAir).toHaveBeenCalledOnce();
+    });
+
+    it('says nothing to a player that is already empty', async () => {
+        // Otherwise this fires a command at Liquidsoap every couple of seconds, forever,
+        // for a station nobody is listening to.
+        const { pusher, spy } = setup([], { queued: 0, ready: false }, { audience: false });
+
         await pusher.reconcile();
 
         expect(spy.releaseOnAir).not.toHaveBeenCalled();

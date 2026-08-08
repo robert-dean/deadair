@@ -107,9 +107,12 @@ as HTTP basic and is moved onto `x-playout-secret` by `listener.credential.middl
 stay registered before `authenticationMiddleware`: ServerKit deletes `Authorization` from every
 request, so a route can never read one for itself. `listener_add` is a blocking
 auth call, so with the hooks on a dead API refuses new listeners: `stream.listenerHooks` turns them
-off for an Icecast built without libcurl. Off air the transport still keeps one item handed over and
-downloaded (Liquidsoap never pulls a source it is not airing), which is why the falling edge lets
-the lease lapse instead of calling `/control/offair`, which would drop the queue. The console's own
+off for an Icecast built without libcurl. Off air the transport hands over NOTHING and the falling edge
+calls `/control/offair` at once, because Liquidsoap keeps consuming the playout queue whether or not
+`driving()` selects it (measured: `remainingMs` falls with the wall clock while `driving` is false).
+Anything left queued plays out to an empty mount at a download per track, which is the cost the gate
+exists to avoid. A warm queue is therefore not available from the app side; it would take a clock
+change in `radio.liq`. The console's own
 `StreamMonitor` plays the mount, so an operator listening in the browser is an audience.
 
 **Two database pools.** The runtime pool connects as the non-owner `app_user` role so RLS actually enforces; a separate owner pool handles privileged maintenance.

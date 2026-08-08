@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { AIR_MODE_KEY, DEFAULT_AIR_MODE, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
+import { Epoch } from '#modules/shared/epoch.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
@@ -93,6 +94,16 @@ export class DirectorService {
      * intent, held in memory, until the storage agrees with it.
      */
     private standingDown = false;
+    /**
+     * Bumped wherever the plan this pass was computed against stops being the plan:
+     * a stand-down, a different lineup put on air, a reload.
+     *
+     * It replaces a pair of flags read at the top of the pass, and covers what they
+     * could not. `standingDown` answers "was it stopped"; this answers "is anything
+     * different", which stays the right question as new ways to change what is on
+     * air are added — and there are several coming.
+     */
+    private readonly epoch = new Epoch();
     private readonly unsubscribes: (() => void)[] = [];
 
     constructor(
@@ -134,6 +145,7 @@ export class DirectorService {
      * this on air" takes effect on the instant rather than at the next boundary.
      */
     async reload(): Promise<void> {
+        this.epoch.bump();
         this.airReadAt = 0;
         this.lineup = undefined;
         await this.restore();
@@ -159,6 +171,7 @@ export class DirectorService {
      * thing that knows it was stood down is the row.
      */
     private async restore(): Promise<void> {
+        this.epoch.bump();
         const air = await this.readAir(true);
         this.active = air?.active ?? false;
 
@@ -202,6 +215,10 @@ export class DirectorService {
             return;
         }
         this.busy = true;
+        // Taken before the first await of the pass, and checked immediately before anything is
+        // handed over. Everything below this line runs with the event loop free at each await, and
+        // the operator's Stop, a lineup put on air, and a reload all land there.
+        const token = this.epoch.current();
 
         try {
             // The row is read BEFORE the `active` check, and `active` comes from it.
@@ -237,24 +254,33 @@ export class DirectorService {
             // and never once say what station it is.
             await this.plantBreaks(lineup, rules);
 
-            // Read AGAIN, immediately before committing anything. The check at the top of this pass
-            // was made several awaits ago, and a stand-down arriving in between is exactly the case
-            // that flag exists for: `Rundown.reset` runs its listeners synchronously, so a pass
-            // suspended mid-await resumes on the far side of a Stop the operator has already given
-            // and puts three items back into a running order that was just emptied.
-            //
-            // The guard has to sit here rather than only at the top, because every await above it is
-            // a place the station can be stopped underneath the pass.
-            if (this.standingDown || !this.active) return;
-
             const held = this.rundown.upcoming().length;
             if (held < COMMIT_LEAD) {
-                const items = await lineup.takeNext(COMMIT_LEAD - held);
-                if (items.length > 0) {
-                    this.rundown.append(await this.toRundownTracks(items));
-                    // The cursor moved, so a refill decision made a moment ago is stale.
-                    this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
-                }
+                // ── gather ──────────────────────────────────────────────────────────────
+                // Everything slow, and nothing changed. `peekNext` is pure, so a segment that
+                // turns out not to be ready — or a database that will not answer — costs this
+                // pass and nothing else. Moving the cursor first and then doing this work is how
+                // a failure in the middle loses programming for good: the lines are behind the
+                // cursor, so nothing will ever offer them again.
+                const peeked = lineup.peekNext(COMMIT_LEAD - held);
+                const tracks = peeked.items.length === 0 ? [] : await this.toRundownTracks(peeked.items);
+
+                // ── apply ───────────────────────────────────────────────────────────────
+                // One check, then two synchronous mutations, with NO await between them. That is
+                // what makes the check impossible to go stale rather than merely unlikely to:
+                // the event loop cannot run anything in a stretch with nothing to yield at, so
+                // the station cannot be stopped underneath this the way it can underneath every
+                // await above. See {@link Epoch}.
+                if (!this.epoch.isCurrent(token)) return;
+
+                if (tracks.length > 0) this.rundown.append(tracks);
+                lineup.advance(peeked.cursor);
+
+                // The cursor moved, so a refill decision made a moment ago is stale.
+                if (peeked.items.length > 0) this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
+
+                // Persisted after the hand-over, deliberately. See `Lineup.saveCursor`.
+                if (peeked.items.length > 0) await lineup.saveCursor();
             }
 
             if (lineup.isExhausted()) {
@@ -447,6 +473,7 @@ export class DirectorService {
 
     /** Stop driving and remember that the station is off, so a restart stays off. */
     private async standDown(): Promise<void> {
+        this.epoch.bump();
         this.active = false;
         this.extendSent = false;
         this.airReadAt = 0;

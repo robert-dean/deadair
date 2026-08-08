@@ -109,9 +109,12 @@ function build(options: Options = {}) {
     );
 
     const library = new Map((options.segments ?? []).map(segment => [segment.id!, segment as Segment]));
-    const segments = {
+    // A mutable stub rather than a frozen fake: two tests replace the lookup to hold the pass open
+    // mid-commit, or to fail it, which is the only way to reach the window this class guards.
+    const segmentStub = {
         findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
-    } as unknown as SegmentRepository;
+    };
+    const segments = segmentStub as unknown as SegmentRepository;
 
     const scope = {
         get: vi.fn((token: unknown) =>
@@ -143,6 +146,7 @@ function build(options: Options = {}) {
         director,
         rundown,
         breaks,
+        segmentStub,
         lineup,
         other,
         jobs,
@@ -635,5 +639,61 @@ describe('DirectorService planting breaks', () => {
         await settle();
 
         expect(rundown.upcoming()).toHaveLength(3);
+    });
+});
+
+// The commit pass reads what is on air, plants breaks and looks segments up before it hands
+// anything over, and the event loop is free at every one of those awaits. The operator's Stop lands
+// there, synchronously, from a request handler on the same thread. A pass that trusted the checks
+// it made at the top would resume on the far side of a decision that has already been reversed.
+describe('DirectorService committing across a change underneath it', () => {
+    it('commits nothing when the station is stood down mid-pass', async () => {
+        const { director, rundown, lineup, segmentStub, seed } = build({
+            items: ['a', 'b', 'c'],
+            segments: [{ id: 'seg-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],
+        });
+        await seed();
+        // A segment at the head, so the pass must await a lookup before it can commit anything.
+        await lineup.insertSegment('seg-1', 0);
+
+        let began: (() => void) | undefined;
+        const started = new Promise<void>(resolve => (began = resolve));
+        let unblock: (() => void) | undefined;
+        const held = new Promise<void>(resolve => (unblock = resolve));
+        segmentStub.findByIds = vi.fn(async () => {
+            began?.();
+            await held;
+            return new Map<string, Segment>();
+        });
+
+        const starting = director.start();
+        await started;
+
+        // The Stop, landing exactly inside the lookup.
+        rundown.reset();
+        unblock!();
+        await starting;
+        await settle();
+
+        expect(rundown.upcoming()).toHaveLength(0);
+        expect(director.status().active).toBe(false);
+    });
+
+    // A cursor advanced before the lines are usable loses them for good: they sit behind it and
+    // nothing offers them again. A lookup that throws is the ordinary way to get there.
+    it('leaves the cursor alone when the work before the hand-over fails', async () => {
+        const { director, lineup, segmentStub, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await lineup.insertSegment('seg-1', 0);
+        segmentStub.findByIds = vi.fn(async () => {
+            throw new Error('the database is gone');
+        });
+
+        await director.start().catch(() => undefined);
+        await settle();
+
+        // All four lines are still ahead of the cursor and will be offered again.
+        expect(lineup.cursor()).toBe(0);
+        expect(lineup.remaining()).toBe(4);
     });
 });

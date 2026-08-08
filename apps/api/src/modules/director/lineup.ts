@@ -243,38 +243,92 @@ export class Lineup {
     // ── committing ─────────────────────────────────────────────────────────────
 
     /**
-     * Take the next `count` items and advance the cursor past them.
+     * What the next `count` items WOULD be, and where the cursor would end up.
      *
-     * The one write the director makes on the hot path, and deliberately the only
-     * one that moves the cursor: an item is committed when it is handed to the
-     * rundown, not when it airs. The rundown is what tracks the difference
-     * between those two, and duplicating that here would give the station two
-     * disagreeing opinions about what is next.
+     * Pure: nothing moves and nothing is written. That is the whole point. The
+     * director has async work to do on these lines before it can hand any of them
+     * over — a segment has to be looked up, and it may turn out to be one the
+     * station skips — and doing that after the cursor has already moved means a
+     * failure in the middle silently loses programming: the lines are behind the
+     * cursor, so nothing will ever offer them again.
      *
-     * A `setlist` wraps to the top rather than running out, which is what makes
-     * a Christmas list play across a month. Everything else stops, and the
-     * director reads {@link onEnd} to decide what happens then.
+     * Pair with {@link advance}, which is synchronous, so a caller can put its
+     * whole decide-and-commit step in one uninterrupted stretch. See
+     * {@link Epoch} for why that matters.
+     *
+     * A `setlist` wraps to the top rather than running out, which is what makes a
+     * Christmas list play across a month, and is why the resulting cursor is
+     * reported rather than being `cursor + taken.length`. Everything else stops,
+     * and the director reads {@link onEnd} to decide what happens then.
      */
-    async takeNext(count: number): Promise<LineupItem[]> {
-        if (count <= 0 || this.itemList.length === 0) return [];
+    peekNext(count: number): { items: LineupItem[]; cursor: number } {
+        if (count <= 0 || this.itemList.length === 0) return { items: [], cursor: this.cursorIndex };
 
-        const taken: LineupItem[] = [];
-        while (taken.length < count) {
-            if (this.cursorIndex >= this.itemList.length) {
+        const items: LineupItem[] = [];
+        let cursor = this.cursorIndex;
+
+        while (items.length < count) {
+            if (cursor >= this.itemList.length) {
                 if (this.mode !== 'setlist') break;
                 // Wrapped. Compaction is skipped for this mode precisely so the whole
                 // list is still here to play again.
-                this.cursorIndex = 0;
+                cursor = 0;
             }
-            taken.push(this.itemList[this.cursorIndex]!);
-            this.cursorIndex += 1;
+            items.push(this.itemList[cursor]!);
+            cursor += 1;
         }
 
-        if (taken.length > 0) {
-            await this.compactIfNeeded();
-            await this.store?.saveCursor(this.id, this.cursorIndex);
-        }
-        return taken;
+        return { items, cursor };
+    }
+
+    /**
+     * Move the cursor to where {@link peekNext} said it would end up.
+     *
+     * Synchronous and in memory, so it can sit alongside the caller's own commit
+     * with no await between them. Persisting is {@link saveCursor}'s job and
+     * happens afterwards, deliberately: see the note there.
+     */
+    advance(cursor: number): void {
+        this.cursorIndex = Math.min(Math.max(0, cursor), this.itemList.length);
+    }
+
+    /**
+     * Write down how far this broadcast has committed, and drop the played prefix
+     * once enough of it has built up.
+     *
+     * Called AFTER the items have been handed over, which decides what a crash in
+     * between costs. A cursor written first and a hand-over that never happens
+     * loses those lines for good — they are behind the cursor and nothing will
+     * offer them again. This way round, the same crash leaves the cursor lagging,
+     * and the next boundary commits the same lines a second time. For a station
+     * whose running order is rebuilt from this cursor on every restart, hearing a
+     * record again is the cheaper of the two.
+     */
+    async saveCursor(): Promise<void> {
+        await this.compactIfNeeded();
+        await this.store?.saveCursor(this.id, this.cursorIndex);
+    }
+
+    /**
+     * Peek, advance and persist in one call.
+     *
+     * **Only for a caller with nothing to do in between.** The director is not one:
+     * it has to look a segment up before it knows whether the line can air at all,
+     * and that await is both a chance to lose the lines behind an advanced cursor
+     * and a chance for the station to be stopped underneath the pass. It uses the
+     * three separately and puts its own check between them.
+     *
+     * Kept because plenty of callers genuinely have nothing in between — a test
+     * moving the cursor to set up a case, above all — and spelling out three steps
+     * there would say something about the code that is not true of it.
+     */
+    async takeNext(count: number): Promise<LineupItem[]> {
+        const { items, cursor } = this.peekNext(count);
+        if (items.length === 0) return [];
+
+        this.advance(cursor);
+        await this.saveCursor();
+        return items;
     }
 
     // ── editing ────────────────────────────────────────────────────────────────

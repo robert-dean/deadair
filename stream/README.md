@@ -43,6 +43,7 @@ an `X-Playout-Secret` header:
 | `POST /control/skip` | ends what is on air; the queue advances to the next item at once |
 | `POST /control/onair` | renews deadair's lease on the mount for `CONTROL_TTL_S` |
 | `POST /control/offair` | hands the lease back now: off air at once, queue dropped |
+| `POST /control/metadata` | body is one finished label line; puts it into the stream at the current position |
 
 Every one of them answers with the same **reading** of the queue, so a mutation's own response is
 already the state it produced:
@@ -65,6 +66,17 @@ playhead from when an HTTP notify happened to arrive. `ready`/`onAir`/`remaining
 back into measurements — see `Rundown.reconcile` (apps/api, modules/playout). The app treats a
 missing `ready` as "this container is on an older script" and falls back to the old inference, so
 the two halves can be deployed independently.
+
+`metadata` is the one command about what the mount SAYS rather than what it plays, and it exists
+because propagation cannot be relied on. Metadata only reaches a listener by riding a track
+boundary the output can see, and this graph has two switches that move mid-track on purpose (the
+bed fallback, and the lease gate above it). `track_sensitive=false` is what makes them cut
+immediately, and it is equally why they carry no boundary: a packet emitted while another branch
+is selected is dropped, and the mount keeps whatever it was last told. Measured on a live mount,
+the title lagged the running order by two items and then stopped moving, while the audio stayed
+correct throughout. So the app announces what started, on the same `on_track` it already learns
+about air from, and `insert_metadata` puts that into the stream at the current position rather
+than at a boundary that may never come.
 
 `skip` is the one command about the item already playing: the decoder lives here, so an operator
 skip in the console has to come through as a request to Liquidsoap. The app pushes the lead item

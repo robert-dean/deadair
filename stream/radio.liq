@@ -513,6 +513,43 @@ end
 # second clock would only disagree with it.
 thread.run(every=lease_tick, label_when_off_air)
 
+# The label, when the station IS saying something.
+#
+# Metadata only reaches a listener by riding a track boundary the OUTPUT can see, and this graph
+# has two switches that deliberately move mid-track: the bed fallback, and the lease gate above
+# it. `track_sensitive=false` is what makes them cut immediately, and it is also why they carry no
+# boundary — so a packet emitted while another branch is selected is simply dropped, and the mount
+# keeps whatever it was last told. Measured on a live mount: the title lagged the running order by
+# two items and then stopped moving altogether, while the audio was correct throughout.
+#
+# So the app announces rather than relying on propagation. It is the one that knows what started
+# (on_track tells it, through PLAYOUT_AIRED_URL) and this puts that into the stream at the current
+# position, which is the whole point of `insert_metadata` and the only way to label a source whose
+# boundary has already passed.
+#
+# Registered down here because it needs `radio`, which is defined above it. Liquidsoap is
+# sequential; the other /control endpoints are declared where their own state is.
+def control_metadata(req) =
+  if not control_authorized(req) then
+    control_denied()
+  else
+    label = string.trim(req.body())
+    if label == "" then
+      http.response(status_code=400, content_type="text/plain", data="no label")
+    else
+      # ONE finished line, not a title/artist pair. Icecast composes the ICY title from
+      # the pair and reports the result as a single field anyway (see annotate.ts), so a
+      # pair here would buy nothing and cost this endpoint a body format to get wrong.
+      # The artist is cleared for the reason the off-air label clears it: leaving the
+      # previous one standing under a new title is its own kind of wrong.
+      radio.insert_metadata([("title", label), ("artist", "")])
+      control_json('{' ^ playout_reading() ^ '}')
+    end
+  end
+end
+
+harbor.http.register.simple(port=harbor_port, method="POST", "/control/metadata", control_metadata)
+
 # 6) Encode to MP3 and push to the Icecast mount.
 output.icecast(
   %mp3(bitrate=int_of_string(environment.get("STREAM_BITRATE", default="128"))),

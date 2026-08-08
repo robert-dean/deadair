@@ -41,6 +41,7 @@ function stubControl(reading: QueueStatus | undefined, options: { pushLands?: bo
         }),
         flush: vi.fn(async () => reading),
         skip: vi.fn(async () => reading),
+        announce: vi.fn(async () => true),
     };
     return { control: control as unknown as PlayoutControlClient, pushed, spy: control };
 }
@@ -83,6 +84,7 @@ function scriptedControl() {
         }),
         flush: vi.fn(async () => control.reading),
         skip: vi.fn(async () => control.reading),
+        announce: vi.fn(async () => true),
     };
 
     return { control, pushed };
@@ -326,6 +328,23 @@ describe('PlayoutPusher.reconcile', () => {
         await pusher.reconcile();
 
         expect(pushed).toHaveLength(PLAYOUT_LEAD);
+    });
+
+    it('labels the mount with what actually started', async () => {
+        // The annotation on the pushed uri rides a track boundary, and the switches
+        // between the queue and the output move mid-track by design, so a label left to
+        // propagate is a label the mount may never see. Measured live: it lagged the
+        // running order by two items and then stopped.
+        const { pusher, rundown, spy } = setup(['a'], { queued: 0, ready: true });
+        pusher.start();
+        await pusher.reconcile();
+
+        const item = rundown.upcoming()[0] ?? rundown.nowPlaying()?.item;
+        rundown.markAired(item!.id);
+        await new Promise(resolve => setImmediate(resolve));
+        pusher.stop();
+
+        expect(spy.announce).toHaveBeenCalledWith('An Artist - Track a');
     });
 
     it('takes back what the player holds once nobody is listening', async () => {

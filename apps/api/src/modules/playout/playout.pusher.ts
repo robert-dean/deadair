@@ -3,7 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { annotateUri, itemAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
 import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
-import { Rundown } from './rundown.js';
+import { Rundown, type RundownItem } from './rundown.js';
 
 /**
  * Drains the running order into Liquidsoap's request queue: the station's
@@ -107,13 +107,26 @@ export class PlayoutPusher {
             }),
         );
 
+        // The one moment the station can honestly say what a listener is hearing.
+        // Announced rather than left to the annotation on the pushed uri, which rides a
+        // track boundary the output cannot always see: see `PlayoutControlClient.announce`.
+        this.unsubscribes.push(this.rundown.onAired(item => this.announce(item)));
+
         // The audience gate. Only the opening edge needs a nudge, to bring the reconcile
         // forward so the first listener is not waiting out a tick before anything is
         // even handed over. Closing is handled by the reconcile itself, which is the one
         // place that knows what the player is actually holding: see `handBack`.
+        //
+        // Opening also re-announces what is airing. Coming back on air mid-track is
+        // precisely the case with no boundary left to carry a label, so the first
+        // listener would otherwise be told about whatever the mount last heard of.
         this.unsubscribes.push(
             this.audience.onChange(open => {
-                if (open) this.tick();
+                if (!open) return;
+
+                this.tick();
+                const airing = this.rundown.nowPlaying()?.item;
+                if (airing) this.announce(airing);
             }),
         );
 
@@ -235,6 +248,22 @@ export class PlayoutPusher {
         } finally {
             this.busy = false;
         }
+    }
+
+    /**
+     * Tell the mount what is on it.
+     *
+     * Fire and forget, deliberately. This runs on a track boundary, with the next
+     * item being fetched behind it, and a label is not worth holding that up or
+     * failing it: the audio is right whether or not the caption lands, and the
+     * next boundary carries another one.
+     */
+    private announce(item: RundownItem): void {
+        // The same line Icecast composes for itself out of the `annotate:` pair, so a
+        // label that arrives this way is indistinguishable from one that rode the
+        // boundary. See `itemAnnotations`.
+        const artist = item.artists.join(', ');
+        void this.control.announce(artist ? `${artist} - ${item.title}` : item.title).catch(() => undefined);
     }
 
     /**

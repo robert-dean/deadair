@@ -170,6 +170,25 @@ export class PlayoutControlClient {
         return this.read(await this.call('POST', '/control/offair'));
     }
 
+    /**
+     * Label the mount with what is airing right now.
+     *
+     * Belt and braces over the `annotate:` metadata already on the pushed uri,
+     * and not redundant: annotations ride a track boundary, and the two switches
+     * between the queue and the output move mid-track by design (`radio.liq`,
+     * `control_metadata`). A packet emitted while another branch is selected is
+     * dropped, which is measurable as a mount announcing a track that ended
+     * several songs ago.
+     *
+     * Best-effort like everything else here. A label that did not land is a
+     * cosmetic fault on a station that is still playing the right audio, and it
+     * must never interrupt the boundary it was triggered by.
+     */
+    async announce(label: string): Promise<boolean> {
+        const line = oneLine(label);
+        return line ? !!(await this.call('POST', '/control/metadata', line)) : false;
+    }
+
     /** Push one `annotate:` uri onto the queue. False when it did not land. */
     async push(uri: string): Promise<boolean> {
         return !!(await this.call('POST', '/control/push', uri));
@@ -290,5 +309,11 @@ export function parseReading(body: unknown): QueueStatus | undefined {
     if (Number.isFinite(remaining) && remaining > 0) status.remainingMs = remaining;
     return status;
 }
+
+/**
+ * Flatten a label to the one line the metadata endpoint reads, because that is
+ * the whole body: a newline in a track title would otherwise truncate it.
+ */
+const oneLine = (value: string): string => value.replace(/[\r\n]+/g, ' ').trim();
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));

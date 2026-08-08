@@ -69,6 +69,15 @@ export class DirectorService {
     private pending = false;
     /** A refill is already queued. Cleared once the lineup has actually grown. */
     private extendSent = false;
+    /**
+     * A stand-down whose write has not landed yet.
+     *
+     * `Rundown.reset` calls its listeners synchronously, so between the operator's
+     * Stop and the row saying `active: false` there is a window in which a wake
+     * would read the OLD row and put the station straight back on air. This is the
+     * intent, held in memory, until the storage agrees with it.
+     */
+    private standingDown = false;
     private readonly unsubscribes: (() => void)[] = [];
 
     constructor(
@@ -178,11 +187,19 @@ export class DirectorService {
         this.busy = true;
 
         try {
+            // The row is read BEFORE the `active` check, and `active` comes from it.
+            // Checking a remembered flag first would mean a station that was off when
+            // this process started could never notice being switched on out of band —
+            // the flag would only ever be refreshed by a caller that already knew.
+            // That is what a scheduler writing this row is, and what a second process
+            // would be. Throttled, so a wake every couple of seconds costs one read
+            // every {@link AIR_TTL_MS}.
+            if (this.standingDown) return;
+
+            const air = await this.readAir();
+            this.active = air?.active ?? false;
             if (!this.active) return;
 
-            // Cheap and throttled: an operator putting something else on air writes the
-            // row, and this is what notices when the console has not said so directly.
-            const air = await this.readAir();
             if (air?.lineupId && air.lineupId !== this.lineup?.id) {
                 await this.restore();
                 return;
@@ -330,17 +347,32 @@ export class DirectorService {
         this.active = false;
         this.extendSent = false;
         this.airReadAt = 0;
+        this.standingDown = true;
 
         try {
             await this.inScope(async scope => scope.get(StationAirRepository).standDown());
         } catch (error) {
+            // The intent stands even if the write did not. Leaving `standingDown` set
+            // keeps this process off air, which is the safe half of the failure: the
+            // alternative is a station that resumes because its own note did not save.
             this.logger.warn(`director: could not record the stand-down (${message(error)})`);
+            return;
         }
+        this.standingDown = false;
     }
 
-    /** The current `station_air`, re-read at most every {@link AIR_TTL_MS}. */
+    /**
+     * The current `station_air`, re-read at most every {@link AIR_TTL_MS} while the
+     * station is on air.
+     *
+     * The throttle does not apply while it is NOT. An idle director has nothing
+     * else to do, one small query every couple of seconds costs nothing, and being
+     * switched on is the one change it should notice immediately rather than up to
+     * a TTL later. The throttle exists for the busy case, where this runs several
+     * times per track.
+     */
     private async readAir(force = false): Promise<StationAir | undefined> {
-        if (!force && Date.now() - this.airReadAt < AIR_TTL_MS) return this.air;
+        if (!force && this.active && Date.now() - this.airReadAt < AIR_TTL_MS) return this.air;
 
         this.air = await this.inScope(async scope => scope.get(StationAirRepository).get(MAIN_SLOT));
         this.airReadAt = Date.now();

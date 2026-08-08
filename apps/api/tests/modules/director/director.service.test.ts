@@ -115,6 +115,20 @@ beforeEach(() => {
     vi.clearAllMocks();
 });
 
+/** Let the pending microtasks of a commit pass settle. */
+const settle = () => new Promise(resolve => setImmediate(resolve));
+
+/**
+ * One wake, with no side effect on the running order.
+ *
+ * `next()` on an empty queue announces a change and hands nothing back, which is
+ * exactly what the pusher produces every couple of seconds on an idle station.
+ */
+const wake = async (rundown: Rundown) => {
+    await rundown.next();
+    await settle();
+};
+
 describe('DirectorService committing', () => {
     it('commits a few items and no more', async () => {
         // The lineup is the deep plan and the rundown is a window onto it. Committing
@@ -171,6 +185,40 @@ describe('DirectorService committing', () => {
     });
 });
 
+describe('DirectorService noticing the row', () => {
+    it('picks up a station switched on out of band, without being told', async () => {
+        // Checking a remembered `active` flag before reading the row means a station
+        // that was off when this process started can never notice being switched on
+        // by anything that did not call in — a scheduler, a second process, an
+        // operator editing the row. Caught by a live run: the director sat idle while
+        // station_air said it was on air.
+        const { director, rundown, setAir, seed } = build({ air: { active: false } });
+        await seed();
+        await director.start();
+        expect(rundown.upcoming()).toHaveLength(0);
+
+        setAir({ slot: 'main', lineupId: 'lineup-1', cursor: 0, active: true });
+        await wake(rundown);
+
+        expect(rundown.upcoming().length).toBeGreaterThan(0);
+        expect(director.status().active).toBe(true);
+    });
+
+    it('goes off air when the row says so, without being told either', async () => {
+        const { director, rundown, setAir, seed } = build();
+        await seed();
+        await director.start();
+        expect(rundown.upcoming()).toHaveLength(3);
+
+        setAir({ slot: 'main', lineupId: 'lineup-1', cursor: 3, active: false });
+        // Forced past the throttle the way a stand-down does, since this station IS on
+        // air and a busy director does not re-read on every single wake.
+        await director.reload();
+
+        expect(director.status().active).toBe(false);
+    });
+});
+
 describe('DirectorService standing down', () => {
     it('stops committing when the transport is stopped', async () => {
         // `PlayoutService.stop` resets the rundown. If the director did not hear that,
@@ -185,6 +233,29 @@ describe('DirectorService standing down', () => {
 
         expect(rundown.upcoming()).toHaveLength(0);
         expect(director.status().active).toBe(false);
+    });
+
+    it('does not resume in the window before the stand-down has been written', async () => {
+        // `Rundown.reset` calls its listeners synchronously, so there is a moment
+        // between Stop and the row saying so. A wake landing there reads the OLD row,
+        // sees `active: true`, and puts the station straight back on air.
+        const { director, rundown, airRepository, seed } = build();
+        await seed();
+        await director.start();
+
+        // A write that has not landed yet, exactly as a real one has not.
+        let release = () => {};
+        vi.mocked(airRepository.standDown).mockImplementationOnce(
+            async () => new Promise<void>(resolve => { release = resolve; }),
+        );
+
+        rundown.reset();
+        await wake(rundown);
+
+        expect(rundown.upcoming()).toHaveLength(0);
+        expect(director.status().active).toBe(false);
+
+        release();
     });
 
     it('records the stand-down, so a restart stays down', async () => {

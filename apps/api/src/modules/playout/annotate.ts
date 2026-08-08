@@ -33,6 +33,14 @@ export const ITEM_KEY = 'deadair_item';
  * Empty values are left out rather than sent blank: an `artist=""` overwrites
  * whatever the file's own tags said with nothing, and for a local library those
  * tags are better than silence.
+ *
+ * What this looks like on the other side, verified against a live mount: Icecast
+ * composes the ICY `StreamTitle` from the two and reports it as ONE field —
+ * `"title": "Coal Chamber - Loco"` in `/status-json.xsl`, with the `artist` field
+ * left null. So a check that the mount is labelled reads the combined `title`;
+ * expecting a separate artist there finds nothing and looks like a fault that is
+ * not one. The unlabelled state is recognisable instead by the artist arriving
+ * with no title, which is a file's own tags showing through from the local bed.
  */
 export function itemAnnotations(item: RundownItem): Record<string, string> {
     const artist = item.artists.join(', ');

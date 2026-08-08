@@ -30,9 +30,7 @@ const none = { songKeys: new Set<string>(), artistKeys: new Set<string>() };
 function permutations<T>(items: readonly T[]): T[][] {
     if (items.length <= 1) return [[...items]];
 
-    return items.flatMap((item, index) =>
-        permutations([...items.slice(0, index), ...items.slice(index + 1)]).map(rest => [item, ...rest]),
-    );
+    return items.flatMap((item, index) => permutations([...items.slice(0, index), ...items.slice(index + 1)]).map(rest => [item, ...rest]));
 }
 
 describe('rotation keys', () => {
@@ -74,6 +72,11 @@ describe('resolveRules', () => {
             artistCooldownMinutes: 0,
             maxPerArtist: 0,
             autoExtend: false,
+            // Somebody sequenced this list. Dropping an ident into the middle of their sequence is
+            // undoing the work, which is the same argument the 0007 migration makes about a
+            // feature's segues, one step weaker.
+            breaks: false,
+            breakEveryItems: 0,
         });
     });
 

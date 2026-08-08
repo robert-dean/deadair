@@ -125,6 +125,25 @@ export class SegmentRepository extends DataRepository {
         return new Map(rows.map(row => [row.id, toSegment(row)]));
     }
 
+    /**
+     * Everything of one kind that can actually go on air.
+     *
+     * What the planner chooses from. `ready` is applied in SQL rather than filtered afterwards
+     * because it is what the partial index is built on, and because a station whose library is
+     * mostly half-rendered talk breaks should not drag them all across the wire to throw them away.
+     */
+    async listReady(kind: string): Promise<Segment[]> {
+        const rows = await this.db
+            .selectFrom('deadair.segments')
+            .select(SEGMENT_COLUMNS)
+            .where('kind', '=', kind)
+            .where('state', '=', 'ready')
+            .orderBy('createdAt', 'asc')
+            .execute();
+
+        return rows.map(toSegment);
+    }
+
     /** The whole library, newest first, for a console that has to draw it. */
     async list(): Promise<Segment[]> {
         const rows = await this.db.selectFrom('deadair.segments').select(SEGMENT_COLUMNS).orderBy('createdAt', 'desc').execute();

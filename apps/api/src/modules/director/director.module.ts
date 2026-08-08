@@ -1,6 +1,7 @@
 import { Container, Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { BreakPlanner } from './break.planner.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
@@ -35,6 +36,11 @@ export const DirectorModule: ServerKitModule = {
         // which is the whole reason a pick is a NAME rather than an id.
         registry.register(SetGenerator).useClass(CatalogSetGenerator).asScoped();
         registry.register(PickResolver).useClass(PickResolver).asScoped();
+
+        // Scoped with the repository it reads. Two callers, for two different cases: the refill job
+        // plants breaks among the records it has just appended, and the reactor covers the lineups
+        // nothing ever refills, an imported provider playlist chief among them.
+        registry.register(BreakPlanner).useClass(BreakPlanner).asScoped();
         // ExtendLineupJob is deliberately NOT registered here. JobsModule registers
         // every class in `JobMappings` itself, transient, and registering it twice is
         // a boot failure rather than a merge.

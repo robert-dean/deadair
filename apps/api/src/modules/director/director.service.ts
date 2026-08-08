@@ -7,10 +7,11 @@ import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/r
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
+import { BreakPlanner } from './break.planner.js';
 import type { Lineup, LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
-import { resolveRules } from './rotation.rules.js';
+import { resolveRules, type ResolvedRules } from './rotation.rules.js';
 import { MAIN_SLOT, StationAirRepository, type StationAir } from './station.air.repository.js';
 
 /**
@@ -224,6 +225,28 @@ export class DirectorService {
             const lineup = this.lineup;
             if (!lineup) return;
 
+            const rules = resolveRules(lineup.mode, lineup.rules);
+
+            // BEFORE committing, so a break planted this pass is in the order before anything is
+            // taken from it. The other way round, the tail would be topped up first and the break
+            // would land behind the records that had just been handed over.
+            //
+            // The refill job plants its own as it appends, which is the common case; this pass is
+            // what covers a lineup nothing ever extends. An imported provider playlist is exactly
+            // that: it never runs the generator, so without this it would play an hour of records
+            // and never once say what station it is.
+            await this.plantBreaks(lineup, rules);
+
+            // Read AGAIN, immediately before committing anything. The check at the top of this pass
+            // was made several awaits ago, and a stand-down arriving in between is exactly the case
+            // that flag exists for: `Rundown.reset` runs its listeners synchronously, so a pass
+            // suspended mid-await resumes on the far side of a Stop the operator has already given
+            // and puts three items back into a running order that was just emptied.
+            //
+            // The guard has to sit here rather than only at the top, because every await above it is
+            // a place the station can be stopped underneath the pass.
+            if (this.standingDown || !this.active) return;
+
             const held = this.rundown.upcoming().length;
             if (held < COMMIT_LEAD) {
                 const items = await lineup.takeNext(COMMIT_LEAD - held);
@@ -235,11 +258,11 @@ export class DirectorService {
             }
 
             if (lineup.isExhausted()) {
-                await this.finish(lineup);
+                await this.finish(lineup, rules);
                 return;
             }
 
-            await this.topUpIfShort(lineup);
+            await this.topUpIfShort(lineup, rules);
         } finally {
             this.busy = false;
             if (this.pending) {
@@ -248,6 +271,28 @@ export class DirectorService {
                 // with nobody to hand a rejection to. `wake` carries its own catch.
                 this.wake();
             }
+        }
+    }
+
+    /**
+     * Put the station's own segments into the lineup, where the rules say there
+     * should be some and there are not.
+     *
+     * Costs nothing on the overwhelming majority of passes: the planner walks the
+     * order in memory and only reaches the database when it has found somewhere to
+     * put something, so a lineup whose breaks are already in place is a loop over
+     * an array and no query at all.
+     *
+     * Failures are swallowed on purpose. A break is the one thing in a commit pass
+     * the broadcast does not depend on — the records either side of it play
+     * regardless — so a planner that cannot read its library must not be allowed
+     * to take down the pass that keeps the running order full.
+     */
+    private async plantBreaks(lineup: Lineup, rules: ResolvedRules): Promise<void> {
+        try {
+            await this.inScope(async scope => scope.get(BreakPlanner).plant(lineup, rules));
+        } catch (error) {
+            this.logger.warn(`director: could not plan breaks for this lineup (${message(error)})`);
         }
     }
 
@@ -295,8 +340,7 @@ export class DirectorService {
      * identical jobs for one shortfall. The guard clears when the lineup has
      * actually grown, which is the only evidence the last one landed.
      */
-    private async topUpIfShort(lineup: Lineup): Promise<void> {
-        const rules = resolveRules(lineup.mode, lineup.rules);
+    private async topUpIfShort(lineup: Lineup, rules: ResolvedRules): Promise<void> {
         if (!rules.autoExtend || lineup.remaining() >= EXTEND_BELOW) {
             this.extendSent = false;
             return;
@@ -324,7 +368,7 @@ export class DirectorService {
      * couple of seconds away — the pusher's reconcile produces one whether or not
      * the running order changed — and there is a track playing throughout.
      */
-    private async finish(lineup: Lineup): Promise<void> {
+    private async finish(lineup: Lineup, rules: ResolvedRules): Promise<void> {
         switch (lineup.onEnd) {
             case 'repeat':
                 await lineup.rewind();
@@ -334,7 +378,7 @@ export class DirectorService {
                 // The refill has either landed (and this is not exhausted after all) or
                 // is still in flight. Either way the guard below is the whole handling:
                 // it will be sent once, and the next boundary picks up what arrives.
-                await this.topUpIfShort(lineup);
+                await this.topUpIfShort(lineup, rules);
                 return;
 
             case 'resume': {

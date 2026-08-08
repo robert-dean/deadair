@@ -24,6 +24,10 @@ export interface ResolvedRules {
     maxPerArtist: number;
     /** Whether the director may generate more when the lineup runs short. */
     autoExtend: boolean;
+    /** Whether the station may put its own segments into this lineup. */
+    breaks: boolean;
+    /** Records between one segment and the next. `0` is the same as `breaks: false`. */
+    breakEveryItems: number;
 }
 
 /**
@@ -39,6 +43,11 @@ export const DEFAULT_RULES: ResolvedRules = {
     artistCooldownMinutes: 40,
     maxPerArtist: 2,
     autoExtend: true,
+    breaks: true,
+    // Four records is around a quarter of an hour, which is about as long as a station can go
+    // without identifying itself before it stops sounding like a station and starts sounding like a
+    // playlist. Erring long: a break every other record is a novelty that wears out in an afternoon.
+    breakEveryItems: 4,
 };
 
 /** Every rule off. What a lineup that is not a rotation resolves to. */
@@ -47,6 +56,8 @@ const NO_RULES: ResolvedRules = {
     artistCooldownMinutes: 0,
     maxPerArtist: 0,
     autoExtend: false,
+    breaks: false,
+    breakEveryItems: 0,
 };
 
 /**
@@ -59,6 +70,12 @@ const NO_RULES: ResolvedRules = {
  * tracks it exists to play, and an artist cooldown would refuse to air two
  * Bing Crosby records in an evening. A feature is one artist by definition.
  *
+ * Breaks are off for both, and the 0007 migration says why for a feature in so
+ * many words: an album played in full is a record whose segues are the point, and
+ * "nothing talks over them". A setlist is the same argument one step weaker —
+ * somebody sequenced it, and dropping an ident into the middle of their sequence
+ * is undoing the work.
+ *
  * The overrides still apply on top, so an operator who wants a cooldown inside a
  * long setlist can have one. That is why this is a baseline rather than a
  * hard-coded branch in the reactor.
@@ -70,6 +87,8 @@ export const resolveRules = (mode: LineupMode, overrides?: LineupRules): Resolve
         artistCooldownMinutes: overrides?.artistCooldownMinutes ?? base.artistCooldownMinutes,
         maxPerArtist: overrides?.maxPerArtist ?? base.maxPerArtist,
         autoExtend: overrides?.autoExtend ?? base.autoExtend,
+        breaks: overrides?.breaks ?? base.breaks,
+        breakEveryItems: overrides?.breakEveryItems ?? base.breakEveryItems,
     };
 };
 
@@ -114,8 +133,7 @@ export const filterByHistory = <T extends RotationCandidate>(candidates: readonl
  * artist, so disliking an artist stops the station playing them rather than
  * stopping it playing one of their songs.
  */
-export const rejectDisliked = <T extends RotationCandidate>(candidates: readonly T[]): T[] =>
-    candidates.filter(candidate => candidate.rating !== -1);
+export const rejectDisliked = <T extends RotationCandidate>(candidates: readonly T[]): T[] => candidates.filter(candidate => candidate.rating !== -1);
 
 /**
  * How much a candidate should be favoured when sampling.

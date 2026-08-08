@@ -82,6 +82,10 @@ export interface LineupRules {
     maxPerArtist?: number;
     /** Whether the director may generate more when this runs short. */
     autoExtend?: boolean;
+    /** Whether the station may put its own segments into this lineup. */
+    breaks?: boolean;
+    /** Records between one segment and the next. `0` is the same as `breaks: false`. */
+    breakEveryItems?: number;
 }
 
 /** A lineup as it is stored: the row, without the broadcast position. */
@@ -312,13 +316,37 @@ export class Lineup {
      * would either be ignored or shift a line the listener is about to hear.
      */
     async insertSegment(segmentId: string, atIndex: number, revision?: number): Promise<EditResult> {
+        return await this.insertSegments([{ segmentId, atIndex }], revision);
+    }
+
+    /**
+     * Put several segments in at once, each at a position in the order as it
+     * stands NOW.
+     *
+     * One write and one revision bump for the batch, which is what the planner
+     * needs: a refill appends fifteen records and wants three breaks among them,
+     * and doing that as three separate edits would rewrite the whole jsonb
+     * document three times and invalidate an operator's in-flight edit three
+     * times over.
+     *
+     * Applied from the highest index down, so every `atIndex` still means what the
+     * caller meant when they computed it. Insert front-to-back instead and the
+     * second placement lands one line late, the third two, and a break planned for
+     * "after the fourth record" drifts further the more of them there are.
+     */
+    async insertSegments(placements: readonly { segmentId: string; atIndex: number }[], revision?: number): Promise<EditResult> {
         const stale = this.checkRevision(revision);
         if (stale) return stale;
+        if (placements.length === 0) return refuse('empty', 'there is nothing to put in');
 
-        if (atIndex < this.cursorIndex) return refuse('already-aired', 'that position has already been handed to the player');
+        if (placements.some(placement => placement.atIndex < this.cursorIndex)) {
+            return refuse('already-aired', 'that position has already been handed to the player');
+        }
 
-        const index = Math.min(atIndex, this.itemList.length);
-        this.itemList.splice(index, 0, { id: randomUUID(), kind: 'segment', segmentId });
+        for (const placement of [...placements].sort((left, right) => right.atIndex - left.atIndex)) {
+            const index = Math.min(placement.atIndex, this.itemList.length);
+            this.itemList.splice(index, 0, { id: randomUUID(), kind: 'segment', segmentId: placement.segmentId });
+        }
         await this.commitOrder();
         return OK;
     }

@@ -20,6 +20,7 @@ import { AIR_MODE_KEY, type AirMode } from '../../../src/modules/playout/air.mod
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
+import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 
@@ -97,6 +98,16 @@ function build(options: Options = {}) {
         get: vi.fn(async (key: string) => (key === AIR_MODE_KEY ? options.airMode : undefined)),
     } as unknown as SettingsRepository;
 
+    // Real, over the fake repository: where a break belongs is BreakPlanner's own decision and is
+    // tested there, and stubbing it here would leave the wiring — that the reactor plants at all,
+    // and does it before committing — untested.
+    const breaks = new BreakPlanner(
+        {
+            listReady: vi.fn(async () => [{ id: 'ident-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }]),
+        } as unknown as SegmentRepository,
+        logger,
+    );
+
     const library = new Map((options.segments ?? []).map(segment => [segment.id!, segment as Segment]));
     const segments = {
         findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
@@ -112,7 +123,9 @@ function build(options: Options = {}) {
                     ? settings
                     : token === SegmentRepository
                       ? segments
-                      : history,
+                      : token === BreakPlanner
+                        ? breaks
+                        : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -129,6 +142,7 @@ function build(options: Options = {}) {
     return {
         director,
         rundown,
+        breaks,
         lineup,
         other,
         jobs,
@@ -578,5 +592,48 @@ describe('DirectorService committing segments', () => {
         await settle();
 
         expect(history.record).toHaveBeenCalledOnce();
+    });
+});
+
+// The refill job plants breaks among the records it appends, which covers a rotation. This pass is
+// what covers a lineup nothing ever refills — an imported provider playlist above all, which would
+// otherwise play for an hour without once saying what station it is.
+describe('DirectorService planting breaks', () => {
+    it('plants into a lineup nothing will ever extend', async () => {
+        const { director, lineup, seed } = build({ items: Array.from({ length: 20 }, (_, index) => `t${index}`) });
+        await seed();
+
+        await director.start();
+        await settle();
+
+        expect(lineup.all().some(item => item.kind === 'segment')).toBe(true);
+    });
+
+    it('plants before it commits, so a break is never left behind the records just handed over', async () => {
+        const { director, lineup, seed } = build({ items: Array.from({ length: 20 }, (_, index) => `t${index}`) });
+        await seed();
+
+        await director.start();
+        await settle();
+
+        // Everything planted is still ahead of the cursor: nothing was dropped into the part of the
+        // order the player is already holding.
+        const planted = lineup.all().flatMap((item, index) => (item.kind === 'segment' ? [index] : []));
+        expect(planted.every(index => index >= lineup.cursor())).toBe(true);
+    });
+
+    // A break is the one thing in a commit pass the broadcast does not depend on: the records
+    // either side of it play regardless.
+    it('keeps the running order full when the planner throws', async () => {
+        const { director, rundown, breaks, seed } = build();
+        breaks.plant = vi.fn(async () => {
+            throw new Error('the library is unreachable');
+        });
+        await seed();
+
+        await director.start();
+        await settle();
+
+        expect(rundown.upcoming()).toHaveLength(3);
     });
 });

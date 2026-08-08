@@ -2,6 +2,7 @@ import { Container, Injectable, ScopedContainer } from 'injectkit';
 import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { overrideJobActor } from '#modules/jobs/job.authorization.js';
+import { BreakPlanner } from './break.planner.js';
 import { isTrackItem, type LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PickResolver } from './pick.resolver.js';
@@ -66,6 +67,7 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         private readonly lineups: LineupRepository,
         private readonly generator: SetGenerator,
         private readonly resolver: PickResolver,
+        private readonly breaks: BreakPlanner,
         private readonly context: JobContext,
         // `Container` resolves to the container doing the resolving, which for a job
         // is the runner's per-execution scope. `ScopedContainer` is a type alias, not
@@ -126,6 +128,13 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         // programming than the station wanted.
         const added = await lineup.append(resolved.slice(0, count));
 
+        // Breaks go in HERE rather than being left to the director, because this is where the
+        // records they sit between arrive. Fifteen tracks appended at once want three or four
+        // idents among them, and planting them now means one write for the batch instead of the
+        // director noticing a gap on each of the next several boundaries. The director keeps its
+        // own pass for the lineups nothing ever extends, an imported playlist chief among them.
+        const planted = await this.breaks.plant(lineup, rules);
+
         this.logger.info('director: extended a lineup', {
             job: this.context.id,
             lineup: lineup.id,
@@ -133,6 +142,7 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
             named: picks.length,
             resolved: resolved.length,
             added: added.length,
+            breaks: planted,
         });
     }
 }

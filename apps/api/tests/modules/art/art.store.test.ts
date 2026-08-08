@@ -1,10 +1,13 @@
-import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+// How bytes are laid out and every guard against a path that is not what it claims belong to
+// ContentStore and are tested there, once. What is left here is what this store adds: which formats
+// it holds, and the two mime maps, which point in opposite directions and are easy to confuse.
+
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { ArtStore } from '../../../src/modules/art/art.store.js';
+import { ART_CONTENT_TYPES, ART_EXTENSIONS, ART_SERVED_TYPES, ArtStore, isArtExtension } from '../../../src/modules/art/art.store.js';
 
 let root: string;
 let store: ArtStore;
@@ -18,57 +21,30 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-const sha256 = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
-
 describe('ArtStore', () => {
-    it('writes bytes under their own checksum, sharded', async () => {
+    it('holds every format the art operation declares', async () => {
         const bytes = Buffer.from('cover art');
 
-        const checksum = await store.write(bytes, 'jpg');
-
-        expect(checksum).toBe(sha256(bytes));
-        expect(await readFile(join(root, checksum.slice(0, 2), `${checksum}.jpg`))).toEqual(bytes);
+        for (const ext of ART_EXTENSIONS) {
+            const checksum = await store.write(bytes, ext);
+            expect(await store.read(checksum, ext)).toEqual(bytes);
+            expect(store.contentTypeFor(ext)).toBe(ART_SERVED_TYPES[ext]);
+        }
     });
 
-    it('reads back what it wrote', async () => {
-        const bytes = Buffer.from('cover art');
-        const checksum = await store.write(bytes, 'jpg');
-
-        expect(await store.read(checksum, 'jpg')).toEqual(bytes);
+    it('does not hold a format it has no mime for', () => {
+        expect(isArtExtension('svg')).toBe(false);
+        expect(isArtExtension('sh')).toBe(false);
+        expect(() => store.pathFor('a'.repeat(64), 'svg' as never)).toThrow(/extension/);
     });
 
-    it('writes the same bytes to one file however many times it is asked', async () => {
-        const bytes = Buffer.from('cover art');
-
-        const first = await store.write(bytes, 'jpg');
-        const second = await store.write(bytes, 'jpg');
-
-        expect(second).toBe(first);
-        expect(await store.read(first, 'jpg')).toEqual(bytes);
-    });
-
-    it('treats a missing file as a miss rather than an error', async () => {
-        expect(await store.read(sha256(Buffer.from('never written')), 'jpg')).toBeUndefined();
-    });
-
-    it('refuses a checksum that is not a sha256', async () => {
-        expect(() => store.pathFor('../../etc/passwd', 'jpg')).toThrow(/sha256/);
-        expect(() => store.pathFor('abc', 'jpg')).toThrow(/sha256/);
-        expect(() => store.pathFor(`${'a'.repeat(63)}Z`, 'jpg')).toThrow(/sha256/);
-    });
-
-    it('refuses an extension that is not art', async () => {
-        const checksum = sha256(Buffer.from('cover art'));
-
-        expect(() => store.pathFor(checksum, 'sh' as never)).toThrow(/extension/);
-    });
-
-    // The read path takes both halves from a database row, so it declines rather than throws:
-    // a hand-edited row should read as a cache miss, not as a 500.
-    it('declines to read a traversal attempt without touching the filesystem', async () => {
-        await writeFile(join(root, 'secret'), 'not art');
-
-        expect(await store.read('../secret', 'jpg')).toBeUndefined();
-        expect(await store.read(sha256(Buffer.from('x')), '../../etc/passwd')).toBeUndefined();
+    // The two maps are not inverses and the difference is deliberate. What an upstream may CALL a
+    // jpeg is generous, because plenty of servers send the unregistered `image/jpg`. What we say on
+    // the way out is exactly one correct mime per format.
+    it('accepts more mimes on the way in than it produces on the way out', () => {
+        expect(ART_CONTENT_TYPES['image/jpg']).toBe('jpg');
+        expect(ART_CONTENT_TYPES['image/jpeg']).toBe('jpg');
+        expect(store.contentTypeFor('jpg')).toBe('image/jpeg');
+        expect(Object.values(ART_SERVED_TYPES)).not.toContain('image/jpg');
     });
 });

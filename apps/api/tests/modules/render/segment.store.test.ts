@@ -1,10 +1,14 @@
-import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+// How bytes are laid out and every guard against a path that is not what it claims belong to
+// ContentStore and are tested there, once. What is left here is what this store adds: which formats
+// it holds, and what each is served as — which is the load-bearing half, because both consumers of
+// segment audio pick their behaviour from the Content-Type rather than from the bytes.
+
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { SEGMENT_EXTENSIONS, SegmentStore } from '../../../src/modules/render/segment.store.js';
+import { SEGMENT_CONTENT_TYPES, SEGMENT_EXTENSIONS, SegmentStore, isSegmentExtension } from '../../../src/modules/render/segment.store.js';
 
 let root: string;
 let store: SegmentStore;
@@ -18,74 +22,35 @@ afterEach(async () => {
     await rm(root, { recursive: true, force: true });
 });
 
-const sha256 = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
-
 describe('SegmentStore', () => {
-    it('writes bytes under their own checksum, sharded', async () => {
-        const bytes = Buffer.from('a station ident');
-
-        const checksum = await store.write(bytes, 'mp3');
-
-        expect(checksum).toBe(sha256(bytes));
-        expect(await readFile(join(root, checksum.slice(0, 2), `${checksum}.mp3`))).toEqual(bytes);
-    });
-
-    it('reads back what it wrote', async () => {
-        const bytes = Buffer.from('a station ident');
-        const checksum = await store.write(bytes, 'mp3');
-
-        expect(await store.read(checksum, 'mp3')).toEqual(bytes);
-    });
-
-    // The same recording delivered twice is one segment, and this is the half of that which is
-    // true on disk. The other half is the partial unique index the repository conflicts on.
-    it('writes the same bytes to one file however many times it is asked', async () => {
-        const bytes = Buffer.from('a station ident');
-
-        const first = await store.write(bytes, 'mp3');
-        const second = await store.write(bytes, 'mp3');
-
-        expect(second).toBe(first);
-        expect(await store.read(first, 'mp3')).toEqual(bytes);
-    });
-
-    // A segment whose file has gone missing is a segment that cannot air, which the service turns
-    // into a 404 and the director skips. It is not a crash on the boundary.
-    it('treats a missing file as nothing to play rather than an error', async () => {
-        expect(await store.read(sha256(Buffer.from('never written')), 'mp3')).toBeUndefined();
-    });
-
-    it('refuses a checksum that is not a sha256', async () => {
-        expect(() => store.pathFor('../../etc/passwd', 'mp3')).toThrow(/sha256/);
-        expect(() => store.pathFor('abc', 'mp3')).toThrow(/sha256/);
-        expect(() => store.pathFor(`${'a'.repeat(63)}Z`, 'mp3')).toThrow(/sha256/);
-    });
-
-    it('refuses an extension the station does not serve', async () => {
-        const checksum = sha256(Buffer.from('a station ident'));
-
-        expect(() => store.pathFor(checksum, 'sh' as never)).toThrow(/extension/);
-        expect(() => store.pathFor(checksum, 'aiff' as never)).toThrow(/extension/);
-    });
-
-    // The store holds every format the audio operation declares a mime for, because the service
-    // answers with that mime and the router sets ctx.type from it. One is not more real than
-    // another: a wav is written, read and served as a wav.
-    it('holds every format the contract declares', async () => {
+    // One is not more real than another: a wav is written, read and served as a wav. The store held
+    // mp3 alone until the contract could declare a mime per format.
+    it('holds every format the audio operation declares', async () => {
         const bytes = Buffer.from('a station ident');
 
         for (const ext of SEGMENT_EXTENSIONS) {
             const checksum = await store.write(bytes, ext);
             expect(await store.read(checksum, ext)).toEqual(bytes);
+            expect(store.contentTypeFor(ext)).toBe(SEGMENT_CONTENT_TYPES[ext]);
         }
     });
 
-    // The read path takes both halves from a database row, so it declines rather than throws: a
-    // hand-edited row should read as a segment with no audio, not as a 500.
-    it('declines to read a traversal attempt without touching the filesystem', async () => {
-        await writeFile(join(root, 'secret'), 'not audio');
+    it('serves mp3 as audio/mpeg, which is what Liquidsoap chooses its decoder from', () => {
+        expect(store.contentTypeFor('mp3')).toBe('audio/mpeg');
+    });
 
-        expect(await store.read('../secret', 'mp3')).toBeUndefined();
-        expect(await store.read(sha256(Buffer.from('x')), '../../etc/passwd')).toBeUndefined();
+    it('does not hold audio it has no mime for', () => {
+        expect(isSegmentExtension('aiff')).toBe(false);
+        expect(isSegmentExtension('sh')).toBe(false);
+        expect(() => store.pathFor('a'.repeat(64), 'aiff' as never)).toThrow(/extension/);
+    });
+
+    // The free function and the method are the same question asked from two places: the library
+    // scan has only a filename, while a caller holding the store has the store.
+    it('agrees with its own free function about what it holds', () => {
+        for (const ext of SEGMENT_EXTENSIONS) {
+            expect(isSegmentExtension(ext)).toBe(true);
+            expect(store.isExtension(ext)).toBe(true);
+        }
     });
 });

@@ -41,10 +41,21 @@ export function apiErrorDetails(error: unknown): Record<string, string> | undefi
     return details && Object.keys(details).length > 0 ? details : undefined;
 }
 
-/** A human-readable message for an Alert, with a caller-supplied fallback. */
+/**
+ * A human-readable message for an Alert, with a caller-supplied fallback.
+ *
+ * `details.message` first, because that is where the API puts the sentence it actually wrote:
+ * `httpError(409).withDetails({ message: 'that lineup is on air…' })` leaves the envelope's own
+ * `message` as the status phrase, so reading that alone turns every considered explanation the
+ * server offers into the word "Conflict". Field-keyed validation details have no `message` key and
+ * are unaffected; a body with neither falls through to the caller's fallback.
+ */
 export function apiErrorMessage(error: unknown, fallback: string): string {
-    const message = apiErrorBody(error)?.message;
-    return typeof message === 'string' && message.length > 0 ? message : fallback;
+    const body = apiErrorBody(error);
+    for (const candidate of [body?.details?.message, body?.message]) {
+        if (typeof candidate === 'string' && candidate.length > 0) return candidate;
+    }
+    return fallback;
 }
 
 /**

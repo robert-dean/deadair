@@ -30,7 +30,11 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
     // back off the query at call time would send whatever the cache had drifted to instead.
     const loaded = lineup.data;
     const onAir = air.data?.lineupId === lineupId;
-    const committed = loaded?.items.filter(item => item.committed).length ?? 0;
+    // Both halves come from the lineup's own cursor rather than one from here and one from the air
+    // poll. The two readings are taken on different clocks, and mixing them puts a sentence on the
+    // page whose numbers do not add up to the track count printed beside them.
+    const committed = loaded?.cursor ?? 0;
+    const toGo = loaded === undefined ? 0 : loaded.items.length - loaded.cursor;
 
     return (
         <Stack gap="lg">
@@ -63,7 +67,7 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
                                     {/* Only while this is the lineup on air. A cursor on a lineup
                                         nobody is playing reads as zero, which is honest, and
                                         saying "0 aired" about it would imply it is queued to. */}
-                                    {onAir ? ` • ${committed} aired • ${air.data?.remaining ?? 0} to go` : ''}
+                                    {onAir ? ` • ${committed} aired • ${toGo} to go` : ''}
                                 </Text>
                             </Group>
                         ) : undefined}

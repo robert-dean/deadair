@@ -79,6 +79,19 @@ describe('LineupDetailPage', () => {
         expect(screen.getByText('aired')).toBeInTheDocument();
     });
 
+    it('counts both halves off the lineup, so they add up when the air poll has moved on', async () => {
+        // The two readings are taken on different clocks: the air poll runs every five seconds and
+        // the lineup is only re-read when something changes it. Taking "aired" from one and "to go"
+        // from the other puts a sentence on the page whose numbers do not sum to the track count
+        // printed beside them, which is exactly what happened on the real station.
+        getALineup.mockResolvedValue(airedLineup());
+        getStationAir.mockResolvedValue(stationAir({ cursor: 2, remaining: 1 }));
+
+        render(<LineupDetailPage lineupId="lineup-1" />);
+
+        expect(await screen.findByText(/3 tracks • 1 aired • 2 to go/)).toBeInTheDocument();
+    });
+
     it('offers no way to drop a line the player is already holding', async () => {
         getALineup.mockResolvedValue(airedLineup());
         getStationAir.mockResolvedValue(stationAir());

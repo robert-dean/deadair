@@ -120,8 +120,23 @@ describe('error envelope', () => {
         expect(apiErrorMessage(error, 'fallback')).toBe('Validation failed');
     });
 
+    it('prefers the sentence the server wrote over the status phrase', () => {
+        // `httpError(409).withDetails({ message })` is how every considered refusal in this API is
+        // written, and it leaves the envelope's own `message` as the bare status phrase. Reading
+        // that alone showed the operator "Conflict" where the server had said which lineup was on
+        // air and what to do about it.
+        const error = failure(
+            409,
+            {},
+            { statusCode: 409, message: 'Conflict', details: { message: 'that lineup is on air; stop the station first' } },
+        );
+        expect(apiErrorMessage(error, 'fallback')).toBe('that lineup is on air; stop the station first');
+    });
+
     it('falls back when there is no envelope', () => {
         expect(apiErrorDetails(failure(500, {}, 'gateway exploded'))).toBeUndefined();
         expect(apiErrorMessage(new TypeError('offline'), 'fallback')).toBe('fallback');
+        // A body carrying neither is the caller's fallback, not an empty tooltip.
+        expect(apiErrorMessage(failure(500, {}, { statusCode: 500 }), 'fallback')).toBe('fallback');
     });
 });

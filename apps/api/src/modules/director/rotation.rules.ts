@@ -157,25 +157,44 @@ export const capPerArtist = <T extends RotationCandidate>(candidates: readonly T
  * the cap alone cannot prevent it — two is under any sensible cap and still
  * sounds wrong when they are adjacent.
  *
- * Greedy and single-pass: it takes the next candidate whose artist differs from
- * the one just placed, and falls back to the head when every remaining candidate
- * is by that artist. So a batch that is entirely one artist comes back in its
- * original order rather than looping, and no reordering is ever worse than the
- * input.
+ * At each step it takes the candidate whose artist has the MOST tracks still
+ * waiting, among those that differ from the one just placed. Taking simply the
+ * first different artist is the obvious version and it is wrong: it strands the
+ * commonest artist at the end, so a batch of `[Two, Three, One, One]` comes back
+ * with the two One tracks adjacent even though an arrangement exists. Spending
+ * the crowded artist while there are still others to separate them with is what
+ * makes this succeed whenever success is possible at all.
+ *
+ * Ties keep the earlier candidate, so the ordering is stable rather than
+ * wandering between runs of the same input. When everything remaining is by the
+ * artist just placed — a batch that is entirely one act — it takes the head:
+ * nothing can be done about it, and stalling would be worse.
  */
 export const spaceArtists = <T extends RotationCandidate>(candidates: readonly T[]): T[] => {
     const pending = [...candidates];
+    const remaining = new Map<string, number>();
+    for (const candidate of pending) remaining.set(candidate.artistKey, (remaining.get(candidate.artistKey) ?? 0) + 1);
+
     const spaced: T[] = [];
     let previous: string | undefined;
 
     while (pending.length > 0) {
-        let index = pending.findIndex(candidate => candidate.artistKey !== previous);
-        // Everything left is by the artist just placed. Nothing can be done about it,
-        // so keep the given order rather than stalling.
+        let index = -1;
+        let best = 0;
+        pending.forEach((candidate, position) => {
+            if (candidate.artistKey === previous) return;
+            const count = remaining.get(candidate.artistKey) ?? 0;
+            if (count > best) {
+                best = count;
+                index = position;
+            }
+        });
+        // Everything left is by the artist just placed.
         if (index < 0) index = 0;
 
         const [next] = pending.splice(index, 1);
         spaced.push(next!);
+        remaining.set(next!.artistKey, (remaining.get(next!.artistKey) ?? 1) - 1);
         previous = next!.artistKey;
     }
     return spaced;

@@ -26,6 +26,15 @@ const candidate = (title: string, artists: string[], rating?: number): RotationC
 
 const none = { songKeys: new Set<string>(), artistKeys: new Set<string>() };
 
+/** Every ordering of a small batch, for a rule that must not depend on the order it is given. */
+function permutations<T>(items: readonly T[]): T[][] {
+    if (items.length <= 1) return [[...items]];
+
+    return items.flatMap((item, index) =>
+        permutations([...items.slice(0, index), ...items.slice(index + 1)]).map(rest => [item, ...rest]),
+    );
+}
+
 describe('rotation keys', () => {
     it('counts a featured credit as the lead artist', () => {
         // Otherwise a cooldown is dodged by any track with a guest on it, which is
@@ -154,6 +163,27 @@ describe('spaceArtists', () => {
 
         expect(spaceArtists(picks)).toHaveLength(4);
         expect(new Set(spaceArtists(picks).map(c => c.songKey)).size).toBe(4);
+    });
+
+    it('spends the crowded artist early rather than stranding them at the end', () => {
+        // The case a first-different-artist pass gets wrong: it places Two, Three,
+        // One, and then has only One left, so the two One tracks end up adjacent even
+        // though One-Two-One-Three exists. Found by a flaky generator test.
+        const spaced = spaceArtists([candidate('C', 'Two'), candidate('D', 'Three'), candidate('A', 'One'), candidate('B', 'One')]);
+
+        const artists = spaced.map(c => c.artistKey);
+        expect(artists.every((artist, index) => index === 0 || artist !== artists[index - 1])).toBe(true);
+    });
+
+    it('separates the same artist however the batch arrives', () => {
+        // Every ordering of two tracks by one artist among two others has a valid
+        // arrangement, so none of them may come back adjacent.
+        const batch = [candidate('A', 'One'), candidate('B', 'One'), candidate('C', 'Two'), candidate('D', 'Three')];
+
+        for (const order of permutations(batch)) {
+            const artists = spaceArtists(order).map(c => c.artistKey);
+            expect(artists.every((artist, index) => index === 0 || artist !== artists[index - 1])).toBe(true);
+        }
     });
 
     it('gives back a single-artist batch in its original order rather than stalling', () => {

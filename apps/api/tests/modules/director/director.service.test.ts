@@ -141,13 +141,14 @@ function build(options: Options = {}) {
     };
     const container = { createScopedContainer: () => scope } as unknown as Container;
 
-    const jobs = { send: vi.fn(async () => 'job-1') } as unknown as PgBossJobBroker;
+    // The singleton broker, which is what JobsModule documents for a non-request caller.
+    const jobs = { send: vi.fn(async () => 'job-1') };
 
     // A stub: what the gate does to the mount is PlayoutPusher's, and is tested there.
     // What matters here is only that the mode reaches it.
     const audience = { useMode: vi.fn() } as unknown as AudienceWatch;
 
-    const director = new DirectorService(rundown, audience, container, jobs, logger);
+    const director = new DirectorService(rundown, audience, container, jobs as unknown as PgBossJobBroker, logger);
 
     return {
         director,
@@ -934,5 +935,48 @@ describe('DirectorService while it knows the plan is wrong', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+});
+
+// The refill is the only thing standing between a rotation and silence, and both ways it used to
+// fail were invisible: the send threw where nobody was waiting, and the guard that stops a burst of
+// duplicate sends latched anyway, so it never tried again.
+describe('DirectorService asking for a refill', () => {
+    it('sends the refill from a scope of its own', async () => {
+        const { director, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+
+        await director.start();
+        await settle();
+
+        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { lineupId: 'lineup-1' });
+    });
+
+    // The one that turned a transient failure into a permanent one.
+    it('asks again after a send that failed', async () => {
+        const { director, rundown, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        jobs.send.mockRejectedValueOnce(new Error('the broker is not available here'));
+
+        await director.start();
+        await settle();
+        await wake(rundown);
+
+        // Before the fix the guard was set before the send, so the one that threw latched it and
+        // the station never asked again. Now the guard is only set once a send has landed, so a
+        // failure is retried on the next pass.
+        expect(jobs.send.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    it('does not ask twice for the same shortfall once a send has landed', async () => {
+        const { director, rundown, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        await settle();
+
+        await wake(rundown);
+        await wake(rundown);
+
+        expect(jobs.send).toHaveBeenCalledTimes(1);
     });
 });

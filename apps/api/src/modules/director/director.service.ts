@@ -152,6 +152,8 @@ export class DirectorService {
         private readonly rundown: Rundown,
         private readonly audience: AudienceWatch,
         private readonly container: Container,
+        // The singleton broker, which is what JobsModule documents for a non-request caller: it
+        // resolves the root connection provider, and therefore pg-boss's own pool.
         private readonly jobs: PgBossJobBroker,
         private readonly logger: Logger,
     ) {}
@@ -508,8 +510,22 @@ export class DirectorService {
         }
         if (this.extendSent) return;
 
+        // The guard is set only once the send has actually landed. Setting it first means a send
+        // that throws latches it forever: nothing clears the guard until the lineup grows, and the
+        // lineup cannot grow until a refill is sent. One failure and the station never refills
+        // again, which is how this one spent an afternoon silent.
+        try {
+            await this.jobs.send('director.extend_lineup', { lineupId: lineup.id });
+        } catch (error) {
+            // Swallowed on purpose, and the guard is left clear so the next boundary asks again.
+            // A refill that could not be sent must not take the commit pass down with it: the
+            // lineup still has items, the station is still playing them, and the pass this is the
+            // tail of is what keeps the running order full.
+            this.logger.warn(`director: could not ask for a refill (${message(error)})`);
+            return;
+        }
         this.extendSent = true;
-        await this.jobs.send('director.extend_lineup', { lineupId: lineup.id });
+
         this.logger.info('director: the lineup is running short; a refill is on its way', {
             lineup: lineup.id,
             remaining: lineup.remaining(),

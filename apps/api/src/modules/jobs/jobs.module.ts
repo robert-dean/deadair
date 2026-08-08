@@ -1,13 +1,7 @@
 import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { JobBroker, JobRunner, registerJobContext } from '@maroonedsoftware/jobbroker';
-import {
-    KyselyTransactionConnectionProvider,
-    PgBossConnectionProvider,
-    PgBossJobBroker,
-    PgBossJobRegistryMap,
-    PgBossJobRunner,
-} from '@maroonedsoftware/jobbroker/pgboss';
+import { PgBossConnectionProvider, PgBossJobBroker, PgBossJobRegistryMap, PgBossJobRunner } from '@maroonedsoftware/jobbroker/pgboss';
 import { PgBoss } from 'pg-boss';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { JobMappings, jobClassOf } from './job.mappings.js';
@@ -53,7 +47,17 @@ export const JobsModule: ServerKitModule = {
         }
 
         registry.register(PgBossJobRegistryMap).useInstance(jobRegistry);
-        registry.register(PgBossConnectionProvider).useClass(KyselyTransactionConnectionProvider).asSingleton();
+        // The BASE provider at the root, whose executor answers `undefined` — pg-boss's own pool.
+        // The transaction-bound subclass is installed per request, as an override, by
+        // audit.context.middleware; registering it here as well looked like belt and braces and was
+        // the opposite. Constructed at the root it has no transaction to bind to, so every
+        // non-request caller got a provider that threw on `withoutPlugins` of undefined — which is
+        // exactly the set of callers the two-broker split below exists to serve.
+        //
+        // It failed silently in the one place it mattered most: the director asks for a refill when
+        // a lineup runs short, off the request path, and that send threw every time. A station that
+        // reached the end of its programming stayed there.
+        registry.register(PgBossConnectionProvider).useClass(PgBossConnectionProvider).asSingleton();
 
         // Two brokers, by lifetime:
         //  - PgBossJobBroker (singleton): for non-request callers — bootstrap

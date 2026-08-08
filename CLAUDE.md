@@ -32,6 +32,9 @@ exists.
   boundary is still JSON-safe.
 - `docs/decisions/plugin-streaming.md` for how bytes would cross that boundary, and why the byte
   protocol is specified but not built.
+- `docs/todo/` for work that was designed against the real tree and then deliberately deferred, and
+  the seam each piece drops into. Read it before designing a station feature from scratch: the call
+  may already have been made. It describes the current tree only.
 - `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. **Read its
   module and route tables as the target design, not the tree.** They describe station/playout/
   director/render/nowplaying/engine modules that are not built here yet, and a `config` module that

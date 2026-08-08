@@ -117,6 +117,13 @@ listener keeps their connection and hears the station come back rather than havi
 a mount that 404'd. The cut is immediate (`track_sensitive=false`), not at the next boundary — a
 boundary may be minutes away, or never.
 
+Silence is **labelled**, and has to be asked for explicitly. A mount's title only changes when a
+source emits metadata, and silence has no track boundaries to emit one at — so without a nudge the
+last track's label stays up indefinitely, and a listener still connected watches a track that
+ended minutes ago. `radio.liq` therefore announces the station's own name into the stream on the
+tick the lease lapses. Bed tracks get the same treatment where their files carry no tags of their
+own; a bed track that knows its title keeps it.
+
 `CONTROL_TTL_S` (default 6s, three reconciles) is the window. Both ends come from one constant:
 the app materializes it into `radio.env` from `CONTROL_TTL_S` in
 `apps/api/src/modules/playout/liquidsoap.control.ts`. Too short and a slow tick drops the mount;

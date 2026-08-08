@@ -95,10 +95,29 @@ music =
   )
 music = normalize(target=-16., music)
 
+# The station's own name, hoisted because two things need it: the mount's advertised name (step 6)
+# and the label the mount carries whenever what is playing is NOT a programme item.
+stream_name = environment.get("STREAM_NAME", default="Static Between Stations")
+
+# What the mount is labelled with when a bed track has nothing to say for itself.
+#
+# The mount's title only ever changes when a source emits metadata. A local file with no tags
+# emits none, so without this the label from the LAST programme item simply stays up — a listener
+# sees a track that stopped minutes ago and is still being told it is playing. `insert_missing`
+# is what forces a packet at the start of every bed track so there is something to fill in.
+#
+# Existing tags win. A bed track that knows its own title is more useful than the station name,
+# and this is only ever filling a hole.
+def bed_label(m) =
+  if m["title"] == "" then [("title", stream_name)] else m end
+end
+
+music = map_metadata(bed_label, insert_missing=true, music)
+
 # The floor UNDER the programme: a bundled station ident/bed. Always available, so a gap inside
 # a programme deadair is driving never becomes dead air, and the voice always has something to
 # duck. It is not a floor under the station itself — the lease gate below is above all of this.
-station_id = mksafe(single("/radio/station-id.mp3"))
+station_id = map_metadata(bed_label, insert_missing=true, mksafe(single("/radio/station-id.mp3")))
 
 # 2) The music bed: a request.queue the APP pushes into (POST /control/push below), one item at a
 # time. Empty queue → the source is unavailable, so the enclosing fallback drops to the local
@@ -466,6 +485,34 @@ programme =
 # can tell them apart.
 radio = fallback(track_sensitive=false, [switch(track_sensitive=false, [({driving()}, programme)]), blank()])
 
+# The label, when the station is not saying anything.
+#
+# Silence has no track boundaries, so nothing downstream ever emits metadata for it and the mount
+# keeps whatever it was last told — the last programme item, indefinitely. A listener still
+# connected watches a track that ended minutes ago, and anything reading the mount to find out
+# what is on (a hi-fi display, a station page, a scraper) is told the same untruth.
+#
+# So the transition into silence is announced explicitly. `insert_metadata` puts a packet into the
+# stream at the current position rather than at a boundary, which is the only way to label a
+# source that has none.
+radio = insert_metadata(radio)
+
+# Deliberately seeded as if the station had been driving, so the FIRST tick after startup labels
+# a freshly started mount with the station name instead of leaving it blank until something airs.
+was_driving = ref(true)
+
+def label_when_off_air() =
+  now = driving()
+  if was_driving() and not now then
+    radio.insert_metadata([("title", stream_name), ("artist", "")])
+  end
+  was_driving := now
+end
+
+# On the same tick as the lease countdown: the lapse this reacts to is measured there, and a
+# second clock would only disagree with it.
+thread.run(every=lease_tick, label_when_off_air)
+
 # 6) Encode to MP3 and push to the Icecast mount.
 output.icecast(
   %mp3(bitrate=int_of_string(environment.get("STREAM_BITRATE", default="128"))),
@@ -473,7 +520,7 @@ output.icecast(
   port        = int_of_string(environment.get("ICECAST_PORT", default="8000")),
   password    = environment.get("ICECAST_SOURCE_PASSWORD"),
   mount       = environment.get("STREAM_MOUNT", default="/live.mp3"),
-  name        = environment.get("STREAM_NAME", default="Static Between Stations"),
+  name        = stream_name,
   description = environment.get("STREAM_DESCRIPTION", default=""),
   genre       = environment.get("STREAM_GENRE", default="Talk"),
   url         = environment.get("STREAM_URL", default=""),

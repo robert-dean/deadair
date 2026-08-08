@@ -533,8 +533,8 @@ def control_metadata(req) =
   if not control_authorized(req) then
     control_denied()
   else
-    label = string.trim(req.body())
-    if label == "" then
+    caption = string.trim(req.body())
+    if caption == "" then
       http.response(status_code=400, content_type="text/plain", data="no label")
     else
       # ONE finished line, not a title/artist pair. Icecast composes the ICY title from
@@ -542,7 +542,7 @@ def control_metadata(req) =
       # pair here would buy nothing and cost this endpoint a body format to get wrong.
       # The artist is cleared for the reason the off-air label clears it: leaving the
       # previous one standing under a new title is its own kind of wrong.
-      radio.insert_metadata([("title", label), ("artist", "")])
+      radio.insert_metadata([("title", caption), ("artist", "")])
       control_json('{' ^ playout_reading() ^ '}')
     end
   end

@@ -90,7 +90,26 @@ export interface QueueStatus {
      * see {@link PlayoutControlClient.isOnAir}.
      */
     driving?: boolean;
+    /**
+     * What the armed talk-over cue is doing.
+     *
+     *   `idle`   nothing armed
+     *   `armed`  waiting for its record to reach the moment
+     *   `fired`  pushed to the voice queue
+     *   `missed` its record ended, or was skipped, before the moment arrived
+     *
+     * `missed` is the one worth reading. A cue that expired is invisible from
+     * outside by construction — nothing was heard, and nothing failed — so without
+     * this the station would drop breaks silently and the only symptom would be a
+     * DJ that talks less than it should.
+     */
+    voice?: VoiceCueState;
 }
+
+/** See {@link QueueStatus.voice}. */
+export type VoiceCueState = 'idle' | 'armed' | 'fired' | 'missed';
+
+const VOICE_STATES: readonly string[] = ['idle', 'armed', 'fired', 'missed'];
 
 @Injectable()
 export class PlayoutControlClient {
@@ -195,6 +214,33 @@ export class PlayoutControlClient {
     }
 
     /**
+     * Line a segment up to play OVER a record, `atMs` into it.
+     *
+     * The station does not decide when the DJ speaks; this says what to say and
+     * against which item, and `radio.liq` picks the instant. That is the whole
+     * design and not a detail: the elapsed time is measured in the streaming loop,
+     * where it carries no error from this process's clock, from this round trip,
+     * or from the buffers between the decoder and the listener.
+     *
+     * One cue is held at a time, so a second arm replaces the first. That is why
+     * this is called as each item is handed over rather than for a whole batch.
+     *
+     * The cue is carried in headers because the script parses none: `list.assoc`
+     * over the request headers is a primitive it already uses for its own secret.
+     */
+    async armVoice(uri: string, itemId: string, atMs: number): Promise<boolean> {
+        return !!(await this.call('POST', '/control/voice/arm', uri, {
+            'X-Voice-Item': itemId,
+            'X-Voice-At-Ms': String(Math.max(0, Math.round(atMs))),
+        }));
+    }
+
+    /** Forget an armed cue. What a stand-down needs: its record is not going to air. */
+    async clearVoice(): Promise<boolean> {
+        return !!(await this.call('POST', '/control/voice/clear'));
+    }
+
+    /**
      * Drop everything queued but not yet airing. What is on air finishes: the
      * station stops committing to a running order it has abandoned, it does not
      * cut the listener off mid-track.
@@ -238,7 +284,7 @@ export class PlayoutControlClient {
     }
 
     /** One control call. Resolves to the parsed JSON body, or `undefined` on any failure. */
-    private async call(method: 'GET' | 'POST', path: string, body?: string): Promise<unknown> {
+    private async call(method: 'GET' | 'POST', path: string, body?: string, extra?: Record<string, string>): Promise<unknown> {
         const base = await this.endpoint.resolve();
         if (!base) {
             // Nothing answered the probe, so there is no address to be up at.
@@ -252,6 +298,7 @@ export class PlayoutControlClient {
                 headers: {
                     'X-Playout-Secret': this.endpoint.secret(),
                     ...(body === undefined ? {} : { 'Content-Type': 'text/plain' }),
+                    ...extra,
                 },
                 body,
                 signal: AbortSignal.timeout(CONTROL_TIMEOUT_MS),
@@ -307,6 +354,9 @@ export function parseReading(body: unknown): QueueStatus | undefined {
     // which is never actionable: the boundary that proves it is a moment away.
     const remaining = Number(raw.remainingMs);
     if (Number.isFinite(remaining) && remaining > 0) status.remainingMs = remaining;
+    // Absent from a Liquidsoap on an older script, which is not an error: everything else in the
+    // reading is still true, and the app simply cannot see the cue.
+    if (typeof raw.voice === 'string' && VOICE_STATES.includes(raw.voice)) status.voice = raw.voice as VoiceCueState;
     return status;
 }
 

@@ -35,19 +35,14 @@ contract LineupItem: { # One line of a lineup, which is either a record or somet
     year?: int(min=0)
     trackId?: string(max=100) # The canonical catalog track, when this is one the catalog holds
     segmentId?: string(min=1, max=100) # Which segment this line plays. Present only on a segment
-    segmentState?: enum(
-        planned,
-        rendering,
-        ready,
-        failed,
-        gone
-    ) # How far along the segment is. `gone` means the lineup names one the library no longer holds
+    segmentState?: enum(planned, rendering, ready, failed, gone)
     playable?: boolean # Whether the station can actually air this segment. A line that is not is SKIPPED when the cursor reaches it, rather than held open
 }
 
 contract AddLineupSegmentInput: { # Put something the station says into a lineup
     segmentId: string(min=1, max=100)
     atIndex?: int(min=0) # Where to put it. Absent puts it at the end. A position at or before the cursor is refused: the player is already holding that part of the order
+    overAtMs?: int(min=0, max=600000) # Play it OVER the record that follows, this far into it, rather than in the gap before it. The station ducks the music under the voice. Absent plays it between two records, which is the simpler path
     revision?: int(min=0)
 }
 

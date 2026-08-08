@@ -600,3 +600,37 @@ describe('Rundown resolving across a change of plan', () => {
         expect(rundown.servedCount()).toBe(1);
     });
 });
+
+// A talk-over rides on the record it is heard over. The rundown carries it without interpreting it,
+// the way it carries trackId, and resolves it through the same chain so there is one place that
+// knows how to turn something into audio the player can fetch.
+describe('Rundown resolving a talk-over cue', () => {
+    it('resolves the cue alongside the record and hands both over', async () => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        rundown.load([{ ...track('a'), voice: { segmentId: 'seg-1', atMs: 8000 } }]);
+
+        const pulled = await rundown.next();
+
+        expect(pulled?.url).toBe('https://example.test/a.ogg');
+        expect(pulled?.voice).toEqual({ url: 'https://example.test/seg-1.ogg', atMs: 8000 });
+    });
+
+    it('hands the record over without a cue when nothing asked for one', async () => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        rundown.load([track('a')]);
+
+        expect((await rundown.next())?.voice).toBeUndefined();
+    });
+
+    // The right way round: a DJ missing a break is a quiet failure, a record missing is an audible
+    // one. The cue is the part that gives way.
+    it('airs the record anyway when the cue will not resolve', async () => {
+        const rundown = new Rundown(new StubResolver(new Set(['seg-1'])), logger);
+        rundown.load([{ ...track('a'), voice: { segmentId: 'seg-1', atMs: 8000 } }]);
+
+        const pulled = await rundown.next();
+
+        expect(pulled?.item.externalId).toBe('a');
+        expect(pulled?.voice).toBeUndefined();
+    });
+});

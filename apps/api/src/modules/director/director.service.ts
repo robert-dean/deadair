@@ -104,6 +104,18 @@ export class DirectorService {
      * air are added — and there are several coming.
      */
     private readonly epoch = new Epoch();
+    /**
+     * A talk-over whose record has not been committed yet.
+     *
+     * A commit batch is three items, so a talk-over planted before the last record of a batch has
+     * nothing in that batch to ride on. Rather than drop it — which would lose a third of them —
+     * it waits here for the first record of the next batch.
+     *
+     * Cleared wherever the plan changes, because a cue is about a particular record in a particular
+     * running order, and one held across a stand-down or a change of lineup would attach itself to
+     * the first record of something else entirely.
+     */
+    private pendingVoice?: { segmentId: string; atMs: number };
     private readonly unsubscribes: (() => void)[] = [];
 
     constructor(
@@ -146,6 +158,7 @@ export class DirectorService {
      */
     async reload(): Promise<void> {
         this.epoch.bump();
+        this.pendingVoice = undefined;
         this.airReadAt = 0;
         this.lineup = undefined;
         await this.restore();
@@ -172,6 +185,7 @@ export class DirectorService {
      */
     private async restore(): Promise<void> {
         this.epoch.bump();
+        this.pendingVoice = undefined;
         const air = await this.readAir(true);
         this.active = air?.active ?? false;
 
@@ -343,20 +357,54 @@ export class DirectorService {
         const segments =
             wanted.length === 0 ? new Map<string, Segment>() : await this.inScope(async scope => scope.get(SegmentRepository).findByIds(wanted));
 
-        return items.flatMap(item => {
-            if (item.kind === 'track') return [item.track];
+        const tracks: RundownTrack[] = [];
+        // A talk-over waiting for a record to attach itself to. It may have arrived in an earlier
+        // batch: see the field's own note.
+        let pending = this.pendingVoice;
+        this.pendingVoice = undefined;
+
+        for (const item of items) {
+            if (item.kind === 'track') {
+                tracks.push(pending === undefined ? item.track : { ...item.track, voice: pending });
+                pending = undefined;
+                continue;
+            }
 
             const segment = segments.get(item.segmentId);
-            if (segment?.state === 'ready') return [segmentRundownTrack(segment)];
+            if (segment?.state !== 'ready') {
+                this.logger.info('director: skipping a segment that is not ready to air', {
+                    segment: item.segmentId,
+                    // `gone` rather than a state, for a row the lineup names and the library no
+                    // longer holds. Distinguishable in a log, and the same outcome either way.
+                    state: segment?.state ?? 'gone',
+                });
+                continue;
+            }
 
-            this.logger.info('director: skipping a segment that is not ready to air', {
-                segment: item.segmentId,
-                // `gone` rather than a state, for a row the lineup names and the library no longer
-                // holds. Distinguishable in a log, and the same outcome either way.
-                state: segment?.state ?? 'gone',
-            });
-            return [];
-        });
+            // A talk-over is not an item and never becomes one: it is heard ALONGSIDE the record
+            // that follows it rather than in the gap before it, so it rides on that record and the
+            // pusher arms it as the record is handed over.
+            //
+            // Two of them in a row would be one talking over the other, so the later one wins and
+            // the earlier is dropped. That is a programming mistake rather than a fault, and the
+            // alternative — queueing them — is two voices at once.
+            if (item.over !== undefined) {
+                if (pending !== undefined) {
+                    this.logger.info('director: two talk-overs in a row; keeping the later one', { dropped: pending.segmentId });
+                }
+                pending = { segmentId: segment.id, atMs: item.over.atMs };
+                continue;
+            }
+
+            tracks.push(segmentRundownTrack(segment));
+        }
+
+        // Held for the next pass rather than dropped. A batch is only three items, so a talk-over
+        // planted before the last record of one lands here roughly a third of the time, and
+        // discarding it would silently lose that many breaks. It is cleared wherever the plan
+        // changes, alongside the epoch it would otherwise outlive.
+        this.pendingVoice = pending;
+        return tracks;
     }
 
     /**
@@ -474,6 +522,7 @@ export class DirectorService {
     /** Stop driving and remember that the station is off, so a restart stays off. */
     private async standDown(): Promise<void> {
         this.epoch.bump();
+        this.pendingVoice = undefined;
         this.active = false;
         this.extendSent = false;
         this.airReadAt = 0;

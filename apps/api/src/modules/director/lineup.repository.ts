@@ -212,11 +212,16 @@ const toItems = (value: unknown): LineupItem[] => {
     return value.reduce<LineupItem[]>((items, raw) => {
         // Described as the JSON it is rather than as a `Partial` of the union: intersecting the two
         // arms collapses their literal `kind`s to `never` and takes every other field with it.
-        const line = raw as { id?: unknown; kind?: unknown; segmentId?: unknown; track?: Partial<RundownTrack> } | null;
+        const line = raw as { id?: unknown; kind?: unknown; segmentId?: unknown; over?: { atMs?: unknown }; track?: Partial<RundownTrack> } | null;
         if (typeof line?.id !== 'string') return items;
 
         if (line.kind === 'segment') {
-            if (typeof line.segmentId === 'string') items.push({ id: line.id, kind: 'segment', segmentId: line.segmentId });
+            if (typeof line.segmentId !== 'string') return items;
+            // A malformed `over` reads as absent rather than as a cue at zero: a talk-over that
+            // fires the instant a record starts is worse than one that plays in the gap, and a
+            // hand-edited row should degrade to the simpler behaviour.
+            const atMs = typeof line.over?.atMs === 'number' && line.over.atMs >= 0 ? line.over.atMs : undefined;
+            items.push({ id: line.id, kind: 'segment', segmentId: line.segmentId, ...(atMs === undefined ? {} : { over: { atMs } }) });
             return items;
         }
 

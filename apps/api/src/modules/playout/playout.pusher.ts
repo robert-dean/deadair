@@ -104,6 +104,10 @@ export class PlayoutPusher {
             this.rundown.onReset(standingDown => {
                 const handed = standingDown ? this.control.releaseOnAir() : this.control.flush();
                 void handed.catch(() => undefined);
+                // An armed cue belongs to a record that is no longer going to air, either way.
+                // `/control/offair` clears it too, but a replacement does not go through that, and
+                // a cue left armed would fire over the first record of the NEW running order.
+                void this.control.clearVoice().catch(() => undefined);
             }),
         );
 
@@ -251,6 +255,21 @@ export class PlayoutPusher {
                 if (!pulled) return;
 
                 const landed = await this.control.push(annotateUri(itemAnnotations(pulled.item), pulled.url));
+
+                // Armed as the record is handed over, which is the earliest honest moment: the id
+                // exists, the item is committed, and the script waits for that record to actually
+                // start before it counts anything. Arming earlier would be arming against an item
+                // that might still be retracted; later there would be no "later" — the next thing
+                // this loop does is hand over the record after it.
+                //
+                // Fire and forget, deliberately, and after the push rather than before it. A cue
+                // is the one part of a hand-over the broadcast does not depend on: the record airs
+                // whether or not the DJ talks over it, and holding the push up for a cue would
+                // trade the thing that matters for the thing that does not.
+                if (landed && pulled.voice) {
+                    void this.control.armVoice(pulled.voice.url, pulled.item.id, pulled.voice.atMs).catch(() => undefined);
+                }
+
                 if (!landed) {
                     // Already popped, so put it back at the head rather than losing it:
                     // nothing aired, and the next pass should offer the same thing again.

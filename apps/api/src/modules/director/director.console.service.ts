@@ -90,9 +90,21 @@ export class DirectorConsoleService {
             throw httpError(422).withDetails({ message: `that segment is ${segment.state} and has no audio to play yet` });
         }
 
-        this.require(await lineup.insertSegment(segment.id, input.atIndex ?? lineup.size(), input.revision));
+        this.require(
+            await lineup.insertSegment(
+                segment.id,
+                input.atIndex ?? lineup.size(),
+                input.revision,
+                input.overAtMs === undefined ? undefined : { atMs: input.overAtMs },
+            ),
+        );
 
-        this.logger.info('director: put a segment into a lineup', { lineup: lineup.id, segment: segment.id, at: input.atIndex });
+        this.logger.info('director: put a segment into a lineup', {
+            lineup: lineup.id,
+            segment: segment.id,
+            at: input.atIndex,
+            over: input.overAtMs,
+        });
         return await this.toLineup(lineup);
     }
 
@@ -390,6 +402,7 @@ const toSegmentLine = (item: LineupSegmentItem, segment: Segment | undefined, co
     artists: [],
     segmentState: segment?.state ?? 'gone',
     playable: segment?.state === 'ready',
+    ...(item.over === undefined ? {} : { overAtMs: item.over.atMs }),
     ...(segment?.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
     committed,
 });

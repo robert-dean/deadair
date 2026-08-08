@@ -42,6 +42,8 @@ function stubControl(reading: QueueStatus | undefined, options: { pushLands?: bo
         flush: vi.fn(async () => reading),
         skip: vi.fn(async () => reading),
         announce: vi.fn(async () => true),
+        armVoice: vi.fn(async () => true),
+        clearVoice: vi.fn(async () => true),
     };
     return { control: control as unknown as PlayoutControlClient, pushed, spy: control };
 }
@@ -85,6 +87,8 @@ function scriptedControl() {
         flush: vi.fn(async () => control.reading),
         skip: vi.fn(async () => control.reading),
         announce: vi.fn(async () => true),
+        armVoice: vi.fn(async () => true),
+        clearVoice: vi.fn(async () => true),
     };
 
     return { control, pushed };
@@ -515,6 +519,8 @@ describe('PlayoutPusher pushing across a change underneath it', () => {
             flush: vi.fn(async () => reading),
             skip: vi.fn(async () => reading),
             announce: vi.fn(async () => true),
+            armVoice: vi.fn(async () => true),
+            clearVoice: vi.fn(async () => true),
         } as unknown as PlayoutControlClient;
 
         const audience = { gateOpen: () => open, onChange: () => () => {} } as unknown as AudienceWatch;
@@ -550,5 +556,63 @@ describe('PlayoutPusher pushing across a change underneath it', () => {
         await harness.pusher.reconcile();
 
         expect(harness.pushed).toHaveLength(1);
+    });
+});
+
+// The cue is armed as the record is handed over: the earliest honest moment, because the item id
+// exists and the item is committed, and the script waits for that record to actually start before
+// it counts anything.
+describe('PlayoutPusher arming a talk-over', () => {
+    const build = (voice?: { url: string; atMs: number }) => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        rundown.load([{ ...track('a'), ...(voice ? { voice: { segmentId: 'seg-1', atMs: voice.atMs } } : {}) }]);
+
+        const reading: QueueStatus = { queued: 0, ready: false, remainingMs: -1, driving: true };
+        const control = {
+            status: vi.fn(async () => reading),
+            assertOnAir: vi.fn(async () => reading),
+            releaseOnAir: vi.fn(async () => reading),
+            push: vi.fn(async () => true),
+            flush: vi.fn(async () => reading),
+            skip: vi.fn(async () => reading),
+            announce: vi.fn(async () => true),
+            armVoice: vi.fn(async () => true),
+            clearVoice: vi.fn(async () => true),
+        };
+        const audience = { gateOpen: () => true, onChange: () => () => {} } as unknown as AudienceWatch;
+
+        return { pusher: new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, audience, logger), control, rundown };
+    };
+
+    it('arms the cue against the item it rides on', async () => {
+        const { pusher, control, rundown } = build({ url: 'https://example.test/seg-1.ogg', atMs: 8000 });
+        // Read BEFORE the reconcile: once the record is handed over it is served rather than
+        // upcoming, and the id is the whole point of the assertion — it is what radio.liq matches
+        // the cue against, so arming with the wrong one means a cue that never fires.
+        const itemId = rundown.upcoming()[0]!.id;
+
+        await pusher.reconcile();
+
+        expect(control.armVoice).toHaveBeenCalledWith('https://example.test/seg-1.ogg', itemId, 8000);
+    });
+
+    it('arms nothing for a record with no cue', async () => {
+        const { pusher, control } = build();
+
+        await pusher.reconcile();
+
+        expect(control.armVoice).not.toHaveBeenCalled();
+    });
+
+    // A replacement does not go through /control/offair, so a cue left armed would fire over the
+    // first record of the NEW running order.
+    it('clears an armed cue when the running order is replaced', async () => {
+        const { pusher, control, rundown } = build();
+        pusher.start();
+
+        rundown.load([track('x')]);
+
+        expect(control.clearVoice).toHaveBeenCalled();
+        pusher.stop();
     });
 });

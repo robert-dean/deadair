@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { RENDER_PLUGIN_ID } from '#modules/render/segment.source.js';
 import { Epoch } from '#modules/shared/epoch.js';
 import type { QueueStatus } from './liquidsoap.control.js';
 import { TrackResolver } from './playout.capability.js';
@@ -55,12 +56,30 @@ export interface RundownItem {
      * ingested.
      */
     trackId?: string;
+    /**
+     * Something the station means to SAY over this item, rather than after it.
+     *
+     * Opaque here, exactly as `trackId` is: the rundown neither reads it nor acts
+     * on it, it only carries it from the director (which knows a lineup line asked
+     * for a talk-over) to the pusher (which arms the cue at the moment it hands
+     * this item to the player). Nothing about the running order changes — a
+     * talk-over segment is not an item and never becomes one, because it is heard
+     * ALONGSIDE a record rather than between two.
+     *
+     * Armed at hand-over rather than at commit for a reason: `radio.liq` holds one
+     * cue at a time, and the director commits three items at once, so arming at
+     * commit would have two cues in a batch overwrite each other. The pusher hands
+     * items over one at a time.
+     */
+    voice?: { segmentId: string; atMs: number };
 }
 
 /** An item handed over, with the URL the player was told to fetch. */
 export interface PulledItem {
     item: RundownItem;
     url: string;
+    /** The cue to arm alongside it, resolved to something the player can fetch. */
+    voice?: { url: string; atMs: number };
 }
 
 /**
@@ -320,12 +339,40 @@ export class Rundown {
                 this.logger.warn(`rundown: cannot resolve '${item.title}' (${item.pluginId}:${item.externalId}) — skipping it`);
                 continue;
             }
+
+            // The cue goes through the same resolver as the item it rides on, so there is one
+            // place that knows how to turn something into audio the player can fetch. A cue that
+            // will not resolve costs the talk-over and nothing else: the record still airs, which
+            // is the right way round — the DJ missing a break is a quiet failure, the record
+            // missing is an audible one.
+            const voice = item.voice === undefined ? undefined : await this.resolveVoice(item.voice);
+
             this.served.push({ item, servedAt: Date.now() });
             this.emit();
-            return { item, url };
+            return { item, url, ...(voice === undefined ? {} : { voice }) };
         }
         this.emit();
         return undefined;
+    }
+
+    /**
+     * A cue's audio, as a URL, or `undefined` if it cannot be had.
+     *
+     * Asks the resolver chain with a synthetic item, because a cue names a segment
+     * and the chain already knows how to answer for one. The alternative — the
+     * pusher building the URL itself — would put a second opinion about where
+     * segment audio lives next to the first.
+     */
+    private async resolveVoice(voice: { segmentId: string; atMs: number }): Promise<{ url: string; atMs: number } | undefined> {
+        const url = await this.resolver
+            .resolve({ id: `voice:${voice.segmentId}`, pluginId: RENDER_PLUGIN_ID, externalId: voice.segmentId, title: '', artists: [] })
+            .catch(() => undefined);
+
+        if (!url) {
+            this.logger.warn('rundown: a talk-over segment could not be resolved; the record airs without it', { segment: voice.segmentId });
+            return undefined;
+        }
+        return { url, atMs: voice.atMs };
     }
 
     /**

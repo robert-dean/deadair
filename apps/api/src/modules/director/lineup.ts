@@ -65,6 +65,19 @@ export interface LineupTrackItem extends LineupLine {
 export interface LineupSegmentItem extends LineupLine {
     kind: 'segment';
     segmentId: string;
+    /**
+     * Play this OVER the record that follows it, rather than between two records.
+     *
+     * Absent is the ordinary case and the simpler path: the segment becomes a line
+     * of the running order in its own right, and the listener hears it in the gap.
+     * Present makes it a cue instead — it never becomes an item, and the station
+     * ducks the bed under it `atMs` into the next record, which is what a DJ
+     * talking over an intro actually is.
+     *
+     * `atMs` is measured from the start of that record, and it is Liquidsoap that
+     * measures it. Nothing here schedules against a clock; see `radio.liq`.
+     */
+    over?: { atMs: number };
 }
 
 /** What a line of the plan is. `lineups.items` has said "a track or a segment" since 0007. */
@@ -369,8 +382,8 @@ export class Lineup {
      * does. That part of the order is in the player's hands, and inserting into it
      * would either be ignored or shift a line the listener is about to hear.
      */
-    async insertSegment(segmentId: string, atIndex: number, revision?: number): Promise<EditResult> {
-        return await this.insertSegments([{ segmentId, atIndex }], revision);
+    async insertSegment(segmentId: string, atIndex: number, revision?: number, over?: { atMs: number }): Promise<EditResult> {
+        return await this.insertSegments([{ segmentId, atIndex, ...(over === undefined ? {} : { over }) }], revision);
     }
 
     /**
@@ -388,7 +401,10 @@ export class Lineup {
      * second placement lands one line late, the third two, and a break planned for
      * "after the fourth record" drifts further the more of them there are.
      */
-    async insertSegments(placements: readonly { segmentId: string; atIndex: number }[], revision?: number): Promise<EditResult> {
+    async insertSegments(
+        placements: readonly { segmentId: string; atIndex: number; over?: { atMs: number } }[],
+        revision?: number,
+    ): Promise<EditResult> {
         const stale = this.checkRevision(revision);
         if (stale) return stale;
         if (placements.length === 0) return refuse('empty', 'there is nothing to put in');
@@ -399,7 +415,12 @@ export class Lineup {
 
         for (const placement of [...placements].sort((left, right) => right.atIndex - left.atIndex)) {
             const index = Math.min(placement.atIndex, this.itemList.length);
-            this.itemList.splice(index, 0, { id: randomUUID(), kind: 'segment', segmentId: placement.segmentId });
+            this.itemList.splice(index, 0, {
+                id: randomUUID(),
+                kind: 'segment',
+                segmentId: placement.segmentId,
+                ...(placement.over === undefined ? {} : { over: placement.over }),
+            });
         }
         await this.commitOrder();
         return OK;

@@ -697,3 +697,92 @@ describe('DirectorService committing across a change underneath it', () => {
         expect(lineup.remaining()).toBe(4);
     });
 });
+
+// A talk-over is heard ALONGSIDE a record rather than in the gap before it, so it never becomes a
+// line of the running order. It rides on the record that follows and the pusher arms it as that
+// record is handed over.
+describe('DirectorService committing a talk-over', () => {
+    const READY = { id: 'seg-1', kind: 'talkbreak', state: 'ready' as const, label: 'Over the intro', source: 'library' };
+
+    it('attaches it to the record that follows rather than committing it as an item', async () => {
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c'], segments: [READY] });
+        await seed();
+        await lineup.insertSegment('seg-1', 1, undefined, { atMs: 8000 });
+
+        await director.start();
+        await settle();
+
+        const committed = rundown.upcoming();
+        // Three records, no extra item for the segment.
+        expect(committed.map(item => item.externalId)).toEqual(['a', 'b', 'c']);
+        expect(committed[0]?.voice).toBeUndefined();
+        expect(committed[1]?.voice).toEqual({ segmentId: 'seg-1', atMs: 8000 });
+    });
+
+    // A batch is three items, so a talk-over planted before the last record of one has nothing in
+    // that batch to ride on. Dropping it would silently lose about a third of them.
+    it('holds one whose record is in the next batch', async () => {
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c', 'd'], segments: [READY] });
+        await seed();
+        // After a, b, c — so it is the last line of the first batch of three.
+        await lineup.insertSegment('seg-1', 3, undefined, { atMs: 5000 });
+
+        await director.start();
+        await settle();
+        expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
+
+        // The player takes one, which is what makes room for the next commit.
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        await settle();
+
+        expect(rundown.upcoming().find(item => item.externalId === 'd')?.voice).toEqual({ segmentId: 'seg-1', atMs: 5000 });
+    });
+
+    // Two voices at once is the one outcome nobody wants; queueing them would produce exactly that.
+    it('keeps the later of two talk-overs in a row', async () => {
+        const { director, lineup, rundown, seed } = build({
+            items: ['a', 'b'],
+            segments: [READY, { id: 'seg-2', kind: 'talkbreak', state: 'ready', label: 'Also over the intro', source: 'library' }],
+        });
+        await seed();
+        await lineup.insertSegment('seg-1', 1, undefined, { atMs: 1000 });
+        await lineup.insertSegment('seg-2', 2, undefined, { atMs: 2000 });
+
+        await director.start();
+        await settle();
+
+        expect(rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-2', atMs: 2000 });
+    });
+
+    // A cue is about a particular record in a particular running order. One held across a
+    // stand-down would attach itself to the first record of whatever came next.
+    it('forgets a held talk-over when the station stands down', async () => {
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c', 'd'], segments: [READY] });
+        await seed();
+        await lineup.insertSegment('seg-1', 3, undefined, { atMs: 5000 });
+        await director.start();
+        await settle();
+
+        rundown.reset();
+        await settle();
+        await director.reload();
+        await settle();
+
+        expect(rundown.upcoming().every(item => item.voice === undefined)).toBe(true);
+    });
+
+    // Without `over` it is an ordinary segment and airs in the gap, which is phase 2's path and
+    // stays the default.
+    it('leaves a plain segment as an item of its own', async () => {
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b'], segments: [READY] });
+        await seed();
+        await lineup.insertSegment('seg-1', 1);
+
+        await director.start();
+        await settle();
+
+        expect(rundown.upcoming()[1]).toMatchObject({ externalId: 'seg-1' });
+        expect(rundown.upcoming().every(item => item.voice === undefined)).toBe(true);
+    });
+});

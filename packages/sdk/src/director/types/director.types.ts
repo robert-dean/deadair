@@ -49,18 +49,20 @@ export interface AddLineupSegmentInput {
     segmentId: string;
     /** Where to put it. Absent puts it at the end. A position at or before the cursor is refused: the player is already holding that part of the order */
     atIndex?: number;
+    /** Play it OVER the record that follows, this far into it, rather than in the gap before it. The station ducks the music under the voice. Absent plays it between two records, which is the simpler path */
+    overAtMs?: number;
     revision?: number;
 }
 
 /**
  * What the mount lease is renewed against: `audience` airs only while somebody is listening, `always` airs whenever there is a programme
- * generated from [AirMode](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L70)
+ * generated from [AirMode](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L71)
  */
 export type AirMode = 'audience' | 'always';
 
 /**
  * Put a lineup on air, from the top
- * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L93)
+ * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L94)
  */
 export interface PutOnAirInput {
     lineupId: string;
@@ -70,7 +72,7 @@ export interface PutOnAirInput {
 
 /**
  * Add tracks to a lineup now, rather than waiting for it to run short
- * generated from [ExtendLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L98)
+ * generated from [ExtendLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L99)
  */
 export interface ExtendLineupInput {
     count?: number;
@@ -78,7 +80,7 @@ export interface ExtendLineupInput {
 
 /**
  * An edit, carrying the view of the order it was made against
- * generated from [EditLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L102)
+ * generated from [EditLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L103)
  */
 export interface EditLineupInput {
     /** Absent skips the check. Send it and an edit made against a list that has since changed is refused rather than applied to whatever is in that position now */
@@ -87,7 +89,7 @@ export interface EditLineupInput {
 
 /**
  * Move a line within a lineup
- * generated from [MoveLineupItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L106)
+ * generated from [MoveLineupItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L107)
  */
 export interface MoveLineupItemInput {
     toIndex: number;
@@ -115,7 +117,7 @@ export interface LineupSummary {
 
 /**
  * Build a lineup from a plugin playlist
- * generated from [ImportLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L85)
+ * generated from [ImportLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L86)
  */
 export interface ImportLineupInput {
     pluginId: string;
@@ -128,7 +130,7 @@ export interface ImportLineupInput {
 
 /**
  * A lineup and its whole order
- * generated from [Lineup](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L54)
+ * generated from [Lineup](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L55)
  */
 export interface Lineup {
     id: string;
@@ -144,7 +146,7 @@ export interface Lineup {
 
 /**
  * What the station is airing, and whether it is driving at all
- * generated from [StationAir](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L72)
+ * generated from [StationAir](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L73)
  */
 export interface StationAir {
     /** False means the station was stood down. The lineup is remembered so the console can still say what it was playing */
@@ -160,14 +162,14 @@ export interface StationAir {
 
 /**
  * Change how the station decides to be on air
- * generated from [SetStationAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L81)
+ * generated from [SetStationAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L82)
  */
 export interface SetStationAirInput {
     airMode: AirMode;
 }
 
 /**
- * generated from [LineupList](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L65)
+ * generated from [LineupList](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L66)
  */
 export interface LineupList {
     lineups: LineupSummary[];

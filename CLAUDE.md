@@ -90,12 +90,24 @@ that table has to call `PluginLifecycleManager.reinitPlugin` itself.
 
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on
-its reconcile only while `Rundown.hasProgramme()`. So a crashed, redeployed or freshly restarted
-API takes the station off air within seconds instead of leaving Liquidsoap's local music bed
-playing to nobody's plan, and "Stop" means off air rather than fall back to the bed. Anything that
-grows a second way to drive playout has to renew the lease too, or it will be silently muted. Do
-not write docs or comments claiming the mount is never silent: it is silent exactly when deadair
-is not driving it, which is the point. See `stream/README.md`.
+its reconcile only while `Rundown.hasProgramme()` **and** `AudienceWatch.gateOpen()`. So a crashed,
+redeployed or freshly restarted API takes the station off air within seconds instead of leaving
+Liquidsoap's local music bed playing to nobody's plan, and "Stop" means out of service rather than
+fall back to the bed. Anything that grows a second way to drive playout has to renew the lease too,
+or it will be silently muted. Do not write docs or comments claiming the mount is never silent: it
+is silent exactly when deadair is not driving it, which is the point. See `stream/README.md`.
+
+**The audience is the second half of that lease.** `playout.airMode` in `deadair.settings` is
+`audience` (the default) or `always`; in `audience` mode the station airs only while somebody is
+connected, so a loaded station with a full running order and no listeners is silent **on purpose**,
+and the console says `ready` for it. The count is polled from Icecast's public `status-json.xsl`,
+which is the truth, and pushed by Icecast's `listener_add`/`listener_remove` hooks into
+`POST /playout/listener`, which only makes the arrival edge faster. `listener_add` is a blocking
+auth call, so with the hooks on a dead API refuses new listeners: `stream.listenerHooks` turns them
+off for an Icecast built without libcurl. Off air the transport still keeps one item handed over and
+downloaded (Liquidsoap never pulls a source it is not airing), which is why the falling edge lets
+the lease lapse instead of calling `/control/offair`, which would drop the queue. The console's own
+`StreamMonitor` plays the mount, so an operator listening in the browser is an audience.
 
 **Two database pools.** The runtime pool connects as the non-owner `app_user` role so RLS actually enforces; a separate owner pool handles privileged maintenance.
 

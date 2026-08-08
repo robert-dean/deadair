@@ -112,6 +112,46 @@ costs no extra request). The app asserts only while it actually **has** a progra
 air, handed over, or queued — so an app that is merely *running* does not hold a mount it has
 nothing to put on.
 
+### The second condition: somebody has to be listening
+
+The lease has two conditions, not one. A programme is the first. An **audience** is the second, and
+it is the default: `playout.airMode` in `deadair.settings` is `audience` unless an operator sets it
+to `always`. Producing audio costs a provider fetch and a download per track on a rate-limited
+account, and an empty mount is the one case where nobody benefits from spending them.
+
+The count comes from Icecast, which is the only thing that knows: Liquidsoap sees a socket it
+writes to and nothing about the far end. `AudienceWatch` (apps/api, modules/playout) polls
+`GET /status-json.xsl` every five seconds (public, so no admin password is involved), and that
+poll is the **truth**. Icecast also *pushes*, through `<authentication type="url">` on the mount:
+`listener_add` and `listener_remove` call `POST /playout/listener`, gated on the same bridge secret
+presented as HTTP basic, so an arrival opens the gate in milliseconds instead of up to five
+seconds. Same division as `/playout/aired` and `/control/status`: the push beats the poll to the
+edge, and the poll is what makes a dropped push harmless.
+
+Two things about that push are worth knowing before they surprise you:
+
+- **`listener_add` is a blocking authentication call.** Icecast holds the client's connection until
+  the app answers, and admits them only on an `icecast-auth-user: 1` header. So an API that is down
+  **refuses** new listeners rather than letting them hear a silent mount. That is a small trade in
+  an audience-gated station (an API that is not running is not renewing the lease either) and it is
+  why the poll is not replaced. Set `stream.listenerHooks` to `false` and re-render to drop the
+  block entirely; the only loss is the arrival latency.
+- **URL authentication needs an Icecast built with libcurl.** One that was not refuses to start on
+  a config naming it. That is the other reason for the setting.
+
+Once the last listener goes, the audience **lingers for a minute** before the gate closes: a player
+reconnecting drops to zero for a second or two and comes straight back, and rebuilding a mount for
+that is audible where the gap is not. Nothing then hands the mount back explicitly: the lease is
+simply not renewed, and lapses within `CONTROL_TTL_S`. That matters, because `POST /control/offair`
+would also drop Liquidsoap's queue, and what is in that queue is deliberate: the app keeps **one
+item handed over and downloaded while off air**, so the first listener hears music rather than a
+track being fetched in front of them. Liquidsoap never pulls a source it is not airing, so the item
+simply waits (and is re-fetched if it has been waiting a quarter of an hour, since a signed uri
+perishes).
+
+The station therefore **resumes where it stopped**: the lineup cursor does not move while nobody is
+listening, and the track that was next is what the next listener hears.
+
 When the lease lapses, the source stays connected to Icecast and airs **digital silence**: a
 listener keeps their connection and hears the station come back rather than having to reconnect to
 a mount that 404'd. The cut is immediate (`track_sensitive=false`), not at the next boundary — a
@@ -131,8 +171,14 @@ too long and a dead app keeps broadcasting for that many seconds.
 
 Consequences worth knowing before they surprise you:
 
-- **Stop means off air.** `POST /playout/stop` stands the station down: the running order is
-  dropped, what is on air stops, and the mount goes quiet. It no longer falls back to the bed.
+- **Stop means out of service.** `POST /playout/stop` stands the station down: the running order is
+  dropped, what is on air stops, and the mount goes quiet. It no longer falls back to the bed, and
+  it is the one thing that silences a station people are listening to.
+- **A silent mount is usually not a fault.** In `audience` mode a station with a full running order
+  and nobody connected is silent on purpose. The console says `ready` rather than `off air` for
+  exactly that state.
+- **The console's own monitor is a listener.** It plays the mount, which is the point of it, so an
+  operator listening in the browser holds the station on air like anyone else.
 - **An API restart takes the station off air** within the TTL, because the rundown is in memory
   and the restarted process has no programme to assert for. Press play again. The rundown is
   deliberately not persisted; see `apps/api/src/modules/playout/rundown.ts`.

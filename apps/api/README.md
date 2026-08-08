@@ -127,6 +127,9 @@ Never hand-edit a router.
 | `catalog` | `GET /catalog/artists`, `/catalog/artists/:id`, `/catalog/artists/:id/albums`, `/catalog/albums`, `/catalog/albums/:id`, `/catalog/albums/:id/tracks`, `/catalog/tracks` |
 | `onboarding` | `GET /onboarding`, `POST /onboarding` |
 | `playlists` | `GET /playlists`, `GET /playlists/:pluginId/:playlistId/tracks` |
+| `playout` | `GET /playout/status`, `POST /playout/playlist`, `/playout/skip`, `/playout/stop` (stand the station down: out of service, not merely paused). Internal, secret-gated, never in the SDK: `POST /playout/aired` (Liquidsoap's air confirmation) and `POST /playout/listener` (Icecast's `listener_add`/`listener_remove`, which a listener's own connection blocks on; see the audience gate in `stream/README.md`) |
+| `director` | `GET /director/lineups`, `POST /director/lineups`, `GET`/`DELETE /director/lineups/:id`, `POST /director/lineups/:id/extend`, `/director/lineups/:id/shuffle`, `PATCH`/`DELETE /director/lineups/:id/items/:itemId`, `GET`/`POST /director/air`, `PATCH /director/air` (what puts the station on air: `audience` or `always`) |
+| `nowplaying` | `GET /nowplaying`, deliberately public and transaction-exempt: it answers out of memory and says only what a listener can already hear, plus how many of them there are |
 | `plugins` | `GET /plugins`, `/plugins/:id`, `POST /plugins/rescan`, `/plugins/:id/enable`, `/plugins/:id/disable`, `/plugins/:id/reload`, `/plugins/:id/test`, `PUT /plugins/:id/config`; logs at `GET /plugins/:id/logs`, `/plugins/:id/logs/download`, `PUT /plugins/:id/logs/level`; OAuth at `GET /plugins/:id/oauth/authorize`, `GET /plugins/:id/oauth/callback`, `DELETE /plugins/:id/oauth` |
 
 There is no healthcheck router registered here yet, though `/` and `/healthcheck` are already listed

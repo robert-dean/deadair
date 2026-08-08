@@ -43,6 +43,7 @@ import type { HostFetchInit, HostFetchResponse, TrackFetchRequest, TrackFetchSes
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { NetworkPermissionFromConfig, NetworkPermissionHost, PluginPermissions } from './plugin.permissions.js';
+import type { HostStreamChunk, HostStreamOpen, StreamChunk } from './plugin.streams.js';
 
 /**
  * `T` with every part that cannot survive `JSON.parse(JSON.stringify(x))`
@@ -112,6 +113,12 @@ type AssertAllTrue<T extends Record<string, true>> = T;
 export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     HostFetchInit: IsJsonSafe<HostFetchInit>;
     HostFetchResponse: IsJsonSafe<HostFetchResponse>;
+    // The whole reason `data` is a base64 string. A `Uint8Array` here would
+    // survive `structuredClone` and fail this, which is the distinction the
+    // streaming decision record exists to hold: see docs/decisions/plugin-streaming.md.
+    StreamChunk: IsJsonSafe<StreamChunk>;
+    HostStreamChunk: IsJsonSafe<HostStreamChunk>;
+    HostStreamOpen: IsJsonSafe<HostStreamOpen>;
     PluginConnectionResult: IsJsonSafe<PluginConnectionResult>;
     PluginPermissions: IsJsonSafe<PluginPermissions>;
     NetworkPermissionHost: IsJsonSafe<NetworkPermissionHost>;
@@ -146,6 +153,9 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
 export const JSON_SAFE_PAYLOAD_TYPES = [
     'HostFetchInit',
     'HostFetchResponse',
+    'StreamChunk',
+    'HostStreamChunk',
+    'HostStreamOpen',
     'PluginConnectionResult',
     'PluginPermissions',
     'NetworkPermissionHost',
@@ -189,6 +199,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'PluginOAuth',
     'PluginEvents',
     'PluginTrackFetcher',
+    'PluginStreams',
     'PluginHost',
     'PluginLifecycle',
     'MusicProviderCatalog',

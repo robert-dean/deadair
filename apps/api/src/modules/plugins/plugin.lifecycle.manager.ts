@@ -274,6 +274,14 @@ export class PluginLifecycleManager {
         }
 
         record.instance = undefined;
+
+        // After `dispose`, deliberately: a plugin closing its own streams in
+        // there is the well-behaved case and this finds nothing left to do. It is
+        // the backstop for the other case, and it must run even when dispose
+        // threw, or a plugin that crashed on the way out would leave a socket
+        // held open by an instance nothing can reach any more.
+        this.pluginHostFactory.closeStreamsFor(pluginId);
+
         // Transient: an init immediately after (the reinit path) overwrites this
         // with the real outcome.
         if (record.status === 'active') this.pluginRegistry.setStatus(pluginId, 'disabled');

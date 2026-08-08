@@ -10,3 +10,4 @@ export * from './plugin.host.response.js';
 export * from './plugin.lifecycle.js';
 export * from './plugin.manifest.js';
 export * from './plugin.permissions.js';
+export * from './plugin.streams.js';

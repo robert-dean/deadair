@@ -14,6 +14,7 @@
  */
 
 import type { MusicProviderStream, ProviderStream } from './capabilities/music.provider.js';
+import type { PluginStreams } from './plugin.streams.js';
 
 /** Structured logging. Goes to the host's logger, tagged with the plugin id. */
 export interface PluginLogger {
@@ -207,6 +208,20 @@ export interface PluginHost {
      * rather than arriving truncated, so a `body` you get back is always whole.
      */
     fetch(url: string, init?: HostFetchInit): Promise<HostFetchResponse>;
+
+    /**
+     * The same egress, for a body that should not arrive whole.
+     *
+     * {@link PluginHost.fetch} buffers under a size cap and hands back one
+     * string, which is right for the JSON almost every upstream answers with and
+     * wrong for audio, an archive, or anything open-ended. This is the pull-based
+     * alternative: identical allowlist, redirect and rate-limit policy, bounded
+     * by a byte cap and a lifetime rather than by one deadline.
+     *
+     * See {@link PluginStreams}, and reach for it only when `fetch` genuinely
+     * will not do.
+     */
+    streams: PluginStreams;
 
     /**
      * Milliseconds left before the host abandons the call you are currently

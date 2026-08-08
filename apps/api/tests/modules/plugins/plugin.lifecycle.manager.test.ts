@@ -44,6 +44,11 @@ function config(overrides: Partial<PluginConfigRecord> = {}): PluginConfigRecord
  * `rescan` only touches the loader and the config repository, so the remaining
  * collaborators are inert; the invoker is real enough to pass a `dispose`
  * through, which the disappearance path needs.
+ *
+ * The host factory stub carries `closeStreamsFor` because disposal calls it for
+ * every plugin, whether or not one ever opened a stream: a plugin's streams
+ * outlive the invocation that opened them, so this is the only thing that lets
+ * go of a socket held by an instance being dropped.
  */
 function makeManager(registry: PluginRegistry, discovered: PluginRecord[], configs: PluginConfigRecord[]) {
     const pluginLoader = { discover: vi.fn().mockResolvedValue(discovered) } as unknown as PluginLoader;
@@ -52,18 +57,19 @@ function makeManager(registry: PluginRegistry, discovered: PluginRecord[], confi
         invoke: vi.fn(async (_id: string, _operation: string, work: () => Promise<unknown>) => work()),
         reset: vi.fn(),
     } as unknown as PluginInvoker;
+    const pluginHostFactory = { closeStreamsFor: vi.fn() } as unknown as PluginHostFactory;
 
     const manager = new PluginLifecycleManager(
         pluginLoader,
         registry,
-        {} as PluginHostFactory,
+        pluginHostFactory,
         pluginInvoker,
         {} as PluginConfigService,
         pluginConfigRepository,
         stubPluginLog().log,
     );
 
-    return { manager, pluginLoader };
+    return { manager, pluginLoader, pluginHostFactory };
 }
 
 describe('PluginLifecycleManager.rescan', () => {

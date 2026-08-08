@@ -20,6 +20,7 @@ import type {
 import type { PluginConnectionResult } from '../src/plugin.lifecycle.js';
 import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
+import type { HostStreamChunk, HostStreamOpen } from '../src/plugin.streams.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -175,6 +176,37 @@ export const hostFetchResponseFixture: HostFetchResponse = {
     ok: true,
     url: 'https://api.example.com/v1/tracks',
     redirected: true,
+};
+
+export const hostStreamOpenFixture: HostStreamOpen = {
+    streamId: '2f6c0d1e-0f6a-4a5f-9a4a-1b2c3d4e5f60',
+    status: 200,
+    headers: { 'content-type': 'audio/mpeg', 'transfer-encoding': 'chunked' },
+    ok: true,
+    url: 'https://tts.example.com/v1/audio/speech',
+};
+
+/**
+ * A chunk carrying bytes.
+ *
+ * `data` is base64 of real bytes rather than a placeholder word, because this
+ * fixture is the guard on the one decision the streaming record turns on: a
+ * `Uint8Array` here would round-trip under `structuredClone` and fail this, and
+ * the deferred isolation target is a subprocess where it would not survive at
+ * all.
+ */
+export const hostStreamChunkFixture: HostStreamChunk = {
+    streamId: '2f6c0d1e-0f6a-4a5f-9a4a-1b2c3d4e5f60',
+    seq: 0,
+    data: Buffer.from([0xff, 0xfb, 0x90, 0x64, 0x00]).toString('base64'),
+    done: false,
+};
+
+/** The terminal chunk: `done`, and deliberately carrying no `data` at all. */
+export const hostStreamChunkDoneFixture: HostStreamChunk = {
+    streamId: '2f6c0d1e-0f6a-4a5f-9a4a-1b2c3d4e5f60',
+    seq: 12,
+    done: true,
 };
 
 /** The `meta` argument accepted by every `PluginLogger` method. */

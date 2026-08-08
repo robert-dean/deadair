@@ -15,14 +15,15 @@ const items = [
 ];
 
 describe('LineupOrderTable', () => {
-    it('renders the whole order, aired lines included', () => {
-        // What has aired is how an operator reads where the station is in the plan, so it stays
-        // on the page rather than being trimmed off the top.
+    it('renders the whole order, committed lines included', () => {
+        // What is beyond editing is how an operator reads where the station is in the plan, so it
+        // stays on the page rather than being trimmed off the top.
         render(<LineupOrderTable items={items} cursor={1} />);
 
         expect(screen.getByText('Windowlicker')).toBeInTheDocument();
         expect(screen.getByText('Xtal')).toBeInTheDocument();
-        expect(screen.getByText('aired')).toBeInTheDocument();
+        // "Locked", never "aired": the commit cursor runs a few lines ahead of what has played.
+        expect(screen.getByText('locked')).toBeInTheDocument();
     });
 
     it('offers no controls at all when the caller cannot act', () => {

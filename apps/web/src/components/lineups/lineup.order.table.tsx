@@ -53,8 +53,8 @@ export function LineupOrderTable({ items, cursor, onRemove, removingItemId, onMo
                 {items.map((item, index) => (
                     <Table.Tr
                         key={item.id}
-                        // Dimmed rather than hidden: what has aired is how an operator reads where
-                        // the station is in the plan.
+                        // Dimmed rather than hidden: what is beyond editing is how an operator reads
+                        // where the station is in the plan.
                         opacity={item.committed ? 0.5 : 1}
                         style={
                             // The cursor is a line, so it is drawn as one. The first uncommitted
@@ -90,10 +90,17 @@ export function LineupOrderTable({ items, cursor, onRemove, removingItemId, onMo
                                         </Badge>
                                     </Tooltip>
                                 ) : undefined}
+                                {/* NOT "aired". The cursor is the COMMIT cursor: the director keeps a
+                                    few lines committed ahead of what is playing, so the newest locked
+                                    lines are the ones the transport is still calling "up next". Saying
+                                    "aired" against a track nobody has heard yet is the console
+                                    contradicting itself on the same screen. */}
                                 {item.committed ? (
-                                    <Text size="xs" c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
-                                        aired
-                                    </Text>
+                                    <Tooltip label="The player is holding this one. It can no longer be moved or removed, and it may not have aired yet.">
+                                        <Text size="xs" c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
+                                            locked
+                                        </Text>
+                                    </Tooltip>
                                 ) : undefined}
                             </Group>
                         </Table.Td>

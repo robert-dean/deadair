@@ -43,8 +43,8 @@ vi.mock('@tanstack/react-router', () => ({
     useNavigate: () => vi.fn(),
 }));
 
-/** A lineup being aired, with its first line already handed to the player. */
-function airedLineup() {
+/** A lineup on air, with its first line already committed to the player. */
+function lineupOnAir() {
     return lineup({
         cursor: 1,
         items: [
@@ -66,34 +66,34 @@ afterEach(() => {
 
 describe('LineupDetailPage', () => {
     it('draws the order and says how far the broadcast has got into it', async () => {
-        getALineup.mockResolvedValue(airedLineup());
+        getALineup.mockResolvedValue(lineupOnAir());
         getStationAir.mockResolvedValue(stationAir());
 
         render(<LineupDetailPage lineupId="lineup-1" />);
 
         expect(await screen.findByText('Late shift')).toBeInTheDocument();
         expect(screen.getByText('on air')).toBeInTheDocument();
-        expect(screen.getByText(/3 tracks • 1 aired • 2 to go/)).toBeInTheDocument();
+        expect(screen.getByText(/3 tracks • 1 locked • 2 to go/)).toBeInTheDocument();
         // The committed line stays on the page: it is how an operator reads where the station is.
         expect(screen.getByText('Windowlicker')).toBeInTheDocument();
-        expect(screen.getByText('aired')).toBeInTheDocument();
+        expect(screen.getByText('locked')).toBeInTheDocument();
     });
 
     it('counts both halves off the lineup, so they add up when the air poll has moved on', async () => {
         // The two readings are taken on different clocks: the air poll runs every five seconds and
-        // the lineup is only re-read when something changes it. Taking "aired" from one and "to go"
+        // the lineup is only re-read when something changes it. Taking "locked" from one and "to go"
         // from the other puts a sentence on the page whose numbers do not sum to the track count
         // printed beside them, which is exactly what happened on the real station.
-        getALineup.mockResolvedValue(airedLineup());
+        getALineup.mockResolvedValue(lineupOnAir());
         getStationAir.mockResolvedValue(stationAir({ cursor: 2, remaining: 1 }));
 
         render(<LineupDetailPage lineupId="lineup-1" />);
 
-        expect(await screen.findByText(/3 tracks • 1 aired • 2 to go/)).toBeInTheDocument();
+        expect(await screen.findByText(/3 tracks • 1 locked • 2 to go/)).toBeInTheDocument();
     });
 
     it('offers no way to drop a line the player is already holding', async () => {
-        getALineup.mockResolvedValue(airedLineup());
+        getALineup.mockResolvedValue(lineupOnAir());
         getStationAir.mockResolvedValue(stationAir());
 
         render(<LineupDetailPage lineupId="lineup-1" />);
@@ -104,7 +104,7 @@ describe('LineupDetailPage', () => {
     });
 
     it('sends the revision the operator was looking at with a removal', async () => {
-        getALineup.mockResolvedValue(airedLineup());
+        getALineup.mockResolvedValue(lineupOnAir());
         getStationAir.mockResolvedValue(stationAir());
         removeALineupItem.mockResolvedValue(lineup({ revision: 5 }));
 
@@ -115,7 +115,7 @@ describe('LineupDetailPage', () => {
     });
 
     it('says what a refused edit means, and re-reads the order', async () => {
-        getALineup.mockResolvedValue(airedLineup());
+        getALineup.mockResolvedValue(lineupOnAir());
         getStationAir.mockResolvedValue(stationAir());
         removeALineupItem.mockRejectedValue(conflict('the lineup has changed since that revision'));
 
@@ -129,7 +129,7 @@ describe('LineupDetailPage', () => {
 
     it('shows a delete refusal in the API’s own words rather than as a stale revision', async () => {
         // A 409 from delete means the lineup is on air, which re-reading the order would not fix.
-        getALineup.mockResolvedValue(airedLineup());
+        getALineup.mockResolvedValue(lineupOnAir());
         getStationAir.mockResolvedValue(stationAir());
         deleteALineup.mockRejectedValue(conflict('that lineup is on air; stop the station or put another one on first'));
 

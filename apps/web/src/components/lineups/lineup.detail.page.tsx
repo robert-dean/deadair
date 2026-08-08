@@ -66,8 +66,11 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
                                     {loaded.items.length === 1 ? '1 track' : `${loaded.items.length} tracks`}
                                     {/* Only while this is the lineup on air. A cursor on a lineup
                                         nobody is playing reads as zero, which is honest, and
-                                        saying "0 aired" about it would imply it is queued to. */}
-                                    {onAir ? ` • ${committed} aired • ${toGo} to go` : ''}
+                                        saying "0 played" about it would imply it is queued to.
+
+                                        "Played" would also be wrong by the commit lead: the last few
+                                        locked lines are still waiting their turn. */}
+                                    {onAir ? ` • ${committed} locked • ${toGo} to go` : ''}
                                 </Text>
                             </Group>
                         ) : undefined}

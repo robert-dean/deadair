@@ -1,10 +1,13 @@
 # Deferred: the DJ that actually says something
 
 **As of:** 2026-08-08, when the station first played audio it was not given by a music provider.
+**Revised:** 2026-08-08, when piece one landed. The station now has a voice; what is left is
+something to decide what it says.
 
-The station can now say things. It cannot yet decide what to say, or say it in its own voice: every
-segment it plays is a file somebody recorded and dropped in an inbox. This file is the two pieces
-between here and a DJ, and where each one drops in.
+The station can say things, and can now say them in its own voice. What it cannot do is decide what
+to say: every word it speaks is one somebody handed it. This file was the two pieces between here
+and a DJ. **Piece one is built** — see the note under it for what shipped and what came out
+differently. Piece two is the whole of what is left.
 
 ## What exists, so nothing below has to re-derive it
 
@@ -34,7 +37,10 @@ Two things that are true and easy to assume otherwise: nothing measures a segmen
 The ducking path is `radio.liq`'s existing `ducked()` and the voice queue satisfies its readiness
 check, but that is inference. Confirm it by ear before building on it.
 
-## Piece one: the station speaks in its own voice
+## Piece one: the station speaks in its own voice — BUILT
+
+**Built 2026-08-08.** What follows is what was designed; the note at the end of this section says
+what actually shipped, and it is the part to read before touching any of it.
 
 `docker-compose.yml` already runs **Kokoro**, an OpenAI-compatible `/v1/audio/speech` server on
 `:8880`, and its own comment says it is there "for the render pipeline". Nothing points at it. It is
@@ -58,6 +64,33 @@ Two things worth knowing before starting:
 
 Once this lands, `BreakPlanner` should plant `planned` segments rather than choosing ready idents
 from the library, and the skip rule stops being a backstop and starts being load-bearing.
+
+### What shipped, and how it differs from the above
+
+Read this rather than the design above it, which is kept for its reasoning.
+
+- **It is a plugin capability, not a module-local renderer.** `speech` in the plugin SDK, with
+  `plugins/kokoro` as the first implementer and Chatterbox expected next. So the settings are the
+  PLUGIN's config (server URL, model, format, default voice, voice map), not `deadair.settings`
+  keys following `stream.settings.ts`. The one station-level setting is `render.speechPluginId`,
+  which picks the speaker when more than one plugin can talk; with several installed and none
+  chosen it declines to guess rather than picking.
+- **The audio streams both ways.** `speak()` returns a handle, not bytes, and the host drains it
+  through `PluginStreamSource`. That made `docs/decisions/plugin-streaming.md`'s byte protocol its
+  first implementer, five days after it was specified and shelved. `ContentStore.writeStream`
+  hashes as it writes, so a long break never exists whole in the process.
+- **A voice is an opaque station-level id.** The host passes `host` or `newsreader` and never
+  interprets it; each plugin maps it in its own config. That is v1's engine-agnostic ref kept and
+  v1's host-side per-provider matrix left behind.
+- **The job is `RenderSegmentJob`**, shaped as predicted, plus a `voice` column on
+  `deadair.segments` and a `POST /segments` route to plan one. `claimForRender` is a conditional
+  update, so a retry arriving mid-synthesis cannot pay twice for the same audio.
+- **`BreakPlanner` still chooses ready idents from the library.** Switching it to plant `planned`
+  segments is deliberately the first commit of piece two rather than the last of piece one, because
+  it is only worth doing once something can write a script.
+- **Voice previews exist** at `GET /voices` and `GET /voices/{id}/sample`, cached in their own
+  store under a key derived from the plugin, voice and sample line. A sample is emphatically not a
+  segment: no row, its own root, and so unable to reach a running order.
 
 ## Piece two: something decides what to say
 
@@ -89,7 +122,9 @@ separate piece of work from the one above and should not be bundled with it.
   nothing measures one. Liquidsoap can (`request.duration` on the resolved request), which is the
   better answer than trusting a tag or a header.
 - **A console for segments.** There is no page for the library and no button for adding one to a
-  lineup; the lineup table draws a segment row with its state and that is all. Both routes exist.
+  lineup; the lineup table draws a segment row with its state and that is all. The routes exist,
+  including `POST /segments`. There IS now a `/voices` page, but it previews voices rather than
+  managing segments.
 - **Play history for what the station SAID.** Segments are deliberately excluded from
   `deadair.play_history`, because the repeat window and artist cooldown are reads of it and an ident
   has no artist. If the station ever needs to avoid repeating a talk break, that wants its own table

@@ -15,7 +15,7 @@ packages/plugin-sdk   the plugin contract and host capabilities
 packages/sdk          typed client for the API
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
-plugins/spotify   the bundled music provider
+plugins/*             bundled plugins: spotify, navidrome, musicbrainz, kokoro (the station's voice)
 stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends
 ```
 
@@ -58,13 +58,17 @@ operator a session with no actor. The API rejects that state rather than trustin
 `AuthenticationService.revokeIfSubjectIsGone` for the refresh grant, both of which revoke the
 session and answer 401 instead of letting it through as a user who holds no permissions.
 
-**The JSON-safe plugin boundary is strict, and structured-clone-safe is not the same thing.** No `Date`, no `Uint8Array`, no class instances, no functions, no live host objects in any payload crossing `PluginHost`. Durations are integer milliseconds, dates are ISO-8601 strings, bytes would be base64. The rule exists because the deferred isolation target is a subprocess over IPC, not `worker_threads`, and structured clone is a `worker_threads` affordance. `packages/plugin-sdk/tests/plugin.boundary.conformance.test.ts` enforces this with a `structuredClone` round-trip. If it fails, the payload is wrong, not the test.
+**The JSON-safe plugin boundary is strict, and structured-clone-safe is not the same thing.** No `Date`, no `Uint8Array`, no class instances, no functions, no live host objects in any payload crossing `PluginHost`. Durations are integer milliseconds, dates are ISO-8601 strings, bytes ARE base64 (see `host.streams` below). The rule exists because the deferred isolation target is a subprocess over IPC, not `worker_threads`, and structured clone is a `worker_threads` affordance. `packages/plugin-sdk/tests/plugin.boundary.conformance.test.ts` enforces this with a `structuredClone` round-trip. If it fails, the payload is wrong, not the test.
 
 **Plugins are trusted code.** They load through a plain dynamic `import()` into the host realm and can reach `process.env`, `fs`, and the pg pool. `host.fetch` protects an honest plugin from a hostile upstream and protects the operator from a careless plugin. It does not contain a hostile one. Do not write docs, UI copy, or comments claiming otherwise.
 
-**`host.fetch` returns a POJO, not a `Response`.** `body` is always a whole string under a size cap, so there is no streaming and no binary. `setCookie` is a separate array, because `headers` is a `Record` and would silently keep only the last one. `url` is the final hop of the redirect chain, not necessarily what was requested. Parse with the free functions `jsonBody` / `tryJsonBody`; a method on the payload would make the payload unserializable.
+**`host.fetch` returns a POJO, not a `Response`.** `body` is always a whole string under a size cap, so it does not stream and does not carry binary; `host.streams` is the path that does. `setCookie` is a separate array, because `headers` is a `Record` and would silently keep only the last one. `url` is the final hop of the redirect chain, not necessarily what was requested. Parse with the free functions `jsonBody` / `tryJsonBody`; a method on the payload would make the payload unserializable.
 
 **`host.fetch` policy is per upstream, and its budget is the live one.** `permissions.network` entries are bare hostnames, or objects carrying `ratePerSecond` and a shared `bucket` (a published limit usually covers a service, not a hostname), or `{ fromConfig: 'baseUrl' }` for an address the operator supplies. The fetch budget is capped by whatever the *current invocation* has left, published by `PluginInvoker` through `plugin.invocation.deadline.ts` and readable by plugins as `host.remainingMs()`, not by the `PLUGIN_INVOKE_TIMEOUT_MS` constant. Everything the host throws at plugin code is a `PluginError`, never a `ServerkitError`: the invoker's `toPluginError` flattens anything else to `internal`, and the status the host chose never reaches the client.
+
+**`host.streams` is the same egress for bytes that should not arrive whole.** Pull-based `open`/`read`/`close`, chunks as base64 strings, identical allowlist and rate-limit policy to `host.fetch` (`open` costs a point, `read` costs nothing). It is bounded by an idle deadline, a lifetime cap, a byte cap and a per-plugin open-stream cap rather than by the invocation, because a stream is opened in one call into plugin code and read from later ones. Its symmetric half, `PluginStreamSource` (`readStream`/`closeStream`), is how a plugin hands bytes back OUT: `speak()` returns a handle, not audio. There is no `AbortSignal` anywhere in it and there cannot be one — `close` is the cancel. See `docs/decisions/plugin-streaming.md`.
+
+**The station's voice is a plugin.** `speech` capability, `plugins/kokoro` first, Chatterbox expected. A voice is an opaque station-level id (`host`, `newsreader`) that the PLUGIN maps in its own config; the host never interprets it, and engine-specific knobs stay with the engine. `render.speechPluginId` picks the speaker when several can talk, and declines to guess when none is chosen. `RenderSegmentJob` walks a segment `planned → rendering → ready | failed`, and **a segment that is not `ready` is skipped, never waited for**, which is what keeps a broken renderer from ever costing the station silence.
 
 **In plugin code, `undefined` means "not set". Never `null`.**
 

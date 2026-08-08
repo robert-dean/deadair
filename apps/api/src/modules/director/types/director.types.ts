@@ -35,23 +35,15 @@ export const LineupItem = z.strictObject({
 export type LineupItem = z.infer<typeof LineupItem>;
 
 /**
- * What the station is airing, and whether it is driving at all
- * generated from [StationAir](file://./../../../../data/contracts/director/director.types.ck#L54)
+ * What the mount lease is renewed against: `audience` airs only while somebody is listening, `always` airs whenever there is a programme
+ * generated from [AirMode](file://./../../../../data/contracts/director/director.types.ck#L55)
  */
-export const StationAir = z.strictObject({
-    active: z
-        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
-        .describe('False means the station was stood down. The lineup is remembered so the console can still say what it was playing'),
-    lineupId: z.string().max(100).optional(),
-    lineupName: z.string().max(200).optional(),
-    cursor: z.coerce.number().int().min(0),
-    remaining: z.coerce.number().int().min(0).describe('Lines left in the lineup before it runs out and `onEnd` decides what happens'),
-});
-export type StationAir = z.infer<typeof StationAir>;
+export const AirMode = z.enum(['audience', 'always']);
+export type AirMode = z.infer<typeof AirMode>;
 
 /**
  * Put a lineup on air, from the top
- * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L70)
+ * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L78)
  */
 export const PutOnAirInput = z.strictObject({
     lineupId: z.string().min(1).max(100),
@@ -66,7 +58,7 @@ export type PutOnAirInput = z.infer<typeof PutOnAirInput>;
 
 /**
  * Add tracks to a lineup now, rather than waiting for it to run short
- * generated from [ExtendLineupInput](file://./../../../../data/contracts/director/director.types.ck#L75)
+ * generated from [ExtendLineupInput](file://./../../../../data/contracts/director/director.types.ck#L83)
  */
 export const ExtendLineupInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -75,7 +67,7 @@ export type ExtendLineupInput = z.infer<typeof ExtendLineupInput>;
 
 /**
  * An edit, carrying the view of the order it was made against
- * generated from [EditLineupInput](file://./../../../../data/contracts/director/director.types.ck#L79)
+ * generated from [EditLineupInput](file://./../../../../data/contracts/director/director.types.ck#L87)
  */
 export const EditLineupInput = z.strictObject({
     revision: z.coerce
@@ -91,7 +83,7 @@ export type EditLineupInput = z.infer<typeof EditLineupInput>;
 
 /**
  * Move a line within a lineup
- * generated from [MoveLineupItemInput](file://./../../../../data/contracts/director/director.types.ck#L83)
+ * generated from [MoveLineupItemInput](file://./../../../../data/contracts/director/director.types.ck#L91)
  */
 export const MoveLineupItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -118,7 +110,7 @@ export type LineupSummary = z.infer<typeof LineupSummary>;
 
 /**
  * Build a lineup from a plugin playlist
- * generated from [ImportLineupInput](file://./../../../../data/contracts/director/director.types.ck#L62)
+ * generated from [ImportLineupInput](file://./../../../../data/contracts/director/director.types.ck#L70)
  */
 export const ImportLineupInput = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -155,6 +147,33 @@ export const Lineup = z.strictObject({
     items: z.array(LineupItem),
 });
 export type Lineup = z.infer<typeof Lineup>;
+
+/**
+ * What the station is airing, and whether it is driving at all
+ * generated from [StationAir](file://./../../../../data/contracts/director/director.types.ck#L57)
+ */
+export const StationAir = z.strictObject({
+    active: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('False means the station was stood down. The lineup is remembered so the console can still say what it was playing'),
+    airMode: AirMode.describe(
+        'What puts the station on air. In `audience` mode a station that is active with a full running order is still silent while nobody is connected, which is the intended state and not a fault',
+    ),
+    lineupId: z.string().max(100).optional(),
+    lineupName: z.string().max(200).optional(),
+    cursor: z.coerce.number().int().min(0),
+    remaining: z.coerce.number().int().min(0).describe('Lines left in the lineup before it runs out and `onEnd` decides what happens'),
+});
+export type StationAir = z.infer<typeof StationAir>;
+
+/**
+ * Change how the station decides to be on air
+ * generated from [SetStationAirInput](file://./../../../../data/contracts/director/director.types.ck#L66)
+ */
+export const SetStationAirInput = z.strictObject({
+    airMode: AirMode,
+});
+export type SetStationAirInput = z.infer<typeof SetStationAirInput>;
 
 /**
  * generated from [LineupList](file://./../../../../data/contracts/director/director.types.ck#L50)

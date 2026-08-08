@@ -51,12 +51,20 @@ contract LineupList: {
     lineups: array(LineupSummary)
 }
 
+# What the mount lease is renewed against: `audience` airs only while somebody is listening, `always` airs whenever there is a programme
+contract AirMode: enum(audience, always)
+
 contract StationAir: { # What the station is airing, and whether it is driving at all
     active: boolean # False means the station was stood down. The lineup is remembered so the console can still say what it was playing
+    airMode: AirMode # What puts the station on air. In `audience` mode a station that is active with a full running order is still silent while nobody is connected, which is the intended state and not a fault
     lineupId?: string(max=100)
     lineupName?: string(max=200)
     cursor: int(min=0)
     remaining: int(min=0) # Lines left in the lineup before it runs out and `onEnd` decides what happens
+}
+
+contract SetStationAirInput: { # Change how the station decides to be on air
+    airMode: AirMode
 }
 
 contract ImportLineupInput: { # Build a lineup from a plugin playlist

@@ -5,7 +5,9 @@ import { Logger } from '@maroonedsoftware/logger';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
+import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import { Rundown, type RundownTrack } from '#modules/playout/rundown.js';
+import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { DirectorService } from './director.service.js';
 import type { EditResult, Lineup as LoadedLineup } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
@@ -18,6 +20,7 @@ import type {
     LineupList,
     MoveLineupItemInput,
     PutOnAirInput,
+    SetStationAirInput,
     StationAir,
 } from './types/director.types.js';
 
@@ -42,6 +45,7 @@ export class DirectorConsoleService {
         private readonly director: DirectorService,
         private readonly playlists: PlaylistsService,
         private readonly tracks: TracksRepository,
+        private readonly settings: SettingsRepository,
         private readonly rundown: Rundown,
         // Scoped, so a send commits with the request's own transaction rather than
         // ahead of it. See JobsModule for why the request path takes this one.
@@ -78,17 +82,35 @@ export class DirectorConsoleService {
     /** What is on air right now. */
     async getAir(): Promise<StationAir> {
         const status = this.director.status();
-        if (!status.lineupId) return { active: status.active, cursor: 0, remaining: 0 };
+        if (!status.lineupId) return { active: status.active, airMode: status.airMode, cursor: 0, remaining: 0 };
 
         const summaries = await this.lineups.list();
         const named = summaries.find(summary => summary.id === status.lineupId);
         return {
             active: status.active,
+            airMode: status.airMode,
             lineupId: status.lineupId,
             ...(named === undefined ? {} : { lineupName: named.name }),
             cursor: status.cursor,
             remaining: status.remaining,
         };
+    }
+
+    /**
+     * Change what puts the station on air.
+     *
+     * Stored rather than held, so a restart comes back on the same terms the
+     * operator chose. The reactor is told at once, because the mount lease is
+     * renewed every couple of seconds: a mode change that only took effect on the
+     * next throttled read would leave the console showing one thing while the
+     * station did another for several seconds.
+     */
+    async setAirMode(input: SetStationAirInput): Promise<StationAir> {
+        await this.settings.set(AIR_MODE_KEY, input.airMode);
+        await this.director.reload();
+
+        this.logger.info('director: changed what puts the station on air', { airMode: input.airMode });
+        return this.getAir();
     }
 
     /**
@@ -146,10 +168,7 @@ export class DirectorConsoleService {
         const lineup = await this.load(input.lineupId);
 
         const current = input.interrupting ? this.director.status() : undefined;
-        await this.air.putOnAir(
-            lineup.id,
-            current?.lineupId ? { lineupId: current.lineupId, cursor: current.cursor } : undefined,
-        );
+        await this.air.putOnAir(lineup.id, current?.lineupId ? { lineupId: current.lineupId, cursor: current.cursor } : undefined);
 
         // Retract what the player is holding from the previous lineup. What is ON AIR
         // is left alone by `load`; only the uncommitted tail goes.

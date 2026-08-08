@@ -15,6 +15,8 @@ import { Lineup, type LineupMode, type LineupOnEnd } from '../../../src/modules/
 import { LineupRepository } from '../../../src/modules/director/lineup.repository.js';
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { StationAirRepository, type StationAir } from '../../../src/modules/director/station.air.repository.js';
+import { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
+import { AIR_MODE_KEY, type AirMode } from '../../../src/modules/playout/air.mode.js';
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
 
@@ -40,6 +42,8 @@ interface Options {
     onEnd?: LineupOnEnd;
     /** A second lineup the air row can be pointed at. */
     other?: { id: string; items: string[] };
+    /** What the stored air mode says, if anything is stored at all. */
+    airMode?: AirMode;
 }
 
 function build(options: Options = {}) {
@@ -84,9 +88,13 @@ function build(options: Options = {}) {
 
     const history = { record: vi.fn(async () => {}) } as unknown as PlayHistoryRepository;
 
+    const settings = {
+        get: vi.fn(async (key: string) => (key === AIR_MODE_KEY ? options.airMode : undefined)),
+    } as unknown as SettingsRepository;
+
     const scope = {
         get: vi.fn((token: unknown) =>
-            token === LineupRepository ? lineups : token === StationAirRepository ? airRepository : history,
+            token === LineupRepository ? lineups : token === StationAirRepository ? airRepository : token === SettingsRepository ? settings : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -104,6 +112,7 @@ function build(options: Options = {}) {
         jobs,
         history,
         airRepository,
+        settings,
         seed: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(track)),
         setAir: (next: StationAir | undefined) => {
             air = next;
@@ -185,6 +194,40 @@ describe('DirectorService committing', () => {
     });
 });
 
+describe('DirectorService reading the air mode', () => {
+    it('reports the stored mode alongside what is on air', async () => {
+        const { director, seed } = build({ airMode: 'always' });
+        await seed();
+
+        await director.start();
+
+        expect(director.status().airMode).toBe('always');
+    });
+
+    it('reports airing for an audience when nothing is stored', async () => {
+        const { director, seed } = build();
+        await seed();
+
+        await director.start();
+
+        expect(director.status().airMode).toBe('audience');
+    });
+
+    it('re-reads the mode with the row, so a change made elsewhere is noticed', async () => {
+        // The mode is a setting an operator can change from anywhere, and the console
+        // is not the only writer this has to survive. It rides the same throttled read
+        // as `station_air` rather than being remembered from boot.
+        const { director, settings, seed } = build();
+        await seed();
+        await director.start();
+
+        vi.mocked(settings.get).mockResolvedValue('always');
+        await director.reload();
+
+        expect(director.status().airMode).toBe('always');
+    });
+});
+
 describe('DirectorService noticing the row', () => {
     it('picks up a station switched on out of band, without being told', async () => {
         // Checking a remembered `active` flag before reading the row means a station
@@ -246,7 +289,10 @@ describe('DirectorService standing down', () => {
         // A write that has not landed yet, exactly as a real one has not.
         let release = () => {};
         vi.mocked(airRepository.standDown).mockImplementationOnce(
-            async () => new Promise<void>(resolve => { release = resolve; }),
+            async () =>
+                new Promise<void>(resolve => {
+                    release = resolve;
+                }),
         );
 
         rundown.reset();

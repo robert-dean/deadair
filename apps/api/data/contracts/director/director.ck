@@ -75,6 +75,21 @@ operation /director/air: {
             }
         }
     }
+    patch: { # Changes what puts the station on air: only while somebody is listening, or whenever there is a programme. Takes effect at once rather than at the next boundary
+        name: Set the air mode
+        service: DirectorConsoleService.setAirMode
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: SetStationAirInput
+        }
+        response: {
+            200: {
+                application/json: StationAir
+            }
+        }
+    }
 }
 
 operation /director/lineups/{lineupId}: {

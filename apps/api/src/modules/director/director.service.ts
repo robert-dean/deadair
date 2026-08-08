@@ -1,7 +1,9 @@
 import { Container, Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
+import { AIR_MODE_KEY, DEFAULT_AIR_MODE, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { Rundown, type RundownItem } from '#modules/playout/rundown.js';
+import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import type { Lineup } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -63,6 +65,15 @@ export class DirectorService {
     private air?: StationAir;
     private airReadAt = 0;
     private active = false;
+    /**
+     * What puts the station on air, read from the settings on the same throttle as
+     * the row above.
+     *
+     * Held here rather than read by the pusher because this is already the class
+     * that opens a scope to re-read what is on air; the pusher reconciles every
+     * couple of seconds and has no scope of its own to spend on a settings query.
+     */
+    private airMode: AirMode = DEFAULT_AIR_MODE;
     /** One commit pass at a time: appending to the rundown emits a change, which re-enters here. */
     private busy = false;
     /** A wake that arrived mid-pass. Coalesced rather than dropped; see {@link commit}. */
@@ -124,9 +135,10 @@ export class DirectorService {
     }
 
     /** What the director is doing, for a console that has to draw it. */
-    status(): { active: boolean; lineupId?: string; cursor: number; remaining: number } {
+    status(): { active: boolean; airMode: AirMode; lineupId?: string; cursor: number; remaining: number } {
         return {
             active: this.active,
+            airMode: this.airMode,
             ...(this.lineup === undefined ? {} : { lineupId: this.lineup.id }),
             cursor: this.lineup?.cursor() ?? 0,
             remaining: this.lineup?.remaining() ?? 0,
@@ -374,7 +386,21 @@ export class DirectorService {
     private async readAir(force = false): Promise<StationAir | undefined> {
         if (!force && this.active && Date.now() - this.airReadAt < AIR_TTL_MS) return this.air;
 
-        this.air = await this.inScope(async scope => scope.get(StationAirRepository).get(MAIN_SLOT));
+        // Both in one scope: they are read together on every pass, and the air mode is
+        // a setting an operator can change from anywhere, so it has to be re-read on
+        // the same terms as the row rather than remembered from boot.
+        const [air, airMode] = await this.inScope(async scope =>
+            Promise.all([
+                scope.get(StationAirRepository).get(MAIN_SLOT),
+                scope
+                    .get(SettingsRepository)
+                    .get(AIR_MODE_KEY)
+                    .then(raw => parseAirMode(raw)),
+            ]),
+        );
+
+        this.air = air;
+        this.airMode = airMode;
         this.airReadAt = Date.now();
         return this.air;
     }

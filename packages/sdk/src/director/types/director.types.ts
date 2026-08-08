@@ -31,22 +31,14 @@ export interface LineupItem {
 }
 
 /**
- * What the station is airing, and whether it is driving at all
- * generated from [StationAir](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L54)
+ * What the mount lease is renewed against: `audience` airs only while somebody is listening, `always` airs whenever there is a programme
+ * generated from [AirMode](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L55)
  */
-export interface StationAir {
-    /** False means the station was stood down. The lineup is remembered so the console can still say what it was playing */
-    active: boolean;
-    lineupId?: string;
-    lineupName?: string;
-    cursor: number;
-    /** Lines left in the lineup before it runs out and `onEnd` decides what happens */
-    remaining: number;
-}
+export type AirMode = 'audience' | 'always';
 
 /**
  * Put a lineup on air, from the top
- * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L70)
+ * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L78)
  */
 export interface PutOnAirInput {
     lineupId: string;
@@ -56,7 +48,7 @@ export interface PutOnAirInput {
 
 /**
  * Add tracks to a lineup now, rather than waiting for it to run short
- * generated from [ExtendLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L75)
+ * generated from [ExtendLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L83)
  */
 export interface ExtendLineupInput {
     count?: number;
@@ -64,7 +56,7 @@ export interface ExtendLineupInput {
 
 /**
  * An edit, carrying the view of the order it was made against
- * generated from [EditLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L79)
+ * generated from [EditLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L87)
  */
 export interface EditLineupInput {
     /** Absent skips the check. Send it and an edit made against a list that has since changed is refused rather than applied to whatever is in that position now */
@@ -73,7 +65,7 @@ export interface EditLineupInput {
 
 /**
  * Move a line within a lineup
- * generated from [MoveLineupItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L83)
+ * generated from [MoveLineupItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L91)
  */
 export interface MoveLineupItemInput {
     toIndex: number;
@@ -101,7 +93,7 @@ export interface LineupSummary {
 
 /**
  * Build a lineup from a plugin playlist
- * generated from [ImportLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L62)
+ * generated from [ImportLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L70)
  */
 export interface ImportLineupInput {
     pluginId: string;
@@ -126,6 +118,30 @@ export interface Lineup {
     /** How far through this lineup the CURRENT broadcast has committed. Zero for a lineup that is not on air, which is honest: nothing has been committed from it */
     cursor: number;
     items: LineupItem[];
+}
+
+/**
+ * What the station is airing, and whether it is driving at all
+ * generated from [StationAir](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L57)
+ */
+export interface StationAir {
+    /** False means the station was stood down. The lineup is remembered so the console can still say what it was playing */
+    active: boolean;
+    /** What puts the station on air. In `audience` mode a station that is active with a full running order is still silent while nobody is connected, which is the intended state and not a fault */
+    airMode: AirMode;
+    lineupId?: string;
+    lineupName?: string;
+    cursor: number;
+    /** Lines left in the lineup before it runs out and `onEnd` decides what happens */
+    remaining: number;
+}
+
+/**
+ * Change how the station decides to be on air
+ * generated from [SetStationAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L66)
+ */
+export interface SetStationAirInput {
+    airMode: AirMode;
 }
 
 /**

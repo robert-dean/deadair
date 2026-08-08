@@ -9,6 +9,7 @@ import {
     LineupList,
     MoveLineupItemInput,
     PutOnAirInput,
+    SetStationAirInput,
     StationAir,
 } from '../modules/director/types/director.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
@@ -75,8 +76,23 @@ DirectorRouter.post('/director/air', requirePolicy({ policy: 'platform.manage' }
 });
 
 /**
+ * Changes what puts the station on air: only while somebody is listening, or whenever there is a programme. Takes effect at once rather than at the next boundary
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L78)
+ */
+DirectorRouter.patch('/director/air', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, SetStationAirInput);
+
+    const service = ctx.container.get(DirectorConsoleService);
+    const result: StationAir = await service.setAirMode(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * One lineup and its whole order, with the cursor marking what has already been handed to the player
- * from [director.ck](file://./../../data/contracts/director/director.ck#L84)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L99)
  */
 DirectorRouter.get('/director/lineups/:lineupId', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { lineupId } = await parseAndValidate(
@@ -96,7 +112,7 @@ DirectorRouter.get('/director/lineups/:lineupId', requirePolicy({ policy: 'platf
 
 /**
  * Deletes a lineup. Answers 409 while it is on air: stop the station or put another one on first
- * from [director.ck](file://./../../data/contracts/director/director.ck#L96)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L111)
  */
 DirectorRouter.delete('/director/lineups/:lineupId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { lineupId } = await parseAndValidate(
@@ -114,7 +130,7 @@ DirectorRouter.delete('/director/lineups/:lineupId', requirePolicy({ policy: 'pl
 
 /**
  * Queues a refill and returns at once. Generating a set walks the catalog, and an operator pressing a button should not be held open through it
- * from [director.ck](file://./../../data/contracts/director/director.ck#L112)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L127)
  */
 DirectorRouter.post('/director/lineups/:lineupId/extend', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { lineupId } = await parseAndValidate(
@@ -134,7 +150,7 @@ DirectorRouter.post('/director/lineups/:lineupId/extend', requirePolicy({ policy
 
 /**
  * Shuffles everything not yet committed. The head is already in the player's hands and is left alone
- * from [director.ck](file://./../../data/contracts/director/director.ck#L131)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L146)
  */
 DirectorRouter.post(
     '/director/lineups/:lineupId/shuffle',
@@ -161,7 +177,7 @@ DirectorRouter.post(
 
 /**
  * Moves a line. A position at or before the cursor is refused rather than clamped: that part of the order is already committed
- * from [director.ck](file://./../../data/contracts/director/director.ck#L153)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L168)
  */
 DirectorRouter.patch(
     '/director/lineups/:lineupId/items/:itemId',
@@ -189,7 +205,7 @@ DirectorRouter.patch(
 
 /**
  * Drops a line that has not been committed yet
- * from [director.ck](file://./../../data/contracts/director/director.ck#L168)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L183)
  */
 DirectorRouter.delete('/director/lineups/:lineupId/items/:itemId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { lineupId, itemId } = await parseAndValidate(

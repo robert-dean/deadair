@@ -16,6 +16,8 @@ import type { StationAirRepository } from '../../../src/modules/director/station
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
 import type { Rundown, RundownTrack } from '../../../src/modules/playout/rundown.js';
+import type { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
+import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -52,7 +54,7 @@ function build(options: Options = {}) {
     } as unknown as StationAirRepository;
 
     const director = {
-        status: vi.fn(() => ({ active: true, cursor: options.onAir?.cursor ?? 0, remaining: 0, ...options.onAir })),
+        status: vi.fn(() => ({ active: true, airMode: 'audience', cursor: options.onAir?.cursor ?? 0, remaining: 0, ...options.onAir })),
         reload: vi.fn(async () => {}),
     } as unknown as DirectorService;
 
@@ -74,11 +76,13 @@ function build(options: Options = {}) {
         }),
     } as unknown as TracksRepository;
 
+    const settings = { set: vi.fn(async () => {}) } as unknown as SettingsRepository;
     const rundown = { load: vi.fn() } as unknown as Rundown;
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as JobBroker;
 
     return {
-        service: new DirectorConsoleService(lineups, air, director, playlists, tracks, rundown, jobs, logger),
+        service: new DirectorConsoleService(lineups, air, director, playlists, tracks, settings, rundown, jobs, logger),
+        settings,
         lineup,
         lineups,
         air,
@@ -110,7 +114,12 @@ describe('DirectorConsoleService.importPlaylist', () => {
 
         await service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1', name: 'Discover Weekly' });
 
-        expect(createdWith()).toMatchObject({ name: 'Discover Weekly', source: 'import', sourcePluginId: 'deadair.spotify', sourcePlaylistId: 'pl_1' });
+        expect(createdWith()).toMatchObject({
+            name: 'Discover Weekly',
+            source: 'import',
+            sourcePluginId: 'deadair.spotify',
+            sourcePlaylistId: 'pl_1',
+        });
     });
 
     it('keeps what the provider says about the copy it will actually serve', async () => {
@@ -189,6 +198,21 @@ describe('DirectorConsoleService.importPlaylist', () => {
         const { service } = build({ playlistError: forbidden });
 
         expect(await statusOf(service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(403);
+    });
+});
+
+describe('DirectorConsoleService.setAirMode', () => {
+    it('stores the mode and tells the reactor at once', async () => {
+        const { service, settings, director } = build();
+
+        const air = await service.setAirMode({ airMode: 'always' });
+
+        expect(settings.set).toHaveBeenCalledWith(AIR_MODE_KEY, 'always');
+        // Not on the next throttled read: the lease is renewed every couple of seconds,
+        // and a console showing one mode while the station runs on another is the gap
+        // this closes.
+        expect(director.reload).toHaveBeenCalled();
+        expect(air.airMode).toBe('audience'); // what the (stubbed) reactor reports back
     });
 });
 

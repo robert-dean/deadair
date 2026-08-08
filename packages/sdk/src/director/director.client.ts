@@ -8,6 +8,7 @@ import type {
     LineupList,
     MoveLineupItemInput,
     PutOnAirInput,
+    SetStationAirInput,
     StationAir,
 } from './types/director.types.js';
 
@@ -52,6 +53,19 @@ export class DirectorClient {
     async putALineupOnAir(body: PutOnAirInput): Promise<StationAir> {
         const result = await this.fetch(`/director/air`, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<StationAir>(result);
+    }
+
+    /**
+     * @name Set the air mode
+     * @description Changes what puts the station on air: only while somebody is listening, or whenever there is a programme. Takes effect at once rather than at the next boundary
+     */
+    async setTheAirMode(body: SetStationAirInput): Promise<StationAir> {
+        const result = await this.fetch(`/director/air`, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });

@@ -4,6 +4,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { StreamService } from '#modules/stream/stream.service.js';
+import { AudienceWatch } from './audience.watch.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutPusher } from './playout.pusher.js';
@@ -42,6 +43,7 @@ export class PlayoutService {
         private readonly director: DirectorConsoleService,
         private readonly endpoint: LiquidsoapEndpoint,
         private readonly control: PlayoutControlClient,
+        private readonly audience: AudienceWatch,
         private readonly stream: StreamService,
         private readonly logger: Logger,
     ) {}
@@ -89,6 +91,10 @@ export class PlayoutService {
                 : {}),
             upNext: upcoming.slice(0, UP_NEXT_LIMIT).map(toPlayoutItem),
             queuedCount: upcoming.length,
+            // Who it is all for. Both fields come from the one watch, so the count the
+            // console draws and the gate the station is held on can never disagree.
+            listeners: this.audience.listenerCount(),
+            audience: this.audience.hasAudience(),
         };
     }
 

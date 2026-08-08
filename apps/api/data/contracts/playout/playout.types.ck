@@ -35,6 +35,8 @@ contract PlayoutStatus: { # The station's transport, as one reading
     nowPlaying?: PlayoutNowPlaying
     upNext: array(PlayoutItem) # Waiting here, in order. Excludes what the player already holds
     queuedCount: int(min=0) # How many items are waiting in total, of which `upNext` is the head
+    listeners: int(min=0) # How many clients Icecast has attached to the mount. Zero both for "nobody is listening" and for an Icecast that is not answering, which `audience` is where to tell apart
+    audience: boolean # Whether the station counts as having an audience, which lingers for a minute past the last listener so a reconnecting player does not cut the broadcast
 }
 
 contract PlayoutAiredQuery: { # Which rundown item Liquidsoap has just started playing

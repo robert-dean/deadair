@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { Rundown } from '#modules/playout/rundown.js';
 import type { NowPlaying } from './types/nowplaying.types.js';
 
@@ -30,7 +31,10 @@ export class NowPlayingService {
     /** Empty until the module's `ready` has read the stream settings. */
     private stationName = '';
 
-    constructor(private readonly rundown: Rundown) {}
+    constructor(
+        private readonly rundown: Rundown,
+        private readonly audience: AudienceWatch,
+    ) {}
 
     /** Publish the station's on-air name. Called once, from the module's `ready`. */
     useStationName(name: string): void {
@@ -48,12 +52,17 @@ export class NowPlayingService {
         // downloaded an item ahead of air, so the hand-over names the wrong track for
         // most of a track's length.
         const nowPlaying = this.rundown.nowPlaying();
-        if (!nowPlaying) return { station: this.stationName, onAir: false };
+        // Reported whether or not anything is airing: a station page showing "nobody is
+        // listening" while it is quiet is the honest pair, and in an audience-gated
+        // station the two facts explain each other.
+        const listeners = this.audience.listenerCount();
+        if (!nowPlaying) return { station: this.stationName, onAir: false, listeners };
 
         const { item, startedAt, remainingMs } = nowPlaying;
         return {
             station: this.stationName,
             onAir: true,
+            listeners,
             track: {
                 title: item.title,
                 // A display line, not a list. Everything downstream renders it as text,

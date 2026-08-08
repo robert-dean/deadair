@@ -38,6 +38,13 @@ export const NowPlaying = z.strictObject({
     onAir: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .describe('False means the station is not broadcasting. `track` is absent in that case, which is an ordinary state and not an error'),
+    listeners: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .describe(
+            "How many people are listening right now. Public because it says only what Icecast's own status document already says to anyone who asks, and a station page should not need a session to show it",
+        ),
     track: NowPlayingTrack.optional(),
 });
 export type NowPlaying = z.infer<typeof NowPlaying>;

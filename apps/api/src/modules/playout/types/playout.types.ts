@@ -39,7 +39,7 @@ export type PlayoutItem = z.infer<typeof PlayoutItem>;
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L40)
+ * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L42)
  */
 export const PlayoutAiredQuery = z.strictObject({
     item: z.string().min(1).max(100).describe("The id the app put on the pushed uri's `annotate:` metadata"),
@@ -48,7 +48,7 @@ export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
  * The shared secret gating the internal playout bridge, in both directions
- * generated from [PlayoutBridgeHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L44)
+ * generated from [PlayoutBridgeHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L46)
  */
 export const PlayoutBridgeHeaders = z.strictObject({
     'x-playout-secret': z.string().min(1).max(200),
@@ -94,5 +94,17 @@ export const PlayoutStatus = z.strictObject({
     nowPlaying: PlayoutNowPlaying.optional(),
     upNext: z.array(PlayoutItem).describe('Waiting here, in order. Excludes what the player already holds'),
     queuedCount: z.coerce.number().int().min(0).describe('How many items are waiting in total, of which `upNext` is the head'),
+    listeners: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .describe(
+            'How many clients Icecast has attached to the mount. Zero both for "nobody is listening" and for an Icecast that is not answering, which `audience` is where to tell apart',
+        ),
+    audience: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'Whether the station counts as having an audience, which lingers for a minute past the last listener so a reconnecting player does not cut the broadcast',
+        ),
 });
 export type PlayoutStatus = z.infer<typeof PlayoutStatus>;

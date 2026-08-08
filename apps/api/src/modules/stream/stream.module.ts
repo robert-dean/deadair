@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SpotifyShimClient } from './spotify.shim.client.js';
 import { StreamService } from './stream.service.js';
 
@@ -29,6 +30,11 @@ export const StreamModule: ServerKitModule = {
         // it is reached from `PluginHostFactory`, which is itself a singleton
         // built long before any request scope exists.
         registry.register(SpotifyShimClient).useClass(SpotifyShimClient).asSingleton();
+
+        // Singleton for the same reason, and holding the same kind of state: the mount
+        // and its address are pushed in at `ready`, and the poll loop that reads them
+        // (`AudienceWatch`) is itself a singleton with no request scope to borrow.
+        registry.register(IcecastStatsClient).useClass(IcecastStatsClient).asSingleton();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {
@@ -49,8 +55,17 @@ export const StreamModule: ServerKitModule = {
 
             // After the seed, so a first boot hands over the secrets it just wrote
             // rather than the empty pair it read a moment earlier.
-            const { playoutBridgeSecret, spotifyShimSecret } = await stream.settings();
+            const settings = await stream.settings();
+            const { playoutBridgeSecret, spotifyShimSecret } = settings;
             container.get(SpotifyShimClient).useSecrets(playoutBridgeSecret ?? '', spotifyShimSecret ?? '');
+
+            // The mount whose listeners are the station's audience, from the same settings
+            // the rendered icecast.xml was built from a moment ago.
+            container.get(IcecastStatsClient).useMount({
+                host: settings.icecastHost,
+                port: settings.icecastPort,
+                mount: settings.mount,
+            });
         } finally {
             await scope.disposeAsync();
         }

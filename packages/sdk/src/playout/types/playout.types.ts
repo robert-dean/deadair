@@ -32,7 +32,7 @@ export interface PlayoutItem {
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L40)
+ * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L42)
  */
 export interface PlayoutAiredQuery {
     /** The id the app put on the pushed uri's `annotate:` metadata */
@@ -41,7 +41,7 @@ export interface PlayoutAiredQuery {
 
 /**
  * The shared secret gating the internal playout bridge, in both directions
- * generated from [PlayoutBridgeHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L44)
+ * generated from [PlayoutBridgeHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L46)
  */
 export interface PlayoutBridgeHeaders {
     'x-playout-secret': string;
@@ -75,4 +75,8 @@ export interface PlayoutStatus {
     upNext: PlayoutItem[];
     /** How many items are waiting in total, of which `upNext` is the head */
     queuedCount: number;
+    /** How many clients Icecast has attached to the mount. Zero both for "nobody is listening" and for an Icecast that is not answering, which `audience` is where to tell apart */
+    listeners: number;
+    /** Whether the station counts as having an audience, which lingers for a minute past the last listener so a reconnecting player does not cut the broadcast */
+    audience: boolean;
 }

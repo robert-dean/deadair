@@ -7,6 +7,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { NowPlayingService } from '../../../src/modules/nowplaying/nowplaying.service.js';
 import type { Rundown, NowPlaying as RundownNowPlaying } from '../../../src/modules/playout/rundown.js';
+import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
+
+/** The station's audience, as this route reports it. Zero unless a test says otherwise. */
+const audienceOf = (listeners = 0) => ({ listenerCount: () => listeners }) as unknown as AudienceWatch;
 
 const item = {
     id: 'item-1',
@@ -21,20 +25,21 @@ const item = {
     trackId: 'cat-1',
 };
 
-const build = (nowPlaying?: RundownNowPlaying, stationName = 'Static Between Stations') => {
+const build = (nowPlaying?: RundownNowPlaying, stationName = 'Static Between Stations', listeners = 0) => {
     const rundown = { nowPlaying: vi.fn(() => nowPlaying) } as unknown as Rundown;
-    const service = new NowPlayingService(rundown);
+    const service = new NowPlayingService(rundown, audienceOf(listeners));
     service.useStationName(stationName);
     return { service, rundown };
 };
 
 describe('NowPlayingService', () => {
     it('names what is on air, with the art and album the catalog filled in', () => {
-        const { service } = build({ item, startedAt: 1_700_000_000_000, remainingMs: 120_000 });
+        const { service } = build({ item, startedAt: 1_700_000_000_000, remainingMs: 120_000 }, 'Static Between Stations', 12);
 
         expect(service.getNowPlaying()).toEqual({
             station: 'Static Between Stations',
             onAir: true,
+            listeners: 12,
             track: {
                 title: 'Windowlicker',
                 artist: 'Aphex Twin, Someone Else',
@@ -52,7 +57,9 @@ describe('NowPlayingService', () => {
         // have to special-case it to tell "off air" from "this URL is wrong".
         const { service } = build(undefined);
 
-        expect(service.getNowPlaying()).toEqual({ station: 'Static Between Stations', onAir: false });
+        // The count comes back with it: "nobody is listening" is why a quiet station
+        // is quiet, once the audience is what holds the mount.
+        expect(service.getNowPlaying()).toEqual({ station: 'Static Between Stations', onAir: false, listeners: 0 });
     });
 
     it('reports what the player says, not what was last handed over', () => {
@@ -70,7 +77,7 @@ describe('NowPlayingService', () => {
         // and it is gated; everything reported here is already audible on the mount.
         const { service } = build({ item, startedAt: 1 });
 
-        expect(Object.keys(service.getNowPlaying())).toEqual(['station', 'onAir', 'track']);
+        expect(Object.keys(service.getNowPlaying())).toEqual(['station', 'onAir', 'listeners', 'track']);
     });
 
     it('omits what nobody could tell it, rather than sending empty fields', () => {
@@ -85,6 +92,6 @@ describe('NowPlayingService', () => {
         // in between must still answer rather than throwing on an unset field.
         const rundown = { nowPlaying: vi.fn(() => undefined) } as unknown as Rundown;
 
-        expect(new NowPlayingService(rundown).getNowPlaying()).toEqual({ station: '', onAir: false });
+        expect(new NowPlayingService(rundown, audienceOf()).getNowPlaying()).toEqual({ station: '', onAir: false, listeners: 0 });
     });
 });

@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StreamService } from '#modules/stream/stream.service.js';
+import { AudienceWatch } from './audience.watch.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { CompositeTrackResolver, TrackResolver } from './playout.capability.js';
@@ -43,6 +44,10 @@ export const PlayoutModule: ServerKitModule = {
         registry.register(Rundown).useClass(Rundown).asSingleton();
         registry.register(PlayoutPusher).useClass(PlayoutPusher).asSingleton();
 
+        // Singleton because it IS the station's reading of its audience: a per-request
+        // copy would poll Icecast once per call and answer from a window of its own.
+        registry.register(AudienceWatch).useClass(AudienceWatch).asSingleton();
+
         // Scoped, unlike the rest: it is the request-facing surface, and it only
         // holds references to the singletons above.
         registry.register(PlayoutService).useClass(PlayoutService).asScoped();
@@ -71,9 +76,15 @@ export const PlayoutModule: ServerKitModule = {
         // simply probes and stays quiet, and a stack started later is picked up on
         // its own.
         container.get(PlayoutPusher).start();
+
+        // Started here rather than in StreamModule, next to the loop that will be held
+        // on its reading: the mount it watches was pushed into the stats client by
+        // StreamModule.ready, which has already run.
+        container.get(AudienceWatch).start();
     },
 
     shutdown: async (container: Container) => {
         container.get(PlayoutPusher).stop();
+        container.get(AudienceWatch).stop();
     },
 };

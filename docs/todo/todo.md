@@ -26,3 +26,4 @@
 - [ ] view saved track metadata
 - [ ] like/dislike artist/song/album maybe genre
 - [ ] integrate with genuis for enrichment
+- [ ] drop the plugin kind and only use capabilities

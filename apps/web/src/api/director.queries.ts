@@ -1,5 +1,13 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { EditLineupInput, ExtendLineupInput, ImportLineupInput, Lineup, MoveLineupItemInput, PutOnAirInput } from '@deadair/sdk';
+import type {
+    EditLineupInput,
+    ExtendLineupInput,
+    ImportLineupInput,
+    Lineup,
+    MoveLineupItemInput,
+    PutOnAirInput,
+    SetStationAirInput,
+} from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -128,6 +136,25 @@ export function usePutLineupOnAir() {
             queryClient.setQueryData(queryKeys.director.air(), air);
             void queryClient.invalidateQueries({ queryKey: queryKeys.director.lineup(input.lineupId) });
             // The transport is about to start handing this out, and it polls on its own clock.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.playout.status() });
+        },
+    });
+}
+
+/**
+ * Change what puts the station on air: only while somebody is listening, or whenever there is a
+ * programme.
+ *
+ * The transport is invalidated alongside the air reading, because this changes what it will say
+ * about itself within a tick or two: a station with a full running order and no listeners goes
+ * from silent to on air the moment the mode does.
+ */
+export function useSetAirMode() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (input: SetStationAirInput) => sdk.director.setTheAirMode(input),
+        onSuccess: air => {
+            queryClient.setQueryData(queryKeys.director.air(), air);
             void queryClient.invalidateQueries({ queryKey: queryKeys.playout.status() });
         },
     });

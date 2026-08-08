@@ -12,6 +12,7 @@ import { resolveAuthRedirect } from '../auth/auth.gate';
 import { restoreSession } from '../auth/session.bootstrap';
 import { apiErrorMessage } from '../api/sdk.error';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
+import { useStationAir } from '../api/director.queries';
 import { usePlayoutStatus } from '../api/playout.queries';
 import { hasTransportToShow, TRANSPORT_HEIGHT, TRANSPORT_HEIGHT_EXPANDED, TransportBar } from '../components/playout/transport.bar';
 import { StreamMonitor } from '../components/playout/stream.monitor';
@@ -39,6 +40,9 @@ export function RootLayout() {
     // the station has anything to say.
     const playout = usePlayoutStatus(signedIn);
     const transport = hasTransportToShow(playout.data) ? playout.data : undefined;
+    // What the station is airing against. Read here rather than in the bar because the
+    // shell is where the polling lives, and it is already reading the transport beside it.
+    const air = useStationAir(signedIn);
     // Here rather than in the bar for the same reason as the polling: the footer's
     // height is reserved by the shell, so the shell is what has to know how much.
     // Remembered, because an operator who wants the running order in front of them
@@ -132,6 +136,7 @@ export function RootLayout() {
                 <AppShell.Footer withBorder={false}>
                     <TransportBar
                         status={transport}
+                        airMode={air.data?.airMode}
                         expanded={transportExpanded}
                         onToggleExpanded={() => {
                             setTransportExpanded(open => !open);

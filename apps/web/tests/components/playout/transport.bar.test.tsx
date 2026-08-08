@@ -14,9 +14,15 @@ import { render, screen } from '../../utils/render';
 const skip = vi.fn();
 const stop = vi.fn();
 
+const setAirMode = vi.fn();
+
 vi.mock('../../../src/api/playout.queries', () => ({
     useSkipCurrent: () => ({ mutate: skip, isPending: false }),
     useStopPlayout: () => ({ mutate: stop, isPending: false }),
+}));
+
+vi.mock('../../../src/api/director.queries', () => ({
+    useSetAirMode: () => ({ mutate: setAirMode, isPending: false }),
 }));
 
 describe('hasTransportToShow', () => {
@@ -120,13 +126,56 @@ describe('TransportBar', () => {
         // Two controls for one irreversible-sounding command is one more thing to be
         // sure about mid-broadcast.
         const { rerender } = renderBar();
-        expect(screen.getByLabelText('Stop playout')).toBeInTheDocument();
+        expect(screen.getByLabelText('Take the station out of service')).toBeInTheDocument();
 
         rerender(<TransportBar status={playoutStatus()} expanded onToggleExpanded={vi.fn()} />);
 
-        expect(screen.queryByLabelText('Stop playout')).not.toBeInTheDocument();
-        await userEvent.click(screen.getByRole('button', { name: 'Stop playout' }));
+        expect(screen.queryByLabelText('Take the station out of service')).not.toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Take out of service' }));
         expect(stop).toHaveBeenCalledOnce();
+    });
+
+    it('says how many people are listening', () => {
+        renderBar(playoutStatus({ listeners: 3 }));
+
+        expect(screen.getByText('♫ 3 listening')).toBeInTheDocument();
+    });
+
+    it('says nobody is listening rather than showing a bare zero', () => {
+        renderBar(playoutStatus({ listeners: 0, audience: false, onAir: false }));
+
+        expect(screen.getByText('♫ nobody listening')).toBeInTheDocument();
+    });
+
+    it('explains a silent station that is merely waiting for a listener', async () => {
+        // The resting state of an audience-gated station. "Starting…" here reads as
+        // something stuck, and sends an operator looking for a fault that is not there.
+        renderBar(playoutStatus({ nowPlaying: undefined, onAir: false, audience: false, listeners: 0 }));
+
+        expect(screen.getByText('Ready: waiting for a listener.')).toBeInTheDocument();
+    });
+
+    it('still says the stream is unreachable ahead of anything about listeners', () => {
+        // An audience cannot be the explanation when nothing could air for anyone.
+        renderBar(playoutStatus({ nowPlaying: undefined, streamUp: false, onAir: false, audience: false, listeners: 0 }));
+
+        expect(screen.getByText('The stream is not reachable, so nothing can go to air.')).toBeInTheDocument();
+    });
+
+    it('changes what puts the station on air', async () => {
+        render(<TransportBar status={playoutStatus()} airMode="audience" expanded onToggleExpanded={vi.fn()} />);
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Always on' }));
+
+        expect(setAirMode).toHaveBeenCalledWith({ airMode: 'always' });
+    });
+
+    it('offers no air mode control until the reading says which one it is', () => {
+        // Drawing `audience` before the answer arrives would show an operator a setting
+        // nobody chose, and a control that appears to move on its own a moment later.
+        render(<TransportBar status={playoutStatus()} expanded onToggleExpanded={vi.fn()} />);
+
+        expect(screen.queryByRole('radio', { name: 'Always on' })).not.toBeInTheDocument();
     });
 
     it('shows the cover of what is on air', () => {

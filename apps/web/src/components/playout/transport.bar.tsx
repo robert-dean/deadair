@@ -1,15 +1,23 @@
-import { ActionIcon, Button, Divider, Group, Paper, Progress, Stack, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Button, Divider, Group, Paper, Progress, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
 import type { PlayoutStatus } from '@deadair/sdk';
 
+import { useSetAirMode } from '../../api/director.queries';
 import { useSkipCurrent, useStopPlayout } from '../../api/playout.queries';
 import { Artwork } from '../shared/artwork';
 import { formatDuration } from '../shared/format.duration';
-import { OnAirBadge } from './on.air.badge';
+import { listenerLabel, OnAirBadge } from './on.air.badge';
 import { usePlayhead } from './playhead';
 import { TransportQueue } from './transport.queue';
 
 export interface TransportBarProps {
     status: PlayoutStatus;
+    /**
+     * What the station is airing against: `audience` goes on air only while
+     * somebody is listening, `always` whenever there is a programme. Absent while
+     * the air reading has not arrived, which is not the same as `audience` — the
+     * control draws nothing rather than a value nobody chose.
+     */
+    airMode?: 'audience' | 'always';
     /** Whether the full panel is open. Owned by the shell, which has to reserve the height. */
     expanded: boolean;
     onToggleExpanded: () => void;
@@ -50,12 +58,17 @@ export function hasTransportToShow(status: PlayoutStatus | undefined): status is
  * Presentational: the shell owns the polling AND the expanded flag, because it
  * also has to decide how much footer to reserve.
  */
-export function TransportBar({ status, expanded, onToggleExpanded }: TransportBarProps) {
+export function TransportBar({ status, airMode, expanded, onToggleExpanded }: TransportBarProps) {
     const skip = useSkipCurrent();
     const stop = useStopPlayout();
+    const setAirMode = useSetAirMode();
 
-    const { streamUp, nowPlaying, upNext, queuedCount, mountPath } = status;
+    const { streamUp, nowPlaying, upNext, queuedCount, mountPath, listeners, audience } = status;
     const idle = !nowPlaying && queuedCount === 0;
+    // Loaded, reachable, and silent because nobody is there. Worth its own line: it
+    // is the resting state of an audience-gated station, and "Starting…" under it
+    // reads as something that has gone wrong.
+    const waitingForListener = !idle && streamUp && !status.onAir && !audience;
 
     // Only when the decoder actually reported a position. A progress bar that
     // extrapolated from a start time would be a moving, confident lie.
@@ -102,14 +115,28 @@ export function TransportBar({ status, expanded, onToggleExpanded }: TransportBa
                             </>
                         ) : (
                             <Text size="sm" c="dimmed">
-                                {/* Queued but not airing: either the player has been handed an item and
-                                    is still fetching it, or nothing can start at all. */}
-                                {streamUp ? 'Starting…' : 'The stream is not reachable, so nothing can go to air.'}
+                                {/* Queued but not airing, which is three different things: nobody has
+                                    tuned in yet, the player is still fetching what it was handed, or
+                                    nothing can start at all. */}
+                                {!streamUp
+                                    ? 'The stream is not reachable, so nothing can go to air.'
+                                    : waitingForListener
+                                      ? 'Ready: waiting for a listener.'
+                                      : 'Starting…'}
                             </Text>
                         )}
                     </Stack>
 
                     <Group gap="sm" wrap="nowrap">
+                        {/* The audience, in both states of the bar. It is what decides whether
+                            any of this is audible, so it is not a statistic to bury in a panel
+                            an operator has to open. */}
+                        <Tooltip label="Clients attached to the mount, as Icecast counts them">
+                            <Text size="xs" c={listeners > 0 ? undefined : 'dimmed'} ff="monospace" visibleFrom="xs">
+                                ♫ {listenerLabel(listeners)}
+                            </Text>
+                        </Tooltip>
+
                         {/* The next track is worth the width only while the panel is shut;
                             open, the whole order is right below it. */}
                         {!expanded && upNext.length > 0 ? (
@@ -136,11 +163,11 @@ export function TransportBar({ status, expanded, onToggleExpanded }: TransportBa
                             labelled button below, and two controls that do one thing is
                             one more thing to be sure about mid-broadcast. */}
                         {!expanded ? (
-                            <Tooltip label="Stop and go off air">
+                            <Tooltip label="Take the station out of service: drop the running order and go quiet, whoever is listening">
                                 <ActionIcon
                                     variant="subtle"
                                     color="red"
-                                    aria-label="Stop playout"
+                                    aria-label="Take the station out of service"
                                     loading={stop.isPending}
                                     disabled={idle}
                                     onClick={() => stop.mutate()}
@@ -173,8 +200,31 @@ export function TransportBar({ status, expanded, onToggleExpanded }: TransportBa
                                 <Text size="xs" c="dimmed" ff="monospace">
                                     {mountPath}
                                 </Text>
+
+                                {/* What the mount lease is renewed against. A station setting
+                                    rather than a transport command, but this is where an operator
+                                    asks why nothing is going out, so it is where the answer
+                                    belongs. */}
+                                {airMode ? (
+                                    <Tooltip label="Whether the station airs only while somebody is listening, or whenever it has something to play">
+                                        <SegmentedControl
+                                            size="xs"
+                                            value={airMode}
+                                            disabled={setAirMode.isPending}
+                                            onChange={value => setAirMode.mutate({ airMode: value as 'audience' | 'always' })}
+                                            data={[
+                                                { value: 'audience', label: 'When listened to' },
+                                                { value: 'always', label: 'Always on' },
+                                            ]}
+                                            aria-label="What puts the station on air"
+                                        />
+                                    </Tooltip>
+                                ) : undefined}
+
                                 {/* The icon's replacement while the panel is open: with room to
-                                    say what it does, it says it. */}
+                                    say what it does, it says it. Not "stop playing" any more —
+                                    the audience decides that. This is the station standing down,
+                                    which is what silences it even with listeners attached. */}
                                 <Button
                                     size="compact-xs"
                                     variant="subtle"
@@ -184,7 +234,7 @@ export function TransportBar({ status, expanded, onToggleExpanded }: TransportBa
                                     disabled={idle}
                                     onClick={() => stop.mutate()}
                                 >
-                                    Stop playout
+                                    Take out of service
                                 </Button>
                             </Group>
                         </Stack>

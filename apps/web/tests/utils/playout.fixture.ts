@@ -32,6 +32,11 @@ export function playoutStatus(overrides: Partial<PlayoutStatus> = {}): PlayoutSt
         },
         upNext: [playoutItem({ id: 'item-2', externalId: 'track-2', title: 'Come to Daddy', durationMs: 250_000 })],
         queuedCount: 1,
+        // On air means somebody is hearing it: the mount lease is only renewed while
+        // there is an audience, so a fixture with listeners at zero is a contradiction
+        // unless a test is deliberately staging one.
+        listeners: 1,
+        audience: true,
         ...overrides,
     };
 }

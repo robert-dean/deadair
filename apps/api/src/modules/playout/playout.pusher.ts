@@ -232,9 +232,22 @@ export class PlayoutPusher {
             // and one warm item while it is not.
             const target = onAir ? LEAD : WARM_LEAD;
             for (let depth = held; depth < target; depth++) {
+                // Asked again on every iteration, not once before the loop. Each pass through here
+                // spans two awaits — resolving the item and pushing it — and both of the things
+                // this answer is made of can change inside either: the operator can stop the
+                // station, and the last listener can leave.
+                //
+                // The audience case is the one that bites. A Stop empties the running order, so the
+                // loop runs out of items on its own; a gate that shuts leaves the order intact, and
+                // a loop trusting the reading it started with keeps filling the player's lead for a
+                // mount nobody is hearing. That is exactly what WARM_LEAD exists to prevent, paid
+                // for in a provider fetch and a download per track.
+                if (!this.onAirNow()) return;
+
                 const pulled = await this.rundown.next();
-                // Nothing left: the player drains, the mount falls back to the local bed,
-                // and loading a new order will wake us through onChange.
+                // Nothing left, or the running order was replaced while this item was being
+                // resolved: the player drains, the mount falls back to the local bed, and loading
+                // a new order will wake us through onChange.
                 if (!pulled) return;
 
                 const landed = await this.control.push(annotateUri(itemAnnotations(pulled.item), pulled.url));

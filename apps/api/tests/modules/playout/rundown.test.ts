@@ -530,3 +530,73 @@ describe('Rundown.onAired', () => {
         expect(aired).not.toHaveBeenCalled();
     });
 });
+
+// Resolving is the longest await in the transport: a provider call for a track, a database read for
+// a segment. The running order can be replaced or dropped entirely while one is in flight, because
+// `load` and `reset` run synchronously from a request handler on the same thread. What must not
+// happen is the resolved item landing in a running order that no longer exists.
+describe('Rundown resolving across a change of plan', () => {
+    /** A resolver whose answer can be released by the test, so an await can be held open. */
+    const heldResolver = () => {
+        let release: (() => void) | undefined;
+        const started = new Promise<void>(resolve => (release = resolve));
+        let unblock: (() => void) | undefined;
+        const held = new Promise<void>(resolve => (unblock = resolve));
+
+        class Held extends TrackResolver {
+            async resolve(): Promise<string> {
+                release?.();
+                await held;
+                return 'https://example.test/audio.ogg';
+            }
+        }
+        return { resolver: new Held(), started, unblock: () => unblock?.() };
+    };
+
+    it('drops an item whose running order was stood down mid-resolve', async () => {
+        const { resolver, started, unblock } = heldResolver();
+        const rundown = new Rundown(resolver, logger);
+        rundown.load([track('a'), track('b')]);
+
+        const pulling = rundown.next();
+        await started;
+        // The operator's Stop, landing exactly inside the resolve.
+        rundown.reset();
+        unblock();
+
+        expect(await pulling).toBeUndefined();
+        // Nothing was handed over, so nothing can be pushed to the player afterwards.
+        expect(rundown.servedCount()).toBe(0);
+        expect(rundown.hasProgramme()).toBe(false);
+    });
+
+    it('drops an item whose running order was replaced mid-resolve', async () => {
+        const { resolver, started, unblock } = heldResolver();
+        const rundown = new Rundown(resolver, logger);
+        rundown.load([track('a')]);
+
+        const pulling = rundown.next();
+        await started;
+        rundown.load([track('x')]);
+        unblock();
+
+        expect(await pulling).toBeUndefined();
+        // The replacement is untouched and still waiting: the dropped item belonged to the order
+        // that was thrown away, and re-queueing it would put a record from the old plan at the head
+        // of the new one.
+        expect(rundown.upcoming().map(item => item.externalId)).toEqual(['x']);
+    });
+
+    it('hands the item over as usual when nothing changed', async () => {
+        const { resolver, started, unblock } = heldResolver();
+        const rundown = new Rundown(resolver, logger);
+        rundown.load([track('a')]);
+
+        const pulling = rundown.next();
+        await started;
+        unblock();
+
+        expect((await pulling)?.item.externalId).toBe('a');
+        expect(rundown.servedCount()).toBe(1);
+    });
+});

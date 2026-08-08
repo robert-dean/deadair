@@ -490,3 +490,65 @@ describe('PlayoutPusher lifecycle', () => {
         expect(spy.flush).not.toHaveBeenCalled();
     });
 });
+
+// Every pass through the push loop spans two awaits: resolving the item and pushing it. Both halves
+// of "should the station be on air" can change inside either of them.
+describe('PlayoutPusher pushing across a change underneath it', () => {
+    /** The pusher over a running order, with an audience gate the test can close mid-push. */
+    const build = (onFirstPush: () => void) => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        rundown.load([track('a'), track('b'), track('c'), track('d')]);
+
+        const reading: QueueStatus = { queued: 0, ready: false, remainingMs: -1, driving: true };
+        const pushed: string[] = [];
+        let open = true;
+
+        const control = {
+            status: vi.fn(async () => reading),
+            assertOnAir: vi.fn(async () => reading),
+            releaseOnAir: vi.fn(async () => reading),
+            push: vi.fn(async (uri: string) => {
+                pushed.push(uri);
+                if (pushed.length === 1) onFirstPush();
+                return true;
+            }),
+            flush: vi.fn(async () => reading),
+            skip: vi.fn(async () => reading),
+            announce: vi.fn(async () => true),
+        } as unknown as PlayoutControlClient;
+
+        const audience = { gateOpen: () => open, onChange: () => () => {} } as unknown as AudienceWatch;
+        const pusher = new PlayoutPusher(rundown, control, audience, logger);
+
+        return { pusher, pushed, rundown, close: () => (open = false) };
+    };
+
+    // The case that bites. A Stop empties the running order so the loop runs out of items by
+    // itself; a gate that shuts leaves the order intact, and a loop trusting the reading it
+    // started with would fill the player's whole lead for a mount nobody is hearing — a provider
+    // fetch and a download per track, which is precisely what WARM_LEAD exists to prevent.
+    it('stops filling the lead when the last listener leaves mid-push', async () => {
+        const harness = build(() => harness.close());
+
+        await harness.pusher.reconcile();
+
+        expect(harness.pushed).toHaveLength(1);
+        expect(PLAYOUT_LEAD).toBeGreaterThan(1);
+    });
+
+    it('fills the whole lead while somebody is still listening', async () => {
+        const harness = build(() => undefined);
+
+        await harness.pusher.reconcile();
+
+        expect(harness.pushed).toHaveLength(PLAYOUT_LEAD);
+    });
+
+    it('stops feeding the player when the station is stood down mid-push', async () => {
+        const harness = build(() => harness.rundown.reset());
+
+        await harness.pusher.reconcile();
+
+        expect(harness.pushed).toHaveLength(1);
+    });
+});

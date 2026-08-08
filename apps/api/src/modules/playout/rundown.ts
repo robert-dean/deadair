@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { Epoch } from '#modules/shared/epoch.js';
 import type { QueueStatus } from './liquidsoap.control.js';
 import { TrackResolver } from './playout.capability.js';
 
@@ -137,6 +138,16 @@ export class Rundown {
      * prints a diagnostic for a fault that did not happen.
      */
     private abandoned = new Set<string>();
+    /**
+     * Bumped whenever the running order is replaced or dropped, so work already in
+     * flight against the old one can tell.
+     *
+     * Only {@link next} spans an await today, but every future path that resolves,
+     * renders or fetches before touching this state needs the same token: the
+     * event loop is free during any of them, and `load` and `reset` both run
+     * synchronously from a request handler.
+     */
+    private readonly epoch = new Epoch();
 
     private readonly changeListeners = new Set<() => void>();
     private readonly resetListeners = new Set<(standingDown: boolean) => void>();
@@ -157,6 +168,7 @@ export class Rundown {
      * listener off mid-track.
      */
     load(tracks: readonly RundownTrack[]): void {
+        this.epoch.bump();
         this.queue = tracks.map(track => ({ ...track, id: randomUUID() }));
         // What is on air is NOT abandoned here — it keeps playing, and the reading
         // that names it is the truth. Only what was handed over and retracted is.
@@ -202,6 +214,7 @@ export class Rundown {
      * outlive the command by a whole item.
      */
     reset(): void {
+        this.epoch.bump();
         this.queue = [];
         this.abandon([...this.served.map(entry => entry.item.id), ...(this.airing ? [this.airing.item.id] : [])]);
         this.served = [];
@@ -285,8 +298,24 @@ export class Rundown {
      */
     async next(): Promise<PulledItem | undefined> {
         while (this.queue.length > 0) {
+            // Taken BEFORE the resolve, and checked after it. Resolving is the longest await in
+            // the transport — a provider call for a track, a database read for a segment — and the
+            // running order can be replaced or dropped entirely while it is in flight. Without
+            // this, a Stop given mid-resolve is followed by the item landing in `served` anyway,
+            // the pusher handing it to the player, and the listener hearing one more record out of
+            // a programme the operator has already ended.
+            const token = this.epoch.current();
             const item = this.queue.shift()!;
             const url = await this.resolver.resolve(item);
+
+            if (!this.epoch.isCurrent(token)) {
+                // Deliberately no re-queue and no `unserve`: this item belongs to an order that no
+                // longer exists. `load` has already minted fresh items for whatever replaced it,
+                // and `reset` means there is nothing to go back to.
+                this.logger.info('rundown: the running order changed while an item was being resolved; dropping it', { item: item.id });
+                return undefined;
+            }
+
             if (!url) {
                 this.logger.warn(`rundown: cannot resolve '${item.title}' (${item.pluginId}:${item.externalId}) — skipping it`);
                 continue;

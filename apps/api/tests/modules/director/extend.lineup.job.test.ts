@@ -10,6 +10,7 @@ import type { Container } from 'injectkit';
 import type { JobContext } from '@maroonedsoftware/jobbroker';
 
 import type { BreakPlanner } from '../../../src/modules/director/break.planner.js';
+import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import { ExtendLineupJob } from '../../../src/modules/director/extend.lineup.job.js';
 import { Lineup, type LineupMode } from '../../../src/modules/director/lineup.js';
 import type { LineupRepository } from '../../../src/modules/director/lineup.repository.js';
@@ -61,9 +62,12 @@ function build(options: Options = {}) {
     // breaks among the records it just appended, rather than leaving the director to notice the gap
     // on each of the next several boundaries.
     const breaks = { plant: vi.fn(async () => 0) } as unknown as BreakPlanner;
+    // The reactor is holding its own copy of the lineup this job just grew.
+    const director = { invalidate: vi.fn() } as unknown as DirectorService;
 
     return {
-        job: new ExtendLineupJob(lineups, generator, resolver, breaks, context, container, logger),
+        job: new ExtendLineupJob(lineups, generator, resolver, breaks, director, context, container, logger),
+        director,
         breaks,
         lineup,
         seed: async () => (options.existing ? lineup.append(options.existing) : undefined),

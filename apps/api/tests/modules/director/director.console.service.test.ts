@@ -59,6 +59,7 @@ function build(options: Options = {}) {
     const director = {
         status: vi.fn(() => ({ active: true, airMode: 'audience', cursor: options.onAir?.cursor ?? 0, remaining: 0, ...options.onAir })),
         reload: vi.fn(async () => {}),
+        invalidate: vi.fn(),
     } as unknown as DirectorService;
 
     const playlists = {
@@ -222,7 +223,11 @@ describe('DirectorConsoleService.setAirMode', () => {
         // Not on the next throttled read: the lease is renewed every couple of seconds,
         // and a console showing one mode while the station runs on another is the gap
         // this closes.
-        expect(director.reload).toHaveBeenCalled();
+        // Invalidated rather than reloaded, and the difference is the transaction rather than the
+        // timing. This runs inside the request's own uncommitted transaction, so a re-read here
+        // would read the state before the write that just prompted it.
+        expect(director.invalidate).toHaveBeenCalled();
+        expect(director.reload).not.toHaveBeenCalled();
         expect(air.airMode).toBe('audience'); // what the (stubbed) reactor reports back
     });
 });
@@ -236,7 +241,10 @@ describe('DirectorConsoleService.putOnAir', () => {
         await service.putOnAir({ lineupId: 'lineup-1' });
 
         expect(rundown.load).toHaveBeenCalledWith([]);
-        expect(director.reload).toHaveBeenCalled();
+        // The row this just wrote says cursor zero. A re-read from inside this request would not
+        // see it, which is exactly how putting the on-air lineup back on air used to leave the
+        // cursor where it was instead of at the top.
+        expect(director.invalidate).toHaveBeenCalled();
     });
 
     it('remembers what it displaced only when it is interrupting', async () => {
@@ -386,5 +394,57 @@ describe('DirectorConsoleService reading a lineup with segments', () => {
         await service.getLineup('lineup-1');
 
         expect(segments.findByIds).toHaveBeenCalledOnce();
+    });
+});
+
+// Every edit to the ORDER of a lineup has to reach the reactor, which is holding its own copy of
+// it. None of these did before, so an operator could reorder what was on air and hear no
+// difference until something else happened to make the reactor re-read the plan.
+describe('DirectorConsoleService telling the reactor about an edit', () => {
+    const READY = { id: 'seg-1', kind: 'ident', state: 'ready' as const, label: 'Ident', source: 'library' };
+    const onAir = { onAir: { lineupId: 'lineup-1' } };
+
+    it('announces a segment added to the lineup that is on air', async () => {
+        const { service, director, seed } = build({ segments: [READY], ...onAir });
+        await seed();
+
+        await service.addSegment('lineup-1', { segmentId: 'seg-1' });
+
+        expect(director.invalidate).toHaveBeenCalled();
+    });
+
+    it('announces a shuffle', async () => {
+        const { service, director, seed } = build({
+            ...onAir,
+            existing: [
+                { pluginId: 'p', externalId: 'a', title: 'A', artists: ['X'] },
+                { pluginId: 'p', externalId: 'b', title: 'B', artists: ['Y'] },
+            ],
+        });
+        await seed();
+
+        await service.shuffleLineup('lineup-1', {});
+
+        expect(director.invalidate).toHaveBeenCalled();
+    });
+
+    it('announces a line being dropped', async () => {
+        const { service, director, lineup, seed } = build({ ...onAir, existing: [{ pluginId: 'p', externalId: 'a', title: 'A', artists: ['X'] }] });
+        await seed();
+
+        await service.removeItem('lineup-1', lineup.all()[0]!.id, {});
+
+        expect(director.invalidate).toHaveBeenCalled();
+    });
+
+    // An operator tidying a lineup that is not on air changes nothing the station is doing, and
+    // making the reactor re-read the plan for that is work with no listener behind it.
+    it('says nothing about a lineup that is not on air', async () => {
+        const { service, director, seed } = build({ segments: [READY], onAir: { lineupId: 'a-different-lineup' } });
+        await seed();
+
+        await service.addSegment('lineup-1', { segmentId: 'seg-1' });
+
+        expect(director.invalidate).not.toHaveBeenCalled();
     });
 });

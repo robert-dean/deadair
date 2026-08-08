@@ -40,6 +40,20 @@ const EXTEND_BELOW = 8;
 const AIR_TTL_MS = 5_000;
 
 /**
+ * How often to notice that the plan has been changed under us.
+ *
+ * The one timer in this class, and it exists because the reactor's premise — that rundown events
+ * arrive often enough to drive everything — is not quite true. Those events come from the player
+ * doing things, and a station playing a four-minute record produces none for four minutes. A plan
+ * change cannot wait that long: an operator who edits what is on air expects the station to notice
+ * before the next boundary, and a refill that lands is worthless until the reactor re-reads it.
+ *
+ * It does nothing at all unless {@link invalidate} has been called, so an idle station still costs
+ * one flag comparison a second and no queries.
+ */
+const STALE_CHECK_MS = 1_000;
+
+/**
  * The music director: the actor that keeps the station's running order full from
  * a lineup, remembers what aired, and decides what happens when a lineup ends.
  *
@@ -116,6 +130,22 @@ export class DirectorService {
      * the first record of something else entirely.
      */
     private pendingVoice?: { segmentId: string; atMs: number };
+    /**
+     * Something changed the plan and this reactor has not re-read it yet.
+     *
+     * Deliberately a flag consumed on a LATER pass rather than a re-read done on the spot, and that
+     * is the whole point of it. Every writer that changes the plan is inside a request, and every
+     * request runs inside one database transaction that commits when it ends
+     * (`audit.context.middleware`). This class reads through a scope it opens itself, on another
+     * connection, so a re-read performed during that request sees the state BEFORE the write.
+     *
+     * That is not theoretical. It is why putting the on-air lineup back on air left the cursor
+     * where it was rather than at the top: the row said zero and the re-read, one connection away,
+     * still saw the old value — and because the lineup id had not changed, nothing re-read it
+     * afterwards either.
+     */
+    private stale = false;
+    private staleTimer?: NodeJS.Timeout;
     private readonly unsubscribes: (() => void)[] = [];
 
     constructor(
@@ -142,12 +172,57 @@ export class DirectorService {
             }),
         );
 
+        this.staleTimer = setInterval(() => this.refreshIfStale(), STALE_CHECK_MS);
+        this.staleTimer.unref?.();
+
         await this.restore();
     }
 
     /** Stop driving. The player keeps whatever it already holds. */
     stop(): void {
+        if (this.staleTimer) clearInterval(this.staleTimer);
+        this.staleTimer = undefined;
         for (const unsubscribe of this.unsubscribes.splice(0)) unsubscribe();
+    }
+
+    /**
+     * Something changed the plan: re-read it before doing anything else.
+     *
+     * What every writer should call instead of {@link reload}, and the difference is the
+     * transaction rather than the timing. A caller inside a request has not committed yet, so a
+     * re-read it triggers directly reads the state before its own write; this defers that read to
+     * a pass that happens after the request is over. See {@link stale}.
+     *
+     * Cheap and idempotent: several edits in one request cost one re-read.
+     */
+    invalidate(): void {
+        this.stale = true;
+    }
+
+    /**
+     * Re-read the plan, if something has said it changed.
+     *
+     * Driven only by the timer, and that is the load-bearing part rather than an implementation
+     * detail. The obvious design — check the flag at the top of a commit pass — reintroduces the
+     * exact bug this exists to fix: `putOnAir` calls `Rundown.load([])`, whose change event fires a
+     * pass synchronously, still inside the request whose transaction has not committed. That pass
+     * would consume the flag and re-read the state from before the write. Waiting for the timer
+     * costs up to a second and is always on the far side of the request.
+     *
+     * Safe against a pass already in flight: {@link restore} bumps the epoch, so a pass that has
+     * gathered against the old plan fails its check and commits nothing rather than applying a
+     * decision made from a plan that has just been replaced.
+     */
+    private refreshIfStale(): void {
+        if (!this.stale) return;
+        this.stale = false;
+
+        this.restore().catch(error => {
+            // Left stale so the next tick tries again: the alternative is a reactor that quietly
+            // keeps airing a plan it has been told is wrong.
+            this.stale = true;
+            this.logger.warn(`director: could not re-read the plan (${message(error)})`);
+        });
     }
 
     /**
@@ -235,6 +310,18 @@ export class DirectorService {
         const token = this.epoch.current();
 
         try {
+            // Told the plan is wrong, and not yet re-read: do nothing at all.
+            //
+            // Not just an optimisation. A pass here would commit from the in-memory plan and then
+            // WRITE the cursor it reached, on its own connection, which lands after the request
+            // that just reset that cursor to zero has committed — so the reset is undone by the
+            // reactor moments after it is made. That is what "put this lineup on air" hit: the row
+            // said start from the top and the reactor put its own position back a moment later.
+            //
+            // Cheap and synchronous, so an invalidated station costs one comparison per event
+            // until the timer re-reads it.
+            if (this.stale) return;
+
             // The row is read BEFORE the `active` check, and `active` comes from it.
             // Checking a remembered flag first would mean a station that was off when
             // this process started could never notice being switched on out of band —

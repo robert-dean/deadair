@@ -3,6 +3,7 @@ import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { overrideJobActor } from '#modules/jobs/job.authorization.js';
 import { BreakPlanner } from './break.planner.js';
+import { DirectorService } from './director.service.js';
 import { isTrackItem, type LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PickResolver } from './pick.resolver.js';
@@ -68,6 +69,9 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         private readonly generator: SetGenerator,
         private readonly resolver: PickResolver,
         private readonly breaks: BreakPlanner,
+        // The reactor, which is a singleton: this job runs in its own scope and still has to reach
+        // the one object that is actually airing the lineup it just extended.
+        private readonly director: DirectorService,
         private readonly context: JobContext,
         // `Container` resolves to the container doing the resolving, which for a job
         // is the runner's per-execution scope. `ScopedContainer` is a type alias, not
@@ -134,6 +138,12 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         // director noticing a gap on each of the next several boundaries. The director keeps its
         // own pass for the lineups nothing ever extends, an imported playlist chief among them.
         const planted = await this.breaks.plant(lineup, rules);
+
+        // The reactor is holding its own copy of this lineup and has no idea it just grew. Without
+        // this the refill lands in the database and is never aired: the reactor only re-reads a
+        // lineup when the id on air CHANGES, so it would carry on to the end of the order it
+        // already had and then stand the station down with a full lineup sitting behind it.
+        this.director.invalidate();
 
         this.logger.info('director: extended a lineup', {
             job: this.context.id,

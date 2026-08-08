@@ -5,7 +5,7 @@
 // committing after Stop would have the station broadcasting a second after the
 // operator stopped it.
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
@@ -76,7 +76,14 @@ function build(options: Options = {}) {
     };
 
     const lineups = {
-        load: vi.fn(async (id: string) => (id === 'lineup-1' ? lineup : id === other?.id ? other : undefined)),
+        // Honours the cursor the way the real repository does: it is loaded FROM the air row, so a
+        // fake that ignored it could not show the reactor picking up a cursor moved underneath it —
+        // which is the case that used to leave the station stuck at the end of a lineup.
+        load: vi.fn(async (id: string, cursor = 0) => {
+            const found = id === 'lineup-1' ? lineup : id === other?.id ? other : undefined;
+            found?.advance(cursor);
+            return found;
+        }),
     } as unknown as LineupRepository;
 
     const airRepository = {
@@ -145,6 +152,7 @@ function build(options: Options = {}) {
     return {
         director,
         rundown,
+        lineups,
         breaks,
         segmentStub,
         lineup,
@@ -784,5 +792,147 @@ describe('DirectorService committing a talk-over', () => {
 
         expect(rundown.upcoming()[1]).toMatchObject({ externalId: 'seg-1' });
         expect(rundown.upcoming().every(item => item.voice === undefined)).toBe(true);
+    });
+});
+
+// The reactor holds the lineup it is airing in memory, so anything that changes the plan has to be
+// able to tell it. Doing that as a flag consumed on a TIMER, rather than at the top of a commit
+// pass, is the whole point: `putOnAir` calls `Rundown.load([])`, whose change event fires a pass
+// synchronously and still inside the request whose transaction has not committed. A pass that
+// consumed the flag would re-read the state from before the write that prompted it.
+describe('DirectorService noticing the plan changed', () => {
+    const loadCount = (lineups: LineupRepository) => (lineups.load as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('re-reads the plan once the timer comes round', async () => {
+        const { director, lineups, seed } = build();
+        await seed();
+        await director.start();
+        const before = loadCount(lineups);
+
+        director.invalidate();
+        await vi.advanceTimersByTimeAsync(1100);
+
+        expect(loadCount(lineups)).toBeGreaterThan(before);
+    });
+
+    // The case that used to leave the station stuck: the row said start from the top, and the
+    // reactor carried on from where it was because nothing ever made it look again.
+    it('picks up a cursor moved underneath it', async () => {
+        const { director, setAir, seed } = build();
+        await seed();
+        await director.start();
+        expect(director.status().cursor).toBe(3);
+
+        // What putOnAir writes: same lineup, back to the top. The id is unchanged, which is
+        // precisely why the reactor used to ignore it.
+        setAir({ slot: 'main', lineupId: 'lineup-1', cursor: 0, active: true });
+        director.invalidate();
+        await vi.advanceTimersByTimeAsync(1100);
+
+        expect(director.status().cursor).toBe(0);
+    });
+
+    // A pass fired inside the request must not consume the flag: at that moment the write it is
+    // about to read has not committed.
+    it('does not re-read on a rundown event, only on the timer', async () => {
+        const { director, lineups, rundown, seed } = build();
+        await seed();
+        await director.start();
+        const before = loadCount(lineups);
+
+        director.invalidate();
+        await rundown.next();
+        await Promise.resolve();
+
+        expect(loadCount(lineups)).toBe(before);
+    });
+
+    it('costs nothing while nothing has changed', async () => {
+        const { director, lineups, seed } = build();
+        await seed();
+        await director.start();
+        const before = loadCount(lineups);
+
+        await vi.advanceTimersByTimeAsync(5000);
+
+        expect(loadCount(lineups)).toBe(before);
+    });
+
+    it('coalesces several changes into one re-read', async () => {
+        const { director, lineups, seed } = build();
+        await seed();
+        await director.start();
+        const before = loadCount(lineups);
+
+        director.invalidate();
+        director.invalidate();
+        director.invalidate();
+        await vi.advanceTimersByTimeAsync(1100);
+
+        expect(loadCount(lineups)).toBe(before + 1);
+    });
+
+    it('stops looking once it has been stopped', async () => {
+        const { director, lineups, seed } = build();
+        await seed();
+        await director.start();
+        director.stop();
+        const before = loadCount(lineups);
+
+        director.invalidate();
+        await vi.advanceTimersByTimeAsync(5000);
+
+        expect(loadCount(lineups)).toBe(before);
+    });
+});
+
+// The guard that makes the flag more than a hint. A pass running while the plan is known to be
+// wrong would commit from the copy it is holding AND write the cursor it reached — on its own
+// connection, landing after the request that just reset that cursor. The reset would be undone by
+// the reactor moments after it was made, which is exactly what "put this lineup on air" hit.
+describe('DirectorService while it knows the plan is wrong', () => {
+    it('commits nothing until it has re-read', async () => {
+        const { director, rundown, lineup, seed } = build();
+        await seed();
+        await director.start();
+        const cursorWhenInvalidated = lineup.cursor();
+
+        director.invalidate();
+        // Drain what the player is holding, which is the loudest possible reason to commit more.
+        await rundown.next();
+        await rundown.next();
+        await settle();
+
+        expect(lineup.cursor()).toBe(cursorWhenInvalidated);
+    });
+
+    it('starts committing again once the re-read has happened', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, rundown, lineup, seed } = build();
+            await seed();
+            await director.start();
+
+            director.invalidate();
+            await vi.advanceTimersByTimeAsync(1100);
+            // Re-read, so back to the top of the order the air row names.
+            expect(lineup.cursor()).toBe(0);
+
+            // Empty what the player is holding, which is the one thing that makes the reactor
+            // commit again. Before the re-read this would have done nothing at all.
+            rundown.load([]);
+            await vi.advanceTimersByTimeAsync(10);
+
+            expect(lineup.cursor()).toBe(3);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

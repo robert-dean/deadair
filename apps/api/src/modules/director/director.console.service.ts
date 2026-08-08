@@ -99,6 +99,8 @@ export class DirectorConsoleService {
             ),
         );
 
+        this.announceEdit(lineup.id);
+
         this.logger.info('director: put a segment into a lineup', {
             lineup: lineup.id,
             segment: segment.id,
@@ -152,7 +154,7 @@ export class DirectorConsoleService {
      */
     async setAirMode(input: SetStationAirInput): Promise<StationAir> {
         await this.settings.set(AIR_MODE_KEY, input.airMode);
-        await this.director.reload();
+        this.director.invalidate();
 
         this.logger.info('director: changed what puts the station on air', { airMode: input.airMode });
         return this.getAir();
@@ -215,10 +217,14 @@ export class DirectorConsoleService {
         const current = input.interrupting ? this.director.status() : undefined;
         await this.air.putOnAir(lineup.id, current?.lineupId ? { lineupId: current.lineupId, cursor: current.cursor } : undefined);
 
+        // Invalidated BEFORE the running order is retracted, not after. `Rundown.load` announces a
+        // change synchronously, and the reactor's pass on that event would otherwise commit from
+        // the plan it is still holding and write its own cursor over the reset this just made.
+        this.director.invalidate();
+
         // Retract what the player is holding from the previous lineup. What is ON AIR
         // is left alone by `load`; only the uncommitted tail goes.
         this.rundown.load([]);
-        await this.director.reload();
 
         this.logger.info('director: put a lineup on air', { lineup: lineup.id, interrupting: input.interrupting ?? false });
         return this.getAir();
@@ -241,7 +247,7 @@ export class DirectorConsoleService {
     async shuffleLineup(lineupId: string, input: EditLineupInput): Promise<Lineup> {
         const lineup = await this.load(lineupId);
         this.require(await lineup.shuffleRemaining(input.revision));
-        await this.director.reload();
+        this.announceEdit(lineup.id);
         return await this.toLineup(lineup);
     }
 
@@ -249,6 +255,7 @@ export class DirectorConsoleService {
     async moveItem(lineupId: string, itemId: string, input: MoveLineupItemInput): Promise<Lineup> {
         const lineup = await this.load(lineupId);
         this.require(await lineup.move(itemId, input.toIndex, input.revision));
+        this.announceEdit(lineup.id);
         return await this.toLineup(lineup);
     }
 
@@ -256,6 +263,7 @@ export class DirectorConsoleService {
     async removeItem(lineupId: string, itemId: string, input: EditLineupInput): Promise<Lineup> {
         const lineup = await this.load(lineupId);
         this.require(await lineup.remove(itemId, input.revision));
+        this.announceEdit(lineup.id);
         return await this.toLineup(lineup);
     }
 
@@ -273,6 +281,21 @@ export class DirectorConsoleService {
 
         await this.lineups.remove(lineupId);
         await this.air.forgetLineup(lineupId);
+    }
+
+    /**
+     * Tell the reactor that a lineup it might be airing has changed under it.
+     *
+     * Only when it IS airing it: an operator tidying a lineup that is not on air changes nothing
+     * the station is doing, and making the reactor re-read the plan for that would be work with no
+     * listener behind it.
+     *
+     * Not awaited, and not a re-read: see {@link DirectorService.invalidate}. This runs inside the
+     * request's own uncommitted transaction, so a re-read now would read the state before the edit
+     * that just prompted it.
+     */
+    private announceEdit(lineupId: string): void {
+        if (this.director.status().lineupId === lineupId) this.director.invalidate();
     }
 
     /** Turn an edit refusal into the status code that says the same thing. */

@@ -38,6 +38,7 @@ import type {
     ProviderTrack,
     SearchTracksOptions,
 } from './capabilities/music.provider.js';
+import type { SpeechHandle, SpeechRequest, SpeechVoice } from './capabilities/speech.js';
 import type { ConfigField, ConfigFieldOption } from './plugin.config.fields.js';
 import type { HostFetchInit, HostFetchResponse, TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
@@ -143,6 +144,9 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     TrackEnrichment: IsJsonSafe<TrackEnrichment>;
     ArtistEnrichment: IsJsonSafe<ArtistEnrichment>;
     AlbumEnrichment: IsJsonSafe<AlbumEnrichment>;
+    SpeechRequest: IsJsonSafe<SpeechRequest>;
+    SpeechHandle: IsJsonSafe<SpeechHandle>;
+    SpeechVoice: IsJsonSafe<SpeechVoice>;
 }>;
 
 /**
@@ -180,6 +184,9 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'TrackEnrichment',
     'ArtistEnrichment',
     'AlbumEnrichment',
+    'SpeechRequest',
+    'SpeechHandle',
+    'SpeechVoice',
 ] as const;
 
 /**
@@ -208,4 +215,6 @@ export const BOUNDARY_METHOD_TYPES = [
     'MusicProviderOAuth',
     'MusicProvider',
     'EnrichmentProvider',
+    'PluginStreamSource',
+    'SpeechPluginInstance',
 ] as const;

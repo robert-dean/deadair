@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 
-import { asCatalogPlugin, asStreamPlugin, implementsStream } from '../../../src/modules/plugins/plugin.capabilities.js';
+import { asCatalogPlugin, asSpeechPlugin, asStreamPlugin, implementsStream } from '../../../src/modules/plugins/plugin.capabilities.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 
 const manifest = (capabilities: string[]): PluginManifest => ({ capabilities }) as unknown as PluginManifest;
@@ -60,5 +60,55 @@ describe('asCatalogPlugin', () => {
         // legitimate thing to be, and it used to be indistinguishable from one that
         // could, because `resolveStreamUrl` hid inside the catalog interface.
         expect(asCatalogPlugin(record(['catalog'], catalogMethods))).toBeDefined();
+    });
+});
+
+describe('asSpeechPlugin', () => {
+    /** The three methods `speech` requires, as bare stubs. */
+    const speechMethods = {
+        speak: async () => ({ streamId: 's1', mime: 'audio/mpeg' }),
+        readStream: async () => ({ seq: 0, done: true }),
+        closeStream: async () => {},
+    };
+
+    it('accepts a plugin that can speak and be drained', () => {
+        expect(asSpeechPlugin(record(['speech'], speechMethods))).toBeDefined();
+    });
+
+    it('refuses a plugin that can start speaking but cannot be drained', () => {
+        // The failure this prevents is worse than a missing capability: `speak`
+        // would succeed, the segment would already be `rendering`, and the
+        // `TypeError` would land half way through the render.
+        const { readStream: _readStream, ...withoutRead } = speechMethods;
+        const { closeStream: _closeStream, ...withoutClose } = speechMethods;
+
+        expect(asSpeechPlugin(record(['speech'], withoutRead))).toBeUndefined();
+        expect(asSpeechPlugin(record(['speech'], withoutClose))).toBeUndefined();
+    });
+
+    it('refuses a plugin that implements speech and never declared it', () => {
+        expect(asSpeechPlugin(record(['catalog'], speechMethods))).toBeUndefined();
+    });
+
+    it('refuses a plugin that is not running', () => {
+        for (const status of ['discovered', 'disabled', 'misconfigured', 'failed'] as const) {
+            expect(asSpeechPlugin(record(['speech'], speechMethods, status))).toBeUndefined();
+        }
+    });
+
+    it('goes by the capability rather than the kind, which is only a label', () => {
+        // `kind` groups a plugin in the console and narrows `GET /plugins?kind=`.
+        // Nothing dispatches on it, so a manifest that says `tts` and does not
+        // declare `speech` is not a speaker, and one that declares `speech` under
+        // any kind at all is.
+        expect(asSpeechPlugin({ ...record(['speech'], speechMethods), manifest: manifest(['speech']) })).toBeDefined();
+        expect(asSpeechPlugin(record([], speechMethods))).toBeUndefined();
+    });
+
+    it('reports whether the plugin can list its voices, without requiring it', () => {
+        // Optional in the SDK: a plugin with exactly one voice is a legitimate
+        // thing to be and should not have to describe it.
+        expect(asSpeechPlugin(record(['speech'], speechMethods))?.listsVoices).toBe(false);
+        expect(asSpeechPlugin(record(['speech'], { ...speechMethods, listVoices: async () => [] }))?.listsVoices).toBe(true);
     });
 });

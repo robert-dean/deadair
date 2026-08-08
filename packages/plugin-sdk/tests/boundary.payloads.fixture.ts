@@ -21,6 +21,7 @@ import type { PluginConnectionResult } from '../src/plugin.lifecycle.js';
 import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
 import type { HostStreamChunk, HostStreamOpen } from '../src/plugin.streams.js';
+import type { SpeechHandle, SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -207,6 +208,23 @@ export const hostStreamChunkDoneFixture: HostStreamChunk = {
     streamId: '2f6c0d1e-0f6a-4a5f-9a4a-1b2c3d4e5f60',
     seq: 12,
     done: true,
+};
+
+export const speechRequestFixture: SpeechRequest = {
+    text: "You're listening to Deadair. That was Boards of Canada.",
+    voice: 'host',
+    format: 'mp3',
+};
+
+export const speechHandleFixture: SpeechHandle = {
+    streamId: 'b71f5a92-3c44-4f0e-9c1d-7e8f9a0b1c2d',
+    mime: 'audio/mpeg',
+};
+
+export const speechVoiceFixture: SpeechVoice = {
+    id: 'host',
+    label: 'Station host',
+    description: 'Warm, mid-register, the one that says the station name.',
 };
 
 /** The `meta` argument accepted by every `PluginLogger` method. */

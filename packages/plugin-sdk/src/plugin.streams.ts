@@ -8,6 +8,20 @@
  * the reasoning. The 33% inflation is paid only on a path that is by
  * construction the exceptional one.
  *
+ * Two halves, deliberately symmetric:
+ *
+ * - {@link PluginStreams} is the HOST's, reached as `host.streams`. A plugin
+ *   uses it to pull a response body that is too large, or too open-ended, to
+ *   arrive whole through `host.fetch`.
+ * - {@link PluginStreamSource} is the PLUGIN's. A capability that produces bytes
+ *   returns a handle instead of the bytes, and the host pulls them the same way.
+ *
+ * The plugin half is not named for any one capability on purpose. Speech is its
+ * first implementer and should not be its last: an LLM capability streaming
+ * tokens wants exactly this and should extend this interface rather than
+ * inventing `readTokens`. One stream table per plugin instance, one
+ * close-on-dispose rule, however many capabilities produce bytes.
+ *
  * ## Pull, never push
  *
  * The reader asks for the next chunk and the writer reads exactly that much.
@@ -17,9 +31,10 @@
  * It is also what makes cancellation a message rather than an object. There is
  * no `AbortSignal` anywhere in this file, and there cannot be one: a signal is a
  * live object with listeners, so it would work in-process today and break the
- * day plugins move behind a subprocess. {@link PluginStreams.close} IS the
- * cancel, and being pull-based is what makes that sufficient — the host never
- * has anything in flight the plugin cannot stop by declining to read again.
+ * day plugins move behind a subprocess. {@link PluginStreams.close} and
+ * {@link PluginStreamSource.closeStream} ARE the cancel, and being pull-based is
+ * what makes that sufficient — neither side ever has anything in flight the
+ * other cannot stop by declining to read again.
  */
 
 import type { HostFetchInit } from './plugin.host.js';
@@ -124,4 +139,41 @@ export interface PluginStreams {
      * plugin's licence to leak.
      */
     close(streamId: string): Promise<void>;
+}
+
+/**
+ * A plugin that produces bytes the host pulls, whatever the bytes are.
+ *
+ * A capability whose result is too large to return whole returns a handle
+ * carrying a `streamId` instead, and the host drains it through these two
+ * methods. The usual implementation forwards to an open {@link PluginStreams}
+ * read, which is what makes the whole path stream end to end: the bytes exist
+ * whole in neither process.
+ *
+ * `streamId` is the plugin's own, and unrelated to any host stream id it may be
+ * wrapping. Keep the two apart in a map; handing the host's id back to the host
+ * happens to work in-process today and is exactly the sort of thing that stops
+ * working behind IPC.
+ */
+export interface PluginStreamSource {
+    /**
+     * The next chunk of one of this plugin's streams, following the same rules
+     * as {@link PluginStreams.read}: `done: true` with no `data` at the end,
+     * `maxBytes` caps the decoded chunk size, and a failure rejects rather than
+     * resolving something that looks like data.
+     *
+     * @throws {PluginError} `not_found` for a stream this plugin does not have
+     *   open. That code rather than `internal`, because a closed stream is a
+     *   statement about the thing asked for and not evidence the plugin is sick
+     *   (see `isResourceScopedCode`).
+     */
+    readStream(streamId: string, maxBytes?: number): Promise<StreamChunk>;
+
+    /**
+     * Release one of this plugin's streams, and whatever it was holding open.
+     *
+     * Must be idempotent: the host calls it from a `finally`, so it will be
+     * called on a stream that already ended normally.
+     */
+    closeStream(streamId: string): Promise<void>;
 }

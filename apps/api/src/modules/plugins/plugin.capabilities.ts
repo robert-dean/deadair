@@ -1,10 +1,12 @@
 import {
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_ENRICHMENT,
+    PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_STREAM,
     type EnrichmentPluginInstance,
     type MusicProviderPluginInstance,
     type PluginManifest,
+    type SpeechPluginInstance,
 } from '@deadair/plugin-sdk';
 import type { PluginRecord } from './types/plugin.record.js';
 
@@ -189,4 +191,52 @@ export const asEnrichmentPlugin = (record: PluginRecord): EnrichmentPlugin | und
         enrichesBatches: implementsBatchEnrichment(instance),
         maxBatchSize: enrichmentBatchSize(instance),
     };
+};
+
+/**
+ * The three methods that earn the `speech` capability.
+ *
+ * `readStream` and `closeStream` are in here beside `speak` rather than being
+ * treated as optional plumbing, because a plugin that can start speaking and
+ * cannot be drained is worse than one that cannot speak at all: the first is
+ * caught here, the second is a `TypeError` half way through a render with a
+ * segment already moved to `rendering`.
+ *
+ * `listVoices` is deliberately absent. It is optional in the SDK the way
+ * `enrichArtist` is, and a plugin with one voice is a legitimate thing to be.
+ */
+export const SPEECH_METHODS = ['speak', 'readStream', 'closeStream'] as const satisfies ReadonlyArray<keyof SpeechPluginInstance>;
+
+/** A plugin narrowed to "can say something, right now". */
+export interface SpeechPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: SpeechPluginInstance;
+    /** Whether `listVoices` is there to call. Optional in the SDK, so absent is normal, not broken. */
+    listsVoices: boolean;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `speech` capability. */
+export const implementsSpeech = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_SPEECH)) return false;
+    return SPEECH_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/** Whether this plugin can describe the voices it offers, for a console that has to draw a list. */
+export const implementsVoiceListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listVoices === 'function';
+
+/**
+ * The speech-capable view of a record, or `undefined` when it is not one.
+ *
+ * Unlike enrichment, which fans out to every plugin that answers, speech has
+ * exactly one speaker at a time: two voices rendering the same break is not a
+ * merge, it is two breaks. So there is no priority here, and choosing between
+ * several is a setting rather than an ordering — see `render.speechPluginId`.
+ */
+export const asSpeechPlugin = (record: PluginRecord): SpeechPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsSpeech(record.manifest, record.instance)) return undefined;
+
+    const instance = record.instance as SpeechPluginInstance;
+    return { record, manifest: record.manifest, instance, listsVoices: implementsVoiceListing(instance) };
 };

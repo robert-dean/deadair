@@ -28,6 +28,7 @@ const BOUNDARY_SOURCE_FILES = [
     'plugin.config.fields.ts',
     'capabilities/music.provider.ts',
     'capabilities/enrichment.ts',
+    'capabilities/speech.ts',
 ] as const;
 
 function exportedInterfacesIn(relativePath: string): string[] {

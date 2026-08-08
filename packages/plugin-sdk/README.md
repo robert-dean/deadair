@@ -11,6 +11,12 @@ A plugin extends deadair in one of two ways today:
 | ---------------- | --------------------------------------------------------------- |
 | `music-provider` | supplies music: search, browse, and optionally play it           |
 | `enrichment`     | supplies facts about a track: year, genre, label, trivia, links  |
+| `tts`            | says something out loud: text in, audio out                      |
+
+`kind` is a label. It groups your plugin in the console and narrows
+`GET /plugins?kind=`, and nothing in the host dispatches on it — what is
+actually checked is `capabilities`, every time. Declare the kind that describes
+you and spend your attention on the capability list.
 
 ## The shape of a plugin
 
@@ -232,6 +238,41 @@ Let these propagate unless you can do something better with them. The host
 maps each one to a status and error code for the operator console, and
 swallowing them turns a precise answer into a silent empty result.
 
+## When the body should not arrive whole
+
+`host.fetch` buffers a body into one string under a size cap, which is right for
+the JSON almost every upstream answers with and wrong for audio. `host.streams`
+is the same egress for the other case: identical allowlist, redirect and
+rate-limit policy, bounded by a byte cap and a lifetime instead of by one
+deadline.
+
+```ts
+const opened = await host.streams.open(url, { method: 'POST', body });
+try {
+    for (;;) {
+        const chunk = await host.streams.read(opened.streamId);
+        if (chunk.done) break;
+        // `chunk.data` is base64. Bytes cross this boundary as strings.
+    }
+} finally {
+    await host.streams.close(opened.streamId);
+}
+```
+
+`open` costs one rate-limit point; `read` costs nothing, because charging per
+read against a requests-per-second budget would make any file over a few hundred
+kilobytes impossible. Reads are bounded by an idle deadline, the whole stream by
+a byte cap and a lifetime cap, and the host closes anything you still hold when
+your plugin is disposed. Needs no permission of its own: a stream is an egress,
+gated by `permissions.network` like any other.
+
+There is no `AbortSignal` and there will not be one — it is a live object and
+would not survive the boundary. `close()` is the cancel, it is idempotent, and it
+belongs in a `finally`.
+
+Reach for this only when `fetch` genuinely will not do. Its size cap is a feature
+rather than a limitation for anything that parses as JSON.
+
 ## Declaring the upstreams you reach
 
 `permissions.network` is a list of bare hostnames, and a leading `*.` is a
@@ -424,6 +465,73 @@ class LibraryPlugin implements MusicProviderPluginInstance {
     }
 }
 ```
+
+## Speaking
+
+A `tts` plugin declares `speech` and turns a line of text into audio. It is the
+one capability whose result does not fit in a return value, so it hands back a
+handle and the host pulls the audio out:
+
+```ts
+class KokoroPlugin implements SpeechPluginInstance {
+    private readonly open = new Map<string, string>();  // ours -> the host's
+
+    async speak({ text, voice }: SpeechRequest): Promise<SpeechHandle> {
+        const opened = await this.host.streams.open(`${this.baseUrl}/audio/speech`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ input: text, voice: this.voices[voice ?? ''] ?? this.defaultVoice }),
+        });
+        if (!opened.ok) throw new PluginError(`TTS answered ${opened.status}`).withCode('upstream');
+
+        const streamId = randomUUID();
+        this.open.set(streamId, opened.streamId);
+        return { streamId, mime: 'audio/mpeg' };
+    }
+
+    async readStream(streamId: string, maxBytes?: number): Promise<StreamChunk> {
+        const hostId = this.open.get(streamId);
+        if (!hostId) throw new PluginError(`no stream "${streamId}"`).withCode('not_found');
+        return await this.host.streams.read(hostId, maxBytes);
+    }
+
+    async closeStream(streamId: string): Promise<void> {
+        const hostId = this.open.get(streamId);
+        this.open.delete(streamId);
+        if (hostId) await this.host.streams.close(hostId);
+    }
+}
+```
+
+Three things that are easy to get wrong:
+
+- **Keep your ids and the host's apart.** Handing the host's `streamId` straight
+  back happens to work in-process today and is exactly the sort of thing that
+  stops working behind IPC.
+- **`readStream`/`closeStream` come from `PluginStreamSource`, not from speech.**
+  Any capability that produces bytes extends the same interface, so a plugin
+  keeps one stream table however many of them it implements.
+- **`mime` is the answer, not the request.** `SpeechRequest.format` is a hint you
+  may ignore; what you return in `SpeechHandle.mime` is what the station stores
+  and later serves, and both consumers of station audio pick their behaviour from
+  that header rather than from the bytes.
+
+### Voices
+
+`SpeechRequest.voice` is an opaque id the operator chose (`host`, `newsreader`).
+Map it to whatever your engine takes, out of your own config, and fall back to
+your default for an id you do not know — a missing voice is worth a
+`logger.warn` and a rendered line, not a silent station.
+
+The host never interprets that string, and that is deliberate. It is what lets
+one station voice be a named preset on one engine and a cloned reference clip on
+another, so swapping engines does not rewrite every persona. Engine-specific
+tuning belongs in your config, not in the request: the host should not be
+carrying knobs only one implementation understands.
+
+Implement `listVoices()` if you have more than one, so the console can draw a
+list and preview them. It is optional, and a single-voice plugin is a legitimate
+thing to be.
 
 ## Configuration fields
 

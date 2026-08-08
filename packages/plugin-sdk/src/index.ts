@@ -1,6 +1,7 @@
 export * from './boundary.json.safe.js';
 export * from './capabilities/enrichment.js';
 export * from './capabilities/music.provider.js';
+export * from './capabilities/speech.js';
 export * from './define.plugin.js';
 export * from './plugin.api.version.js';
 export * from './plugin.config.fields.js';

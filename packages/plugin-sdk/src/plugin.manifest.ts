@@ -6,7 +6,10 @@ import { pluginPermissionsSchema, type PluginPermissions } from './plugin.permis
 export const PLUGIN_KIND_MUSIC_PROVIDER = 'music-provider';
 export const PLUGIN_KIND_ENRICHMENT = 'enrichment';
 
-export const KNOWN_PLUGIN_KINDS = [PLUGIN_KIND_MUSIC_PROVIDER, PLUGIN_KIND_ENRICHMENT] as const;
+/** The plugin turns text into speech. See {@link PLUGIN_CAPABILITY_SPEECH}. */
+export const PLUGIN_KIND_TTS = 'tts';
+
+export const KNOWN_PLUGIN_KINDS = [PLUGIN_KIND_MUSIC_PROVIDER, PLUGIN_KIND_ENRICHMENT, PLUGIN_KIND_TTS] as const;
 
 export type KnownPluginKind = (typeof KNOWN_PLUGIN_KINDS)[number];
 
@@ -37,12 +40,22 @@ export const PLUGIN_CAPABILITY_STEER = 'steer';
 export const PLUGIN_CAPABILITY_OAUTH = 'oauth';
 export const PLUGIN_CAPABILITY_ENRICHMENT = 'enrichment';
 
+/**
+ * The plugin can say something out loud: text in, audio out.
+ *
+ * This is the capability the host actually checks. `kind: 'tts'` beside it is a
+ * label — it groups the plugin in the console and narrows
+ * `GET /plugins?kind=`, and nothing dispatches on it.
+ */
+export const PLUGIN_CAPABILITY_SPEECH = 'speech';
+
 export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_STREAM,
     PLUGIN_CAPABILITY_STEER,
     PLUGIN_CAPABILITY_OAUTH,
     PLUGIN_CAPABILITY_ENRICHMENT,
+    PLUGIN_CAPABILITY_SPEECH,
 ] as const;
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];

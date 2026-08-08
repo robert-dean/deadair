@@ -13,7 +13,6 @@ import type {
     PlayoutAiredQuery,
     PlayoutBridgeHeaders,
     PlayoutItem,
-    PlayoutListenerHeaders,
     PlayoutListenerQuery,
     PlayoutPlaylistInput,
     PlayoutStatus,
@@ -191,8 +190,11 @@ export class PlayoutService {
      *
      * @throws 404 while the bridge secret is unseeded, 401 when it does not match.
      */
-    noteListener(query: PlayoutListenerQuery, headers: PlayoutListenerHeaders): { body: string; headers: { icecastAuthUser: string } } {
-        this.requireBridgeSecret(basicPassword(headers.authorization));
+    noteListener(query: PlayoutListenerQuery, headers: PlayoutBridgeHeaders): { body: string; headers: { icecastAuthUser: string } } {
+        // The same header the rest of the bridge presents. Icecast sends it as HTTP
+        // basic and `listener.credential.middleware` moves it here, because ServerKit's
+        // authentication middleware deletes Authorization before any route runs.
+        this.requireBridgeSecret(headers['x-playout-secret']);
 
         this.audience.noteArrival(query.event === 'add');
         // `1` is what Icecast reads as "this listener may have the mount"; the header
@@ -235,22 +237,6 @@ function toPlayoutItem(item: RundownItem): PlayoutItem {
         ...(item.year === undefined ? {} : { year: item.year }),
         ...(item.trackId === undefined ? {} : { trackId: item.trackId }),
     };
-}
-
-/**
- * The password out of an HTTP basic `Authorization` header, or `''`.
- *
- * Icecast's URL authenticator can present exactly one credential, the
- * `username`/`password` pair in its config, and it sends it as basic. The
- * username is ignored: the secret is the whole gate, and there is one caller.
- */
-function basicPassword(header: string): string {
-    const [scheme = '', value = ''] = header.split(' ', 2);
-    if (scheme.toLowerCase() !== 'basic' || !value) return '';
-
-    const decoded = Buffer.from(value, 'base64').toString('utf8');
-    const separator = decoded.indexOf(':');
-    return separator === -1 ? '' : decoded.slice(separator + 1);
 }
 
 /** Constant-time compare that tolerates differing lengths. */

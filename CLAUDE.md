@@ -102,7 +102,10 @@ is silent exactly when deadair is not driving it, which is the point. See `strea
 connected, so a loaded station with a full running order and no listeners is silent **on purpose**,
 and the console says `ready` for it. The count is polled from Icecast's public `status-json.xsl`,
 which is the truth, and pushed by Icecast's `listener_add`/`listener_remove` hooks into
-`POST /playout/listener`, which only makes the arrival edge faster. `listener_add` is a blocking
+`POST /playout/listener`, which only makes the arrival edge faster. That route's credential arrives
+as HTTP basic and is moved onto `x-playout-secret` by `listener.credential.middleware`, which MUST
+stay registered before `authenticationMiddleware`: ServerKit deletes `Authorization` from every
+request, so a route can never read one for itself. `listener_add` is a blocking
 auth call, so with the hooks on a dead API refuses new listeners: `stream.listenerHooks` turns them
 off for an Icecast built without libcurl. Off air the transport still keeps one item handed over and
 downloaded (Liquidsoap never pulls a source it is not airing), which is why the falling edge lets

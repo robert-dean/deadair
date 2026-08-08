@@ -50,7 +50,3 @@ contract PlayoutBridgeHeaders: { # The shared secret gating the internal playout
 contract PlayoutListenerQuery: { # Which way a listener went
     event: enum(add, remove)
 }
-
-contract PlayoutListenerHeaders: { # The bridge secret as HTTP basic, which is the only credential Icecast's URL authenticator can present
-    authorization: string(min=1, max=400)
-}

@@ -3,7 +3,6 @@ import { PlayoutService } from '#src/modules/playout/playout.service.js';
 import {
     PlayoutAiredQuery,
     PlayoutBridgeHeaders,
-    PlayoutListenerHeaders,
     PlayoutListenerQuery,
     PlayoutPlaylistInput,
     PlayoutStatus,
@@ -71,14 +70,14 @@ PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Notes a listener arriving or leaving, so the station reacts the moment somebody tunes in rather than at the next poll of Icecast's stats. The count itself still comes from the poll, which is what makes a dropped event harmless
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L93)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L95)
  * anonymous access, no security required
  * @internal
  */
 PlayoutRouter.post('/playout/listener', async ctx => {
     const query = await parseAndValidate(ctx.query, PlayoutListenerQuery.strict());
 
-    const headers = await parseAndValidate(ctx.headers, PlayoutListenerHeaders.strip());
+    const headers = await parseAndValidate(ctx.headers, PlayoutBridgeHeaders.strip());
 
     const service = ctx.container.get(PlayoutService);
     const result: { body: string; headers: { icecastAuthUser: string } } = await service.noteListener(query, headers);
@@ -91,7 +90,7 @@ PlayoutRouter.post('/playout/listener', async ctx => {
 
 /**
  * Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L111)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L113)
  * anonymous access, no security required
  * @internal
  */

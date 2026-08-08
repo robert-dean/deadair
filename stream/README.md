@@ -123,9 +123,13 @@ The count comes from Icecast, which is the only thing that knows: Liquidsoap see
 writes to and nothing about the far end. `AudienceWatch` (apps/api, modules/playout) polls
 `GET /status-json.xsl` every five seconds (public, so no admin password is involved), and that
 poll is the **truth**. Icecast also *pushes*, through `<authentication type="url">` on the mount:
-`listener_add` and `listener_remove` call `POST /playout/listener`, gated on the same bridge secret
-presented as HTTP basic, so an arrival opens the gate in milliseconds instead of up to five
-seconds. Same division as `/playout/aired` and `/control/status`: the push beats the poll to the
+`listener_add` and `listener_remove` call `POST /playout/listener`, gated on the same bridge secret,
+so an arrival opens the gate in milliseconds instead of up to five seconds. Icecast presents that
+secret as HTTP **basic**, because its URL authenticator can send no header of its own; ServerKit's
+authentication middleware deletes `Authorization` from every request before a route runs, so
+`listener.credential.middleware` (registered ahead of it) moves the password onto the
+`x-playout-secret` header the rest of the bridge uses. Both halves have to stay in that order, or
+every listener is refused by an app that meant to admit them. Same division as `/playout/aired` and `/control/status`: the push beats the poll to the
 edge, and the poll is what makes a dropped push harmless.
 
 Two things about that push are worth knowing before they surprise you:

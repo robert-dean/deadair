@@ -85,8 +85,10 @@ operation /playout/stop: {
 
 # Liquidsoap's air confirmation, gated on the bridge secret — the same one the app presents
 # when pushing to its /control/* endpoints, materialized into radio.env by the stream module.
-# Icecast's listener hooks, gated on the same bridge secret, presented as HTTP basic because
-# Icecast's URL authenticator cannot set a header of its own. The 200 carries the header Icecast
+# Icecast's listener hooks, gated on the same bridge secret as every other route here. Icecast
+# presents it as HTTP basic, because its URL authenticator can send no header of its own;
+# `listener.credential.middleware` moves it onto `x-playout-secret` before ServerKit's
+# authentication middleware deletes the Authorization header. The 200 carries the header Icecast
 # reads as "admit this listener": an `add` is a blocking authentication call, so a refusal here is
 # a listener who is refused the mount.
 operation(internal) /playout/listener: {
@@ -95,7 +97,7 @@ operation(internal) /playout/listener: {
         service: PlayoutService.noteListener
         security: none
         query: PlayoutListenerQuery
-        headers: PlayoutListenerHeaders
+        headers: PlayoutBridgeHeaders
         response: {
             200: {
                 text/plain: string

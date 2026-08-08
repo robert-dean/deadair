@@ -65,15 +65,6 @@ export const PlayoutListenerQuery = z.strictObject({
 export type PlayoutListenerQuery = z.infer<typeof PlayoutListenerQuery>;
 
 /**
- * The bridge secret as HTTP basic, which is the only credential Icecast's URL authenticator can present
- * generated from [PlayoutListenerHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L54)
- */
-export const PlayoutListenerHeaders = z.strictObject({
-    authorization: z.string().min(1).max(400),
-});
-export type PlayoutListenerHeaders = z.infer<typeof PlayoutListenerHeaders>;
-
-/**
  * What the PLAYER says is airing, which is not the same as what was last handed to it
  * generated from [PlayoutNowPlaying](file://./../../../../data/contracts/playout/playout.types.ck#L25)
  */

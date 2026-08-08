@@ -198,7 +198,7 @@ describe('DirectorConsoleService.putOnAir', () => {
         // changing programming does not cut a listener off mid-track.
         const { service, rundown, director } = build();
 
-        await service.putOnAir('lineup-1');
+        await service.putOnAir({ lineupId: 'lineup-1' });
 
         expect(rundown.load).toHaveBeenCalledWith([]);
         expect(director.reload).toHaveBeenCalled();
@@ -209,17 +209,17 @@ describe('DirectorConsoleService.putOnAir', () => {
         // programming has nothing to go back to.
         const { service, air } = build({ onAir: { lineupId: 'lineup-9', cursor: 12 } });
 
-        await service.putOnAir('lineup-1', true);
+        await service.putOnAir({ lineupId: 'lineup-1', interrupting: true });
         expect(air.putOnAir).toHaveBeenCalledWith('lineup-1', { lineupId: 'lineup-9', cursor: 12 });
 
-        await service.putOnAir('lineup-1');
+        await service.putOnAir({ lineupId: 'lineup-1' });
         expect(air.putOnAir).toHaveBeenLastCalledWith('lineup-1', undefined);
     });
 
     it('refuses a lineup that does not exist', async () => {
         const { service } = build({ missing: true });
 
-        expect(await statusOf(service.putOnAir('lineup-1'))).toBe(404);
+        expect(await statusOf(service.putOnAir({ lineupId: 'lineup-1' }))).toBe(404);
     });
 });
 
@@ -230,20 +230,20 @@ describe('DirectorConsoleService editing', () => {
         const { service, seed, lineup } = build({ existing: [{ pluginId: 'p', externalId: 'a', title: 'A', artists: ['One'] }] });
         await seed();
 
-        expect(await statusOf(service.removeItem('lineup-1', lineup.all()[0]!.id, 99))).toBe(409);
+        expect(await statusOf(service.removeItem('lineup-1', lineup.all()[0]!.id, { revision: 99 }))).toBe(409);
     });
 
     it('maps an unknown line onto a not-found', async () => {
         const { service, seed } = build({ existing: [{ pluginId: 'p', externalId: 'a', title: 'A', artists: ['One'] }] });
         await seed();
 
-        expect(await statusOf(service.removeItem('lineup-1', 'nope'))).toBe(404);
+        expect(await statusOf(service.removeItem('lineup-1', 'nope', {}))).toBe(404);
     });
 
     it('maps a shuffle with nothing left onto an unprocessable request', async () => {
         const { service } = build();
 
-        expect(await statusOf(service.shuffle('lineup-1'))).toBe(422);
+        expect(await statusOf(service.shuffleLineup('lineup-1', {}))).toBe(422);
     });
 
     it('queues an extend rather than making the operator wait for it', async () => {
@@ -251,7 +251,7 @@ describe('DirectorConsoleService editing', () => {
         // press should not hold a connection open through that.
         const { service, jobs } = build();
 
-        await service.extend('lineup-1', 20);
+        await service.extendLineup('lineup-1', { count: 20 });
 
         expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { lineupId: 'lineup-1', count: 20 });
     });
@@ -263,14 +263,14 @@ describe('DirectorConsoleService.remove', () => {
         // stopping the station is a separate decision they can make explicitly.
         const { service, lineups } = build({ onAir: { lineupId: 'lineup-1' } });
 
-        expect(await statusOf(service.remove('lineup-1'))).toBe(409);
+        expect(await statusOf(service.deleteLineup('lineup-1'))).toBe(409);
         expect(lineups.remove).not.toHaveBeenCalled();
     });
 
     it('deletes one that is not, and clears any pointer to it', async () => {
         const { service, lineups, air } = build({ onAir: { lineupId: 'lineup-9' } });
 
-        await service.remove('lineup-1');
+        await service.deleteLineup('lineup-1');
 
         expect(lineups.remove).toHaveBeenCalledWith('lineup-1');
         expect(air.forgetLineup).toHaveBeenCalledWith('lineup-1');

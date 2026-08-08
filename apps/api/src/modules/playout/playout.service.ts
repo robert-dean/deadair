@@ -107,7 +107,7 @@ export class PlayoutService {
      */
     async playPlaylist(input: PlayoutPlaylistInput): Promise<PlayoutStatus> {
         const lineup = await this.director.importPlaylist({ pluginId: input.pluginId, playlistId: input.playlistId });
-        await this.director.putOnAir(lineup.id);
+        await this.director.putOnAir({ lineupId: lineup.id });
 
         // Hand the first item over now rather than waiting out the reconcile tick,
         // so the console's own response already reflects a station that is starting.

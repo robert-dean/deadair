@@ -99,7 +99,7 @@ describe('PlayoutService.playPlaylist', () => {
         await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
 
         expect(director.importPlaylist).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
-        expect(director.putOnAir).toHaveBeenCalledWith('lineup-1');
+        expect(director.putOnAir).toHaveBeenCalledWith({ lineupId: 'lineup-1' });
     });
 
     it('hands the first item over without waiting for the tick', async () => {

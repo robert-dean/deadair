@@ -7,28 +7,19 @@ import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { Rundown, type RundownTrack } from '#modules/playout/rundown.js';
 import { DirectorService } from './director.service.js';
-import type { EditResult, Lineup, LineupMode, LineupOnEnd } from './lineup.js';
-import { LineupRepository, type LineupSummary } from './lineup.repository.js';
+import type { EditResult, Lineup as LoadedLineup } from './lineup.js';
+import { LineupRepository } from './lineup.repository.js';
 import { StationAirRepository } from './station.air.repository.js';
-
-/** What importing a provider playlist into a lineup needs. */
-export interface ImportLineupInput {
-    pluginId: string;
-    playlistId: string;
-    /** What to call it. Absent takes the provider's own name for the playlist. */
-    name?: string;
-    mode?: LineupMode;
-    onEnd?: LineupOnEnd;
-}
-
-/** What is on air, for a console. */
-export interface AirStatus {
-    active: boolean;
-    lineupId?: string;
-    lineupName?: string;
-    cursor: number;
-    remaining: number;
-}
+import type {
+    EditLineupInput,
+    ExtendLineupInput,
+    ImportLineupInput,
+    Lineup,
+    LineupList,
+    MoveLineupItemInput,
+    PutOnAirInput,
+    StationAir,
+} from './types/director.types.js';
 
 /**
  * The operator's side of the director: everything a request does to the
@@ -58,13 +49,24 @@ export class DirectorConsoleService {
         private readonly logger: Logger,
     ) {}
 
-    /** Every lineup the station holds. */
-    async list(): Promise<LineupSummary[]> {
-        return this.lineups.list();
+    /** Every lineup the station holds, without their orders. */
+    async listLineups(): Promise<LineupList> {
+        return { lineups: await this.lineups.list() };
     }
 
-    /** One lineup, with the cursor it is being aired at when it is the one on air. */
-    async get(lineupId: string): Promise<Lineup> {
+    /** One lineup and its whole order. */
+    async getLineup(lineupId: string): Promise<Lineup> {
+        return toLineup(await this.load(lineupId));
+    }
+
+    /**
+     * One lineup as the object that can be edited, with the cursor it is being
+     * aired at when it is the one on air.
+     *
+     * Anything not on air reads at zero, which is honest rather than a default:
+     * nothing has been committed from it, so nothing in it is beyond editing.
+     */
+    private async load(lineupId: string): Promise<LoadedLineup> {
         const status = this.director.status();
         const cursor = status.lineupId === lineupId ? status.cursor : 0;
 
@@ -74,7 +76,7 @@ export class DirectorConsoleService {
     }
 
     /** What is on air right now. */
-    async status(): Promise<AirStatus> {
+    async getAir(): Promise<StationAir> {
         const status = this.director.status();
         if (!status.lineupId) return { active: status.active, cursor: 0, remaining: 0 };
 
@@ -126,7 +128,7 @@ export class DirectorConsoleService {
             lineup: lineup.id,
             tracks: lineup.size(),
         });
-        return lineup;
+        return toLineup(lineup);
     }
 
     /**
@@ -140,10 +142,10 @@ export class DirectorConsoleService {
      *   ending with `on_end: 'resume'` can hand the station back. What an album
      *   feature wants; not what an operator changing programming wants.
      */
-    async putOnAir(lineupId: string, interrupting = false): Promise<AirStatus> {
-        const lineup = await this.get(lineupId);
+    async putOnAir(input: PutOnAirInput): Promise<StationAir> {
+        const lineup = await this.load(input.lineupId);
 
-        const current = interrupting ? this.director.status() : undefined;
+        const current = input.interrupting ? this.director.status() : undefined;
         await this.air.putOnAir(
             lineup.id,
             current?.lineupId ? { lineupId: current.lineupId, cursor: current.cursor } : undefined,
@@ -154,8 +156,8 @@ export class DirectorConsoleService {
         this.rundown.load([]);
         await this.director.reload();
 
-        this.logger.info('director: put a lineup on air', { lineup: lineup.id, interrupting });
-        return this.status();
+        this.logger.info('director: put a lineup on air', { lineup: lineup.id, interrupting: input.interrupting ?? false });
+        return this.getAir();
     }
 
     /**
@@ -166,31 +168,31 @@ export class DirectorConsoleService {
      * not be holding a connection open through it — the lineup grows a few seconds
      * later and the console's next read shows it.
      */
-    async extend(lineupId: string, count?: number): Promise<void> {
-        await this.get(lineupId);
-        await this.jobs.send('director.extend_lineup', { lineupId, ...(count === undefined ? {} : { count }) });
+    async extendLineup(lineupId: string, input: ExtendLineupInput): Promise<void> {
+        await this.load(lineupId);
+        await this.jobs.send('director.extend_lineup', { lineupId, ...(input.count === undefined ? {} : { count: input.count }) });
     }
 
     /** Shuffle everything in a lineup that has not been committed yet. */
-    async shuffle(lineupId: string, revision?: number): Promise<Lineup> {
-        const lineup = await this.get(lineupId);
-        this.require(await lineup.shuffleRemaining(revision));
+    async shuffleLineup(lineupId: string, input: EditLineupInput): Promise<Lineup> {
+        const lineup = await this.load(lineupId);
+        this.require(await lineup.shuffleRemaining(input.revision));
         await this.director.reload();
-        return lineup;
+        return toLineup(lineup);
     }
 
     /** Move a line within a lineup. */
-    async move(lineupId: string, itemId: string, toIndex: number, revision?: number): Promise<Lineup> {
-        const lineup = await this.get(lineupId);
-        this.require(await lineup.move(itemId, toIndex, revision));
-        return lineup;
+    async moveItem(lineupId: string, itemId: string, input: MoveLineupItemInput): Promise<Lineup> {
+        const lineup = await this.load(lineupId);
+        this.require(await lineup.move(itemId, input.toIndex, input.revision));
+        return toLineup(lineup);
     }
 
     /** Drop a line that has not been committed yet. */
-    async removeItem(lineupId: string, itemId: string, revision?: number): Promise<Lineup> {
-        const lineup = await this.get(lineupId);
-        this.require(await lineup.remove(itemId, revision));
-        return lineup;
+    async removeItem(lineupId: string, itemId: string, input: EditLineupInput): Promise<Lineup> {
+        const lineup = await this.load(lineupId);
+        this.require(await lineup.remove(itemId, input.revision));
+        return toLineup(lineup);
     }
 
     /**
@@ -200,7 +202,7 @@ export class DirectorConsoleService {
      *   almost never what someone means, and standing the station down is a
      *   separate decision they can make explicitly first.
      */
-    async remove(lineupId: string): Promise<void> {
+    async deleteLineup(lineupId: string): Promise<void> {
         if (this.director.status().lineupId === lineupId) {
             throw httpError(409).withDetails({ message: 'that lineup is on air; stop the station or put another one on first' });
         }
@@ -266,4 +268,38 @@ export class DirectorConsoleService {
             return new Map();
         }
     }
+}
+
+/**
+ * A loaded lineup as the console reads it.
+ *
+ * `committed` is the whole point of drawing the cursor: everything at or before
+ * it has been handed to the player and can no longer be moved or removed, and a
+ * console that did not say so would offer controls that answer 422.
+ */
+function toLineup(lineup: LoadedLineup): Lineup {
+    const cursor = lineup.cursor();
+
+    return {
+        id: lineup.id,
+        name: lineup.name,
+        mode: lineup.mode,
+        onEnd: lineup.onEnd,
+        source: lineup.source,
+        revision: lineup.revision(),
+        cursor,
+        items: lineup.all().map((item, index) => ({
+            id: item.id,
+            pluginId: item.track.pluginId,
+            externalId: item.track.externalId,
+            title: item.track.title,
+            artists: item.track.artists,
+            ...(item.track.durationMs === undefined ? {} : { durationMs: item.track.durationMs }),
+            ...(item.track.album === undefined ? {} : { album: item.track.album }),
+            ...(item.track.artworkUrl === undefined ? {} : { artworkUrl: item.track.artworkUrl }),
+            ...(item.track.year === undefined ? {} : { year: item.track.year }),
+            ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
+            committed: index < cursor,
+        })),
+    };
 }

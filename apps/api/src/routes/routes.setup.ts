@@ -3,6 +3,7 @@ import { AuthenticationRouter } from './authentication.router.js';
 import { AuthenticationSessionsRouter } from './authentication.sessions.router.js';
 import { ArtRouter } from './art.router.js';
 import { CatalogRouter } from './catalog.router.js';
+import { DirectorRouter } from './director.router.js';
 import { PlaylistsRouter } from './playlists.router.js';
 import { NowplayingRouter } from './nowplaying.router.js';
 import { PlayoutRouter } from './playout.router.js';
@@ -18,6 +19,7 @@ export const routers = [
     PlaylistsRouter,
     PlayoutRouter,
     NowplayingRouter,
+    DirectorRouter,
     PluginsRouter,
     OnboardingRouter,
 ];

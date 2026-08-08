@@ -3,7 +3,7 @@ import { extname, join } from 'node:path';
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { SegmentRepository, type Segment } from './segment.repository.js';
-import { isSegmentExtension, SegmentStore } from './segment.store.js';
+import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore } from './segment.store.js';
 
 /** What one pass over the inbox did. */
 export interface LibraryScan {
@@ -101,13 +101,15 @@ export class SegmentLibrary {
     private async importOne(file: { path: string; relative: string; kind: string }, result: LibraryScan): Promise<Segment | undefined> {
         const ext = extname(file.path).slice(1).toLowerCase();
         if (!isSegmentExtension(ext)) {
-            // An operator who drops forty wavs in and is told "skipped: 40" has been told nothing.
+            // An operator who drops forty files in and is told "skipped: 40" has been told nothing.
             // Audio the station cannot serve is named as such, once per file per pass, because the
-            // fix (convert it to mp3) is only obvious to somebody who knows why it was refused.
+            // fix (convert it) is only obvious to somebody who knows why it was refused. A text
+            // file in the same directory is not worth a line: it was never a delivery.
             if (AUDIO_EXTENSIONS.has(ext)) {
-                this.logger.warn('render: the segment inbox holds audio the station cannot serve; convert it to mp3', {
+                this.logger.warn('render: the segment inbox holds audio in a format the station does not serve', {
                     file: file.relative,
                     format: ext,
+                    serves: SEGMENT_EXTENSIONS.join(', '),
                 });
             }
             result.skipped += 1;
@@ -144,10 +146,10 @@ const DEFAULT_KIND = 'ident';
 
 /**
  * Audio the station recognises but does not serve, so a file in one of these formats is refused out
- * loud rather than counted as a stray. See the note on `SEGMENT_EXTENSIONS` for why the store holds
- * one format.
+ * loud rather than counted as a stray. The counterpart to `SEGMENT_CONTENT_TYPES`, which is what it
+ * does serve: this list is the near misses worth a log line, not every extension in existence.
  */
-const AUDIO_EXTENSIONS = new Set(['wav', 'ogg', 'oga', 'opus', 'flac', 'm4a', 'aac', 'aif', 'aiff', 'wma', 'alac']);
+const AUDIO_EXTENSIONS = new Set(['oga', 'opus', 'aac', 'aif', 'aiff', 'wma', 'alac', 'wma', 'amr', 'ape', 'wv']);
 
 /**
  * A filename as something a listener can read.

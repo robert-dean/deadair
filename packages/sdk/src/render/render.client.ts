@@ -1,5 +1,5 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { parseJson } from '../sdk-options.js';
+import { parseJson, readContentType } from '../sdk-options.js';
 import type { SegmentList, SegmentScanResult } from './types/render.types.js';
 
 export class RenderClient {
@@ -27,9 +27,31 @@ export class RenderClient {
      * @name Get segment audio
      * @description The audio of one segment
      */
-    async getSegmentAudio(id: string): Promise<{ data: Blob; headers: { cacheControl?: string; etag?: string } }> {
-        const result = await this.fetch(`/segments/${encodeURIComponent(id)}/audio`, { method: 'GET' });
-        const data = await result.blob();
-        return { data, headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined } };
+    async getSegmentAudio(
+        id: string,
+    ): Promise<
+        | {
+              status: 200;
+              contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
+              data: Blob;
+              headers: { cacheControl?: string; etag?: string };
+          }
+        | { status: 304 }
+    > {
+        const result = await this.fetch(`/segments/${encodeURIComponent(id)}/audio`, {
+            method: 'GET',
+            expectStatuses: [304],
+        });
+        switch (result.status) {
+            case 304:
+                return { status: 304 };
+            default:
+                return {
+                    status: 200,
+                    contentType: readContentType(result) as 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4',
+                    data: await result.blob(),
+                    headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
+                };
+        }
     }
 }

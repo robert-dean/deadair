@@ -116,8 +116,34 @@ Read it before reaching for a construct that no file in this repo already uses. 
 
 Cheat-sheet in [reference.md](reference.md).
 
+## Responses: several statuses, several mimes
+
+Since `plugin-typescript@0.31` / `prettier-plugin@0.14`, a status may declare **more than one mime**
+and an operation **more than one status**. Do not carry over the old workaround of declaring one
+lying mime and letting the client sniff.
+
+- Several mimes on a status → the service returns a `contentType` alongside the body and the router
+  sets `ctx.type` from it. `render.ck`'s `/segments/{id}/audio` and `art.ck`'s `/art/{id}` are the
+  worked examples; both used to announce one type for four formats.
+- Several statuses → the service returns a union discriminated on `status`, and the SDK returns a
+  matching union rather than throwing.
+- **Which statuses the service must produce is derived from the declaration: a status is emitted if
+  it has a block, or is 2xx.** So `304:` (bare) means "documented, something else produces it" —
+  which is what both binary routes want, because the conditional-GET middleware produces it. `304: {}`
+  would mean the service returns it. `404(documented): { … }` forces a block-carrying status back
+  onto the throw path.
+- No contract here declares a body on an error status, so the 0.31 behaviour change (error bodies
+  now returned rather than thrown) does not apply to this repo. Check before adding one.
+
 ## Gotchas
 
+- **The formatter still deletes comments inside a `security { }` block.** Above `policy:`, or above
+  a `security: none` line — they are gone on the next `pnpm format`, silently. The identical bug in
+  `response { }` blocks was fixed in 0.14, so comments there now round-trip; nobody has fixed this
+  one. Put security rationale in the free-standing `#` block above the operation, or in the file
+  header, both of which survive. `render.ck` does this deliberately. `plugins.ck` still carries a
+  long note inside its `security { }` block that the next format run will eat.
+- **The formatter drops the trailing newline** at end of file.
 - **`rootDir` in `apps/api/contractkit.config.json` is an absolute `~/projects/deadair/` path.**
   It resolves case-insensitively on this Mac, but a checkout at another path silently compiles
   nothing (empty glob, no error). If a run reports zero files, look there first.

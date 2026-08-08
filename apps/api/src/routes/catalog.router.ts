@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
+import { ServerKitRouter, requirePolicy } from '@maroonedsoftware/koa';
 import { AlbumsService } from '#src/modules/catalog/albums.service.js';
 import { ArtistsService } from '#src/modules/catalog/artists.service.js';
 import { EnrichmentReadService } from '#src/modules/enrichment/enrichment.read.service.js';

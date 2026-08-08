@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
+import { ServerKitRouter, requirePolicy } from '@maroonedsoftware/koa';
 import { PlaylistsService } from '#src/modules/playlists/playlists.service.js';
 import { CatalogPlaylistPage, CatalogPlaylistTracks } from '../modules/playlists/types/playlists.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';

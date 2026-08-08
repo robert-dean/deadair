@@ -78,9 +78,19 @@ describe('GET /art/:id', () => {
 
         expect(response.status).toBe(200);
         expect(response.body).toEqual(BYTES);
-        expect(response.headers['content-type']).toBe('application/octet-stream');
+        // The format it actually is, not one octet-stream standing in for four. This used to be
+        // wrong and survived only because a browser sniffs an <img>; it is also what stopped this
+        // API sending X-Content-Type-Options: nosniff.
+        expect(response.headers['content-type']).toBe('image/jpeg');
         expect(response.headers['etag']).toBe(`"${checksum}"`);
         expect(response.headers['cache-control']).toBe('public, max-age=3600');
+    });
+
+    it('serves each stored format as itself', async () => {
+        const checksum = await store.write(BYTES, 'png');
+        const base = await serve({ findById: async () => ({ id: ID, sourceUrl: 'https://cdn/x.png', checksum, ext: 'png' }) });
+
+        expect((await send(`${base}/art/${ID}`)).headers['content-type']).toBe('image/png');
     });
 
     it('answers a revalidation with 304 and no bytes', async () => {

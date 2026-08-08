@@ -3,38 +3,40 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 /**
- * Filename extensions the store will write or read.
+ * Filename extensions the store will write or read, and what each one is served as.
  *
- * **One format, deliberately, and the reason is the Content-Type rather than the disk.** These
- * bytes are fetched by two consumers that both decide what to do with them from the response
- * header: a browser previewing the segment in an `<audio>` element (which, unlike an `<img>`, does
- * not sniff), and Liquidsoap, which names the temp file it downloads to after the content type and
- * then picks a decoder by that name. The generated router pins `ctx.type` from the one mime
- * declared on the operation and a service cannot vary it per file (see the same note in
- * `apps/api/data/contracts/art/art.ck`), so a store holding five formats behind one route would be
- * announcing four of them as something they are not, and the failure would be a segment that
- * silently does not play rather than an error anybody sees.
+ * The two travel together because the Content-Type is the load-bearing half. Both consumers of
+ * these bytes decide what to do with them from that header rather than from the bytes: a browser
+ * previewing a segment in an `<audio>` element, which unlike an `<img>` does not sniff, and
+ * Liquidsoap, which sends a HEAD before the GET, names the temp file it downloads to after the
+ * content type, and picks its decoder from that name. Serving a wav as `audio/mpeg` therefore
+ * fails as silence rather than as an error anyone sees.
  *
- * mp3 rather than another one because it is what the station already is: `radio.liq` encodes the
- * mount as mp3, and every TTS backend worth pointing at emits it. Widening this is a real
- * possibility and has two honest routes, neither of which is needed yet: one operation per format,
- * or a transcode on import once ffmpeg arrives with multi-voice shows. Anything else in the inbox
- * is passed over with a log line rather than imported as a segment that cannot be heard.
+ * This list is what `render.ck` declares on the audio operation, and the two have to agree: the
+ * service answers with the mime and the router sets `ctx.type` from it, so a format here that the
+ * contract does not declare would not type-check, and one the contract declares that is missing
+ * here can never be returned. Anything else in the inbox is passed over with a log line rather
+ * than imported as a segment that cannot be heard.
  */
-export const SEGMENT_EXTENSIONS = ['mp3'] as const;
-
-export type SegmentExtension = (typeof SEGMENT_EXTENSIONS)[number];
-
-/** What each extension is served as, and what the route declares. */
-export const SEGMENT_CONTENT_TYPES: Record<SegmentExtension, string> = {
+export const SEGMENT_CONTENT_TYPES = {
     mp3: 'audio/mpeg',
-};
+    wav: 'audio/wav',
+    ogg: 'audio/ogg',
+    flac: 'audio/flac',
+    m4a: 'audio/mp4',
+} as const satisfies Record<string, string>;
+
+export type SegmentExtension = keyof typeof SEGMENT_CONTENT_TYPES;
+
+export type SegmentContentType = (typeof SEGMENT_CONTENT_TYPES)[SegmentExtension];
+
+export const SEGMENT_EXTENSIONS = Object.keys(SEGMENT_CONTENT_TYPES) as readonly SegmentExtension[];
 
 /** sha256 hex, exactly. Both halves of a path are checked against this before any filesystem call. */
 const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
 
 export function isSegmentExtension(value: string | undefined): value is SegmentExtension {
-    return value !== undefined && (SEGMENT_EXTENSIONS as readonly string[]).includes(value);
+    return value !== undefined && Object.hasOwn(SEGMENT_CONTENT_TYPES, value);
 }
 
 /**

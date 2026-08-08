@@ -4,8 +4,6 @@ import { RenderService } from '#src/modules/render/render.service.js';
 import { SegmentList, SegmentScanResult } from '../modules/render/types/render.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
-const _ZodBinary = z.custom<Buffer>(val => Buffer.isBuffer(val), { error: 'Must be binary data' });
-
 /**
  * generated from [render.ck](file://./../../data/contracts/render/render.ck)
  */
@@ -13,7 +11,7 @@ export const RenderRouter = ServerKitRouter();
 
 /**
  * Everything the station can play that is not a record
- * from [render.ck](file://./../../data/contracts/render/render.ck#L41)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L19)
  */
 RenderRouter.get('/segments', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -26,7 +24,7 @@ RenderRouter.get('/segments', requirePolicy({ policy: 'platform.view' }), async 
 
 /**
  * Takes whatever audio is sitting in the inbox directory into the library. Safe to repeat: a segment is identified by its audio, so the same recording arriving twice is one segment
- * from [render.ck](file://./../../data/contracts/render/render.ck#L53)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L31)
  */
 RenderRouter.post('/segments/scan', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -39,7 +37,7 @@ RenderRouter.post('/segments/scan', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * The audio of one segment
- * from [render.ck](file://./../../data/contracts/render/render.ck#L71)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L49)
  * anonymous access, no security required
  */
 RenderRouter.get('/segments/:id/audio', async ctx => {
@@ -51,11 +49,15 @@ RenderRouter.get('/segments/:id/audio', async ctx => {
     );
 
     const service = ctx.container.get(RenderService);
-    const result: { body: Buffer; headers: { cacheControl?: string; etag?: string } } = await service.getSegmentAudio(id);
+    const result: {
+        contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
+        body: Buffer;
+        headers: { cacheControl?: string; etag?: string };
+    } = await service.getSegmentAudio(id);
 
     ctx.status = 200;
     if (result.headers['cacheControl'] !== undefined) ctx.set('cache-control', String(result.headers['cacheControl']));
     if (result.headers['etag'] !== undefined) ctx.set('etag', String(result.headers['etag']));
-    ctx.type = 'audio/mpeg';
+    ctx.type = result.contentType;
     ctx.body = result.body;
 });

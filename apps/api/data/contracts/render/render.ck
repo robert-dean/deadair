@@ -14,28 +14,6 @@ options {
 # later a whole show episode. Its own area rather than an operation under /playout, because the
 # running order merely NAMES one: a segment exists, and is worth keeping, whether or not any lineup
 # currently holds it.
-#
-# NOTE ON THE COMMENTS IN THIS FILE. Everything below has to live in this block, at the top, rather
-# than beside the thing it explains. The prettier plugin DELETES a comment inside a `security { }`
-# or `response { }` body on the next `pnpm format`, silently and without touching the surrounding
-# lines, so a note written where it belongs is gone by the following commit.
-#
-# The security cascade, file -> route -> operation:
-#   * the floor above is `platform.view`, because reading the library is a console read
-#   * POST /segments/scan overrides UP to `platform.manage`: taking audio off disk into the
-#     station's library is an operator action
-#   * GET /segments/{id}/audio overrides to anonymous, for the same reason /art/{id} is. That URL
-#     is the src of a media element and a media request carries no bearer token; and it is the URL
-#     the PLAYER fetches (see the segment resolver in modules/playout), which cannot send headers
-#     of ours at all. What it exposes is audio the station broadcasts unauthenticated to anybody
-#     who opens the mount.
-#
-# Why the audio operation declares one mime, and why the store therefore holds exactly one format:
-# the generated router pins `ctx.type` from that line, AFTER setting the response headers, so a
-# service cannot vary it per file. Both consumers decide what to do with the bytes from that
-# header — a browser's <audio> does not sniff the way an <img> does, and Liquidsoap names the temp
-# file it downloads to after the content type and picks its decoder from that. See the note on
-# SEGMENT_EXTENSIONS in modules/render/segment.store.ts.
 
 operation /segments: {
     get: { # Everything the station can play that is not a record
@@ -74,12 +52,25 @@ operation /segments/{id}/audio: {
         security: none
         response: {
             200: {
+                # Every format the segment store holds. The service returns `contentType` and the
+                # router sets ctx.type from it, so the station can serve a wav as a wav rather than
+                # announcing one mime for all of them and hoping the consumer sniffs. Neither
+                # consumer does: a browser's <audio> is stricter than an <img>, and Liquidsoap
+                # names the temp file it downloads to after the content type and picks its decoder
+                # from the name.
                 audio/mpeg: binary
+                audio/wav: binary
+                audio/ogg: binary
+                audio/flac: binary
+                audio/mp4: binary
                 headers: {
                     cache-control?: string
                     etag?: string
                 }
             }
+            # Documented rather than produced here: the conditional-GET middleware turns a fresh
+            # 200 carrying an ETag into one. A bare status says exactly that, so the service is
+            # not asked to return it.
             304:
         }
     }

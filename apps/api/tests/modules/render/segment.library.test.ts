@@ -156,16 +156,30 @@ describe('SegmentLibrary', () => {
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
+    it('takes in every format the station can serve, not just mp3', async () => {
+        const { repository, imports } = fakeRepository();
+        await drop('one.mp3', 'a');
+        await drop('two.wav', 'b');
+        await drop('three.ogg', 'c');
+        await drop('four.flac', 'd');
+        await drop('five.m4a', 'e');
+
+        const result = await libraryOver(repository).scan();
+
+        expect(result).toMatchObject({ scanned: 5, imported: 5, skipped: 0 });
+        expect(imports.map(i => i.audioExt).sort()).toEqual(['flac', 'm4a', 'mp3', 'ogg', 'wav']);
+    });
+
     // Audio the station cannot serve is refused OUT LOUD, because "skipped: 40" tells an operator
-    // holding a folder of wavs nothing about what to do next.
+    // holding a folder of aiffs nothing about what to do next.
     it('says so when the inbox holds audio in a format it cannot serve', async () => {
         const { repository } = fakeRepository();
-        await drop('ident.wav', 'audio');
+        await drop('ident.aiff', 'audio');
 
         const result = await libraryOver(repository).scan();
 
         expect(result).toEqual({ scanned: 0, imported: 0, skipped: 1 });
-        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('mp3'), expect.objectContaining({ format: 'wav' }));
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('does not serve'), expect.objectContaining({ format: 'aiff' }));
     });
 
     // One bad file must not cost the operator the other forty.

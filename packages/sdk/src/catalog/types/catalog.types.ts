@@ -109,9 +109,6 @@ export interface CatalogQueryInput extends PaginationInput {
 }
 
 /**
- * What enrichment stored, read back. Three payload shapes because the SDK has three: a recording,
- * a performer and a record are asked about separately and know different things. The caps mirror
- * the ones `enrichment.merge.ts` sanitizes to; change them together.
  * generated from [EnrichmentExternalId](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L85)
  */
 export interface EnrichmentExternalId {
@@ -131,22 +128,15 @@ export interface EnrichmentLink {
 }
 
 /**
- * One page of each row type. Declared rather than inlined on the five list operations, so the shape
- * has a name the console can import instead of restating `{ meta, data }` at every call site.
- *
- * Three near-identical contracts because the DSL has no generics. That is the honest expression of
- * it: a union would type `data` as "artists or albums or tracks" and lose which one a given
- * operation returns.
+ * One page of artists, with the totals the request was counted against
  * generated from [ArtistPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L66)
  */
 export interface ArtistPage {
-    /** One page of artists, with the totals the request was counted against */
     meta: Pagination;
     data: Artist[];
 }
 
 export interface ArtistPageInput {
-    /** One page of artists, with the totals the request was counted against */
     meta: PaginationInput;
     data: ArtistInput[];
 }
@@ -156,13 +146,11 @@ export interface ArtistPageInput {
  * generated from [AlbumPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L71)
  */
 export interface AlbumPage {
-    /** One page of albums */
     meta: Pagination;
     data: Album[];
 }
 
 export interface AlbumPageInput {
-    /** One page of albums */
     meta: PaginationInput;
     data: AlbumInput[];
 }
@@ -172,13 +160,11 @@ export interface AlbumPageInput {
  * generated from [TrackPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L76)
  */
 export interface TrackPage {
-    /** One page of tracks */
     meta: Pagination;
     data: Track[];
 }
 
 export interface TrackPageInput {
-    /** One page of tracks */
     meta: PaginationInput;
     data: TrackInput[];
 }

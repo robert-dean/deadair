@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { SegmentStore } from '../../../src/modules/render/segment.store.js';
+import { SEGMENT_EXTENSIONS, SegmentStore } from '../../../src/modules/render/segment.store.js';
 
 let root: string;
 let store: SegmentStore;
@@ -64,8 +64,20 @@ describe('SegmentStore', () => {
     it('refuses an extension the station does not serve', async () => {
         const checksum = sha256(Buffer.from('a station ident'));
 
-        expect(() => store.pathFor(checksum, 'wav' as never)).toThrow(/extension/);
         expect(() => store.pathFor(checksum, 'sh' as never)).toThrow(/extension/);
+        expect(() => store.pathFor(checksum, 'aiff' as never)).toThrow(/extension/);
+    });
+
+    // The store holds every format the audio operation declares a mime for, because the service
+    // answers with that mime and the router sets ctx.type from it. One is not more real than
+    // another: a wav is written, read and served as a wav.
+    it('holds every format the contract declares', async () => {
+        const bytes = Buffer.from('a station ident');
+
+        for (const ext of SEGMENT_EXTENSIONS) {
+            const checksum = await store.write(bytes, ext);
+            expect(await store.read(checksum, ext)).toEqual(bytes);
+        }
     });
 
     // The read path takes both halves from a database row, so it declines rather than throws: a

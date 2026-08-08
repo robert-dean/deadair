@@ -109,9 +109,6 @@ export const CatalogQueryInput = PaginationInput.extend({
 export type CatalogQueryInput = z.infer<typeof CatalogQueryInput>;
 
 /**
- * What enrichment stored, read back. Three payload shapes because the SDK has three: a recording,
- * a performer and a record are asked about separately and know different things. The caps mirror
- * the ones `enrichment.merge.ts` sanitizes to; change them together.
  * generated from [EnrichmentExternalId](file://./../../../../data/contracts/catalog/catalog.types.ck#L85)
  */
 export const EnrichmentExternalId = z.strictObject({
@@ -132,22 +129,17 @@ export const EnrichmentLink = z.strictObject({
 export type EnrichmentLink = z.infer<typeof EnrichmentLink>;
 
 /**
- * One page of each row type. Declared rather than inlined on the five list operations, so the shape
- * has a name the console can import instead of restating `{ meta, data }` at every call site.
- *
- * Three near-identical contracts because the DSL has no generics. That is the honest expression of
- * it: a union would type `data` as "artists or albums or tracks" and lose which one a given
- * operation returns.
+ * One page of artists, with the totals the request was counted against
  * generated from [ArtistPage](file://./../../../../data/contracts/catalog/catalog.types.ck#L66)
  */
 export const ArtistPage = z.strictObject({
-    meta: Pagination.describe('One page of artists, with the totals the request was counted against'),
+    meta: Pagination,
     data: z.array(Artist),
 });
 export type ArtistPage = z.infer<typeof ArtistPage>;
 
 export const ArtistPageInput = z.strictObject({
-    meta: PaginationInput.describe('One page of artists, with the totals the request was counted against'),
+    meta: PaginationInput,
     data: z.array(ArtistInput),
 });
 export type ArtistPageInput = z.infer<typeof ArtistPageInput>;
@@ -157,13 +149,13 @@ export type ArtistPageInput = z.infer<typeof ArtistPageInput>;
  * generated from [AlbumPage](file://./../../../../data/contracts/catalog/catalog.types.ck#L71)
  */
 export const AlbumPage = z.strictObject({
-    meta: Pagination.describe('One page of albums'),
+    meta: Pagination,
     data: z.array(Album),
 });
 export type AlbumPage = z.infer<typeof AlbumPage>;
 
 export const AlbumPageInput = z.strictObject({
-    meta: PaginationInput.describe('One page of albums'),
+    meta: PaginationInput,
     data: z.array(AlbumInput),
 });
 export type AlbumPageInput = z.infer<typeof AlbumPageInput>;
@@ -173,13 +165,13 @@ export type AlbumPageInput = z.infer<typeof AlbumPageInput>;
  * generated from [TrackPage](file://./../../../../data/contracts/catalog/catalog.types.ck#L76)
  */
 export const TrackPage = z.strictObject({
-    meta: Pagination.describe('One page of tracks'),
+    meta: Pagination,
     data: z.array(Track),
 });
 export type TrackPage = z.infer<typeof TrackPage>;
 
 export const TrackPageInput = z.strictObject({
-    meta: PaginationInput.describe('One page of tracks'),
+    meta: PaginationInput,
     data: z.array(TrackInput),
 });
 export type TrackPageInput = z.infer<typeof TrackPageInput>;

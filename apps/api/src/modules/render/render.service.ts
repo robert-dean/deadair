@@ -3,7 +3,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import type { SegmentList, SegmentScanResult } from './types/render.types.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
-import { SegmentStore } from './segment.store.js';
+import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType } from './segment.store.js';
 
 /**
  * How long a client may reuse segment audio before asking again.
@@ -18,11 +18,13 @@ const CACHE_CONTROL = 'public, max-age=86400';
 /**
  * What the audio route hands the generated router.
  *
- * No content type: the router pins `ctx.type` from the mime declared on the operation, and it does
- * so after setting these, so a header returned here would be overwritten. That is why the store
- * holds one format; see the note on `SEGMENT_EXTENSIONS`.
+ * `contentType` is the answer, not decoration: the operation declares every format the store holds
+ * and the router sets `ctx.type` from whichever this names. Both consumers pick their behaviour
+ * from that header rather than from the bytes, so it is the difference between a wav that plays and
+ * one that silently does not. See the note on `SEGMENT_CONTENT_TYPES`.
  */
 export interface SegmentAudioResponse {
+    contentType: SegmentContentType;
     body: Buffer;
     headers: { cacheControl: string; etag: string };
 }
@@ -60,7 +62,11 @@ export class RenderService {
         const bytes = await this.store.read(segment.audioChecksum, segment.audioExt);
         if (bytes === undefined) throw httpError(404).withDetails({ message: `segment "${id}" has no file` });
 
-        return { body: bytes, headers: { cacheControl: CACHE_CONTROL, etag: `"${segment.audioChecksum}"` } };
+        return {
+            contentType: SEGMENT_CONTENT_TYPES[segment.audioExt],
+            body: bytes,
+            headers: { cacheControl: CACHE_CONTROL, etag: `"${segment.audioChecksum}"` },
+        };
     }
 
     /** Take whatever is in the inbox into the library. */

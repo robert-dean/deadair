@@ -16,6 +16,26 @@ export const ART_CONTENT_TYPES: Record<string, ArtExtension> = {
     'image/gif': 'gif',
 };
 
+/**
+ * What each stored format is served AS, which is not simply the inverse of the map above.
+ *
+ * That one is what an upstream may call an image on the way in, and it is deliberately generous:
+ * `image/jpg` is not a registered type but plenty of servers send it. This one is what we say on
+ * the way out, so there is exactly one mime per format and it is the correct one.
+ *
+ * Has to stay in step with the mimes `art.ck` declares on the 200: the service answers with one of
+ * these and the router sets `ctx.type` from it, so a format here the contract does not declare will
+ * not type-check.
+ */
+export const ART_SERVED_TYPES = {
+    jpg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+} as const satisfies Record<ArtExtension, string>;
+
+export type ArtContentType = (typeof ART_SERVED_TYPES)[ArtExtension];
+
 /** sha256 hex, exactly. Both halves of a path are checked against this before any filesystem call. */
 const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
 

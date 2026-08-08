@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { ArtRepository } from './art.repository.js';
-import { ArtStore } from './art.store.js';
+import { ART_SERVED_TYPES, ArtStore, type ArtContentType } from './art.store.js';
 
 /**
  * How long a browser may reuse a cached image before asking again.
@@ -13,8 +13,16 @@ import { ArtStore } from './art.store.js';
  */
 const CACHE_CONTROL = 'public, max-age=3600';
 
-/** What the art route hands the generated router. */
+/**
+ * What the art route hands the generated router.
+ *
+ * `contentType` is what the operation's declared mimes are chosen from, so a png is served as a png
+ * rather than as `application/octet-stream` for a browser to sniff. That it worked at all before
+ * was down to `<img>` being forgiving; it is also what stopped this API sending
+ * `X-Content-Type-Options: nosniff`.
+ */
 export interface ArtResponse {
+    contentType: ArtContentType;
     body: Buffer;
     headers: { cacheControl: string; etag: string };
 }
@@ -43,6 +51,6 @@ export class ArtService {
         const bytes = await this.artStore.read(asset.checksum, asset.ext);
         if (bytes === undefined) throw httpError(404).withDetails({ message: `art "${id}" has no file` });
 
-        return { body: bytes, headers: { cacheControl: CACHE_CONTROL, etag: `"${asset.checksum}"` } };
+        return { contentType: ART_SERVED_TYPES[asset.ext], body: bytes, headers: { cacheControl: CACHE_CONTROL, etag: `"${asset.checksum}"` } };
     }
 }

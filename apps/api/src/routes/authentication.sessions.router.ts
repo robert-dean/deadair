@@ -1,4 +1,4 @@
-import { ServerKitRouter, bodyParserMiddleware } from '@maroonedsoftware/koa';
+import { ServerKitRouter } from '@maroonedsoftware/koa';
 import { SessionsService } from '#src/modules/authentication/sessions.service.js';
 
 /**

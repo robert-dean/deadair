@@ -1,8 +1,8 @@
-export class SdkError extends Error {
+export class SdkError<TBody = unknown> extends Error {
     constructor(
         public readonly status: number,
         public readonly statusText: string,
-        public readonly body: unknown,
+        public readonly body: TBody,
         public readonly headers: Headers,
     ) {
         super(`${status} ${statusText}`);
@@ -10,7 +10,16 @@ export class SdkError extends Error {
     }
 }
 
-export type SdkFetch = (url: string, init: RequestInit) => Promise<Response>;
+export interface SdkRequestInit extends RequestInit {
+    /**
+     * Statuses this operation declares as values rather than errors — a 304 from
+     * conditional-GET middleware, or an error status the service returns deliberately.
+     * Anything else at or above 400 still throws SdkError.
+     */
+    expectStatuses?: number[];
+}
+
+export type SdkFetch = (url: string, init: SdkRequestInit) => Promise<Response>;
 
 export interface SdkOptions {
     baseUrl: string;
@@ -36,15 +45,19 @@ export const bigIntReviver = (_: string, value: any): any => {
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
+export function readContentType(res: Response): string {
+    return res.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
+}
+
 export function createSdkFetch(options: SdkOptions): SdkFetch {
     const getRequestId = options.requestIdFactory ?? (() => crypto.randomUUID());
-    return async (url: string, init: RequestInit): Promise<Response> => {
+    return async (url: string, init: SdkRequestInit): Promise<Response> => {
         const baseHeaders = typeof options.headers === 'function' ? await options.headers() : (options.headers ?? {});
         const res = await fetch(`${options.baseUrl}${url}`, {
             ...init,
             headers: { ...baseHeaders, 'X-Request-ID': getRequestId(), ...(init.headers as Record<string, string>) },
         });
-        if (!res.ok) {
+        if (!res.ok && !(init.expectStatuses ?? []).includes(res.status)) {
             const text = await res.text();
             let body: unknown;
             try {

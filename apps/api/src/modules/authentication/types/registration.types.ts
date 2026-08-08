@@ -117,13 +117,11 @@ export type AuthenticatorFactorRegistrationResponse = z.infer<typeof Authenticat
  * generated from [FidoFactorAttestation](file://./../../../../data/contracts/authentication/registration.types.ck#L66)
  */
 export const FidoFactorAttestation = z.strictObject({
-    rp: z
-        .strictObject({
-            name: z.string().describe('The relying party name'),
-            id: z.string().describe('The relying party identifier'),
-            icon: z.string().optional().describe('The relying party icon'),
-        })
-        .describe('The FIDO factor attestation information'),
+    rp: z.strictObject({
+        name: z.string().describe('The relying party name'),
+        id: z.string().describe('The relying party identifier'),
+        icon: z.string().optional().describe('The relying party icon'),
+    }),
     user: z.strictObject({
         id: z.string().describe('The user identifier'),
         name: z.string().describe('The user name'),

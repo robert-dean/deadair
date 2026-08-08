@@ -2,8 +2,10 @@ import { Alert, Anchor, Badge, Card, Group, Skeleton, Stack, Text, Title } from 
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { lineupOptions, useStationAir } from '../../api/director.queries';
+import { lineupOptions, useRemoveLineupItem, useStationAir } from '../../api/director.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { LineupActions } from './lineup.actions';
+import { STALE_LINEUP_MESSAGE, useLineupEditGuard } from './lineup.edit.guard';
 import { LineupOrderTable } from './lineup.order.table';
 
 export interface LineupDetailPageProps {
@@ -21,9 +23,14 @@ export interface LineupDetailPageProps {
 export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
     const lineup = useQuery(lineupOptions(lineupId));
     const air = useStationAir();
+    const guard = useLineupEditGuard(lineupId);
+    const removeItem = useRemoveLineupItem();
 
+    // Bound once: every edit below sends the revision of the order that was drawn, and reading it
+    // back off the query at call time would send whatever the cache had drifted to instead.
+    const loaded = lineup.data;
     const onAir = air.data?.lineupId === lineupId;
-    const committed = lineup.data?.items.filter(item => item.committed).length ?? 0;
+    const committed = loaded?.items.filter(item => item.committed).length ?? 0;
 
     return (
         <Stack gap="lg">
@@ -36,23 +43,23 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
                 <Group justify="space-between" align="flex-end" wrap="nowrap">
                     <Stack gap={6}>
                         <Group gap="sm" wrap="nowrap">
-                            <Title order={1}>{lineup.data?.name ?? lineupId}</Title>
+                            <Title order={1}>{loaded?.name ?? lineupId}</Title>
                             {onAir ? (
                                 <Badge variant={air.data?.active ? 'filled' : 'light'} color={air.data?.active ? 'red' : 'gray'}>
                                     {air.data?.active ? 'on air' : 'stood down'}
                                 </Badge>
                             ) : undefined}
                         </Group>
-                        {lineup.data ? (
+                        {loaded ? (
                             <Group gap="xs">
                                 <Badge size="sm" variant="light" tt="none">
-                                    {lineup.data.mode}
+                                    {loaded.mode}
                                 </Badge>
                                 <Badge size="sm" variant="light" color="gray" tt="none">
-                                    ends: {lineup.data.onEnd}
+                                    ends: {loaded.onEnd}
                                 </Badge>
                                 <Text size="sm" c="dimmed">
-                                    {lineup.data.items.length === 1 ? '1 track' : `${lineup.data.items.length} tracks`}
+                                    {loaded.items.length === 1 ? '1 track' : `${loaded.items.length} tracks`}
                                     {/* Only while this is the lineup on air. A cursor on a lineup
                                         nobody is playing reads as zero, which is honest, and
                                         saying "0 aired" about it would imply it is queued to. */}
@@ -61,8 +68,17 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
                             </Group>
                         ) : undefined}
                     </Stack>
+                    {loaded ? <LineupActions lineup={loaded} onAir={onAir} onEditError={guard.onError} /> : undefined}
                 </Group>
             </Stack>
+
+            {/* The refusal is the console working, not failing: the order below has already been
+                re-read, so the operator can make the same decision against what is actually true. */}
+            {guard.conflict ? (
+                <Alert color="yellow" title="That edit was refused" withCloseButton closeButtonLabel="Dismiss" onClose={guard.dismissConflict}>
+                    {STALE_LINEUP_MESSAGE}
+                </Alert>
+            ) : undefined}
 
             {lineup.error ? (
                 <Alert color="red" title="This lineup could not be loaded">
@@ -72,7 +88,7 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
 
             {lineup.isPending ? <Skeleton height={280} radius="sm" /> : undefined}
 
-            {lineup.data?.items.length === 0 ? (
+            {loaded?.items.length === 0 ? (
                 <Card withBorder padding="xl" radius="sm">
                     <Text size="sm" c="dimmed">
                         This lineup holds nothing. Putting it on air would air silence.
@@ -80,7 +96,19 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
                 </Card>
             ) : undefined}
 
-            {lineup.data && lineup.data.items.length > 0 ? <LineupOrderTable items={lineup.data.items} cursor={lineup.data.cursor} /> : undefined}
+            {loaded && loaded.items.length > 0 ? (
+                <LineupOrderTable
+                    items={loaded.items}
+                    cursor={loaded.cursor}
+                    removingItemId={removeItem.isPending ? removeItem.variables?.itemId : undefined}
+                    onRemove={item => {
+                        // The revision of the order that was drawn, so an edit made against a list
+                        // that has since changed is refused rather than applied to whatever is in
+                        // that position now.
+                        removeItem.mutate({ lineupId, itemId: item.id, revision: loaded.revision }, { onError: guard.onError });
+                    }}
+                />
+            ) : undefined}
         </Stack>
     );
 }

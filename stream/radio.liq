@@ -16,10 +16,12 @@
 # materializer (apps/api).
 #
 # Note: level/normalize processing happens on the leaf sources BEFORE the mix, not
-# after it. The DJ voice is a LIVE harbor source (step 3): the app streams each
-# rendered segment to a harbor mount, and the bed is ducked under it by an explicit
-# gain ramp (step 4). That ramp replaced smooth_add, which fades the bed down but
-# never back up and glitches at the end of the voice (savonet/liquidsoap#3714).
+# after it. The DJ voice is a SECOND request queue (step 3): the app arms a segment
+# against a record and this script fires it at the right instant, fetching the audio
+# itself over HTTP exactly as it fetches music. The bed is ducked under it by an
+# explicit gain ramp (step 4). That ramp replaced smooth_add, which fades the bed
+# down but never back up and glitches at the end of the voice
+# (savonet/liquidsoap#3714).
 
 settings.log.level.set(3)
 
@@ -29,19 +31,21 @@ settings.init.allow_root := true
 
 music_dir   = environment.get("MUSIC_DIR", default="/music")
 
-# Harbor voice input: the app (apps/api HarborPusher) streams pre-rendered DJ voice
-# — talk breaks, station sign-ons, and podcast episodes — to this mount as a live
-# Icecast source, and the bed ducks under it while a source is connected.
-# This replaces the old file-drop `voice` playlist, whose reload_mode="watch" relied
-# on inotify, which does not fire across Docker Desktop for Mac's host bind mount —
-# so newly rendered segments were never picked up and no break ever aired.
+# The harbor PORT, which no longer carries a mount of its own: it exists for the
+# /control/* endpoints the app drives the station through (step 2). harbor is one
+# server per port, dispatching by path.
 #
-# The same port also carries the playout CONTROL endpoints (step 2): harbor is one
-# server per port, dispatching by path, so /control/* coexists with the "dj" mount
-# and the app needs only the one already-published port to both push audio and drive
-# the running order.
-harbor_port     = int_of_string(environment.get("HARBOR_PORT", default="8005"))
-harbor_password = environment.get("HARBOR_PASSWORD", default="")
+# There is no "dj" mount any more. It existed because v1's app generated voice audio
+# in-process and had bytes to stream in as a live Icecast source; deadair serves its
+# segments over HTTP and lets Liquidsoap fetch its own voice the same way it fetches
+# its own music, so no audio passes through the app at all. See step 3.
+#
+# The materializer still writes HARBOR_PASSWORD into radio.env and nothing reads it,
+# which is deliberate rather than an oversight: a live input is the obvious thing to
+# want back here one day — a real microphone is the honest case — and it would need
+# exactly that credential. An unread env key costs nothing; a binding nothing uses
+# reads as something somebody forgot to delete.
+harbor_port = int_of_string(environment.get("HARBOR_PORT", default="8005"))
 
 # Talk-over mode (materialized from the director's talkOverTracks setting; default true).
 #   true  → the DJ talks OVER track intros/outros: the bed is ducked under the voice.
@@ -176,9 +180,59 @@ playout_queue = request.queue(id="playout", prefetch=playout_prefetch)
 # (the error lands far downstream, at the next thing that cannot continue an expression).
 on_air_item = ref("")
 
+# How long the item on air has been playing, in seconds, counted UP by a thread.
+#
+# The same construct as the lease countdown, and for the same reason: it cannot be fooled by the
+# container's clock being stepped. It is also the only elapsed measurement in the system that is
+# not somebody's estimate — it is reset at the boundary itself, in the loop that produces the
+# audio, so a cue timed against it carries no error from the app's clock, from an HTTP round trip,
+# or from the encoder and client buffers.
+#
+# That last one is the part v1 could never reach. The voice and the bed are mixed BEFORE the
+# encoder, so whatever buffering separates the decoder from the listener applies to both equally
+# and cancels. Timing the voice against the music in here is exact; timing it against the
+# listener's clock from outside has all of that error in it.
+#
+# Declared above `playout_note_on_air`, which resets it: Liquidsoap resolves names where they are
+# written, so a ref used inside a `def` has to exist before the `def` does.
+on_air_elapsed = ref(0.)
+voice_tick = 0.1
+
+def voice_countup() =
+  on_air_elapsed := on_air_elapsed() + voice_tick
+end
+thread.run(every=voice_tick, voice_countup)
+
 def playout_note_on_air(m) =
   on_air_item := m["deadair_item"]
+  # Reset HERE, in the streaming loop, which is the whole reason this hook is synchronous: the
+  # counter below is what a voice cue is timed against, and starting it anywhere else would start
+  # it late by however long an HTTP notify took to arrive.
+  on_air_elapsed := 0.
 end
+
+# What the app has asked for and has not had yet: the uri to play, the running-order item it is
+# timed against, and how far into that item to start speaking.
+#
+# One at a time, deliberately. A second arm replaces the first rather than queueing behind it: a
+# cue is about a particular record, and one that did not fire before that record ended is not
+# something to play late, it is something to drop. See voice_cue_check.
+voice_uri  = ref("")
+voice_item = ref("")
+voice_at_s = ref(0.)
+# For the reading, so a cue that never fired is visible rather than mysterious:
+# "idle" nothing armed | "armed" waiting for its moment | "fired" pushed | "missed" its record ended first
+voice_state = ref("idle")
+
+# Whether the record a cue is waiting for has been seen on air yet.
+#
+# The distinction this exists for: a cue is armed a full item BEFORE its record starts, because the
+# app arms it when the item is handed to the player and the player is a whole track ahead of the
+# listener. So "the id does not match" means two opposite things — not yet, and already gone — and
+# an id alone cannot tell them apart. Without this the cue expires the instant it is armed, every
+# time, and the DJ never speaks.
+voice_seen = ref(false)
+
 playout_queue.on_track(synchronous=true, playout_note_on_air)
 
 # The other half: tell the app which item actually STARTED. The id rides in on the request's
@@ -201,7 +255,7 @@ playout_queue.on_track(synchronous=false, playout_aired)
 playout_bed = normalize(target=-16., playout_queue)
 
 # ── Playout control endpoints ────────────────────────────────────────────────────────────────
-# Registered on the harbor port (path-dispatched, so they sit beside the "dj" mount) and gated on
+# Registered on the harbor port, which carries nothing else, and gated on
 # the shared PLAYOUT_BRIDGE_SECRET the app already holds. The parameter is `req`, NOT `request`:
 # binding `request` here would shadow the `request.create` / `request.id` module functions.
 #
@@ -306,7 +360,11 @@ def playout_reading() =
   # field "the queue is playing" and "the station is on air" are indistinguishable from outside,
   # and the console can only guess which one it is looking at.
   driving_json = if driving() then "true" else "false" end
-  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}'
+  # What the armed voice cue is doing. Reported for the same reason `onAir` is: the app would
+  # otherwise have to infer it, and the one state worth seeing — a cue that expired because its
+  # record ended first — is invisible from outside by construction. Every /control/* handler
+  # answers with this reading, so it costs no extra call.
+  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}"'
 end
 
 def control_status(req) =
@@ -381,6 +439,57 @@ def control_offair(req) =
     lease_left := 0.
     playout_queue.set_queue([])
     playout_queue.skip()
+    # An armed cue belongs to a record that is no longer going to air. Left alone it would sit
+    # there until something else armed over it, and the reading would keep claiming the DJ was
+    # about to speak.
+    voice_uri   := ""
+    voice_item  := ""
+    voice_seen  := false
+    voice_state := "idle"
+    control_json('{' ^ playout_reading() ^ '}')
+  else
+    control_denied()
+  end
+end
+
+# Arm the DJ over a record: the uri to play as the body, and which record to time it against in
+# the headers.
+#
+# Headers rather than a parsed body, and a body carrying only the uri, so this handler uses exactly
+# the same two primitives every other one here does — `list.assoc` over req.headers, and
+# req.body() — instead of introducing string parsing into a script whose failure mode is the
+# station not coming back up.
+#
+#   x-voice-item  the running-order item id this is timed against, as it appears in `onAir`
+#   x-voice-at-ms how far into that record to start speaking
+def control_voice_arm(req) =
+  if not control_authorized(req) then
+    control_denied()
+  else
+    uri = string.trim(req.body())
+    item = list.assoc(default="", "x-voice-item", req.headers)
+    at_ms = float_of_string(default=null, string.trim(list.assoc(default="", "x-voice-at-ms", req.headers))) ?? 0.
+    if uri == "" or item == "" then
+      http.response(status_code=400, content_type="text/plain", data="need a uri and an item")
+    else
+      voice_uri   := uri
+      voice_item  := item
+      voice_at_s  := at_ms / 1000.
+      voice_seen  := false
+      voice_state := "armed"
+      control_json('{' ^ playout_reading() ^ '}')
+    end
+  end
+end
+
+# Forget an armed cue. What an operator's Stop needs, and what the app sends when the record a cue
+# was timed against is no longer going to air.
+def control_voice_clear(req) =
+  if control_authorized(req) then
+    voice_uri   := ""
+    voice_item  := ""
+    voice_seen  := false
+    voice_state := "idle"
     control_json('{' ^ playout_reading() ^ '}')
   else
     control_denied()
@@ -388,6 +497,8 @@ def control_offair(req) =
 end
 
 harbor.http.register.simple(port=harbor_port, method="GET", "/control/status", control_status)
+harbor.http.register.simple(port=harbor_port, method="POST", "/control/voice/arm", control_voice_arm)
+harbor.http.register.simple(port=harbor_port, method="POST", "/control/voice/clear", control_voice_clear)
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/push", control_push)
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/flush", control_flush)
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/skip", control_skip)
@@ -404,17 +515,72 @@ harbor.http.register.simple(port=harbor_port, method="POST", "/control/offair", 
 # may never come. This whole chain plays only under the lease (step 5).
 bed = fallback(track_sensitive=false, [playout_bed, music, station_id])
 
-# 3) Voice: the station's on-air DJ, pushed live to this harbor mount by the app
-#    (apps/api HarborPusher streams each rendered MP3 in over the Icecast source
-#    protocol). input.harbor is FAILABLE: it is "available" only while the app is
-#    actively pushing a segment — which is what both mixes below key off, so the bed
-#    ducks only during a segment and lifts the instant the push ends.
-#    "dj" is the mount; user/password authenticate the push. Localhost-published.
-#    buffer/max (seconds) set the harbor's startup latency vs. underrun tolerance:
-#    the defaults (2/10) are fine for a localhost push — low enough that a ~10s talk
-#    break isn't aired badly late, high enough to ride out a hiccup. Raise buffer if
-#    a segment ever stutters on connect.
-voice = input.harbor("dj", port=harbor_port, user="source", password=harbor_password, buffer=2., max=10.)
+# 3) Voice: the station's on-air DJ, as a SECOND request queue the app arms and this script
+#    fires. Like the playout queue it is failable — empty means "not available" — which is what
+#    both mixes below key off, so the bed ducks only while a segment is actually playing and lifts
+#    the instant it ends. That is the same contract the harbor input had, without the harbor.
+#
+#    This replaced input.harbor("dj", ...). v1 streamed rendered audio in over the Icecast source
+#    protocol because its app GENERATED the audio in-process and had bytes in hand. deadair serves
+#    segments over HTTP instead, so Liquidsoap can fetch its own voice exactly the way it fetches
+#    its own music, and no audio passes through the app at all. Bring the harbor input back as a
+#    second arm here if something ever genuinely needs to stream live audio in — a real microphone
+#    is the honest case — but nothing does today, and an unused mount is a thing that rots.
+#
+#    THE TIMING, which is the whole point of the arm/fire split below. The app does not decide
+#    WHEN the DJ speaks; it says what to say and against which item, and this script picks the
+#    instant. That is not a preference. v1 timed breaks in the app against a projected playhead and
+#    was audibly wrong, because three errors stack up there: the playhead reading is a couple of
+#    seconds stale, the decoder leads the listener by the encoder and client buffers, and a push is
+#    not a start. Deciding in here removes all three — the elapsed counter is reset at the boundary
+#    itself, and voice and bed are mixed before the encoder so the buffering that separates the
+#    decoder from the listener applies to both and cancels.
+voice = request.queue(id="voice", prefetch=1)
+
+# Fire the armed cue when the item it belongs to has been playing long enough.
+#
+# The bed has to be DOWN before the first word rather than during it, so the duck's own ramp is
+# subtracted: asking to speak eight seconds in means starting the ramp at eight seconds minus the
+# fade, not hearing the fade start under the first syllable.
+#
+# A cue whose moment has already passed is dropped rather than fired late. Late is worse than never
+# here: a back-announce that lands over the next record's vocal is a fault every listener hears,
+# while one that is silently dropped is a break nobody knew was coming. The same goes for a cue
+# whose record was skipped or never started — the item id stops matching and it expires with it.
+# The two branches, spelled out here rather than as comments inside them, because every `if` in
+# this file is a plain then/else with no comment in either arm and this is not the file to be
+# adventurous in:
+#
+#   playing    the record this cue belongs to is the one on air. Note the moment is passed once
+#              rather than tested against a clock, so `voice_seen` latches and the second branch
+#              becomes reachable.
+#   not playing, but seen already
+#              it was playing and now it is not: the record ended, or an operator skipped it. The
+#              cue is DROPPED rather than fired late. Late is the worse of the two by a distance —
+#              a back-announce landing over the next record's vocal is a fault every listener
+#              hears, while one silently dropped is a break nobody knew was coming.
+#   not playing, not seen yet
+#              the ordinary state for most of a cue's life. It was armed a whole record early, so
+#              it waits.
+def voice_cue_check() =
+  if voice_state() == "armed" then
+    playing = playout_queue.is_ready() and on_air_item() == voice_item()
+    due = on_air_elapsed() >= max(0., voice_at_s() - duck_fade_ms / 1000.)
+    if playing then
+      voice_seen := true
+      if due then
+        voice.push(request.create(voice_uri()))
+        voice_state := "fired"
+      end
+    else
+      if voice_seen() then
+        voice_state := "missed"
+      end
+    end
+  end
+end
+thread.run(every=voice_tick, voice_cue_check)
+
 
 # 4) Mix the voice with the bed, per the talk-over mode.
 #    ON  (talk_over): the bed is amplified by a gain we ramp ourselves, and the voice is simply

@@ -30,6 +30,32 @@ import { Rundown } from './rundown.js';
  */
 const LEAD = PLAYOUT_LEAD;
 
+/**
+ * How many items to keep handed over while the station is NOT on air.
+ *
+ * Off air is not idle. Liquidsoap does not consume a queue it is not airing (the
+ * programme sits behind a `switch` on deadair's lease, and an unselected source
+ * is never pulled), so an item handed over now is an item already resolved and
+ * downloaded the moment the lease is renewed. That is the difference between the
+ * first listener hearing music and hearing a few seconds of silence while a
+ * track is fetched.
+ *
+ * One rather than {@link LEAD}, because the whole point is a fast start and only
+ * the first item buys that. Three would be three provider fetches and three
+ * downloads held for a mount nobody is listening to.
+ */
+const WARM_LEAD = 1;
+
+/**
+ * How long a warm item is trusted before it is thrown away and fetched again.
+ *
+ * A resolved uri is perishable: the Spotify shim signs them, and a provider
+ * token behind one expires. An item pushed at midnight and first played at
+ * breakfast would fail to resolve in front of the listener it was kept for,
+ * which is the one moment this is supposed to protect.
+ */
+const WARM_STALE_MS = 15 * 60 * 1000;
+
 /** Safety net for anything that does not emit a change: a restart, a dropped push. */
 const TICK_MS = 2000;
 
@@ -57,6 +83,8 @@ export class PlayoutPusher {
     private readonly unsubscribes: (() => void)[] = [];
     /** One reconcile at a time: `next()` emits a change, which would otherwise re-enter here. */
     private busy = false;
+    /** When the current warm item was handed over, so a stale one can be replaced. Unset while on air. */
+    private warmedAt?: number;
 
     constructor(
         private readonly rundown: Rundown,
@@ -170,7 +198,8 @@ export class PlayoutPusher {
             // and a download per track, and an empty mount is the one case where nobody
             // benefits from spending them. `always` mode opens the gate permanently and
             // gets exactly the behaviour this loop had before the gate existed.
-            const reading = this.onAirNow() ? await this.control.assertOnAir() : await this.control.status();
+            const onAir = this.onAirNow();
+            const reading = onAir ? await this.control.assertOnAir() : await this.control.status();
             // Stream not up, or not yet reachable. Try again next tick.
             if (!reading) return;
 
@@ -180,6 +209,12 @@ export class PlayoutPusher {
             // top-up below pushes against the player's real depth rather than our
             // memory of it.
             this.rundown.reconcile(reading);
+
+            // A warm item that has been sitting too long is dropped and fetched again
+            // rather than kept: see WARM_STALE_MS. Safe here and nowhere else, because
+            // off air there is nothing to interrupt, and the top-up below immediately
+            // hands over a freshly resolved replacement.
+            if (!onAir && (await this.rewarmIfStale(reading.queued))) return;
 
             // Whichever of the two says the player is holding MORE.
             //
@@ -192,7 +227,10 @@ export class PlayoutPusher {
             // app restart is still holding those, and pushing on top of them would
             // stack the queue deeper than the lead.
             const held = Math.max(this.rundown.servedCount(), reading.queued);
-            for (let depth = held; depth < LEAD; depth++) {
+            // How deep to hand over: the player's full lead while the station is on air,
+            // and one warm item while it is not.
+            const target = onAir ? LEAD : WARM_LEAD;
+            for (let depth = held; depth < target; depth++) {
                 const pulled = await this.rundown.next();
                 // Nothing left: the player drains, the mount falls back to the local bed,
                 // and loading a new order will wake us through onChange.
@@ -205,10 +243,40 @@ export class PlayoutPusher {
                     this.rundown.unserve(pulled.item.id);
                     return;
                 }
+                // Only a hand-over made off air is perishable in a way anything can do
+                // something about: on air, the item is played within minutes.
+                if (!onAir) this.warmedAt ??= Date.now();
             }
+            if (onAir) this.warmedAt = undefined;
         } finally {
             this.busy = false;
         }
+    }
+
+    /**
+     * Throw away a warm item that has been waiting past {@link WARM_STALE_MS}, so
+     * the next pass resolves a fresh one.
+     *
+     * `flush` drops what is queued and leaves what the player is holding as
+     * current, which off air is a frozen item rather than audio: nobody hears
+     * this. The rundown takes those items back through its own reconcile of the
+     * reading the flush answered with, so nothing is lost from the running order,
+     * only from the player's hands.
+     *
+     * @returns whether it flushed, in which case the caller should stop: the
+     *   depth it was about to push against has just changed.
+     */
+    private async rewarmIfStale(queued: number): Promise<boolean> {
+        if (this.warmedAt === undefined || queued === 0) return false;
+        if (Date.now() - this.warmedAt < WARM_STALE_MS) return false;
+
+        this.warmedAt = undefined;
+        const reading = await this.control.flush();
+        if (!reading) return false;
+
+        this.rundown.reconcile(reading);
+        this.logger.info('playout: the item kept ready off air had gone stale; fetching it again');
+        return true;
     }
 
     /**

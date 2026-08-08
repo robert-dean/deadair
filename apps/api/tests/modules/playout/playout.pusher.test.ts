@@ -317,6 +317,72 @@ describe('PlayoutPusher.reconcile', () => {
         expect(pushed.length).toBeGreaterThan(0);
     });
 
+    it('keeps exactly one item warm off air, and the full lead on air', async () => {
+        // The warm item is a fast start, not a running order: only the first one buys
+        // that, and every extra is a provider fetch and a download held for a mount
+        // nobody is listening to.
+        const off = setup(['a', 'b', 'c', 'd'], { queued: 0, ready: false }, { audience: false });
+        await off.pusher.reconcile();
+        expect(off.pushed).toHaveLength(1);
+
+        const on = setup(['a', 'b', 'c', 'd'], { queued: 0, ready: true });
+        await on.pusher.reconcile();
+        expect(on.pushed).toHaveLength(PLAYOUT_LEAD);
+    });
+
+    it('fetches the warm item again once it has been sitting too long', async () => {
+        // A resolved uri is perishable: the shim signs them, and the token behind one
+        // expires. An item pushed at midnight must not be what fails to resolve in
+        // front of the listener who finally turns up at breakfast.
+        vi.useFakeTimers();
+        try {
+            const rundown = new Rundown(new StubResolver(), logger);
+            rundown.load(['a', 'b'].map(track));
+
+            // A player that reports back what it is holding, so the pusher sees its own
+            // warm item on the next pass rather than an empty queue.
+            let queued = 0;
+            const pushed: string[] = [];
+            const control = {
+                status: vi.fn(async () => ({ queued, ready: false })),
+                assertOnAir: vi.fn(async () => ({ queued, ready: true })),
+                releaseOnAir: vi.fn(async () => ({ queued, ready: false })),
+                push: vi.fn(async (uri: string) => {
+                    pushed.push(uri);
+                    queued += 1;
+                    return true;
+                }),
+                flush: vi.fn(async () => {
+                    queued = 0;
+                    return { queued, ready: false };
+                }),
+                skip: vi.fn(async () => ({ queued, ready: false })),
+            };
+            const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience(false).audience, logger);
+
+            await pusher.reconcile();
+            expect(pushed).toHaveLength(1);
+
+            // Well inside the window: what is held is still worth holding.
+            vi.advanceTimersByTime(60_000);
+            await pusher.reconcile();
+            expect(control.flush).not.toHaveBeenCalled();
+            expect(pushed).toHaveLength(1);
+
+            vi.advanceTimersByTime(20 * 60 * 1000);
+            await pusher.reconcile();
+            expect(control.flush).toHaveBeenCalledOnce();
+
+            // And the next pass replaces it, so the station is warm again rather than
+            // empty: the flush is only half of a re-warm.
+            await pusher.reconcile();
+            expect(pushed).toHaveLength(2);
+            expect(control.flush).toHaveBeenCalledOnce();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('does not hand the mount back when the audience leaves', async () => {
         // Letting the lease lapse is what takes the station off air, and it is enough:
         // nobody has been listening for a whole linger window by then. Releasing would

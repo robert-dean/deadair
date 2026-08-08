@@ -1,9 +1,11 @@
-import { Alert, Anchor, Card, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { useState } from 'react';
+import { Alert, Anchor, Button, Card, Group, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { lineupsListOptions, useStationAir } from '../../api/director.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { ImportLineupModal } from './import.lineup.modal';
 import { LineupCard } from './lineup.card';
 
 /**
@@ -17,17 +19,34 @@ export function LineupsPage() {
     const lineups = useQuery(lineupsListOptions);
     // Read here rather than in the card, so one poll serves the whole grid instead of one per card.
     const air = useStationAir();
+    const [importing, setImporting] = useState(false);
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Title order={1}>Lineups</Title>
-                <Text c="dimmed" size="sm">
-                    {lineups.data
-                        ? `${lineups.data.lineups.length} ${lineups.data.lineups.length === 1 ? 'lineup' : 'lineups'}`
-                        : 'What the station means to play, and in what order.'}
-                </Text>
-            </Stack>
+            <Group justify="space-between" align="flex-end" wrap="nowrap">
+                <Stack gap={4}>
+                    <Title order={1}>Lineups</Title>
+                    <Text c="dimmed" size="sm">
+                        {lineups.data
+                            ? `${lineups.data.lineups.length} ${lineups.data.lineups.length === 1 ? 'lineup' : 'lineups'}`
+                            : 'What the station means to play, and in what order.'}
+                    </Text>
+                </Stack>
+                <Button
+                    onClick={() => {
+                        setImporting(true);
+                    }}
+                >
+                    Import a lineup
+                </Button>
+            </Group>
+
+            <ImportLineupModal
+                opened={importing}
+                onClose={() => {
+                    setImporting(false);
+                }}
+            />
 
             {lineups.error ? (
                 <Alert color="red" title="Lineups could not be loaded">

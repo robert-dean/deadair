@@ -6,6 +6,7 @@ import type { CatalogPlaylist, CatalogTrack } from '@deadair/sdk';
 import { playlistTracksOptions } from '../../api/playlists.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { queryKeys } from '../../api/query.keys';
+import { ImportLineupButton } from '../lineups/import.lineup.button';
 import { PlayPlaylistButton } from '../playout/play.playlist.button';
 import { formatDuration } from '../shared/format.duration';
 
@@ -47,8 +48,17 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                         </Text>
                     </Stack>
                     {/* Only once the tracks are known to exist: airing a playlist that turned out
-                        to be empty is a 422, and offering the button first invites it. */}
-                    {tracks.data && tracks.data.tracks.length > 0 ? <PlayPlaylistButton pluginId={pluginId} playlistId={playlistId} /> : undefined}
+                        to be empty is a 422, and so is importing one, so offering either button
+                        first invites it. */}
+                    {tracks.data && tracks.data.tracks.length > 0 ? (
+                        <Group gap="sm" wrap="nowrap">
+                            {/* The programmed path beside the quick one: importing copies this
+                                playlist into a lineup the station can be programmed with, and airs
+                                nothing until the lineup is put on. */}
+                            <ImportLineupButton pluginId={pluginId} playlistId={playlistId} name={cachedPlaylist?.name} />
+                            <PlayPlaylistButton pluginId={pluginId} playlistId={playlistId} />
+                        </Group>
+                    ) : undefined}
                 </Group>
             </Stack>
 

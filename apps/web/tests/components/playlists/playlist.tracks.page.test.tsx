@@ -19,6 +19,8 @@ vi.mock('@tanstack/react-router', () => ({
             {children}
         </a>
     ),
+    // The import button lands on the lineup it just made.
+    useNavigate: () => vi.fn(),
 }));
 
 afterEach(() => {

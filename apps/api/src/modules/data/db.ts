@@ -323,6 +323,7 @@ export interface DeadairSegments {
   sourcePath: string | null;
   state: Generated<"planned" | "rendering" | "ready" | "failed">;
   updatedAt: Generated<DateTime>;
+  voice: string | null;
 }
 
 export interface DeadairSettings {

@@ -8,6 +8,7 @@ import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
+import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 
 /**
  * What a job name maps to. The bare constructor is the short form for an
@@ -116,5 +117,19 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'director.extend_lineup': {
         job: ExtendLineupJob,
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 3 }) },
+    },
+
+    // No cron: a segment is rendered because something planned one, and walking
+    // the table on a timer would re-attempt every segment whose engine is down
+    // on every tick.
+    //
+    // One retry, because the usual failure is a TTS server that is not there and
+    // the second attempt will find it just as absent — but the job does not
+    // rethrow, so that retry is only ever spent on a fault outside the render
+    // itself. `expiresIn` sits above a slow synthesis on CPU plus the draining
+    // that follows it, and well below anything an operator would call stuck.
+    'render.segment': {
+        job: RenderSegmentJob,
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 };

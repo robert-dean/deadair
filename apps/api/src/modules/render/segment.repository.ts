@@ -29,7 +29,30 @@ export interface Segment {
     audioExt?: SegmentExtension;
     durationMs?: number;
     error?: string;
+    /**
+     * The station's own name for the voice this should be said in, not any engine's. Absent means
+     * whatever the speech plugin's default is, which is the ordinary case.
+     */
+    voice?: string;
 }
+
+/** A segment the station means to say, before anything has said it. */
+export interface PlannedSegment {
+    kind: string;
+    label: string;
+    script: string;
+    voice?: string;
+}
+
+/** What the renderer writes back when it worked. */
+export interface RenderedAudio {
+    audioChecksum: string;
+    audioExt: SegmentExtension;
+    durationMs?: number;
+}
+
+/** What the station wrote itself, as opposed to `library` for a file somebody dropped in. */
+export const RENDER_SOURCE = 'render';
 
 /** A segment as it is created from an imported file: audio first, everything else described. */
 export interface ImportedSegment {
@@ -53,6 +76,7 @@ interface SegmentRow {
     audioExt: string | null;
     durationMs: number | null;
     error: string | null;
+    voice: string | null;
 }
 
 const SEGMENT_COLUMNS = [
@@ -67,6 +91,7 @@ const SEGMENT_COLUMNS = [
     'audioExt',
     'durationMs',
     'error',
+    'voice',
 ] as const;
 
 /** What the library scan writes, and what the repository recognises as an import. */
@@ -93,6 +118,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.sourcePath == null ? {} : { sourcePath: row.sourcePath }),
         ...(row.durationMs == null ? {} : { durationMs: row.durationMs }),
         ...(row.error == null ? {} : { error: row.error }),
+        ...(row.voice == null ? {} : { voice: row.voice }),
     };
 }
 
@@ -149,6 +175,85 @@ export class SegmentRepository extends DataRepository {
         const rows = await this.db.selectFrom('deadair.segments').select(SEGMENT_COLUMNS).orderBy('createdAt', 'desc').execute();
 
         return rows.map(toSegment);
+    }
+
+    /**
+     * Write down something the station means to say, before anything has said it.
+     *
+     * Born `planned` with no audio, which is the state the whole render path hangs off: the
+     * director skips it, so a row created here costs the station nothing until a renderer finishes
+     * with it, and a renderer that never runs costs it nothing either.
+     */
+    async plan(planned: PlannedSegment): Promise<Segment> {
+        const row = await this.db
+            .insertInto('deadair.segments')
+            .values({
+                kind: planned.kind,
+                label: planned.label,
+                script: planned.script,
+                voice: planned.voice ?? null,
+                source: RENDER_SOURCE,
+                state: 'planned',
+            })
+            .returning(SEGMENT_COLUMNS)
+            .executeTakeFirstOrThrow();
+
+        return toSegment(row);
+    }
+
+    /**
+     * Take a segment for rendering, if it is still there to be taken.
+     *
+     * A conditional update rather than a read followed by a write, so two runs of the job cannot
+     * both decide to render the same row: only one `planned → rendering` can win, and the loser
+     * gets `undefined` and stops. That matters because the job has one retry, and a retry arriving
+     * while the first attempt is still speaking would otherwise pay a second time for the same
+     * audio and race to write the same row.
+     *
+     * `failed` is deliberately re-claimable: an operator asking again for a segment whose engine
+     * was down is asking for exactly that. `ready` is not, because the audio already exists.
+     */
+    async claimForRender(id: string): Promise<Segment | undefined> {
+        const row = await this.db
+            .updateTable('deadair.segments')
+            .set({ state: 'rendering', error: null })
+            .where('id', '=', id)
+            .where('state', 'in', ['planned', 'failed'])
+            .returning(SEGMENT_COLUMNS)
+            .executeTakeFirst();
+
+        return row === undefined ? undefined : toSegment(row);
+    }
+
+    /**
+     * The audio arrived: the segment can go on air.
+     *
+     * Clears `error`, so a segment that failed once and then worked does not keep advertising the
+     * reason it used to fail.
+     */
+    async markReady(id: string, audio: RenderedAudio): Promise<void> {
+        await this.db
+            .updateTable('deadair.segments')
+            .set({
+                state: 'ready',
+                audioChecksum: audio.audioChecksum,
+                audioExt: audio.audioExt,
+                durationMs: audio.durationMs ?? null,
+                error: null,
+            })
+            .where('id', '=', id)
+            .execute();
+    }
+
+    /**
+     * It did not work, and this is why.
+     *
+     * The audio columns are left exactly as they were rather than cleared. A segment that was
+     * `ready` and then failed a re-render still has its old audio, and keeping it is the difference
+     * between the station saying something slightly stale and the station saying nothing.
+     */
+    async markFailed(id: string, error: string): Promise<void> {
+        await this.db.updateTable('deadair.segments').set({ state: 'failed', error }).where('id', '=', id).execute();
     }
 
     /**

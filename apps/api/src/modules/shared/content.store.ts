@@ -1,5 +1,8 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { pipeline } from 'node:stream/promises';
+import { Readable } from 'node:stream';
 import { join } from 'node:path';
 
 /** sha256 hex, exactly. Both halves of a path are checked against this before any filesystem call. */
@@ -69,6 +72,82 @@ export class ContentStore<Ext extends string> {
         await writeFile(path, bytes);
 
         return checksum;
+    }
+
+    /**
+     * Writes bytes that arrive a chunk at a time, and answers where they went.
+     *
+     * The streaming twin of {@link ContentStore.write}, and the reason the audio a plugin produces
+     * never exists whole anywhere: chunks are hashed and appended as they arrive, so a long
+     * recording costs a buffer rather than a file of memory.
+     *
+     * The name cannot be known until the last byte has been seen, which is what a content-addressed
+     * store means, so this writes to a temp file and renames it into place once the checksum is
+     * settled. That is also what makes a failed write leave nothing behind: an interrupted render
+     * must not leave a half file under a name that claims to be the whole of something.
+     *
+     * Idempotent for the same reason `write` is — the same bytes land on the same name — and the
+     * rename is atomic within a filesystem, so two renders of identical audio racing each other end
+     * with one intact file rather than two halves of one.
+     */
+    async writeStream(chunks: AsyncIterable<Uint8Array>, ext: Ext): Promise<string> {
+        return await this.writeStreamInternal(chunks, ext);
+    }
+
+    /**
+     * As {@link ContentStore.writeStream}, but filed under a name the caller chose.
+     *
+     * For a CACHE rather than a library: when the identity of the bytes is the question they answer
+     * (this voice, saying this line) rather than the bytes themselves, the key is knowable before
+     * the audio exists and a hit is the file being there. Nothing else has to remember the mapping,
+     * which is a table and a repository this does not need.
+     *
+     * `key` must still be a sha256 hex string, so every path guard in this class applies unchanged;
+     * derive it by hashing whatever actually identifies the content.
+     */
+    async writeStreamAs(key: string, chunks: AsyncIterable<Uint8Array>, ext: Ext): Promise<string> {
+        if (!CHECKSUM_PATTERN.test(key)) throw new Error(`Not a sha256 checksum: ${key}`);
+        return await this.writeStreamInternal(chunks, ext, key);
+    }
+
+    /**
+     * The shared body of the two streaming writes: hash and spill to a temp file, then rename onto
+     * the final path.
+     *
+     * `key` decides only what that final name is. Everything else — the hashing, the temp file, the
+     * cleanup on failure — is identical, because the difference between a content-addressed store
+     * and a keyed cache is where the name comes from and nothing about how the bytes are handled.
+     */
+    private async writeStreamInternal(chunks: AsyncIterable<Uint8Array>, ext: Ext, key?: string): Promise<string> {
+        if (!this.isExtension(ext)) throw new Error(`Not an extension this store holds: ${ext}`);
+
+        // Same directory as the destination, so the rename never crosses a filesystem and stays
+        // atomic. A uuid rather than the checksum, which is not known yet.
+        const temporaryPath = join(this.root, `.tmp-${randomUUID()}.${ext}`);
+        await mkdir(this.root, { recursive: true });
+
+        const hash = createHash('sha256');
+        try {
+            await pipeline(
+                Readable.from(chunks).map((chunk: Uint8Array) => {
+                    hash.update(chunk);
+                    return chunk;
+                }),
+                createWriteStream(temporaryPath),
+            );
+
+            const checksum = key ?? hash.digest('hex');
+            const path = this.pathFor(checksum, ext);
+            await mkdir(join(this.root, checksum.slice(0, 2)), { recursive: true });
+            await rename(temporaryPath, path);
+
+            return checksum;
+        } catch (error) {
+            // Nothing readable is left behind by a write that did not finish. `force` because the
+            // failure may well be that the temp file was never created.
+            await rm(temporaryPath, { force: true }).catch(() => {});
+            throw error;
+        }
     }
 
     /**

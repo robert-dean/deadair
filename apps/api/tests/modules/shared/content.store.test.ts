@@ -7,7 +7,7 @@
 // tested in its own file.
 
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -91,3 +91,80 @@ describe('ContentStore', () => {
         expect(store.isExtension(undefined)).toBe(false);
     });
 });
+
+describe('ContentStore.writeStream', () => {
+    /** Chunks as a plugin's drain would hand them over. */
+    async function* chunks(...parts: string[]): AsyncGenerator<Uint8Array> {
+        for (const part of parts) yield Buffer.from(part);
+    }
+
+    it('hashes as it goes, so the name is the same as the buffered write would produce', async () => {
+        const checksum = await store.writeStream(chunks('some ', 'bytes'), 'one');
+
+        expect(checksum).toBe(sha256(Buffer.from('some bytes')));
+        expect(await readFile(join(root, checksum.slice(0, 2), `${checksum}.one`))).toEqual(Buffer.from('some bytes'));
+    });
+
+    it('is idempotent, like the buffered write', async () => {
+        const first = await store.writeStream(chunks('same'), 'one');
+        const second = await store.writeStream(chunks('sa', 'me'), 'one');
+
+        expect(second).toBe(first);
+        expect(await store.read(first, 'one')).toEqual(Buffer.from('same'));
+    });
+
+    it('handles an empty stream without inventing a file under the wrong name', async () => {
+        const checksum = await store.writeStream(chunks(), 'one');
+
+        expect(checksum).toBe(sha256(Buffer.alloc(0)));
+        expect(await store.read(checksum, 'one')).toEqual(Buffer.alloc(0));
+    });
+
+    it('leaves nothing behind when the source fails part way through', async () => {
+        async function* failing(): AsyncGenerator<Uint8Array> {
+            yield Buffer.from('half a render');
+            throw new Error('the engine hung up');
+        }
+
+        await expect(store.writeStream(failing(), 'one')).rejects.toThrow('the engine hung up');
+
+        // The point of the temp file and the rename: an interrupted render must not leave a partial
+        // file under a name that claims to be the whole of something. A content-addressed store has
+        // no way to tell the two apart afterwards.
+        expect(await readdir(root)).toEqual([]);
+    });
+
+    it('refuses a format it does not hold, before touching the filesystem', async () => {
+        await expect(store.writeStream(chunks('bytes'), 'three' as 'one')).rejects.toThrow(/Not an extension/);
+        expect(await readdir(root)).toEqual([]);
+    });
+});
+
+describe('ContentStore.writeStreamAs', () => {
+    const key = sha256(Buffer.from('a cache key, not the content'));
+
+    it('files the bytes under the caller key rather than their own checksum', async () => {
+        const written = await store.writeStreamAs(key, chunksOf('the audio'), 'one');
+
+        expect(written).toBe(key);
+        // A cache: the name answers "which voice, saying which line", so a hit is the file being
+        // there and nothing else has to remember the mapping.
+        expect(await store.read(key, 'one')).toEqual(Buffer.from('the audio'));
+    });
+
+    it('overwrites the same key when the content behind it changes', async () => {
+        await store.writeStreamAs(key, chunksOf('the old voice'), 'one');
+        await store.writeStreamAs(key, chunksOf('the new voice'), 'one');
+
+        expect(await store.read(key, 'one')).toEqual(Buffer.from('the new voice'));
+    });
+
+    it('refuses a key that is not a checksum, so every path guard still applies', async () => {
+        await expect(store.writeStreamAs('../escape', chunksOf('bytes'), 'one')).rejects.toThrow(/Not a sha256 checksum/);
+        expect(await readdir(root)).toEqual([]);
+    });
+});
+
+async function* chunksOf(text: string): AsyncGenerator<Uint8Array> {
+    yield Buffer.from(text);
+}

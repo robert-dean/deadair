@@ -7,6 +7,7 @@ import { RenderService } from './render.service.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository } from './segment.repository.js';
 import { SegmentStore } from './segment.store.js';
+import { SpeechService } from './speech.service.js';
 
 /** Where segment audio is written when `SEGMENT_DIR` is unset. Alongside `media/art`, and gitignored with it. */
 const DEFAULT_SEGMENT_DIR = './media/segments';
@@ -30,6 +31,11 @@ const DEFAULT_LIBRARY_DIR = join(DEFAULT_SEGMENT_DIR, 'inbox');
  * what it is: `segments.state` already carries `planned | rendering | ready | failed`, which is the
  * seam a text-to-speech renderer drops into without any of the rest of the station having to change
  * its mind about what a segment is. See `docs/todo/dj-voice.md`.
+ *
+ * That renderer is now here: `SpeechService` speaks through whichever plugin declares the `speech`
+ * capability, and `RenderSegmentJob` walks a row from `planned` to `ready`. Which is why this module
+ * is registered after `PluginsModule` — its renderer reaches into the plugin registry — and why it
+ * still starts nothing: a render happens because a job was sent, never because time passed.
  *
  * ## The one rule the rest of the station depends on
  *
@@ -64,6 +70,11 @@ export const RenderModule: ServerKitModule = {
                 container => new SegmentLibrary(container.get(SegmentStore), container.get(SegmentRepository), libraryDir, container.get(Logger)),
             )
             .asScoped();
+
+        // Scoped with the repositories and the plugin registry it reads. It owns no loop and holds
+        // no state between calls: everything about one render lives in the call, and the stream it
+        // drains belongs to the plugin instance rather than to this.
+        registry.register(SpeechService).useClass(SpeechService).asScoped();
 
         registry.register(RenderService).useClass(RenderService).asScoped();
     },

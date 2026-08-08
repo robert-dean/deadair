@@ -19,9 +19,13 @@ For work designed against *this* tree and then deferred, see the other files in 
 `apps/api/src/modules/render/` in v1: TTS rendering, ffmpeg, the harbor pusher that gets rendered
 audio onto the mount, a take cache, per-episode transcripts, and `llm.gate.ts`.
 
-This is the single biggest absent subsystem, and several deferred items here depend on it. In this
-tree `radio.liq`'s harbor input and duck are already wired and working; nothing pushes to them. See
-[rundown.md](rundown.md).
+This is the single biggest absent subsystem, and several deferred items here depend on it.
+
+**Partly closed since this was written.** deadair now has a segment that airs, a station that plants
+its own, and a voice that can be cued over a record with the bed ducked under it — so the harbor
+pusher does not need porting at all: `radio.liq` fetches its own voice over HTTP from a second
+`request.queue`, and no audio passes through the app. What is still absent is TTS and the take cache,
+which is to say anything that produces the audio in the first place. See [dj-voice.md](dj-voice.md).
 
 Non-obvious things v1 learned that are worth keeping:
 

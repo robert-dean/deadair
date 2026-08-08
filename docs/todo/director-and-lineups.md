@@ -1,26 +1,33 @@
 # Deferred: the music director and lineups
 
 **Designed:** 2026-08-07, while planning the music director
+**Revised:** 2026-08-08. The first two entries have been built; the rest stand.
 **Status:** deferred, not disputed. Each item has a known landing place.
 
 Cut from the director plan to keep the first pass on one thing: getting a lineup on air. See
 [multi-station.md](multi-station.md) for the other deferred half.
 
-## Segments in a lineup
+## Segments in a lineup — BUILT
 
-Talk breaks, news bulletins, ads, idents. A lineup item is a track only, for now. A segment arm
-(`kind: 'segment'`, `segmentKind`, a render state of `planned | rendering | ready | failed`, and the
-audio once ready) needs no migration when it lands, because `lineups.items` is jsonb.
+A lineup line is a track or a segment, and the arm landed without a migration exactly as predicted,
+because `lineups.items` is jsonb. The rule landed with it: the director SKIPS a segment that is not
+`ready` when the cursor reaches it, so the station never stalls waiting on a renderer.
 
-The rule that goes with it: the director SKIPS a segment that is not `ready` when the cursor reaches
-it, so the station never stalls waiting on a renderer.
+Two things this entry did not anticipate, both of which turned out to matter. The line holds the
+segment's ID and nothing else — no label, no state, no audio — because a copy inside a jsonb document
+that is only rewritten on an edit would go stale the moment a segment was re-recorded. And a
+talk-over is not a line at all: it never becomes an item, it rides on the record it is heard over.
 
-## A DJ that talks
+## A DJ that talks — HALF BUILT
 
-An LLM writing breaks and a TTS rendering them. The seam is already there: `SetGenerator.generate`
-takes and returns *named* picks (title + artist strings), which is what a model can produce, so an
-LLM selector is a second binding rather than a reshape. Break rendering is the same shape as the
-extend job: a job fills in a planned segment and moves it to `ready`.
+The audio path exists end to end: a segment airs, the station plants its own, and it can talk over a
+record with the bed ducked under it. What does not exist is anything that writes or speaks one —
+every segment is a file somebody recorded.
+
+The remaining half, and the seams it drops into, is [dj-voice.md](dj-voice.md). The observation below
+still holds and is why an LLM selector is cheap: `SetGenerator.generate` takes and returns *named*
+picks (title + artist strings), which is what a model can produce, so it is a second binding rather
+than a reshape.
 
 ## Live provider search when resolving a pick
 

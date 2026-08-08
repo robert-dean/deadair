@@ -15,6 +15,14 @@ options {
 # running order merely NAMES one: a segment exists, and is worth keeping, whether or not any lineup
 # currently holds it.
 
+# The POST writes a `planned` row and sends `render.segment` to speak it, so it answers as soon as
+# the row exists rather than waiting on a synthesis. The segment comes back in the state it is
+# actually in, which is `planned` every time: a caller polls the GET to watch it reach `ready`, and
+# one that never gets there is skipped by the director rather than airing as silence.
+#
+# It takes platform.manage rather than the file's platform.view floor, because planning a segment is
+# an operator action that spends somebody else's compute. That rationale lives out here because the
+# formatter eats comments inside a `security` block.
 operation /segments: {
     get: { # Everything the station can play that is not a record
         name: List segments
@@ -22,6 +30,21 @@ operation /segments: {
         response: {
             200: {
                 application/json: SegmentList
+            }
+        }
+    }
+    post: { # Plans something for the station to say, and starts rendering it
+        name: Create segment
+        service: RenderService.createSegment
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: SegmentCreate
+        }
+        response: {
+            201: {
+                application/json: Segment
             }
         }
     }

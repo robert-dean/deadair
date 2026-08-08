@@ -1,9 +1,19 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
-import type { SegmentList, SegmentScanResult } from './types/render.types.js';
+import { Logger } from '@maroonedsoftware/logger';
+import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
+import type { SegmentCreate, SegmentList, SegmentScanResult, Segment as SegmentView } from './types/render.types.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType } from './segment.store.js';
+
+/**
+ * What a segment is when nobody says.
+ *
+ * A talk break rather than an ident, because a caller with a script in hand is writing speech; an
+ * ident is the thing that already exists as a recording in the inbox.
+ */
+const DEFAULT_KIND = 'talkbreak';
 
 /**
  * How long a client may reuse segment audio before asking again.
@@ -35,12 +45,40 @@ export class RenderService {
         private readonly segments: SegmentRepository,
         private readonly store: SegmentStore,
         private readonly library: SegmentLibrary,
+        private readonly jobs: PgBossJobBroker,
+        private readonly logger: Logger,
     ) {}
 
     /** Everything the station can play that is not a record. */
     async listSegments(): Promise<SegmentList> {
         const segments = await this.segments.list();
         return { segments: segments.map(toView) };
+    }
+
+    /**
+     * Write down something for the station to say, and set it going.
+     *
+     * Answers as soon as the row exists rather than waiting on a synthesis, so the segment always
+     * comes back `planned`. That is not an approximation of the result — it is the result. Rendering
+     * is a job precisely because nobody is waiting on it, and a caller that wants to know when the
+     * audio arrived polls the list.
+     *
+     * The send is last, and deliberately: a job that ran before the row was committed would find
+     * nothing to claim. If the send fails, the row survives as a `planned` segment an operator can
+     * ask for again, which is a better failure than a segment that exists only in a queue.
+     */
+    async createSegment(create: SegmentCreate): Promise<SegmentView> {
+        const segment = await this.segments.plan({
+            kind: create.kind ?? DEFAULT_KIND,
+            label: create.label,
+            script: create.script,
+            ...(create.voice === undefined ? {} : { voice: create.voice }),
+        });
+
+        await this.jobs.send('render.segment', { segmentId: segment.id });
+        this.logger.info('render: planned a segment', { segment: segment.id, kind: segment.kind, voice: segment.voice });
+
+        return toView(segment);
     }
 
     /**
@@ -76,7 +114,7 @@ export class RenderService {
 }
 
 /** A row as the console reads it. The checksum stays here: it is a filename, not an answer. */
-const toView = (segment: Segment): SegmentList['segments'][number] => ({
+const toView = (segment: Segment): SegmentView => ({
     id: segment.id,
     kind: segment.kind,
     state: segment.state,
@@ -87,4 +125,5 @@ const toView = (segment: Segment): SegmentList['segments'][number] => ({
     ...(segment.sourcePath === undefined ? {} : { sourcePath: segment.sourcePath }),
     ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
     ...(segment.error === undefined ? {} : { error: segment.error }),
+    ...(segment.voice === undefined ? {} : { voice: segment.voice }),
 });

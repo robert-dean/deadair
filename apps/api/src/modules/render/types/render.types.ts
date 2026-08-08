@@ -21,12 +21,29 @@ export const Segment = z.strictObject({
         .describe('The file in the inbox this came from. The bytes were copied, so emptying the inbox does not take it off the air'),
     durationMs: z.coerce.number().int().min(0).optional().describe('How long it runs. A display value: the player measures the audio itself'),
     error: z.string().max(2000).optional().describe('Why it is `failed`'),
+    voice: z
+        .string()
+        .max(100)
+        .optional()
+        .describe("The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default"),
 });
 export type Segment = z.infer<typeof Segment>;
 
 /**
+ * Something for the station to say, before anything has said it
+ * generated from [SegmentCreate](file://./../../../../data/contracts/render/render.types.ck#L21)
+ */
+export const SegmentCreate = z.strictObject({
+    label: z.string().min(1).max(400).describe('What the console calls it, and what the mount is labelled with while it airs'),
+    script: z.string().min(1).max(20000).describe('The words to say'),
+    kind: z.string().min(1).max(50).optional().describe('What sort of element it is. Defaults to `talkbreak`'),
+    voice: z.string().max(100).optional().describe('A station voice name the speech plugin knows how to map. Absent uses its default'),
+});
+export type SegmentCreate = z.infer<typeof SegmentCreate>;
+
+/**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L24)
+ * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L32)
  */
 export const SegmentScanResult = z.strictObject({
     scanned: z.coerce.number().int().min(0).describe('Audio files seen, whether or not they were already known'),
@@ -37,7 +54,7 @@ export type SegmentScanResult = z.infer<typeof SegmentScanResult>;
 
 /**
  * Everything the station can play that is not a record
- * generated from [SegmentList](file://./../../../../data/contracts/render/render.types.ck#L20)
+ * generated from [SegmentList](file://./../../../../data/contracts/render/render.types.ck#L28)
  */
 export const SegmentList = z.strictObject({
     segments: z.array(Segment),

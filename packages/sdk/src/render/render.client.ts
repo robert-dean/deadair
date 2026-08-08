@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { parseJson, readContentType } from '../sdk-options.js';
-import type { SegmentList, SegmentScanResult } from './types/render.types.js';
+import { bigIntReplacer, parseJson, readContentType } from '../sdk-options.js';
+import type { Segment, SegmentCreate, SegmentList, SegmentScanResult } from './types/render.types.js';
 
 export class RenderClient {
     constructor(private fetch: SdkFetch) {}
@@ -12,6 +12,19 @@ export class RenderClient {
     async listSegments(): Promise<SegmentList> {
         const result = await this.fetch(`/segments`, { method: 'GET' });
         return await parseJson<SegmentList>(result);
+    }
+
+    /**
+     * @name Create segment
+     * @description Plans something for the station to say, and starts rendering it
+     */
+    async createSegment(body: SegmentCreate): Promise<Segment> {
+        const result = await this.fetch(`/segments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<Segment>(result);
     }
 
     /**

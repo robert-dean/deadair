@@ -22,11 +22,28 @@ export interface Segment {
     durationMs?: number;
     /** Why it is `failed` */
     error?: string;
+    /** The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default */
+    voice?: string;
+}
+
+/**
+ * Something for the station to say, before anything has said it
+ * generated from [SegmentCreate](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L21)
+ */
+export interface SegmentCreate {
+    /** What the console calls it, and what the mount is labelled with while it airs */
+    label: string;
+    /** The words to say */
+    script: string;
+    /** What sort of element it is. Defaults to `talkbreak` */
+    kind?: string;
+    /** A station voice name the speech plugin knows how to map. Absent uses its default */
+    voice?: string;
 }
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L24)
+ * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L32)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -39,7 +56,7 @@ export interface SegmentScanResult {
 
 /**
  * Everything the station can play that is not a record
- * generated from [SegmentList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L20)
+ * generated from [SegmentList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L28)
  */
 export interface SegmentList {
     segments: Segment[];

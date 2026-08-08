@@ -15,6 +15,14 @@ contract Segment: { # One thing the station can play that is not a record
     sourcePath?: string(max=1000) # The file in the inbox this came from. The bytes were copied, so emptying the inbox does not take it off the air
     durationMs?: int(min=0) # How long it runs. A display value: the player measures the audio itself
     error?: string(max=2000) # Why it is `failed`
+    voice?: string(max=100) # The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default
+}
+
+contract SegmentCreate: { # Something for the station to say, before anything has said it
+    label: string(min=1, max=400) # What the console calls it, and what the mount is labelled with while it airs
+    script: string(min=1, max=20000) # The words to say
+    kind?: string(min=1, max=50) # What sort of element it is. Defaults to `talkbreak`
+    voice?: string(max=100) # A station voice name the speech plugin knows how to map. Absent uses its default
 }
 
 contract SegmentList: { # Everything the station can play that is not a record

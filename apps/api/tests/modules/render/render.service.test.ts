@@ -21,23 +21,39 @@ const READY: Segment = {
     audioExt: 'mp3',
 };
 
-const service = (options: { segment?: Segment; segments?: Segment[]; bytes?: Buffer } = {}) => {
+const PLANNED: Segment = {
+    id: ID,
+    kind: 'talkbreak',
+    state: 'planned',
+    label: 'back-announce',
+    source: 'render',
+    script: 'That was Boards of Canada.',
+};
+
+const service = (options: { segment?: Segment; segments?: Segment[]; bytes?: Buffer; planned?: Segment } = {}) => {
     const findById = vi.fn().mockResolvedValue(options.segment);
     const list = vi.fn().mockResolvedValue(options.segments ?? []);
     const read = vi.fn().mockResolvedValue(options.bytes);
     const scan = vi.fn().mockResolvedValue({ scanned: 1, imported: 1, skipped: 0 });
+    const plan = vi.fn().mockResolvedValue(options.planned ?? PLANNED);
+    const send = vi.fn().mockResolvedValue(undefined);
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
     return {
         service: new RenderService(
-            { findById, list } as unknown as SegmentRepository,
+            { findById, list, plan } as unknown as SegmentRepository,
             { read } as unknown as SegmentStore,
             {
                 scan,
             } as unknown as SegmentLibrary,
+            { send } as never,
+            logger as never,
         ),
         findById,
         read,
         scan,
+        plan,
+        send,
     };
 };
 
@@ -106,5 +122,55 @@ describe('RenderService.scanLibrary', () => {
 
         expect(await render.scanLibrary()).toEqual({ scanned: 1, imported: 1, skipped: 0 });
         expect(scan).toHaveBeenCalledOnce();
+    });
+});
+
+describe('RenderService.createSegment', () => {
+    it('plans the segment and sends the job that speaks it', async () => {
+        const { service: render, plan, send } = service();
+
+        const created = await render.createSegment({ label: 'back-announce', script: 'That was Boards of Canada.' });
+
+        expect(plan).toHaveBeenCalledWith({ kind: 'talkbreak', label: 'back-announce', script: 'That was Boards of Canada.' });
+        expect(send).toHaveBeenCalledWith('render.segment', { segmentId: ID });
+        // `planned` is the answer, not an approximation of one: rendering is a job precisely
+        // because nobody is waiting on it.
+        expect(created.state).toBe('planned');
+        expect(created.playable).toBe(false);
+    });
+
+    it('carries the voice through, and leaves it out when there is none', async () => {
+        const withVoice = service({ planned: { ...PLANNED, voice: 'newsreader' } });
+        await withVoice.service.createSegment({ label: 'news', script: 'The headlines.', voice: 'newsreader' });
+        expect(withVoice.plan).toHaveBeenCalledWith(expect.objectContaining({ voice: 'newsreader' }));
+
+        const without = service();
+        await without.service.createSegment({ label: 'back-announce', script: 'That was that.' });
+        expect(without.plan).toHaveBeenCalledWith(expect.not.objectContaining({ voice: expect.anything() }));
+    });
+
+    it('takes the kind the caller asked for', async () => {
+        const { service: render, plan } = service();
+
+        await render.createSegment({ label: 'top of the hour', script: 'This is Deadair.', kind: 'ident' });
+
+        expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'ident' }));
+    });
+
+    it('writes the row before sending the job', async () => {
+        // A job that ran before the row was committed would find nothing to claim.
+        const order: string[] = [];
+        const { service: render, plan, send } = service();
+        plan.mockImplementation(async () => {
+            order.push('plan');
+            return PLANNED;
+        });
+        send.mockImplementation(async () => {
+            order.push('send');
+        });
+
+        await render.createSegment({ label: 'back-announce', script: 'That was that.' });
+
+        expect(order).toEqual(['plan', 'send']);
     });
 });

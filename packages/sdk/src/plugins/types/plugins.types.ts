@@ -5,12 +5,12 @@
 export type PluginStatus = 'discovered' | 'disabled' | 'misconfigured' | 'active' | 'failed';
 
 /**
- * One choice of a `select` config field
  * generated from [ConfigFieldType](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L9)
  */
 export type ConfigFieldType = 'string' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'note';
 
 /**
+ * One choice of a `select` config field
  * generated from [ConfigFieldOption](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L12)
  */
 export interface ConfigFieldOption {

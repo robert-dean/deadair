@@ -34,6 +34,7 @@ export const CatalogSourceError = z.strictObject({
 export type CatalogSourceError = z.infer<typeof CatalogSourceError>;
 
 /**
+ * A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable
  * generated from [CatalogPlaylist](file://./../../../../data/contracts/playlists/playlists.types.ck#L11)
  */
 export const CatalogPlaylist = z.strictObject({

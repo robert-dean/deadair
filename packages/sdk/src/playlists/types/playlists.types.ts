@@ -30,6 +30,7 @@ export interface CatalogSourceError {
 }
 
 /**
+ * A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable
  * generated from [CatalogPlaylist](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L11)
  */
 export interface CatalogPlaylist {

@@ -119,6 +119,7 @@ export interface AuthenticatorFactorRegistrationResponse {
  * generated from [FidoFactorAttestation](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L66)
  */
 export interface FidoFactorAttestation {
+    /** The relying party */
     rp: { name: string; id: string; icon?: string };
     user: { id: string; name: string; displayName: string };
     /** The challenge */

@@ -64,7 +64,7 @@ contract AuthenticatorFactorRegistrationResponse: {
 }
 
 contract FidoFactorAttestation: { # The FIDO factor attestation information
-    rp: { # The FIDO factor attestation information
+    rp: { # The relying party
         name: string # The relying party name
         id: string # The relying party identifier
         icon?: string # The relying party icon

@@ -8,13 +8,13 @@ export const PluginStatus = z.enum(['discovered', 'disabled', 'misconfigured', '
 export type PluginStatus = z.infer<typeof PluginStatus>;
 
 /**
- * One choice of a `select` config field
  * generated from [ConfigFieldType](file://./../../../../data/contracts/plugins/plugins.types.ck#L9)
  */
 export const ConfigFieldType = z.enum(['string', 'url', 'secret', 'number', 'boolean', 'select', 'note']);
 export type ConfigFieldType = z.infer<typeof ConfigFieldType>;
 
 /**
+ * One choice of a `select` config field
  * generated from [ConfigFieldOption](file://./../../../../data/contracts/plugins/plugins.types.ck#L12)
  */
 export const ConfigFieldOption = z.strictObject({

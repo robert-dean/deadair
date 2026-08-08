@@ -79,10 +79,12 @@ function build(options: Options = {}) {
     const audience = {
         listenerCount: () => options.listeners ?? 0,
         hasAudience: () => (options.listeners ?? 0) > 0,
+        noteArrival: vi.fn(),
     } as unknown as AudienceWatch;
 
     return {
         service: new PlayoutService(rundown, pusher, director, endpoint, control, audience, stream, logger),
+        audience,
         rundown,
         pusher,
         director,
@@ -218,6 +220,53 @@ describe('PlayoutService.skip and stop', () => {
         await service.stop();
 
         expect(rundown.reset).toHaveBeenCalledOnce();
+    });
+});
+
+describe('PlayoutService.noteListener', () => {
+    /** The header Icecast sends when its `password` option holds the bridge secret. */
+    const basic = (password: string, user = 'deadair') => `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`;
+
+    it('answers with the header that admits the listener', () => {
+        // Icecast is holding the client's connection open waiting for this. Without the
+        // header it reads as a refusal, and the listener is turned away from a mount
+        // that was perfectly willing to have them.
+        const { service } = build();
+
+        const answer = service.noteListener({ event: 'add' }, { authorization: basic(BRIDGE_SECRET) });
+
+        expect(answer.headers.icecastAuthUser).toBe('1');
+    });
+
+    it('tells the audience which way the listener went', () => {
+        const { service, audience } = build();
+
+        service.noteListener({ event: 'add' }, { authorization: basic(BRIDGE_SECRET) });
+        service.noteListener({ event: 'remove' }, { authorization: basic(BRIDGE_SECRET) });
+
+        expect(audience.noteArrival).toHaveBeenNthCalledWith(1, true);
+        expect(audience.noteArrival).toHaveBeenNthCalledWith(2, false);
+    });
+
+    it('refuses a wrong secret, and never counts one', () => {
+        const { service, audience } = build();
+
+        expect(() => service.noteListener({ event: 'add' }, { authorization: basic('not-the-secret') })).toThrow();
+        expect(audience.noteArrival).not.toHaveBeenCalled();
+    });
+
+    it('refuses anything that is not basic', () => {
+        // The bearer path belongs to sessions, and a caller holding one has no business
+        // telling the station how many people are listening.
+        const { service } = build();
+
+        expect(() => service.noteListener({ event: 'add' }, { authorization: `Bearer ${BRIDGE_SECRET}` })).toThrow();
+    });
+
+    it('answers 404 while the bridge is unconfigured, rather than admitting everyone', () => {
+        const { service } = build({ bridgeSecret: '' });
+
+        expect(() => service.noteListener({ event: 'add' }, { authorization: basic('') })).toThrow();
     });
 });
 

@@ -35,6 +35,15 @@ const AUDIENCE_POLL_MS = 5_000;
  */
 const AUDIENCE_LINGER_MS = 60_000;
 
+/**
+ * How long after a pushed listener event to take a real reading.
+ *
+ * Long enough for Icecast to have finished admitting (or releasing) the client
+ * whose event this was, so the document it answers with already counts them.
+ * Short enough that the guess the push produced is never the number for long.
+ */
+const PUSH_SETTLE_MS = 1_000;
+
 @Injectable()
 export class AudienceWatch {
     private timer?: NodeJS.Timeout;
@@ -49,6 +58,8 @@ export class AudienceWatch {
     private readonly listeners = new Set<(open: boolean) => void>();
     /** One poll at a time: a slow Icecast must not stack requests behind the interval. */
     private polling = false;
+    /** A reading brought forward by a push. Coalesced; see {@link refreshSoon}. */
+    private refresh?: NodeJS.Timeout;
 
     constructor(
         private readonly stats: IcecastStatsClient,
@@ -69,6 +80,8 @@ export class AudienceWatch {
     stop(): void {
         if (this.timer) clearInterval(this.timer);
         this.timer = undefined;
+        if (this.refresh) clearTimeout(this.refresh);
+        this.refresh = undefined;
         this.listeners.clear();
     }
 
@@ -127,17 +140,39 @@ export class AudienceWatch {
     }
 
     /**
-     * Take a count from something other than the poll — Icecast's own listener
-     * hooks, which land the moment a client connects rather than up to a poll
-     * later.
+     * Take a count from something other than the poll.
      *
-     * Deliberately a whole count and not a delta. A delta from a source that can
-     * drop a message drifts, and it drifts in the direction that matters most
-     * (a missed `remove` leaves the station airing to nobody); the poll would
-     * correct it, but only after a minute of broadcasting to an empty mount.
+     * The whole count, never a delta: a delta from a source that can drop a
+     * message drifts, and it drifts in the direction that matters most, because a
+     * missed departure leaves the station airing to nobody.
      */
     report(count: number): void {
         this.accept(Math.max(0, Math.trunc(count)));
+    }
+
+    /**
+     * Icecast has just admitted a listener, or let one go.
+     *
+     * This is the push half, and it exists for one moment only: the arrival. A
+     * poll is up to {@link AUDIENCE_POLL_MS} behind, and those are seconds of
+     * silence for somebody who has just tuned in. So an arrival is applied
+     * OPTIMISTICALLY, which opens the gate on the instant, and a fresh reading is
+     * taken a moment later to replace the guess with Icecast's own number.
+     *
+     * Optimistic is safe here in a way it would not be for a departure. Guessing
+     * one listener too many airs a station for a second longer than it had to;
+     * guessing one too few takes a mount away from somebody who is listening. The
+     * departure is applied the same way only because the linger window means
+     * nothing acts on it for a minute, by which time the poll has corrected it.
+     *
+     * NB an arrival is reported while Icecast is still holding the client's
+     * connection open waiting for this answer, so the listener is NOT in its
+     * stats yet: a poll here would read the old number, which is exactly why this
+     * counts rather than asks.
+     */
+    noteArrival(arrived: boolean): void {
+        this.accept(this.listenerCount() + (arrived ? 1 : -1));
+        this.refreshSoon();
     }
 
     /**
@@ -152,6 +187,24 @@ export class AudienceWatch {
     onChange(listener: (open: boolean) => void): () => void {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);
+    }
+
+    /**
+     * Take a reading shortly, rather than at the next interval.
+     *
+     * Coalesced, because a burst of arrivals is one thing to check: a station
+     * announced somewhere gets a dozen connections in a second, and each of them
+     * asking Icecast for the same document would be a dozen requests for one
+     * answer.
+     */
+    private refreshSoon(): void {
+        if (this.refresh || !this.timer) return;
+
+        this.refresh = setTimeout(() => {
+            this.refresh = undefined;
+            void this.poll();
+        }, PUSH_SETTLE_MS);
+        this.refresh.unref?.();
     }
 
     /** One reading. Never throws: it runs off a timer with nobody to hand a rejection to. */
@@ -175,14 +228,21 @@ export class AudienceWatch {
         }
     }
 
-    /** Record a count from any source, and announce the edge it produced. */
+    /**
+     * Record a count from any source, and announce the edge it produced.
+     *
+     * Clamped at zero, because the push path counts rather than asks: a departure
+     * for a listener this process never saw arrive (an app started after them, an
+     * event whose partner was dropped) would otherwise take the reading negative,
+     * and the linger window would then never expire against it.
+     */
     private accept(count: number): void {
         const before = this.count;
-        this.count = count;
-        if (count > 0) this.lastHeardAt = Date.now();
+        this.count = Math.max(0, count);
+        if (this.count > 0) this.lastHeardAt = Date.now();
 
-        if (before !== count) {
-            this.logger.debug(`audience: ${count} listening on ${this.stats.mountPath()}`);
+        if (before !== this.count) {
+            this.logger.debug(`audience: ${this.count} listening on ${this.stats.mountPath()}`);
         }
         this.settle();
     }

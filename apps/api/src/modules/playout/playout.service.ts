@@ -13,6 +13,8 @@ import type {
     PlayoutAiredQuery,
     PlayoutBridgeHeaders,
     PlayoutItem,
+    PlayoutListenerHeaders,
+    PlayoutListenerQuery,
     PlayoutPlaylistInput,
     PlayoutStatus,
 } from './types/playout.types.js';
@@ -172,6 +174,34 @@ export class PlayoutService {
     }
 
     /**
+     * Note a listener Icecast has just admitted, or let go.
+     *
+     * The one route in the app that a listener's own connection is WAITING on:
+     * `listener_add` is an authentication call, and Icecast holds the client
+     * until this answers. So it does no database work, takes no lock and returns
+     * a constant, and the header it returns is what admits them. A refusal here
+     * is a listener refused the mount, which is why the only refusal is a wrong
+     * secret.
+     *
+     * The count is not taken from these events. They move the reading
+     * optimistically so the station is on air by the time the first bytes are
+     * pulled, and `AudienceWatch` re-reads Icecast a moment later for the real
+     * number. A dropped event therefore costs a second of latency and nothing
+     * else.
+     *
+     * @throws 404 while the bridge secret is unseeded, 401 when it does not match.
+     */
+    noteListener(query: PlayoutListenerQuery, headers: PlayoutListenerHeaders): { body: string; headers: { icecastAuthUser: string } } {
+        this.requireBridgeSecret(basicPassword(headers.authorization));
+
+        this.audience.noteArrival(query.event === 'add');
+        // `1` is what Icecast reads as "this listener may have the mount"; the header
+        // name is the `auth_header` option in the rendered icecast.xml, and the two have
+        // to agree or every listener is refused.
+        return { body: '', headers: { icecastAuthUser: '1' } };
+    }
+
+    /**
      * Gate an internal call on the shared bridge secret.
      *
      * Constant-time, because this is a bare secret compared on every boundary:
@@ -205,6 +235,22 @@ function toPlayoutItem(item: RundownItem): PlayoutItem {
         ...(item.year === undefined ? {} : { year: item.year }),
         ...(item.trackId === undefined ? {} : { trackId: item.trackId }),
     };
+}
+
+/**
+ * The password out of an HTTP basic `Authorization` header, or `''`.
+ *
+ * Icecast's URL authenticator can present exactly one credential, the
+ * `username`/`password` pair in its config, and it sends it as basic. The
+ * username is ignored: the secret is the whole gate, and there is one caller.
+ */
+function basicPassword(header: string): string {
+    const [scheme = '', value = ''] = header.split(' ', 2);
+    if (scheme.toLowerCase() !== 'basic' || !value) return '';
+
+    const decoded = Buffer.from(value, 'base64').toString('utf8');
+    const separator = decoded.indexOf(':');
+    return separator === -1 ? '' : decoded.slice(separator + 1);
 }
 
 /** Constant-time compare that tolerates differing lengths. */

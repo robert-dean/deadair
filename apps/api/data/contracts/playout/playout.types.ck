@@ -46,3 +46,11 @@ contract PlayoutAiredQuery: { # Which rundown item Liquidsoap has just started p
 contract PlayoutBridgeHeaders: { # The shared secret gating the internal playout bridge, in both directions
     x-playout-secret: string(min=1, max=200)
 }
+
+contract PlayoutListenerQuery: { # Which way a listener went
+    event: enum(add, remove)
+}
+
+contract PlayoutListenerHeaders: { # The bridge secret as HTTP basic, which is the only credential Icecast's URL authenticator can present
+    authorization: string(min=1, max=400)
+}

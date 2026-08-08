@@ -45,7 +45,19 @@ export const nowPlayingExemption: TransactionExemption = ({ method, path }) => m
 
 // The exemptions applied by default. Compose additional ones onto this list where the middleware is
 // wired (setup.middleware) when a new opt-out route is introduced.
-export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [infraExemption, streamingExemption, nowPlayingExemption];
+// Icecast's listener hook. A listener's own connection is held open waiting for this answer, so it
+// is the one route in the app where latency is somebody's silence: it does no database work at all,
+// it moves an in-memory reading and returns a constant. Spending a pooled connection and a
+// transaction on that would be pure cost, and on a mount that has just been announced somewhere it
+// would be one per arriving listener at once.
+export const listenerHookExemption: TransactionExemption = ({ method, path }) => method === 'POST' && path === '/playout/listener';
+
+export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
+    infraExemption,
+    streamingExemption,
+    nowPlayingExemption,
+    listenerHookExemption,
+];
 
 export const isTransactionExempt = (request: ExemptionRequest, exemptions: readonly TransactionExemption[]): boolean =>
     exemptions.some(exemption => exemption(request));

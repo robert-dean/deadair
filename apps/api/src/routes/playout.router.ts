@@ -1,6 +1,13 @@
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { PlayoutService } from '#src/modules/playout/playout.service.js';
-import { PlayoutAiredQuery, PlayoutBridgeHeaders, PlayoutPlaylistInput, PlayoutStatus } from '../modules/playout/types/playout.types.js';
+import {
+    PlayoutAiredQuery,
+    PlayoutBridgeHeaders,
+    PlayoutListenerHeaders,
+    PlayoutListenerQuery,
+    PlayoutPlaylistInput,
+    PlayoutStatus,
+} from '../modules/playout/types/playout.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -63,8 +70,28 @@ PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' })
 });
 
 /**
+ * Notes a listener arriving or leaving, so the station reacts the moment somebody tunes in rather than at the next poll of Icecast's stats. The count itself still comes from the poll, which is what makes a dropped event harmless
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L93)
+ * anonymous access, no security required
+ * @internal
+ */
+PlayoutRouter.post('/playout/listener', async ctx => {
+    const query = await parseAndValidate(ctx.query, PlayoutListenerQuery.strict());
+
+    const headers = await parseAndValidate(ctx.headers, PlayoutListenerHeaders.strip());
+
+    const service = ctx.container.get(PlayoutService);
+    const result: { body: string; headers: { icecastAuthUser: string } } = await service.noteListener(query, headers);
+
+    ctx.status = 200;
+    ctx.set('icecast-auth-user', String(result.headers['icecastAuthUser']));
+    ctx.type = 'text/plain';
+    ctx.body = result.body;
+});
+
+/**
  * Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L89)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L111)
  * anonymous access, no security required
  * @internal
  */

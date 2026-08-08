@@ -60,6 +60,17 @@ export interface StreamPlayoutConfig {
     /** App endpoint Liquidsoap reports the item that actually went on air to. */
     playoutAiredUrl: string;
     /**
+     * App endpoints Icecast tells about a listener arriving and leaving, or
+     * `undefined` to render no hooks at all.
+     *
+     * Optional because they are an accelerator, not a dependency: the audience is
+     * polled from Icecast's stats either way, and these only save the seconds
+     * between somebody connecting and the next poll noticing. An operator whose
+     * Icecast was built without URL authentication support turns them off and
+     * loses nothing but that latency.
+     */
+    listenerHooks?: { addUrl: string; removeUrl: string };
+    /**
      * The secret used in both directions: Liquidsoap presents it on the air
      * confirmation, and checks it on the app's pushes to `/control/*`.
      */
@@ -148,6 +159,7 @@ export function writeStreamConfig({
         STREAM_DESCRIPTION: xml(settings.description),
         STREAM_GENRE: xml(settings.genre),
         STREAM_URL: xml(settings.publicUrl),
+        LISTENER_HOOKS: listenerHooksXml(playout.listenerHooks, playout.playoutBridgeSecret),
     };
     // An unknown token is left as written rather than blanked: a typo in the template
     // should be visible in the rendered file, not silently become an empty password.
@@ -207,6 +219,40 @@ export function writeStreamConfig({
 
     log(`wrote icecast.xml + radio.env to ${configDir} (mount ${settings.mount}, ${settings.bitrate}k)`);
     return true;
+}
+
+/**
+ * The mount's `<authentication type="url">` block, or nothing.
+ *
+ * Icecast calls `listener_add` BEFORE admitting a client and waits for the
+ * answer, so this makes the app part of the listener path: with the API down,
+ * new listeners are refused rather than hearing the silence of a station that
+ * has nothing to play. That is a small trade in an audience-gated station (an
+ * API that is not running is not renewing the lease either, so there is nothing
+ * to hear from it) and it is why the poll, which needs none of this, remains the
+ * source of the count.
+ *
+ * `auth_header` is what the app's answer has to carry back, and the two ends
+ * have to agree or every listener is refused. The secret rides as HTTP basic:
+ * Icecast's authenticator cannot set a header of its own, and putting it in the
+ * URL would write it into every log that records an address.
+ *
+ * Rendered with no credentials at all when the bridge secret is unseeded: an
+ * open hook is worse than no hook.
+ */
+function listenerHooksXml(hooks: StreamPlayoutConfig['listenerHooks'], secret: string): string {
+    if (!hooks || !secret) return '';
+
+    return [
+        '    <authentication type="url">',
+        `      <option name="listener_add" value="${xml(hooks.addUrl)}"/>`,
+        `      <option name="listener_remove" value="${xml(hooks.removeUrl)}"/>`,
+        '      <option name="auth_header" value="icecast-auth-user: 1"/>',
+        '      <option name="username" value="deadair"/>',
+        `      <option name="password" value="${xml(secret)}"/>`,
+        '    </authentication>',
+        '',
+    ].join('\n');
 }
 
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));

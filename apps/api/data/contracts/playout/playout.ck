@@ -85,6 +85,28 @@ operation /playout/stop: {
 
 # Liquidsoap's air confirmation, gated on the bridge secret — the same one the app presents
 # when pushing to its /control/* endpoints, materialized into radio.env by the stream module.
+# Icecast's listener hooks, gated on the same bridge secret, presented as HTTP basic because
+# Icecast's URL authenticator cannot set a header of its own. The 200 carries the header Icecast
+# reads as "admit this listener": an `add` is a blocking authentication call, so a refusal here is
+# a listener who is refused the mount.
+operation(internal) /playout/listener: {
+    post: { # Notes a listener arriving or leaving, so the station reacts the moment somebody tunes in rather than at the next poll of Icecast's stats. The count itself still comes from the poll, which is what makes a dropped event harmless
+        name: Note a listener
+        service: PlayoutService.noteListener
+        security: none
+        query: PlayoutListenerQuery
+        headers: PlayoutListenerHeaders
+        response: {
+            200: {
+                text/plain: string
+                headers: {
+                    icecast-auth-user: string
+                }
+            }
+        }
+    }
+}
+
 operation(internal) /playout/aired: {
     post: { # Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
         name: Confirm aired item

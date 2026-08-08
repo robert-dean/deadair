@@ -48,6 +48,22 @@ export interface PlayoutBridgeHeaders {
 }
 
 /**
+ * Which way a listener went
+ * generated from [PlayoutListenerQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L50)
+ */
+export interface PlayoutListenerQuery {
+    event: 'add' | 'remove';
+}
+
+/**
+ * The bridge secret as HTTP basic, which is the only credential Icecast's URL authenticator can present
+ * generated from [PlayoutListenerHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L54)
+ */
+export interface PlayoutListenerHeaders {
+    authorization: string;
+}
+
+/**
  * What the PLAYER says is airing, which is not the same as what was last handed to it
  * generated from [PlayoutNowPlaying](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L25)
  */

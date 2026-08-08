@@ -188,6 +188,67 @@ describe('AudienceWatch', () => {
         expect(edges).toEqual([true]);
     });
 
+    it('opens the gate on an arrival, before Icecast can even count it', async () => {
+        // Icecast is still holding the listener's connection when it tells us, so it
+        // has not counted them yet: a poll here would read the old number, and the
+        // station would stay silent for exactly as long as the person is waiting to
+        // hear it.
+        const { stats } = stubStats(0);
+        const watch = new AudienceWatch(stats, logger);
+        watch.start();
+        await tick(0);
+
+        watch.noteArrival(true);
+
+        expect(watch.listenerCount()).toBe(1);
+        expect(watch.gateOpen()).toBe(true);
+        watch.stop();
+    });
+
+    it('replaces the guess with a real reading a moment later', async () => {
+        const { stats, answer } = stubStats(0);
+        const watch = new AudienceWatch(stats, logger);
+        watch.start();
+        await tick(0);
+
+        // Two arrive, and Icecast turns out to hold three: something connected without
+        // a hook, or one was dropped. The poll is the number, always.
+        watch.noteArrival(true);
+        watch.noteArrival(true);
+        expect(watch.listenerCount()).toBe(2);
+
+        answer(3);
+        await tick(1_500);
+
+        expect(watch.listenerCount()).toBe(3);
+        watch.stop();
+    });
+
+    it('coalesces a burst of arrivals into one reading', async () => {
+        const { stats, spy } = stubStats(0);
+        const watch = new AudienceWatch(stats, logger);
+        watch.start();
+        await tick(0);
+        const before = spy.listeners.mock.calls.length;
+
+        for (let i = 0; i < 10; i++) watch.noteArrival(true);
+        await tick(1_500);
+
+        expect(spy.listeners.mock.calls.length).toBe(before + 1);
+        watch.stop();
+    });
+
+    it('never counts below nobody', async () => {
+        // A `remove` for a listener this process never saw arrive: an app that started
+        // after them, or an event whose partner was dropped.
+        const { stats } = stubStats(0);
+        const watch = new AudienceWatch(stats, logger);
+
+        watch.noteArrival(false);
+
+        expect(watch.listenerCount()).toBe(0);
+    });
+
     it('keeps announcing to the other subscribers when one of them throws', async () => {
         const { stats, answer } = stubStats(0);
         const watch = new AudienceWatch(stats, logger);

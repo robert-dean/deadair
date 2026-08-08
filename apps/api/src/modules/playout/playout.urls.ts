@@ -32,3 +32,15 @@ export function resolvePlayoutBaseUrl(config: AppConfig): string {
 export function playoutAiredUrl(base: string): string {
     return `${base}/aired`;
 }
+
+/**
+ * Where Icecast posts a listener arriving or leaving.
+ *
+ * The event is in the query because Icecast configures one URL per event and can
+ * add nothing to a request but its own form fields. The SECRET is deliberately
+ * not: Icecast presents it as HTTP basic instead, so it stays out of every access
+ * log and error page an address can end up in.
+ */
+export function playoutListenerUrl(base: string, event: 'add' | 'remove'): string {
+    return `${base}/listener?event=${event}`;
+}

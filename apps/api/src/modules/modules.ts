@@ -10,6 +10,7 @@ import { SettingsModule } from './settings/settings.module.js';
 import { StreamModule } from './stream/stream.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
+import { RenderModule } from './render/render.module.js';
 import { PlayoutModule } from './playout/playout.module.js';
 import { DirectorModule } from './director/director.module.js';
 import { NowPlayingModule } from './nowplaying/nowplaying.module.js';
@@ -46,9 +47,14 @@ export const modules: ServerKitModule[] = [
     // After PluginsModule: it resolves PluginRegistry and PluginInvoker, which
     // PluginsModule registers.
     PlaylistsModule,
-    // After PlaylistsModule: its resolver reaches the plugin registry and invoker
-    // for a track's stream URL, and its ready() reads the bridge secret the
-    // StreamModule above has already seeded and materialized.
+    // Before PlayoutModule: the transport resolves a committed segment by reading
+    // a row and a file from here, the way it resolves a track through a plugin.
+    // Nothing here reaches back into playout or the director.
+    RenderModule,
+    // After PlaylistsModule and RenderModule: its resolvers reach the plugin
+    // registry and invoker for a track's stream URL and the segment store for
+    // everything else, and its ready() reads the bridge secret the StreamModule
+    // above has already seeded and materialized.
     PlayoutModule,
     // After PlayoutModule: the public now-playing answer reads the same singleton
     // rundown the transport does. It owns nothing and starts nothing.

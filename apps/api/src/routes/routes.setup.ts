@@ -8,6 +8,7 @@ import { PlaylistsRouter } from './playlists.router.js';
 import { NowplayingRouter } from './nowplaying.router.js';
 import { PlayoutRouter } from './playout.router.js';
 import { PluginsRouter } from './plugins.router.js';
+import { RenderRouter } from './render.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
 
 export const routers = [
@@ -20,6 +21,7 @@ export const routers = [
     PlayoutRouter,
     NowplayingRouter,
     DirectorRouter,
+    RenderRouter,
     PluginsRouter,
     OnboardingRouter,
 ];

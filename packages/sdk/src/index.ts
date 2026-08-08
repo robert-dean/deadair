@@ -19,5 +19,7 @@ export * from './playout/playout.client.js';
 export * from './playout/types/index.js';
 export * from './plugins/plugins.client.js';
 export * from './plugins/types/index.js';
+export * from './render/render.client.js';
+export * from './render/types/index.js';
 export * from './sdk-options.js';
 export * from './shared/types/index.js';

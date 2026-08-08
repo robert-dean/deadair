@@ -1,0 +1,82 @@
+-- migrate:up
+
+-- Segments: the things the station plays that are not records.
+--
+-- A talk break, a station ident, a stinger, a news bulletin, and later a whole show episode. One
+-- row is ONE AIRABLE ELEMENT, however it was made: an episode written across a dozen beats in
+-- as many voices is still one thing the running order names and one file the player fetches.
+-- Whatever went into producing it is the render module's own business and belongs in its own
+-- tables, not here.
+--
+-- "Segment" rather than a new word because the vocabulary is already committed: 0007's `items`
+-- comment says a lineup holds "a track or a segment", and docs/todo/director-and-lineups.md
+-- specifies the lineup arm as `kind: 'segment'`.
+--
+-- Deliberately no lineup_id. A segment is a thing the station CAN say; which running order it
+-- sits in, and how often, is the lineup's business, and an ident that plays six times a day
+-- would otherwise need six rows. The reference points the other way: `lineups.items` names a
+-- segment by id.
+create table deadair.segments (
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now() check (updated_at >= created_at),
+    id uuid not null default gen_random_uuid() primary key,
+    -- What sort of element this is: 'ident', 'stinger', 'talkbreak', 'news'. Text rather than an
+    -- enum for the reason `track_sources.plugin_id` and `lineups.source` are: a station that
+    -- wants sponsor spots must not need a migration to have them.
+    kind text not null default 'ident',
+    -- How far along producing it is.
+    --
+    --   planned    the station means to say this; there is no audio yet
+    --   rendering  something is producing it right now
+    --   ready      there is audio, and it can be committed to a running order
+    --   failed     producing it did not work, and `error` says what happened
+    --
+    -- Every row the library scan writes is born 'ready', because the audio is what it was made
+    -- from. The column still earns its place now: it is what the director reads to decide whether
+    -- a segment can air, and a segment that is not ready is SKIPPED rather than waited for, so
+    -- the station never falls silent holding a slot open for a renderer. That rule is the seam
+    -- the TTS work drops into later, and it is cheaper to honour from the start than to retrofit
+    -- into the director once something depends on the old behaviour.
+    state text not null default 'planned' constraint segments_state_check check (state in ('planned', 'rendering', 'ready', 'failed')),
+    -- What the console calls it, and what the mount is labelled with while it airs. Not the
+    -- script: a listener's player should read "Station ident" rather than a paragraph of speech.
+    label text not null,
+    -- The words, for anything that speaks. Null for an imported file, whose words are whatever
+    -- somebody recorded.
+    script text,
+    -- Who made it: 'library' for a file dropped into the inbox, later 'render' for one this
+    -- station spoke itself. Unconstrained text, like `lineups.source`.
+    source text not null default 'library',
+    -- The file in the inbox this was imported from, kept so the console can say where a segment
+    -- came from and a re-scan can report a file it already knows. Not a path the server ever
+    -- reads back: the bytes were copied into the content-addressed store on import, so deleting
+    -- the inbox file does not take the segment off the air.
+    source_path text,
+    -- sha256 of the audio, hex, and its extension on disk: together they are the file under
+    -- SEGMENT_DIR. Both null until there is audio, and set together or not at all.
+    audio_checksum text,
+    audio_ext text,
+    -- How long it runs. A display value only. Nothing schedules against it: Liquidsoap measures
+    -- the request itself, which is the only reading that cannot be thrown off by a bad tag.
+    duration_ms integer constraint segments_duration_check check (duration_ms is null or duration_ms >= 0),
+    -- Why `state` is 'failed'. Cleared when a later attempt works, so the table never reads as
+    -- broken for a fault that has since been fixed.
+    error text
+);
+select deadair.add_updated_at_trigger('deadair.segments');
+
+-- One dropped file is one segment, however many times the inbox is scanned. Content-addressed, so
+-- the same recording arriving twice under two names is recognised as the one it already has.
+--
+-- Scoped to the library, deliberately. A station that says the same words twice on two different
+-- days said them twice, and two rendered segments that happen to produce identical audio are still
+-- two things the station said; only an IMPORT is a re-import.
+create unique index segments_library_checksum_idx on deadair.segments (audio_checksum) where source = 'library' and audio_checksum is not null;
+
+-- The planner's read: "give me an ident that can go on air". Partial, because a segment that is
+-- not ready is never a candidate.
+create index segments_ready_idx on deadair.segments (kind, created_at) where state = 'ready';
+
+-- migrate:down
+
+drop table if exists deadair.segments;

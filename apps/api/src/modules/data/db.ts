@@ -309,6 +309,22 @@ export interface DeadairPluginStorage {
   value: Json | null;
 }
 
+export interface DeadairSegments {
+  audioChecksum: string | null;
+  audioExt: string | null;
+  createdAt: Generated<DateTime>;
+  durationMs: number | null;
+  error: string | null;
+  id: Generated<string>;
+  kind: Generated<string>;
+  label: string;
+  script: string | null;
+  source: Generated<string>;
+  sourcePath: string | null;
+  state: Generated<"planned" | "rendering" | "ready" | "failed">;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairSettings {
   createdAt: Generated<DateTime>;
   key: string;
@@ -405,6 +421,7 @@ export interface DB {
   "deadair.playlistTracks": DeadairPlaylistTracks;
   "deadair.pluginConfigs": DeadairPluginConfigs;
   "deadair.pluginStorage": DeadairPluginStorage;
+  "deadair.segments": DeadairSegments;
   "deadair.settings": DeadairSettings;
   "deadair.stationAir": DeadairStationAir;
   "deadair.trackEnrichment": DeadairTrackEnrichment;

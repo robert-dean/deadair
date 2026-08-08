@@ -33,4 +33,8 @@ export function resolveBundledPluginDir(repoRelativePath: string): string {
  * `"deadair": { "plugin": "<entry>" }`, a valid manifest, a compatible
  * `apiVersion` range. Being bundled buys no leniency.
  */
-export const bundledPluginDirs: string[] = [resolveBundledPluginDir('plugins/spotify'), resolveBundledPluginDir('plugins/musicbrainz')];
+export const bundledPluginDirs: string[] = [
+    resolveBundledPluginDir('plugins/spotify'),
+    resolveBundledPluginDir('plugins/musicbrainz'),
+    resolveBundledPluginDir('plugins/kokoro'),
+];

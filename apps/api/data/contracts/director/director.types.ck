@@ -7,7 +7,6 @@ options {
 # What kind of programming a lineup is, which decides the rules it runs under
 contract LineupMode: enum(rotation, setlist, feature)
 
-# What the station does when a lineup runs out. Separate from the mode, because every answer is valid for a feature and which one an operator wants is a decision about their station
 contract LineupOnEnd: enum(extend, repeat, resume, rotation, stop)
 
 contract LineupSummary: { # One lineup as a list shows it, without its order
@@ -22,18 +21,34 @@ contract LineupSummary: { # One lineup as a list shows it, without its order
     itemCount: int(min=0)
 }
 
-contract LineupItem: { # One line of a lineup
+contract LineupItem: { # One line of a lineup, which is either a record or something the station says
     id: string(min=1, max=100) # The lineup's own id for this line, which is what an edit names. Not the rundown item id
-    pluginId: string(min=1, max=200)
-    externalId: string(min=1, max=400)
-    title: string(min=1, max=400)
-    artists: array(string(min=1, max=200))
+    kind: enum(track, segment) # Whether this line is a record or something the station says: an ident, a stinger, a talk break
+    title: string(min=1, max=400) # The record's title, or the segment's label. What the mount is labelled with while the line airs
+    artists: array(string(min=1, max=200)) # Empty for a segment, which has no artist
+    committed: boolean # Already handed to the player, and therefore no longer editable. The cursor is the line between this and the rest
     durationMs?: int(min=0)
+    pluginId?: string(min=1, max=200) # Absent on a segment: the station serves its own audio
+    externalId?: string(min=1, max=400) # Absent on a segment
     album?: string(max=400)
     artworkUrl?: string(max=2000)
     year?: int(min=0)
     trackId?: string(max=100) # The canonical catalog track, when this is one the catalog holds
-    committed: boolean # Already handed to the player, and therefore no longer editable. The cursor is the line between this and the rest
+    segmentId?: string(min=1, max=100) # Which segment this line plays. Present only on a segment
+    segmentState?: enum(
+        planned,
+        rendering,
+        ready,
+        failed,
+        gone
+    ) # How far along the segment is. `gone` means the lineup names one the library no longer holds
+    playable?: boolean # Whether the station can actually air this segment. A line that is not is SKIPPED when the cursor reaches it, rather than held open
+}
+
+contract AddLineupSegmentInput: { # Put something the station says into a lineup
+    segmentId: string(min=1, max=100)
+    atIndex?: int(min=0) # Where to put it. Absent puts it at the end. A position at or before the cursor is refused: the player is already holding that part of the order
+    revision?: int(min=0)
 }
 
 contract Lineup: { # A lineup and its whole order

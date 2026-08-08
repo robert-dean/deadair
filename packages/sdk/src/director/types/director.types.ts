@@ -5,40 +5,62 @@
 export type LineupMode = 'rotation' | 'setlist' | 'feature';
 
 /**
- * generated from [LineupOnEnd](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L11)
+ * generated from [LineupOnEnd](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L10)
  */
 export type LineupOnEnd = 'extend' | 'repeat' | 'resume' | 'rotation' | 'stop';
 
 /**
- * One line of a lineup
- * generated from [LineupItem](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L25)
+ * One line of a lineup, which is either a record or something the station says
+ * generated from [LineupItem](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L24)
  */
 export interface LineupItem {
     /** The lineup's own id for this line, which is what an edit names. Not the rundown item id */
     id: string;
-    pluginId: string;
-    externalId: string;
+    /** Whether this line is a record or something the station says: an ident, a stinger, a talk break */
+    kind: 'track' | 'segment';
+    /** The record's title, or the segment's label. What the mount is labelled with while the line airs */
     title: string;
+    /** Empty for a segment, which has no artist */
     artists: string[];
+    /** Already handed to the player, and therefore no longer editable. The cursor is the line between this and the rest */
+    committed: boolean;
     durationMs?: number;
+    /** Absent on a segment: the station serves its own audio */
+    pluginId?: string;
+    /** Absent on a segment */
+    externalId?: string;
     album?: string;
     artworkUrl?: string;
     year?: number;
     /** The canonical catalog track, when this is one the catalog holds */
     trackId?: string;
-    /** Already handed to the player, and therefore no longer editable. The cursor is the line between this and the rest */
-    committed: boolean;
+    /** Which segment this line plays. Present only on a segment */
+    segmentId?: string;
+    segmentState?: 'planned' | 'rendering' | 'ready' | 'failed' | 'gone';
+    /** Whether the station can actually air this segment. A line that is not is SKIPPED when the cursor reaches it, rather than held open */
+    playable?: boolean;
+}
+
+/**
+ * Put something the station says into a lineup
+ * generated from [AddLineupSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L48)
+ */
+export interface AddLineupSegmentInput {
+    segmentId: string;
+    /** Where to put it. Absent puts it at the end. A position at or before the cursor is refused: the player is already holding that part of the order */
+    atIndex?: number;
+    revision?: number;
 }
 
 /**
  * What the mount lease is renewed against: `audience` airs only while somebody is listening, `always` airs whenever there is a programme
- * generated from [AirMode](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L55)
+ * generated from [AirMode](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L70)
  */
 export type AirMode = 'audience' | 'always';
 
 /**
  * Put a lineup on air, from the top
- * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L78)
+ * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L93)
  */
 export interface PutOnAirInput {
     lineupId: string;
@@ -48,7 +70,7 @@ export interface PutOnAirInput {
 
 /**
  * Add tracks to a lineup now, rather than waiting for it to run short
- * generated from [ExtendLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L83)
+ * generated from [ExtendLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L98)
  */
 export interface ExtendLineupInput {
     count?: number;
@@ -56,7 +78,7 @@ export interface ExtendLineupInput {
 
 /**
  * An edit, carrying the view of the order it was made against
- * generated from [EditLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L87)
+ * generated from [EditLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L102)
  */
 export interface EditLineupInput {
     /** Absent skips the check. Send it and an edit made against a list that has since changed is refused rather than applied to whatever is in that position now */
@@ -65,7 +87,7 @@ export interface EditLineupInput {
 
 /**
  * Move a line within a lineup
- * generated from [MoveLineupItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L91)
+ * generated from [MoveLineupItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L106)
  */
 export interface MoveLineupItemInput {
     toIndex: number;
@@ -74,7 +96,7 @@ export interface MoveLineupItemInput {
 
 /**
  * One lineup as a list shows it, without its order
- * generated from [LineupSummary](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L13)
+ * generated from [LineupSummary](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L12)
  */
 export interface LineupSummary {
     id: string;
@@ -93,7 +115,7 @@ export interface LineupSummary {
 
 /**
  * Build a lineup from a plugin playlist
- * generated from [ImportLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L70)
+ * generated from [ImportLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L85)
  */
 export interface ImportLineupInput {
     pluginId: string;
@@ -106,7 +128,7 @@ export interface ImportLineupInput {
 
 /**
  * A lineup and its whole order
- * generated from [Lineup](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L39)
+ * generated from [Lineup](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L54)
  */
 export interface Lineup {
     id: string;
@@ -122,7 +144,7 @@ export interface Lineup {
 
 /**
  * What the station is airing, and whether it is driving at all
- * generated from [StationAir](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L57)
+ * generated from [StationAir](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L72)
  */
 export interface StationAir {
     /** False means the station was stood down. The lineup is remembered so the console can still say what it was playing */
@@ -138,14 +160,14 @@ export interface StationAir {
 
 /**
  * Change how the station decides to be on air
- * generated from [SetStationAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L66)
+ * generated from [SetStationAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L81)
  */
 export interface SetStationAirInput {
     airMode: AirMode;
 }
 
 /**
- * generated from [LineupList](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L50)
+ * generated from [LineupList](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L65)
  */
 export interface LineupList {
     lineups: LineupSummary[];

@@ -16,6 +16,7 @@ import type { StationAirRepository } from '../../../src/modules/director/station
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
 import type { Rundown, RundownTrack } from '../../../src/modules/playout/rundown.js';
+import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 
@@ -30,6 +31,8 @@ interface Options {
     onAir?: { lineupId?: string; cursor?: number };
     existing?: RundownTrack[];
     missing?: boolean;
+    /** What the segment library holds, for the lines a lineup names by id. */
+    segments?: Partial<Segment>[];
 }
 
 function build(options: Options = {}) {
@@ -76,12 +79,20 @@ function build(options: Options = {}) {
         }),
     } as unknown as TracksRepository;
 
+    // Read-only from the console's side: a lineup names a segment and the library owns it.
+    const library = new Map((options.segments ?? []).map(segment => [segment.id, segment as Segment]));
+    const segments = {
+        findById: vi.fn(async (id: string) => library.get(id)),
+        findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
+    } as unknown as SegmentRepository;
+
     const settings = { set: vi.fn(async () => {}) } as unknown as SettingsRepository;
     const rundown = { load: vi.fn() } as unknown as Rundown;
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as JobBroker;
 
     return {
-        service: new DirectorConsoleService(lineups, air, director, playlists, tracks, settings, rundown, jobs, logger),
+        service: new DirectorConsoleService(lineups, air, director, playlists, tracks, segments, settings, rundown, jobs, logger),
+        segments,
         settings,
         lineup,
         lineups,
@@ -298,5 +309,82 @@ describe('DirectorConsoleService.remove', () => {
 
         expect(lineups.remove).toHaveBeenCalledWith('lineup-1');
         expect(air.forgetLineup).toHaveBeenCalledWith('lineup-1');
+    });
+});
+
+// An operator putting a specific ident into the order. The load-bearing decision is that a segment
+// with no audio is refused HERE rather than accepted and skipped at the boundary: the station's own
+// planting can afford to be optimistic, but somebody who asked for this ident by name should be
+// told why it will not play.
+describe('DirectorConsoleService.addSegment', () => {
+    const READY = { id: 'seg-1', kind: 'ident', state: 'ready' as const, label: 'Top of the hour', source: 'library' };
+
+    it('puts a ready segment into the order and answers with the lineup', async () => {
+        const { service, seed } = build({ segments: [READY], existing: [{ pluginId: 'p', externalId: 'a', title: 'A', artists: ['X'] }] });
+        await seed();
+
+        const lineup = await service.addSegment('lineup-1', { segmentId: 'seg-1', atIndex: 1 });
+
+        expect(lineup.items[1]).toMatchObject({ kind: 'segment', segmentId: 'seg-1', title: 'Top of the hour', playable: true });
+    });
+
+    it('404s a segment the library does not have', async () => {
+        const { service } = build({ segments: [] });
+
+        expect(await statusOf(service.addSegment('lineup-1', { segmentId: 'seg-1' }))).toBe(404);
+    });
+
+    it('422s one that has no audio yet, rather than planting a line the station will skip', async () => {
+        const { service } = build({ segments: [{ id: 'seg-1', kind: 'talkbreak', state: 'planned', label: 'A talk break', source: 'render' }] });
+
+        expect(await statusOf(service.addSegment('lineup-1', { segmentId: 'seg-1' }))).toBe(422);
+    });
+
+    it('409s an insert made against an order that has moved', async () => {
+        const { service, seed } = build({ segments: [READY] });
+        await seed();
+
+        expect(await statusOf(service.addSegment('lineup-1', { segmentId: 'seg-1', revision: 99 }))).toBe(409);
+    });
+});
+
+// A lineup line names a segment by id and nothing else, so everything a console draws about it is
+// read from the library. That is what makes a renamed segment read correctly against every lineup
+// that plays it, and a segment that has lost its audio read as one the station will skip.
+describe('DirectorConsoleService reading a lineup with segments', () => {
+    it('fills a segment line in from the library', async () => {
+        const { service, lineup, seed } = build({
+            segments: [{ id: 'seg-1', kind: 'ident', state: 'ready', label: 'Top of the hour', source: 'library', durationMs: 4000 }],
+        });
+        await seed();
+        await lineup.insertSegment('seg-1', 0);
+
+        const drawn = await service.getLineup('lineup-1');
+
+        expect(drawn.items[0]).toMatchObject({ kind: 'segment', title: 'Top of the hour', durationMs: 4000, playable: true, artists: [] });
+    });
+
+    // Drawn as itself rather than hidden: the lineup does hold the line and the station will pass
+    // over it, and hiding it would leave an operator wondering why what they see is not what they
+    // hear.
+    it('draws a line whose segment is gone as one that will be skipped', async () => {
+        const { service, lineup, seed } = build({ segments: [] });
+        await seed();
+        await lineup.insertSegment('seg-1', 0);
+
+        const drawn = await service.getLineup('lineup-1');
+
+        expect(drawn.items[0]).toMatchObject({ kind: 'segment', segmentState: 'gone', playable: false });
+    });
+
+    it('asks the library once for the whole order', async () => {
+        const { service, segments, lineup, seed } = build({ segments: [] });
+        await seed();
+        await lineup.insertSegment('seg-1', 0);
+        await lineup.insertSegment('seg-2', 1);
+
+        await service.getLineup('lineup-1');
+
+        expect(segments.findByIds).toHaveBeenCalledOnce();
     });
 });

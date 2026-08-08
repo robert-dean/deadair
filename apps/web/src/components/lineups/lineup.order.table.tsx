@@ -1,4 +1,4 @@
-import { ActionIcon, Group, Table, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Group, Table, Text, Tooltip } from '@mantine/core';
 import type { LineupItem } from '@deadair/sdk';
 
 import { Artwork } from '../shared/artwork';
@@ -73,6 +73,23 @@ export function LineupOrderTable({ items, cursor, onRemove, removingItemId, onMo
                                 <Text size="sm" truncate>
                                     {item.title}
                                 </Text>
+                                {/* A segment is not a record and should not have to be worked out
+                                    from an empty artist column. */}
+                                {item.kind === 'segment' ? (
+                                    <Badge size="xs" variant="light" color="grape">
+                                        segment
+                                    </Badge>
+                                ) : undefined}
+                                {/* The station SKIPS a segment that has no audio when the cursor
+                                    reaches it, rather than waiting for one. An operator reading the
+                                    order has to be able to see which lines will not be heard. */}
+                                {item.kind === 'segment' && !item.playable ? (
+                                    <Tooltip label={`This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`}>
+                                        <Badge size="xs" variant="light" color="yellow">
+                                            will skip
+                                        </Badge>
+                                    </Tooltip>
+                                ) : undefined}
                                 {item.committed ? (
                                     <Text size="xs" c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
                                         aired

@@ -187,11 +187,7 @@ export class LineupRepository extends DataRepository {
      * store to bind rather than two.
      */
     async saveCursor(lineupId: string, cursor: number): Promise<void> {
-        await this.db
-            .updateTable('deadair.stationAir')
-            .set({ cursor })
-            .where('lineupId', '=', lineupId)
-            .execute();
+        await this.db.updateTable('deadair.stationAir').set({ cursor }).where('lineupId', '=', lineupId).execute();
     }
 }
 
@@ -205,13 +201,30 @@ const jsonb = (value: unknown): never | null => (value === undefined ? null : (J
  * older version of the app, reaches live code. A line that is not a line is
  * dropped rather than aired as `undefined`, which would fail to resolve and take
  * the station off air for the length of an item.
+ *
+ * A missing `kind` reads as a track. Every line written before segments existed
+ * has no such field, and they are all records; inferring it from the shape
+ * instead would be the same answer arrived at less clearly.
  */
 const toItems = (value: unknown): LineupItem[] => {
     if (!Array.isArray(value)) return [];
-    return value.filter((item): item is LineupItem => {
-        const line = item as Partial<LineupItem> | null;
-        return typeof line?.id === 'string' && typeof line.track?.externalId === 'string' && typeof line.track?.pluginId === 'string';
-    });
+
+    return value.reduce<LineupItem[]>((items, raw) => {
+        // Described as the JSON it is rather than as a `Partial` of the union: intersecting the two
+        // arms collapses their literal `kind`s to `never` and takes every other field with it.
+        const line = raw as { id?: unknown; kind?: unknown; segmentId?: unknown; track?: Partial<RundownTrack> } | null;
+        if (typeof line?.id !== 'string') return items;
+
+        if (line.kind === 'segment') {
+            if (typeof line.segmentId === 'string') items.push({ id: line.id, kind: 'segment', segmentId: line.segmentId });
+            return items;
+        }
+
+        if (typeof line.track?.externalId === 'string' && typeof line.track.pluginId === 'string') {
+            items.push({ id: line.id, kind: 'track', track: line.track as RundownTrack });
+        }
+        return items;
+    }, []);
 };
 
 export type { LineupSnapshot };

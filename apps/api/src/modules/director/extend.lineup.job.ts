@@ -2,6 +2,7 @@ import { Container, Injectable, ScopedContainer } from 'injectkit';
 import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { overrideJobActor } from '#modules/jobs/job.authorization.js';
+import { isTrackItem, type LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
@@ -134,9 +135,13 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
             added: added.length,
         });
     }
-
 }
 
-/** The songs a lineup already holds, as keys the generator can avoid choosing again. */
-const songKeysOf = (items: readonly { track: { title: string; artists: string[] } }[]): Set<string> =>
-    new Set(items.map(item => songKey(item.track.title, item.track.artists)));
+/**
+ * The songs a lineup already holds, as keys the generator can avoid choosing again.
+ *
+ * Records only. A lineup's segments are not songs and have no artists, so feeding their labels into
+ * the key space would have the generator avoiding a track it has never chosen.
+ */
+const songKeysOf = (items: readonly LineupItem[]): Set<string> =>
+    new Set(items.filter(isTrackItem).map(item => songKey(item.track.title, item.track.artists)));

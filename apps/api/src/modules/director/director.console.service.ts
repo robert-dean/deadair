@@ -7,16 +7,19 @@ import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import { Rundown, type RundownTrack } from '#modules/playout/rundown.js';
+import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { DirectorService } from './director.service.js';
-import type { EditResult, Lineup as LoadedLineup } from './lineup.js';
+import type { EditResult, Lineup as LoadedLineup, LineupSegmentItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { StationAirRepository } from './station.air.repository.js';
 import type {
+    AddLineupSegmentInput,
     EditLineupInput,
     ExtendLineupInput,
     ImportLineupInput,
     Lineup,
+    LineupItem as LineupItemView,
     LineupList,
     MoveLineupItemInput,
     PutOnAirInput,
@@ -45,6 +48,9 @@ export class DirectorConsoleService {
         private readonly director: DirectorService,
         private readonly playlists: PlaylistsService,
         private readonly tracks: TracksRepository,
+        // Read-only from here. A lineup names a segment and the library owns it, so the console's
+        // programming surface never writes one; that is the render module's business.
+        private readonly segments: SegmentRepository,
         private readonly settings: SettingsRepository,
         private readonly rundown: Rundown,
         // Scoped, so a send commits with the request's own transaction rather than
@@ -60,7 +66,34 @@ export class DirectorConsoleService {
 
     /** One lineup and its whole order. */
     async getLineup(lineupId: string): Promise<Lineup> {
-        return toLineup(await this.load(lineupId));
+        return await this.toLineup(await this.load(lineupId));
+    }
+
+    /**
+     * Put a segment into a lineup at a position.
+     *
+     * The operator's way of saying "play the ident here". Later the station plants
+     * its own, and this stays as the manual override rather than being replaced by
+     * it.
+     *
+     * @throws 404 when the segment does not exist, and 422 when it has no audio.
+     *   Refused at the door rather than planted and skipped at the boundary: an
+     *   operator who asks for a specific ident should be told it cannot play, not
+     *   watch the lineup accept it and the station quietly pass over it.
+     */
+    async addSegment(lineupId: string, input: AddLineupSegmentInput): Promise<Lineup> {
+        const lineup = await this.load(lineupId);
+
+        const segment = await this.segments.findById(input.segmentId);
+        if (segment === undefined) throw httpError(404).withDetails({ message: 'no such segment' });
+        if (segment.state !== 'ready') {
+            throw httpError(422).withDetails({ message: `that segment is ${segment.state} and has no audio to play yet` });
+        }
+
+        this.require(await lineup.insertSegment(segment.id, input.atIndex ?? lineup.size(), input.revision));
+
+        this.logger.info('director: put a segment into a lineup', { lineup: lineup.id, segment: segment.id, at: input.atIndex });
+        return await this.toLineup(lineup);
     }
 
     /**
@@ -150,7 +183,7 @@ export class DirectorConsoleService {
             lineup: lineup.id,
             tracks: lineup.size(),
         });
-        return toLineup(lineup);
+        return await this.toLineup(lineup);
     }
 
     /**
@@ -197,21 +230,21 @@ export class DirectorConsoleService {
         const lineup = await this.load(lineupId);
         this.require(await lineup.shuffleRemaining(input.revision));
         await this.director.reload();
-        return toLineup(lineup);
+        return await this.toLineup(lineup);
     }
 
     /** Move a line within a lineup. */
     async moveItem(lineupId: string, itemId: string, input: MoveLineupItemInput): Promise<Lineup> {
         const lineup = await this.load(lineupId);
         this.require(await lineup.move(itemId, input.toIndex, input.revision));
-        return toLineup(lineup);
+        return await this.toLineup(lineup);
     }
 
     /** Drop a line that has not been committed yet. */
     async removeItem(lineupId: string, itemId: string, input: EditLineupInput): Promise<Lineup> {
         const lineup = await this.load(lineupId);
         this.require(await lineup.remove(itemId, input.revision));
-        return toLineup(lineup);
+        return await this.toLineup(lineup);
     }
 
     /**
@@ -287,38 +320,76 @@ export class DirectorConsoleService {
             return new Map();
         }
     }
+
+    /**
+     * A loaded lineup as the console reads it.
+     *
+     * `committed` is the whole point of drawing the cursor: everything at or before
+     * it has been handed to the player and can no longer be moved or removed, and a
+     * console that did not say so would offer controls that answer 422.
+     *
+     * A segment line is filled in from `deadair.segments` rather than from anything
+     * stored in the order, which is why this is a method with a query in it rather
+     * than the pure function it used to be. The lineup holds an id and the library
+     * holds the truth, so an operator renaming a segment sees the new name against
+     * every lineup that plays it, and a segment that has lost its audio is drawn as
+     * one the station will skip instead of as a line that looks fine.
+     *
+     * One query for the whole order, not one per line.
+     */
+    private async toLineup(lineup: LoadedLineup): Promise<Lineup> {
+        const cursor = lineup.cursor();
+        const segments = await this.segments.findByIds(lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])));
+
+        return {
+            id: lineup.id,
+            name: lineup.name,
+            mode: lineup.mode,
+            onEnd: lineup.onEnd,
+            source: lineup.source,
+            revision: lineup.revision(),
+            cursor,
+            items: lineup.all().map((item, index) => {
+                const committed = index < cursor;
+                if (item.kind === 'segment') return toSegmentLine(item, segments.get(item.segmentId), committed);
+
+                return {
+                    id: item.id,
+                    kind: 'track' as const,
+                    pluginId: item.track.pluginId,
+                    externalId: item.track.externalId,
+                    title: item.track.title,
+                    artists: item.track.artists,
+                    ...(item.track.durationMs === undefined ? {} : { durationMs: item.track.durationMs }),
+                    ...(item.track.album === undefined ? {} : { album: item.track.album }),
+                    ...(item.track.artworkUrl === undefined ? {} : { artworkUrl: item.track.artworkUrl }),
+                    ...(item.track.year === undefined ? {} : { year: item.track.year }),
+                    ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
+                    committed,
+                };
+            }),
+        };
+    }
 }
 
 /**
- * A loaded lineup as the console reads it.
+ * A segment line, as drawn from the library row the order points at.
  *
- * `committed` is the whole point of drawing the cursor: everything at or before
- * it has been handed to the player and can no longer be moved or removed, and a
- * console that did not say so would offer controls that answer 422.
+ * A line whose segment is gone still draws, as itself: the lineup does hold it,
+ * the station will pass over it, and hiding it would leave an operator wondering
+ * why the order they can see does not match the one they hear. `playable` is the
+ * one thing a console has to know, and it is the same question the director asks.
  */
-function toLineup(lineup: LoadedLineup): Lineup {
-    const cursor = lineup.cursor();
-
-    return {
-        id: lineup.id,
-        name: lineup.name,
-        mode: lineup.mode,
-        onEnd: lineup.onEnd,
-        source: lineup.source,
-        revision: lineup.revision(),
-        cursor,
-        items: lineup.all().map((item, index) => ({
-            id: item.id,
-            pluginId: item.track.pluginId,
-            externalId: item.track.externalId,
-            title: item.track.title,
-            artists: item.track.artists,
-            ...(item.track.durationMs === undefined ? {} : { durationMs: item.track.durationMs }),
-            ...(item.track.album === undefined ? {} : { album: item.track.album }),
-            ...(item.track.artworkUrl === undefined ? {} : { artworkUrl: item.track.artworkUrl }),
-            ...(item.track.year === undefined ? {} : { year: item.track.year }),
-            ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
-            committed: index < cursor,
-        })),
-    };
-}
+const toSegmentLine = (item: LineupSegmentItem, segment: Segment | undefined, committed: boolean): LineupItemView => ({
+    id: item.id,
+    kind: 'segment' as const,
+    segmentId: item.segmentId,
+    title: segment?.label ?? 'a segment the library no longer holds',
+    // Empty, and not the station's name. A segment has no artist, and inventing one would put it
+    // in front of a listener as though it were a record by somebody.
+    artists: [],
+    segmentState: segment?.state ?? 'gone',
+    playable: segment?.state === 'ready',
+    ...(segment?.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
+    committed,
+});

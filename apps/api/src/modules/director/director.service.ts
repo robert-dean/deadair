@@ -3,9 +3,11 @@ import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { AIR_MODE_KEY, DEFAULT_AIR_MODE, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
-import { Rundown, type RundownItem } from '#modules/playout/rundown.js';
+import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
+import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
-import type { Lineup } from './lineup.js';
+import type { Lineup, LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { resolveRules } from './rotation.rules.js';
@@ -226,7 +228,7 @@ export class DirectorService {
             if (held < COMMIT_LEAD) {
                 const items = await lineup.takeNext(COMMIT_LEAD - held);
                 if (items.length > 0) {
-                    this.rundown.append(items.map(item => item.track));
+                    this.rundown.append(await this.toRundownTracks(items));
                     // The cursor moved, so a refill decision made a moment ago is stale.
                     this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
                 }
@@ -247,6 +249,43 @@ export class DirectorService {
                 this.wake();
             }
         }
+    }
+
+    /**
+     * Turn the lines just taken from the lineup into a running order.
+     *
+     * A record passes straight through: the lineup already holds everything the
+     * player needs. A segment is a reference, so its row is read here — and a
+     * segment that is not `ready` is **skipped**, not waited for.
+     *
+     * That rule is the whole reason the running order can hold something the
+     * station has not finished making. A director that held the slot open would
+     * hand the listener silence for as long as a renderer took, and a renderer
+     * that failed would hold it open forever. Skipping costs an ident nobody
+     * hears; stalling costs the broadcast.
+     *
+     * One read for the whole batch rather than one per line, because a commit
+     * pass runs on every track boundary and the lead is only three items.
+     */
+    private async toRundownTracks(items: readonly LineupItem[]): Promise<RundownTrack[]> {
+        const wanted = items.filter(item => item.kind === 'segment').map(item => item.segmentId);
+        const segments =
+            wanted.length === 0 ? new Map<string, Segment>() : await this.inScope(async scope => scope.get(SegmentRepository).findByIds(wanted));
+
+        return items.flatMap(item => {
+            if (item.kind === 'track') return [item.track];
+
+            const segment = segments.get(item.segmentId);
+            if (segment?.state === 'ready') return [segmentRundownTrack(segment)];
+
+            this.logger.info('director: skipping a segment that is not ready to air', {
+                segment: item.segmentId,
+                // `gone` rather than a state, for a row the lineup names and the library no longer
+                // holds. Distinguishable in a log, and the same outcome either way.
+                state: segment?.state ?? 'gone',
+            });
+            return [];
+        });
     }
 
     /**
@@ -347,6 +386,12 @@ export class DirectorService {
      * before anybody had played it.
      */
     private remember(item: RundownItem): void {
+        // Play history exists to steer what the station plays NEXT: the repeat window and the
+        // artist cooldown are both reads of it. A segment is not a record and has no artist, so a
+        // row for it would put "Station ident" into the song key space and have the station
+        // suppress its own idents for a fortnight.
+        if (isRenderItem(item)) return;
+
         const source = this.lineup?.source ?? 'director';
 
         void this.inScope(async scope => scope.get(PlayHistoryRepository).record({ item, source })).catch(error =>

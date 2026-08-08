@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { DEFAULT_PLAYOUT_BASE_URL, playoutAiredUrl, resolvePlayoutBaseUrl } from '../../../src/modules/playout/playout.urls.js';
+import { DEFAULT_PLAYOUT_BASE_URL, playoutAiredUrl, resolvePlayoutBaseUrl, segmentAudioUrl } from '../../../src/modules/playout/playout.urls.js';
 
 const configWith = (values: Record<string, string> = {}): AppConfig =>
     ({ get: (key: string, fallback: string) => values[key] ?? fallback }) as unknown as AppConfig;
@@ -29,6 +29,23 @@ describe('resolvePlayoutBaseUrl', () => {
         expect(playoutAiredUrl(resolvePlayoutBaseUrl(configWith({ PLAYOUT_BASE_URL: 'http://app:3333/playout//' })))).toBe(
             'http://app:3333/playout/aired',
         );
+    });
+});
+
+// The same trap as the aired URL, plus one of its own: this URL is derived from the playout base
+// rather than configured separately, so that one server cannot be named by two keys that disagree.
+// The invariant is that PLAYOUT_BASE_URL names the playout routes, so its parent is the app root.
+describe('segmentAudioUrl', () => {
+    it('names the route the render contract actually serves', () => {
+        expect(segmentAudioUrl(DEFAULT_PLAYOUT_BASE_URL, 'seg-1')).toBe('http://host.docker.internal:3333/segments/seg-1/audio');
+    });
+
+    it('keeps a path prefix that is not the playout segment', () => {
+        expect(segmentAudioUrl('https://station.example/api/playout', 'seg-1')).toBe('https://station.example/api/segments/seg-1/audio');
+    });
+
+    it('drops only a trailing /playout, not one in the middle of a host path', () => {
+        expect(segmentAudioUrl('https://station.example/playout/edge', 'seg-1')).toBe('https://station.example/playout/edge/segments/seg-1/audio');
     });
 });
 

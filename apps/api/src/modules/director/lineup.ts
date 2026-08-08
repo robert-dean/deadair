@@ -31,7 +31,7 @@ export type LineupMode = 'rotation' | 'setlist' | 'feature';
 export type LineupOnEnd = 'extend' | 'repeat' | 'resume' | 'rotation' | 'stop';
 
 /**
- * One line of the plan.
+ * What is common to every line of the plan.
  *
  * `id` is the lineup's own, minted here, and is NOT the rundown item id: the
  * same line committed twice (a setlist that wraps) is two rundown items and one
@@ -39,10 +39,38 @@ export type LineupOnEnd = 'extend' | 'repeat' | 'resume' | 'rotation' | 'stop';
  * than by counting rows, which is the only thing that survives a concurrent
  * edit.
  */
-export interface LineupItem {
+interface LineupLine {
     id: string;
+    kind: LineupItemKind;
+}
+
+/** A record. */
+export interface LineupTrackItem extends LineupLine {
+    kind: 'track';
     track: RundownTrack;
 }
+
+/**
+ * Something the station says rather than plays: an ident, a stinger, a talk
+ * break.
+ *
+ * **It holds the segment's id and nothing else about it.** Not its label, not
+ * its state, not where its audio is. `deadair.segments` is the single truth for
+ * all of that, and copying any of it in here would put a stale answer inside a
+ * jsonb document that is only rewritten when somebody edits the ORDER — so a
+ * segment re-recorded or renamed after being planted would air under whatever it
+ * used to be. The director reads the row when it commits, which it has to do
+ * anyway to find out whether the segment can air at all.
+ */
+export interface LineupSegmentItem extends LineupLine {
+    kind: 'segment';
+    segmentId: string;
+}
+
+/** What a line of the plan is. `lineups.items` has said "a track or a segment" since 0007. */
+export type LineupItem = LineupTrackItem | LineupSegmentItem;
+
+export type LineupItemKind = 'track' | 'segment';
 
 /** Per-lineup overrides of the station's defaults. Absent fields fall through. */
 export interface LineupRules {
@@ -271,6 +299,31 @@ export class Lineup {
     }
 
     /**
+     * Put a segment into the plan at a position among the lines not yet
+     * committed.
+     *
+     * Its own method rather than a second arm on {@link append}, because the
+     * position is the whole point: an ident belongs BETWEEN two particular
+     * records, and appending one to the end of a rotation would have it play in
+     * an hour, next to whatever happens to be there by then.
+     *
+     * Refuses a position at or before the cursor for the same reason {@link move}
+     * does. That part of the order is in the player's hands, and inserting into it
+     * would either be ignored or shift a line the listener is about to hear.
+     */
+    async insertSegment(segmentId: string, atIndex: number, revision?: number): Promise<EditResult> {
+        const stale = this.checkRevision(revision);
+        if (stale) return stale;
+
+        if (atIndex < this.cursorIndex) return refuse('already-aired', 'that position has already been handed to the player');
+
+        const index = Math.min(atIndex, this.itemList.length);
+        this.itemList.splice(index, 0, { id: randomUUID(), kind: 'segment', segmentId });
+        await this.commitOrder();
+        return OK;
+    }
+
+    /**
      * Move a line to a new position among the ones not yet committed.
      *
      * `toIndex` is absolute, so a console can send back the index it drew. An
@@ -386,4 +439,7 @@ export class Lineup {
     }
 }
 
-const toItem = (track: RundownTrack): LineupItem => ({ id: randomUUID(), track });
+const toItem = (track: RundownTrack): LineupItem => ({ id: randomUUID(), kind: 'track', track });
+
+/** Narrow a line to the records, for anything that reasons about what the station is PLAYING. */
+export const isTrackItem = (item: LineupItem): item is LineupTrackItem => item.kind === 'track';

@@ -8,42 +8,69 @@ export const LineupMode = z.enum(['rotation', 'setlist', 'feature']);
 export type LineupMode = z.infer<typeof LineupMode>;
 
 /**
- * generated from [LineupOnEnd](file://./../../../../data/contracts/director/director.types.ck#L11)
+ * generated from [LineupOnEnd](file://./../../../../data/contracts/director/director.types.ck#L10)
  */
 export const LineupOnEnd = z.enum(['extend', 'repeat', 'resume', 'rotation', 'stop']);
 export type LineupOnEnd = z.infer<typeof LineupOnEnd>;
 
 /**
- * One line of a lineup
- * generated from [LineupItem](file://./../../../../data/contracts/director/director.types.ck#L25)
+ * One line of a lineup, which is either a record or something the station says
+ * generated from [LineupItem](file://./../../../../data/contracts/director/director.types.ck#L24)
  */
 export const LineupItem = z.strictObject({
     id: z.string().min(1).max(100).describe("The lineup's own id for this line, which is what an edit names. Not the rundown item id"),
-    pluginId: z.string().min(1).max(200),
-    externalId: z.string().min(1).max(400),
-    title: z.string().min(1).max(400),
-    artists: z.array(z.string().min(1).max(200)),
+    kind: z.enum(['track', 'segment']).describe('Whether this line is a record or something the station says: an ident, a stinger, a talk break'),
+    title: z.string().min(1).max(400).describe("The record's title, or the segment's label. What the mount is labelled with while the line airs"),
+    artists: z.array(z.string().min(1).max(200)).describe('Empty for a segment, which has no artist'),
+    committed: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('Already handed to the player, and therefore no longer editable. The cursor is the line between this and the rest'),
     durationMs: z.coerce.number().int().min(0).optional(),
+    pluginId: z.string().min(1).max(200).optional().describe('Absent on a segment: the station serves its own audio'),
+    externalId: z.string().min(1).max(400).optional().describe('Absent on a segment'),
     album: z.string().max(400).optional(),
     artworkUrl: z.string().max(2000).optional(),
     year: z.coerce.number().int().min(0).optional(),
     trackId: z.string().max(100).optional().describe('The canonical catalog track, when this is one the catalog holds'),
-    committed: z
+    segmentId: z.string().min(1).max(100).optional().describe('Which segment this line plays. Present only on a segment'),
+    segmentState: z.enum(['planned', 'rendering', 'ready', 'failed', 'gone']).optional(),
+    playable: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
-        .describe('Already handed to the player, and therefore no longer editable. The cursor is the line between this and the rest'),
+        .optional()
+        .describe(
+            'Whether the station can actually air this segment. A line that is not is SKIPPED when the cursor reaches it, rather than held open',
+        ),
 });
 export type LineupItem = z.infer<typeof LineupItem>;
 
 /**
+ * Put something the station says into a lineup
+ * generated from [AddLineupSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L48)
+ */
+export const AddLineupSegmentInput = z.strictObject({
+    segmentId: z.string().min(1).max(100),
+    atIndex: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe(
+            'Where to put it. Absent puts it at the end. A position at or before the cursor is refused: the player is already holding that part of the order',
+        ),
+    revision: z.coerce.number().int().min(0).optional(),
+});
+export type AddLineupSegmentInput = z.infer<typeof AddLineupSegmentInput>;
+
+/**
  * What the mount lease is renewed against: `audience` airs only while somebody is listening, `always` airs whenever there is a programme
- * generated from [AirMode](file://./../../../../data/contracts/director/director.types.ck#L55)
+ * generated from [AirMode](file://./../../../../data/contracts/director/director.types.ck#L70)
  */
 export const AirMode = z.enum(['audience', 'always']);
 export type AirMode = z.infer<typeof AirMode>;
 
 /**
  * Put a lineup on air, from the top
- * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L78)
+ * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L93)
  */
 export const PutOnAirInput = z.strictObject({
     lineupId: z.string().min(1).max(100),
@@ -58,7 +85,7 @@ export type PutOnAirInput = z.infer<typeof PutOnAirInput>;
 
 /**
  * Add tracks to a lineup now, rather than waiting for it to run short
- * generated from [ExtendLineupInput](file://./../../../../data/contracts/director/director.types.ck#L83)
+ * generated from [ExtendLineupInput](file://./../../../../data/contracts/director/director.types.ck#L98)
  */
 export const ExtendLineupInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -67,7 +94,7 @@ export type ExtendLineupInput = z.infer<typeof ExtendLineupInput>;
 
 /**
  * An edit, carrying the view of the order it was made against
- * generated from [EditLineupInput](file://./../../../../data/contracts/director/director.types.ck#L87)
+ * generated from [EditLineupInput](file://./../../../../data/contracts/director/director.types.ck#L102)
  */
 export const EditLineupInput = z.strictObject({
     revision: z.coerce
@@ -83,7 +110,7 @@ export type EditLineupInput = z.infer<typeof EditLineupInput>;
 
 /**
  * Move a line within a lineup
- * generated from [MoveLineupItemInput](file://./../../../../data/contracts/director/director.types.ck#L91)
+ * generated from [MoveLineupItemInput](file://./../../../../data/contracts/director/director.types.ck#L106)
  */
 export const MoveLineupItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -93,7 +120,7 @@ export type MoveLineupItemInput = z.infer<typeof MoveLineupItemInput>;
 
 /**
  * One lineup as a list shows it, without its order
- * generated from [LineupSummary](file://./../../../../data/contracts/director/director.types.ck#L13)
+ * generated from [LineupSummary](file://./../../../../data/contracts/director/director.types.ck#L12)
  */
 export const LineupSummary = z.strictObject({
     id: z.string().min(1).max(100),
@@ -110,7 +137,7 @@ export type LineupSummary = z.infer<typeof LineupSummary>;
 
 /**
  * Build a lineup from a plugin playlist
- * generated from [ImportLineupInput](file://./../../../../data/contracts/director/director.types.ck#L70)
+ * generated from [ImportLineupInput](file://./../../../../data/contracts/director/director.types.ck#L85)
  */
 export const ImportLineupInput = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -128,7 +155,7 @@ export type ImportLineupInput = z.infer<typeof ImportLineupInput>;
 
 /**
  * A lineup and its whole order
- * generated from [Lineup](file://./../../../../data/contracts/director/director.types.ck#L39)
+ * generated from [Lineup](file://./../../../../data/contracts/director/director.types.ck#L54)
  */
 export const Lineup = z.strictObject({
     id: z.string().min(1).max(100),
@@ -150,7 +177,7 @@ export type Lineup = z.infer<typeof Lineup>;
 
 /**
  * What the station is airing, and whether it is driving at all
- * generated from [StationAir](file://./../../../../data/contracts/director/director.types.ck#L57)
+ * generated from [StationAir](file://./../../../../data/contracts/director/director.types.ck#L72)
  */
 export const StationAir = z.strictObject({
     active: z
@@ -168,7 +195,7 @@ export type StationAir = z.infer<typeof StationAir>;
 
 /**
  * Change how the station decides to be on air
- * generated from [SetStationAirInput](file://./../../../../data/contracts/director/director.types.ck#L66)
+ * generated from [SetStationAirInput](file://./../../../../data/contracts/director/director.types.ck#L81)
  */
 export const SetStationAirInput = z.strictObject({
     airMode: AirMode,
@@ -176,7 +203,7 @@ export const SetStationAirInput = z.strictObject({
 export type SetStationAirInput = z.infer<typeof SetStationAirInput>;
 
 /**
- * generated from [LineupList](file://./../../../../data/contracts/director/director.types.ck#L50)
+ * generated from [LineupList](file://./../../../../data/contracts/director/director.types.ck#L65)
  */
 export const LineupList = z.strictObject({
     lineups: z.array(LineupSummary),

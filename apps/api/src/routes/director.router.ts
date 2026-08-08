@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { DirectorConsoleService } from '#src/modules/director/director.console.service.js';
 import {
+    AddLineupSegmentInput,
     EditLineupInput,
     ExtendLineupInput,
     ImportLineupInput,
@@ -176,8 +177,35 @@ DirectorRouter.post(
 );
 
 /**
+ * Puts something the station says into the order at a position. A segment with no audio yet is refused here rather than accepted and skipped at the boundary, so an operator is told why it cannot play
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L167)
+ */
+DirectorRouter.post(
+    '/director/lineups/:lineupId/segments',
+    requirePolicy({ policy: 'platform.manage' }),
+    bodyParserMiddleware(['json']),
+    async ctx => {
+        const { lineupId } = await parseAndValidate(
+            ctx.params,
+            z.strictObject({
+                lineupId: z.string().min(1).max(100),
+            }),
+        );
+
+        const body = await parseAndValidate(ctx.parsedBody, AddLineupSegmentInput);
+
+        const service = ctx.container.get(DirectorConsoleService);
+        const result: Lineup = await service.addSegment(lineupId, body);
+
+        ctx.status = 200;
+        ctx.type = 'application/json';
+        ctx.body = result;
+    },
+);
+
+/**
  * Moves a line. A position at or before the cursor is refused rather than clamped: that part of the order is already committed
- * from [director.ck](file://./../../data/contracts/director/director.ck#L168)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L189)
  */
 DirectorRouter.patch(
     '/director/lineups/:lineupId/items/:itemId',
@@ -205,7 +233,7 @@ DirectorRouter.patch(
 
 /**
  * Drops a line that has not been committed yet
- * from [director.ck](file://./../../data/contracts/director/director.ck#L183)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L204)
  */
 DirectorRouter.delete('/director/lineups/:lineupId/items/:itemId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { lineupId, itemId } = await parseAndValidate(

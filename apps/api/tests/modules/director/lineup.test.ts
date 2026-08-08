@@ -207,7 +207,10 @@ describe('Lineup durability', () => {
     it('restores the cursor it was loaded with', async () => {
         const lineup = new Lineup(
             { id: 'lineup-1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' },
-            [{ id: 'i1', track: track('a') }, { id: 'i2', track: track('b') }],
+            [
+                { id: 'i1', track: track('a') },
+                { id: 'i2', track: track('b') },
+            ],
             4,
             1,
         );
@@ -263,5 +266,72 @@ describe('Lineup compaction', () => {
         await lineup.takeNext(35);
 
         expect(lineup.revision()).toBe(before);
+    });
+});
+
+// A line is a record or something the station says. The segment arm holds an id and nothing else:
+// the library owns the label, the state and the audio, so a segment re-recorded or renamed after
+// being planted airs as what it is now rather than as what it was when somebody put it in.
+describe('Lineup segments', () => {
+    it('holds only the segment id, so nothing about it can go stale in the order', async () => {
+        const lineup = new Lineup({ id: 'l1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        await lineup.append([track('a')]);
+
+        await lineup.insertSegment('seg-1', 1);
+
+        expect(lineup.all()[1]).toEqual({ id: expect.any(String), kind: 'segment', segmentId: 'seg-1' });
+    });
+
+    it('puts one where it was asked to, not at the end', async () => {
+        const lineup = new Lineup({ id: 'l1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        await lineup.append([track('a'), track('b'), track('c')]);
+
+        await lineup.insertSegment('seg-1', 1);
+
+        expect(lineup.all().map(item => (item.kind === 'track' ? item.track.externalId : item.segmentId))).toEqual(['a', 'seg-1', 'b', 'c']);
+    });
+
+    it('appends when nobody says where', async () => {
+        const lineup = new Lineup({ id: 'l1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        await lineup.append([track('a'), track('b')]);
+
+        await lineup.insertSegment('seg-1', lineup.size());
+
+        expect(lineup.all()[2]).toMatchObject({ kind: 'segment', segmentId: 'seg-1' });
+    });
+
+    // The same rule `move` follows, for the same reason: that part of the order is in the player's
+    // hands, so inserting into it would either be ignored or shift a line about to be heard.
+    it('refuses a position the player is already holding', async () => {
+        const lineup = new Lineup({ id: 'l1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        await lineup.append([track('a'), track('b'), track('c')]);
+        await lineup.takeNext(2);
+
+        expect(await lineup.insertSegment('seg-1', 0)).toMatchObject({ ok: false, reason: 'already-aired' });
+    });
+
+    it('refuses an insert made against an order that has moved', async () => {
+        const lineup = new Lineup({ id: 'l1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        await lineup.append([track('a')]);
+
+        expect(await lineup.insertSegment('seg-1', 1, lineup.revision() - 1)).toMatchObject({ ok: false, reason: 'stale-revision' });
+    });
+
+    it('bumps the revision, because the order changed', async () => {
+        const lineup = new Lineup({ id: 'l1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        await lineup.append([track('a')]);
+        const before = lineup.revision();
+
+        await lineup.insertSegment('seg-1', 1);
+
+        expect(lineup.revision()).toBe(before + 1);
+    });
+
+    it('hands a segment out of takeNext like any other line', async () => {
+        const lineup = new Lineup({ id: 'l1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        await lineup.append([track('a')]);
+        await lineup.insertSegment('seg-1', 1);
+
+        expect((await lineup.takeNext(2)).map(item => item.kind)).toEqual(['track', 'segment']);
     });
 });

@@ -160,6 +160,27 @@ operation /director/lineups/{lineupId}/shuffle: {
     }
 }
 
+operation /director/lineups/{lineupId}/segments: {
+    params: {
+        lineupId: string(min=1, max=100)
+    }
+    post: { # Puts something the station says into the order at a position. A segment with no audio yet is refused here rather than accepted and skipped at the boundary, so an operator is told why it cannot play
+        name: Add a segment to a lineup
+        service: DirectorConsoleService.addSegment
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: AddLineupSegmentInput
+        }
+        response: {
+            200: {
+                application/json: Lineup
+            }
+        }
+    }
+}
+
 operation /director/lineups/{lineupId}/items/{itemId}: {
     params: {
         lineupId: string(min=1, max=100)

@@ -7,7 +7,9 @@ import { AudienceWatch } from './audience.watch.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { CompositeTrackResolver, TrackResolver } from './playout.capability.js';
+import { resolvePlayoutBaseUrl } from './playout.urls.js';
 import { PluginTrackResolver } from './providers/plugin.resolver.js';
+import { SegmentTrackResolver } from './providers/segment.resolver.js';
 import { PlayoutPusher } from './playout.pusher.js';
 import { PlayoutService } from './playout.service.js';
 import { Rundown } from './rundown.js';
@@ -26,19 +28,27 @@ import { Rundown } from './rundown.js';
  */
 export const PlayoutModule: ServerKitModule = {
     name: 'Playout',
-    setup: async (registry: Registry, _config: AppConfig) => {
+    setup: async (registry: Registry, config: AppConfig) => {
         registry.register(LiquidsoapEndpoint).useClass(LiquidsoapEndpoint).asSingleton();
         registry.register(PlayoutControlClient).useClass(PlayoutControlClient).asSingleton();
 
-        // The resolver chain, which is one link long: every provider answers for
-        // its own tracks through `resolveStreamUrl`, including the ones whose audio
-        // reaches the player by way of a station-side helper. The composite stays
-        // because the chain is the seam — a source deadair serves itself rather
-        // than through a plugin would be a second link, not a rewrite of this one.
+        // The resolver chain. Every provider answers for its own tracks through
+        // `resolveStreamUrl`, including the ones whose audio reaches the player by
+        // way of a station-side helper; the station answers for its own segments.
+        // Each link guards on the item's `pluginId`, so the ITEM decides who speaks
+        // for it rather than a mode set somewhere — which is what lets one running
+        // order hold a Spotify track and an ident and air both.
+        //
+        // The segment link is exactly the second one the original comment here
+        // anticipated: a source deadair serves itself rather than through a plugin.
         registry.register(PluginTrackResolver).useClass(PluginTrackResolver).asSingleton();
         registry
+            .register(SegmentTrackResolver)
+            .useFactory(container => new SegmentTrackResolver(container, resolvePlayoutBaseUrl(config), container.get(Logger)))
+            .asSingleton();
+        registry
             .register(TrackResolver)
-            .useFactory(container => new CompositeTrackResolver([container.get(PluginTrackResolver)]))
+            .useFactory(container => new CompositeTrackResolver([container.get(PluginTrackResolver), container.get(SegmentTrackResolver)]))
             .asSingleton();
 
         registry.register(Rundown).useClass(Rundown).asSingleton();

@@ -20,6 +20,8 @@ import { AIR_MODE_KEY, type AirMode } from '../../../src/modules/playout/air.mod
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
+import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
+import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -45,6 +47,8 @@ interface Options {
     other?: { id: string; items: string[] };
     /** What the stored air mode says, if anything is stored at all. */
     airMode?: AirMode;
+    /** What the segment library holds, for the lines a lineup names by id. */
+    segments?: Partial<Segment>[];
 }
 
 function build(options: Options = {}) {
@@ -93,9 +97,22 @@ function build(options: Options = {}) {
         get: vi.fn(async (key: string) => (key === AIR_MODE_KEY ? options.airMode : undefined)),
     } as unknown as SettingsRepository;
 
+    const library = new Map((options.segments ?? []).map(segment => [segment.id!, segment as Segment]));
+    const segments = {
+        findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
+    } as unknown as SegmentRepository;
+
     const scope = {
         get: vi.fn((token: unknown) =>
-            token === LineupRepository ? lineups : token === StationAirRepository ? airRepository : token === SettingsRepository ? settings : history,
+            token === LineupRepository
+                ? lineups
+                : token === StationAirRepository
+                  ? airRepository
+                  : token === SettingsRepository
+                    ? settings
+                    : token === SegmentRepository
+                      ? segments
+                      : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -477,5 +494,89 @@ describe('DirectorService switching', () => {
         await director.reload();
 
         expect(director.status().lineupId).toBe('lineup-2');
+    });
+});
+
+// A lineup line can be a segment: an ident, a stinger, a talk break. The director is the only
+// thing that turns one into something the player can be handed, and the rule it enforces is the
+// one the whole design rests on — a segment that is not ready is SKIPPED, never waited for.
+describe('DirectorService committing segments', () => {
+    const READY = { id: 'seg-1', kind: 'ident', state: 'ready' as const, label: 'Top of the hour', source: 'library' };
+
+    it('commits a ready segment as an ordinary item, so nothing downstream has to know what it is', async () => {
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b'], segments: [READY] });
+        await seed();
+        await lineup.insertSegment('seg-1', 1);
+
+        await director.start();
+        await settle();
+
+        const committed = rundown.upcoming();
+        expect(committed[1]).toMatchObject({ pluginId: RENDER_PLUGIN_ID, externalId: 'seg-1', title: 'Top of the hour' });
+        // Empty rather than the station's name: `itemAnnotations` drops an empty value, so the
+        // mount reads "Top of the hour" instead of "Top of the hour - Deadair".
+        expect(committed[1]?.artists).toEqual([]);
+    });
+
+    it('skips a segment that has no audio yet rather than holding the slot open', async () => {
+        const { director, lineup, rundown, seed } = build({
+            items: ['a', 'b', 'c'],
+            segments: [{ id: 'seg-1', kind: 'talkbreak', state: 'planned', label: 'A talk break', source: 'render' }],
+        });
+        await seed();
+        await lineup.insertSegment('seg-1', 1);
+
+        await director.start();
+        await settle();
+
+        // The three lines taken were a, the segment, and b — and the lead is still full. Appending
+        // to the rundown emits a change, which the commit pass coalesces into the `pending` wake it
+        // fires on its way out, and that pass takes `c`. So a skipped segment costs the running
+        // order nothing at all, not even until the next reconcile.
+        expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a', 'b', 'c']);
+    });
+
+    // The lineup names it and the library no longer holds it: same outcome as one that is not
+    // ready, and distinguishable only in the log.
+    it('skips a segment the library has lost', async () => {
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b'], segments: [] });
+        await seed();
+        await lineup.insertSegment('seg-1', 1);
+
+        await director.start();
+        await settle();
+
+        expect(rundown.upcoming().every(item => item.pluginId !== RENDER_PLUGIN_ID)).toBe(true);
+    });
+
+    // Play history steers what plays NEXT: the repeat window and the artist cooldown are both
+    // reads of it. A row for an ident would have the station suppressing its own idents.
+    it('keeps a segment out of play history when it airs', async () => {
+        const { director, lineup, rundown, history, seed } = build({ items: ['a', 'b'], segments: [READY] });
+        await seed();
+        await lineup.insertSegment('seg-1', 0);
+        await director.start();
+        await settle();
+
+        const segmentItem = rundown.upcoming().find(item => item.pluginId === RENDER_PLUGIN_ID)!;
+        await rundown.next();
+        rundown.markAired(segmentItem.id);
+        await settle();
+
+        expect(history.record).not.toHaveBeenCalled();
+    });
+
+    it('still records a record that airs', async () => {
+        const { director, rundown, history, seed } = build({ items: ['a', 'b'] });
+        await seed();
+        await director.start();
+        await settle();
+
+        const first = rundown.upcoming()[0]!;
+        await rundown.next();
+        rundown.markAired(first.id);
+        await settle();
+
+        expect(history.record).toHaveBeenCalledOnce();
     });
 });

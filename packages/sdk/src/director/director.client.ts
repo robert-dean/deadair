@@ -1,6 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
+    AddLineupSegmentInput,
     EditLineupInput,
     ExtendLineupInput,
     ImportLineupInput,
@@ -107,6 +108,19 @@ export class DirectorClient {
      */
     async shuffleALineup(lineupId: string, body: EditLineupInput): Promise<Lineup> {
         const result = await this.fetch(`/director/lineups/${encodeURIComponent(lineupId)}/shuffle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<Lineup>(result);
+    }
+
+    /**
+     * @name Add a segment to a lineup
+     * @description Puts something the station says into the order at a position. A segment with no audio yet is refused here rather than accepted and skipped at the boundary, so an operator is told why it cannot play
+     */
+    async addASegmentToALineup(lineupId: string, body: AddLineupSegmentInput): Promise<Lineup> {
+        const result = await this.fetch(`/director/lineups/${encodeURIComponent(lineupId)}/segments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),

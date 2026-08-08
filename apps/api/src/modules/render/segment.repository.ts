@@ -105,6 +105,26 @@ export class SegmentRepository extends DataRepository {
         return row === undefined ? undefined : toSegment(row);
     }
 
+    /**
+     * Several segments at once, keyed by id.
+     *
+     * What the director commits against and what the console draws a lineup with. One query rather
+     * than one per line, because both callers hold a list and the alternative is an N+1 on the
+     * track boundary. Ids it does not have are simply absent from the map, which is the same answer
+     * as a segment that cannot air.
+     */
+    async findByIds(ids: readonly string[]): Promise<Map<string, Segment>> {
+        if (ids.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.segments')
+            .select(SEGMENT_COLUMNS)
+            .where('id', 'in', [...ids])
+            .execute();
+
+        return new Map(rows.map(row => [row.id, toSegment(row)]));
+    }
+
     /** The whole library, newest first, for a console that has to draw it. */
     async list(): Promise<Segment[]> {
         const rows = await this.db.selectFrom('deadair.segments').select(SEGMENT_COLUMNS).orderBy('createdAt', 'desc').execute();

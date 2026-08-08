@@ -34,6 +34,28 @@ export function playoutAiredUrl(base: string): string {
 }
 
 /**
+ * Where the player fetches a rendered segment's audio.
+ *
+ * The same route the console previews a segment through, deliberately, rather
+ * than a second signed one beside it. That route is already anonymous because it
+ * is the src of a media element, so a signed twin would gate one door of a room
+ * with two, and what is behind either is audio the station is broadcasting
+ * unauthenticated to anyone who opens the mount. See the note at the top of
+ * `render.ck`.
+ *
+ * Derived from the playout base by dropping its last segment, rather than from a
+ * config key of its own. Two keys naming the same server is two keys that can
+ * disagree, and the disagreement would be silent: Liquidsoap fetches this with
+ * nobody watching, so a wrong host is a segment that never plays rather than an
+ * error anyone sees. The invariant is simply that `PLAYOUT_BASE_URL` names the
+ * playout routes, so its parent is the app root — true for the default and for a
+ * path-prefixed deployment (`https://station/api/playout` → `https://station/api`).
+ */
+export function segmentAudioUrl(base: string, segmentId: string): string {
+    return `${base.replace(/\/playout$/, '')}/segments/${segmentId}/audio`;
+}
+
+/**
  * Where Icecast posts a listener arriving or leaving.
  *
  * The event is in the query because Icecast configures one URL per event and can

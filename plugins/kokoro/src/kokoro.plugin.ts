@@ -1,8 +1,8 @@
 import {
+    Plugin,
     PluginError,
     tryJsonBody,
     type PluginConnectionResult,
-    type PluginHost,
     type SpeechHandle,
     type SpeechPluginInstance,
     type SpeechRequest,
@@ -74,8 +74,7 @@ const withPlausibilityCheck = (voice: string): TransformStream<Uint8Array, Uint8
  * cancels it, and either one reaches the socket without this plugin forwarding
  * anything: it is the engine's own response body, with a size check bolted on.
  */
-export class KokoroPlugin implements SpeechPluginInstance {
-    private host?: PluginHost;
+export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
     private baseUrl = '';
     private apiKey?: string;
     private model = DEFAULT_MODEL;
@@ -83,25 +82,27 @@ export class KokoroPlugin implements SpeechPluginInstance {
     private defaultVoice = DEFAULT_VOICE;
     private voices: Record<string, string> = {};
 
-    async init(host: PluginHost): Promise<void> {
-        this.host = host;
-
-        const config = await host.config.get();
+    protected async onLoad(): Promise<void> {
+        const config = await this.host.config.get();
         this.baseUrl = trimSlashes(typeof config.baseUrl === 'string' ? config.baseUrl : '');
         this.model = nonEmpty(config.model) ?? DEFAULT_MODEL;
         this.format = isResponseFormat(config.format) ? config.format : DEFAULT_FORMAT;
         this.defaultVoice = nonEmpty(config.defaultVoice) ?? DEFAULT_VOICE;
         this.voices = voiceMapOf(config.voices);
-        this.apiKey = await host.secrets.get('apiKey');
+        this.apiKey = await this.host.secrets.get('apiKey');
 
-        host.logger.info('kokoro ready', { baseUrl: this.baseUrl, model: this.model, format: this.format, voices: Object.keys(this.voices).length });
+        this.host.logger.info('kokoro ready', {
+            baseUrl: this.baseUrl,
+            model: this.model,
+            format: this.format,
+            voices: Object.keys(this.voices).length,
+        });
     }
 
     async testConnection(): Promise<PluginConnectionResult> {
-        const host = this.hostOrThrow();
         if (this.baseUrl.length === 0) return { ok: false, message: 'No server URL set.' };
 
-        const response = await host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        const response = await this.host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
         if (!response.ok) return { ok: false, message: `Server answered HTTP ${response.status}.` };
 
         // Reported rather than validated against: the operator's own mappings are
@@ -134,7 +135,6 @@ export class KokoroPlugin implements SpeechPluginInstance {
     }
 
     async speak(request: SpeechRequest): Promise<SpeechHandle> {
-        const host = this.hostOrThrow();
         if (this.baseUrl.length === 0) {
             throw new PluginError('kokoro has no server URL configured').withCode('config');
         }
@@ -145,7 +145,7 @@ export class KokoroPlugin implements SpeechPluginInstance {
         const format = isResponseFormat(request.format) ? request.format : this.format;
         const voice = this.resolveVoice(request.voice);
 
-        const response = await host.fetch(`${this.baseUrl}/audio/speech`, {
+        const response = await this.host.fetch(`${this.baseUrl}/audio/speech`, {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...this.authHeaders() },
             body: JSON.stringify({ model: this.model, input: text, voice, response_format: format }),
@@ -161,15 +161,9 @@ export class KokoroPlugin implements SpeechPluginInstance {
                 .withUpstreamStatus(response.status);
         }
 
-        host.logger.debug('kokoro speaking', { voice, format, chars: text.length });
+        this.host.logger.debug('kokoro speaking', { voice, format, chars: text.length });
 
         return { mime: RESPONSE_FORMATS[format], audio: response.body.pipeThrough(withPlausibilityCheck(voice)) };
-    }
-
-    async dispose(): Promise<void> {
-        // Nothing to unwind: the audio is the host's own response body, and the
-        // host cancels whatever is still open when it drops this instance.
-        this.host = undefined;
     }
 
     /**
@@ -185,17 +179,12 @@ export class KokoroPlugin implements SpeechPluginInstance {
         const mapped = this.voices[requested];
         if (mapped !== undefined) return mapped;
 
-        this.host?.logger.warn('no mapping for this voice; using the default', { voice: requested, using: this.defaultVoice });
+        this.host.logger.warn('no mapping for this voice; using the default', { voice: requested, using: this.defaultVoice });
         return this.defaultVoice;
     }
 
     private authHeaders(): Record<string, string> {
         return this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {};
-    }
-
-    private hostOrThrow(): PluginHost {
-        if (!this.host) throw new PluginError('kokoro: init() was never called').withCode('internal');
-        return this.host;
     }
 }
 

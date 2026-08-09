@@ -70,20 +70,23 @@ describe('SpotifyPlugin', () => {
             expect(host.logger.info).toHaveBeenCalledWith('spotify provider ready', { configured: false });
         });
 
-        it('dispose() clears state so subsequent calls throw "used before init()"', async () => {
+        it('dispose() clears state so subsequent calls say so rather than failing obscurely', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
 
             await plugin.dispose();
 
             // testConnection() catches thrown errors into its result rather than rejecting.
-            await expect(plugin.testConnection()).resolves.toEqual({ ok: false, message: 'Spotify plugin used before init()' });
+            await expect(plugin.testConnection()).resolves.toEqual({
+                ok: false,
+                message: 'SpotifyPlugin was used before init() or after dispose()',
+            });
         });
 
-        it('methods throw "used before init()" when called before init() at all', async () => {
+        it('says so when a method is called before init() at all', async () => {
             const plugin = new SpotifyPlugin();
 
-            await expect(plugin.getAuthorizeUrl('state')).rejects.toThrow('Spotify plugin used before init()');
+            await expect(plugin.getAuthorizeUrl('state')).rejects.toThrow('SpotifyPlugin was used before init() or after dispose()');
         });
     });
 

@@ -4,6 +4,7 @@ export * from './capabilities/music.provider.js';
 export * from './capabilities/speech.js';
 export * from './define.plugin.js';
 export * from './plugin.api.version.js';
+export * from './plugin.base.js';
 export * from './plugin.config.fields.js';
 export * from './plugin.error.js';
 export * from './plugin.host.js';

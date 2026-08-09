@@ -1,10 +1,10 @@
 import {
+    Plugin,
     type GetPlaylistTracksOptions,
     type ListPlaylistsOptions,
     type MusicProviderPluginInstance,
     type PlaybackState,
     type PluginConnectionResult,
-    type PluginHost,
     type ProviderPlaylist,
     type ProviderStream,
     type ProviderTrack,
@@ -54,8 +54,7 @@ function toProviderTracks(tracks: Parameters<typeof mapTrack>[0][]): ProviderTra
  * Access tokens are kept in `host.oauth`, never in `host.storage` and never
  * in a log line.
  */
-export class SpotifyPlugin implements MusicProviderPluginInstance {
-    private host?: PluginHost;
+export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance {
     private clientId?: string;
     private redirectUri?: string;
     private deviceName?: string;
@@ -74,25 +73,27 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
      */
     private currentUserIdCache?: string;
 
-    async init(host: PluginHost): Promise<void> {
-        this.host = host;
-
-        const config = await host.config.get();
+    protected async onLoad(): Promise<void> {
+        const config = await this.host.config.get();
         this.clientId = typeof config.clientId === 'string' && config.clientId.length > 0 ? config.clientId : undefined;
         this.deviceName = typeof config.deviceName === 'string' && config.deviceName.length > 0 ? config.deviceName : undefined;
 
         // The operator's registered redirect URI wins; the host-owned endpoint
         // is the fallback for an installation that never filled the field in.
         const configuredRedirect = typeof config.redirectUri === 'string' && config.redirectUri.length > 0 ? config.redirectUri : undefined;
-        this.redirectUri = configuredRedirect ?? (await host.oauth.getRedirectUri());
+        // Held in a local as well as on the instance: `this.host` is a getter,
+        // and TypeScript drops what it knew about every other property across
+        // the call, so reading `this.redirectUri` back would be `string |
+        // undefined` one line after it was assigned a string.
+        const redirectUri = configuredRedirect ?? (await this.host.oauth.getRedirectUri());
+        this.redirectUri = redirectUri;
 
-        this.auth = new HostVaultAuthStrategy(host, this.clientId ?? '', this.redirectUri);
+        this.auth = new HostVaultAuthStrategy(this.host, this.clientId ?? '', redirectUri);
 
-        host.logger.info('spotify provider ready', { configured: Boolean(this.clientId) });
+        this.host.logger.info('spotify provider ready', { configured: Boolean(this.clientId) });
     }
 
-    async dispose(): Promise<void> {
-        this.host = undefined;
+    protected async onUnload(): Promise<void> {
         this.clientId = undefined;
         this.redirectUri = undefined;
         this.deviceName = undefined;
@@ -207,7 +208,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
      * item — and none of them is worth counting against the plugin's health.
      */
     async resolveStreamUrl(trackId: string): Promise<ProviderStream | undefined> {
-        if (!this.clientId || !this.auth || !this.host) return undefined;
+        if (!this.clientId || !this.auth) return undefined;
 
         const tokens = await this.auth.sessionTokens();
         if (!tokens) return undefined;
@@ -240,7 +241,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
             this.currentUserIdCache = profile.id;
             return profile.id;
         } catch (error) {
-            this.host?.logger.warn('could not resolve the Spotify account id; playlist permissions will be left unreported', {
+            this.host.logger.warn('could not resolve the Spotify account id; playlist permissions will be left unreported', {
                 error: errorText(error),
             });
             return undefined;
@@ -360,13 +361,8 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
 
     // --- plumbing ----------------------------------------------------------
 
-    private requireHost(): PluginHost {
-        if (!this.host) throw new Error('Spotify plugin used before init()');
-        return this.host;
-    }
-
     private requireAuth(): HostVaultAuthStrategy {
-        if (!this.auth) throw new Error('Spotify plugin used before init()');
+        if (!this.auth) throw new PluginError('SpotifyPlugin was used before init() or after dispose()').withCode('internal');
         return this.auth;
     }
 
@@ -375,7 +371,7 @@ export class SpotifyPlugin implements MusicProviderPluginInstance {
 
         const auth = this.requireAuth();
         this.api = new SpotifyApi(auth, {
-            fetch: createHostFetch(this.requireHost(), auth.getBearer, auth.forceRefresh),
+            fetch: createHostFetch(this.host, auth.getBearer, auth.forceRefresh),
             responseValidator: new SpotifyResponseValidator(),
         });
         return this.api;

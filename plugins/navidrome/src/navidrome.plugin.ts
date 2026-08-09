@@ -1,4 +1,5 @@
 import {
+    Plugin,
     PluginError,
     type AlbumEnrichment,
     type AlbumRef,
@@ -9,7 +10,6 @@ import {
     type ListPlaylistsOptions,
     type MusicProviderPluginInstance,
     type PluginConnectionResult,
-    type PluginHost,
     type ProviderPlaylist,
     type ProviderStream,
     type ProviderTrack,
@@ -83,21 +83,18 @@ const MIME_TYPES: Record<string, string> = { mp3: 'audio/mpeg', opus: 'audio/ogg
  * `jukeboxControl` plays to the server machine's own soundcard, which is no use
  * to a station broadcasting to Icecast.
  */
-export class NavidromePlugin implements MusicProviderPluginInstance {
-    private host?: PluginHost;
+export class NavidromePlugin extends Plugin implements MusicProviderPluginInstance {
     private client?: SubsonicClient;
     private config?: NavidromeConfig;
 
-    async init(host: PluginHost): Promise<void> {
-        this.host = host;
-
-        const config = configSchema.parse(await host.config.get()) as NavidromeConfig;
-        const password = await host.secrets.get('password');
+    protected async onLoad(): Promise<void> {
+        const config = configSchema.parse(await this.host.config.get()) as NavidromeConfig;
+        const password = await this.host.secrets.get('password');
         if (!password) throw new PluginError('Navidrome password is not configured').withCode('config');
 
         this.config = config;
-        this.client = new SubsonicClient(host, config.baseUrl, new SubsonicAuth(config.username, password));
-        host.logger.info('navidrome ready', { server: config.baseUrl, user: config.username });
+        this.client = new SubsonicClient(this.host, config.baseUrl, new SubsonicAuth(config.username, password));
+        this.host.logger.info('navidrome ready', { server: config.baseUrl, user: config.username });
     }
 
     /**
@@ -167,7 +164,7 @@ export class NavidromePlugin implements MusicProviderPluginInstance {
         // their own login. From outside, that is indistinguishable from a plugin
         // that only ever offers "Everything".
         if (playlists.length === 0) {
-            this.host?.logger.info('navidrome returned no playlists for this account; only owned and public ones are visible', {
+            this.host.logger.info('navidrome returned no playlists for this account; only owned and public ones are visible', {
                 user: this.config?.username,
             });
         }
@@ -314,10 +311,9 @@ export class NavidromePlugin implements MusicProviderPluginInstance {
         }
     }
 
-    async dispose(): Promise<void> {
+    protected async onUnload(): Promise<void> {
         this.client = undefined;
         this.config = undefined;
-        this.host = undefined;
     }
 
     // --- plumbing ------------------------------------------------------------

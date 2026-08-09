@@ -1,4 +1,5 @@
 import {
+    Plugin,
     type AlbumEnrichment,
     type AlbumRef,
     type ArtistEnrichment,
@@ -6,7 +7,6 @@ import {
     type EnrichmentMatchKey,
     type EnrichmentPluginInstance,
     type PluginConnectionResult,
-    type PluginHost,
     type TrackEnrichment,
     type TrackRef,
 } from '@deadair/plugin-sdk';
@@ -175,7 +175,7 @@ function errorText(error: unknown): string {
  * `enrichTrack`. The host asks about an artist once per artist, so the answer
  * covers every track they appear on instead of being bought again for each.
  */
-export class MusicBrainzPlugin implements EnrichmentPluginInstance {
+export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstance {
     /** Canonical source, per the SDK's own scale. Lower runs first and wins conflicts on merge. */
     readonly priority = 100;
 
@@ -184,17 +184,14 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     /** See {@link enrichTracks}: sized to one batched ISRC search. */
     readonly maxBatchSize = MAX_BATCH_SIZE;
 
-    private host?: PluginHost;
     private client?: MusicBrainzClient;
     private listenBrainz?: ListenBrainzClient;
     private matchScore = DEFAULT_MATCH_SCORE;
     private includeArtwork = true;
     private includeArtistFacts = true;
 
-    async init(host: PluginHost): Promise<void> {
-        this.host = host;
-
-        const config = await host.config.get();
+    protected async onLoad(): Promise<void> {
+        const config = await this.host.config.get();
         const contactEmail = typeof config.contactEmail === 'string' ? config.contactEmail.trim() : '';
         const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.length > 0 ? config.baseUrl : DEFAULT_BASE_URL;
         const matchScore = Number(config.matchScore);
@@ -205,24 +202,23 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         // No contact address means no client at all rather than a client that
         // will be refused on every call: MusicBrainz blocks unidentified
         // traffic, and one clear config error beats a 403 per track.
-        this.client = contactEmail.length > 0 ? new MusicBrainzClient(host, baseUrl, contactEmail) : undefined;
+        this.client = contactEmail.length > 0 ? new MusicBrainzClient(this.host, baseUrl, contactEmail) : undefined;
 
         // The fast path, when the operator supplied a token. Absent is the
         // ordinary case and costs nothing: every path below falls back to the
         // web service, so a station with no token is exactly as correct and
         // only slower.
-        const token = (await host.secrets.get('listenBrainzToken'))?.trim() ?? '';
-        this.listenBrainz = token.length > 0 ? new ListenBrainzClient(host, token) : undefined;
+        const token = (await this.host.secrets.get('listenBrainzToken'))?.trim() ?? '';
+        this.listenBrainz = token.length > 0 ? new ListenBrainzClient(this.host, token) : undefined;
 
-        host.logger.info('musicbrainz enrichment ready', {
+        this.host.logger.info('musicbrainz enrichment ready', {
             configured: this.client !== undefined,
             baseUrl,
             listenBrainz: this.listenBrainz !== undefined,
         });
     }
 
-    async dispose(): Promise<void> {
-        this.host = undefined;
+    protected async onUnload(): Promise<void> {
         this.client = undefined;
         this.listenBrainz = undefined;
     }
@@ -318,8 +314,8 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
             // ref start with far less time than it needs. Stopping early leaves
             // those refs outstanding for the next pass, which is strictly
             // better than losing the whole call's work to a timeout.
-            if (((await this.host?.remainingMs()) ?? 0) < TAIL_MIN_MS) {
-                this.host?.logger.debug('musicbrainz stopped short of the per-track tail, out of budget', { remaining: outstanding.length });
+            if (this.host.remainingMs() < TAIL_MIN_MS) {
+                this.host.logger.debug('musicbrainz stopped short of the per-track tail, out of budget', { remaining: outstanding.length });
                 break;
             }
 
@@ -392,7 +388,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
                 answered.add(index);
             }
 
-            this.host?.logger.debug('listenbrainz answered a batch', {
+            this.host.logger.debug('listenbrainz answered a batch', {
                 asked: chunk.length,
                 matched: chunk.filter(index => answered.has(index)).length,
             });
@@ -439,7 +435,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
                 answered.add(index);
             }
 
-            this.host?.logger.debug('musicbrainz answered a record from its tracklist', {
+            this.host.logger.debug('musicbrainz answered a record from its tracklist', {
                 album: refs[indices[0]!]!.album,
                 asked: indices.length,
                 matched: indices.filter(index => answered.has(index)).length,
@@ -495,7 +491,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
                 answered.add(index);
             }
 
-            this.host?.logger.debug('musicbrainz identified a batch of isrcs in one search', { asked: chunk.length, matched: taken.size });
+            this.host.logger.debug('musicbrainz identified a batch of isrcs in one search', { asked: chunk.length, matched: taken.size });
         }
 
         return outstanding.filter(index => !answered.has(index));
@@ -610,7 +606,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         });
 
         const found = selectReleaseGroup(response['release-groups'] ?? []);
-        if (!found?.id) this.host?.logger.debug('musicbrainz found no release group', { album: ref.name, searched: title, artist: ref.artist });
+        if (!found?.id) this.host.logger.debug('musicbrainz found no release group', { album: ref.name, searched: title, artist: ref.artist });
         return found?.id;
     }
 
@@ -654,7 +650,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         });
 
         const found = response.artists?.[0];
-        if (!found?.id) this.host?.logger.debug('musicbrainz found no artist by that name', { artist: name });
+        if (!found?.id) this.host.logger.debug('musicbrainz found no artist by that name', { artist: name });
         return found?.id;
     }
 
@@ -671,14 +667,14 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
     private async optional<T>(step: string, run: () => Promise<T | undefined>): Promise<T | undefined> {
         const remainingMs = (await this.host?.remainingMs()) ?? 0;
         if (remainingMs < OPTIONAL_STEP_MIN_MS) {
-            this.host?.logger.debug('musicbrainz skipped an optional lookup, out of budget', { step, remainingMs });
+            this.host.logger.debug('musicbrainz skipped an optional lookup, out of budget', { step, remainingMs });
             return undefined;
         }
 
         try {
             return await run();
         } catch (error) {
-            this.host?.logger.debug('musicbrainz dropped an optional lookup', { step, reason: errorText(error) });
+            this.host.logger.debug('musicbrainz dropped an optional lookup', { step, reason: errorText(error) });
             return undefined;
         }
     }
@@ -733,7 +729,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         try {
             const response = await this.client!.get<MusicBrainzIsrcResponse>(`isrc/${encodeURIComponent(isrc)}`, { inc: CANDIDATE_INC });
             const match = selectByIsrc(response.recordings ?? [], ref);
-            if (!match) this.host?.logger.debug('musicbrainz isrc resolved to nothing usable', { isrc });
+            if (!match) this.host.logger.debug('musicbrainz isrc resolved to nothing usable', { isrc });
             return match;
         } catch (error) {
             // 404 is a code MusicBrainz has never seen; 400 is one it will not
@@ -742,7 +738,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
             // less still to spend a strike on the breaker and have one bad code
             // in a rotation quarantine the plugin.
             if (error instanceof MusicBrainzRequestError && (error.status === 404 || error.status === 400)) {
-                this.host?.logger.debug('musicbrainz would not take that isrc, falling back to the search', { isrc, status: error.status });
+                this.host.logger.debug('musicbrainz would not take that isrc, falling back to the search', { isrc, status: error.status });
                 return undefined;
             }
             throw error;
@@ -757,7 +753,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
 
         const match = selectRecording(response.recordings ?? [], ref, this.matchScore);
         if (!match) {
-            this.host?.logger.debug('musicbrainz found no confident match', { artist: ref.artist, title: ref.title, minScore: this.matchScore });
+            this.host.logger.debug('musicbrainz found no confident match', { artist: ref.artist, title: ref.title, minScore: this.matchScore });
         }
         return match;
     }
@@ -777,7 +773,7 @@ export class MusicBrainzPlugin implements EnrichmentPluginInstance {
         try {
             return await this.client!.get<MusicBrainzRecording>(`recording/${candidate.id}`, { inc: RECORDING_INC });
         } catch (error) {
-            this.host?.logger.warn('musicbrainz recording lookup failed, using the search result', {
+            this.host.logger.warn('musicbrainz recording lookup failed, using the search result', {
                 recordingId: candidate.id,
                 reason: errorText(error),
             });

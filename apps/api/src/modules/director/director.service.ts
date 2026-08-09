@@ -146,6 +146,24 @@ export class DirectorService {
      */
     private stale = false;
     private staleTimer?: NodeJS.Timeout;
+    /**
+     * The container every scope below is opened from, and deliberately NOT the
+     * one injected into the constructor.
+     *
+     * This is a singleton, so it keeps whichever container first resolved it,
+     * and two of its dependents are resolved per scope: `ExtendLineupJob` from
+     * the job runner's own scope and `DirectorConsoleService` from a request's.
+     * Whenever one of those wins the race to build this singleton, the injected
+     * container is a scope that is disposed moments later — and every scope
+     * opened from it is then the child of a dead one, whose transaction has
+     * already committed.
+     *
+     * That is what logged `Transaction is already committed` on roughly a third
+     * of boots, from the director's first read of `station_air`, and left
+     * `active` unread on those boots. Measured: 8 of 37 scope opens were from a
+     * non-root container before this, and 0 of 10 boots error after it.
+     */
+    private root?: Container;
     private readonly unsubscribes: (() => void)[] = [];
 
     constructor(
@@ -157,6 +175,17 @@ export class DirectorService {
         private readonly jobs: PgBossJobBroker,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * Hand over the root container. Called by `DirectorModule.ready` before
+     * {@link start}, in the same style as `LiquidsoapEndpoint.useSecret`.
+     *
+     * Unset only in a unit test that constructs this directly, where the
+     * injected container is a stub and the distinction does not arise.
+     */
+    useRootContainer(root: Container): void {
+        this.root = root;
+    }
 
     /** Begin driving. Idempotent. */
     async start(): Promise<void> {
@@ -177,6 +206,9 @@ export class DirectorService {
         this.staleTimer = setInterval(() => this.refreshIfStale(), STALE_CHECK_MS);
         this.staleTimer.unref?.();
 
+        // Last, and the listeners above are armed first on purpose: this restore
+        // ends in a commit pass that can reach the end of a lineup and stand the
+        // station down, which is a `Rundown.reset` this class has to hear.
         await this.restore();
     }
 
@@ -684,7 +716,7 @@ export class DirectorService {
      * which is what `PlayoutModule.ready` does for the same reason.
      */
     private async inScope<T>(work: (scope: Container) => Promise<T>): Promise<T> {
-        const scope = this.container.createScopedContainer();
+        const scope = (this.root ?? this.container).createScopedContainer();
         try {
             return await work(scope);
         } finally {

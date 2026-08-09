@@ -60,7 +60,13 @@ export const DirectorModule: ServerKitModule = {
         // In `ready` rather than `start`: it reads what was on air before the restart,
         // which is work the first request does not depend on, and it drives a rundown
         // whose own pusher only begins in PlayoutModule's ready.
-        await container.get(DirectorService).start();
+        // The root container, handed over explicitly: this service is a singleton
+        // and may already have been built by a job or a request scope, which would
+        // leave it holding a container that is disposed out from under it. See
+        // `DirectorService.root`.
+        const service = container.get(DirectorService);
+        service.useRootContainer(container);
+        await service.start();
     },
 
     shutdown: async (container: Container) => {

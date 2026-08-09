@@ -139,7 +139,8 @@ function build(options: Options = {}) {
         ),
         disposeAsync: vi.fn(async () => {}),
     };
-    const container = { createScopedContainer: () => scope } as unknown as Container;
+    const createScope = vi.fn(() => scope);
+    const container = { createScopedContainer: createScope } as unknown as Container;
 
     // The singleton broker, which is what JobsModule documents for a non-request caller.
     const jobs = { send: vi.fn(async () => 'job-1') };
@@ -152,6 +153,9 @@ function build(options: Options = {}) {
 
     return {
         director,
+        container,
+        createScope,
+        scope,
         rundown,
         lineups,
         breaks,
@@ -978,5 +982,42 @@ describe('DirectorService asking for a refill', () => {
         await wake(rundown);
 
         expect(jobs.send).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('DirectorService opening a database scope', () => {
+    it('opens them from the root container rather than the one it was constructed with', async () => {
+        const { director, createScope, scope, seed } = build({ items: ['a'] });
+        await seed();
+
+        // The container a singleton is CONSTRUCTED with is whichever one first
+        // resolved it, and two of this class's dependents are resolved per scope:
+        // `ExtendLineupJob` from the job runner's scope, `DirectorConsoleService`
+        // from a request's. When one of those builds the singleton, the injected
+        // container is a scope that is disposed moments later, and every scope
+        // opened from it is the child of a dead one whose transaction has already
+        // committed. That is what logged `Transaction is already committed` on
+        // roughly a third of boots, from the director's first read of `station_air`.
+        // Hands out the same working stub, so the only difference under test is
+        // WHICH container was asked for it.
+        const rootCreateScope = vi.fn(() => scope);
+        director.useRootContainer({ createScopedContainer: rootCreateScope } as unknown as Container);
+
+        await director.start();
+
+        expect(rootCreateScope).toHaveBeenCalled();
+        expect(createScope).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the injected container when no root has been handed over', async () => {
+        // Every other test in this file relies on this: they construct the service
+        // directly, never call `useRootContainer`, and their stub scope is the one
+        // the injected container hands out.
+        const { director, createScope, seed } = build({ items: ['a'] });
+        await seed();
+
+        await director.start();
+
+        expect(createScope).toHaveBeenCalled();
     });
 });

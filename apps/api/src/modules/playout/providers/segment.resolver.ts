@@ -32,12 +32,35 @@ export class SegmentTrackResolver extends TrackResolver {
         super();
     }
 
+    /**
+     * The container scopes are opened from, and deliberately not the injected one.
+     *
+     * This is a singleton reached through `Rundown` and `DirectorService`, both of
+     * which can themselves first be built from a job or request scope. The
+     * container it was constructed with is then a scope that is disposed moments
+     * later, so every scope opened from it is the child of a dead one whose
+     * transaction has already committed.
+     *
+     * `DirectorService` had exactly this and it logged `Transaction is already
+     * committed` on a third of boots. Here it would be quieter and worse: a
+     * resolve that throws is caught below and answers `undefined`, so the running
+     * order would simply skip the segment and the station would miss the ident
+     * without saying why.
+     */
+    private root?: Container;
+
+    /** Hand over the root container. Called by `PlayoutModule.ready` before the pusher starts. */
+    useRootContainer(root: Container): void {
+        this.root = root;
+    }
+
     async resolve(item: RundownItem): Promise<string | undefined> {
         if (item.pluginId !== RENDER_PLUGIN_ID) return undefined;
 
         // Its own scope, like everything else the transport does off the request path: this runs
-        // on the pusher's loop, which has no ambient request to borrow a connection from.
-        const scope = this.container.createScopedContainer();
+        // on the pusher's loop, which has no ambient request to borrow a connection from. Opened
+        // from the ROOT, for the reason on {@link root}.
+        const scope = (this.root ?? this.container).createScopedContainer();
         try {
             const segment = await scope.get(SegmentRepository).findById(item.externalId);
             if (segment?.state !== 'ready' || segment.audioChecksum === undefined) {

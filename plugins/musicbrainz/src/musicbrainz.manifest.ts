@@ -95,7 +95,6 @@ export const musicbrainzManifest: PluginManifest = {
     id: PLUGIN_ID,
     name: 'MusicBrainz',
     version: PLUGIN_VERSION,
-    kind: 'enrichment',
     capabilities: ['enrichment'],
     apiVersion: '^1.0.0',
     description: 'Canonical artist, release and recording identity from MusicBrainz, plus genres, label and artwork.',

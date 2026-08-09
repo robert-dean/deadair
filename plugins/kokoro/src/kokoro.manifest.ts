@@ -1,4 +1,4 @@
-import { PLUGIN_CAPABILITY_SPEECH, PLUGIN_KIND_TTS, type PluginManifest } from '@deadair/plugin-sdk';
+import { PLUGIN_CAPABILITY_SPEECH, type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 import { parseVoiceMap } from './kokoro.voices.js';
 
@@ -79,7 +79,6 @@ export const kokoroManifest: PluginManifest = {
     id: PLUGIN_ID,
     name: 'Kokoro',
     version: PLUGIN_VERSION,
-    kind: PLUGIN_KIND_TTS,
     capabilities: [PLUGIN_CAPABILITY_SPEECH],
     apiVersion: '^1.0.0',
     description: 'Gives the station a voice, through any OpenAI-compatible speech server. Ships pointed at the bundled Kokoro container.',

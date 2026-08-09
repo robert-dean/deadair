@@ -15,7 +15,6 @@ import type { PluginRecord } from './types/plugin.record.js';
 import type {
     PluginConfigInput,
     PluginDetail,
-    PluginListQuery,
     PluginLogEntry,
     PluginLogLevel,
     PluginLogLevelInput,
@@ -108,12 +107,12 @@ export class PluginsService {
     }
 
     /**
-     * Every known plugin, optionally narrowed to one kind, filtered to the
-     * ones the current actor may view. Quarantined ones are included.
+     * Every known plugin, filtered to the ones the current actor may view.
+     * Quarantined ones are included.
      */
-    async listPlugins(query: PluginListQuery): Promise<PluginSummary[]> {
+    async listPlugins(): Promise<PluginSummary[]> {
         const visible = await this.accessControl.listVisibleIds('plugin', 'view');
-        const records = this.pluginRegistry.list(query.kind === undefined ? undefined : { kind: query.kind });
+        const records = this.pluginRegistry.list();
         // Only admins hit the `{ all: true }` path via role coverage, so the
         // tuple walk runs for every other user, listeners included.
         let narrowed = records;
@@ -218,7 +217,7 @@ export class PluginsService {
     /** Rescans the mounted directory, then reports the catalogue as it now stands. */
     async rescanPlugins(): Promise<PluginSummary[]> {
         await this.pluginLifecycleManager.rescan();
-        return this.listPlugins({});
+        return this.listPlugins();
     }
 
     /**
@@ -544,7 +543,6 @@ export class PluginsService {
             id: record.id,
             name: manifest?.name ?? record.id,
             version: manifest?.version ?? UNKNOWN,
-            kind: manifest?.kind ?? UNKNOWN,
             capabilities: manifest?.capabilities ?? [],
             status: record.status,
             enabled: readModel.enabled,

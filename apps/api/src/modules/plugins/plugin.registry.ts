@@ -2,11 +2,6 @@ import { Injectable } from 'injectkit';
 import type { PluginInstance } from '@deadair/plugin-sdk';
 import type { PluginRecord, PluginStatus } from './types/plugin.record.js';
 
-/** Narrowing options for {@link PluginRegistry.list}. */
-export interface PluginListFilter {
-    kind?: string;
-}
-
 /**
  * Collapses a discovery result to one record per id, keyed by id, first record
  * wins. This is the loader's own duplicate rule: the copy that claimed an id
@@ -60,11 +55,9 @@ export class PluginRegistry {
         return this.records.delete(id);
     }
 
-    /** Every record, optionally narrowed to one plugin kind. Insertion ordered. */
-    list(filter?: PluginListFilter): PluginRecord[] {
-        const records = [...this.records.values()];
-        if (filter?.kind === undefined) return records;
-        return records.filter(record => record.manifest?.kind === filter.kind);
+    /** Every record, insertion ordered. Narrowing is the caller's job, and it is always by capability. */
+    list(): PluginRecord[] {
+        return [...this.records.values()];
     }
 
     get(id: string): PluginRecord | undefined {

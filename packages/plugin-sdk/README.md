@@ -5,18 +5,21 @@ is the only thing a plugin imports from deadair: no database, no DI container,
 no HTTP framework. Its single runtime dependency is `zod`, and that is a peer
 dependency so you and the host share one copy.
 
-A plugin extends deadair in one of two ways today:
+A plugin extends deadair by declaring capabilities:
 
-| kind             | what it does                                                    |
-| ---------------- | --------------------------------------------------------------- |
-| `music-provider` | supplies music: search, browse, and optionally play it           |
-| `enrichment`     | supplies facts about a track: year, genre, label, trivia, links  |
-| `tts`            | says something out loud: text in, audio out                      |
+| capability   | what it lets you do                                              |
+| ------------ | ---------------------------------------------------------------- |
+| `catalog`    | supply music: list playlists, list their tracks                   |
+| `stream`     | get the station the audio to play (`resolveStreamUrl`)            |
+| `steer`      | own your audio output and let deadair only tell you what to do    |
+| `enrichment` | supply facts about a track: year, genre, label, trivia, links     |
+| `speech`     | say something out loud: text in, audio out                        |
+| `oauth`      | hold operator tokens, obtained through the host's redirect        |
 
-`kind` is a label. It groups your plugin in the console and narrows
-`GET /plugins?kind=`, and nothing in the host dispatches on it — what is
-actually checked is `capabilities`, every time. Declare the kind that describes
-you and spend your attention on the capability list.
+There is no second axis. `capabilities` is the whole declaration, and the host
+checks it on every call together with whether you actually implemented the
+methods, because a plugin that claims a capability and forgets the method is a
+`TypeError` in the middle of a request rather than an honest "not supported".
 
 ## The shape of a plugin
 
@@ -103,7 +106,6 @@ const manifest: PluginManifest = {
     id: 'example.recordbin',
     name: 'Record Bin',
     version: '1.0.0',
-    kind: 'enrichment',
     capabilities: ['enrichment'],
     apiVersion: '^1.0.0',
     description: 'Release years and genres from the Record Bin catalogue.',

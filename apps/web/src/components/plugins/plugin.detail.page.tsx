@@ -50,7 +50,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                     <Stack gap={4}>
                         <Title order={1}>{detail.name}</Title>
                         <Text size="sm" c="dimmed" ff="monospace">
-                            {detail.id} · {detail.version} · {detail.kind}
+                            {detail.id} · {detail.version}
                         </Text>
                     </Stack>
                     <Switch

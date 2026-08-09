@@ -20,7 +20,6 @@ function manifest(network: PluginManifest['permissions']['network'] = ['audio.ex
         id: PLUGIN_ID,
         name: 'Streaming Plugin',
         version: '1.0.0',
-        kind: 'tts',
         capabilities: ['speech'],
         apiVersion: '^1.0.0',
         permissions: { network, storage: false, oauth: false },

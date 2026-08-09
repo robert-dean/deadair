@@ -2,25 +2,15 @@ import { z } from 'zod';
 import { configFieldSchema, type ConfigField } from './plugin.config.fields.js';
 import { pluginPermissionsSchema, type PluginPermissions } from './plugin.permissions.js';
 
-/** Plugin kinds this version of the host knows how to wire up. */
-export const PLUGIN_KIND_MUSIC_PROVIDER = 'music-provider';
-export const PLUGIN_KIND_ENRICHMENT = 'enrichment';
-
-/** The plugin turns text into speech. See {@link PLUGIN_CAPABILITY_SPEECH}. */
-export const PLUGIN_KIND_TTS = 'tts';
-
-export const KNOWN_PLUGIN_KINDS = [PLUGIN_KIND_MUSIC_PROVIDER, PLUGIN_KIND_ENRICHMENT, PLUGIN_KIND_TTS] as const;
-
-export type KnownPluginKind = (typeof KNOWN_PLUGIN_KINDS)[number];
-
 /**
- * The kind of thing a plugin is. Known kinds get autocomplete; the type stays
- * open so a plugin built against a newer host can declare a kind this SDK has
- * never heard of without failing manifest validation.
+ * What a plugin can do, and the only thing the host ever dispatches on.
+ *
+ * There is no second axis. A manifest used to also carry a `kind`
+ * (`music-provider`, `enrichment`, `tts`) which nothing checked: every call
+ * site asked the capability list, because a plugin that declares a kind and
+ * forgets the method is a `TypeError` mid-request. So the label went and this
+ * is what is left.
  */
-export type PluginKind = KnownPluginKind | (string & Record<never, never>);
-
-/** Capability names understood by the built-in kinds. */
 export const PLUGIN_CAPABILITY_CATALOG = 'catalog';
 
 /**
@@ -40,13 +30,7 @@ export const PLUGIN_CAPABILITY_STEER = 'steer';
 export const PLUGIN_CAPABILITY_OAUTH = 'oauth';
 export const PLUGIN_CAPABILITY_ENRICHMENT = 'enrichment';
 
-/**
- * The plugin can say something out loud: text in, audio out.
- *
- * This is the capability the host actually checks. `kind: 'tts'` beside it is a
- * label — it groups the plugin in the console and narrows
- * `GET /plugins?kind=`, and nothing dispatches on it.
- */
+/** The plugin can say something out loud: text in, audio out. */
 export const PLUGIN_CAPABILITY_SPEECH = 'speech';
 
 export const KNOWN_PLUGIN_CAPABILITIES = [
@@ -60,7 +44,11 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];
 
-/** Same open-union treatment as {@link PluginKind}. */
+/**
+ * Known capabilities get autocomplete; the type stays open so a plugin built
+ * against a newer host can declare one this SDK has never heard of without
+ * failing manifest validation.
+ */
 export type PluginCapability = KnownPluginCapability | (string & Record<never, never>);
 
 /**
@@ -95,8 +83,6 @@ export interface PluginManifest {
 
     /** Semver version of the plugin itself. */
     version: string;
-
-    kind: PluginKind;
 
     /** Which capability interfaces the factory result actually implements. */
     capabilities: PluginCapability[];
@@ -138,7 +124,6 @@ export const pluginManifestSchema = z.object({
     id: z.string().regex(PLUGIN_ID_PATTERN, 'plugin id must be reverse-DNS, e.g. "deadair.spotify"'),
     name: z.string().min(1),
     version: z.string().min(1),
-    kind: z.string().min(1),
     capabilities: z.array(z.string().min(1)),
     apiVersion: z.string().min(1),
     description: z.string().optional(),

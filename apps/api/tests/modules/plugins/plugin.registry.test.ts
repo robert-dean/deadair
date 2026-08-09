@@ -9,7 +9,6 @@ function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
         id: 'test.plugin',
         name: 'Test Plugin',
         version: '1.0.0',
-        kind: 'music-provider',
         capabilities: ['catalog'],
         apiVersion: '^1.0.0',
         permissions: { network: [], storage: false, oauth: false },
@@ -30,30 +29,24 @@ function record(overrides: Partial<PluginRecord> = {}): PluginRecord {
 
 describe('PluginRegistry', () => {
     describe('list', () => {
-        it('returns every record, insertion ordered, when no filter is given', () => {
+        it('returns every record, insertion ordered', () => {
             const registry = new PluginRegistry();
-            const a = record({ id: 'a', manifest: manifest({ id: 'a', kind: 'music-provider' }) });
-            const b = record({ id: 'b', manifest: manifest({ id: 'b', kind: 'enrichment' }) });
+            const a = record({ id: 'a', manifest: manifest({ id: 'a' }) });
+            const b = record({ id: 'b', manifest: manifest({ id: 'b', capabilities: ['enrichment'] }) });
             registry.setAll([a, b]);
 
             expect(registry.list()).toEqual([a, b]);
         });
 
-        it('filters to records whose manifest kind matches', () => {
-            const registry = new PluginRegistry();
-            const provider = record({ id: 'a', manifest: manifest({ id: 'a', kind: 'music-provider' }) });
-            const enrichment = record({ id: 'b', manifest: manifest({ id: 'b', kind: 'enrichment' }) });
-            registry.setAll([provider, enrichment]);
-
-            expect(registry.list({ kind: 'enrichment' })).toEqual([enrichment]);
-        });
-
-        it('excludes a failed candidate with no manifest from any kind filter', () => {
+        // A failed candidate never got far enough to have one, and every caller
+        // narrows on the manifest's capabilities, so it has to survive the list
+        // rather than be filtered out of it: the console shows the quarantine.
+        it('includes a failed candidate that has no manifest', () => {
             const registry = new PluginRegistry();
             const failed = record({ id: 'a', status: 'failed', error: 'boom', manifest: undefined });
             registry.setAll([failed]);
 
-            expect(registry.list({ kind: 'music-provider' })).toEqual([]);
+            expect(registry.list()).toEqual([failed]);
         });
     });
 

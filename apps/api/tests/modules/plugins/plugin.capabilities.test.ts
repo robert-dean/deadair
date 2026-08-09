@@ -96,11 +96,10 @@ describe('asSpeechPlugin', () => {
         }
     });
 
-    it('goes by the capability rather than the kind, which is only a label', () => {
-        // `kind` groups a plugin in the console and narrows `GET /plugins?kind=`.
-        // Nothing dispatches on it, so a manifest that says `tts` and does not
-        // declare `speech` is not a speaker, and one that declares `speech` under
-        // any kind at all is.
+    it('goes by the declared capability, which is the only axis there is', () => {
+        // A manifest used to also carry a `kind` label that nothing dispatched
+        // on. It is gone: declaring `speech` is what makes a speaker, and
+        // declaring nothing makes one that cannot be called however it looks.
         expect(asSpeechPlugin({ ...record(['speech'], speechMethods), manifest: manifest(['speech']) })).toBeDefined();
         expect(asSpeechPlugin(record([], speechMethods))).toBeUndefined();
     });

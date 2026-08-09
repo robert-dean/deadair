@@ -250,7 +250,7 @@ export class PluginLifecycleManager {
 
             record.instance = instance;
             await this.setStatus(pluginId, 'active');
-            this.pluginLog.for(pluginId).info('plugin active', { version: record.manifest.version, kind: record.manifest.kind });
+            this.pluginLog.for(pluginId).info('plugin active', { version: record.manifest.version, capabilities: record.manifest.capabilities });
         } catch (error) {
             record.instance = undefined;
             await this.setStatus(pluginId, 'failed', errorText(error));

@@ -28,7 +28,6 @@ function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
         id: 'test.plugin',
         name: 'Test Plugin',
         version: '1.0.0',
-        kind: 'music-provider',
         capabilities: ['catalog'],
         apiVersion: '^1.0.0',
         permissions: { network: [], storage: false, oauth: false },

@@ -39,9 +39,6 @@ export function PluginCard({ plugin }: PluginCardProps) {
                 </Text>
 
                 <Group gap={6}>
-                    <Badge size="sm" variant="default" ff="monospace" tt="none">
-                        {plugin.kind}
-                    </Badge>
                     {plugin.capabilities.map(capability => (
                         <Badge key={capability} size="sm" variant="light" color="gray" tt="none">
                             {capability}

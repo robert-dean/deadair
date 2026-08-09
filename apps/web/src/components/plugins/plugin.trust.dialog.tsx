@@ -34,7 +34,7 @@ export function PluginTrustDialog({ plugin, opened, onCancel, onConfirm }: Plugi
 
                 <Stack gap={6}>
                     <Text size="xs" c="dimmed" ff="monospace">
-                        {plugin.id} · {plugin.version} · {plugin.kind}
+                        {plugin.id} · {plugin.version}
                     </Text>
                     <Group gap={6}>
                         <Text size="xs" c="dimmed">

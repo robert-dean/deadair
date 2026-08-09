@@ -19,13 +19,13 @@ export interface ConfigFieldOption {
 }
 
 /**
- * generated from [PluginLogLevel](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L45)
+ * generated from [PluginLogLevel](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L44)
  */
 export type PluginLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * A submitted settings form. Secret values arrive in here and are never echoed back
- * generated from [PluginConfigInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L77)
+ * generated from [PluginConfigInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L76)
  */
 export interface PluginConfigInput {
     config: Record<string, unknown>;
@@ -33,7 +33,7 @@ export interface PluginConfigInput {
 
 /**
  * Outcome of the plugin's own `testConnection()`
- * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L82)
+ * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L81)
  */
 export interface PluginTestResult {
     ok: boolean;
@@ -43,7 +43,7 @@ export interface PluginTestResult {
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L89)
+ * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L88)
  */
 export interface PluginOAuthStart {
     url: string;
@@ -51,7 +51,7 @@ export interface PluginOAuthStart {
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L94)
+ * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L93)
  */
 export interface PluginOAuthResult {
     pluginId: string;
@@ -60,15 +60,7 @@ export interface PluginOAuthResult {
 }
 
 /**
- * generated from [PluginListQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L100)
- */
-export interface PluginListQuery {
-    /** Narrows the list to one plugin kind, e.g. `music-provider` */
-    kind?: string;
-}
-
-/**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L104)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L99)
  */
 export interface PluginOAuthCallbackQuery {
     code?: string;
@@ -95,7 +87,7 @@ export interface ConfigFieldDescriptor {
 }
 
 /**
- * generated from [PluginLogEntry](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L47)
+ * generated from [PluginLogEntry](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L46)
  */
 export interface PluginLogEntry {
     ts: string;
@@ -105,7 +97,7 @@ export interface PluginLogEntry {
 }
 
 /**
- * generated from [PluginLogQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L59)
+ * generated from [PluginLogQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L58)
  */
 export interface PluginLogQuery {
     limit?: number;
@@ -113,7 +105,7 @@ export interface PluginLogQuery {
 }
 
 /**
- * generated from [PluginLogLevelInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L64)
+ * generated from [PluginLogLevelInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L63)
  */
 export interface PluginLogLevelInput {
     level: PluginLogLevel;
@@ -127,7 +119,6 @@ export interface PluginSummary {
     id: string;
     name: string;
     version: string;
-    kind: string;
     capabilities: string[];
     status: PluginStatus;
     enabled: boolean;
@@ -139,7 +130,7 @@ export interface PluginSummary {
 }
 
 /**
- * generated from [PluginLogPage](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L53)
+ * generated from [PluginLogPage](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L52)
  */
 export interface PluginLogPage {
     pluginId: string;
@@ -149,7 +140,7 @@ export interface PluginLogPage {
 
 /**
  * A summary plus the stored NON-SECRET configuration and the last recorded failure
- * generated from [PluginDetail](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L69)
+ * generated from [PluginDetail](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L68)
  */
 export interface PluginDetail extends PluginSummary {
     config: Record<string, unknown>;

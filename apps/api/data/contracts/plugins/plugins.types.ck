@@ -32,7 +32,6 @@ contract PluginSummary: {
     id: string(min=1, max=200)
     name: string(min=1, max=200)
     version: string(min=1, max=100)
-    kind: string(min=1, max=100)
     capabilities: array(string(min=1, max=100))
     status: PluginStatus
     enabled: boolean
@@ -95,10 +94,6 @@ contract PluginOAuthResult: {
     pluginId: string(min=1, max=200)
     ok: boolean
     message?: string(max=4000)
-}
-
-contract PluginListQuery: {
-    kind?: string(min=1, max=100) # Narrows the list to one plugin kind, e.g. `music-provider`
 }
 
 contract mode(strip) PluginOAuthCallbackQuery: {

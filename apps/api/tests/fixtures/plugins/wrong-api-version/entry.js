@@ -7,7 +7,6 @@ export default {
         id: 'test.wrong-api-version',
         name: 'Test Wrong API Version Plugin',
         version: '1.0.0',
-        kind: 'music-provider',
         capabilities: ['catalog'],
         apiVersion: '^99.0.0',
         permissions: { network: [], storage: false, oauth: false },

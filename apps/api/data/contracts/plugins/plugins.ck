@@ -24,7 +24,7 @@ options {
 }
 
 operation /plugins: {
-    get: { # Lists every plugin the host knows about, optionally narrowed to one kind
+    get: { # Lists every plugin the host knows about
         name: List plugins
         service: PluginsService.listPlugins
         # A read, so it drops to the view floor. `PluginSummary` carries no configured values —
@@ -32,7 +32,6 @@ operation /plugins: {
         security: {
             policy: platform.view
         }
-        query: PluginListQuery
         response: {
             200: {
                 application/json: array(PluginSummary)

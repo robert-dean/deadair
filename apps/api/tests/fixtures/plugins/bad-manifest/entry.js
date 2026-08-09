@@ -4,7 +4,6 @@ export default {
     manifest: {
         id: 'test.bad-manifest',
         name: 'Test Bad Manifest Plugin',
-        kind: 'music-provider',
         capabilities: ['catalog'],
         apiVersion: '^1.0.0',
     },

@@ -9,7 +9,6 @@ const manifest: PluginManifest = {
     id: 'deadair.example',
     name: 'Example',
     version: '1.0.0',
-    kind: 'enrichment',
     capabilities: ['enrichment'],
     apiVersion: '^1.0.0',
     permissions: { network: [], storage: false, oauth: false },

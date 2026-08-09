@@ -35,7 +35,6 @@ function manifest(id: string, overrides: Partial<PluginManifest> = {}): PluginMa
         id,
         name: id,
         version: '1.0.0',
-        kind: 'enrichment',
         capabilities: ['enrichment'],
         apiVersion: '^1.0.0',
         permissions: { network: [], storage: false, oauth: false },
@@ -159,7 +158,7 @@ describe('providers', () => {
     });
 
     it('ignores a music provider, which answers a different question', () => {
-        service = build([record(OTHER, { manifest: manifest(OTHER, { kind: 'music-provider', capabilities: ['catalog'] }) })]);
+        service = build([record(OTHER, { manifest: manifest(OTHER, { capabilities: ['catalog'] }) })]);
         expect(service.providerIds()).toEqual([]);
     });
 });

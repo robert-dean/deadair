@@ -88,7 +88,6 @@ export const navidromeManifest: PluginManifest = {
     id: PLUGIN_ID,
     name: 'Navidrome',
     version: PLUGIN_VERSION,
-    kind: 'music-provider',
     // Grows with the methods that make each one true, never ahead of them: the
     // host requires a capability to be declared AND implemented, and a manifest
     // that promises one it cannot do is its author's bug rather than anything an

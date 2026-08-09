@@ -8,7 +8,6 @@ export default {
         id: 'test.valid',
         name: 'Test Duplicate Id Plugin',
         version: '1.0.0',
-        kind: 'music-provider',
         capabilities: ['catalog'],
         apiVersion: '^1.0.0',
         permissions: { network: [], storage: false, oauth: false },

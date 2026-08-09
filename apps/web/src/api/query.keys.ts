@@ -12,8 +12,8 @@ export const queryKeys = {
         requirements: () => ['onboarding', 'requirements'] as const,
     },
     plugins: {
-        /** The catalogue. `kind` is the API's own filter; 'all' stands in for an unfiltered list. */
-        list: (kind?: string) => ['plugins', 'list', kind ?? 'all'] as const,
+        /** The catalogue. Unfiltered: the API narrows nothing, and the console groups by capability itself. */
+        list: () => ['plugins', 'list'] as const,
         detail: (id: string) => ['plugins', 'detail', id] as const,
         /**
          * A tail of a plugin's buffered log. Keyed on the query too: a level or limit change is a

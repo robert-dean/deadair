@@ -3,7 +3,6 @@ import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
     PluginConfigInput,
     PluginDetail,
-    PluginListQuery,
     PluginLogLevelInput,
     PluginLogPage,
     PluginLogQuery,
@@ -19,13 +18,10 @@ export class PluginsClient {
 
     /**
      * @name List plugins
-     * @description Lists every plugin the host knows about, optionally narrowed to one kind
+     * @description Lists every plugin the host knows about
      */
-    async listPlugins(query?: PluginListQuery): Promise<PluginSummary[]> {
-        const qs = buildQueryString(query);
-        const result = await this.fetch(`/plugins${qs}`, {
-            method: 'GET',
-        });
+    async listPlugins(): Promise<PluginSummary[]> {
+        const result = await this.fetch(`/plugins`, { method: 'GET' });
         return await parseJson<PluginSummary[]>(result);
     }
 

@@ -45,7 +45,6 @@ export const spotifyManifest: PluginManifest = {
     id: 'deadair.spotify',
     name: 'Spotify',
     version: '0.0.1',
-    kind: 'music-provider',
     // `stream` the long way round: Spotify's audio comes off the CDN encrypted, so
     // there is no Spotify URL to mint. The one Liquidsoap fetches points at the
     // track shim beside it, and this plugin gets it by lending that shim a login

@@ -24,14 +24,14 @@ export const ConfigFieldOption = z.strictObject({
 export type ConfigFieldOption = z.infer<typeof ConfigFieldOption>;
 
 /**
- * generated from [PluginLogLevel](file://./../../../../data/contracts/plugins/plugins.types.ck#L45)
+ * generated from [PluginLogLevel](file://./../../../../data/contracts/plugins/plugins.types.ck#L44)
  */
 export const PluginLogLevel = z.enum(['debug', 'info', 'warn', 'error']);
 export type PluginLogLevel = z.infer<typeof PluginLogLevel>;
 
 /**
  * A submitted settings form. Secret values arrive in here and are never echoed back
- * generated from [PluginConfigInput](file://./../../../../data/contracts/plugins/plugins.types.ck#L77)
+ * generated from [PluginConfigInput](file://./../../../../data/contracts/plugins/plugins.types.ck#L76)
  */
 export const PluginConfigInput = z.strictObject({
     config: z.record(z.string(), z.unknown()),
@@ -40,7 +40,7 @@ export type PluginConfigInput = z.infer<typeof PluginConfigInput>;
 
 /**
  * Outcome of the plugin's own `testConnection()`
- * generated from [PluginTestResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L82)
+ * generated from [PluginTestResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L81)
  */
 export const PluginTestResult = z.strictObject({
     ok: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
@@ -51,7 +51,7 @@ export type PluginTestResult = z.infer<typeof PluginTestResult>;
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../data/contracts/plugins/plugins.types.ck#L89)
+ * generated from [PluginOAuthStart](file://./../../../../data/contracts/plugins/plugins.types.ck#L88)
  */
 export const PluginOAuthStart = z.strictObject({
     url: z.url(),
@@ -60,7 +60,7 @@ export type PluginOAuthStart = z.infer<typeof PluginOAuthStart>;
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L94)
+ * generated from [PluginOAuthResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L93)
  */
 export const PluginOAuthResult = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -70,15 +70,7 @@ export const PluginOAuthResult = z.strictObject({
 export type PluginOAuthResult = z.infer<typeof PluginOAuthResult>;
 
 /**
- * generated from [PluginListQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L100)
- */
-export const PluginListQuery = z.strictObject({
-    kind: z.string().min(1).max(100).optional().describe('Narrows the list to one plugin kind, e.g. `music-provider`'),
-});
-export type PluginListQuery = z.infer<typeof PluginListQuery>;
-
-/**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L104)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L99)
  */
 export const PluginOAuthCallbackQuery = z.object({
     code: z.string().max(2048).optional(),
@@ -106,7 +98,7 @@ export const ConfigFieldDescriptor = z.strictObject({
 export type ConfigFieldDescriptor = z.infer<typeof ConfigFieldDescriptor>;
 
 /**
- * generated from [PluginLogEntry](file://./../../../../data/contracts/plugins/plugins.types.ck#L47)
+ * generated from [PluginLogEntry](file://./../../../../data/contracts/plugins/plugins.types.ck#L46)
  */
 export const PluginLogEntry = z.strictObject({
     ts: z.string().max(40),
@@ -116,7 +108,7 @@ export const PluginLogEntry = z.strictObject({
 export type PluginLogEntry = z.infer<typeof PluginLogEntry>;
 
 /**
- * generated from [PluginLogQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L59)
+ * generated from [PluginLogQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L58)
  */
 export const PluginLogQuery = z.strictObject({
     limit: z.coerce.number().int().min(1).max(2000).optional(),
@@ -125,7 +117,7 @@ export const PluginLogQuery = z.strictObject({
 export type PluginLogQuery = z.infer<typeof PluginLogQuery>;
 
 /**
- * generated from [PluginLogLevelInput](file://./../../../../data/contracts/plugins/plugins.types.ck#L64)
+ * generated from [PluginLogLevelInput](file://./../../../../data/contracts/plugins/plugins.types.ck#L63)
  */
 export const PluginLogLevelInput = z.strictObject({
     level: PluginLogLevel,
@@ -140,7 +132,6 @@ export const PluginSummary = z.strictObject({
     id: z.string().min(1).max(200),
     name: z.string().min(1).max(200),
     version: z.string().min(1).max(100),
-    kind: z.string().min(1).max(100),
     capabilities: z.array(z.string().min(1).max(100)),
     status: PluginStatus,
     enabled: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
@@ -157,7 +148,7 @@ export const PluginSummary = z.strictObject({
 export type PluginSummary = z.infer<typeof PluginSummary>;
 
 /**
- * generated from [PluginLogPage](file://./../../../../data/contracts/plugins/plugins.types.ck#L53)
+ * generated from [PluginLogPage](file://./../../../../data/contracts/plugins/plugins.types.ck#L52)
  */
 export const PluginLogPage = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -168,7 +159,7 @@ export type PluginLogPage = z.infer<typeof PluginLogPage>;
 
 /**
  * A summary plus the stored NON-SECRET configuration and the last recorded failure
- * generated from [PluginDetail](file://./../../../../data/contracts/plugins/plugins.types.ck#L69)
+ * generated from [PluginDetail](file://./../../../../data/contracts/plugins/plugins.types.ck#L68)
  */
 export const PluginDetail = PluginSummary.extend({
     config: z.record(z.string(), z.unknown()),

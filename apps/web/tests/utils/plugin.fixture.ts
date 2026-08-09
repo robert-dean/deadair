@@ -6,7 +6,6 @@ export function pluginSummary(overrides: Partial<PluginSummary> = {}): PluginSum
         id: 'deadair.spotify',
         name: 'Spotify',
         version: '0.0.1',
-        kind: 'music-provider',
         capabilities: ['catalog', 'oauth'],
         status: 'active',
         enabled: true,

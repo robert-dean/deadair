@@ -8,7 +8,6 @@ const validManifest = (): PluginManifest => ({
     id: 'deadair.spotify',
     name: 'Spotify',
     version: '1.0.0',
-    kind: 'music-provider',
     capabilities: ['catalog', 'stream', 'steer'],
     apiVersion: '^1.0.0',
     permissions: {

@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 describe('PluginsPage', () => {
-    it('renders a card per plugin with its id, kind and status', async () => {
+    it('renders a card per plugin with its id, version and status', async () => {
         listPlugins.mockResolvedValue([pluginSummary(), pluginSummary({ id: 'deadair.navidrome', name: 'Navidrome', status: 'misconfigured', enabled: false })]);
 
         render(<PluginsPage />);

@@ -20,9 +20,9 @@ stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends
 ```
 
 Current `apps/api` modules: `data`, `crypto`, `authentication`, `permissions`, `policy`, `jobs`,
-`catalog`, `onboarding`, `settings`, `stream`, `plugins`, `playlists`, `playout`, `enrichment`, plus
-process-level `logging`. That list is the source of truth; check it before assuming a subsystem
-exists.
+`art`, `catalog`, `onboarding`, `settings`, `stream`, `plugins`, `playlists`, `render`, `playout`,
+`nowplaying`, `director`, `enrichment`, plus process-level `logging`. `src/modules/modules.ts` is the
+source of truth, in that order; check it before assuming a subsystem exists.
 
 ## Where the real documentation is
 
@@ -68,7 +68,7 @@ session and answer 401 instead of letting it through as a user who holds no perm
 
 **`host.fetch` returns a real `Response`, and it is the only egress.** `response.body` is how bytes stream; there is no second path and the old `host.streams` protocol is gone. `timeoutMs` bounds getting the response (connect, headers, the whole redirect chain) and stops there, because a large body legitimately outlives the call that fetched it: reading it is bounded separately by `PLUGIN_BODY_IDLE_TIMEOUT_MS`, `PLUGIN_BODY_LIFETIME_MS` and `PLUGIN_RESPONSE_MAX_BYTES`, enforced by one guard wrapping every body. `url` and `redirected` are set by the host, because redirects are followed by hand to re-check the allowlist per hop and a constructed `Response` has neither. `jsonBody` / `tryJsonBody` are `async` free functions that keep the response the platform's own. A body nobody will read should be `cancel()`ed; `PluginHostFactory.cancelOpenBodies` is the backstop on dispose, not the plan.
 
-**`host.fetch` policy is per upstream, and its budget is the live one.** `permissions.network` entries are bare hostnames, or objects carrying `ratePerSecond` and a shared `bucket` (a published limit usually covers a service, not a hostname), or `{ fromConfig: 'baseUrl' }` for an address the operator supplies. The fetch budget is capped by whatever the *current invocation* has left, published by `PluginInvoker` through `plugin.invocation.deadline.ts` and readable by plugins as `host.remainingMs()` (sync) or watched as `host.signal`, not by the `PLUGIN_INVOKE_TIMEOUT_MS` constant. `host.signal` is the invoker's own `AbortController` signal rather than a copy, so honouring it and being abandoned are the same moment. Everything the host throws at plugin code is a `PluginError`, never a `ServerkitError`: the invoker's `toPluginError` flattens anything else to `internal`, and the status the host chose never reaches the client.
+**`host.fetch` policy is per upstream, and its budget is the live one.** `permissions.network` entries are bare hostnames, or objects carrying `ratePerSecond` and a shared `bucket` (a published limit usually covers a service, not a hostname), or `{ fromConfig: 'baseUrl' }` for an address the operator supplies. The fetch budget is capped by whatever the _current invocation_ has left, published by `PluginInvoker` through `plugin.invocation.deadline.ts` and readable by plugins as `host.remainingMs()` (sync) or watched as `host.signal`, not by the `PLUGIN_INVOKE_TIMEOUT_MS` constant. `host.signal` is the invoker's own `AbortController` signal rather than a copy, so honouring it and being abandoned are the same moment. Everything the host throws at plugin code is a `PluginError`, never a `ServerkitError`: the invoker's `toPluginError` flattens anything else to `internal`, and the status the host chose never reaches the client.
 
 **A plugin extends `Plugin` and registers its own teardown.** `packages/plugin-sdk/src/plugin.base.ts`: `this.host` is a getter that throws a sentence naming the plugin rather than a `TypeError`, and `register(disposer)` puts an undo beside its setup, run last-registered-first on unload even when one throws. This matters more in-process, not less, because a timer a plugin forgets lives in the API server until a restart and an operator reloads plugins on every config change. Extending it is optional; the host only ever asks for `PluginLifecycle`. Note `host` being a getter costs TypeScript's narrowing of other properties across a read of it.
 
@@ -84,11 +84,31 @@ session and answer 401 instead of letting it through as a user who holds no perm
 output to the app logger plus a per-plugin rotating file with its own verbosity gate. Malformed
 `LOG_MAX_*` values fail loudly at boot by design.
 
-**Config is dotenv-resolved at boot.** `setup.server.ts` builds a single `AppConfig` snapshot from
-`AppConfigSourceDotenv` + `AppConfigResolverEnv`, then `scrubProcessEnv()` removes secrets from
-`process.env`. Module setups read the snapshot, never `process.env`. The DB-backed settings layer,
-the live `AppConfigStore` reload and `radio.env` materialization are planned, not built: today
-`deadair.settings` has only a repository.
+**`deadair.settings` is a layer of `AppConfig`, so reading a setting needs no scope.** `setup.server.ts`
+builds a boot snapshot (dotenv only, for the log store and the database credentials), then an
+`AppConfigStore` over that same dotenv layer plus `AppConfigSourcePostgres` pointed at
+`deadair.settings`, and hands the container `store.toLiveConfig()` — a live view whose every read
+resolves against the current snapshot. So `config.get('playout.airMode')` works from a singleton
+with no DI scope, which is what `AudienceWatch` and the playout transport are. Keys stay flat and
+dotted; nothing collides with dotenv's SCREAMING_SNAKE. `scrubProcessEnv()` runs after both builds,
+which is why the settings source is handed **resolved literal** credentials rather than `${env:…}`
+templates: it would otherwise connect once and fail every reload after that, silently, because a
+failed rebuild keeps the last-good config.
+
+The store holds a `LISTEN` on `deadair_settings_changed` (migration 0003's trigger), so a row edited
+by psql applies live. **A write made inside a request cannot be read back through the config in that
+same request** — Postgres holds notifications until COMMIT — so `SettingsService.set`/`write` defer
+`store.reload()` through `AfterCommit`, and a route that must answer with what it wrote builds that
+answer from the write rather than re-reading. Writing a setting anywhere else has to do the same or
+the operator's change will not take.
+
+**Settings are declared in `settings.registry.ts`** as the plugin SDK's `ConfigField`, which is what
+lets one console component render both a plugin's settings and the station's. `GET`/`PUT /settings`
+are the operator surface; a `secret` is reported as a configured-boolean and never as a value. The
+registry is not where a setting is READ — each module keeps its typed resolver (`resolveStreamSettings`,
+`parseAirMode`, `stationRules`) and shares the registry's defaults so the two cannot disagree. A row
+nobody declared is left alone rather than deleted. Still constants, deliberately: the four mixer
+knobs, because the real work there is a Liquidsoap restart (`docs/todo/mixer-settings-in-db.md`).
 
 **Nothing watches `plugin_configs`.** A plugin's configuration changes only through
 `PluginsService`, and every route there that writes one reinitializes the plugin itself. There is no

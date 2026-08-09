@@ -40,9 +40,10 @@ target is a station the operator leaves on all day in place of a streaming servi
 ranks these files differently from how they read. Selection is already good enough for it and needs
 no pass. What is left, in order:
 
-1. **The deterministic break writer**, and `BreakPlanner` planting `planned` segments rather than
-   only choosing ready idents. It is the difference between a playlist and a station, and it needs
-   no model. Cue visibility rides with it. See [dj-voice.md](dj-voice.md).
+1. ~~**The deterministic break writer**, and `BreakPlanner` planting `planned` segments rather than
+   only choosing ready idents.~~ **Built 2026-08-09**, alternating with recorded idents. Cue
+   visibility did NOT ride with it, because breaks are planted between records rather than over them;
+   see [dj-voice.md](dj-voice.md) for what shipped and what that leaves.
 2. **[Crossfades](crossfades.md)**, once breaks are landing reliably, because the cross buffer moves
    the clock those breaks are timed against.
 3. **A model as the writer's second binding**, with the deterministic one kept underneath as the

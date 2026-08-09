@@ -221,6 +221,38 @@ The model moving behind crossfades is deliberate and is not a demotion. A slow r
 to a correct back-announce is the entire design, and whether that path works cannot be judged until
 the floor exists and has been heard.
 
+### The deterministic writer is BUILT
+
+**Built 2026-08-09.** Four things differ from what is described above, and the last one changes the
+order.
+
+- **The seam is `BreakWriter` + `BreakWriterRegistry`, keyed by `segments.kind`**, exactly as
+  correction 1 asked. `TalkBreakWriter` is the one binding. It picks from a handful of phrasings and
+  recognises a past one by the words it opens with, which needs nothing written down anywhere. Titles
+  are read rather than filed: a remaster year spoken aloud every fourth record was the most audible
+  tell available.
+- **A written break is planted EMPTY.** `BreakPlanner` puts down a `planned` row and its place in the
+  order synchronously, and `WriteBreakJob` fills in the words behind it. That split is what preserves
+  the planner's idempotency, since the segment is in the order before the next commit pass walks it.
+  The job re-reads the running order rather than trusting a payload, because an operator can move a
+  line between planting and writing.
+- **Written breaks alternate with recorded idents**, carried on from the kind of the last segment
+  already in the order. Preferring talk breaks made the DJ the only voice on the station and retired
+  every ident the operator had dropped in.
+- **Cue visibility did NOT ride along, because breaks are planted between records rather than over
+  them.** `LineupSegmentItem.over` is untouched and still only reached by hand. The `missed` state
+  stays invisible and stays worth fixing, and it becomes load-bearing the moment a break talks over
+  an intro — which wants an `atMs` nothing can currently supply, since nothing knows where a record's
+  vocal starts. What DID land is the reason for a break that never happened, on the lineup row where
+  an operator is already looking.
+
+Transitions are recorded as facts, per correction 4: `deadair.segment_events`, plus a `writer` column
+saying what decided the words. The activity feed is now a transport over rows that exist.
+
+**What is left, in order:** listen for a week → [crossfades](crossfades.md) → the model as writer two
+→ the activity feed. And separately, [listening-loop.md](listening-loop.md), which is what makes any
+of it audible away from the desk.
+
 ## Piece two: something decides what to say
 
 **Deterministic first, and not as a stepping stone.** A back-announce and an intro can be built from

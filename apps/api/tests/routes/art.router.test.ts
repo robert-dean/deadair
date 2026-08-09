@@ -21,6 +21,14 @@ import { conditionalGetMiddleware } from '../../src/server/middleware/conditiona
 const ID = '11111111-1111-4111-8111-111111111111';
 const BYTES = Buffer.from('cover art');
 
+/**
+ * The address the test server binds. See the note in `render.router.test.ts`: `listen(0)` binds
+ * the wildcard, whose ephemeral port is chosen without regard to what is already bound to
+ * `127.0.0.1` alone, and a request to the loopback address then reaches the other listener rather
+ * than this server.
+ */
+const LOOPBACK = '127.0.0.1';
+
 let root: string;
 let store: ArtStore;
 let server: Server | undefined;
@@ -63,10 +71,10 @@ const serve = async (repository: Partial<ArtRepository>): Promise<string> => {
     app.use(conditionalGetMiddleware() as unknown as Koa.Middleware);
     app.use(ArtRouter.routes() as unknown as Koa.Middleware);
 
-    server = app.listen(0);
+    server = app.listen(0, LOOPBACK);
     await new Promise<void>(resolve => server!.once('listening', () => resolve()));
 
-    return `http://127.0.0.1:${(server!.address() as AddressInfo).port}`;
+    return `http://${LOOPBACK}:${(server!.address() as AddressInfo).port}`;
 };
 
 describe('GET /art/:id', () => {

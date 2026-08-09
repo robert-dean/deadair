@@ -27,6 +27,21 @@ import { conditionalGetMiddleware } from '../../src/server/middleware/conditiona
 const ID = '11111111-1111-4111-8111-111111111111';
 const BYTES = Buffer.from('a station ident');
 
+/**
+ * The address the test server binds, and it has to be this one rather than the wildcard.
+ *
+ * `listen(0)` binds `::` dual-stack, and the port the kernel picks for a wildcard bind is only
+ * checked against other wildcard binds: a port already held by something listening on
+ * `127.0.0.1` specifically is free as far as that allocation is concerned, and both sockets then
+ * exist at once. Connecting to `127.0.0.1:<port>` afterwards reaches the more specific bind, so
+ * the request is answered by whatever else is running on this machine and the assertion fails on
+ * a status the route never returned. Binding the loopback address explicitly makes the collision
+ * an `EADDRINUSE` the kernel refuses instead of a port two listeners quietly share, which is the
+ * difference between a test that cannot be reached by anyone else's traffic and one that is
+ * flaky once per sweep of the ephemeral range.
+ */
+const LOOPBACK = '127.0.0.1';
+
 let root: string;
 let store: SegmentStore;
 let server: Server | undefined;
@@ -70,10 +85,10 @@ const serve = async (segment: Segment | undefined): Promise<string> => {
     app.use(conditionalGetMiddleware() as unknown as Koa.Middleware);
     app.use(RenderRouter.routes() as unknown as Koa.Middleware);
 
-    server = app.listen(0);
+    server = app.listen(0, LOOPBACK);
     await new Promise<void>(resolve => server!.once('listening', () => resolve()));
 
-    return `http://127.0.0.1:${(server!.address() as AddressInfo).port}`;
+    return `http://${LOOPBACK}:${(server!.address() as AddressInfo).port}`;
 };
 
 const ready = (checksum: string, ext: SegmentExtension): Segment => ({

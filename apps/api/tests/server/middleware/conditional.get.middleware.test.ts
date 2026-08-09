@@ -11,6 +11,14 @@ import { conditionalGetMiddleware } from '../../../src/server/middleware/conditi
 
 const ETAG = '"cafebabe"';
 
+/**
+ * The address the test server binds. See the note in `render.router.test.ts`: `listen(0)` binds
+ * the wildcard, whose ephemeral port is chosen without regard to what is already bound to
+ * `127.0.0.1` alone, and a request to the loopback address then reaches the other listener rather
+ * than this server.
+ */
+const LOOPBACK = '127.0.0.1';
+
 let server: Server | undefined;
 
 /**
@@ -43,10 +51,10 @@ const serve = async (handler: (ctx: Koa.Context) => void): Promise<string> => {
     app.use(conditionalGetMiddleware() as unknown as Koa.Middleware);
     app.use(async ctx => handler(ctx));
 
-    server = app.listen(0);
+    server = app.listen(0, LOOPBACK);
     await new Promise<void>(resolve => server!.once('listening', () => resolve()));
 
-    return `http://127.0.0.1:${(server!.address() as AddressInfo).port}`;
+    return `http://${LOOPBACK}:${(server!.address() as AddressInfo).port}`;
 };
 
 const withEtag = (ctx: Koa.Context): void => {

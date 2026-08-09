@@ -4,7 +4,7 @@ import type { ConfigFieldDescriptor } from '../../plugins/types/plugins.types.js
  * Which section of the settings page a setting belongs in
  * generated from [SettingGroup](file://./../../../../../apps/api/data/contracts/settings/settings.types.ck#L7)
  */
-export type SettingGroup = 'station' | 'playout' | 'render';
+export type SettingGroup = 'station' | 'rotation' | 'playout' | 'render';
 
 /**
  * A submitted settings form. Partial: a key that is present is written, a key that is absent is left

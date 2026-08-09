@@ -1,3 +1,4 @@
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { LineupMode, LineupRules } from './lineup.js';
 
 /**
@@ -31,12 +32,17 @@ export interface ResolvedRules {
 }
 
 /**
- * The station's defaults, until they become operator settings.
+ * What a station is programmed like before anybody has said otherwise.
  *
  * Three days is long enough that a listener over an afternoon never hears a
  * repeat and short enough that a modest library does not starve. Forty minutes
  * of artist cooldown is roughly the length of a listening session, which is the
  * span over which hearing the same act twice is noticeable.
+ *
+ * These are now the fallback rather than the answer: an operator sets their own
+ * in `rotation.*` (see the settings registry), and {@link resolveRules} takes
+ * those as its baseline. This is what a station with none of them stored gets,
+ * and what every table test here is written against.
  */
 export const DEFAULT_RULES: ResolvedRules = {
     repeatWindowDays: 3,
@@ -49,6 +55,51 @@ export const DEFAULT_RULES: ResolvedRules = {
     // playlist. Erring long: a break every other record is a novelty that wears out in an afternoon.
     breakEveryItems: 4,
 };
+
+/**
+ * The `deadair.settings` keys holding the station's own rules.
+ *
+ * Dot-keyed like every other setting, and named for what they are rather than
+ * for the module that reads them: an operator changing how often the station
+ * says its own name is not thinking about the director.
+ */
+export const ROTATION_KEYS = {
+    repeatWindowDays: 'rotation.repeatWindowDays',
+    artistCooldownMinutes: 'rotation.artistCooldownMinutes',
+    maxPerArtist: 'rotation.maxPerArtist',
+    autoExtend: 'rotation.autoExtend',
+    breaks: 'rotation.breaks',
+    breakEveryItems: 'rotation.breakEveryItems',
+} as const;
+
+/**
+ * The station's rules as the operator has them set, falling back per field.
+ *
+ * Per field rather than all-or-nothing: an operator who has only ever changed
+ * `breakEveryItems` keeps the reasoning behind every other default rather than
+ * getting zeroes for the ones they never touched.
+ *
+ * A stored value that is not a number is ignored rather than propagated. These
+ * reach SQL as a window and a cooldown, and a `NaN` there quietly matches
+ * nothing — which sounds exactly like a station whose library is too small.
+ */
+export function stationRules(config: AppConfig): ResolvedRules {
+    const number = (key: string, fallback: number): number => {
+        if (!config.has(key)) return fallback;
+        const parsed = Number(config.get(key, ''));
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+    };
+    const boolean = (key: string, fallback: boolean): boolean => (config.has(key) ? config.get(key, '') !== 'false' : fallback);
+
+    return {
+        repeatWindowDays: number(ROTATION_KEYS.repeatWindowDays, DEFAULT_RULES.repeatWindowDays),
+        artistCooldownMinutes: number(ROTATION_KEYS.artistCooldownMinutes, DEFAULT_RULES.artistCooldownMinutes),
+        maxPerArtist: number(ROTATION_KEYS.maxPerArtist, DEFAULT_RULES.maxPerArtist),
+        autoExtend: boolean(ROTATION_KEYS.autoExtend, DEFAULT_RULES.autoExtend),
+        breaks: boolean(ROTATION_KEYS.breaks, DEFAULT_RULES.breaks),
+        breakEveryItems: number(ROTATION_KEYS.breakEveryItems, DEFAULT_RULES.breakEveryItems),
+    };
+}
 
 /** Every rule off. What a lineup that is not a rotation resolves to. */
 const NO_RULES: ResolvedRules = {
@@ -79,9 +130,17 @@ const NO_RULES: ResolvedRules = {
  * The overrides still apply on top, so an operator who wants a cooldown inside a
  * long setlist can have one. That is why this is a baseline rather than a
  * hard-coded branch in the reactor.
+ *
+ * `station` is what the operator has set for the station as a whole, and it
+ * arrives as an argument rather than being read here so that this stays pure and
+ * stays table-tested. It applies to a `rotation` only: a setlist and a feature
+ * start from everything off by definition, and a station-wide cooldown leaking
+ * into them would undo the very thing those modes exist for.
+ *
+ * Precedence, tightest last: station defaults, then the lineup's own overrides.
  */
-export const resolveRules = (mode: LineupMode, overrides?: LineupRules): ResolvedRules => {
-    const base = mode === 'rotation' ? DEFAULT_RULES : NO_RULES;
+export const resolveRules = (mode: LineupMode, overrides?: LineupRules, station: ResolvedRules = DEFAULT_RULES): ResolvedRules => {
+    const base = mode === 'rotation' ? station : NO_RULES;
     return {
         repeatWindowDays: overrides?.repeatWindowDays ?? base.repeatWindowDays,
         artistCooldownMinutes: overrides?.artistCooldownMinutes ?? base.artistCooldownMinutes,

@@ -16,6 +16,7 @@ import { LineupRepository } from '../../../src/modules/director/lineup.repositor
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { StationAirRepository, type StationAir } from '../../../src/modules/director/station.air.repository.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+import { ROTATION_KEYS } from '../../../src/modules/director/rotation.rules.js';
 import { AIR_MODE_KEY, type AirMode } from '../../../src/modules/playout/air.mode.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
@@ -642,6 +643,36 @@ describe('DirectorService planting breaks', () => {
         // order the player is already holding.
         const planted = lineup.all().flatMap((item, index) => (item.kind === 'segment' ? [index] : []));
         expect(planted.every(index => index >= lineup.cursor())).toBe(true);
+    });
+
+    it('plants at the spacing the operator set, not at the built-in default', async () => {
+        // The whole point of the rules becoming settings: this is the first one an operator can
+        // change and hear the difference, with no redeploy and no restart.
+        const { director, lineup, station, seed } = build({ items: Array.from({ length: 20 }, (_, index) => `t${index}`) });
+        station.set(ROTATION_KEYS.breakEveryItems, '2');
+        await seed();
+
+        await director.start();
+        await settle();
+
+        const spacing = lineup
+            .all()
+            .flatMap((item, index) => (item.kind === 'segment' ? [index] : []))
+            .slice(0, 2);
+        // Two records between breaks rather than the default four, so the first two planted slots
+        // are three apart rather than five.
+        expect(spacing[1]! - spacing[0]!).toBe(3);
+    });
+
+    it('plants nothing when the operator has turned breaks off', async () => {
+        const { director, lineup, station, seed } = build({ items: Array.from({ length: 20 }, (_, index) => `t${index}`) });
+        station.set(ROTATION_KEYS.breaks, 'false');
+        await seed();
+
+        await director.start();
+        await settle();
+
+        expect(lineup.all().some(item => item.kind === 'segment')).toBe(false);
     });
 
     // A break is the one thing in a commit pass the broadcast does not depend on: the records

@@ -4,6 +4,7 @@
 // thing is dodged by every track with a guest artist on it. So these are tested
 // against the cases that produce those silences, not just the happy path.
 
+import { settingsConfig } from '../../utils/settings.config.js';
 import { describe, expect, it } from 'vitest';
 
 import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
@@ -13,6 +14,8 @@ import {
     filterByHistory,
     rejectDisliked,
     resolveRules,
+    stationRules,
+    ROTATION_KEYS,
     spaceArtists,
     weightOf,
     type RotationCandidate,
@@ -100,6 +103,67 @@ describe('resolveRules', () => {
 
     it('lets a rotation turn auto-extend off', () => {
         expect(resolveRules('rotation', { autoExtend: false }).autoExtend).toBe(false);
+    });
+
+    it('takes the station settings as a rotation baseline, under the lineup', () => {
+        // Precedence, tightest last. An operator sets the station's own rules once; a lineup that
+        // wants something different still says so for itself.
+        const station = { ...DEFAULT_RULES, breakEveryItems: 2, repeatWindowDays: 7 };
+
+        const rules = resolveRules('rotation', { repeatWindowDays: 1 }, station);
+
+        expect(rules.breakEveryItems).toBe(2);
+        expect(rules.repeatWindowDays).toBe(1);
+    });
+
+    it('keeps the station settings out of a setlist and a feature', () => {
+        // A station-wide cooldown leaking into these would undo the thing they exist for, which is
+        // why the mode is read before the station rules rather than after them.
+        const station = { ...DEFAULT_RULES, artistCooldownMinutes: 90, breaks: true };
+
+        expect(resolveRules('setlist', undefined, station).artistCooldownMinutes).toBe(0);
+        expect(resolveRules('feature', undefined, station).breaks).toBe(false);
+    });
+});
+
+describe('stationRules', () => {
+    it('is the defaults for a station that has set none of them', () => {
+        expect(stationRules(settingsConfig().config)).toEqual(DEFAULT_RULES);
+    });
+
+    it('takes only the fields an operator has actually set', () => {
+        // Per field, not all-or-nothing: somebody who only ever changed how often the station says
+        // its name keeps the reasoning behind everything else.
+        const { config } = settingsConfig({ [ROTATION_KEYS.breakEveryItems]: '2' });
+
+        expect(stationRules(config)).toEqual({ ...DEFAULT_RULES, breakEveryItems: 2 });
+    });
+
+    it('reads zero as zero rather than as unset', () => {
+        // `0` is how a rule is turned off, so treating a falsy value as absent would make the one
+        // setting an operator most wants impossible to express.
+        const { config } = settingsConfig({ [ROTATION_KEYS.repeatWindowDays]: '0' });
+
+        expect(stationRules(config).repeatWindowDays).toBe(0);
+    });
+
+    it('ignores a stored value that is not a number', () => {
+        // These reach SQL as a window and a cooldown, where a NaN quietly matches nothing — which
+        // sounds exactly like a library too small to fill an afternoon.
+        const { config } = settingsConfig({ [ROTATION_KEYS.artistCooldownMinutes]: 'forty' });
+
+        expect(stationRules(config).artistCooldownMinutes).toBe(DEFAULT_RULES.artistCooldownMinutes);
+    });
+
+    it('ignores a negative window rather than passing it down', () => {
+        const { config } = settingsConfig({ [ROTATION_KEYS.repeatWindowDays]: '-3' });
+
+        expect(stationRules(config).repeatWindowDays).toBe(DEFAULT_RULES.repeatWindowDays);
+    });
+
+    it('reads only the exact string `false` as off', () => {
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.breaks]: 'false' }).config).breaks).toBe(false);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.breaks]: 'true' }).config).breaks).toBe(true);
     });
 });
 

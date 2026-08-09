@@ -12,7 +12,7 @@ import { BreakPlanner } from './break.planner.js';
 import type { Lineup, LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
-import { resolveRules, type ResolvedRules } from './rotation.rules.js';
+import { resolveRules, stationRules, type ResolvedRules } from './rotation.rules.js';
 import { MAIN_SLOT, StationAirRepository, type StationAir } from './station.air.repository.js';
 
 /**
@@ -359,7 +359,7 @@ export class DirectorService {
             const lineup = this.lineup;
             if (!lineup) return;
 
-            const rules = resolveRules(lineup.mode, lineup.rules);
+            const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
 
             // BEFORE committing, so a break planted this pass is in the order before anything is
             // taken from it. The other way round, the tail would be topped up first and the break

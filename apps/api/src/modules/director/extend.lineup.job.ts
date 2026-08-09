@@ -1,6 +1,7 @@
 import { Container, Injectable, ScopedContainer } from 'injectkit';
 import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { overrideJobActor } from '#modules/jobs/job.authorization.js';
 import { BreakPlanner } from './break.planner.js';
 import { DirectorService } from './director.service.js';
@@ -8,7 +9,7 @@ import { isTrackItem, type LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
-import { resolveRules } from './rotation.rules.js';
+import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
 
 /** How many tracks a refill adds when nobody says. Roughly an hour of programming. */
@@ -72,6 +73,7 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         // The reactor, which is a singleton: this job runs in its own scope and still has to reach
         // the one object that is actually airing the lineup it just extended.
         private readonly director: DirectorService,
+        private readonly config: AppConfig,
         private readonly context: JobContext,
         // `Container` resolves to the container doing the resolving, which for a job
         // is the runner's per-execution scope. `ScopedContainer` is a type alias, not
@@ -97,7 +99,7 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
             return;
         }
 
-        const rules = resolveRules(lineup.mode, lineup.rules);
+        const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
         if (!rules.autoExtend) {
             // A setlist or a feature. Nothing generates into those, and a caller that
             // asked is telling us something is wrong upstream rather than asking politely.

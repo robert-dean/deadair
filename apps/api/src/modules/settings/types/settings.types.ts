@@ -5,7 +5,7 @@ import { ConfigFieldDescriptor } from '../../plugins/types/plugins.types.js';
  * Which section of the settings page a setting belongs in
  * generated from [SettingGroup](file://./../../../../data/contracts/settings/settings.types.ck#L7)
  */
-export const SettingGroup = z.enum(['station', 'playout', 'render']);
+export const SettingGroup = z.enum(['station', 'rotation', 'playout', 'render']);
 export type SettingGroup = z.infer<typeof SettingGroup>;
 
 /**

@@ -1,5 +1,6 @@
 import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
+import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 
@@ -39,7 +40,7 @@ export interface SettingDescriptor extends ConfigField {
 }
 
 /** The sections the console draws, in the order it draws them. */
-export const SETTING_GROUPS = ['station', 'playout', 'render'] as const;
+export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render'] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 
@@ -127,6 +128,60 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: STREAM_DEFAULTS.listenerHooks,
         help: 'Keep this on unless Icecast refuses to start: url authentication needs an Icecast built with libcurl. Turning it off costs only the seconds between somebody connecting and the next stats poll.',
+    },
+
+    // ── rotation ───────────────────────────────────────────────────────────────
+    // How the station programmes itself when nothing more specific is asked for.
+    // A lineup may override any of these for itself, and a setlist or a feature
+    // ignores all of them by definition: see `resolveRules`.
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.repeatWindowDays,
+        label: 'Do not repeat a song for (days)',
+        type: 'number',
+        default: DEFAULT_RULES.repeatWindowDays,
+        help: 'Long enough that an afternoon holds no repeats, short enough that a modest library does not run dry. 0 turns it off.',
+    },
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.artistCooldownMinutes,
+        label: 'Do not repeat an artist for (minutes)',
+        type: 'number',
+        default: DEFAULT_RULES.artistCooldownMinutes,
+        help: 'Roughly one listening session, which is the span over which hearing the same act twice is noticeable. 0 turns it off.',
+    },
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.maxPerArtist,
+        label: 'Most tracks by one artist per batch',
+        type: 'number',
+        default: DEFAULT_RULES.maxPerArtist,
+        help: '0 turns the cap off.',
+    },
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.autoExtend,
+        label: 'Keep the running order topped up',
+        type: 'boolean',
+        default: DEFAULT_RULES.autoExtend,
+        help: 'Generate more when a rotation runs short. Turning this off means the station plays what is planned and then stops.',
+    },
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.breaks,
+        label: 'Let the station interrupt itself',
+        type: 'boolean',
+        default: DEFAULT_RULES.breaks,
+        help: 'Whether the station plants its own idents and talk breaks into a rotation.',
+    },
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.breakEveryItems,
+        label: 'Records between breaks',
+        type: 'number',
+        default: DEFAULT_RULES.breakEveryItems,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'Four is about a quarter of an hour, which is around as long as a station can go without saying its own name before it sounds like a playlist. Records are counted, not items, so a second kind of break does not push the next ident back.',
     },
 
     // ── playout ────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import type { JobContext } from '@maroonedsoftware/jobbroker';
 
 import type { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 import { ExtendLineupJob } from '../../../src/modules/director/extend.lineup.job.js';
 import { Lineup, type LineupMode } from '../../../src/modules/director/lineup.js';
 import type { LineupRepository } from '../../../src/modules/director/lineup.repository.js';
@@ -42,7 +43,9 @@ interface Options {
     missing?: boolean;
 }
 
-function build(options: Options = {}) {
+function build(options: Options & { stationRules?: Record<string, string> } = {}) {
+    // The station's own rotation rules, as an operator has them set. Empty means every default.
+    const station = settingsConfig(options.stationRules ?? {});
     const lineup = new Lineup({ id: 'lineup-1', name: 'Afternoons', mode: options.mode ?? 'rotation', onEnd: 'extend', source: 'director' });
 
     const lineups = {
@@ -66,10 +69,11 @@ function build(options: Options = {}) {
     const director = { invalidate: vi.fn() } as unknown as DirectorService;
 
     return {
-        job: new ExtendLineupJob(lineups, generator, resolver, breaks, director, context, container, logger),
+        job: new ExtendLineupJob(lineups, generator, resolver, breaks, director, station.config, context, container, logger),
         director,
         breaks,
         lineup,
+        station,
         seed: async () => (options.existing ? lineup.append(options.existing) : undefined),
         generate,
         resolve,

@@ -61,7 +61,9 @@ describe('the settings registry', () => {
 
     it('does not know about a key nobody declared', () => {
         // Undeclared rows are ordinary — a setting arrives before its console does — and the point
-        // is that this answers `undefined` rather than inventing a descriptor for one.
-        expect(findDescriptor('rotation.breakEveryItems')).toBeUndefined();
+        // is that this answers `undefined` rather than inventing a descriptor for one. The four
+        // mixer knobs are the live example: constants in `stream.service.ts` today, and deferred
+        // in `docs/todo/mixer-settings-in-db.md` until something can restart Liquidsoap.
+        expect(findDescriptor('stream.duckGainDb')).toBeUndefined();
     });
 });

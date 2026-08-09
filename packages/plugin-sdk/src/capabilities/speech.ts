@@ -1,16 +1,18 @@
 /**
- * The `tts` kind. A speech plugin takes a line of text and answers with audio:
- * the station saying its own name, reading a back-announce, or delivering a
- * whole talk break.
+ * The `speech` capability. A speech plugin takes a line of text and answers
+ * with audio: the station saying its own name, reading a back-announce, or
+ * delivering a whole talk break.
  *
  * ## The audio comes back as a stream, not as a value
  *
- * {@link SpeechPluginInstance.speak} returns a handle rather than bytes, and the
- * host pulls the audio through {@link PluginStreamSource}. That is not
- * ceremony: a plugin usually holds an open `host.streams` read on its engine and
- * forwards it, so the audio exists whole in neither process and a long script
- * costs a chunk of memory rather than a file of it. See
- * `docs/decisions/plugin-streaming.md`.
+ * {@link SpeechPluginInstance.speak} returns a stream rather than bytes, and
+ * the usual implementation is to hand back the `host.fetch` body of the engine
+ * call unchanged. So the audio is never held whole anywhere, and a long script
+ * costs a chunk of memory rather than a file of it.
+ *
+ * Cancellation is the host's `cancel()` on that stream, and forwarding a
+ * `host.fetch` body propagates it to the socket for you. There is nothing to
+ * implement.
  *
  * ## A voice is a name the station chose, not one your engine knows
  *
@@ -30,7 +32,6 @@
  */
 
 import type { PluginLifecycle } from '../plugin.lifecycle.js';
-import type { PluginStreamSource, StreamChunk } from '../plugin.streams.js';
 
 /** One thing to say. */
 export interface SpeechRequest {
@@ -59,22 +60,28 @@ export interface SpeechRequest {
     format?: string;
 }
 
-/** Where to collect the audio for one {@link SpeechPluginInstance.speak}. */
+/** The audio for one {@link SpeechPluginInstance.speak}, and what it is. */
 export interface SpeechHandle {
-    /** Pull the audio with {@link PluginStreamSource.readStream}, then close it. */
-    streamId: string;
-
     /**
      * What the bytes ARE, as a media type (`audio/mpeg`).
      *
      * Load-bearing rather than decoration: it is what the host stores the audio
-     * under and what it later serves, and both consumers of station audio — a
+     * under and what it later serves, and both consumers of station audio (a
      * browser's `<audio>`, which does not sniff, and the playout engine, which
-     * picks its decoder from the content type — go by that header rather than by
-     * the bytes. A wav announced as `audio/mpeg` fails as silence rather than as
-     * an error anybody sees.
+     * picks its decoder from the content type) go by that header rather than by
+     * the bytes. A wav announced as `audio/mpeg` fails as silence rather than
+     * as an error anybody sees.
      */
     mime: string;
+
+    /**
+     * The audio.
+     *
+     * The host reads it to the end or cancels it, and either one releases
+     * whatever is underneath. Usually a `host.fetch` body forwarded unchanged,
+     * which is what makes that true for free.
+     */
+    audio: ReadableStream<Uint8Array>;
 }
 
 /** One voice this plugin can be asked for. */
@@ -89,22 +96,14 @@ export interface SpeechVoice {
     description?: string;
 }
 
-/**
- * A plugin that can speak.
- *
- * `speak` starts the work and `readStream`/`closeStream` collect it, which is
- * why this extends {@link PluginStreamSource} rather than declaring its own
- * pair: an LLM capability streaming tokens will want the identical two methods,
- * and one stream table per plugin is easier to reason about (and to close on
- * dispose) than one per capability.
- */
-export interface SpeechPluginInstance extends PluginLifecycle, PluginStreamSource {
+/** A plugin that can speak. */
+export interface SpeechPluginInstance extends PluginLifecycle {
     /**
      * Start turning `request.text` into audio.
      *
-     * May return before any audio exists — the handle is a promise of bytes, not
-     * the bytes — so a slow engine shows up as a slow first
-     * {@link PluginStreamSource.readStream} rather than a slow `speak`.
+     * May return before any audio exists, because the handle carries a stream
+     * and not the bytes, so a slow engine shows up as a slow first chunk rather
+     * than as a slow `speak`.
      *
      * @throws {PluginError} `config` when the plugin is not set up enough to try
      *   (no server address), `upstream` when the engine refused or answered with
@@ -121,6 +120,3 @@ export interface SpeechPluginInstance extends PluginLifecycle, PluginStreamSourc
      */
     listVoices?(): Promise<SpeechVoice[]>;
 }
-
-/** Re-exported so a speech plugin can type its own chunks without a second import. */
-export type { StreamChunk };

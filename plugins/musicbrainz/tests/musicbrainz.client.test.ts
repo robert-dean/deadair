@@ -35,7 +35,7 @@ describe('MusicBrainzClient', () => {
     });
 
     it('reports a 404 as not_found, which a caller can treat as a miss', async () => {
-        host.queueResponse({ status: 404, ok: false, statusText: 'Not Found', body: '{"error":"Not Found"}' });
+        host.queueResponse({ status: 404, statusText: 'Not Found', body: '{"error":"Not Found"}' });
 
         const error = await client.get('isrc/nope').catch((thrown: unknown) => thrown);
         expect(error).toBeInstanceOf(MusicBrainzRequestError);
@@ -43,7 +43,7 @@ describe('MusicBrainzClient', () => {
     });
 
     it('quotes the upstream explanation, which is the useful half of a 400', async () => {
-        host.queueResponse({ status: 400, ok: false, statusText: 'Bad Request', body: '{"error":"invalid inc parameter"}' });
+        host.queueResponse({ status: 400, statusText: 'Bad Request', body: '{"error":"invalid inc parameter"}' });
 
         const error = (await client.get('recording').catch((thrown: unknown) => thrown)) as MusicBrainzRequestError;
         expect(error.message).toContain('invalid inc parameter');
@@ -51,18 +51,18 @@ describe('MusicBrainzClient', () => {
     });
 
     it('tells a throttling 503 from a broken one by its Retry-After', async () => {
-        host.queueResponse({ status: 503, ok: false, headers: { 'retry-after': '3' }, body: '' });
+        host.queueResponse({ status: 503, headers: { 'retry-after': '3' }, body: '' });
         const throttled = (await client.get('recording').catch((thrown: unknown) => thrown)) as MusicBrainzRequestError;
         expect(throttled).toMatchObject({ code: 'rate_limited', retryable: true, retryAfterMs: 3000 });
 
-        host.queueResponse({ status: 503, ok: false, body: '' });
+        host.queueResponse({ status: 503, body: '' });
         const down = (await client.get('recording').catch((thrown: unknown) => thrown)) as MusicBrainzRequestError;
         expect(down).toMatchObject({ code: 'unavailable', retryable: true });
         expect(down.retryAfterMs).toBeUndefined();
     });
 
     it('survives a non-JSON error body', async () => {
-        host.queueResponse({ status: 502, ok: false, statusText: 'Bad Gateway', body: '<html>nginx</html>' });
+        host.queueResponse({ status: 502, statusText: 'Bad Gateway', body: '<html>nginx</html>' });
 
         const error = (await client.get('recording').catch((thrown: unknown) => thrown)) as MusicBrainzRequestError;
         expect(error.message).toBe('MusicBrainz request failed: HTTP 502 Bad Gateway');

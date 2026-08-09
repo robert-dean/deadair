@@ -98,7 +98,7 @@ describe('SubsonicClient.get', () => {
 
     it('maps an HTTP failure by its status', async () => {
         const { host, client } = build();
-        host.queueResponse({ status: 502, statusText: 'Bad Gateway', ok: false, body: '' });
+        host.queueResponse({ status: 502, statusText: 'Bad Gateway', body: '' });
 
         await expect(client.get('ping.view')).rejects.toMatchObject({ code: 'unavailable', upstreamStatus: 502 });
     });

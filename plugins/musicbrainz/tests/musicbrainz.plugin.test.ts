@@ -93,7 +93,7 @@ describe('testConnection', () => {
 
     it('looks up a known artist and reports the status when that fails', async () => {
         await initialize();
-        host.queueResponse({ status: 503, ok: false, body: '' });
+        host.queueResponse({ status: 503, body: '' });
         await expect(plugin.testConnection()).resolves.toEqual({ ok: false, message: 'MusicBrainz replied HTTP 503.' });
     });
 
@@ -143,7 +143,7 @@ describe('enrichTrack', () => {
 
     it('falls back to the search when the ISRC is one MusicBrainz has never seen', async () => {
         await initialize();
-        host.queueResponse({ status: 404, ok: false, body: '{"error":"Not Found"}' });
+        host.queueResponse({ status: 404, body: '{"error":"Not Found"}' });
         host.queueResponse({ body: JSON.stringify(searchResult) });
         host.queueResponse({ body: JSON.stringify(recordingDetail) });
 
@@ -166,7 +166,7 @@ describe('enrichTrack', () => {
 
     it('falls back to the search when MusicBrainz refuses the code outright', async () => {
         await initialize();
-        host.queueResponse({ status: 400, ok: false, body: '{"error":"Invalid isrc."}' });
+        host.queueResponse({ status: 400, body: '{"error":"Invalid isrc."}' });
         host.queueResponse({ body: JSON.stringify(searchResult) });
         host.queueResponse({ body: JSON.stringify(recordingDetail) });
 
@@ -197,7 +197,7 @@ describe('enrichTrack', () => {
     it('keeps a confident match when the detail lookup fails', async () => {
         await initialize();
         host.queueResponse({ body: JSON.stringify(searchResult) });
-        host.queueResponse({ status: 503, ok: false, body: '' });
+        host.queueResponse({ status: 503, body: '' });
 
         const enrichment = await plugin.enrichTrack(ref);
 
@@ -207,7 +207,7 @@ describe('enrichTrack', () => {
 
     it('lets a broken search reach the host rather than swallowing it as a miss', async () => {
         await initialize();
-        host.queueResponse({ status: 500, ok: false, body: '' });
+        host.queueResponse({ status: 500, body: '' });
 
         await expect(plugin.enrichTrack(ref)).rejects.toMatchObject({ code: 'unavailable' });
     });

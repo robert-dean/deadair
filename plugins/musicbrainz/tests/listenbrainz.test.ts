@@ -231,7 +231,7 @@ describe('enrichTracks through ListenBrainz', () => {
     it('falls back to the web service when ListenBrainz refuses the token', async () => {
         await initialize();
         host.setFetchImpl(async (url: string) => {
-            if (url.includes('listenbrainz')) return fakeHostFetchResponse({ status: 401, statusText: 'Unauthorized', ok: false, body: '' });
+            if (url.includes('listenbrainz')) return fakeHostFetchResponse({ status: 401, statusText: 'Unauthorized', body: '' });
             if (/recording\?/.test(url)) {
                 return json({ recordings: [{ id: 'rec-gb', score: 100, title: 'Glory Box', 'artist-credit': [{ name: 'Portishead' }] }] });
             }
@@ -248,7 +248,7 @@ describe('enrichTracks through ListenBrainz', () => {
         await initialize();
         host.setFetchImpl(async (url: string) => {
             if (url.includes('metadata/lookup')) return json(lookupResults);
-            if (url.includes('metadata/recording')) return fakeHostFetchResponse({ status: 503, statusText: 'Unavailable', ok: false, body: '' });
+            if (url.includes('metadata/recording')) return fakeHostFetchResponse({ status: 503, statusText: 'Unavailable', body: '' });
             throw new Error(`unrouted: ${url}`);
         });
 
@@ -279,7 +279,7 @@ describe('testConnection', () => {
     it('still connects, and says so, when the token is refused', async () => {
         await initialize();
         host.setFetchImpl(async (url: string) => {
-            if (url.includes('listenbrainz')) return fakeHostFetchResponse({ status: 401, statusText: 'Unauthorized', ok: false, body: '' });
+            if (url.includes('listenbrainz')) return fakeHostFetchResponse({ status: 401, statusText: 'Unauthorized', body: '' });
             return json({ id: 'x', name: 'Pink Floyd' });
         });
 

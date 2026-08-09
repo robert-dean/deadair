@@ -305,7 +305,7 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
             throw new PluginError(`Spotify token request failed (HTTP ${response.status})`).withCode(code).withUpstreamStatus(response.status);
         }
 
-        const payload = tryJsonBody<SpotifyTokenResponse>(response);
+        const payload = await tryJsonBody<SpotifyTokenResponse>(response);
         const accessToken = payload?.access_token;
         if (!accessToken) throw new PluginError('Spotify token response carried no access token').withCode('upstream');
 

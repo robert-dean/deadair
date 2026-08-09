@@ -49,7 +49,13 @@ afterEach(() => {
 });
 
 describe('PluginHostFactory boundary conformance', () => {
-    it('flattens a real fetch Response into a JSON-safe HostFetchResponse', async () => {
+    // `host.fetch` is deliberately NOT on the JSON-safe list any more: it hands
+    // back a live `Response`, which is the whole point of
+    // `docs/decisions/plugin-trust.md`. What is still worth asserting is that the
+    // response carries everything the upstream's did, since it is rebuilt rather
+    // than passed through, and that the parts a plugin PARSES out of it are
+    // JSON-safe.
+    it('hands back a Response carrying the upstream status, headers and cookies', async () => {
         const h = harness();
         const manifest = conformanceManifest({ permissions: { network: ['api.example.com'], storage: true, oauth: true } });
         const host = h.factory.createHost(manifest);
@@ -65,17 +71,19 @@ describe('PluginHostFactory boundary conformance', () => {
 
         const result = await host.fetch('https://api.example.com/tracks');
 
-        expect(() => assertCrossesBoundary(result, 'host.fetch result')).not.toThrow();
-        expect(result).toEqual({
-            status: 200,
-            statusText: '',
-            headers: { 'content-type': 'application/json', 'x-request-id': 'req-1' },
-            setCookie: ['a=1', 'b=2'],
-            body: JSON.stringify({ ok: true }),
-            ok: true,
-            url: 'https://api.example.com/tracks',
-            redirected: false,
-        });
+        expect(result.status).toBe(200);
+        expect(result.ok).toBe(true);
+        expect(result.url).toBe('https://api.example.com/tracks');
+        expect(result.redirected).toBe(false);
+        expect(result.headers.get('x-request-id')).toBe('req-1');
+        // The reason `set-cookie` needed its own field on the old flattened
+        // payload: a `Record` keeps one value per name. A real `Headers` does
+        // not have that problem.
+        expect(result.headers.getSetCookie()).toEqual(['a=1', 'b=2']);
+
+        const parsed: unknown = await result.json();
+        expect(() => assertCrossesBoundary(parsed, 'parsed body')).not.toThrow();
+        expect(parsed).toEqual({ ok: true });
     });
 
     it('returns a plain string from oauth.getRedirectUri', async () => {

@@ -3,7 +3,7 @@
 
 import { vi } from 'vitest';
 
-import type { HostFetchInit, HostFetchMethod, HostFetchResponse, PluginHost } from '@deadair/plugin-sdk';
+import type { HostFetchInit, HostFetchMethod, PluginHost } from '@deadair/plugin-sdk';
 
 /** One `host.fetch` call, recorded with only the fields tests care about. */
 export interface RecordedFetchCall {
@@ -15,7 +15,7 @@ export interface RecordedFetchCall {
 
 /**
  * A `PluginHost` for tests. `fetch` replays a queue of scripted
- * `HostFetchResponse`s (FIFO, one per call) — or a custom handler installed
+ * `Response`s (FIFO, one per call) — or a custom handler installed
  * with `setFetchImpl`, for call-count-driven scenarios like a 401-then-200
  * retry — and records every call it received in `calls`. `storage`, `config`,
  * `secrets` and the `oauth` vault are in-memory and can be seeded or read
@@ -28,9 +28,9 @@ export interface FakePluginHost extends PluginHost {
     /** Set what `host.remainingMs()` reports, for testing budget shedding. */
     seedRemainingMs(ms: number): void;
     /** Push one scripted response onto the back of the reply queue. */
-    queueResponse(response: Partial<HostFetchResponse>): void;
+    queueResponse(response: FakeResponseInit): void;
     /** Replace the fetch handler outright; overrides the queue while set. */
-    setFetchImpl(impl: (url: string, init?: HostFetchInit) => Promise<HostFetchResponse>): void;
+    setFetchImpl(impl: (url: string, init?: HostFetchInit) => Promise<Response>): void;
     /** Seed the value `host.config.get()` resolves to. */
     seedConfig(config: Record<string, unknown>): void;
     /** Seed a value `host.secrets.get(key)` resolves to. */
@@ -54,25 +54,45 @@ export interface FakePluginHost extends PluginHost {
  */
 const DEFAULT_REMAINING_MS = 15_000;
 
-/** Builds a default 200 `HostFetchResponse`, overridable field by field. */
-export function fakeHostFetchResponse(overrides: Partial<HostFetchResponse> = {}): HostFetchResponse {
-    return {
-        status: 200,
-        statusText: 'OK',
-        headers: { 'content-type': 'application/json' },
-        setCookie: [],
-        body: '',
-        ok: true,
-        url: 'https://example.test/',
-        redirected: false,
-        ...overrides,
-    };
+/**
+ * What a test says a scripted reply should be.
+ *
+ * Not `ResponseInit`, because `url` is not on it: `host.fetch` reports the last
+ * hop of the redirect chain there, and a `Response` built by hand has an empty
+ * one unless it is defined in.
+ */
+export interface FakeResponseInit {
+    status?: number;
+    statusText?: string;
+    headers?: Record<string, string>;
+    /** Text for a JSON or error reply, bytes for a binary one. */
+    body?: string | Uint8Array;
+    url?: string;
+}
+
+/** Statuses whose `Response` must carry a null body, or the constructor throws. */
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
+/** Builds a default 200 `Response`, overridable field by field. */
+export function fakeHostFetchResponse(init: FakeResponseInit = {}): Response {
+    const status = init.status ?? 200;
+
+    const response = new Response(NULL_BODY_STATUSES.has(status) ? null : (init.body ?? ''), {
+        status,
+        statusText: init.statusText ?? 'OK',
+        headers: init.headers ?? { 'content-type': 'application/json' },
+    });
+
+    // Read-only on a constructed response, and part of what the host promises.
+    Object.defineProperty(response, 'url', { value: init.url ?? 'https://example.test/' });
+
+    return response;
 }
 
 export function createFakePluginHost(): FakePluginHost {
     const calls: RecordedFetchCall[] = [];
-    const queue: HostFetchResponse[] = [];
-    let customImpl: ((url: string, init?: HostFetchInit) => Promise<HostFetchResponse>) | undefined;
+    const queue: Response[] = [];
+    let customImpl: ((url: string, init?: HostFetchInit) => Promise<Response>) | undefined;
 
     const storageData = new Map<string, unknown>();
     let configData: Record<string, unknown> = {};
@@ -80,7 +100,7 @@ export function createFakePluginHost(): FakePluginHost {
     let tokens: Record<string, string> | undefined;
     let remainingMs = DEFAULT_REMAINING_MS;
 
-    const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<HostFetchResponse> => {
+    const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
         calls.push({ url, method: init?.method, headers: init?.headers, body: init?.body });
         if (customImpl) return customImpl(url, init);
         const next = queue.shift();
@@ -91,7 +111,10 @@ export function createFakePluginHost(): FakePluginHost {
     const host: FakePluginHost = {
         logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         fetch: fetchImpl,
-        remainingMs: vi.fn(async () => remainingMs),
+        // Never aborts: these tests are about what a plugin does with a reply,
+        // not about being cancelled half way through one.
+        signal: new AbortController().signal,
+        remainingMs: vi.fn(() => remainingMs),
         storage: {
             get: vi.fn(async (key: string) => storageData.get(key)),
             set: vi.fn(async (key: string, value: unknown) => {
@@ -116,7 +139,7 @@ export function createFakePluginHost(): FakePluginHost {
         seedRemainingMs(ms) {
             remainingMs = ms;
         },
-        queueResponse(response: Partial<HostFetchResponse>) {
+        queueResponse(response: FakeResponseInit) {
             queue.push(fakeHostFetchResponse(response));
         },
         setFetchImpl(impl) {

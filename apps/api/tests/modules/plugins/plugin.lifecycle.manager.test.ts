@@ -44,9 +44,9 @@ function config(overrides: Partial<PluginConfigRecord> = {}): PluginConfigRecord
  * collaborators are inert; the invoker is real enough to pass a `dispose`
  * through, which the disappearance path needs.
  *
- * The host factory stub carries `closeStreamsFor` because disposal calls it for
- * every plugin, whether or not one ever opened a stream: a plugin's streams
- * outlive the invocation that opened them, so this is the only thing that lets
+ * The host factory stub carries `cancelOpenBodies` because disposal calls it for
+ * every plugin, whether or not one ever fetched anything: a response body
+ * outlives the invocation that fetched it, so this is the only thing that lets
  * go of a socket held by an instance being dropped.
  */
 function makeManager(registry: PluginRegistry, discovered: PluginRecord[], configs: PluginConfigRecord[]) {
@@ -56,7 +56,7 @@ function makeManager(registry: PluginRegistry, discovered: PluginRecord[], confi
         invoke: vi.fn(async (_id: string, _operation: string, work: () => Promise<unknown>) => work()),
         reset: vi.fn(),
     } as unknown as PluginInvoker;
-    const pluginHostFactory = { closeStreamsFor: vi.fn() } as unknown as PluginHostFactory;
+    const pluginHostFactory = { cancelOpenBodies: vi.fn() } as unknown as PluginHostFactory;
 
     const manager = new PluginLifecycleManager(
         pluginLoader,

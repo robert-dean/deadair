@@ -1,12 +1,7 @@
 import { z } from 'zod';
 
-import type { HostFetchInit, HostFetchResponse, PluginOAuth, TrackFetchRequest } from '../src/plugin.host.js';
-import type {
-    PlaybackState,
-    ProviderPlaylist,
-    ProviderStream,
-    ProviderTrack,
-} from '../src/capabilities/music.provider.js';
+import type { PluginOAuth, TrackFetchRequest } from '../src/plugin.host.js';
+import type { PlaybackState, ProviderPlaylist, ProviderStream, ProviderTrack } from '../src/capabilities/music.provider.js';
 import type {
     AlbumEnrichment,
     AlbumRef,
@@ -20,8 +15,7 @@ import type {
 import type { PluginConnectionResult } from '../src/plugin.lifecycle.js';
 import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
-import type { HostStreamChunk, HostStreamOpen } from '../src/plugin.streams.js';
-import type { SpeechHandle, SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
+import type { SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -161,64 +155,10 @@ function deepEqual(a: unknown, b: unknown): boolean {
 // plugin.config.fields.ts for the shapes these mirror.
 // ---------------------------------------------------------------------------
 
-export const hostFetchInitFixture: HostFetchInit = {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: 'Bearer token' },
-    body: '{"q":"radiohead"}',
-    timeoutMs: 5000,
-};
-
-export const hostFetchResponseFixture: HostFetchResponse = {
-    status: 200,
-    statusText: 'OK',
-    headers: { 'content-type': 'application/json', 'x-rate-limit-remaining': '9' },
-    setCookie: ['session=abc; Path=/; HttpOnly', 'csrf=def; Path=/'],
-    body: '{"ok":true}',
-    ok: true,
-    url: 'https://api.example.com/v1/tracks',
-    redirected: true,
-};
-
-export const hostStreamOpenFixture: HostStreamOpen = {
-    streamId: '2f6c0d1e-0f6a-4a5f-9a4a-1b2c3d4e5f60',
-    status: 200,
-    headers: { 'content-type': 'audio/mpeg', 'transfer-encoding': 'chunked' },
-    ok: true,
-    url: 'https://tts.example.com/v1/audio/speech',
-};
-
-/**
- * A chunk carrying bytes.
- *
- * `data` is base64 of real bytes rather than a placeholder word, because this
- * fixture is the guard on the one decision the streaming record turns on: a
- * `Uint8Array` here would round-trip under `structuredClone` and fail this, and
- * the deferred isolation target is a subprocess where it would not survive at
- * all.
- */
-export const hostStreamChunkFixture: HostStreamChunk = {
-    streamId: '2f6c0d1e-0f6a-4a5f-9a4a-1b2c3d4e5f60',
-    seq: 0,
-    data: Buffer.from([0xff, 0xfb, 0x90, 0x64, 0x00]).toString('base64'),
-    done: false,
-};
-
-/** The terminal chunk: `done`, and deliberately carrying no `data` at all. */
-export const hostStreamChunkDoneFixture: HostStreamChunk = {
-    streamId: '2f6c0d1e-0f6a-4a5f-9a4a-1b2c3d4e5f60',
-    seq: 12,
-    done: true,
-};
-
 export const speechRequestFixture: SpeechRequest = {
     text: "You're listening to Deadair. That was Boards of Canada.",
     voice: 'host',
     format: 'mp3',
-};
-
-export const speechHandleFixture: SpeechHandle = {
-    streamId: 'b71f5a92-3c44-4f0e-9c1d-7e8f9a0b1c2d',
-    mime: 'audio/mpeg',
 };
 
 export const speechVoiceFixture: SpeechVoice = {

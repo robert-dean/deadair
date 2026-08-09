@@ -138,7 +138,7 @@ export class SubsonicClient {
             throw new SubsonicRequestError(`Navidrome request failed: ${detail}`, { status: response.status });
         }
 
-        const body = jsonBody<SubsonicEnvelope<T>>(response)['subsonic-response'];
+        const body = (await jsonBody<SubsonicEnvelope<T>>(response))['subsonic-response'];
         if (body === undefined) {
             // A 200 that is not an envelope at all: a reverse proxy's login page, or
             // a `baseUrl` pointing at something that is not a Subsonic server.

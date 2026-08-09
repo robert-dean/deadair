@@ -116,12 +116,12 @@ export class MusicBrainzClient {
         });
 
         if (!response.ok) {
-            const retryMs = retryAfterMs(response.headers['retry-after']);
-            const detail = [`HTTP ${response.status}`, response.statusText, upstreamReason(response.body)].filter(part => part).join(' ');
+            const retryMs = retryAfterMs(response.headers.get('retry-after') ?? undefined);
+            const detail = [`HTTP ${response.status}`, response.statusText, upstreamReason(await response.text())].filter(part => part).join(' ');
             throw new MusicBrainzRequestError(response.status, `MusicBrainz request failed: ${detail}`, retryMs);
         }
 
-        return jsonBody<T>(response);
+        return await jsonBody<T>(response);
     }
 
     /** The plugin's identifying header, so a test can assert on it without a live request. */

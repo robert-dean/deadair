@@ -1,7 +1,7 @@
 // The claim under test is that the audio never exists whole in this process: `speak` hands back a
-// handle, the service drains it a chunk at a time, and the chunks go into a store that hashes as it
-// writes. The fake plugin here therefore counts what it was asked for, rather than handing over a
-// buffer and letting the assertions be about its contents alone.
+// stream and the service pipes it into a store that hashes as it writes. The fake plugin therefore
+// hands over a body in pieces and records whether it was cancelled, rather than returning a buffer
+// and letting the assertions be about its contents alone.
 
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -41,38 +41,51 @@ const passthroughInvoker = () =>
 interface FakePluginOptions {
     id?: string;
     mime?: string;
-    /** What each `readStream` hands over, in order. */
+    /** The pieces the audio arrives in, in order. */
     chunks?: Buffer[];
     speakError?: PluginError;
+    /** Thrown from the stream instead of its last chunk, for the broken-engine case. */
+    streamError?: PluginError;
     listVoices?: boolean;
 }
 
 function fakeSpeechPlugin(options: FakePluginOptions = {}) {
     const id = options.id ?? 'deadair.kokoro';
     const chunks = options.chunks ?? [Buffer.from('some audio bytes')];
-    const closed: string[] = [];
-    let cursor = 0;
-    let seq = 0;
+
+    /** How many times the source was asked for more, so a test can tell streaming from buffering. */
+    let pulls = 0;
+    let cancelled = false;
+
+    const audio = (): ReadableStream<Uint8Array> => {
+        let cursor = 0;
+        return new ReadableStream<Uint8Array>({
+            pull(controller) {
+                pulls += 1;
+                if (options.streamError) throw options.streamError;
+                if (cursor >= chunks.length) {
+                    controller.close();
+                    return;
+                }
+                controller.enqueue(new Uint8Array(chunks[cursor++]!));
+            },
+            cancel() {
+                cancelled = true;
+            },
+        });
+    };
 
     const instance = {
         speak: vi.fn(async () => {
             if (options.speakError) throw options.speakError;
-            return { streamId: 'plugin-1', mime: options.mime ?? 'audio/mpeg' };
-        }),
-        readStream: vi.fn(async (streamId: string) => {
-            if (streamId !== 'plugin-1') throw new PluginError('no such stream').withCode('not_found');
-            if (cursor >= chunks.length) return { seq: seq++, done: true };
-            return { seq: seq++, data: chunks[cursor++]!.toString('base64'), done: false };
-        }),
-        closeStream: vi.fn(async (streamId: string) => {
-            closed.push(streamId);
+            return { mime: options.mime ?? 'audio/mpeg', audio: audio() };
         }),
         ...(options.listVoices ? { listVoices: vi.fn(async () => [{ id: 'host', label: 'Station host' }]) } : {}),
     } as unknown as SpeechPluginInstance;
 
     const record = { id, status: 'active', manifest: { capabilities: ['speech'] }, instance } as unknown as PluginRecord;
 
-    return { record, instance, closed };
+    return { record, instance, pulls: () => pulls, wasCancelled: () => cancelled };
 }
 
 function service(records: PluginRecord[], configured?: string) {
@@ -94,7 +107,7 @@ async function rejectionCode(promise: Promise<unknown>): Promise<PluginErrorCode
 }
 
 describe('SpeechService.speak', () => {
-    it('drains the handle and stores the audio under its checksum', async () => {
+    it('reads the stream and stores the audio under its checksum', async () => {
         const plugin = fakeSpeechPlugin({ chunks: [Buffer.from('half one '), Buffer.from('half two')] });
         const spoken = await service([plugin.record]).speak({ text: 'hello' });
 
@@ -108,9 +121,9 @@ describe('SpeechService.speak', () => {
 
         await service([plugin.record]).speak({ text: 'hello' });
 
-        // Three chunks plus the terminal read. This is the difference the byte protocol bought: a
-        // long break is a sequence of buffers here, never a file held whole.
-        expect(plugin.instance.readStream).toHaveBeenCalledTimes(4);
+        // Three chunks plus the pull that finds the end. A long break is a sequence of buffers
+        // here, never a file held whole.
+        expect(plugin.pulls()).toBe(4);
     });
 
     it('passes the station voice through untouched, because only the plugin knows what it means', async () => {
@@ -121,31 +134,41 @@ describe('SpeechService.speak', () => {
         expect(plugin.instance.speak).toHaveBeenCalledWith({ text: 'hello', voice: 'newsreader' });
     });
 
-    it('closes the stream when it finishes normally', async () => {
+    it('needs no cleanup when it finishes normally, because a drained stream is already released', async () => {
         const plugin = fakeSpeechPlugin();
 
         await service([plugin.record]).speak({ text: 'hello' });
 
-        expect(plugin.closed).toEqual(['plugin-1']);
+        // `cancel` on a stream that already ended is a no-op, which is what makes calling it from
+        // a `finally` safe rather than merely tolerable.
+        expect(plugin.wasCancelled()).toBe(false);
     });
 
-    it('closes the stream when draining fails, so a broken render does not hold a socket', async () => {
-        const plugin = fakeSpeechPlugin();
-        plugin.instance.readStream = vi.fn(async () => {
-            throw new PluginError('the engine hung up').withCode('upstream');
-        });
+    it('surfaces the plugin code when the engine hangs up mid-stream', async () => {
+        const plugin = fakeSpeechPlugin({ streamError: new PluginError('the engine hung up').withCode('upstream') });
 
+        // No cancel to assert here: a stream that errors has already released its own source, which
+        // is why the `finally` can call cancel unconditionally without double-releasing anything.
         expect(await rejectionCode(service([plugin.record]).speak({ text: 'hello' }))).toBe('upstream');
-        expect(plugin.closed).toEqual(['plugin-1']);
+    });
+
+    it('cancels the stream when the store write fails, so a broken render does not hold a socket', async () => {
+        const plugin = fakeSpeechPlugin();
+        vi.spyOn(store, 'writeStream').mockRejectedValue(new PluginError('disk full').withCode('internal'));
+
+        expect(await rejectionCode(service([plugin.record]).speak({ text: 'hello' }))).toBe('internal');
+        // The stream is still live and nothing else knows about it: this is the only place that
+        // can let the plugin's socket go.
+        expect(plugin.wasCancelled()).toBe(true);
     });
 
     it('refuses a format the store cannot hold, and lets the stream go', async () => {
         const plugin = fakeSpeechPlugin({ mime: 'audio/aiff' });
 
         expect(await rejectionCode(service([plugin.record]).speak({ text: 'hello' }))).toBe('unsupported');
-        // Complained about after closing, not before: the plugin has a socket open on our behalf
-        // and nothing else will ever ask it to let go.
-        expect(plugin.closed).toEqual(['plugin-1']);
+        // Cancelled before complaining, not after: the plugin has a socket open on our behalf and
+        // nothing else will ever ask it to let go.
+        expect(plugin.wasCancelled()).toBe(true);
     });
 
     it('reads a mime carrying parameters, because a server is entitled to send one', async () => {

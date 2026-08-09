@@ -1,58 +1,69 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isPluginError, type HostFetchInit, type HostStreamChunk, type HostStreamOpen, type PluginError, type PluginHost } from '@deadair/plugin-sdk';
+import { isPluginError, type HostFetchInit, type PluginError, type PluginHost } from '@deadair/plugin-sdk';
 
 import { KokoroPlugin } from '../src/kokoro.plugin.js';
 
 const BASE_URL = 'http://kokoro.test:8880/v1';
 
 /** Enough bytes to clear the "this is not audio" floor. */
-const audioChunk = (size = 4096): string => Buffer.alloc(size, 7).toString('base64');
+const audioChunk = (size = 4096): Uint8Array => new Uint8Array(size).fill(7);
+
+/** A body handed over in pieces, so a test can tell streaming from buffering. */
+const streamOf = (chunks: Uint8Array[]): ReadableStream<Uint8Array> =>
+    new ReadableStream<Uint8Array>({
+        start(controller) {
+            for (const chunk of chunks) controller.enqueue(chunk);
+            controller.close();
+        },
+    });
 
 interface FakeHostOptions {
     config?: Record<string, unknown>;
     apiKey?: string;
-    /** Chunks the opened stream will hand back, in order, before it says done. */
-    chunks?: string[];
-    openStatus?: number;
-    fetchResponse?: Partial<{ ok: boolean; status: number; body: string }>;
+    /** Pieces the speech body arrives in, in order. */
+    chunks?: Uint8Array[];
+    /** Status the `/audio/speech` call answers with. */
+    speakStatus?: number;
+    fetchResponse?: Partial<{ status: number; body: string }>;
 }
 
 function fakeHost(options: FakeHostOptions = {}) {
-    const opened: { url: string; init?: HostFetchInit }[] = [];
-    const closed: string[] = [];
-    const chunks = options.chunks ?? [audioChunk()];
-    let cursor = 0;
-    let seq = 0;
+    const calls: { url: string; init?: HostFetchInit }[] = [];
+    // Every body this fake hands out, so a test can assert the plugin let go of
+    // one it was never going to read.
+    const cancelled: string[] = [];
 
-    const streams = {
-        open: vi.fn(async (url: string, init?: HostFetchInit): Promise<HostStreamOpen> => {
-            opened.push({ url, init });
-            const status = options.openStatus ?? 200;
-            return { streamId: 'host-1', status, headers: {}, ok: status >= 200 && status < 300, url };
-        }),
-        read: vi.fn(async (streamId: string): Promise<HostStreamChunk> => {
-            if (cursor >= chunks.length) return { streamId, seq: seq++, done: true };
-            return { streamId, seq: seq++, data: chunks[cursor++], done: false };
-        }),
-        close: vi.fn(async (streamId: string) => {
-            closed.push(streamId);
-        }),
-    };
+    const fetch = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
+        calls.push({ url, init });
+
+        if (url.endsWith('/audio/speech')) {
+            const status = options.speakStatus ?? 200;
+            const ok = status >= 200 && status < 300;
+            const response = new Response(ok ? streamOf(options.chunks ?? [audioChunk()]) : streamOf([Buffer.from('{"detail":"nope"}')]), {
+                status,
+            });
+
+            // Wrapped so a test can assert the plugin let go of a body it was
+            // never going to read, which is the only cleanup `speak` owns.
+            const cancel = response.body!.cancel.bind(response.body);
+            response.body!.cancel = async reason => {
+                cancelled.push('speech');
+                return cancel(reason);
+            };
+
+            return response;
+        }
+
+        return new Response(options.fetchResponse?.body ?? JSON.stringify({ voices: [{ id: 'af_heart' }] }), {
+            status: options.fetchResponse?.status ?? 200,
+        });
+    });
 
     const host = {
         logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-        fetch: vi.fn(async () => ({
-            status: options.fetchResponse?.status ?? 200,
-            statusText: '',
-            headers: {},
-            setCookie: [],
-            body: options.fetchResponse?.body ?? JSON.stringify({ voices: [{ id: 'af_heart' }] }),
-            ok: options.fetchResponse?.ok ?? true,
-            url: BASE_URL,
-            redirected: false,
-        })),
-        remainingMs: async () => 30_000,
-        streams,
+        fetch,
+        signal: new AbortController().signal,
+        remainingMs: () => 30_000,
         storage: {} as PluginHost['storage'],
         secrets: { get: vi.fn(async () => options.apiKey) },
         config: { get: vi.fn(async () => ({ baseUrl: BASE_URL, ...options.config })) },
@@ -61,7 +72,7 @@ function fakeHost(options: FakeHostOptions = {}) {
         trackFetcher: {} as PluginHost['trackFetcher'],
     } as unknown as PluginHost;
 
-    return { host, streams, opened, closed };
+    return { host, fetch, calls, cancelled };
 }
 
 async function started(options: FakeHostOptions = {}) {
@@ -71,20 +82,18 @@ async function started(options: FakeHostOptions = {}) {
     return { ...fake, plugin };
 }
 
-/** Drains a handle the way the host does, and answers with the bytes. */
-async function drain(plugin: KokoroPlugin, streamId: string): Promise<Buffer> {
+/** Reads a handle's audio the way the host does. */
+async function drain(audio: ReadableStream<Uint8Array>): Promise<Buffer> {
     const parts: Buffer[] = [];
-    try {
-        for (;;) {
-            const chunk = await plugin.readStream(streamId);
-            if (chunk.done) break;
-            parts.push(Buffer.from(chunk.data ?? '', 'base64'));
-        }
-    } finally {
-        await plugin.closeStream(streamId);
-    }
+    for await (const chunk of audio) parts.push(Buffer.from(chunk));
     return Buffer.concat(parts);
 }
+
+/** The body of the `/audio/speech` call, parsed. */
+const speechRequest = (calls: { url: string; init?: HostFetchInit }[]): Record<string, unknown> => {
+    const call = calls.find(candidate => candidate.url.endsWith('/audio/speech'));
+    return JSON.parse((call?.init?.body as string) ?? '{}') as Record<string, unknown>;
+};
 
 async function rejectionCode(promise: Promise<unknown>): Promise<string> {
     const error = await promise.then(
@@ -98,22 +107,23 @@ async function rejectionCode(promise: Promise<unknown>): Promise<string> {
 }
 
 describe('KokoroPlugin.speak', () => {
-    it('posts the script and hands back a handle rather than the audio', async () => {
-        const { plugin, opened } = await started();
+    it('posts the script and hands back the engine body rather than the audio', async () => {
+        const { plugin, calls } = await started();
 
         const handle = await plugin.speak({ text: 'You are listening to Deadair.' });
 
-        expect(opened).toHaveLength(1);
-        expect(opened[0]!.url).toBe(`${BASE_URL}/audio/speech`);
-        expect(opened[0]!.init?.method).toBe('POST');
-        expect(JSON.parse(opened[0]!.init?.body ?? '{}')).toMatchObject({
+        const speech = calls.find(call => call.url.endsWith('/audio/speech'));
+        expect(speech).toBeDefined();
+        expect(speech!.url).toBe(`${BASE_URL}/audio/speech`);
+        expect(speech!.init?.method).toBe('POST');
+        expect(speechRequest(calls)).toMatchObject({
             model: 'kokoro',
             input: 'You are listening to Deadair.',
             voice: 'af_heart',
             response_format: 'mp3',
         });
         expect(handle.mime).toBe('audio/mpeg');
-        expect(typeof handle.streamId).toBe('string');
+        expect(handle.audio).toBeInstanceOf(ReadableStream);
     });
 
     it('answers with the media type it actually produced, not the one asked for', async () => {
@@ -125,25 +135,28 @@ describe('KokoroPlugin.speak', () => {
         const handle = await plugin.speak({ text: 'hello', format: 'nonsense' });
 
         expect(handle.mime).toBe('audio/wav');
+        await handle.audio.cancel();
     });
 
     it('maps a station voice name to the engine voice the operator set', async () => {
-        const { plugin, opened } = await started({ config: { voices: 'host = af_bella\nnewsreader: am_michael' } });
+        const { plugin, calls } = await started({ config: { voices: 'host = af_bella\nnewsreader: am_michael' } });
 
-        await plugin.speak({ text: 'hello', voice: 'newsreader' });
+        const handle = await plugin.speak({ text: 'hello', voice: 'newsreader' });
 
-        expect(JSON.parse(opened[0]!.init?.body ?? '{}').voice).toBe('am_michael');
+        expect(speechRequest(calls).voice).toBe('am_michael');
+        await handle.audio.cancel();
     });
 
     it('falls back to the default voice for a name it has no mapping for, and says so', async () => {
-        const { plugin, opened, host } = await started({ config: { voices: 'host = af_bella', defaultVoice: 'af_heart' } });
+        const { plugin, calls, host } = await started({ config: { voices: 'host = af_bella', defaultVoice: 'af_heart' } });
 
-        await plugin.speak({ text: 'hello', voice: 'renamed-persona' });
+        const handle = await plugin.speak({ text: 'hello', voice: 'renamed-persona' });
 
         // A station that says the wrong thing in the wrong voice is recoverable;
         // one that goes silent because a persona was renamed is not.
-        expect(JSON.parse(opened[0]!.init?.body ?? '{}').voice).toBe('af_heart');
+        expect(speechRequest(calls).voice).toBe('af_heart');
         expect(host.logger.warn).toHaveBeenCalled();
+        await handle.audio.cancel();
     });
 
     it('refuses to try at all when no server has been configured', async () => {
@@ -153,28 +166,30 @@ describe('KokoroPlugin.speak', () => {
     });
 
     it('reports an authentication failure apart from any other refusal', async () => {
-        const denied = await started({ openStatus: 401 });
-        const broken = await started({ openStatus: 500 });
+        const denied = await started({ speakStatus: 401 });
+        const broken = await started({ speakStatus: 500 });
 
         expect(await rejectionCode(denied.plugin.speak({ text: 'hello' }))).toBe('auth');
         expect(await rejectionCode(broken.plugin.speak({ text: 'hello' }))).toBe('upstream');
     });
 
-    it('lets go of the socket when the server refuses, since nothing will be draining it', async () => {
-        const { plugin, closed } = await started({ openStatus: 500 });
+    it('lets go of the socket when the server refuses, since nothing will be reading it', async () => {
+        const { plugin, cancelled } = await started({ speakStatus: 500 });
 
-        await plugin.speak({ text: 'hello' }).catch(() => {});
+        // A refusal still carries a body, and `speak` throws instead of handing
+        // it over, so this is the only place that can ever release it.
+        await plugin.speak({ text: 'hello' }).catch(() => undefined);
 
-        expect(closed).toEqual(['host-1']);
+        expect(cancelled).toEqual(['speech']);
     });
 });
 
-describe('KokoroPlugin.readStream', () => {
-    it('forwards the audio chunk by chunk and ends with a terminal chunk', async () => {
+describe('KokoroPlugin audio stream', () => {
+    it('forwards the body a piece at a time rather than buffering it', async () => {
         const { plugin } = await started({ chunks: [audioChunk(2048), audioChunk(2048)] });
 
         const handle = await plugin.speak({ text: 'hello' });
-        const audio = await drain(plugin, handle.streamId);
+        const audio = await drain(handle.audio);
 
         expect(audio.byteLength).toBe(4096);
     });
@@ -182,49 +197,22 @@ describe('KokoroPlugin.readStream', () => {
     it('refuses a reply too small to be audio, which is how a JSON error page reaches the air', async () => {
         // v1 paid for this one: a 200 carrying a complaint about the voice becomes
         // a segment that airs as a click, and here is the only place to notice.
-        const { plugin } = await started({ chunks: [Buffer.from('{"detail":"no such voice"}').toString('base64')] });
+        const { plugin } = await started({ chunks: [Buffer.from('{"detail":"no such voice"}')] });
 
         const handle = await plugin.speak({ text: 'hello' });
 
-        expect(await rejectionCode(drain(plugin, handle.streamId))).toBe('upstream');
+        // The check is at the END of the stream on purpose: a server can dribble
+        // a short error out in several pieces, so "was any of that audio" is
+        // only answerable once it stops.
+        expect(await rejectionCode(drain(handle.audio))).toBe('upstream');
     });
 
-    it('answers a handle it does not have as not_found rather than as a fault', async () => {
+    it('has nothing to unwind on dispose, because the audio is the host\'s own body', async () => {
         const { plugin } = await started();
-
-        expect(await rejectionCode(plugin.readStream('speak-nonsense'))).toBe('not_found');
-    });
-
-    it('keeps its own stream ids, so nothing hands the host back its own', async () => {
-        const { plugin, streams } = await started();
-
-        const handle = await plugin.speak({ text: 'hello' });
-        await plugin.readStream(handle.streamId);
-
-        expect(handle.streamId).not.toBe('host-1');
-        expect(streams.read).toHaveBeenCalledWith('host-1', undefined);
-    });
-});
-
-describe('KokoroPlugin.closeStream', () => {
-    it('is idempotent, because the host calls it from a finally', async () => {
-        const { plugin, closed } = await started();
         const handle = await plugin.speak({ text: 'hello' });
 
-        await plugin.closeStream(handle.streamId);
-        await plugin.closeStream(handle.streamId);
-        await plugin.closeStream('never-existed');
-
-        expect(closed).toEqual(['host-1']);
-    });
-
-    it('closes what is still open when the plugin is disposed', async () => {
-        const { plugin, closed } = await started();
-        await plugin.speak({ text: 'hello' });
-
-        await plugin.dispose();
-
-        expect(closed).toEqual(['host-1']);
+        await expect(plugin.dispose()).resolves.toBeUndefined();
+        await handle.audio.cancel();
     });
 });
 
@@ -236,7 +224,7 @@ describe('KokoroPlugin.testConnection', () => {
     });
 
     it('reports a server that answered with a failure', async () => {
-        const { plugin } = await started({ fetchResponse: { ok: false, status: 503 } });
+        const { plugin } = await started({ fetchResponse: { status: 503 } });
 
         await expect(plugin.testConnection()).resolves.toEqual({ ok: false, message: 'Server answered HTTP 503.' });
     });

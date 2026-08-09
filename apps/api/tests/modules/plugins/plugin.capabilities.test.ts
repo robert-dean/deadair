@@ -64,26 +64,20 @@ describe('asCatalogPlugin', () => {
 });
 
 describe('asSpeechPlugin', () => {
-    /** The three methods `speech` requires, as bare stubs. */
+    /** The one method `speech` requires, as a bare stub. */
     const speechMethods = {
-        speak: async () => ({ streamId: 's1', mime: 'audio/mpeg' }),
-        readStream: async () => ({ seq: 0, done: true }),
-        closeStream: async () => {},
+        speak: async () => ({ mime: 'audio/mpeg', audio: new ReadableStream<Uint8Array>() }),
     };
 
-    it('accepts a plugin that can speak and be drained', () => {
+    it('accepts a plugin that can speak', () => {
         expect(asSpeechPlugin(record(['speech'], speechMethods))).toBeDefined();
     });
 
-    it('refuses a plugin that can start speaking but cannot be drained', () => {
-        // The failure this prevents is worse than a missing capability: `speak`
-        // would succeed, the segment would already be `rendering`, and the
-        // `TypeError` would land half way through the render.
-        const { readStream: _readStream, ...withoutRead } = speechMethods;
-        const { closeStream: _closeStream, ...withoutClose } = speechMethods;
-
-        expect(asSpeechPlugin(record(['speech'], withoutRead))).toBeUndefined();
-        expect(asSpeechPlugin(record(['speech'], withoutClose))).toBeUndefined();
+    it('refuses a plugin that declares speech and never wrote speak', () => {
+        // The failure this prevents is worse than a missing capability: without
+        // the check the segment would already be `rendering` and the `TypeError`
+        // would land half way through the render.
+        expect(asSpeechPlugin(record(['speech'], {}))).toBeUndefined();
     });
 
     it('refuses a plugin that implements speech and never declared it', () => {

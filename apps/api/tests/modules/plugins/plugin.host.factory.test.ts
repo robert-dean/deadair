@@ -7,7 +7,7 @@ import { pluginHttpError } from '../../../src/modules/plugins/plugin.error.http.
 
 import {
     MAX_PLUGIN_FETCH_REDIRECTS,
-    PLUGIN_FETCH_MAX_BODY_BYTES,
+    PLUGIN_RESPONSE_MAX_BYTES,
     PLUGIN_FETCH_REQUESTS_PER_WINDOW,
     PLUGIN_FETCH_TIMEOUT_MS,
     PluginHostFactory,
@@ -201,8 +201,10 @@ describe('PluginHostFactory.createHost fetch', () => {
         const response = await host.fetch('https://api.example.com/x');
 
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(response).toMatchObject({ status: 200, body: 'hello', ok: true });
-        expect(response.headers['content-type']).toBe('text/plain');
+        expect(response.status).toBe(200);
+        expect(response.ok).toBe(true);
+        expect(response.headers.get('content-type')).toBe('text/plain');
+        await expect(response.text()).resolves.toBe('hello');
     });
 
     it('spaces a burst that exceeds the per-window quota instead of failing it', async () => {
@@ -339,7 +341,12 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
 
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(callArgs(fetchMock, 1).url).toBe('https://cdn.example.com/asset');
-        expect(response).toMatchObject({ status: 200, body: 'final', ok: true });
+        expect(response.status).toBe(200);
+        expect(response.redirected).toBe(true);
+        await expect(response.text()).resolves.toBe('final');
+        // Followed by hand, so `redirected` is set by the host rather than by
+        // the platform: a plugin that resolves relative links needs it true.
+        expect(response.url).toBe('https://cdn.example.com/asset');
     });
 
     it('resolves a relative location against the URL that issued it', async () => {
@@ -532,7 +539,7 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
         // points on the second one and park here forever.
         const response = await host.fetch('https://api.example.com/x');
 
-        expect(response.body).toBe('final');
+        await expect(response.text()).resolves.toBe('final');
         expect(fetchMock).toHaveBeenCalledTimes(PLUGIN_FETCH_REQUESTS_PER_WINDOW + 2);
     });
 
@@ -564,7 +571,7 @@ describe('PluginHostFactory.createHost fetch redirects', () => {
 describe('PluginHostFactory.createHost fetch response shape', () => {
     const allowlisted = (...network: string[]): PluginManifest => manifest({ permissions: { network, storage: false, oauth: false } });
 
-    it('hands back every set-cookie separately instead of the last one winning', async () => {
+    it('carries every set-cookie the server sent', async () => {
         const headers = new Headers({ 'content-type': 'text/plain' });
         headers.append('set-cookie', 'session=abc; Path=/; HttpOnly');
         headers.append('set-cookie', 'csrf=def; Path=/');
@@ -573,18 +580,10 @@ describe('PluginHostFactory.createHost fetch response shape', () => {
 
         const response = await host.fetch('https://api.example.com/login');
 
-        expect(response.setCookie).toEqual(['session=abc; Path=/; HttpOnly', 'csrf=def; Path=/']);
-        // Kept out of `headers` on purpose: a Record can only hold one, and a
-        // half-truth there is worse than an absence.
-        expect(response.headers['set-cookie']).toBeUndefined();
-        expect(response.headers['content-type']).toBe('text/plain');
-    });
-
-    it('is an empty array, not a missing field, when the server set no cookies', async () => {
-        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
-        const host = factory().createHost(allowlisted('api.example.com'));
-
-        await expect(host.fetch('https://api.example.com/x')).resolves.toMatchObject({ setCookie: [] });
+        // This needed a whole extra field when the response was flattened into a
+        // `Record`, which holds one value per name. A real `Headers` does not.
+        expect(response.headers.getSetCookie()).toEqual(['session=abc; Path=/; HttpOnly', 'csrf=def; Path=/']);
+        expect(response.headers.get('content-type')).toBe('text/plain');
     });
 
     it('joins a repeated non-cookie header rather than dropping one', async () => {
@@ -596,18 +595,57 @@ describe('PluginHostFactory.createHost fetch response shape', () => {
 
         const response = await host.fetch('https://api.example.com/x');
 
-        expect(response.headers.warning).toBe('199 - "first", 199 - "second"');
+        expect(response.headers.get('warning')).toBe('199 - "first", 199 - "second"');
     });
 
     it('passes the status text through', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 404, statusText: 'Not Found' })));
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expect(host.fetch('https://api.example.com/x')).resolves.toMatchObject({ status: 404, statusText: 'Not Found', ok: false });
+        const response = await host.fetch('https://api.example.com/x');
+
+        expect(response.status).toBe(404);
+        expect(response.statusText).toBe('Not Found');
+        expect(response.ok).toBe(false);
+    });
+
+    it('reports the URL it actually came from, which a constructed Response would leave blank', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const response = await host.fetch('https://api.example.com/tracks?q=1');
+
+        // The body has to be re-wrapped to enforce the caps, so the response the
+        // plugin gets is built rather than passed through, and `url` is read-only
+        // and empty on a built one. A plugin resolves relative links against it.
+        expect(response.url).toBe('https://api.example.com/tracks?q=1');
+        expect(response.redirected).toBe(false);
+    });
+
+    it('returns before the body has finished, which buffering could never do', async () => {
+        // Endless on purpose. `host.fetch` used to read the body to completion
+        // before returning, so this response could never have been handed over
+        // at all, which is exactly why a second byte egress had to exist.
+        const endless = new ReadableStream<Uint8Array>({
+            pull(controller) {
+                controller.enqueue(new TextEncoder().encode('chunk'));
+            },
+        });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(endless, { status: 200 })));
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        const response = await host.fetch('https://api.example.com/audio');
+
+        expect(response.status).toBe(200);
+
+        const reader = response.body!.getReader();
+        const first = await reader.read();
+        expect(new TextDecoder().decode(first.value)).toBe('chunk');
+        await reader.cancel();
     });
 });
 
-describe('PluginHostFactory.createHost fetch body limit', () => {
+describe('PluginHostFactory.createHost response body limit', () => {
     const allowlisted = (...network: string[]): PluginManifest => manifest({ permissions: { network, storage: false, oauth: false } });
 
     /** A chunked body with no `content-length`: the shape only the running count can catch. */
@@ -624,12 +662,12 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
     /** A chunk list that lands `over` bytes past the cap, without building one giant string. */
     const chunksOverCap = (over: number): string[] => {
         const chunk = 'x'.repeat(1024 * 1024);
-        const whole = Math.floor(PLUGIN_FETCH_MAX_BODY_BYTES / chunk.length);
-        const remainder = PLUGIN_FETCH_MAX_BODY_BYTES - whole * chunk.length + over;
+        const whole = Math.floor(PLUGIN_RESPONSE_MAX_BYTES / chunk.length);
+        const remainder = PLUGIN_RESPONSE_MAX_BYTES - whole * chunk.length + over;
         return [...Array<string>(whole).fill(chunk), 'x'.repeat(remainder)];
     };
 
-    it('refuses an oversized body on content-length alone, and tears the stream down instead of draining it', async () => {
+    it('refuses an oversized body on content-length alone, before a byte is read', async () => {
         let cancelled = false;
         const body = new ReadableStream<Uint8Array>({
             pull(controller) {
@@ -642,7 +680,7 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
         // The declared length is a lie the counter could never catch: the real
         // body is one byte at a time, so the declared size in the message can
         // only have come from the header.
-        const declared = PLUGIN_FETCH_MAX_BODY_BYTES + 1;
+        const declared = PLUGIN_RESPONSE_MAX_BYTES + 1;
         const response = new Response(body, { status: 200, headers: { 'content-length': String(declared) } });
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
         const host = factory().createHost(allowlisted('api.example.com'));
@@ -650,20 +688,21 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
         await expectPluginError(
             host.fetch('https://api.example.com/big'),
             'upstream',
-            new RegExp(`response body is ${declared} bytes, over the ${PLUGIN_FETCH_MAX_BODY_BYTES} byte limit`),
+            new RegExp(`declares ${declared} bytes, over the ${PLUGIN_RESPONSE_MAX_BYTES} byte limit`),
         );
         expect(cancelled).toBe(true);
     });
 
-    it('refuses a body that only reveals its size as it streams, and calls it a failure rather than a timeout', async () => {
+    it('refuses a body that only reveals its size as it streams', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(chunksOverCap(20))));
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectPluginError(
-            host.fetch('https://api.example.com/chunked'),
-            'upstream',
-            new RegExp(`failed: response body is ${PLUGIN_FETCH_MAX_BODY_BYTES + 20} bytes, over the ${PLUGIN_FETCH_MAX_BODY_BYTES} byte limit`),
-        );
+        const response = await host.fetch('https://api.example.com/chunked');
+
+        // The refusal is on the READ, not on the fetch: the response headers were
+        // honest and the body was not, which is exactly the case `content-length`
+        // cannot cover.
+        await expectPluginError(response.text(), 'upstream', new RegExp(`over the ${PLUGIN_RESPONSE_MAX_BYTES} byte limit`));
     });
 
     it('lets a body exactly at the limit through', async () => {
@@ -672,17 +711,19 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
 
         const response = await host.fetch('https://api.example.com/exact');
 
-        expect(response.body).toHaveLength(PLUGIN_FETCH_MAX_BODY_BYTES);
+        await expect(response.text()).resolves.toHaveLength(PLUGIN_RESPONSE_MAX_BYTES);
     });
 
     it('measures bytes, not characters, so multi-byte text cannot slip past the cap', async () => {
         // Three bytes per character in UTF-8, so this is one character (three
         // bytes) past the cap while being a third of its length in characters.
-        const characters = Math.floor(PLUGIN_FETCH_MAX_BODY_BYTES / 3) + 1;
+        const characters = Math.floor(PLUGIN_RESPONSE_MAX_BYTES / 3) + 1;
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(streamOf(['あ'.repeat(characters)])));
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expectPluginError(host.fetch('https://api.example.com/utf8'), 'upstream', new RegExp(`response body is ${characters * 3} bytes`));
+        const response = await host.fetch('https://api.example.com/utf8');
+
+        await expectPluginError(response.text(), 'upstream', new RegExp(`over the ${PLUGIN_RESPONSE_MAX_BYTES} byte limit`));
     });
 
     it('decodes a multi-byte character split across two chunks', async () => {
@@ -699,18 +740,24 @@ describe('PluginHostFactory.createHost fetch body limit', () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(split));
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expect(host.fetch('https://api.example.com/utf8')).resolves.toMatchObject({ body: 'あ' });
+        const response = await host.fetch('https://api.example.com/utf8');
+
+        await expect(response.text()).resolves.toBe('あ');
     });
 
     it('handles a bodyless response', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expect(host.fetch('https://api.example.com/x')).resolves.toMatchObject({ status: 204, body: '' });
+        const response = await host.fetch('https://api.example.com/x');
+
+        expect(response.status).toBe(204);
+        expect(response.body).toBeNull();
+        await expect(response.text()).resolves.toBe('');
     });
 
     it('caps rather than allowing unlimited', () => {
-        expect(PLUGIN_FETCH_MAX_BODY_BYTES).toBeGreaterThan(0);
+        expect(PLUGIN_RESPONSE_MAX_BYTES).toBeGreaterThan(0);
     });
 });
 

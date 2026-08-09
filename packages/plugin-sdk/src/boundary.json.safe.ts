@@ -38,13 +38,12 @@ import type {
     ProviderTrack,
     SearchTracksOptions,
 } from './capabilities/music.provider.js';
-import type { SpeechHandle, SpeechRequest, SpeechVoice } from './capabilities/speech.js';
+import type { SpeechRequest, SpeechVoice } from './capabilities/speech.js';
 import type { ConfigField, ConfigFieldOption } from './plugin.config.fields.js';
-import type { HostFetchResponse, TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
+import type { TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { NetworkPermissionFromConfig, NetworkPermissionHost, PluginPermissions } from './plugin.permissions.js';
-import type { HostStreamChunk, HostStreamOpen, StreamChunk } from './plugin.streams.js';
 
 /**
  * `T` with every part that cannot survive `JSON.parse(JSON.stringify(x))`
@@ -112,13 +111,6 @@ type AssertAllTrue<T extends Record<string, true>> = T;
  * before a manifest is sent anywhere.
  */
 export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
-    HostFetchResponse: IsJsonSafe<HostFetchResponse>;
-    // The whole reason `data` is a base64 string. A `Uint8Array` here would
-    // survive `structuredClone` and fail this, which is the distinction the
-    // streaming decision record exists to hold: see docs/decisions/plugin-streaming.md.
-    StreamChunk: IsJsonSafe<StreamChunk>;
-    HostStreamChunk: IsJsonSafe<HostStreamChunk>;
-    HostStreamOpen: IsJsonSafe<HostStreamOpen>;
     PluginConnectionResult: IsJsonSafe<PluginConnectionResult>;
     PluginPermissions: IsJsonSafe<PluginPermissions>;
     NetworkPermissionHost: IsJsonSafe<NetworkPermissionHost>;
@@ -144,7 +136,6 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ArtistEnrichment: IsJsonSafe<ArtistEnrichment>;
     AlbumEnrichment: IsJsonSafe<AlbumEnrichment>;
     SpeechRequest: IsJsonSafe<SpeechRequest>;
-    SpeechHandle: IsJsonSafe<SpeechHandle>;
     SpeechVoice: IsJsonSafe<SpeechVoice>;
 }>;
 
@@ -154,10 +145,6 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
  * from the boundary source files.
  */
 export const JSON_SAFE_PAYLOAD_TYPES = [
-    'HostFetchResponse',
-    'StreamChunk',
-    'HostStreamChunk',
-    'HostStreamOpen',
     'PluginConnectionResult',
     'PluginPermissions',
     'NetworkPermissionHost',
@@ -183,7 +170,6 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ArtistEnrichment',
     'AlbumEnrichment',
     'SpeechRequest',
-    'SpeechHandle',
     'SpeechVoice',
 ] as const;
 
@@ -204,7 +190,6 @@ export const BOUNDARY_METHOD_TYPES = [
     'PluginOAuth',
     'PluginEvents',
     'PluginTrackFetcher',
-    'PluginStreams',
     'PluginHost',
     'PluginLifecycle',
     'MusicProviderCatalog',
@@ -213,7 +198,6 @@ export const BOUNDARY_METHOD_TYPES = [
     'MusicProviderOAuth',
     'MusicProvider',
     'EnrichmentProvider',
-    'PluginStreamSource',
     'SpeechPluginInstance',
 ] as const;
 
@@ -233,4 +217,7 @@ export const BOUNDARY_LIVE_OBJECT_TYPES = [
     // `signal`: the invocation's own `AbortSignal`, watched by `host.fetch` and
     // passed on by the plugin to anything else that takes one.
     'HostFetchInit',
+    // `audio`: the engine's response body, usually forwarded straight through,
+    // so the bytes are never held whole on either side of the call.
+    'SpeechHandle',
 ] as const;

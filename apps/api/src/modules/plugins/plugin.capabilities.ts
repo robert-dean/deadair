@@ -194,18 +194,18 @@ export const asEnrichmentPlugin = (record: PluginRecord): EnrichmentPlugin | und
 };
 
 /**
- * The three methods that earn the `speech` capability.
+ * The one method that earns the `speech` capability.
  *
- * `readStream` and `closeStream` are in here beside `speak` rather than being
- * treated as optional plumbing, because a plugin that can start speaking and
- * cannot be drained is worse than one that cannot speak at all: the first is
- * caught here, the second is a `TypeError` half way through a render with a
- * segment already moved to `rendering`.
+ * It used to be three: `speak` handed back a handle and `readStream` /
+ * `closeStream` drained it, so both had to be checked here or a plugin that
+ * could start speaking and could not be drained would fail as a `TypeError`
+ * half way through a render, with a segment already moved to `rendering`. The
+ * audio is a `ReadableStream` now, so there is nothing left to forget.
  *
  * `listVoices` is deliberately absent. It is optional in the SDK the way
  * `enrichArtist` is, and a plugin with one voice is a legitimate thing to be.
  */
-export const SPEECH_METHODS = ['speak', 'readStream', 'closeStream'] as const satisfies ReadonlyArray<keyof SpeechPluginInstance>;
+export const SPEECH_METHODS = ['speak'] as const satisfies ReadonlyArray<keyof SpeechPluginInstance>;
 
 /** A plugin narrowed to "can say something, right now". */
 export interface SpeechPlugin {

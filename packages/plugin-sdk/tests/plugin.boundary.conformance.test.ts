@@ -7,11 +7,6 @@ import {
     artistRefFixture,
     assertCrossesBoundary,
     getPlaylistTracksOptionsFixture,
-    hostFetchInitFixture,
-    hostFetchResponseFixture,
-    hostStreamChunkDoneFixture,
-    hostStreamChunkFixture,
-    hostStreamOpenFixture,
     listPlaylistsOptionsFixture,
     playbackStateFixture,
     pluginConfigGetFixture,
@@ -27,7 +22,6 @@ import {
     providerStreamFixture,
     providerTrackFixture,
     searchTracksOptionsFixture,
-    speechHandleFixture,
     speechRequestFixture,
     speechVoiceFixture,
     trackEnrichmentBatchFixture,
@@ -39,13 +33,7 @@ import {
 
 describe('plugin boundary conformance: positive fixtures', () => {
     it.each([
-        ['HostFetchInit', hostFetchInitFixture],
-        ['HostFetchResponse', hostFetchResponseFixture],
-        ['HostStreamOpen', hostStreamOpenFixture],
-        ['HostStreamChunk', hostStreamChunkFixture],
-        ['HostStreamChunk (terminal)', hostStreamChunkDoneFixture],
         ['SpeechRequest', speechRequestFixture],
-        ['SpeechHandle', speechHandleFixture],
         ['SpeechVoice', speechVoiceFixture],
         ['PluginLogger meta', pluginLoggerMetaFixture],
         ['PluginStorage value', pluginStorageValueFixture],

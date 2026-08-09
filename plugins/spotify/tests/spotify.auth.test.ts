@@ -138,7 +138,7 @@ describe('HostVaultAuthStrategy', () => {
 
         it('throws when the token endpoint responds with a non-2xx status', async () => {
             const host = createFakePluginHost();
-            host.queueResponse(tokenResponse({ status: 400, statusText: 'Bad Request', ok: false, body: '' }));
+            host.queueResponse(tokenResponse({ status: 400, statusText: 'Bad Request', body: '' }));
             const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);
             await strategy.getAuthorizeUrl('state-5');
 

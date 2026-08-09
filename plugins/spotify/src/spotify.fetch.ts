@@ -4,16 +4,6 @@ import type { IValidateResponses, RequestImplementation } from '@spotify/web-api
 
 import { REQUEST_TIMEOUT_MS } from './spotify.manifest.js';
 
-/**
- * Statuses that must never carry a body onto a `Response`. Node 26's `Response`
- * constructor throws `Invalid response status code 204` (and 205, 304) if you
- * pass a non-null body, even an empty string. Spotify answers 204 on the
- * player transport control endpoints (`me/player`, `me/player/pause`,
- * `me/player/next`), so this is not a corner case, it is the common path for
- * playback control.
- */
-const NO_BODY_STATUSES = new Set([204, 205, 304]);
-
 const HOST_FETCH_METHODS: readonly HostFetchMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
 
 function toHostFetchMethod(method: string | undefined): HostFetchMethod {
@@ -23,7 +13,7 @@ function toHostFetchMethod(method: string | undefined): HostFetchMethod {
     return match;
 }
 
-/** Lowercases header names, the same normalisation `HostFetchResponse.headers` uses. */
+/** Lowercases header names, which is the shape `HostFetchInit.headers` takes. */
 function headersToRecord(headers: Headers): Record<string, string> {
     const record: Record<string, string> = {};
     headers.forEach((value, key) => {
@@ -154,17 +144,13 @@ export function createHostFetch(host: PluginHost, getBearer: () => Promise<strin
             timeoutMs: REQUEST_TIMEOUT_MS,
         };
 
-        const response = await host.fetch(url.toString(), hostInit);
-
-        // See NO_BODY_STATUSES: a 204/205/304 body must be `null`, not `''`,
-        // or the Response constructor throws on Node 26.
-        const body = NO_BODY_STATUSES.has(response.status) ? null : response.body;
-
-        return new Response(body, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: response.headers,
-        });
+        // Straight through: `host.fetch` answers with a real `Response`, which
+        // is exactly what the SDK's `RequestImplementation` is typed to return.
+        // This used to rebuild one field by field from a POJO, and had to
+        // special-case 204/205/304 while doing it, because the Response
+        // constructor rejects a body on those and Spotify answers 204 on every
+        // player transport call.
+        return await host.fetch(url.toString(), hostInit);
     }
 
     return async (input, init) => {

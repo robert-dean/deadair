@@ -7,7 +7,6 @@ import {
     type SpeechPluginInstance,
     type SpeechRequest,
     type SpeechVoice,
-    type StreamChunk,
 } from '@deadair/plugin-sdk';
 import {
     DEFAULT_FORMAT,
@@ -32,12 +31,34 @@ export { kokoroManifest };
  */
 const MIN_PLAUSIBLE_AUDIO_BYTES = 256;
 
-/** One in-flight synthesis: our handle id, and the host stream behind it. */
-interface Speaking {
-    hostStreamId: string;
-    /** Bytes handed over so far, to catch a body that is not audio on the first read. */
-    delivered: number;
-}
+/**
+ * The engine's body, with a size check on the end of it.
+ *
+ * The check belongs at the end rather than on the first chunk: a server can
+ * dribble a short JSON error out in several pieces, and "was any of this
+ * plausibly audio" is only answerable once it stops. Failing in `flush` is what
+ * makes the render fail loudly instead of storing a click.
+ *
+ * A `TransformStream` rather than a wrapper of our own, so cancelling the
+ * result still cancels the socket underneath without anything here to forward
+ * it.
+ */
+const withPlausibilityCheck = (voice: string): TransformStream<Uint8Array, Uint8Array> => {
+    let delivered = 0;
+
+    return new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+            delivered += chunk.byteLength;
+            controller.enqueue(chunk);
+        },
+        flush() {
+            if (delivered >= MIN_PLAUSIBLE_AUDIO_BYTES) return;
+            throw new PluginError(
+                `kokoro returned only ${delivered} bytes for voice "${voice}", which is not audio: check the model and voice`,
+            ).withCode('upstream');
+        },
+    });
+};
 
 /**
  * Text to speech through any OpenAI-compatible `/audio/speech`.
@@ -46,13 +67,12 @@ interface Speaking {
  * against Kokoro alone: the same three fields reach OpenAI's own endpoint, which
  * is the difference between an operator with a GPU and one without.
  *
- * ## Why the audio is a handle and not a return value
+ * ## Why the audio is a stream and not a return value
  *
- * `speak` opens the request and stops. The bytes come out through
- * `readStream`, which forwards to the host stream underneath, so a long script
- * is a sequence of chunks rather than a file held whole in two processes. The
- * host closes anything still open when this plugin is disposed, and this closes
- * its own side in `closeStream`, which the host calls from a `finally`.
+ * `speak` starts the request and hands back its body, so a long script is bytes
+ * in flight rather than a file held whole. The host reads it to the end or
+ * cancels it, and either one reaches the socket without this plugin forwarding
+ * anything: it is the engine's own response body, with a size check bolted on.
  */
 export class KokoroPlugin implements SpeechPluginInstance {
     private host?: PluginHost;
@@ -62,9 +82,6 @@ export class KokoroPlugin implements SpeechPluginInstance {
     private format: ResponseFormat = DEFAULT_FORMAT;
     private defaultVoice = DEFAULT_VOICE;
     private voices: Record<string, string> = {};
-
-    /** Our stream ids, never the host's. The two are kept apart on purpose. */
-    private readonly speaking = new Map<string, Speaking>();
 
     async init(host: PluginHost): Promise<void> {
         this.host = host;
@@ -90,7 +107,7 @@ export class KokoroPlugin implements SpeechPluginInstance {
         // Reported rather than validated against: the operator's own mappings are
         // what matter, and a server whose voice list is shaped differently is
         // still a server that speaks.
-        const body = tryJsonBody<{ voices?: unknown[] }>(response);
+        const body = await tryJsonBody<{ voices?: unknown[] }>(response);
         const count = Array.isArray(body?.voices) ? body.voices.length : undefined;
         return { ok: true, message: count === undefined ? 'Connected.' : `Connected. ${count} voices available.` };
     }
@@ -128,68 +145,30 @@ export class KokoroPlugin implements SpeechPluginInstance {
         const format = isResponseFormat(request.format) ? request.format : this.format;
         const voice = this.resolveVoice(request.voice);
 
-        const opened = await host.streams.open(`${this.baseUrl}/audio/speech`, {
+        const response = await host.fetch(`${this.baseUrl}/audio/speech`, {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...this.authHeaders() },
             body: JSON.stringify({ model: this.model, input: text, voice, response_format: format }),
             timeoutMs: SPEAK_TIMEOUT_MS,
         });
 
-        if (!opened.ok) {
-            // Nothing is registered yet, so this is the only chance to let the
-            // socket go.
-            await host.streams.close(opened.streamId);
-            throw new PluginError(`kokoro answered HTTP ${opened.status} for voice "${voice}"`)
-                .withCode(opened.status === 401 || opened.status === 403 ? 'auth' : 'upstream')
-                .withUpstreamStatus(opened.status);
+        if (!response.ok || response.body === null) {
+            // Nobody else is going to read this, and an error body is small
+            // enough that letting the socket go is the whole of the cleanup.
+            await response.body?.cancel().catch(() => {});
+            throw new PluginError(`kokoro answered HTTP ${response.status} for voice "${voice}"`)
+                .withCode(response.status === 401 || response.status === 403 ? 'auth' : 'upstream')
+                .withUpstreamStatus(response.status);
         }
 
-        const streamId = `speak-${opened.streamId}`;
-        this.speaking.set(streamId, { hostStreamId: opened.streamId, delivered: 0 });
         host.logger.debug('kokoro speaking', { voice, format, chars: text.length });
 
-        return { streamId, mime: RESPONSE_FORMATS[format] };
-    }
-
-    async readStream(streamId: string, maxBytes?: number): Promise<StreamChunk> {
-        const host = this.hostOrThrow();
-        const speaking = this.speaking.get(streamId);
-        if (speaking === undefined) throw new PluginError(`kokoro has no stream "${streamId}"`).withCode('not_found');
-
-        const chunk = await host.streams.read(speaking.hostStreamId, maxBytes);
-
-        if (chunk.done) {
-            // The size check belongs here rather than on the first chunk: a
-            // server can dribble a short JSON error out in several pieces, and
-            // "was any of this plausibly audio" is only answerable at the end.
-            if (speaking.delivered < MIN_PLAUSIBLE_AUDIO_BYTES) {
-                await this.closeStream(streamId);
-                throw new PluginError(`kokoro returned only ${speaking.delivered} bytes, which is not audio — check the model and voice`).withCode(
-                    'upstream',
-                );
-            }
-            this.speaking.delete(streamId);
-            return { seq: chunk.seq, done: true };
-        }
-
-        speaking.delivered += decodedLength(chunk.data);
-        return { seq: chunk.seq, data: chunk.data, done: false };
-    }
-
-    async closeStream(streamId: string): Promise<void> {
-        const speaking = this.speaking.get(streamId);
-        // Idempotent: the host calls this from a `finally`, so it routinely
-        // arrives for a stream that already ended normally.
-        if (speaking === undefined) return;
-
-        this.speaking.delete(streamId);
-        await this.host?.streams.close(speaking.hostStreamId);
+        return { mime: RESPONSE_FORMATS[format], audio: response.body.pipeThrough(withPlausibilityCheck(voice)) };
     }
 
     async dispose(): Promise<void> {
-        // The host closes what it still holds when it drops this instance, so
-        // this is only about not leaving a stale map behind for a reinit.
-        for (const streamId of [...this.speaking.keys()]) await this.closeStream(streamId);
+        // Nothing to unwind: the audio is the host's own response body, and the
+        // host cancels whatever is still open when it drops this instance.
         this.host = undefined;
     }
 
@@ -219,9 +198,6 @@ export class KokoroPlugin implements SpeechPluginInstance {
         return this.host;
     }
 }
-
-/** How many bytes a base64 chunk actually carries. */
-const decodedLength = (data: string | undefined): number => (data === undefined ? 0 : Buffer.from(data, 'base64').byteLength);
 
 const nonEmpty = (value: unknown): string | undefined => {
     if (typeof value !== 'string') return undefined;

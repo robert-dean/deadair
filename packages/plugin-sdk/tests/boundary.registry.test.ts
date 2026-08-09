@@ -24,7 +24,6 @@ const BOUNDARY_SOURCE_FILES = [
     'plugin.lifecycle.ts',
     'plugin.manifest.ts',
     'plugin.permissions.ts',
-    'plugin.streams.ts',
     'plugin.config.fields.ts',
     'capabilities/music.provider.ts',
     'capabilities/enrichment.ts',

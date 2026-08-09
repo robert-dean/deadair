@@ -107,7 +107,7 @@ describe('SpotifyPlugin', () => {
         it('reports the HTTP status on a SpotifyRequestError', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ error: 'forbidden' }, { status: 403, statusText: 'Forbidden', ok: false }));
+            host.queueResponse(apiResponse({ error: 'forbidden' }, { status: 403, statusText: 'Forbidden' }));
 
             await expect(plugin.testConnection()).resolves.toEqual({ ok: false, message: 'Spotify replied HTTP 403.' });
         });
@@ -231,7 +231,7 @@ describe('SpotifyPlugin', () => {
         it('getTrack returns undefined on a 404', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found', ok: false }));
+            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' }));
 
             await expect(plugin.getTrack('missing')).resolves.toBeUndefined();
         });
@@ -239,7 +239,7 @@ describe('SpotifyPlugin', () => {
         it('getTrack rethrows a non-404 error', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ error: 'boom' }, { status: 500, statusText: 'Internal Server Error', ok: false }));
+            host.queueResponse(apiResponse({ error: 'boom' }, { status: 500, statusText: 'Internal Server Error' }));
 
             await expect(plugin.getTrack('track-3')).rejects.toMatchObject({ name: 'SpotifyRequestError', status: 500 });
         });
@@ -297,7 +297,7 @@ describe('SpotifyPlugin', () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
             host.queueResponse(apiResponse({ items: [{ id: 'pl-1', name: 'Playlist One', owner: { id: 'someone' } }] }));
-            host.queueResponse(apiResponse({ error: 'boom' }, { status: 500, statusText: 'Internal Server Error', ok: false }));
+            host.queueResponse(apiResponse({ error: 'boom' }, { status: 500, statusText: 'Internal Server Error' }));
 
             const results = await plugin.listPlaylists();
 
@@ -394,7 +394,7 @@ describe('SpotifyPlugin', () => {
             // login it cannot use would only move the failure onto the air.
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ error: 'nope' }, { status: 500, ok: false }));
+            host.queueResponse(apiResponse({ error: 'nope' }, { status: 500 }));
 
             expect(await plugin.resolveStreamUrl('track-1')).toBeUndefined();
             expect(host.trackFetcher.serve).not.toHaveBeenCalled();
@@ -430,7 +430,7 @@ describe('SpotifyPlugin', () => {
             const plugin = await initedPlugin(host, { deviceName: 'Kitchen' });
             host.queueResponse(apiResponse({ devices: [{ id: 'stale-device', name: 'Kitchen' }] })); // initial device lookup
             host.queueResponse(apiResponse(null, { status: 204, body: '' })); // t1 queues fine
-            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found', ok: false })); // t2 404s on stale device
+            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' })); // t2 404s on stale device
             host.queueResponse(apiResponse({ devices: [{ id: 'fresh-device', name: 'Kitchen' }] })); // re-resolve
             host.queueResponse(apiResponse(null, { status: 204, body: '' })); // t2 retried on fresh device
             host.queueResponse(apiResponse(null, { status: 204, body: '' })); // t3 queues on the now-fresh device, no further lookup
@@ -455,10 +455,10 @@ describe('SpotifyPlugin', () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host, { deviceName: 'Kitchen' });
             host.queueResponse(apiResponse({ devices: [{ id: 'stale-device', name: 'Kitchen' }] })); // initial device lookup
-            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found', ok: false })); // t1 404s
+            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' })); // t1 404s
             host.queueResponse(apiResponse({ devices: [{ id: 'fresh-device', name: 'Kitchen' }] })); // re-resolve, one retry spent
             host.queueResponse(apiResponse(null, { status: 204, body: '' })); // t1 retried ok
-            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found', ok: false })); // t2 404s again, no retries left
+            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' })); // t2 404s again, no retries left
 
             await expect(plugin.enqueue(['t1', 't2'])).rejects.toThrow(NO_ACTIVE_DEVICE_MESSAGE);
             expect(host.calls).toHaveLength(5);
@@ -467,7 +467,7 @@ describe('SpotifyPlugin', () => {
         it('enqueue throws the no-active-device message on a 404 with no retry when deviceName is unset', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found', ok: false }));
+            host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' }));
 
             await expect(plugin.enqueue(['t1', 't2'])).rejects.toThrow(NO_ACTIVE_DEVICE_MESSAGE);
             expect(host.calls).toHaveLength(1);
@@ -476,7 +476,7 @@ describe('SpotifyPlugin', () => {
         it('enqueue rethrows a non-404 error without retrying', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ error: 'boom' }, { status: 500, statusText: 'Internal Server Error', ok: false }));
+            host.queueResponse(apiResponse({ error: 'boom' }, { status: 500, statusText: 'Internal Server Error' }));
 
             await expect(plugin.enqueue(['t1'])).rejects.toMatchObject({ name: 'SpotifyRequestError', status: 500 });
             expect(host.calls).toHaveLength(1);
@@ -566,7 +566,7 @@ describe('SpotifyPlugin', () => {
                 const host = createFakePluginHost();
                 const plugin = await initedPlugin(host, { deviceName: 'Kitchen' });
                 host.queueResponse(apiResponse({ devices: [{ id: 'stale-device', name: 'Kitchen' }] }));
-                host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found', ok: false }));
+                host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' }));
                 host.queueResponse(apiResponse({ devices: [{ id: 'fresh-device', name: 'Kitchen' }] }));
                 host.queueResponse(apiResponse(null, { status: 204, body: '' }));
 
@@ -580,9 +580,9 @@ describe('SpotifyPlugin', () => {
                 const host = createFakePluginHost();
                 const plugin = await initedPlugin(host, { deviceName: 'Kitchen' });
                 host.queueResponse(apiResponse({ devices: [{ id: 'stale-device', name: 'Kitchen' }] }));
-                host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found', ok: false }));
+                host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' }));
                 host.queueResponse(apiResponse({ devices: [{ id: 'fresh-device', name: 'Kitchen' }] }));
-                host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found', ok: false }));
+                host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' }));
 
                 await expect(plugin.play()).rejects.toThrow(NO_ACTIVE_DEVICE_MESSAGE);
             });
@@ -590,7 +590,7 @@ describe('SpotifyPlugin', () => {
             it('throws the no-active-device message on a 404 with no retry when deviceName is unset', async () => {
                 const host = createFakePluginHost();
                 const plugin = await initedPlugin(host);
-                host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found', ok: false }));
+                host.queueResponse(apiResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' }));
 
                 await expect(plugin.play()).rejects.toThrow(NO_ACTIVE_DEVICE_MESSAGE);
                 expect(host.calls).toHaveLength(1);

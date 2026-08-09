@@ -115,9 +115,11 @@ export class ListenBrainzClient {
             throw new ListenBrainzRequestError(response.status, `ListenBrainz request failed: HTTP ${response.status} ${response.statusText}`.trim());
         }
 
-        const remaining = response.headers['x-ratelimit-remaining'];
-        if (remaining !== undefined) this.host.logger.debug('listenbrainz budget', { remaining, resetIn: response.headers['x-ratelimit-reset-in'] });
+        const remaining = response.headers.get('x-ratelimit-remaining');
+        if (remaining !== null) {
+            this.host.logger.debug('listenbrainz budget', { remaining, resetIn: response.headers.get('x-ratelimit-reset-in') ?? undefined });
+        }
 
-        return jsonBody<T>(response);
+        return await jsonBody<T>(response);
     }
 }

@@ -1,20 +1,19 @@
 /**
- * Everything in this file crosses the plugin boundary. Every argument and
- * return value is JSON-safe on purpose, and deliberately narrower than
- * structured-clone-safe: the deferred isolation target (see
- * `docs/decisions/plugin-isolation.md`) is a subprocess over IPC, not
- * `worker_threads`, and a subprocess boundary is framing plus a serialization
- * format, in practice JSON. So no `Uint8Array`, `Map`, `Set` or `Date`, even
- * though `structuredClone` would carry all four.
+ * What the host lends a plugin. Everything here is an ordinary in-process call:
+ * the host and the plugin share a realm, permanently, so `fetch` hands back a
+ * real `Response` and `signal` is a real `AbortSignal`. See
+ * `docs/decisions/plugin-trust.md`.
  *
- * That means: no `Request`/`Response`/`Headers`, no streams, no `Date`, no
- * class instances, no functions in payloads. See
- * `docs/decisions/plugin-streaming.md` for how bytes cross this boundary when
- * they have to.
+ * The JSON-safe rule that used to govern this file has not gone away, it has
+ * moved to where it pays for itself: `boundary.json.safe.ts` still asserts it
+ * over every payload that is stored in Postgres or sent over HTTP, which is
+ * most of `capabilities/` plus the manifest. What is no longer asserted is the
+ * arguments and return values of the methods below, because nothing serializes
+ * them. `TrackFetchSession` and `TrackFetchRequest` are the exceptions in this
+ * file: they go over HTTP to the track fetcher, so they stay asserted.
  */
 
 import type { MusicProviderStream, ProviderStream } from './capabilities/music.provider.js';
-import type { PluginStreams } from './plugin.streams.js';
 
 /** Structured logging. Goes to the host's logger, tagged with the plugin id. */
 export interface PluginLogger {
@@ -52,46 +51,6 @@ export interface HostFetchInit {
      * such as a caller that walked away or a race between two upstreams.
      */
     signal?: AbortSignal;
-}
-
-/** JSON-safe subset of `Response`. */
-export interface HostFetchResponse {
-    status: number;
-
-    /** The reason phrase, e.g. `"Not Found"`. Empty when the server sent none. */
-    statusText: string;
-
-    /**
-     * Lowercased header names. A header the server repeated arrives joined with
-     * `", "`, per the Fetch spec, with one exception: `set-cookie` is NOT here,
-     * because joining cookies corrupts them. See
-     * {@link HostFetchResponse.setCookie}.
-     */
-    headers: Record<string, string>;
-
-    /**
-     * Every `set-cookie` header, one entry each, unparsed. Split out of
-     * {@link HostFetchResponse.headers} because a `Record` holds one value per
-     * name and `Set-Cookie` is the header servers routinely repeat. Empty when
-     * the server set none.
-     */
-    setCookie: string[];
-
-    /** Raw response body as text. Parse it yourself, or see `jsonBody`. */
-    body: string;
-
-    /** True for 2xx. */
-    ok: boolean;
-
-    /**
-     * The URL this response actually came from: the last hop of the redirect
-     * chain, which is not necessarily the URL that was requested. Use it to
-     * resolve relative links out of the body.
-     */
-    url: string;
-
-    /** True when at least one redirect was followed to get here. */
-    redirected: boolean;
 }
 
 /**
@@ -189,14 +148,14 @@ export interface PluginTrackFetcher {
  * The single object handed to a plugin at init, and the sanctioned way to get
  * at the outside world: network, persistence, secrets, tokens.
  *
- * NOT YET A SANDBOX. The host imports plugins into its own realm today, so
- * global `fetch`, `fs`, and `process.env` are all still reachable and nothing
- * stops a plugin from using them. What this interface buys right now is a
- * manifest that honestly describes a well-behaved plugin's blast radius, plus
- * a set of guarantees (rate limiting, timeouts, SSRF-safe redirects) that no
- * plugin has to reimplement. It becomes an enforceable boundary only once
- * plugins move into an isolate; the JSON-safe shape of everything here is what
- * keeps that move from breaking every plugin.
+ * NOT A SANDBOX, and never going to be one. The host imports plugins into its
+ * own realm, permanently (`docs/decisions/plugin-trust.md`), so global `fetch`,
+ * `fs`, and `process.env` are all reachable and nothing stops a plugin from
+ * using them. What this interface buys is a manifest that honestly describes a
+ * well-behaved plugin's blast radius, plus a set of guarantees (rate limiting,
+ * timeouts, SSRF-safe redirects) that no plugin has to reimplement. Containment
+ * is not among them, and the console says so before an operator enables
+ * anything.
  */
 export interface PluginHost {
     logger: PluginLogger;
@@ -213,25 +172,21 @@ export interface PluginHost {
      * against a hostile *server*: the redirect and credential-stripping rules
      * protect an honest plugin, and it gains nothing by going around them.
      *
-     * The body is fully buffered, under the same deadline as the request and
-     * under a host-configured size cap. A response over the cap fails the call
-     * rather than arriving truncated, so a `body` you get back is always whole.
-     */
-    fetch(url: string, init?: HostFetchInit): Promise<HostFetchResponse>;
-
-    /**
-     * The same egress, for a body that should not arrive whole.
+     * A real `Response`, so `await response.json()` is how you read JSON and
+     * `response.body` is how you stream audio. There is no second egress for
+     * bytes: a body you do not buffer is one you read off `response.body`, and
+     * a body you never read at all should be `response.body?.cancel()`-ed
+     * rather than dropped.
      *
-     * {@link PluginHost.fetch} buffers under a size cap and hands back one
-     * string, which is right for the JSON almost every upstream answers with and
-     * wrong for audio, an archive, or anything open-ended. This is the pull-based
-     * alternative: identical allowlist, redirect and rate-limit policy, bounded
-     * by a byte cap and a lifetime rather than by one deadline.
-     *
-     * See {@link PluginStreams}, and reach for it only when `fetch` genuinely
-     * will not do.
+     * `timeoutMs` bounds getting the response: connect, headers and the whole
+     * redirect chain. It does NOT bound reading the body, because a large body
+     * legitimately outlives the call that asked for it. The body is bounded
+     * instead by an idle deadline between chunks, a total byte cap and a
+     * lifetime cap, all host-enforced. Exceeding any of them fails the read
+     * rather than truncating it, so bytes you get are always bytes the server
+     * actually sent.
      */
-    streams: PluginStreams;
+    fetch(url: string, init?: HostFetchInit): Promise<Response>;
 
     /**
      * Aborts when the host gives up on the call you are currently inside.

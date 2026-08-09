@@ -1,13 +1,9 @@
-import { randomUUID } from 'node:crypto';
 import { Injectable } from 'injectkit';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 import type {
     HostFetchInit,
     HostFetchMethod,
-    HostFetchResponse,
-    HostStreamChunk,
-    HostStreamOpen,
     PluginConfigAccess,
     PluginEvents,
     PluginHost,
@@ -47,18 +43,6 @@ export const PLUGIN_FETCH_WINDOW_SECONDS = 1;
 export const PLUGIN_FETCH_TIMEOUT_MS = 10_000;
 
 /**
- * Largest response body the host will buffer, in bytes. Bodies cross the
- * boundary as one string, so without this an upstream that streams
- * indefinitely is an OOM with extra steps: the deadline bounds how long a body
- * takes to arrive, not how big it is.
- *
- * Generous for the catalog JSON these plugins actually fetch (a 50-track
- * Spotify page is low hundreds of KB), small enough that a runaway body fails
- * fast rather than eating the process.
- */
-export const PLUGIN_FETCH_MAX_BODY_BYTES = 5 * 1024 * 1024;
-
-/**
  * How many server-directed hops a single `host.fetch` will follow before giving
  * up. Redirects are not charged against the plugin's rate limit, so this cap is
  * the only thing bounding a redirect loop.
@@ -66,51 +50,45 @@ export const PLUGIN_FETCH_MAX_BODY_BYTES = 5 * 1024 * 1024;
 export const MAX_PLUGIN_FETCH_REDIRECTS = 5;
 
 /**
- * How long one `host.streams.read` waits for the socket to produce anything.
+ * How long a response body may produce nothing before the host gives up on it.
  *
- * A stalled stream is just as effective a hang as a stalled connect, and the
- * open deadline cannot cover it: reads happen in invocations that had not
- * started when the stream was opened. Generous, because it bounds silence rather
- * than total time — an upstream generating audio genuinely does pause.
+ * A stalled body is just as effective a hang as a stalled connect, and the
+ * fetch deadline cannot cover it: that one ends when the response arrives, and
+ * a large body is read long afterwards, sometimes from later invocations
+ * entirely. Generous, because it bounds silence rather than total time, and an
+ * upstream generating audio genuinely does pause.
  */
-export const PLUGIN_STREAM_IDLE_TIMEOUT_MS = 30_000;
+export const PLUGIN_BODY_IDLE_TIMEOUT_MS = 30_000;
 
 /**
- * The longest a stream may stay open at all, from `open` to the terminal chunk.
+ * The longest a response body may stay open at all, from the moment the
+ * response is handed to the plugin to its last byte.
  *
- * The load-bearing bound of the four, and the reason the other three are not
- * enough. A stream is deliberately NOT capped by the invocation that opened it —
- * that is the whole point, since a plugin returns a handle from one call and the
- * host drains it across later ones — so without this, streaming would be a way
- * to escape the per-invocation deadline entirely and hold a socket forever. The
- * deadline is not removed here, it is replaced by a strictly-enforced longer one.
+ * The load-bearing bound of the three, and the reason the other two are not
+ * enough. Reading a body is deliberately NOT capped by the invocation that
+ * started the request, because a legitimate large body outlives it, so without
+ * this a body would be a way to escape the per-invocation deadline entirely and
+ * hold a socket forever. The deadline is not removed, it is replaced by a
+ * strictly-enforced longer one.
  *
- * Sized above a slow synthesis on CPU rather than above a request, which is what
- * the first caller (speech) actually needs.
+ * Sized above a slow synthesis on CPU rather than above a request, which is
+ * what the caller that needs it (speech) actually does.
  */
-export const PLUGIN_STREAM_LIFETIME_MS = 5 * 60_000;
+export const PLUGIN_BODY_LIFETIME_MS = 5 * 60_000;
 
 /**
- * Most bytes one stream may carry.
+ * Most bytes one response body may carry.
  *
- * Far above {@link PLUGIN_FETCH_MAX_BODY_BYTES} because this is the path that
- * exists for bodies that do not fit in that one, and still a bound: unbounded is
- * how a plugin fills a disk. Comfortably above a long-form audio render at any
- * bitrate anyone would stream.
- */
-export const PLUGIN_STREAM_MAX_BYTES = 64 * 1024 * 1024;
-
-/**
- * How many streams one plugin may hold open at once.
+ * One cap rather than the two this used to have. There was a 5 MiB ceiling on
+ * `host.fetch`, which buffered every body into a string, and a 64 MiB one on
+ * the separate byte protocol for bodies that could not fit in it. That protocol
+ * is gone: a plugin now decides for itself whether to buffer, with
+ * `response.text()`, so the only place a single cap can sit is the wire.
  *
- * Not in the protocol specification, and added anyway: the lifetime cap alone
- * bounds a leaked stream to five minutes, which for a plugin opening them in a
- * loop is five minutes of unbounded sockets. Low, because a plugin needing more
- * than a handful of concurrent streams is doing something the byte protocol was
- * not meant for. Only live streams count, so a failed one a plugin has not
- * cleaned up yet cannot wedge it out of opening more.
+ * Unbounded is how a plugin fills a disk, and this is comfortably above a
+ * long-form audio render at any bitrate anyone would stream.
  */
-export const PLUGIN_STREAM_MAX_OPEN = 4;
+export const PLUGIN_RESPONSE_MAX_BYTES = 64 * 1024 * 1024;
 
 /**
  * Where the host's own OAuth redirect endpoint lives. Constructor-injected
@@ -279,28 +257,6 @@ interface SentResponse {
     redirected: boolean;
 }
 
-/** Everything a `HostFetchResponse` is except its body, which only the caller knows how to read. */
-const flattenResponse = (response: Response, url: URL, redirected: boolean): Omit<HostFetchResponse, 'body'> => {
-    // `set-cookie` is the one header iteration does not join, so it would
-    // otherwise arrive as whichever cookie happened to be last. It gets its own
-    // array instead of silently losing the rest.
-    const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-        const name = key.toLowerCase();
-        if (name !== 'set-cookie') headers[name] = value;
-    });
-
-    return {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-        setCookie: response.headers.getSetCookie(),
-        ok: response.ok,
-        url: url.toString(),
-        redirected,
-    };
-};
-
 /**
  * Let go of a body nobody is going to read.
  *
@@ -371,102 +327,155 @@ const withIdleDeadline = async <T>(work: Promise<T>, idleMs: number, onTimeout: 
 };
 
 /**
- * One open response body, and everything bounding it.
- *
- * Held per plugin instance rather than per invocation, because that asymmetry is
- * the entire reason this protocol exists: a stream is opened inside one call
- * into plugin code and read from later ones.
+ * Releases whatever a response body is still holding. Registered per plugin so
+ * a body cannot outlive the instance that opened it.
  */
-interface OpenStream {
-    reader: ReadableStreamDefaultReader<Uint8Array>;
-    /** Aborting this is what actually kills the request behind the stream. */
-    controller: AbortController;
-    /** Fires {@link PLUGIN_STREAM_LIFETIME_MS}. Cleared when the stream ends any other way. */
-    lifetimeTimer: NodeJS.Timeout;
-    /** Next chunk number to hand out. */
-    seq: number;
-    totalBytes: number;
-    /**
-     * Read off the socket but not handed over, because the caller asked for less
-     * than arrived. A small `maxBytes` therefore costs round trips and never
-     * bytes.
-     */
-    pending?: Uint8Array;
-    /**
-     * Why this stream died. Set instead of dropping the entry, so the next read
-     * is told what happened rather than being told the stream never existed.
-     */
-    failure?: PluginError;
-}
-
-/** A body for a response that had none, so a finished stream reads exactly like an empty one. */
-const emptyStream = (): ReadableStream<Uint8Array> =>
-    new ReadableStream<Uint8Array>({
-        start(controller) {
-            controller.close();
-        },
-    });
+type BodyRelease = (failure?: PluginError) => void;
 
 /** The failure the lifetime cap records when it fires. */
-const lifetimeExpired = (manifest: PluginManifest, lifetimeMs: number): PluginError =>
-    new PluginError(`plugin "${manifest.id}" held a stream open for more than ${lifetimeMs}ms`).withCode('timeout');
+const lifetimeExpired = (manifest: PluginManifest): PluginError =>
+    new PluginError(`plugin "${manifest.id}" held a response body open for more than ${PLUGIN_BODY_LIFETIME_MS}ms`).withCode('timeout');
+
+/** The failure the idle deadline records. */
+const idleExpired = (manifest: PluginManifest, url: string): PluginError =>
+    new PluginError(`plugin "${manifest.id}" response body from ${url} produced nothing for ${PLUGIN_BODY_IDLE_TIMEOUT_MS}ms`).withCode('timeout');
 
 /**
- * Hands over up to `limit` bytes of what has already been read, keeping any
- * remainder for the next call.
+ * The plugin's response body, bounded.
  *
- * The whole reason `maxBytes` costs round trips rather than bytes: a caller that
- * asks for less than the socket produced gets the rest next time instead of
- * losing it.
+ * This is what is left of the byte protocol. The handles, the sequence numbers,
+ * the base64 and the stream table are gone with it, because a `ReadableStream`
+ * already is a pull-based stream with backpressure and a cancel. What did NOT
+ * go is the reason any of it existed: a body is read outside the deadline that
+ * fetched it, so something has to stop it being an unbounded socket. That is
+ * the three caps here.
+ *
+ * Failures reject the read rather than ending the stream quietly, so a caller
+ * that ignores errors truncates loudly instead of silently. The first failure
+ * wins: a lifetime expiry that fired while a read was parked is the real cause,
+ * and the abort landing afterwards is only its echo.
  */
-const takePending = (stream: OpenStream, streamId: string, limit: number | undefined): HostStreamChunk => {
-    const available = stream.pending ?? new Uint8Array(0);
-    const take = limit === undefined ? available.length : Math.min(limit, available.length);
+const guardBody = (
+    manifest: PluginManifest,
+    url: string,
+    source: ReadableStream<Uint8Array>,
+    controller: AbortController,
+    open: Set<BodyRelease>,
+): ReadableStream<Uint8Array> => {
+    const reader = source.getReader();
+    let total = 0;
+    let failure: PluginError | undefined;
+    let released = false;
+    let out: ReadableStreamDefaultController<Uint8Array> | undefined;
 
-    const chunk = available.subarray(0, take);
-    stream.pending = take < available.length ? available.subarray(take) : undefined;
+    const release: BodyRelease = reason => {
+        failure ??= reason;
+        if (released) return;
+        released = true;
+        clearTimeout(lifetimeTimer);
+        open.delete(release);
+        // Both, because they answer different halves: cancelling the reader
+        // ends this stream, and aborting the controller ends the request behind
+        // it. Without the abort a cancelled body leaves the socket to time out
+        // on its own.
+        controller.abort();
+        reader.cancel().catch(() => {});
 
-    return { streamId, seq: stream.seq++, data: Buffer.from(chunk).toString('base64'), done: false };
+        // Errored rather than merely left to fail on the next pull. A stream
+        // keeps a chunk queued ahead of its consumer, so without this a body
+        // killed by the lifetime cap or by a dispose hands over one more stale
+        // chunk first and only then reports what happened.
+        if (failure !== undefined) {
+            try {
+                out?.error(failure);
+            } catch {
+                // Already closed or errored, which is not news on a path whose
+                // whole job is to make sure it ends up that way.
+            }
+        }
+    };
+
+    // Declared after `release` and referenced from inside it, which is safe
+    // because nothing calls `release` until this line has run.
+    const lifetimeTimer = setTimeout(() => release(lifetimeExpired(manifest)), PLUGIN_BODY_LIFETIME_MS);
+    // Nothing is waiting on this timer; without unref a process holding an idle
+    // body would refuse to exit for up to the whole lifetime cap.
+    lifetimeTimer.unref?.();
+    open.add(release);
+
+    return new ReadableStream<Uint8Array>({
+        start(controller) {
+            out = controller;
+        },
+        async pull(controller) {
+            // Recorded by whatever killed it: the lifetime timer, or a dispose.
+            if (failure !== undefined) throw failure;
+
+            let result: ReadableStreamReadResult<Uint8Array>;
+            try {
+                result = await withIdleDeadline(reader.read(), PLUGIN_BODY_IDLE_TIMEOUT_MS, () => idleExpired(manifest, url));
+            } catch (error) {
+                const thrown = isPluginError(error)
+                    ? error
+                    : new PluginError(`plugin "${manifest.id}" response body from ${url} failed: ${errorText(error)}`, { cause: error }).withCode(
+                          'upstream',
+                      );
+                release(thrown);
+                throw failure ?? thrown;
+            }
+
+            if (result.done) {
+                release();
+                controller.close();
+                return;
+            }
+
+            total += result.value.byteLength;
+            if (total > PLUGIN_RESPONSE_MAX_BYTES) {
+                const over = new PluginError(
+                    `plugin "${manifest.id}" response body from ${url} is over the ${PLUGIN_RESPONSE_MAX_BYTES} byte limit`,
+                ).withCode('upstream');
+                release(over);
+                throw failure ?? over;
+            }
+
+            controller.enqueue(result.value);
+        },
+        cancel() {
+            release();
+        },
+    });
 };
 
 /**
- * Kill a stream and remember why, so the next read is told what happened rather
- * than that the stream never existed.
+ * The response the plugin actually gets: the upstream's status and headers,
+ * with its body wrapped in {@link guardBody}.
  *
- * Returns the failure so a caller can `throw failStream(...)` and have the
- * recording and the throwing be one statement, which is what stops the two
- * drifting apart on a path with several exits.
- */
-const failStream = (streams: Map<string, OpenStream>, streamId: string, failure: PluginError): PluginError => {
-    const stream = streams.get(streamId);
-    if (stream === undefined) return failure;
-
-    // First failure wins. A lifetime expiry that fired while a read was parked
-    // is the real cause, and the abort landing afterwards is only its echo.
-    stream.failure ??= failure;
-    clearTimeout(stream.lifetimeTimer);
-    stream.pending = undefined;
-    stream.controller.abort();
-    stream.reader.cancel().catch(() => {});
-
-    return stream.failure;
-};
-
-/**
- * Release a stream outright: its timer, its socket, and its entry.
+ * A fresh `Response` rather than the upstream one, because a body cannot be
+ * swapped on an existing response. `url` and `redirected` are read-only and
+ * blank on a constructed response, so they are redefined: both are part of the
+ * contract (`url` is the last hop of the redirect chain, which is what a plugin
+ * resolves relative links against) and losing them to a construction detail
+ * would be a silent regression.
  *
- * Idempotent by construction, because the SDK promises `close` can always be
- * called from a `finally` and will therefore routinely be called on a stream
- * that already ended normally.
+ * A status that cannot carry a body (204, 304) arrives with `body` already
+ * null, and passing null through is also what keeps the `Response` constructor
+ * from throwing on exactly those.
  */
-const closeStream = (streams: Map<string, OpenStream>, streamId: string): void => {
-    const stream = streams.get(streamId);
-    if (stream === undefined) return;
+const guardedResponse = (manifest: PluginManifest, sent: SentResponse, controller: AbortController, open: Set<BodyRelease>): Response => {
+    const url = sent.url.toString();
+    const body = sent.response.body === null ? null : guardBody(manifest, url, sent.response.body, controller, open);
 
-    streams.delete(streamId);
-    clearTimeout(stream.lifetimeTimer);
-    stream.controller.abort();
-    stream.reader.cancel().catch(() => {});
+    const response = new Response(body, {
+        status: sent.response.status,
+        statusText: sent.response.statusText,
+        headers: sent.response.headers,
+    });
+
+    Object.defineProperty(response, 'url', { value: url });
+    Object.defineProperty(response, 'redirected', { value: sent.redirected });
+
+    return response;
 };
 
 /** Duck-typed: `rate-limiter-flexible` rejects with a `RateLimiterRes`, not an `Error`. */
@@ -511,14 +520,14 @@ const rateLimitWaitMs = (rejection: unknown): number | undefined => {
 @Injectable()
 export class PluginHostFactory {
     /**
-     * Every stream any plugin currently holds open, by plugin id.
+     * Every response body any plugin still has open, by plugin id.
      *
      * Here rather than only in the closure `createHost` builds, because somebody
      * outside the host has to be able to let go of these: a plugin is disposed by
      * `PluginLifecycleManager`, which holds the record and not the host object.
-     * See {@link closeStreamsFor}.
+     * See {@link cancelOpenBodies}.
      */
-    private readonly openStreams = new Map<string, Map<string, OpenStream>>();
+    private readonly openBodies = new Map<string, Set<BodyRelease>>();
 
     constructor(
         private readonly options: PluginHostFactoryOptions,
@@ -538,22 +547,15 @@ export class PluginHostFactory {
         // upstream costs nothing.
         const limiters = new Map<string, RateLimiterMemory>();
 
-        // Per plugin instance, and the reason `closeStreamsFor` exists: these
-        // outlive the invocation that opened them, so nothing else would ever
-        // close one belonging to a plugin that is being disposed.
-        const streams: Map<string, OpenStream> = new Map();
-        this.openStreams.set(manifest.id, streams);
+        // Per plugin instance, and the reason `cancelOpenBodies` exists: a body
+        // outlives the invocation that fetched it, so nothing else would ever
+        // release one belonging to a plugin that is being disposed.
+        const bodies = new Set<BodyRelease>();
+        this.openBodies.set(manifest.id, bodies);
 
         return {
             logger,
-            fetch: (url, init) => this.hostFetch(manifest, entries, limiters, logger, url, init),
-            streams: {
-                open: (url, init) => this.openStream(manifest, entries, limiters, logger, streams, url, init),
-                read: (streamId, maxBytes) => this.readStream(manifest, streams, streamId, maxBytes),
-                close: async streamId => {
-                    closeStream(streams, streamId);
-                },
-            },
+            fetch: (url, init) => this.hostFetch(manifest, entries, limiters, logger, bodies, url, init),
             // A getter, not a captured value: the host object outlives every
             // invocation made through it, so it has to read the ambient one at
             // the moment the plugin asks rather than whichever was running when
@@ -788,43 +790,65 @@ export class PluginHostFactory {
         networkEntries: () => Promise<NetworkEntry[]>,
         limiters: Map<string, RateLimiterMemory>,
         logger: PluginLogger,
+        bodies: Set<BodyRelease>,
         url: string,
         init?: HostFetchInit,
-    ): Promise<HostFetchResponse> {
+    ): Promise<Response> {
         const entries = await networkEntries();
         const { url: target, entry } = this.assertAllowed(manifest, entries, logger, url);
         const { deadlineAt, budgetMs } = this.budgetFor(manifest, target, init);
 
         const { controller, dispose } = egressController(deadlineAt, init?.signal);
 
+        let sent: SentResponse;
         try {
-            const sent = await this.sendWithRetry(manifest, entries, limiters, logger, entry, target, init, controller, deadlineAt, budgetMs);
-
-            // Read here rather than inside the chain, because the chain now hands
-            // back a live response for `host.streams` to hold on to. The classifier
-            // is shared so an over-cap body is still the `upstream` PluginError it
-            // was when this was one try block.
-            let body: string;
-            try {
-                body = await this.readBody(sent.response);
-            } catch (error) {
-                throw this.transportFailure(manifest, target.hostname.toLowerCase(), controller, budgetMs, error);
-            }
-
-            return { ...flattenResponse(sent.response, sent.url, sent.redirected), body };
+            sent = await this.sendWithRetry(manifest, entries, limiters, logger, entry, target, init, controller, deadlineAt, budgetMs);
+        } catch (error) {
+            // Nothing was registered, so nothing else will ever abort this.
+            controller.abort();
+            throw this.transportFailure(manifest, target.hostname.toLowerCase(), controller, budgetMs, error);
         } finally {
+            // The fetch deadline is done with either way: it covered connect,
+            // headers and the redirect chain, and from here the body's own
+            // bounds apply. Leaving the timer armed would abort a perfectly
+            // healthy body mid-read.
             dispose();
         }
+
+        // Refused before a byte is read, when the server was honest about the
+        // size. The running count in the guard is what catches a server that
+        // understates the header or omits it entirely, which is exactly what one
+        // streaming forever would do.
+        this.assertDeclaredSizeFits(manifest, sent, controller);
+
+        return guardedResponse(manifest, sent, controller, bodies);
+    }
+
+    /**
+     * Refuses an over-cap body on its `content-length` alone.
+     *
+     * Cheap and early, and not sufficient on its own: a chunked response has no
+     * `content-length` at all, so the guard counts as it reads. Both, because
+     * either alone is wrong.
+     */
+    private assertDeclaredSizeFits(manifest: PluginManifest, sent: SentResponse, controller: AbortController): void {
+        const declared = Number(sent.response.headers.get('content-length') ?? Number.NaN);
+        if (!Number.isFinite(declared) || declared <= PLUGIN_RESPONSE_MAX_BYTES) return;
+
+        controller.abort();
+        void cancelBody(sent.response);
+        throw new PluginError(
+            `plugin "${manifest.id}" response body from ${sent.url.toString()} declares ${declared} bytes, over the ${PLUGIN_RESPONSE_MAX_BYTES} byte limit`,
+        ).withCode('upstream');
     }
 
     /**
      * How long one egress call gets, and when it runs out.
      *
-     * Shared by `host.fetch` and `host.streams.open` so the two cannot drift on
-     * the one number that decides whether a plugin's work fits. For a stream
-     * this bounds the OPEN only — connect, headers and the redirect chain — and
-     * the reads that follow are bounded by their own idle and lifetime caps,
-     * which is the whole reason a stream exists.
+     * This bounds getting the RESPONSE only: connect, headers and the whole
+     * redirect chain. Reading the body is bounded separately, by the guard's
+     * own idle, lifetime and byte caps, which is the point. A legitimate large
+     * body outlives the call that asked for it.
      *
      * @throws {PluginError} `timeout` when the invocation is already over.
      *   Issuing the request anyway would spend a round trip on a response nobody
@@ -892,181 +916,24 @@ export class PluginHostFactory {
     }
 
     /**
-     * Let go of every stream a plugin still holds.
+     * Let go of every response body a plugin still holds.
      *
-     * Called when a plugin is disposed, so a stream cannot outlive the instance
-     * that opened it. That is a backstop for a plugin that crashed or forgot,
-     * not the sanctioned way to finish with one: a well-behaved plugin closes in
-     * a `finally`, and the lifetime cap catches the rest long before shutdown.
+     * Called when a plugin is disposed, so a body cannot outlive the instance
+     * that fetched it. That is a backstop for a plugin that crashed or forgot,
+     * not the sanctioned way to finish with one: a well-behaved plugin reads its
+     * body to the end or cancels it, and the lifetime cap catches the rest long
+     * before shutdown.
      *
      * Safe to call for a plugin that never opened one, and safe to call twice.
      */
-    closeStreamsFor(pluginId: string): void {
-        const streams = this.openStreams.get(pluginId);
-        this.openStreams.delete(pluginId);
-        if (streams === undefined) return;
+    cancelOpenBodies(pluginId: string): void {
+        const bodies = this.openBodies.get(pluginId);
+        this.openBodies.delete(pluginId);
+        if (bodies === undefined) return;
 
-        for (const streamId of [...streams.keys()]) closeStream(streams, streamId);
-    }
-
-    /**
-     * Start a request and keep its body open.
-     *
-     * Everything up to the first byte is an ordinary fetch and goes through the
-     * identical path: same allowlist, same per-hop redirect checks, same one
-     * rate-limit point, same `Retry-After` back-off. What differs begins after
-     * that — the response is registered instead of read, and from here on it is
-     * bounded by bytes and by wall-clock rather than by the invocation, which no
-     * longer has anything to do with it.
-     */
-    private async openStream(
-        manifest: PluginManifest,
-        networkEntries: () => Promise<NetworkEntry[]>,
-        limiters: Map<string, RateLimiterMemory>,
-        logger: PluginLogger,
-        streams: Map<string, OpenStream>,
-        url: string,
-        init?: HostFetchInit,
-    ): Promise<HostStreamOpen> {
-        const entries = await networkEntries();
-        const { url: target, entry } = this.assertAllowed(manifest, entries, logger, url);
-
-        // Only live streams count. A failed one the plugin has not cleaned up
-        // yet is a few bytes of bookkeeping, and counting it would let one dead
-        // stream lock a plugin out of opening another.
-        const live = [...streams.values()].filter(stream => stream.failure === undefined).length;
-        if (live >= PLUGIN_STREAM_MAX_OPEN) {
-            logger.warn('plugin stream refused: too many open', { open: live });
-            throw new PluginError(
-                `plugin "${manifest.id}" already holds ${live} open streams (limit ${PLUGIN_STREAM_MAX_OPEN}); close one first`,
-            ).withCode('unavailable');
-        }
-
-        const { deadlineAt, budgetMs } = this.budgetFor(manifest, target, init);
-
-        const { controller, dispose } = egressController(deadlineAt, init?.signal);
-
-        let sent: SentResponse;
-        try {
-            sent = await this.sendWithRetry(manifest, entries, limiters, logger, entry, target, init, controller, deadlineAt, budgetMs);
-        } catch (error) {
-            // Nothing was registered, so nothing else will ever abort this.
-            controller.abort();
-            throw error;
-        } finally {
-            // The open deadline is done with either way. From here the stream's
-            // own bounds apply, and leaving the timer armed would abort a
-            // perfectly healthy stream mid-read.
-            dispose();
-        }
-
-        const streamId = randomUUID();
-        const flattened = flattenResponse(sent.response, sent.url, sent.redirected);
-
-        // A 204, a HEAD, or an error status the server sent no body with. There
-        // is nothing to stream, so the handle is born finished: the plugin still
-        // gets the status and headers, and its first read says `done`.
-        const body = sent.response.body;
-        const lifetimeTimer = setTimeout(
-            () => failStream(streams, streamId, lifetimeExpired(manifest, PLUGIN_STREAM_LIFETIME_MS)),
-            PLUGIN_STREAM_LIFETIME_MS,
-        );
-        // Nothing is waiting on this timer; without unref a process with an idle
-        // stream would refuse to exit for up to the whole lifetime cap.
-        lifetimeTimer.unref?.();
-
-        streams.set(streamId, {
-            reader: (body ?? emptyStream()).getReader(),
-            controller,
-            lifetimeTimer,
-            seq: 0,
-            totalBytes: 0,
-        });
-
-        logger.debug('plugin stream opened', { streamId, status: flattened.status, url: flattened.url });
-
-        return {
-            streamId,
-            status: flattened.status,
-            headers: flattened.headers,
-            ok: flattened.ok,
-            url: flattened.url,
-        };
-    }
-
-    /**
-     * The next chunk of an open stream.
-     *
-     * Three of the four bounds land here. The idle deadline bounds one read, the
-     * byte cap bounds the whole stream, and the lifetime cap has already fired by
-     * the time this sees it (as a recorded {@link OpenStream.failure}) rather
-     * than being checked on the way past.
-     *
-     * A stream that ends normally is dropped from the map as its terminal chunk
-     * is handed out, so reading past `done` is answered as a stream that does not
-     * exist — which is exactly what it is.
-     */
-    private async readStream(
-        manifest: PluginManifest,
-        streams: Map<string, OpenStream>,
-        streamId: string,
-        maxBytes?: number,
-    ): Promise<HostStreamChunk> {
-        const stream = streams.get(streamId);
-        if (stream === undefined) {
-            throw new PluginError(`plugin "${manifest.id}" has no open stream "${streamId}"`).withCode('not_found');
-        }
-        // Recorded by whatever killed it: the lifetime timer, or an earlier read.
-        if (stream.failure !== undefined) throw stream.failure;
-
-        const limit = maxBytes !== undefined && Number.isFinite(maxBytes) && maxBytes >= 1 ? Math.floor(maxBytes) : undefined;
-
-        // Left over from a read that asked for less than arrived. No socket
-        // involved, so none of the deadlines apply.
-        if (stream.pending !== undefined) return takePending(stream, streamId, limit);
-
-        let result: ReadableStreamReadResult<Uint8Array>;
-        try {
-            result = await withIdleDeadline(stream.reader.read(), PLUGIN_STREAM_IDLE_TIMEOUT_MS, () =>
-                new PluginError(`plugin "${manifest.id}" stream "${streamId}" produced nothing for ${PLUGIN_STREAM_IDLE_TIMEOUT_MS}ms`).withCode(
-                    'timeout',
-                ),
-            );
-        } catch (error) {
-            // The lifetime timer may have fired while this read was parked, in
-            // which case its reason is the true one and this is just the abort
-            // landing. Prefer whatever was recorded first.
-            const failure =
-                stream.failure ??
-                (isPluginError(error)
-                    ? error
-                    : new PluginError(`plugin "${manifest.id}" stream "${streamId}" failed: ${errorText(error)}`, { cause: error }).withCode(
-                          'upstream',
-                      ));
-            throw failStream(streams, streamId, failure);
-        }
-
-        if (result.done) {
-            // Everything is released here, including the map entry: the stream is
-            // over, and a plugin's `finally` calling close on it must be a no-op
-            // rather than an error.
-            closeStream(streams, streamId);
-            return { streamId, seq: stream.seq++, done: true };
-        }
-
-        stream.totalBytes += result.value.byteLength;
-        if (stream.totalBytes > PLUGIN_STREAM_MAX_BYTES) {
-            throw failStream(
-                streams,
-                streamId,
-                new PluginError(`plugin "${manifest.id}" stream "${streamId}" is over the ${PLUGIN_STREAM_MAX_BYTES} byte limit`).withCode(
-                    'upstream',
-                ),
-            );
-        }
-
-        stream.pending = result.value;
-        return takePending(stream, streamId, limit);
+        const disposed = new PluginError(`plugin "${pluginId}" was disposed while a response body was still open`).withCode('unavailable');
+        // A copy, because releasing a body removes it from this very set.
+        for (const release of [...bodies]) release(disposed);
     }
 
     /**
@@ -1343,51 +1210,4 @@ export class PluginHostFactory {
         );
     }
 
-    /**
-     * The body as text, capped at {@link PLUGIN_FETCH_MAX_BODY_BYTES}.
-     *
-     * Two checks, because either alone is wrong: `content-length` refuses an
-     * oversized body before a byte of it is read, and the running count catches
-     * a server that understates the header or omits it entirely (chunked
-     * encoding, which is exactly what a server streaming forever would use).
-     *
-     * Read under the caller's deadline, and incrementally: a stalled stream is
-     * just as effective a hang as a stalled connect, and a body that only
-     * reveals its size as it arrives has to be measured as it arrives.
-     *
-     * Over-budget cancels the stream rather than aborting the controller. Both
-     * kill the connection, but aborting would make {@link roundTrip} report the
-     * failure as a timeout, which it is not.
-     */
-    private async readBody(response: Response): Promise<string> {
-        const maxBodyBytes = PLUGIN_FETCH_MAX_BODY_BYTES;
-        const tooLarge = (bytes: number): Error => new Error(`response body is ${bytes} bytes, over the ${maxBodyBytes} byte limit`);
-
-        const declared = Number(response.headers.get('content-length'));
-        if (Number.isFinite(declared) && declared > maxBodyBytes) {
-            await response.body?.cancel();
-            throw tooLarge(declared);
-        }
-
-        // 204s and HEAD responses have no stream at all.
-        if (response.body === null) return '';
-
-        const reader = response.body.getReader();
-        const chunks: Uint8Array[] = [];
-        let total = 0;
-
-        for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            total += value.byteLength;
-            if (total > maxBodyBytes) {
-                await reader.cancel();
-                throw tooLarge(total);
-            }
-            chunks.push(value);
-        }
-
-        return Buffer.concat(chunks).toString('utf8');
-    }
 }

@@ -170,7 +170,7 @@ describe('enrichAlbum', () => {
     it('keeps the record when the pressing lookup fails, because a label is not the answer', async () => {
         await initialize();
         host.queueResponse({ body: JSON.stringify(releaseGroup) });
-        host.queueResponse({ status: 503, ok: false, body: '' });
+        host.queueResponse({ status: 503, body: '' });
 
         const enrichment = await plugin.enrichAlbum({ name: 'Dummy', artist: 'Portishead', mbid: 'rg-1' });
 

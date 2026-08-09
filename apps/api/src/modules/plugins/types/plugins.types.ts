@@ -10,7 +10,7 @@ export type PluginStatus = z.infer<typeof PluginStatus>;
 /**
  * generated from [ConfigFieldType](file://./../../../../data/contracts/plugins/plugins.types.ck#L9)
  */
-export const ConfigFieldType = z.enum(['string', 'url', 'secret', 'number', 'boolean', 'select', 'note']);
+export const ConfigFieldType = z.enum(['string', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'note']);
 export type ConfigFieldType = z.infer<typeof ConfigFieldType>;
 
 /**
@@ -51,7 +51,7 @@ export type PluginTestResult = z.infer<typeof PluginTestResult>;
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../data/contracts/plugins/plugins.types.ck#L88)
+ * generated from [PluginOAuthStart](file://./../../../../data/contracts/plugins/plugins.types.ck#L99)
  */
 export const PluginOAuthStart = z.strictObject({
     url: z.url(),
@@ -60,7 +60,7 @@ export type PluginOAuthStart = z.infer<typeof PluginOAuthStart>;
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L93)
+ * generated from [PluginOAuthResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L104)
  */
 export const PluginOAuthResult = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -70,7 +70,7 @@ export const PluginOAuthResult = z.strictObject({
 export type PluginOAuthResult = z.infer<typeof PluginOAuthResult>;
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L99)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L110)
  */
 export const PluginOAuthCallbackQuery = z.object({
     code: z.string().max(2048).optional(),
@@ -96,6 +96,24 @@ export const ConfigFieldDescriptor = z.strictObject({
     dependsOn: z.string().min(1).max(200).optional().describe('Key of the field this one is only relevant to'),
 });
 export type ConfigFieldDescriptor = z.infer<typeof ConfigFieldDescriptor>;
+
+/**
+ * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
+ * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
+ * was written, where these are whatever the operator's own server currently says
+ * generated from [PluginFieldSuggestions](file://./../../../../data/contracts/plugins/plugins.types.ck#L89)
+ */
+export const PluginFieldSuggestions = z.strictObject({
+    fields: z
+        .record(z.string(), z.array(ConfigFieldOption))
+        .describe('Keys the plugin had nothing to say about are simply absent, rather than present and empty'),
+    supported: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'False when the plugin does not implement suggestions at all, so a console can tell "nothing to\nsuggest" from "asked and got nothing", and draw a refresh control only where one would do something',
+        ),
+});
+export type PluginFieldSuggestions = z.infer<typeof PluginFieldSuggestions>;
 
 /**
  * generated from [PluginLogEntry](file://./../../../../data/contracts/plugins/plugins.types.ck#L46)

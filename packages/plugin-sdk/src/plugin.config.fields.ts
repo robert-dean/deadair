@@ -3,21 +3,44 @@ import { z } from 'zod';
 /**
  * The kinds of input a plugin can ask the operator for.
  *
- * - `string`  free text
- * - `url`     free text validated/normalised as a URL
- * - `secret`  write-only: the host encrypts it, the settings UI never reads it
- *             back, and only `host.secrets.get()` sees the plaintext
- * - `number`  numeric input
- * - `boolean` toggle
- * - `select`  one of `options`
- * - `note`    not an input at all: static help text rendered in the form
+ * - `string`      free text
+ * - `url`         free text validated/normalised as a URL
+ * - `secret`      write-only: the host encrypts it, the settings UI never reads
+ *                 it back, and only `host.secrets.get()` sees the plaintext
+ * - `number`      numeric input
+ * - `boolean`     toggle
+ * - `select`      one of `options`
+ * - `multiselect` any number of `options`, stored as a JSON array of the chosen
+ *                 values. Read it back with {@link parseMultiSelect}
+ * - `note`        not an input at all: static help text rendered in the form
  */
-export type ConfigFieldType = 'string' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'note';
+export type ConfigFieldType = 'string' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'note';
 
-/** One choice in a `select` field. */
+/** One choice in a `select`, a `multiselect`, or a suggestion list. */
 export interface ConfigFieldOption {
     value: string;
     label: string;
+}
+
+/**
+ * The chosen values of a `multiselect`, out of the string it is stored as.
+ *
+ * Stored as a JSON array because plugin config is a string map, and read back
+ * through here so every plugin agrees on the encoding. Tolerant on purpose: a
+ * value hand-edited into something unreadable answers empty rather than failing
+ * a load, which for a field like "which models can use tools" is the difference
+ * between a degraded station and one that will not start.
+ */
+export function parseMultiSelect(raw: unknown): string[] {
+    if (typeof raw !== 'string' || raw.trim().length === 0) return [];
+
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((value): value is string => typeof value === 'string' && value.trim().length > 0).map(value => value.trim());
+    } catch {
+        return [];
+    }
 }
 
 /**
@@ -45,7 +68,14 @@ export interface ConfigField {
     /** Longer explanation rendered under the input. */
     help?: string;
 
-    /** Choices. Only meaningful when `type` is `'select'`. */
+    /**
+     * Choices, for a `select` or a `multiselect`.
+     *
+     * Fixed when the manifest is written, so this is for a closed set the plugin
+     * decides. For anything the operator's own server decides, implement
+     * `suggestConfigOptions()` instead: what it returns for this key replaces
+     * these, and it can also turn a `string` into free text with suggestions.
+     */
     options?: ConfigFieldOption[];
 
     /**
@@ -60,7 +90,7 @@ export const configFieldOptionSchema = z.object({
     label: z.string(),
 });
 
-export const configFieldTypeSchema = z.enum(['string', 'url', 'secret', 'number', 'boolean', 'select', 'note']);
+export const configFieldTypeSchema = z.enum(['string', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'note']);
 
 export const configFieldSchema = z.object({
     key: z.string().min(1),

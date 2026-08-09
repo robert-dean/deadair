@@ -23,6 +23,15 @@ export const queryKeys = {
          */
         logs: (id: string, query?: { limit?: number; level?: string }) =>
             query === undefined ? (['plugins', 'logs', id] as const) : (['plugins', 'logs', id, query.limit ?? 'all', query.level ?? 'all'] as const),
+        /**
+         * What the plugin currently offers for its own config fields.
+         *
+         * Separate from `detail` even though the settings form uses both, because they go stale for
+         * different reasons: the detail changes when the operator saves, and this changes when the
+         * plugin's own upstream does. Folding it into the detail would mean every save re-probed a
+         * model server, and every refresh refetched the manifest.
+         */
+        configSuggestions: (id: string) => ['plugins', 'config-suggestions', id] as const,
     },
     /**
      * The station's own settings. One key, and no per-group or per-key form: the API answers with

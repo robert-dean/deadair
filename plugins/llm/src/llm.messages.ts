@@ -22,6 +22,26 @@ import { jsonSchema, tool, type ModelMessage, type ToolSet } from 'ai';
  * a caller's bug rather than a model's, and failing here names it while the
  * stack still points at whoever built the conversation.
  */
+
+/**
+ * The leading system turn lifted out of the conversation, if there is one.
+ *
+ * The AI SDK asks for a system prompt as its own option rather than as the first
+ * message, and warns when it finds one inline: a system turn sitting in the
+ * message list is easier for later content to imitate. The station's boundary
+ * keeps `system` as a role because that is what a conversation IS, so the
+ * separation happens here, at the one place that already translates between the
+ * two vocabularies.
+ */
+export function splitSystemPrompt(messages: readonly LlmMessage[]): { system?: string; rest: readonly LlmMessage[] } {
+    const [first, ...rest] = messages;
+    if (first?.role !== 'system') return { rest: messages };
+
+    // Only a LEADING system turn. One in the middle of a conversation is unusual enough that
+    // reordering it would change what the model sees, so it stays where the caller put it.
+    return { system: first.content, rest };
+}
+
 export function toModelMessages(messages: readonly LlmMessage[]): ModelMessage[] {
     return messages.map(message => {
         switch (message.role) {

@@ -6,7 +6,7 @@ options {
 
 contract PluginStatus: enum(discovered, disabled, misconfigured, active, failed) # Lifecycle state of a plugin the host knows about
 
-contract ConfigFieldType: enum(string, url, secret, number, boolean, select, note)
+contract ConfigFieldType: enum(string, url, secret, number, boolean, select, multiselect, note)
 
 # One choice of a `select` config field
 contract ConfigFieldOption: {
@@ -81,6 +81,17 @@ contract PluginConfigInput: {
 contract PluginTestResult: {
     ok: boolean
     message?: string(max=4000)
+}
+
+# Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
+# `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
+# was written, where these are whatever the operator's own server currently says
+contract PluginFieldSuggestions: {
+    # Keys the plugin had nothing to say about are simply absent, rather than present and empty
+    fields: record(string, array(ConfigFieldOption))
+    # False when the plugin does not implement suggestions at all, so a console can tell "nothing to
+    # suggest" from "asked and got nothing", and draw a refresh control only where one would do something
+    supported: boolean
 }
 
 # Where the console should send the browser to obtain the operator's consent. Reported rather than

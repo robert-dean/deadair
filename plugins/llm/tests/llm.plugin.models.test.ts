@@ -169,6 +169,44 @@ describe('testing the connection', () => {
     });
 });
 
+describe('suggesting what the form should offer', () => {
+    it('offers the server list for both the default model and the tool-capable ones', async () => {
+        const { plugin } = await loaded({ config: { baseUrl: 'https://models.test/v1' }, models: ['gpt-oss:20b', 'llama3.2:1b'] });
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested.model).toEqual([
+            { value: 'gpt-oss:20b', label: 'gpt-oss:20b' },
+            { value: 'llama3.2:1b', label: 'llama3.2:1b' },
+        ]);
+        expect(suggested.models).toEqual(suggested.model);
+    });
+
+    it('offers nothing rather than throwing when the server cannot be reached', async () => {
+        // An operator fixing a bad address needs the form, and the refresh control is right there.
+        const { plugin } = await loaded({ config: { baseUrl: 'https://models.test/v1' }, unreachable: true });
+
+        await expect(plugin.suggestConfigOptions()).resolves.toEqual({});
+    });
+
+    it('offers nothing when the server lists nothing', async () => {
+        // Absent rather than present-and-empty, so the form leaves the fields as plain inputs
+        // instead of drawing a dropdown with no rows in it.
+        const { plugin } = await loaded({ config: { baseUrl: 'https://models.test/v1' }, models: [] });
+
+        await expect(plugin.suggestConfigOptions()).resolves.toEqual({});
+    });
+
+    it('shares the cache with listModels rather than asking twice', async () => {
+        const { plugin, calls } = await loaded({ config: { baseUrl: 'https://models.test/v1' }, models: ['a'] });
+
+        await plugin.suggestConfigOptions();
+        await plugin.listModels();
+
+        expect(calls.filter(url => url.endsWith('/models'))).toHaveLength(1);
+    });
+});
+
 describe('generating without a model', () => {
     it('refuses with `config` rather than being refused at save time', async () => {
         // The trade: the form lets an address be saved alone, and this is where a

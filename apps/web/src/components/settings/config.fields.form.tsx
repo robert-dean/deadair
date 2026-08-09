@@ -1,12 +1,45 @@
 import { useState } from 'react';
-import { Alert, Anchor, Button, Group, NumberInput, PasswordInput, Select, Stack, Switch, Text, TextInput } from '@mantine/core';
+import {
+    Alert,
+    Anchor,
+    Autocomplete,
+    Button,
+    Group,
+    Loader,
+    MultiSelect,
+    NumberInput,
+    PasswordInput,
+    Select,
+    Stack,
+    Switch,
+    Text,
+    TextInput,
+} from '@mantine/core';
 import { useForm, type GetInputPropsReturnType } from '@mantine/form';
-import type { ConfigFieldDescriptor } from '@deadair/sdk';
+import type { ConfigFieldDescriptor, ConfigFieldOption } from '@deadair/sdk';
 
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
 
 type FieldValue = string | number | boolean;
 type FormValues = Record<string, FieldValue>;
+
+/**
+ * A `multiselect`'s chosen values, out of the JSON array it is stored and submitted as.
+ *
+ * Duplicated from the plugin SDK's `parseMultiSelect` rather than imported, because the console
+ * has no business depending on the plugin SDK: it never loads a plugin, and the encoding is four
+ * lines. Kept deliberately tolerant for the same reason the original is — a hand-edited value
+ * should cost the field, not the page.
+ */
+function parseChosen(value: FieldValue | undefined): string[] {
+    if (typeof value !== 'string' || value.trim().length === 0) return [];
+    try {
+        const parsed: unknown = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : [];
+    } catch {
+        return [];
+    }
+}
 
 /** `note` fields are static help text: they are never inputs and never submitted. */
 const isInput = (field: ConfigFieldDescriptor): boolean => field.type !== 'note';
@@ -136,6 +169,33 @@ export interface ConfigFieldsFormProps {
     submitLabel: string;
     failureTitle: string;
     failureMessage: string;
+
+    /**
+     * Live choices, keyed by field key, from whatever is being configured.
+     *
+     * What a descriptor's own `options` cannot be: fixed when the manifest was written, where these
+     * are whatever the operator's own server currently says. A key present here replaces a
+     * `select`'s or `multiselect`'s declared options, and turns a `string` or `url` into free text
+     * WITH suggestions — free text on purpose, so a value the source could not enumerate stays
+     * reachable.
+     *
+     * Absent for the station's own settings page, which configures nothing that could be asked.
+     */
+    suggestions?: Record<string, readonly ConfigFieldOption[]>;
+
+    /**
+     * Whether asking for suggestions would do anything.
+     *
+     * Distinct from an empty {@link suggestions}: this is "there is something to ask" rather than
+     * "we asked and got nothing", and it is what decides whether a refresh control appears at all.
+     * A control that cannot change anything is worse than no control.
+     */
+    suggestionsSupported?: boolean;
+
+    /** Ask again. Absent means no refresh control, however {@link suggestionsSupported} reads. */
+    onRefreshSuggestions?: () => void;
+
+    suggestionsPending?: boolean;
 }
 
 /**
@@ -160,8 +220,22 @@ export function ConfigFieldsForm({
     submitLabel,
     failureTitle,
     failureMessage,
+    suggestions,
+    suggestionsSupported = false,
+    onRefreshSuggestions,
+    suggestionsPending = false,
 }: ConfigFieldsFormProps) {
     const [cleared, setCleared] = useState<ReadonlySet<string>>(new Set());
+
+    /** What to offer for one field: whatever was suggested for it, else whatever it declared. */
+    const optionsFor = (field: ConfigFieldDescriptor): { value: string; label: string }[] => {
+        const suggested = suggestions?.[field.key];
+        const source = suggested !== undefined && suggested.length > 0 ? suggested : (field.options ?? []);
+        return source.map(option => ({ value: option.value, label: option.label }));
+    };
+
+    /** Whether a free-text field has anything to suggest, which is what makes it an autocomplete. */
+    const hasSuggestions = (field: ConfigFieldDescriptor): boolean => (suggestions?.[field.key]?.length ?? 0) > 0;
 
     // Controlled: `dependsOn` decides visibility from the current values, so the form has to
     // re-render as they change. The app's other forms are uncontrolled because nothing in them
@@ -259,27 +333,58 @@ export function ConfigFieldsForm({
             case 'number':
                 return <NumberInput key={field.key} {...common} placeholder={field.placeholder} {...form.getInputProps(name)} />;
             case 'select':
+                return <Select key={field.key} {...common} placeholder={field.placeholder} data={optionsFor(field)} {...form.getInputProps(name)} />;
+            case 'multiselect': {
+                // Held in the form as the JSON array it is stored and submitted as, so nothing in
+                // `initialValues` or `buildSubmission` has to know this type exists.
+                const { error: fieldError } = form.getInputProps(name);
                 return (
-                    <Select
+                    <MultiSelect
                         key={field.key}
                         {...common}
                         placeholder={field.placeholder}
-                        data={(field.options ?? []).map(option => ({ value: option.value, label: option.label }))}
-                        {...form.getInputProps(name)}
+                        data={optionsFor(field)}
+                        searchable
+                        clearable
+                        error={fieldError}
+                        value={parseChosen(form.getValues()[name])}
+                        onChange={chosen => {
+                            form.setFieldValue(name, JSON.stringify(chosen));
+                        }}
                     />
                 );
+            }
             case 'url':
-                return (
-                    <TextInput
-                        key={field.key}
-                        {...common}
-                        inputMode="url"
-                        placeholder={field.placeholder ?? 'https://'}
-                        {...form.getInputProps(name)}
-                    />
-                );
+                return suggestionInput(field, name, { inputMode: 'url', placeholder: field.placeholder ?? 'https://' });
             default:
-                return <TextInput key={field.key} {...common} placeholder={field.placeholder} {...form.getInputProps(name)} />;
+                return suggestionInput(field, name, { placeholder: field.placeholder });
+        }
+
+        /**
+         * A free-text field, as an autocomplete when there is something to suggest.
+         *
+         * Autocomplete rather than a dropdown deliberately: the source enumerating a value is not
+         * the same as the value being valid, and a model behind a proxy that does not list it, or a
+         * device that was offline when we asked, has to stay typeable. The suggestions are help,
+         * not a whitelist.
+         */
+        function suggestionInput(suggestable: ConfigFieldDescriptor, fieldName: string, extra: { inputMode?: 'url'; placeholder?: string }) {
+            if (!hasSuggestions(suggestable)) {
+                return <TextInput key={suggestable.key} {...common} {...extra} {...form.getInputProps(fieldName)} />;
+            }
+
+            return (
+                <Autocomplete
+                    key={suggestable.key}
+                    {...common}
+                    {...extra}
+                    data={optionsFor(suggestable)}
+                    // Everything, rather than only what matches what is typed so far: an operator
+                    // who has never seen the list needs to be able to open it and read it.
+                    limit={Infinity}
+                    {...form.getInputProps(fieldName)}
+                />
+            );
         }
     }
 
@@ -301,15 +406,30 @@ export function ConfigFieldsForm({
 
                 {fields.map((field, index) => renderField(field, index))}
 
-                <Group justify="flex-end" gap="md">
-                    {succeeded && !form.isDirty() ? (
-                        <Text size="sm" c="dimmed">
-                            Saved.
-                        </Text>
-                    ) : undefined}
-                    <Button type="submit" loading={pending}>
-                        {submitLabel}
-                    </Button>
+                <Group justify="space-between" gap="md">
+                    {/* One control for the form rather than one per field, because the suggestions
+                        are one call. Only shown when asking would do something. */}
+                    {suggestionsSupported && onRefreshSuggestions ? (
+                        <Group gap="xs">
+                            <Button variant="subtle" size="compact-sm" onClick={onRefreshSuggestions} disabled={suggestionsPending}>
+                                Refresh options
+                            </Button>
+                            {suggestionsPending ? <Loader size="xs" /> : undefined}
+                        </Group>
+                    ) : (
+                        <span />
+                    )}
+
+                    <Group justify="flex-end" gap="md">
+                        {succeeded && !form.isDirty() ? (
+                            <Text size="sm" c="dimmed">
+                                Saved.
+                            </Text>
+                        ) : undefined}
+                        <Button type="submit" loading={pending}>
+                            {submitLabel}
+                        </Button>
+                    </Group>
                 </Group>
             </Stack>
         </form>

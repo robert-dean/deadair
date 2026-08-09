@@ -7,7 +7,7 @@ export type PluginStatus = 'discovered' | 'disabled' | 'misconfigured' | 'active
 /**
  * generated from [ConfigFieldType](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L9)
  */
-export type ConfigFieldType = 'string' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'note';
+export type ConfigFieldType = 'string' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'note';
 
 /**
  * One choice of a `select` config field
@@ -43,7 +43,7 @@ export interface PluginTestResult {
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L88)
+ * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L99)
  */
 export interface PluginOAuthStart {
     url: string;
@@ -51,7 +51,7 @@ export interface PluginOAuthStart {
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L93)
+ * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L104)
  */
 export interface PluginOAuthResult {
     pluginId: string;
@@ -60,7 +60,7 @@ export interface PluginOAuthResult {
 }
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L99)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L110)
  */
 export interface PluginOAuthCallbackQuery {
     code?: string;
@@ -84,6 +84,22 @@ export interface ConfigFieldDescriptor {
     options?: ConfigFieldOption[];
     /** Key of the field this one is only relevant to */
     dependsOn?: string;
+}
+
+/**
+ * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
+ * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
+ * was written, where these are whatever the operator's own server currently says
+ * generated from [PluginFieldSuggestions](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L89)
+ */
+export interface PluginFieldSuggestions {
+    /** Keys the plugin had nothing to say about are simply absent, rather than present and empty */
+    fields: Record<string, ConfigFieldOption[]>;
+    /**
+     * False when the plugin does not implement suggestions at all, so a console can tell "nothing to
+     * suggest" from "asked and got nothing", and draw a refresh control only where one would do something
+     */
+    supported: boolean;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { PluginDetail, PluginLogLevel, PluginLogQuery, PluginOAuthCallbackQuery, PluginOAuthResult, PluginSummary } from '@deadair/sdk';
 
 import { sdk } from './client';
@@ -143,6 +143,27 @@ export function useSetPluginLogLevel(id: string) {
 export function useTestPlugin(id: string) {
     return useMutation({
         mutationFn: () => sdk.plugins.testPluginConnection(id),
+    });
+}
+
+/**
+ * What the plugin currently offers for its own config fields.
+ *
+ * A query rather than a mutation despite being a POST: it reads, and the settings form wants it on
+ * open. It is a POST because answering means the plugin reaching its upstream with the operator's
+ * credentials, which is not a thing to put behind a cacheable GET.
+ *
+ * Never retried and never refetched on focus. It costs a round trip to somebody's model server, an
+ * empty answer is a perfectly usable form, and the operator has an explicit refresh for the case
+ * where they have just fixed the address.
+ */
+export function usePluginConfigSuggestions(id: string) {
+    return useQuery({
+        queryKey: queryKeys.plugins.configSuggestions(id),
+        queryFn: () => sdk.plugins.suggestPluginConfigOptions(id),
+        retry: false,
+        refetchOnWindowFocus: false,
+        staleTime: Infinity,
     });
 }
 

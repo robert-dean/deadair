@@ -190,6 +190,7 @@ function makeService(
         accessControl,
         stubPluginLog().log,
         afterCommit,
+        { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
     );
 
     return { service, accessControl, requireSpy, canAccessSpy, listVisibleIdsSpy, configService, lifecycleManager, registry, afterCommit };

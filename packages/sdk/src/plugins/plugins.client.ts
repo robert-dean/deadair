@@ -3,6 +3,7 @@ import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
     PluginConfigInput,
     PluginDetail,
+    PluginFieldSuggestions,
     PluginLogLevelInput,
     PluginLogPage,
     PluginLogQuery,
@@ -90,6 +91,15 @@ export class PluginsClient {
     async testPluginConnection(id: string): Promise<PluginTestResult> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/test`, { method: 'POST' });
         return await parseJson<PluginTestResult>(result);
+    }
+
+    /**
+     * @name Suggest plugin config options
+     * @description Asks the plugin what to offer for its config fields right now, through the invoker
+     */
+    async suggestPluginConfigOptions(id: string): Promise<PluginFieldSuggestions> {
+        const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/config/suggestions`, { method: 'POST' });
+        return await parseJson<PluginFieldSuggestions>(result);
     }
 
     /**

@@ -1,4 +1,4 @@
-import type { LlmModelInfo } from '@deadair/plugin-sdk';
+import { parseMultiSelect, type LlmModelInfo } from '@deadair/plugin-sdk';
 
 /**
  * The operator's list of models, and which of them can be given tools.
@@ -32,6 +32,23 @@ import type { LlmModelInfo } from '@deadair/plugin-sdk';
 
 /** `+tools` at the end of an entry, in any case, with or without the plus. */
 const TOOLS_SUFFIX = /\s*\+?tools$/i;
+
+/**
+ * The models the operator ticked as able to use tools.
+ *
+ * The field is a `multiselect` now, so the ordinary form is a JSON array. The `name +tools` text it
+ * used to be is still read, because an install configured before the field changed should keep
+ * working rather than silently losing its tool support — which would present as a DJ that stopped
+ * checking the library, with nothing in the log about it.
+ */
+export function toolCapableModels(raw: string | undefined): string[] {
+    const chosen = parseMultiSelect(raw);
+    if (chosen.length > 0) return chosen;
+
+    return parseModelList(raw)
+        .filter(model => model.tools)
+        .map(model => model.id);
+}
 
 /** What one line meant. */
 export interface ParsedModel {
@@ -73,6 +90,10 @@ export function parseModelList(raw: string | undefined): ParsedModel[] {
  */
 export function isParseableModelList(raw: string | undefined): boolean {
     if (typeof raw !== 'string' || raw.trim().length === 0) return true;
+
+    // An empty multiselect submits `[]`, which is a legitimate answer meaning "none of them".
+    if (raw.trim().startsWith('[')) return true;
+
     return parseModelList(raw).length > 0;
 }
 
@@ -99,7 +120,7 @@ export function isParseableModelList(raw: string | undefined): boolean {
  * being cautious is a break written without facts a tool would have supplied.
  */
 export function describeModels(discovered: readonly string[], raw: string | undefined, defaultModel: string): LlmModelInfo[] {
-    const toolsFor = new Map(parseModelList(raw).map(model => [model.id, model.tools]));
+    const withTools = new Set(toolCapableModels(raw));
 
     const ids: string[] = [];
     const add = (id: string) => {
@@ -111,13 +132,13 @@ export function describeModels(discovered: readonly string[], raw: string | unde
     // default, then anything annotated that never came back from `/models`.
     for (const id of discovered) add(id);
     add(defaultModel);
-    for (const id of toolsFor.keys()) add(id);
+    for (const id of withTools) add(id);
 
     const fallback = defaultModel.trim();
     return ids.map(id => ({
         id,
         label: id,
-        tools: toolsFor.get(id) === true,
+        tools: withTools.has(id),
         // Marked so the host knows which entry an unnamed request will actually reach.
         // Without it the host has to assume the worst model on the server, and would
         // never send tools to a station that has more than a couple installed.

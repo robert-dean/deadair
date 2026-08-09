@@ -151,6 +151,21 @@ operation /plugins/{id}/test: {
     }
 }
 
+operation /plugins/{id}/config/suggestions: {
+    params: {
+        id: string(min=1, max=200)
+    }
+    post: { # Asks the plugin what to offer for its config fields right now, through the invoker
+        name: Suggest plugin config options
+        service: PluginsService.suggestPluginConfigOptions
+        response: {
+            200: {
+                application/json: PluginFieldSuggestions
+            }
+        }
+    }
+}
+
 operation /plugins/{id}/logs: {
     params: {
         id: string(min=1, max=200)

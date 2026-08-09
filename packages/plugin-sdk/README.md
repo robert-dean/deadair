@@ -635,20 +635,53 @@ plugins it is the only place an operator can learn them.
 `configFields` is a declarative form description. The host renders it; plugins
 never ship UI.
 
-| type      | notes                                                |
-| --------- | ---------------------------------------------------- |
-| `string`  | free text                                            |
-| `url`     | free text, validated as a URL                        |
-| `secret`  | write-only, encrypted, read via `host.secrets.get()` |
-| `number`  | numeric input                                        |
-| `boolean` | toggle                                               |
-| `select`  | one of `options`                                     |
-| `note`    | not an input; static help text in the form           |
+| type          | notes                                                        |
+| ------------- | ------------------------------------------------------------ |
+| `string`      | free text                                                    |
+| `url`         | free text, validated as a URL                                |
+| `secret`      | write-only, encrypted, read via `host.secrets.get()`         |
+| `number`      | numeric input                                                |
+| `boolean`     | toggle                                                       |
+| `select`      | one of `options`                                             |
+| `multiselect` | any number of `options`, stored as a JSON array              |
+| `note`        | not an input; static help text in the form                   |
 
 Use `dependsOn` to hide a field until another one is filled in. Use
 `configSchema` for anything the form cannot express: the host parses the
 operator's submission with it before storing, so by the time `onLoad()` runs
-your config is already valid.
+your config is already valid. Read a `multiselect` back with
+`parseMultiSelect(config.myField)`.
+
+### Choices your server decides
+
+`options` is fixed when the manifest is written, which is fine for a closed set
+and useless for anything the operator's own server knows. Implement
+`suggestConfigOptions()` and the form asks you what to offer:
+
+```ts
+async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+    const models = await this.fetchModels();
+    return { model: models.map(id => ({ value: id, label: id })) };
+}
+```
+
+Implementing it is the whole opt-in — there is nothing to declare on the field.
+Return a map so the form costs one call however many fields you have, and leave
+out a key you have nothing to say about.
+
+What the operator sees depends on the field's type. A `string` or `url` becomes
+free text **with** suggestions, so a value you could not enumerate is still
+typeable; a `select` or `multiselect` has its declared options replaced. There is
+a refresh control either way, and a field whose suggestions failed is still a
+field somebody can use.
+
+Two things to get right, because the failure is a setup loop with no way in:
+
+- **Do not require a field whose value can only be learned from the server.** It
+  runs against your SAVED config, like `testConnection` does, so the operator has
+  to be able to save the address before they can be told what is on it.
+- **Answer with what you have rather than throwing.** An unreachable upstream
+  should cost the dropdown, not the form.
 
 ## Versioning
 

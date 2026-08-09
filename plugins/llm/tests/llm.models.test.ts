@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { describeModels, isParseableModelList, parseModelList } from '../src/llm.models.js';
+import { describeModels, isParseableModelList, parseModelList, toolCapableModels } from '../src/llm.models.js';
 
 describe('parseModelList', () => {
     it('reads one model per line', () => {
@@ -65,6 +65,27 @@ describe('isParseableModelList', () => {
     it('refuses text that yields none, which means the operator typed something and got nothing', () => {
         expect(isParseableModelList('+tools')).toBe(false);
         expect(isParseableModelList(',,,')).toBe(false);
+    });
+});
+
+describe('toolCapableModels', () => {
+    it('reads the multiselect array, which is the ordinary form', () => {
+        expect(toolCapableModels('["gpt-oss:20b","qwen3-coder:30b"]')).toEqual(['gpt-oss:20b', 'qwen3-coder:30b']);
+    });
+
+    it('still reads the "+tools" text the field used to be', () => {
+        // An install configured before the field changed keeps its tool support. Losing it would
+        // present as a DJ that quietly stopped checking the library.
+        expect(toolCapableModels('gpt-oss:20b +tools\nllama3.2:1b')).toEqual(['gpt-oss:20b']);
+    });
+
+    it('answers empty for an explicitly empty selection', () => {
+        expect(toolCapableModels('[]')).toEqual([]);
+    });
+
+    it('answers empty for nothing at all', () => {
+        expect(toolCapableModels(undefined)).toEqual([]);
+        expect(toolCapableModels('')).toEqual([]);
     });
 });
 

@@ -75,7 +75,10 @@ export const configSchema = z.object({
     // something asks for words, which is the right place to notice.
     model: z.string().optional(),
     temperature: z.number().min(0).max(2).optional(),
-    models: z.string().optional().refine(isParseableModelList, { message: 'each entry is a model id, optionally followed by "+tools"' }),
+    // Tolerant on purpose: the ordinary form is the multiselect's JSON array, and the older
+    // "name +tools" text is still accepted so an install configured before the field changed keeps
+    // its tool support rather than silently losing it.
+    models: z.string().optional().refine(isParseableModelList, { message: 'expected a list of models' }),
 });
 
 export const llmManifest: PluginManifest = {
@@ -134,8 +137,8 @@ export const llmManifest: PluginManifest = {
         {
             key: 'models',
             label: 'Tool-capable models',
-            type: 'string',
-            help: 'One per line, e.g. "gpt-oss:20b +tools". The models themselves are read from the server; this only says which of them can be given tools, which no endpoint reports and cannot be guessed from a name. A model not listed here is never sent any.',
+            type: 'multiselect',
+            help: "Which of this server's models can be given tools. No endpoint reports this and it cannot be guessed from a name, so it is the one thing here you have to know. A model not ticked is never sent any.",
         },
     ],
     configSchema,

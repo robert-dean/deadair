@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
-import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type PluginManifest } from '@deadair/plugin-sdk';
+import { Logger } from '@maroonedsoftware/logger';
+import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type ConfigFieldOption, type PluginManifest } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
 import { safeChannel } from '#src/logging/rotating.log.store.js';
@@ -24,6 +25,7 @@ import type {
     PluginOAuthCallbackQuery,
     PluginOAuthResult,
     PluginOAuthStart,
+    PluginFieldSuggestions,
     PluginSummary,
     PluginTestResult,
 } from './types/plugins.types.js';
@@ -56,6 +58,49 @@ const errorText = (error: unknown): string => {
 const isClearedSecret = (value: unknown): boolean => value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
 
 const isCallable = (value: unknown): boolean => typeof value === 'function';
+
+/**
+ * Most options a plugin may offer for one field, and most fields it may answer for.
+ *
+ * A model server with a few dozen models is ordinary; a dropdown with ten thousand entries is a
+ * console that stops responding. Truncated rather than refused, because a long list is still a
+ * usable one and the fields these decorate are all free text underneath.
+ */
+const MAX_SUGGESTED_OPTIONS = 500;
+const MAX_SUGGESTED_FIELDS = 50;
+
+/**
+ * A plugin's suggestions, as something the console can definitely render.
+ *
+ * Plugins are trusted code (`docs/decisions/plugin-trust.md`), so this is not a security boundary
+ * and does not pretend to be one. It is the same care `toPluginError` takes for the same reason:
+ * this value is about to be JSON and then a form, and a plugin returning a number where a label
+ * belongs should cost that entry rather than the whole settings page.
+ */
+function sanitizeSuggestions(suggested: unknown): Record<string, ConfigFieldOption[]> {
+    if (typeof suggested !== 'object' || suggested === null) return {};
+
+    const fields: Record<string, ConfigFieldOption[]> = {};
+
+    for (const [key, raw] of Object.entries(suggested as Record<string, unknown>).slice(0, MAX_SUGGESTED_FIELDS)) {
+        if (!Array.isArray(raw)) continue;
+
+        const options: ConfigFieldOption[] = [];
+        for (const entry of raw.slice(0, MAX_SUGGESTED_OPTIONS)) {
+            if (typeof entry !== 'object' || entry === null) continue;
+            const { value, label } = entry as Partial<ConfigFieldOption>;
+            if (typeof value !== 'string' || value.length === 0) continue;
+            // A missing label is the ordinary case for a list of ids, not a fault.
+            options.push({ value, label: typeof label === 'string' && label.length > 0 ? label : value });
+        }
+
+        // Absent rather than present-and-empty, so a console can tell a field with nothing to
+        // suggest from one the plugin never mentioned.
+        if (options.length > 0) fields[key] = options;
+    }
+
+    return fields;
+}
 
 const PLUGIN_LOG_LEVELS = new Set<string>(['debug', 'info', 'warn', 'error'] satisfies PluginLogLevel[]);
 
@@ -97,6 +142,7 @@ export class PluginsService {
         private readonly accessControl: AccessControlService,
         private readonly pluginLog: PluginLog,
         private readonly afterCommit: AfterCommit,
+        private readonly logger: Logger,
     ) {}
 
     /**
@@ -217,6 +263,39 @@ export class PluginsService {
             return { ok: result.ok, message: result.message };
         } catch (error) {
             return { ok: false, message: errorText(error) };
+        }
+    }
+
+    /**
+     * Asks the plugin what to offer for its config fields right now.
+     *
+     * The dynamic half of the settings form. `ConfigField.options` is fixed when
+     * the manifest is written; this is whatever the operator's own server
+     * currently says, which is the only way a field like "which model" can be
+     * filled without reading a name out of a message and typing it back.
+     *
+     * Always resolves, like {@link testPlugin}: a plugin that cannot reach its
+     * upstream costs the form its dropdowns, never the form. `supported: false`
+     * is how a console tells "asked and got nothing" from "there is nothing to
+     * ask", so it can leave the refresh control off a plugin that has no answer.
+     *
+     * @throws 404 when no plugin with that id is installed.
+     */
+    async suggestPluginConfigOptions(id: string): Promise<PluginFieldSuggestions> {
+        await this.requirePluginPermission(id, 'configure');
+        const record = this.requireRecord(id);
+        const instance = record.instance;
+
+        if (!instance || !isCallable(instance.suggestConfigOptions)) return { fields: {}, supported: false };
+
+        try {
+            const suggested = await this.pluginInvoker.invoke(id, 'suggestConfigOptions', async () => instance.suggestConfigOptions!());
+            return { fields: sanitizeSuggestions(suggested), supported: true };
+        } catch (error) {
+            // Reported at info rather than warn: an unreachable upstream is the ordinary reason,
+            // and it is the operator's own address rather than a fault in the station.
+            this.logger.info(`plugins: could not get config suggestions from "${id}" (${errorText(error)})`);
+            return { fields: {}, supported: true };
         }
     }
 

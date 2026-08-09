@@ -4,8 +4,7 @@ import { Plugin } from '../src/plugin.base.js';
 import { isPluginError, type PluginError } from '../src/plugin.error.js';
 import type { PluginHost } from '../src/plugin.host.js';
 
-const fakeHost = () =>
-    ({ logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } }) as unknown as PluginHost;
+const fakeHost = () => ({ logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } }) as unknown as PluginHost;
 
 class Recording extends Plugin {
     readonly order: string[] = [];

@@ -9,12 +9,13 @@ import {
     type LlmRequest,
     type LlmResult,
     type LlmToolCall,
+    type ConfigFieldOption,
 } from '@deadair/plugin-sdk';
 import { createOpenAICompatible, type OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
 import { streamText } from 'ai';
 import { hostFetch } from './llm.fetch.js';
-import { toModelMessages, toToolSet } from './llm.messages.js';
-import { describeModels, parseModelList } from './llm.models.js';
+import { splitSystemPrompt, toModelMessages, toToolSet } from './llm.messages.js';
+import { describeModels, toolCapableModels } from './llm.models.js';
 import { llmManifest, MODEL_CACHE_MS, PROBE_TIMEOUT_MS, PROVIDER_NAME } from './llm.manifest.js';
 
 export { llmManifest };
@@ -71,6 +72,11 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                       name: PROVIDER_NAME,
                       baseURL: this.baseUrl,
                       ...(this.apiKey === undefined ? {} : { apiKey: this.apiKey }),
+                      // Sends `stream_options: { include_usage: true }`. Without it a streaming
+                      // response carries no token counts at all — measured against Ollama, which
+                      // answers with usage only when asked — and `LlmResult.usage` comes back
+                      // empty, which is the one thing that makes what a break cost observable.
+                      includeUsage: true,
                       // The whole reason this is safe to point at an operator-supplied
                       // address. Everything the SDK sends goes through the host's fetch,
                       // so the allowlist, the per-upstream rate limit, the redirect
@@ -123,6 +129,36 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         }
 
         return { ok: true, message: `Connected. Default model "${this.model}". ${models.length} available.` };
+    }
+
+    /**
+     * What the settings form should offer, out of what the server actually has.
+     *
+     * This is what makes the form fillable. Without it, the only way to learn a model name is to
+     * read it out of a "Test connection" message and type it back, and the default model cannot be
+     * chosen before the address is saved anyway — a loop with no way in.
+     *
+     * Both fields get the same list and use it differently: the default model is free text with
+     * these as suggestions, so a model behind a proxy that does not list it stays typeable, and the
+     * tool-capable models are ticked from it, because that answer only means anything about models
+     * that exist.
+     *
+     * Answers nothing rather than throwing when the server is unreachable: an operator fixing a bad
+     * address needs the form, and the refresh control is right there.
+     */
+    async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+        let ids: string[];
+        try {
+            ids = await this.fetchModels();
+        } catch (error) {
+            this.host.logger.debug('llm could not suggest models', { error: error instanceof Error ? error.message : String(error) });
+            return {};
+        }
+
+        if (ids.length === 0) return {};
+
+        const options = ids.map(id => ({ value: id, label: id }));
+        return { model: options, models: options };
     }
 
     /**
@@ -191,9 +227,15 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         const temperature = request.temperature ?? this.temperature;
         const tools = toToolSet(request.tools);
 
+        // Hoisted out of the message list rather than left in it: the SDK takes a system prompt as
+        // its own option, and warns about one inline because later content can imitate a system
+        // turn more easily than it can imitate a separate field.
+        const { system, rest } = splitSystemPrompt(request.messages);
+
         const stream = streamText({
             model: provider.chatModel(model),
-            messages: toModelMessages(request.messages),
+            ...(system === undefined ? {} : { system }),
+            messages: toModelMessages(rest),
             ...(temperature === undefined ? {} : { temperature }),
             ...(request.maxOutputTokens === undefined ? {} : { maxOutputTokens: request.maxOutputTokens }),
             ...(tools === undefined ? {} : { tools }),
@@ -231,13 +273,12 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
 
         // Read from config alone rather than through `describeModels`, so this
         // stays synchronous and cannot be fooled by a `/models` blip: a model the
-        // server did not list this second is still one the operator annotated.
-        const annotated = parseModelList(this.models).find(entry => entry.id === model);
-        if (annotated?.tools === true) return;
+        // server did not list this second is still one the operator ticked.
+        if (toolCapableModels(this.models).includes(model)) return;
 
-        throw new PluginError(
-            `model "${model}" is not marked as able to use tools; add "${model} +tools" to the plugin's tool-capable models`,
-        ).withCode('unsupported');
+        throw new PluginError(`model "${model}" is not marked as able to use tools; tick it under the plugin's tool-capable models`).withCode(
+            'unsupported',
+        );
     }
 
     /** The SDK's several settled promises, as the one result the station's boundary describes. */

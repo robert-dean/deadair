@@ -1,7 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import { isPluginError, type LlmMessage } from '@deadair/plugin-sdk';
 
-import { toModelMessages, toToolSet } from '../src/llm.messages.js';
+import { splitSystemPrompt, toModelMessages, toToolSet } from '../src/llm.messages.js';
+
+describe('splitSystemPrompt', () => {
+    it('lifts a leading system turn out of the conversation', () => {
+        const { system, rest } = splitSystemPrompt([
+            { role: 'system', content: 'be the station' },
+            { role: 'user', content: 'go' },
+        ]);
+
+        expect(system).toBe('be the station');
+        expect(rest).toEqual([{ role: 'user', content: 'go' }]);
+    });
+
+    it('leaves a conversation with no system turn alone', () => {
+        const messages: LlmMessage[] = [{ role: 'user', content: 'go' }];
+
+        expect(splitSystemPrompt(messages)).toEqual({ rest: messages });
+    });
+
+    it('leaves a system turn that is not first where the caller put it', () => {
+        // Reordering it would change what the model sees, and a mid-conversation system turn is
+        // unusual enough that the caller meant it.
+        const messages: LlmMessage[] = [
+            { role: 'user', content: 'go' },
+            { role: 'system', content: 'and now this' },
+        ];
+
+        expect(splitSystemPrompt(messages)).toEqual({ rest: messages });
+    });
+
+    it('copes with an empty conversation', () => {
+        expect(splitSystemPrompt([])).toEqual({ rest: [] });
+    });
+});
 
 describe('toModelMessages', () => {
     it('passes the plain roles through', () => {

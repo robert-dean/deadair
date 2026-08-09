@@ -4,6 +4,7 @@ import { PluginsService } from '#src/modules/plugins/plugins.service.js';
 import {
     PluginConfigInput,
     PluginDetail,
+    PluginFieldSuggestions,
     PluginLogLevelInput,
     PluginLogPage,
     PluginLogQuery,
@@ -169,8 +170,28 @@ PluginsRouter.post('/plugins/:id/test', requirePolicy({ policy: 'platform.manage
 });
 
 /**
+ * Asks the plugin what to offer for its config fields right now, through the invoker
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L158)
+ */
+PluginsRouter.post('/plugins/:id/config/suggestions', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(200),
+        }),
+    );
+
+    const service = ctx.container.get(PluginsService);
+    const result: PluginFieldSuggestions = await service.suggestPluginConfigOptions(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Returns the plugin's buffered log lines at or above the current log level
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L162)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L177)
  */
 PluginsRouter.get('/plugins/:id/logs', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -192,7 +213,7 @@ PluginsRouter.get('/plugins/:id/logs', requirePolicy({ policy: 'platform.manage'
 
 /**
  * Streams the plugin's full retained log as a plain-text attachment
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L178)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L193)
  */
 PluginsRouter.get('/plugins/:id/logs/download', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -213,7 +234,7 @@ PluginsRouter.get('/plugins/:id/logs/download', requirePolicy({ policy: 'platfor
 
 /**
  * Sets the minimum severity the plugin's log store retains going forward
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L196)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L211)
  */
 PluginsRouter.put('/plugins/:id/logs/level', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -235,7 +256,7 @@ PluginsRouter.put('/plugins/:id/logs/level', requirePolicy({ policy: 'platform.m
 
 /**
  * Reports where to send the operator for the provider's consent screen
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L214)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L229)
  */
 PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -255,7 +276,7 @@ PluginsRouter.get('/plugins/:id/oauth/authorize', requirePolicy({ policy: 'platf
 
 /**
  * Forgets the plugin's stored OAuth tokens and reinitializes it
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L232)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L247)
  */
 PluginsRouter.delete('/plugins/:id/oauth', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -275,7 +296,7 @@ PluginsRouter.delete('/plugins/:id/oauth', requirePolicy({ policy: 'platform.man
 
 /**
  * Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
- * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L247)
+ * from [plugins.ck](file://./../../data/contracts/plugins/plugins.ck#L262)
  * anonymous access, no security required
  */
 PluginsRouter.get('/plugins/:id/oauth/callback', async ctx => {

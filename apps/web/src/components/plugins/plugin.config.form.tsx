@@ -1,6 +1,6 @@
 import type { PluginDetail } from '@deadair/sdk';
 
-import { useUpdatePluginConfig } from '../../api/plugins.queries';
+import { usePluginConfigSuggestions, useUpdatePluginConfig } from '../../api/plugins.queries';
 import { ConfigFieldsForm } from '../settings/config.fields.form';
 
 export interface PluginConfigFormProps {
@@ -16,11 +16,17 @@ export interface PluginConfigFormProps {
  * they name.
  *
  * The rendering is {@link ConfigFieldsForm}, shared with the station's own settings page. What is
- * left here is the two things that are actually about a plugin: which mutation saves it, and what
- * to call the button.
+ * left here is the three things that are actually about a plugin: which mutation saves it, what to
+ * call the button, and the live choices only the plugin can answer for.
+ *
+ * Those choices are why a field whose value comes from the operator's own server is fillable at
+ * all. A manifest's `options` are fixed when it is written, so without them the only way to learn
+ * what a server offers is to read it out of a "Test connection" message and type it back — and for
+ * a field that cannot be filled before the address is saved, that is a loop with no way in.
  */
 export function PluginConfigForm({ plugin }: PluginConfigFormProps) {
     const save = useUpdatePluginConfig(plugin.id);
+    const suggestions = usePluginConfigSuggestions(plugin.id);
 
     return (
         <ConfigFieldsForm
@@ -37,6 +43,12 @@ export function PluginConfigForm({ plugin }: PluginConfigFormProps) {
             submitLabel="Save configuration"
             failureTitle="Save failed"
             failureMessage="The configuration could not be saved."
+            suggestions={suggestions.data?.fields}
+            // A request that failed outright still means the plugin might have something to say, so
+            // the refresh stays offered. Only a plugin that answered "I do not do this" hides it.
+            suggestionsSupported={suggestions.data?.supported ?? suggestions.isError}
+            onRefreshSuggestions={() => void suggestions.refetch()}
+            suggestionsPending={suggestions.isFetching}
         />
     );
 }

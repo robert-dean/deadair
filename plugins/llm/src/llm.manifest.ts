@@ -126,7 +126,7 @@ export const llmManifest: PluginManifest = {
             key: 'model',
             label: 'Default model',
             type: 'string',
-            help: 'Used whenever the station does not name one. Leave it empty at first: save the server URL, press Test connection, and it will list the models this server has.',
+            help: 'Used whenever the station does not name one. Save the server URL first and this lists what it has; anything it does not list can still be typed.',
         },
         {
             key: 'temperature',

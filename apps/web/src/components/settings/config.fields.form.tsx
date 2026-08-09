@@ -14,6 +14,9 @@ import {
     Switch,
     Text,
     TextInput,
+    type ComboboxItem,
+    type ComboboxParsedItem,
+    type OptionsFilter,
 } from '@mantine/core';
 import { useForm, type GetInputPropsReturnType } from '@mantine/form';
 import type { ConfigFieldDescriptor, ConfigFieldOption } from '@deadair/sdk';
@@ -40,6 +43,29 @@ function parseChosen(value: FieldValue | undefined): string[] {
         return [];
     }
 }
+
+/**
+ * Which suggestions an autocomplete shows for what is currently typed.
+ *
+ * Mantine's default narrows to what matches the input, which is right while somebody is typing and
+ * wrong the rest of the time: a field already holding a chosen value matches only itself, so opening
+ * the list shows the one option you already have and hides every alternative. That is the exact
+ * moment an operator is trying to CHANGE it.
+ *
+ * So: an input that exactly equals one of the options is a settled choice rather than a search, and
+ * the whole list is shown. Anything else narrows as usual.
+ */
+const showAllWhenSettled: OptionsFilter = ({ options, search }) => {
+    // Mantine allows grouped options; nothing here builds any, so a group is passed through
+    // untouched rather than being reached into.
+    const isItem = (option: ComboboxParsedItem): option is ComboboxItem => 'value' in option;
+
+    const typed = search.trim().toLowerCase();
+    if (typed.length === 0) return options;
+    if (options.some(option => isItem(option) && option.value.toLowerCase() === typed)) return options;
+
+    return options.filter(option => !isItem(option) || `${option.label} ${option.value}`.toLowerCase().includes(typed));
+};
 
 /** `note` fields are static help text: they are never inputs and never submitted. */
 const isInput = (field: ConfigFieldDescriptor): boolean => field.type !== 'note';
@@ -379,8 +405,7 @@ export function ConfigFieldsForm({
                     {...common}
                     {...extra}
                     data={optionsFor(suggestable)}
-                    // Everything, rather than only what matches what is typed so far: an operator
-                    // who has never seen the list needs to be able to open it and read it.
+                    filter={showAllWhenSettled}
                     limit={Infinity}
                     {...form.getInputProps(fieldName)}
                 />

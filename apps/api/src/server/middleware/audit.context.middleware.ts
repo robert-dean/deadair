@@ -2,6 +2,7 @@ import { Kysely, sql } from 'kysely';
 import { ScopedContainer } from 'injectkit';
 import { ServerKitMiddleware } from '@maroonedsoftware/koa';
 import { KyselyTransactionConnectionProvider, PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
+import { AfterCommit } from '#modules/data/after.commit.js';
 import { DB } from '#modules/data/db.js';
 import { DEFAULT_TRANSACTION_EXEMPTIONS, isTransactionExempt } from './transaction.exemptions.js';
 
@@ -15,10 +16,18 @@ export const auditContextMiddleware: () => ServerKitMiddleware = () => {
         // transaction.exemptions.ts) don't rely on those policies and skip the transaction.
         if (isTransactionExempt(ctx, DEFAULT_TRANSACTION_EXEMPTIONS)) {
             await next();
+            // There was no transaction to wait for, so "after the commit" is here.
+            // Running it on this branch too is what keeps `AfterCommit.add` from
+            // meaning "never" on a route somebody later exempts.
+            await ctx.container.get(AfterCommit).run();
             return;
         }
 
         const db = ctx.container.get(Kysely<DB>);
+        // Resolved BEFORE the override below shadows it, because it is what the scope
+        // has to be put back to once the transaction ends. A singleton, so this is the
+        // root's instance and the pool's own connection provider.
+        const pooledJobConnections = ctx.container.get(PgBossConnectionProvider);
 
         const actorId = ctx.authenticationSession?.subject ?? null;
         const actorType = ctx.path.startsWith('/webhooks/') ? 'webhook' : ctx.authenticationSession ? 'user' : 'anonymous';
@@ -41,5 +50,18 @@ export const auditContextMiddleware: () => ServerKitMiddleware = () => {
 
             await next();
         });
+
+        // Past here the transaction has COMMITTED. It rejects instead when `next()`
+        // threw, so a rolled-back request never reaches the follow-up work its
+        // handler registered, which is the point of registering it rather than doing
+        // it inline.
+        //
+        // The scope is pointed back at the pool first: its `Kysely` is still the
+        // transaction object that has just ended, and anything resolving one from
+        // here would get `Transaction is already committed`.
+        (ctx.container as ScopedContainer).override(Kysely<DB>, db);
+        (ctx.container as ScopedContainer).override(PgBossConnectionProvider, pooledJobConnections);
+
+        await ctx.container.get(AfterCommit).run();
     };
 };

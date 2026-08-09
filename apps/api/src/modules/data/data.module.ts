@@ -1,5 +1,6 @@
 import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { AfterCommit } from './after.commit.js';
 import { DB } from './db.js';
 import { Kysely, type LogEvent } from 'kysely';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -111,6 +112,11 @@ export const DataModule: ServerKitModule = {
             .asSingleton();
 
         registry.register(CacheProvider).useClass(IoRedisCacheProvider).asScoped();
+
+        // Scoped because it holds one request's follow-up work: the transaction it
+        // waits on is this request's, opened and committed by
+        // `audit.context.middleware`, which is also the only thing that runs it.
+        registry.register(AfterCommit).useClass(AfterCommit).asScoped();
     },
     shutdown: async (container: Container) => {
         const logger = container.get(Logger);

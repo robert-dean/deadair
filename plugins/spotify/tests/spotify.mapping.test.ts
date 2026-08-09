@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clampLimit, mapPlaybackState, mapPlaylist, mapTrack } from '../src/spotify.mapping.js';
+import { clampLimit, clampSearchLimit, clampSearchOffset, mapPlaybackState, mapPlaylist, mapTrack } from '../src/spotify.mapping.js';
 
 describe('mapTrack', () => {
     it('maps a full track', () => {
@@ -238,5 +238,56 @@ describe('clampLimit', () => {
     it('passes through the boundary values 1 and 50 unchanged', () => {
         expect(clampLimit(1)).toBe(1);
         expect(clampLimit(50)).toBe(50);
+    });
+});
+
+describe('clampSearchLimit', () => {
+    it('defaults to 10 rather than letting Spotify apply its own default of 5', () => {
+        expect(clampSearchLimit(undefined)).toBe(10);
+    });
+
+    it('passes through a value already inside the search ceiling', () => {
+        expect(clampSearchLimit(3)).toBe(3);
+    });
+
+    it('clamps to 10, not to the 50 the other paged endpoints allow', () => {
+        expect(clampSearchLimit(50)).toBe(10);
+        expect(clampSearchLimit(500)).toBe(10);
+    });
+
+    it('clamps a value below 1 up to 1', () => {
+        expect(clampSearchLimit(0)).toBe(1);
+        expect(clampSearchLimit(-10)).toBe(1);
+    });
+
+    it('truncates a fractional value', () => {
+        expect(clampSearchLimit(7.9)).toBe(7);
+    });
+
+    it('passes through the boundary values 1 and 10 unchanged', () => {
+        expect(clampSearchLimit(1)).toBe(1);
+        expect(clampSearchLimit(10)).toBe(10);
+    });
+});
+
+describe('clampSearchOffset', () => {
+    it('returns undefined for undefined input', () => {
+        expect(clampSearchOffset(undefined)).toBeUndefined();
+    });
+
+    it('passes through a value already in range', () => {
+        expect(clampSearchOffset(250)).toBe(250);
+    });
+
+    it('clamps above the 1000 search paging ceiling', () => {
+        expect(clampSearchOffset(5000)).toBe(1000);
+    });
+
+    it('clamps a negative offset up to 0, which is a legal first page', () => {
+        expect(clampSearchOffset(-1)).toBe(0);
+    });
+
+    it('truncates a fractional value', () => {
+        expect(clampSearchOffset(12.7)).toBe(12);
     });
 });

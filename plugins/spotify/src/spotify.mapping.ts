@@ -158,10 +158,54 @@ export function mapPlaybackState(state: SpotifyPlaybackState): PlaybackState {
 /**
  * The SDK types `limit` as `MaxInt<50>` — a 0-50 numeric union, not `number` — so any
  * caller-supplied limit has to be clamped and cast before it can be passed through.
- * This is the single cast site; nothing else in the plugin casts to `MaxInt<50>`.
+ * This and {@link clampSearchLimit} are the only cast sites; nothing else in the
+ * plugin casts to `MaxInt<50>`.
+ *
+ * 50 is right for the paged endpoints this plugin reads — `/me/playlists`,
+ * `/playlists/{id}/items` — and wrong for search. See {@link clampSearchLimit}.
  */
 export function clampLimit(limit: number | undefined): MaxInt<50> | undefined {
     if (limit === undefined) return undefined;
     const clamped = Math.min(50, Math.max(1, Math.trunc(limit)));
     return clamped as MaxInt<50>;
+}
+
+/**
+ * Search's own ceiling, which February 2026 cut to 10 while leaving every other
+ * paged endpoint at 50. Asking for 11 is a 400, not a silent trim.
+ */
+const SEARCH_LIMIT_MAX = 10;
+
+/**
+ * What search asks for when the caller does not say.
+ *
+ * Deliberately NOT "send nothing and take Spotify's default": that default went
+ * from 20 to 5 in the same round, silently, and the depth of a search is how much
+ * of the library a writer is allowed to name. Pinning it here means the next time
+ * Spotify moves the default this plugin does not quietly follow.
+ */
+const SEARCH_LIMIT_DEFAULT = SEARCH_LIMIT_MAX;
+
+/** Search stops paging at 1000, unlike `/me/playlists`, which goes to 100,000. */
+const SEARCH_OFFSET_MAX = 1000;
+
+/**
+ * {@link clampLimit} for `GET /search`, which since February 2026 caps `limit` at
+ * 10 with a default of 5.
+ *
+ * Separate from `clampLimit` rather than replacing it: lowering the shared clamp
+ * would halve playlist paging for a rule that applies to one endpoint. Returns
+ * `MaxInt<50>` because that is still how the SDK types the parameter; the value
+ * inside it is never above {@link SEARCH_LIMIT_MAX}.
+ */
+export function clampSearchLimit(limit: number | undefined): MaxInt<50> {
+    if (limit === undefined) return SEARCH_LIMIT_DEFAULT as MaxInt<50>;
+    const clamped = Math.min(SEARCH_LIMIT_MAX, Math.max(1, Math.trunc(limit)));
+    return clamped as MaxInt<50>;
+}
+
+/** Holds a caller's search offset inside the window Spotify will page over. */
+export function clampSearchOffset(offset: number | undefined): number | undefined {
+    if (offset === undefined) return undefined;
+    return Math.min(SEARCH_OFFSET_MAX, Math.max(0, Math.trunc(offset)));
 }

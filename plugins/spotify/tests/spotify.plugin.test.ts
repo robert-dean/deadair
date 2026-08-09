@@ -211,8 +211,28 @@ describe('SpotifyPlugin', () => {
             ]);
             expect(host.calls).toHaveLength(1);
             expect(host.calls[0].method).toBe('GET');
-            // A caller-supplied limit over 50 clamps to the SDK's MaxInt<50> ceiling.
-            expect(host.calls[0].url).toContain('limit=50');
+            // Search caps `limit` at 10, not at the 50 the paged endpoints allow.
+            expect(host.calls[0].url).toContain('limit=10');
+        });
+
+        it('searchTracks sends an explicit limit rather than inheriting Spotify default of 5', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ tracks: { items: [] } }));
+
+            await plugin.searchTracks('song one');
+
+            expect(host.calls[0].url).toContain('limit=10');
+        });
+
+        it('searchTracks holds the offset inside the 1000 search paging ceiling', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ tracks: { items: [] } }));
+
+            await plugin.searchTracks('song one', { offset: 5000 });
+
+            expect(host.calls[0].url).toContain('offset=1000');
         });
 
         it('getTrack returns the mapped track on success', async () => {

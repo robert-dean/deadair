@@ -15,7 +15,15 @@ import { SpotifyApi } from '@spotify/web-api-ts-sdk';
 
 import { HostVaultAuthStrategy } from './spotify.auth.js';
 import { createHostFetch, SpotifyRequestError, SpotifyResponseValidator } from './spotify.fetch.js';
-import { clampLimit, mapPlaybackState, mapPlaylist, mapTrack, type SpotifyPlaylistedItem } from './spotify.mapping.js';
+import {
+    clampLimit,
+    clampSearchLimit,
+    clampSearchOffset,
+    mapPlaybackState,
+    mapPlaylist,
+    mapTrack,
+    type SpotifyPlaylistedItem,
+} from './spotify.mapping.js';
 
 export { spotifyManifest } from './spotify.manifest.js';
 
@@ -135,8 +143,14 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
 
     // --- catalog -----------------------------------------------------------
 
+    /**
+     * `clampSearchLimit` rather than `clampLimit`: search caps `limit` at 10
+     * since February 2026 while the paged endpoints below still take 50, and it
+     * is the one call here that always sends a limit rather than inheriting
+     * Spotify's (which dropped to 5 in the same round).
+     */
     async searchTracks(query: string, options?: SearchTracksOptions): Promise<ProviderTrack[]> {
-        const results = await this.getApi().search(query, ['track'], undefined, clampLimit(options?.limit), options?.offset);
+        const results = await this.getApi().search(query, ['track'], undefined, clampSearchLimit(options?.limit), clampSearchOffset(options?.offset));
         return toProviderTracks(results.tracks.items);
     }
 

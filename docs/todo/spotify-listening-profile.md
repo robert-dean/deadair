@@ -77,19 +77,16 @@ unlock exactly those fields. Under the dev-mode cap of five authorized users, as
 consent to their email address for a field the response no longer carries is friction that buys
 nothing. Delete both from `SPOTIFY_SCOPES`.
 
-**`account_id` landed in May 2026.** `GET /me` now returns a public, immutable, pseudonymous
-identifier, and Spotify recommends it over `id` for linking an account to another service.
-`getCurrentUserId` in [spotify.plugin.ts](../../plugins/spotify/src/spotify.plugin.ts) caches
-`profile.id`; for its one use, comparing playlist ownership, `id` is still the correct field. This is
-a note for whatever first persists a Spotify identity, not a bug.
-
 **Recently-played is the one that costs a re-consent.** `GET /me/player/recently-played` survived
 February and is the richest of the three signals, but `user-read-recently-played` is not in
 `SPOTIFY_SCOPES`. Adding it re-authorizes every connected account, so batch it with the two removals
-above rather than shipping it alone.
+above rather than shipping it alone. [listening-loop.md](listening-loop.md) owns that batching and is
+where the scope change is sequenced.
 
-Unrelated but load-bearing if the dev-mode limits were pinching: July 2026 raised Client IDs per
-developer from 1 to 25 and moved the quota count to the developer account rather than the Client ID.
+**Everything else the sweep turned up is code the API has moved underneath**, which is a different
+kind of work from this file's: the search limit clamp, the SDK's removed batch overload, `account_id`,
+and the Premium requirement on development mode. All of it is in
+[spotify-api-currency.md](spotify-api-currency.md).
 
 ## Sources
 

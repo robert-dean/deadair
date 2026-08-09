@@ -13,6 +13,7 @@
  */
 
 import type { SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { selectSolePlugin } from '#modules/plugins/plugin.selection.js';
 
 /** The `deadair.settings` key. Dot-keyed, like every other setting. */
 export const SPEECH_PLUGIN_KEY = 'render.speechPluginId';
@@ -20,22 +21,13 @@ export const SPEECH_PLUGIN_KEY = 'render.speechPluginId';
 /**
  * The plugin to speak with, out of the ones that currently can.
  *
- * An unset key picks the only candidate when there is exactly one, which is what every station with
- * a single TTS plugin installed looks like and means nobody has to choose before the station will
- * talk. It answers `undefined` rather than guessing when there are several: picking a voice for an
- * operator who installed two is worse than saying nothing, because the wrong voice airs and sounds
- * deliberate.
- *
- * A named plugin that is not among the candidates also answers `undefined`, deliberately and
- * without falling back. The setting names the voice the station is supposed to have; quietly using
- * a different one because that one is disabled is how a station ends up sounding wrong with nothing
- * in the log to explain it. The caller reports it — see `SpeechService.speaker`.
+ * `selectSolePlugin`'s rule, and what it means here: one TTS plugin installed needs no choosing,
+ * several with none chosen picks nothing rather than airing the wrong voice as if on purpose, and a
+ * named plugin that is disabled does not silently become a different voice. The caller reports the
+ * reason — see `SpeechService.speaker`.
  */
 export function selectSpeechPlugin(candidates: readonly SpeechPlugin[], configured: string | undefined): SpeechPlugin | undefined {
-    const wanted = configured?.trim();
-    if (wanted !== undefined && wanted.length > 0) return candidates.find(candidate => candidate.record.id === wanted);
-
-    return candidates.length === 1 ? candidates[0] : undefined;
+    return selectSolePlugin(candidates, configured);
 }
 
 /**

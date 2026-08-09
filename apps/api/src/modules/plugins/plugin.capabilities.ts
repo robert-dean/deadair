@@ -1,9 +1,11 @@
 import {
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_ENRICHMENT,
+    PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_STREAM,
     type EnrichmentPluginInstance,
+    type LlmPluginInstance,
     type MusicProviderPluginInstance,
     type PluginManifest,
     type SpeechPluginInstance,
@@ -239,4 +241,57 @@ export const asSpeechPlugin = (record: PluginRecord): SpeechPlugin | undefined =
 
     const instance = record.instance as SpeechPluginInstance;
     return { record, manifest: record.manifest, instance, listsVoices: implementsVoiceListing(instance) };
+};
+
+/**
+ * The one method that earns the `llm` capability.
+ *
+ * `listModels` is not on the list, the way `listVoices` is not on the speech
+ * one: it is optional in the SDK and a plugin without it still produces words.
+ * What it costs is tools, and that is a degraded answer rather than a broken
+ * plugin — see {@link LlmPlugin.listsModels}.
+ */
+export const LLM_METHODS = ['generate'] as const satisfies ReadonlyArray<keyof LlmPluginInstance>;
+
+/** A plugin narrowed to "can produce words, right now". */
+export interface LlmPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: LlmPluginInstance;
+    /**
+     * Whether `listModels` is there to call.
+     *
+     * Load-bearing in a way `listsVoices` is not. Tool support is a property of
+     * the MODEL rather than the server, so this is the only way the host can
+     * learn that any model here can be given tools. A plugin without it gets no
+     * tools, which is a correct answer written without facts rather than a
+     * failure — and it is why a plugin that wants tool calling has to describe
+     * itself.
+     */
+    listsModels: boolean;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `llm` capability. */
+export const implementsLlm = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_LLM)) return false;
+    return LLM_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/** Whether this plugin can describe its models, which is also whether it can ever be given tools. */
+export const implementsModelListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listModels === 'function';
+
+/**
+ * The llm-capable view of a record, or `undefined` when it is not one.
+ *
+ * No priority, for the same reason `asSpeechPlugin` has none: this is a
+ * capability with one answer rather than a fan-out. Two models writing the same
+ * line is not a merge, it is one generation paid for twice, so choosing between
+ * several installed plugins is a setting — see `llm.pluginId`.
+ */
+export const asLlmPlugin = (record: PluginRecord): LlmPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsLlm(record.manifest, record.instance)) return undefined;
+
+    const instance = record.instance as LlmPluginInstance;
+    return { record, manifest: record.manifest, instance, listsModels: implementsModelListing(instance) };
 };

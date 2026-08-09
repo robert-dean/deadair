@@ -1,6 +1,7 @@
 import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
+import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 
@@ -40,7 +41,7 @@ export interface SettingDescriptor extends ConfigField {
 }
 
 /** The sections the console draws, in the order it draws them. */
-export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render'] as const;
+export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render', 'llm'] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 
@@ -206,6 +207,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         help: 'The plugin id the station talks with. Leave empty when only one plugin can speak; set it when several can, because the station declines to guess rather than airing the wrong voice.',
+    },
+
+    // ── llm ────────────────────────────────────────────────────────────────────
+    // Which plugin, and nothing else. The base URL, the model and the credentials
+    // are that plugin's own config, the same call the speech engine's knobs got.
+    {
+        group: 'llm',
+        key: LLM_PLUGIN_KEY,
+        label: 'Think with',
+        type: 'string',
+        default: '',
+        help: 'The plugin id the station asks for words. Leave empty when only one plugin can, and set it when several can. With none available the station still writes its own breaks, deterministically.',
     },
 
     // ── secrets ────────────────────────────────────────────────────────────────

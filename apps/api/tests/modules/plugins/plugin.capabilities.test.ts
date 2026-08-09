@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 
-import { asCatalogPlugin, asSpeechPlugin, asStreamPlugin, implementsStream } from '../../../src/modules/plugins/plugin.capabilities.js';
+import { asCatalogPlugin, asLlmPlugin, asSpeechPlugin, asStreamPlugin, implementsStream } from '../../../src/modules/plugins/plugin.capabilities.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 
 const manifest = (capabilities: string[]): PluginManifest => ({ capabilities }) as unknown as PluginManifest;
@@ -103,5 +103,38 @@ describe('asSpeechPlugin', () => {
         // thing to be and should not have to describe it.
         expect(asSpeechPlugin(record(['speech'], speechMethods))?.listsVoices).toBe(false);
         expect(asSpeechPlugin(record(['speech'], { ...speechMethods, listVoices: async () => [] }))?.listsVoices).toBe(true);
+    });
+});
+
+describe('asLlmPlugin', () => {
+    /** The one method `llm` requires, as a bare stub. */
+    const llmMethods = {
+        generate: async () => ({ text: new ReadableStream<string>(), result: Promise.resolve({ text: '', toolCalls: [], finishReason: 'stop' }) }),
+    };
+
+    it('accepts a plugin that can produce words', () => {
+        expect(asLlmPlugin(record(['llm'], llmMethods))).toBeDefined();
+    });
+
+    it('refuses a plugin that declares llm and never wrote generate', () => {
+        expect(asLlmPlugin(record(['llm'], {}))).toBeUndefined();
+    });
+
+    it('refuses a plugin that implements generate and never declared it', () => {
+        expect(asLlmPlugin(record(['catalog'], llmMethods))).toBeUndefined();
+    });
+
+    it('refuses a plugin that is not running', () => {
+        for (const status of ['discovered', 'disabled', 'misconfigured', 'failed'] as const) {
+            expect(asLlmPlugin(record(['llm'], llmMethods, status))).toBeUndefined();
+        }
+    });
+
+    it('reports whether the plugin can list its models, without requiring it', () => {
+        // Optional in the SDK, but it costs more than `listVoices` does: tool
+        // support is a property of the model, so a plugin that cannot describe
+        // itself is never sent any tools.
+        expect(asLlmPlugin(record(['llm'], llmMethods))?.listsModels).toBe(false);
+        expect(asLlmPlugin(record(['llm'], { ...llmMethods, listModels: async () => [] }))?.listsModels).toBe(true);
     });
 });

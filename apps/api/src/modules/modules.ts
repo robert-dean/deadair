@@ -10,6 +10,7 @@ import { SettingsModule } from './settings/settings.module.js';
 import { StreamModule } from './stream/stream.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
+import { LlmModule } from './llm/llm.module.js';
 import { RenderModule } from './render/render.module.js';
 import { PlayoutModule } from './playout/playout.module.js';
 import { DirectorModule } from './director/director.module.js';
@@ -47,6 +48,10 @@ export const modules: ServerKitModule[] = [
     // After PluginsModule: it resolves PluginRegistry and PluginInvoker, which
     // PluginsModule registers.
     PlaylistsModule,
+    // After PluginsModule for the same reason, and before RenderModule and
+    // DirectorModule, which are the two that will ask a model for words. It owns
+    // no loop and starts nothing: a generation happens because something asked.
+    LlmModule,
     // Before PlayoutModule: the transport resolves a committed segment by reading
     // a row and a file from here, the way it resolves a track through a plugin.
     // Nothing here reaches back into playout or the director.

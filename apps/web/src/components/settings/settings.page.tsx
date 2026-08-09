@@ -23,6 +23,11 @@ const GROUPS: { key: StationSettingDescriptor['group']; title: string; blurb: st
         blurb: 'What puts the station on air, and the secret the playout bridge is gated on.',
     },
     { key: 'render', title: 'Voice', blurb: 'How the station speaks.' },
+    {
+        key: 'llm',
+        title: 'Words',
+        blurb: 'Which plugin the station asks for words. With none set up it still writes its own breaks, from what is either side of them in the running order.',
+    },
 ];
 
 /**

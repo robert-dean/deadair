@@ -1,0 +1,169 @@
+// Two claims under test. First, that "no model" is a state rather than a fault, because a station
+// with no model plugin is every fresh install and it still writes its own breaks. Second, that tool
+// support is decided per MODEL and errs toward sending none, because the cost of being wrong is a
+// failed generation and the cost of being cautious is a line written without facts.
+
+import { describe, expect, it, vi } from 'vitest';
+import { isPluginError, type LlmModelInfo, type LlmPluginInstance } from '@deadair/plugin-sdk';
+
+import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
+import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
+import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
+import { LlmService } from '../../../src/modules/llm/llm.service.js';
+import { LLM_PLUGIN_KEY } from '../../../src/modules/llm/llm.settings.js';
+import { settingsConfig } from '../../utils/settings.config.js';
+
+const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) as never;
+
+/** Runs the work, like the real invoker does on the happy path. The breaker is its own file's business. */
+const passthroughInvoker = () =>
+    ({ invoke: vi.fn(async (_id: string, _op: string, work: () => Promise<unknown>) => work()) }) as unknown as PluginInvoker;
+
+interface FakeOptions {
+    id?: string;
+    models?: LlmModelInfo[];
+    /** Omit `listModels` entirely, as a plugin that never wrote it does. */
+    listsModels?: boolean;
+}
+
+function fakeLlmPlugin(options: FakeOptions = {}): PluginRecord {
+    const instance: Partial<LlmPluginInstance> = {
+        generate: vi.fn(async () => ({
+            text: new ReadableStream<string>({
+                start(controller) {
+                    controller.enqueue('words');
+                    controller.close();
+                },
+            }),
+            result: Promise.resolve({ text: 'words', toolCalls: [], finishReason: 'stop' as const }),
+        })),
+    };
+
+    if (options.listsModels !== false) {
+        instance.listModels = vi.fn(async () => options.models ?? []);
+    }
+
+    return {
+        id: options.id ?? 'deadair.llm',
+        dir: '/plugins/llm',
+        status: 'active',
+        manifest: { capabilities: ['llm'] },
+        instance,
+    } as unknown as PluginRecord;
+}
+
+function serviceFor(records: PluginRecord[], settings: Record<string, string> = {}) {
+    const { config, set } = settingsConfig(settings);
+    const service = new LlmService({ list: () => records } as unknown as PluginRegistry, passthroughInvoker(), config, logger());
+    return { service, set };
+}
+
+describe('choosing a generator', () => {
+    it('answers undefined rather than throwing when nothing is installed', () => {
+        const { service } = serviceFor([]);
+
+        expect(service.generator()).toBeUndefined();
+        expect(service.canGenerate()).toBe(false);
+    });
+
+    it('picks the only candidate with nothing configured', () => {
+        const { service } = serviceFor([fakeLlmPlugin()]);
+
+        expect(service.generator()?.record.id).toBe('deadair.llm');
+        expect(service.canGenerate()).toBe(true);
+    });
+
+    it('follows the setting when it changes underneath a live service', () => {
+        // The config is read per call rather than cached, so an operator's write is live on the
+        // next generation instead of on the next restart.
+        const { service, set } = serviceFor([fakeLlmPlugin({ id: 'a' }), fakeLlmPlugin({ id: 'b' })]);
+
+        expect(service.generator()).toBeUndefined();
+
+        set(LLM_PLUGIN_KEY, 'b');
+        expect(service.generator()?.record.id).toBe('b');
+    });
+
+    it('throws `unavailable` from generate, with the reason in the message', async () => {
+        const { service } = serviceFor([]);
+
+        try {
+            await service.generate({ messages: [{ role: 'user', content: 'hi' }] });
+            expect.unreachable('should have thrown');
+        } catch (error) {
+            expect(isPluginError(error)).toBe(true);
+            if (isPluginError(error)) {
+                expect(error.code).toBe('unavailable');
+                expect(error.message).toContain('install');
+            }
+        }
+    });
+
+    it('generates through the chosen plugin', async () => {
+        const { service } = serviceFor([fakeLlmPlugin()]);
+
+        const handle = await service.generate({ messages: [{ role: 'user', content: 'hi' }] });
+
+        await expect(handle.result).resolves.toMatchObject({ text: 'words', finishReason: 'stop' });
+    });
+});
+
+describe('supportsTools', () => {
+    const withModels = (models: LlmModelInfo[]) => {
+        const { service } = serviceFor([fakeLlmPlugin({ models })]);
+        return { service, plugin: service.generator()! };
+    };
+
+    it('answers for the named model', async () => {
+        const { service, plugin } = withModels([
+            { id: 'big', tools: true },
+            { id: 'small', tools: false },
+        ]);
+
+        await expect(service.supportsTools(plugin, 'big')).resolves.toBe(true);
+        await expect(service.supportsTools(plugin, 'small')).resolves.toBe(false);
+    });
+
+    it('answers false for a model the plugin never listed', async () => {
+        const { service, plugin } = withModels([{ id: 'big', tools: true }]);
+
+        await expect(service.supportsTools(plugin, 'unlisted')).resolves.toBe(false);
+    });
+
+    it('needs EVERY model to support tools when none was named', async () => {
+        // An unnamed model means the plugin's own default, and the host cannot see which that is.
+        // Sending tools on the strength of one entry supporting them is how a generation fails.
+        const { service, plugin } = withModels([
+            { id: 'big', tools: true },
+            { id: 'small', tools: false },
+        ]);
+
+        await expect(service.supportsTools(plugin, undefined)).resolves.toBe(false);
+    });
+
+    it('allows tools with no model named when every model can take them', async () => {
+        const { service, plugin } = withModels([
+            { id: 'big', tools: true },
+            { id: 'also-big', tools: true },
+        ]);
+
+        await expect(service.supportsTools(plugin, undefined)).resolves.toBe(true);
+        await expect(service.supportsTools(plugin, '  ')).resolves.toBe(true);
+    });
+
+    it('answers false for a plugin that cannot list its models at all', async () => {
+        // The conservative reading, and the reason a plugin that wants tool calling has to describe
+        // itself: there is no other way for the host to learn any model here supports them.
+        const { service } = serviceFor([fakeLlmPlugin({ listsModels: false })]);
+        const plugin = service.generator()!;
+
+        expect(plugin.listsModels).toBe(false);
+        await expect(service.supportsTools(plugin, 'anything')).resolves.toBe(false);
+    });
+
+    it('answers false when the plugin lists nothing', async () => {
+        const { service, plugin } = withModels([]);
+
+        await expect(service.supportsTools(plugin, undefined)).resolves.toBe(false);
+    });
+});

@@ -20,9 +20,10 @@ stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends
 ```
 
 Current `apps/api` modules: `data`, `crypto`, `authentication`, `permissions`, `policy`, `jobs`,
-`art`, `catalog`, `onboarding`, `settings`, `stream`, `plugins`, `playlists`, `render`, `playout`,
-`nowplaying`, `director`, `enrichment`, plus process-level `logging`. `src/modules/modules.ts` is the
-source of truth, in that order; check it before assuming a subsystem exists.
+`art`, `catalog`, `onboarding`, `settings`, `stream`, `plugins`, `playlists`, `llm`, `render`,
+`playout`, `nowplaying`, `director`, `enrichment`, plus process-level `logging`.
+`src/modules/modules.ts` is the source of truth, in that order; check it before assuming a subsystem
+exists.
 
 ## Where the real documentation is
 
@@ -71,6 +72,20 @@ session and answer 401 instead of letting it through as a user who holds no perm
 **`host.fetch` policy is per upstream, and its budget is the live one.** `permissions.network` entries are bare hostnames, or objects carrying `ratePerSecond` and a shared `bucket` (a published limit usually covers a service, not a hostname), or `{ fromConfig: 'baseUrl' }` for an address the operator supplies. The fetch budget is capped by whatever the _current invocation_ has left, published by `PluginInvoker` through `plugin.invocation.deadline.ts` and readable by plugins as `host.remainingMs()` (sync) or watched as `host.signal`, not by the `PLUGIN_INVOKE_TIMEOUT_MS` constant. `host.signal` is the invoker's own `AbortController` signal rather than a copy, so honouring it and being abandoned are the same moment. Everything the host throws at plugin code is a `PluginError`, never a `ServerkitError`: the invoker's `toPluginError` flattens anything else to `internal`, and the status the host chose never reaches the client.
 
 **A plugin extends `Plugin` and registers its own teardown.** `packages/plugin-sdk/src/plugin.base.ts`: `this.host` is a getter that throws a sentence naming the plugin rather than a `TypeError`, and `register(disposer)` puts an undo beside its setup, run last-registered-first on unload even when one throws. This matters more in-process, not less, because a timer a plugin forgets lives in the API server until a restart and an operator reloads plugins on every config change. Extending it is optional; the host only ever asks for `PluginLifecycle`. Note `host` being a getter costs TypeScript's narrowing of other properties across a read of it.
+
+**The station's words are a plugin, and the loop around them is not.** `llm` capability,
+`plugins/llm` on the AI SDK's OpenAI-compatible provider so one plugin covers a local server and a
+hosted one alike. `llm.pluginId` picks it, mirroring `render.speechPluginId` including its refusal to
+guess. The MODEL is a per-call parameter rather than config, because `plugin_configs.plugin_id` is a
+primary key and a station wanting a big model for a show and a small one for an ident cannot express
+that by installing twice. Three things stay host-side in `modules/llm/`, deliberately: `LlmGate`,
+which holds one model slot **until the words stop arriving rather than until the call resolves**, with
+its budget starting at admission and covering the drain; the tool loop, because a tool is a station
+function and running one inside a plugin would be the wrong side of the fence; and `ToolRegistry`,
+whose sources are an explicit list (catalog search today). A tool declaration goes out and a tool
+call comes back, both plain JSON, so nothing executable crosses. **A station with no model plugin is
+an ordinary state, not a fault** — `canGenerate()` answers it without throwing, so a writer picks its
+deterministic binding.
 
 **The station's voice is a plugin.** `speech` capability, `plugins/kokoro` first, Chatterbox expected. A voice is an opaque station-level id (`host`, `newsreader`) that the PLUGIN maps in its own config; the host never interprets it, and engine-specific knobs stay with the engine. `render.speechPluginId` picks the speaker when several can talk, and declines to guess when none is chosen. `RenderSegmentJob` walks a segment `planned → rendering → ready | failed`, and **a segment that is not `ready` is skipped, never waited for**, which is what keeps a broken renderer from ever costing the station silence.
 

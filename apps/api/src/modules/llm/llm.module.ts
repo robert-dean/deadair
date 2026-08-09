@@ -1,7 +1,10 @@
-import { Registry } from 'injectkit';
+import { Container, Registry } from 'injectkit';
+import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { CatalogSearchTool } from './catalog.search.tool.js';
 import { LlmGate } from './llm.gate.js';
 import { LlmService } from './llm.service.js';
+import { ToolRegistry } from './llm.tools.js';
 
 /**
  * Asking a model for words.
@@ -39,6 +42,18 @@ export const LlmModule: ServerKitModule = {
         // get a gate of its own and two concurrent requests would overlap on the model exactly as
         // if there were no gate at all — while every test of the gate in isolation still passed.
         registry.register(LlmGate).useClass(LlmGate).asSingleton();
+
+        // Scoped with the plugin registry and invoker it reads, like every other capability
+        // consumer here.
+        registry.register(CatalogSearchTool).useClass(CatalogSearchTool).asScoped();
+
+        // The source list is explicit rather than discovered, so what the model can reach is one
+        // readable line rather than the sum of whatever registered itself. A `tool` plugin
+        // capability becomes a second entry here and nothing else changes.
+        registry
+            .register(ToolRegistry)
+            .useFactory((container: Container) => new ToolRegistry([container.get(CatalogSearchTool)], container.get(Logger)))
+            .asScoped();
 
         // Scoped, like `SpeechService` which it is shaped on: it holds no state between calls, and
         // everything about one generation lives in the call. The stream it hands back belongs to

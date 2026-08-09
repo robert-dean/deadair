@@ -104,6 +104,39 @@ export class LlmGate {
     }
 
     /**
+     * Hold the model for a whole piece of work, however many generations it takes.
+     *
+     * What {@link run} is for one streaming generation, this is for a tool loop: several
+     * generations with the station's own work between them, all of which must happen with the model
+     * to themselves.
+     *
+     * **A tool loop is one admission, not one per round trip.** Releasing between steps would let
+     * another generation interleave and evict the KV cache the loop's own next step is about to
+     * want, and it would restart the budget clock in the middle of one answer. So the slot is held
+     * from the first call to the last, which is also why the caller has to bound the number of
+     * steps.
+     *
+     * `work` is handed the budget's signal and must not leave a stream running when it resolves:
+     * the slot comes back the moment it does. That is the opposite of {@link run}'s contract and it
+     * is safe here precisely because a loop reads each generation to the end before deciding
+     * whether there is another.
+     *
+     * @throws whatever `work` throws, and `timeout` when {@link LlmGateOptions.maxWaitMs} passed
+     * before a slot came free.
+     */
+    async hold<TResult>(work: (signal: AbortSignal) => Promise<TResult>, options: LlmGateOptions = {}): Promise<TResult> {
+        await this.acquire(options);
+        const budget = options.budgetMs === undefined ? undefined : startBudget(options.budgetMs);
+
+        try {
+            return await work(budget?.signal ?? neverAborts());
+        } finally {
+            budget?.dispose();
+            this.releaseSlot();
+        }
+    }
+
+    /**
      * Run one generation with the model to itself.
      *
      * `work` is given the signal to hand to the plugin and must return the stream and the result.

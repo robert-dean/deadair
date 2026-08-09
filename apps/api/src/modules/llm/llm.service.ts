@@ -1,12 +1,21 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { PluginError, type LlmHandle, type LlmModelInfo, type LlmRequest, type LlmResult } from '@deadair/plugin-sdk';
+import {
+    collectGeneration,
+    PluginError,
+    type LlmHandle,
+    type LlmModelInfo,
+    type LlmRequest,
+    type LlmResult,
+    type LlmUsage,
+} from '@deadair/plugin-sdk';
 import { asLlmPlugin, type LlmPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { LlmGate } from './llm.gate.js';
 import { explainNoGenerator, LLM_PLUGIN_KEY, selectLlmPlugin } from './llm.settings.js';
+import { ToolRegistry, type StationTool } from './llm.tools.js';
 
 /**
  * How long the plugin gets to hand back a handle.
@@ -34,6 +43,15 @@ export const START_TIMEOUT_MS = 120_000;
  */
 export const GENERATION_BUDGET_MS = 600_000;
 
+/**
+ * How many times a conversation may go round the tool loop before it has to answer in words.
+ *
+ * A back-announce that checks the library needs one. Something that checks two things needs two.
+ * Past a handful, a model is not gathering facts any more, it is looping, and every step is
+ * another whole generation held against the station's only model slot.
+ */
+export const MAX_TOOL_STEPS = 4;
+
 /** How one caller wants its generation treated. Every field falls back to this module's own bounds. */
 export interface LlmCallOptions {
     /** Override {@link GENERATION_BUDGET_MS} for one call. */
@@ -47,6 +65,26 @@ export interface LlmCallOptions {
      * finishes should say so here.
      */
     maxWaitMs?: number;
+}
+
+/** {@link LlmCallOptions}, plus what a conversation may do with tools. */
+export interface LlmConverseOptions extends LlmCallOptions {
+    /** Set `false` for a conversation that must not call anything. Absent means offer what there is. */
+    tools?: boolean;
+
+    /** Override {@link MAX_TOOL_STEPS} for one conversation. */
+    maxToolSteps?: number;
+}
+
+/** Fold one generation's usage into a conversation's running total. */
+function addUsage(total: LlmUsage, step: LlmUsage | undefined): void {
+    if (step === undefined) return;
+
+    // A conversation is several generations and its cost is their sum, so a caller logging this sees
+    // what the answer actually cost rather than what its last step did.
+    if (step.inputTokens !== undefined) total.inputTokens = (total.inputTokens ?? 0) + step.inputTokens;
+    if (step.outputTokens !== undefined) total.outputTokens = (total.outputTokens ?? 0) + step.outputTokens;
+    if (step.totalTokens !== undefined) total.totalTokens = (total.totalTokens ?? 0) + step.totalTokens;
 }
 
 /**
@@ -75,6 +113,7 @@ export class LlmService {
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
         private readonly gate: LlmGate,
+        private readonly tools: ToolRegistry,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -190,6 +229,126 @@ export class LlmService {
         );
 
         return { text: gated.stream, result: gated.result };
+    }
+
+    /**
+     * Ask for an answer, letting the model use the station's tools to get there.
+     *
+     * The counterpart to {@link generate}, and the one most callers want. That one hands back a
+     * stream for a caller showing words as they arrive; this one runs the conversation to its end
+     * and answers with the finished result, because a tool round trip has no single stream to show.
+     *
+     * ## The loop is host-side, and once
+     *
+     * Every writer gets the same loop rather than each reimplementing it, and no plugin gets to
+     * implement it at all: a tool is a station function, so running one belongs on this side of the
+     * boundary. What crosses is declarations going out and calls coming back, both plain data.
+     *
+     * ## It is one gate admission
+     *
+     * The whole loop holds the model, including the station's own work between steps. Releasing
+     * between round trips would let another generation interleave and evict the cache this loop's
+     * next step is about to want, and restart the budget clock mid-answer.
+     *
+     * ## Tools are offered only to a model that says it can take them
+     *
+     * And when the loop runs out of steps, the last generation is made with no tools at all, so the
+     * model has to answer in words. Without that a caller can be handed a result whose only content
+     * is a request for a tool call nobody is going to make, which reads downstream as the model
+     * having said nothing.
+     */
+    async converse(request: LlmRequest, options: LlmConverseOptions = {}): Promise<LlmResult> {
+        const plugin = this.generator();
+        if (plugin === undefined) throw new PluginError(`llm: ${this.explainGenerator()}`).withCode('unavailable');
+
+        const maxSteps = options.maxToolSteps ?? MAX_TOOL_STEPS;
+        const tools = await this.toolsFor(plugin, request, options);
+
+        return await this.gate.hold(async signal => await this.runConversation(plugin, request, tools, maxSteps, signal), {
+            budgetMs: options.budgetMs ?? GENERATION_BUDGET_MS,
+            ...(options.maxWaitMs === undefined ? {} : { maxWaitMs: options.maxWaitMs }),
+            label: plugin.record.id,
+        });
+    }
+
+    /**
+     * What the model may call this time, or nothing.
+     *
+     * A caller's explicit `request.tools` wins, so something that wants a bare conversation can have
+     * one. Otherwise the registry's, and only when the model is declared able to take them: sending
+     * tools to a model that cannot is a failed generation, and the fallback for a break written
+     * without them is a correct sentence.
+     */
+    private async toolsFor(plugin: LlmPlugin, request: LlmRequest, options: LlmConverseOptions): Promise<Map<string, StationTool>> {
+        if (request.tools !== undefined) return new Map();
+        if (options.tools === false) return new Map();
+
+        if (!(await this.supportsTools(plugin, request.model))) {
+            this.logger.debug('llm: the model is not declared able to use tools, so none were offered', { plugin: plugin.record.id });
+            return new Map();
+        }
+
+        return await this.tools.tools();
+    }
+
+    /** The loop itself, inside the gate. */
+    private async runConversation(
+        plugin: LlmPlugin,
+        request: LlmRequest,
+        tools: Map<string, StationTool>,
+        maxSteps: number,
+        signal: AbortSignal,
+    ): Promise<LlmResult> {
+        const declarations = [...tools.values()].map(tool => tool.declaration);
+        const messages = [...request.messages];
+        const usage: LlmUsage = {};
+
+        for (let step = 0; ; step++) {
+            // The last step is asked WITHOUT tools, so the model has to produce words rather than
+            // ask for something nobody will run.
+            const lastStep = step >= maxSteps;
+            const offered = lastStep || declarations.length === 0 ? undefined : declarations;
+
+            const result = await this.generateOnce(plugin, { ...request, messages, ...(offered === undefined ? {} : { tools: offered }) });
+            addUsage(usage, result.usage);
+
+            if (result.toolCalls.length === 0 || lastStep) {
+                return { ...result, usage };
+            }
+
+            if (signal.aborted) {
+                // The budget went while the station was doing its own work. Answer with what the
+                // model has said so far rather than throwing: a partial line is worth more to a
+                // writer that can fall back than an exception is.
+                this.logger.info('llm: a conversation ran out of budget mid-loop', { plugin: plugin.record.id, step });
+                return { ...result, usage, finishReason: 'length' };
+            }
+
+            // The assistant turn AND its calls, as one message. A model that cannot see its own
+            // request has no idea what the results after it are answering.
+            messages.push({ role: 'assistant', content: result.text, toolCalls: result.toolCalls });
+
+            for (const call of result.toolCalls) {
+                const answer = await this.tools.run(call, tools, signal);
+                messages.push({ role: 'tool', toolCallId: call.id, content: answer });
+            }
+
+            this.logger.debug('llm: ran tools for a conversation', { plugin: plugin.record.id, step, calls: result.toolCalls.length });
+        }
+    }
+
+    /**
+     * One generation, drained, WITHOUT the gate.
+     *
+     * Private and ungated on purpose: its only caller is already holding the slot, and going through
+     * `gate.run` from inside `gate.hold` would be a caller queueing behind itself.
+     */
+    private async generateOnce(plugin: LlmPlugin, request: LlmRequest): Promise<LlmResult> {
+        const handle = await this.pluginInvoker.invoke(plugin.record.id, 'llm.generate', async () => plugin.instance.generate(request), {
+            timeoutMs: START_TIMEOUT_MS,
+        });
+
+        return await collectGeneration(handle);
     }
 
     /**

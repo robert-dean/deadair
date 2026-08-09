@@ -11,6 +11,7 @@ import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registr
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { LlmGate } from '../../../src/modules/llm/llm.gate.js';
 import { LlmService } from '../../../src/modules/llm/llm.service.js';
+import { ToolRegistry } from '../../../src/modules/llm/llm.tools.js';
 import { LLM_PLUGIN_KEY } from '../../../src/modules/llm/llm.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -56,7 +57,15 @@ function fakeLlmPlugin(options: FakeOptions = {}): PluginRecord {
 function serviceFor(records: PluginRecord[], settings: Record<string, string> = {}) {
     const { config, set } = settingsConfig(settings);
     const gate = new LlmGate(logger());
-    const service = new LlmService({ list: () => records } as unknown as PluginRegistry, passthroughInvoker(), gate, config, logger());
+    const service = new LlmService(
+        { list: () => records } as unknown as PluginRegistry,
+        passthroughInvoker(),
+        gate,
+        // No sources: what the loop does with tools is `llm.conversation.test.ts`'s business.
+        new ToolRegistry([], logger()),
+        config,
+        logger(),
+    );
     return { service, set, gate };
 }
 

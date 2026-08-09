@@ -23,6 +23,15 @@ export interface CatalogPlugin {
     record: PluginRecord;
     manifest: PluginManifest;
     instance: MusicProviderPluginInstance;
+    /**
+     * Whether `searchTracks` is there to call.
+     *
+     * Deliberately not part of {@link CATALOG_METHODS}: every catalog method is optional in the
+     * SDK, and a provider that lists playlists and cannot be searched is a legitimate thing to be.
+     * Reported here so a caller that needs searching can skip the ones that do not, the way
+     * {@link EnrichmentPlugin.enrichesArtists} works.
+     */
+    searchesTracks: boolean;
 }
 
 /**
@@ -56,8 +65,13 @@ export const implementsCatalog = (manifest: PluginManifest | undefined, instance
 export const asCatalogPlugin = (record: PluginRecord): CatalogPlugin | undefined => {
     if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
     if (!implementsCatalog(record.manifest, record.instance)) return undefined;
-    return { record, manifest: record.manifest, instance: record.instance as MusicProviderPluginInstance };
+
+    const instance = record.instance as MusicProviderPluginInstance;
+    return { record, manifest: record.manifest, instance, searchesTracks: implementsTrackSearch(instance) };
 };
+
+/** Whether this plugin can be asked for a track by name, as opposed to only browsed. */
+export const implementsTrackSearch = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).searchTracks === 'function';
 
 /**
  * The one method that earns the `stream` capability.

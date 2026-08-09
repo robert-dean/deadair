@@ -1,4 +1,5 @@
 import {
+    jsonBody,
     Plugin,
     PluginError,
     type LlmFinishReason,
@@ -13,8 +14,8 @@ import { createOpenAICompatible, type OpenAICompatibleProvider } from '@ai-sdk/o
 import { streamText } from 'ai';
 import { hostFetch } from './llm.fetch.js';
 import { toModelMessages, toToolSet } from './llm.messages.js';
-import { describeModels } from './llm.models.js';
-import { llmManifest, PROBE_TIMEOUT_MS, PROVIDER_NAME } from './llm.manifest.js';
+import { describeModels, parseModelList } from './llm.models.js';
+import { llmManifest, MODEL_CACHE_MS, PROBE_TIMEOUT_MS, PROVIDER_NAME } from './llm.manifest.js';
 
 export { llmManifest };
 
@@ -49,6 +50,9 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     private models = '';
     private provider?: OpenAICompatibleProvider;
 
+    /** What `/models` last said, and when. See {@link fetchModels}. */
+    private discovered?: { at: number; ids: string[] };
+
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
         this.baseUrl = trimSlashes(typeof config.baseUrl === 'string' ? config.baseUrl : '');
@@ -76,35 +80,101 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                       fetch: hostFetch(this.host),
                   });
 
-        this.host.logger.info('llm ready', { baseUrl: this.baseUrl, model: this.model, models: describeModels(this.models, this.model).length });
-    }
+        // Dropped rather than kept: the operator may have just pointed this
+        // somewhere else, and a list from the old server is worse than no list.
+        this.discovered = undefined;
 
-    async testConnection(): Promise<{ ok: boolean; message: string }> {
-        if (this.baseUrl.length === 0) return { ok: false, message: 'No server URL set.' };
-        if (this.model.length === 0) return { ok: false, message: 'No default model set.' };
-
-        // `/models` rather than a generation: it is the one call every
-        // OpenAI-compatible server answers cheaply, and this is a reachability
-        // check rather than a test of whether the model is any good.
-        const response = await this.host.fetch(`${this.baseUrl}/models`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
-        if (!response.ok) {
-            await response.body?.cancel().catch(() => {});
-            return { ok: false, message: `Server answered HTTP ${response.status}.` };
-        }
-
-        await response.body?.cancel().catch(() => {});
-        return { ok: true, message: `Connected. Default model "${this.model}".` };
+        this.host.logger.info('llm ready', { baseUrl: this.baseUrl, model: this.model });
     }
 
     /**
-     * What the operator said this server has.
+     * Whether this can be reached, and what it has.
      *
-     * Not a passthrough of the server's own `/models`, and deliberately: that
-     * list cannot say which models accept tools, which is the question the host
-     * asks this for. See `llm.models.ts`.
+     * Reports the models it found, because this is the ONLY way an operator can
+     * learn them: a default model cannot be chosen before the server URL is
+     * saved, and the URL cannot be tested before it is saved either. So the loop
+     * has to be "save the address, press test, read the names, choose one" — and
+     * that only works if this says the names out loud.
+     */
+    async testConnection(): Promise<{ ok: boolean; message: string }> {
+        if (this.baseUrl.length === 0) return { ok: false, message: 'No server URL set.' };
+
+        let models: string[];
+        try {
+            models = await this.fetchModels();
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+
+        if (models.length === 0) {
+            return { ok: true, message: 'Connected, but the server listed no models.' };
+        }
+
+        const listed = models.join(', ');
+        if (this.model.length === 0) {
+            return { ok: true, message: `Connected. ${models.length} model(s) available: ${listed}. Set one as the default model.` };
+        }
+
+        // v1 paid for this sentence: "connected" alone, with a model name that is
+        // not installed, sends an operator looking at the network for a fault that
+        // is a typo.
+        if (!models.includes(this.model)) {
+            return { ok: true, message: `Connected, but "${this.model}" is not one of them. Available: ${listed}.` };
+        }
+
+        return { ok: true, message: `Connected. Default model "${this.model}". ${models.length} available.` };
+    }
+
+    /**
+     * The models this server has, annotated with which accept tools.
+     *
+     * The ids come from the server, because it knows them and the operator should
+     * not have to type out what the machine can say. The tool flags come from
+     * config, because no OpenAI-compatible endpoint reports tool support and it
+     * cannot be inferred from a name. See `llm.models.ts`.
+     *
+     * A server that cannot be reached answers from config alone rather than
+     * throwing: a momentary blip should cost the console its list, not the
+     * station its ability to write.
      */
     async listModels(): Promise<LlmModelInfo[]> {
-        return describeModels(this.models, this.model);
+        let discovered: string[];
+        try {
+            discovered = await this.fetchModels();
+        } catch (error) {
+            this.host.logger.debug('llm could not list models', { error: error instanceof Error ? error.message : String(error) });
+            discovered = [];
+        }
+
+        return describeModels(discovered, this.models, this.model);
+    }
+
+    /**
+     * `GET /models`, cached briefly.
+     *
+     * Cached because `listModels` is on the path of every conversation that might
+     * use tools, and a round trip per break to learn something that changes when
+     * an operator installs a model is a poor trade. Short enough that pulling a
+     * new model shows up within a minute without a reload.
+     *
+     * @throws {Error} with a sentence a console can show, for a server that
+     * refused or could not be reached.
+     */
+    private async fetchModels(): Promise<string[]> {
+        const cached = this.discovered;
+        if (cached !== undefined && Date.now() - cached.at < MODEL_CACHE_MS) return cached.ids;
+
+        const response = await this.host.fetch(`${this.baseUrl}/models`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        if (!response.ok) {
+            await response.body?.cancel().catch(() => {});
+            throw new Error(`Server answered HTTP ${response.status}.`);
+        }
+
+        const body = await jsonBody<{ data?: { id?: unknown }[] }>(response);
+        const ids = (body?.data ?? []).map(entry => (typeof entry.id === 'string' ? entry.id.trim() : '')).filter(id => id.length > 0);
+
+        this.discovered = { at: Date.now(), ids };
+        return ids;
     }
 
     async generate(request: LlmRequest): Promise<LlmHandle> {
@@ -159,12 +229,15 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     private assertCanUseTools(request: LlmRequest, model: string): void {
         if (request.tools === undefined || request.tools.length === 0) return;
 
-        const declared = describeModels(this.models, this.model).find(entry => entry.id === model);
-        if (declared?.tools === true) return;
+        // Read from config alone rather than through `describeModels`, so this
+        // stays synchronous and cannot be fooled by a `/models` blip: a model the
+        // server did not list this second is still one the operator annotated.
+        const annotated = parseModelList(this.models).find(entry => entry.id === model);
+        if (annotated?.tools === true) return;
 
-        throw new PluginError(`model "${model}" is not declared as able to use tools; add "+tools" beside it in the plugin's model list`).withCode(
-            'unsupported',
-        );
+        throw new PluginError(
+            `model "${model}" is not marked as able to use tools; add "${model} +tools" to the plugin's tool-capable models`,
+        ).withCode('unsupported');
     }
 
     /** The SDK's several settled promises, as the one result the station's boundary describes. */

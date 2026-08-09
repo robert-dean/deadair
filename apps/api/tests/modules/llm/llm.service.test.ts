@@ -164,9 +164,29 @@ describe('supportsTools', () => {
         await expect(service.supportsTools(plugin, 'unlisted')).resolves.toBe(false);
     });
 
-    it('needs EVERY model to support tools when none was named', async () => {
-        // An unnamed model means the plugin's own default, and the host cannot see which that is.
-        // Sending tools on the strength of one entry supporting them is how a generation fails.
+    it('asks about the marked default when none was named', async () => {
+        // Which is the answer that matters once models are discovered rather than typed: a server
+        // with a dozen installed would otherwise never be sent tools at all.
+        const { service, plugin } = withModels([
+            { id: 'big', tools: true, default: true },
+            { id: 'small', tools: false },
+        ]);
+
+        await expect(service.supportsTools(plugin, undefined)).resolves.toBe(true);
+    });
+
+    it('believes a marked default that cannot take tools, even beside ones that can', async () => {
+        const { service, plugin } = withModels([
+            { id: 'big', tools: true },
+            { id: 'small', tools: false, default: true },
+        ]);
+
+        await expect(service.supportsTools(plugin, undefined)).resolves.toBe(false);
+    });
+
+    it('needs EVERY model to support tools when the plugin marked no default', async () => {
+        // The fallback for a plugin that will not say which model an unnamed request reaches.
+        // Correct, and increasingly useless the more models a server has, which is why the SDK asks.
         const { service, plugin } = withModels([
             { id: 'big', tools: true },
             { id: 'small', tools: false },
@@ -175,7 +195,7 @@ describe('supportsTools', () => {
         await expect(service.supportsTools(plugin, undefined)).resolves.toBe(false);
     });
 
-    it('allows tools with no model named when every model can take them', async () => {
+    it('allows tools with no model named when every model can take them and none is marked', async () => {
         const { service, plugin } = withModels([
             { id: 'big', tools: true },
             { id: 'also-big', tools: true },

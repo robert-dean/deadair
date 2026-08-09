@@ -223,6 +223,16 @@ export interface LlmModelInfo {
      * than a degraded answer.
      */
     tools: boolean;
+
+    /**
+     * Whether this is the model a request with no {@link LlmRequest.model} gets.
+     *
+     * Set it if you have one. Without it the host cannot tell which of the models
+     * you listed an unnamed request will actually reach, so it has to assume the
+     * worst one and will never send tools unless a caller names a model itself —
+     * which gets steadily more likely to be wrong the more models your server has.
+     */
+    default?: boolean;
 }
 
 /** A plugin that can produce words. */

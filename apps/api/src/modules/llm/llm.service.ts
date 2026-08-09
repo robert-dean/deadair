@@ -370,11 +370,13 @@ export class LlmService {
      * commonly serves both a model that can call tools and one that cannot, so a plugin-level
      * answer would be wrong for half of them.
      *
-     * `undefined` for the model means the plugin's own default, which is the ordinary case and the
-     * one thing this cannot resolve from here — a plugin knows which model it is configured with and
-     * the host does not. So an unnamed model gets tools only when EVERY model the plugin lists
-     * supports them, which is the conservative reading and the one that cannot produce a failed
-     * generation.
+     * `undefined` for the model means the plugin's own default, and a plugin that says which entry
+     * that is gets asked about that one. Without a marked default there is nothing to resolve
+     * against, so this falls back to requiring EVERY model to support tools — correct, and
+     * increasingly useless the more models a server has, which is why the SDK asks plugins to mark
+     * one. Both readings err the same way: never claiming support that is not there, because the
+     * cost of being wrong is a failed generation and the cost of being cautious is a line written
+     * without facts.
      */
     async supportsTools(plugin: LlmPlugin, model: string | undefined): Promise<boolean> {
         const models = await this.models(plugin);
@@ -382,6 +384,9 @@ export class LlmService {
 
         const named = model?.trim();
         if (named !== undefined && named.length > 0) return models.find(entry => entry.id === named)?.tools === true;
+
+        const fallback = models.find(entry => entry.default === true);
+        if (fallback !== undefined) return fallback.tools;
 
         return models.every(entry => entry.tools);
     }

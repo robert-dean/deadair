@@ -77,22 +77,50 @@ export function isParseableModelList(raw: string | undefined): boolean {
 }
 
 /**
- * The list the host sees, with the configured default folded in.
+ * The list the host sees: what the server reports, annotated with what only the
+ * operator knows.
  *
- * The default model is always offered even when the operator did not list it,
- * because a plugin that names a model it will not admit to having is a confusing
- * thing to debug. It arrives without tools unless it was listed WITH them, which
- * is the conservative direction: the cost of being wrong here is a failed
- * generation, and the cost of being cautious is a break written without facts a
- * tool would have supplied.
+ * The two halves are answering different questions, and conflating them was a
+ * mistake worth naming. **Which models exist is discoverable** — every
+ * OpenAI-compatible server lists them — and making an operator type that out is
+ * asking them for something the machine already knows, before they have any way
+ * to find it out. **Which of them accept tools is not**, and no amount of asking
+ * the server will change that.
+ *
+ * So `discovered` comes from `/models` and `raw` supplies only the `+tools`
+ * flags. A model the operator annotated that the server did not report is kept
+ * anyway: a proxy that serves a model without listing it is a real thing, and
+ * dropping the entry would silently disable tools on it.
+ *
+ * `defaultModel` is folded in for the same reason it always was: a plugin that
+ * names a model it will not admit to having is a confusing thing to debug.
+ * Anything not annotated arrives without tools, which is the conservative
+ * direction — the cost of being wrong is a failed generation, and the cost of
+ * being cautious is a break written without facts a tool would have supplied.
  */
-export function describeModels(raw: string | undefined, defaultModel: string): LlmModelInfo[] {
-    const parsed = parseModelList(raw);
+export function describeModels(discovered: readonly string[], raw: string | undefined, defaultModel: string): LlmModelInfo[] {
+    const toolsFor = new Map(parseModelList(raw).map(model => [model.id, model.tools]));
+
+    const ids: string[] = [];
+    const add = (id: string) => {
+        const trimmed = id.trim();
+        if (trimmed.length > 0 && !ids.includes(trimmed)) ids.push(trimmed);
+    };
+
+    // Server first, so the console lists them in the order it reported. Then the
+    // default, then anything annotated that never came back from `/models`.
+    for (const id of discovered) add(id);
+    add(defaultModel);
+    for (const id of toolsFor.keys()) add(id);
+
     const fallback = defaultModel.trim();
-
-    if (fallback.length > 0 && !parsed.some(model => model.id === fallback)) {
-        parsed.unshift({ id: fallback, tools: false });
-    }
-
-    return parsed.map(model => ({ id: model.id, label: model.id, tools: model.tools }));
+    return ids.map(id => ({
+        id,
+        label: id,
+        tools: toolsFor.get(id) === true,
+        // Marked so the host knows which entry an unnamed request will actually reach.
+        // Without it the host has to assume the worst model on the server, and would
+        // never send tools to a station that has more than a couple installed.
+        ...(id === fallback ? { default: true } : {}),
+    }));
 }

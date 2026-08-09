@@ -40,6 +40,16 @@ export const PROVIDER_NAME = 'openai-compatible';
 export const PROBE_TIMEOUT_MS = 5_000;
 
 /**
+ * How long the model list is trusted before asking the server again.
+ *
+ * Listing models is on the path of every conversation that might use tools, so a
+ * round trip per break to learn something that only changes when an operator
+ * installs a model is a poor trade. Short enough that a newly pulled model shows
+ * up within a minute without anyone reloading the plugin.
+ */
+export const MODEL_CACHE_MS = 60_000;
+
+/**
  * Validated on the way in, so `onLoad` never has to defend against a half-typed
  * form.
  *
@@ -48,12 +58,22 @@ export const PROBE_TIMEOUT_MS = 5_000;
  * how many models a station keeps is not something to guess at. Parsing it here
  * means an entry that yields nothing is refused at save time, with the operator
  * still looking at the form.
+ *
+ * Note what it no longer is. It used to be the whole model list, which asked the
+ * operator to type out something the server will tell you if you ask it. It now
+ * carries only the `+tools` flags, which is the part no endpoint reports.
  */
 export const configSchema = z.object({
     providerKind: z.enum(Object.keys(PROVIDER_KINDS) as [ProviderKind, ...ProviderKind[]]).optional(),
     baseUrl: z.string().min(1),
     apiKey: z.string().optional(),
-    model: z.string().min(1),
+    // Optional, and the reason is a loop the operator would otherwise be stuck in:
+    // the server URL cannot be tested until it is saved, and the models cannot be
+    // learned until it is tested. Requiring a model to save the address means being
+    // asked for a name there is no way to find out. Save, test, read the names,
+    // come back. `generate` refuses with `config` if it is still unset by the time
+    // something asks for words, which is the right place to notice.
+    model: z.string().optional(),
     temperature: z.number().min(0).max(2).optional(),
     models: z.string().optional().refine(isParseableModelList, { message: 'each entry is a model id, optionally followed by "+tools"' }),
 });
@@ -103,8 +123,7 @@ export const llmManifest: PluginManifest = {
             key: 'model',
             label: 'Default model',
             type: 'string',
-            required: true,
-            help: 'Used whenever the station does not name one. Callers may ask for a different model per request.',
+            help: 'Used whenever the station does not name one. Leave it empty at first: save the server URL, press Test connection, and it will list the models this server has.',
         },
         {
             key: 'temperature',
@@ -114,9 +133,9 @@ export const llmManifest: PluginManifest = {
         },
         {
             key: 'models',
-            label: 'Models',
+            label: 'Tool-capable models',
             type: 'string',
-            help: 'One per line, e.g. "gpt-oss:20b +tools". The "+tools" marks a model that can be given tools, which no endpoint reports and cannot be guessed from a name. A model listed without it is never sent any.',
+            help: 'One per line, e.g. "gpt-oss:20b +tools". The models themselves are read from the server; this only says which of them can be given tools, which no endpoint reports and cannot be guessed from a name. A model not listed here is never sent any.',
         },
     ],
     configSchema,

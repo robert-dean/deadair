@@ -616,6 +616,20 @@ model that can call tools and one that cannot — so the host reads
 `LlmModelInfo.tools` to decide whether it may send any. With no `listModels`, it
 has no way to learn that and sends none.
 
+Mark one entry `default: true`. A request that names no model gets yours, and
+without the mark the host cannot tell which of your models that is: it has to
+assume the least capable one, so a server with a dozen installed never gets sent
+tools at all.
+
+Two things worth separating when you write it. **Which models exist is usually
+discoverable** — ask the server, rather than making an operator type out what the
+machine already knows. **Which of them accept tools is not**, and no endpoint
+reports it, so that part has to be config. Getting this backwards produces a
+setup loop with no way in: an operator cannot name a model before they can reach
+the server, and cannot test the server before they have saved it. Let the address
+be saved on its own, and say the model names in `testConnection` — for many
+plugins it is the only place an operator can learn them.
+
 ## Configuration fields
 
 `configFields` is a declarative form description. The host renders it; plugins

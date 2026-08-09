@@ -1,9 +1,8 @@
 import { Kysely, sql } from 'kysely';
 import { ScopedContainer } from 'injectkit';
 import { ServerKitMiddleware } from '@maroonedsoftware/koa';
-import { PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
+import { KyselyTransactionConnectionProvider, PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
 import { DB } from '#modules/data/db.js';
-import { KyselyTransactionConnectionProvider } from '#modules/data/kysely.transaction.connection.provider.js';
 import { DEFAULT_TRANSACTION_EXEMPTIONS, isTransactionExempt } from './transaction.exemptions.js';
 
 export const auditContextMiddleware: () => ServerKitMiddleware = () => {

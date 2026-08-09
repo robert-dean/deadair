@@ -7,9 +7,7 @@
 // send threw every time: a station that reached the end of its programming stayed there.
 
 import { describe, expect, it } from 'vitest';
-import { PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
-
-import { KyselyTransactionConnectionProvider } from '../../../src/modules/data/kysely.transaction.connection.provider.js';
+import { KyselyTransactionConnectionProvider, PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
 
 describe('the root job connection provider', () => {
     // `undefined` is pg-boss's own documented "use your own pool". A non-request caller needs

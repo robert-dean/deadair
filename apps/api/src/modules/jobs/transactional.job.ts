@@ -1,9 +1,8 @@
 import { Container, Injectable, ScopedContainer } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { Job, JobContext } from '@maroonedsoftware/jobbroker';
-import { PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
+import { KyselyTransactionConnectionProvider, PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
 import { DB } from '#modules/data/db.js';
-import { KyselyTransactionConnectionProvider } from '#modules/data/kysely.transaction.connection.provider.js';
 import { overrideJobActor } from './job.authorization.js';
 
 /**

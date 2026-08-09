@@ -94,7 +94,12 @@ the live `AppConfigStore` reload and `radio.env` materialization are planned, no
 `PluginsService`, and every route there that writes one reinitializes the plugin itself. There is no
 `LISTEN`/`NOTIFY` path and no trigger on the table (an earlier one was removed): a row edited out of
 band is applied by `POST /plugins/:id/reload`, or not at all. Anything that grows a second writer of
-that table has to call `PluginLifecycleManager.reinitPlugin` itself.
+that table has to call `PluginLifecycleManager.reinitPlugin` itself, and has to do it through
+`AfterCommit` rather than inline: the manager is a singleton reading and writing that row on its own
+pooled connection, so from inside the request's transaction it reads the row as it stood BEFORE the
+write and its own `setStatus` upsert then waits on the lock the request is holding, while the
+request waits on it. Postgres does not call that a deadlock, because only one of the two is waiting
+in the database. `reloadPlugin` is inline precisely because it writes nothing.
 
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on

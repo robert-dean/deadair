@@ -74,7 +74,7 @@ export class RenderSegmentJob implements Job<RenderSegmentPayload> {
         if (!script) {
             // Left `failed` rather than dropped back to `planned`, so it is visible in the console
             // instead of being retried forever by anything that walks planned segments.
-            await this.segments.markFailed(segment.id, 'this segment has no script to say');
+            await this.segments.markFailed(segment.id, 'this segment has no script to say', 'rendering');
             this.logger.warn('render: a segment was planned with no script', { job: this.context.id, segment: segment.id });
             return;
         }
@@ -82,7 +82,7 @@ export class RenderSegmentJob implements Job<RenderSegmentPayload> {
         if (signal?.aborted) {
             // Put it back rather than leaving it stuck in `rendering`, where nothing would ever
             // claim it again.
-            await this.segments.markFailed(segment.id, 'the render was abandoned before it started');
+            await this.segments.markFailed(segment.id, 'the render was abandoned before it started', 'rendering');
             return;
         }
 
@@ -103,7 +103,7 @@ export class RenderSegmentJob implements Job<RenderSegmentPayload> {
             // The reason goes on the row, because the console is where an operator looks and a log
             // line scrolls away. Not rethrown: a failed render is data, and letting it bubble would
             // spend the job's one retry on a plugin that is usually still down.
-            await this.segments.markFailed(segment.id, message);
+            await this.segments.markFailed(segment.id, message, 'rendering');
             this.logger.warn('render: could not speak a segment', { job: this.context.id, segment: segment.id, error: message });
         }
     }

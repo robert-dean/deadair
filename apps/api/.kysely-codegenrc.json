@@ -25,7 +25,8 @@
             "deadair.plugin_configs.log_level": "Generated<'debug' | 'info' | 'warn' | 'error'>",
             "deadair.lineups.mode": "Generated<'rotation' | 'setlist' | 'feature'>",
             "deadair.lineups.on_end": "Generated<'extend' | 'repeat' | 'resume' | 'rotation' | 'stop'>",
-            "deadair.segments.state": "Generated<'planned' | 'rendering' | 'ready' | 'failed'>"
+            "deadair.segments.state": "Generated<'planned' | 'rendering' | 'ready' | 'failed'>",
+            "deadair.segment_events.to_state": "'planned' | 'rendering' | 'ready' | 'failed'"
         }
     },
     "partitions": false,

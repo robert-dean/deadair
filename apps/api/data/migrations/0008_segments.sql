@@ -74,7 +74,15 @@ create table deadair.segments (
     -- voice never sets this, and neither does an imported recording, whose voice is whoever spoke into
     -- the microphone. Unconstrained text, like `kind` and `source` beside it: a station that invents a
     -- fourth persona must not need a migration to have one.
-    voice text
+    voice text,
+    -- What decided the words: 'deterministic' for the station's own templates, later the id of the
+    -- plugin whose model wrote them. Null for an imported file, whose words are whoever recorded them,
+    -- and null for a segment planned before anything has written it.
+    --
+    -- Kept because "the model wrote this one and the stub wrote that one" is the question an operator
+    -- asks first when a station starts sounding flat, and it cannot be answered afterwards from a log
+    -- line that has scrolled away. Unconstrained text for the same reason as `source`.
+    writer text
 );
 select deadair.add_updated_at_trigger('deadair.segments');
 
@@ -90,6 +98,45 @@ create unique index segments_library_checksum_idx on deadair.segments (audio_che
 -- not ready is never a candidate.
 create index segments_ready_idx on deadair.segments (kind, created_at) where state = 'ready';
 
+-- What happened to a segment, and when, as rows rather than as log lines.
+--
+-- `segments.state` says where a segment IS. This says how it got there: planned at one moment,
+-- claimed at another, ready or failed at a third. The difference matters because the interesting
+-- questions are all about the journey — how long a render took, whether a break was written by the
+-- model or fell back to the templates, why last night's talk break never aired — and a column
+-- holding the current state can answer none of them once it has moved on.
+--
+-- A table rather than four timestamp columns on `segments`, because the console's activity feed
+-- reads transitions across ALL segments in time order, and columns would have to be unpivoted to
+-- answer that. This way the feed is a transport over rows that already exist, which is the whole
+-- reason for writing them down now rather than after something wants them: doing it later is a
+-- migration plus a backfill nobody can perform, since the history it would need is gone.
+--
+-- Append-only, and shaped like `play_history`: `created_at` and an id, no `updated_at` trigger. An
+-- event is a fact about a moment and is never edited.
+create table deadair.segment_events (
+    created_at timestamptz not null default now(),
+    id uuid not null default gen_random_uuid() primary key,
+    -- Cascade, unlike `play_history.track_id`. That one is set null because a record having aired
+    -- is true whether or not the catalog still knows the track; this is different, because an event
+    -- describes a segment's own life and means nothing once the segment is gone.
+    segment_id uuid not null references deadair.segments (id) on delete cascade,
+    -- Where it came from. Null for the first event of a row, which came from nowhere.
+    from_state text constraint segment_events_from_check check (from_state is null or from_state in ('planned', 'rendering', 'ready', 'failed')),
+    to_state text not null constraint segment_events_to_check check (to_state in ('planned', 'rendering', 'ready', 'failed')),
+    -- Why, in a sentence, when there is one worth keeping: the error that failed a render, or the
+    -- note that a break degraded to the deterministic writer because the model declined. Null for
+    -- an ordinary transition that speaks for itself.
+    reason text
+);
+
+-- The two reads: one segment's story, and the station's most recent activity across all of them.
+create index segment_events_segment_idx on deadair.segment_events (segment_id, created_at);
+create index segment_events_recent_idx on deadair.segment_events (created_at desc);
+
 -- migrate:down
 
+-- Dropped explicitly and first, rather than left to the cascade, so the down migration says what it
+-- removes instead of relying on a foreign key to imply it.
+drop table if exists deadair.segment_events;
 drop table if exists deadair.segments;

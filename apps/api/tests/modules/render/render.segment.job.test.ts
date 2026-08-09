@@ -84,7 +84,7 @@ describe('RenderSegmentJob', () => {
         // Not rethrown: the console is where an operator looks, and letting this bubble would spend
         // the job's one retry on a plugin that is usually still down.
         await expect(job.run({ segmentId: 'seg-1' })).resolves.toBeUndefined();
-        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', 'no active plugin can speak');
+        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', 'no active plugin can speak', 'rendering');
         expect(segments.markReady).not.toHaveBeenCalled();
     });
 
@@ -96,7 +96,7 @@ describe('RenderSegmentJob', () => {
         expect(speech.speak).not.toHaveBeenCalled();
         // `failed` rather than back to `planned`, so it is visible in the console instead of being
         // retried forever by anything that walks planned segments.
-        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', expect.stringContaining('no script'));
+        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', expect.stringContaining('no script'), 'rendering');
     });
 
     it('does not leave a segment stuck in rendering when the run is abandoned', async () => {
@@ -106,7 +106,7 @@ describe('RenderSegmentJob', () => {
 
         expect(speech.speak).not.toHaveBeenCalled();
         // Stuck in `rendering` would be worse than failed: nothing would ever claim it again.
-        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', expect.stringContaining('abandoned'));
+        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', expect.stringContaining('abandoned'), 'rendering');
     });
 
     it('warns and stops on a payload with nothing to render', async () => {

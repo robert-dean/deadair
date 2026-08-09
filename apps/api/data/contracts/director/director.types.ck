@@ -37,6 +37,8 @@ contract LineupItem: { # One line of a lineup, which is either a record or somet
     segmentId?: string(min=1, max=100) # Which segment this line plays. Present only on a segment
     segmentState?: enum(planned, rendering, ready, failed, gone)
     playable?: boolean # Whether the station can actually air this segment. A line that is not is SKIPPED when the cursor reaches it, rather than held open
+    segmentError?: string(max=2000) # Why this segment will not air, in a sentence: nothing could write it, or nothing could speak it. Present only on a failed one
+    segmentWriter?: string(max=200) # What decided the words: the station's own templates, or the model that wrote them. Absent on a recording somebody made
 }
 
 contract AddLineupSegmentInput: { # Put something the station says into a lineup

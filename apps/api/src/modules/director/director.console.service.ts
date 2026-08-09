@@ -431,6 +431,11 @@ const toSegmentLine = (item: LineupSegmentItem, segment: Segment | undefined, co
     artists: [],
     segmentState: segment?.state ?? 'gone',
     playable: segment?.state === 'ready',
+    // The reason, where the operator is already looking. Without it a break that could not be
+    // written and a DJ that simply talks less are the same observation, and the difference is a
+    // sentence the row has been carrying all along.
+    ...(segment?.error === undefined ? {} : { segmentError: segment.error }),
+    ...(segment?.writer === undefined ? {} : { segmentWriter: segment.writer }),
     ...(item.over === undefined ? {} : { overAtMs: item.over.atMs }),
     ...(segment?.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
     committed,

@@ -84,7 +84,17 @@ export function LineupOrderTable({ items, cursor, onRemove, removingItemId, onMo
                                     reaches it, rather than waiting for one. An operator reading the
                                     order has to be able to see which lines will not be heard. */}
                                 {item.kind === 'segment' && !item.playable ? (
-                                    <Tooltip label={`This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`}>
+                                    // The reason when the row carries one. A break that could not be
+                                    // written and a DJ that simply talks less look identical without
+                                    // it, and the difference is a sentence already on the segment.
+                                    <Tooltip
+                                        multiline
+                                        maw={360}
+                                        label={
+                                            item.segmentError ??
+                                            `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`
+                                        }
+                                    >
                                         <Badge size="xs" variant="light" color="yellow">
                                             will skip
                                         </Badge>

@@ -4,13 +4,14 @@ import type { PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 
 import { PluginLifecycleManager } from '../../../src/modules/plugins/plugin.lifecycle.manager.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
-import type { PluginConfigRecord, PluginConfigRepository } from '../../../src/modules/plugins/plugin.config.repository.js';
-import type { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
+import { PluginConfigRepository, type PluginConfigRecord } from '../../../src/modules/plugins/plugin.config.repository.js';
+import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
 import type { PluginHostFactory } from '../../../src/modules/plugins/plugin.host.factory.js';
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import type { PluginLoader } from '../../../src/modules/plugins/plugin.loader.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import { stubContainer } from '../../utils/stub.container.js';
 
 function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
     return {
@@ -58,17 +59,16 @@ function makeManager(registry: PluginRegistry, discovered: PluginRecord[], confi
     } as unknown as PluginInvoker;
     const pluginHostFactory = { cancelOpenBodies: vi.fn() } as unknown as PluginHostFactory;
 
-    const manager = new PluginLifecycleManager(
-        pluginLoader,
-        registry,
-        pluginHostFactory,
-        pluginInvoker,
-        {} as PluginConfigService,
-        pluginConfigRepository,
-        stubPluginLog().log,
-    );
+    // The two scoped collaborators arrive through a container, because the
+    // manager opens a scope per read rather than holding either of them.
+    const { container, createScopedContainer, disposeAsync } = stubContainer([
+        [PluginConfigRepository, pluginConfigRepository],
+        [PluginConfigService, {} as PluginConfigService],
+    ]);
 
-    return { manager, pluginLoader, pluginHostFactory };
+    const manager = new PluginLifecycleManager(pluginLoader, registry, pluginHostFactory, pluginInvoker, container, stubPluginLog().log);
+
+    return { manager, pluginLoader, pluginHostFactory, createScopedContainer, disposeAsync };
 }
 
 describe('PluginLifecycleManager.rescan', () => {

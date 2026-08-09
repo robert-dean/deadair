@@ -101,6 +101,12 @@ export const PluginsModule: ServerKitModule = {
             .register(PluginHostFactoryOptions)
             .useFactory(() => new PluginHostFactoryOptions(config.get('APP_BASE_URL', '')))
             .asSingleton();
+        // Singletons that read the four scoped registrations above, and therefore
+        // inject `Container` and open a scope per call rather than holding one of
+        // them. A singleton holding a scoped service is a captive dependency the
+        // container rejects at `build()`, and the reason it rejects it is exactly
+        // what these two would do with a request's transaction: keep using it
+        // after the request that opened it had committed.
         registry.register(PluginHostFactory).useClass(PluginHostFactory).asSingleton();
 
         registry.register(PluginLifecycleManager).useClass(PluginLifecycleManager).asSingleton();

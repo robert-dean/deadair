@@ -93,8 +93,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0
       injectkit:
-        specifier: ^1.6.0
-        version: 1.6.0
+        specifier: ^1.7.0
+        version: 1.7.0
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0
@@ -2941,8 +2941,8 @@ packages:
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
 
-  injectkit@1.6.0:
-    resolution: {integrity: sha512-9rLhVyfL0PBmzlN9Qn8APr6GOX50pUuexiSvEZwNfizRgxAcEcNjqOmlRLRi1HNnrv50+KCSQAg0EDuzwU6Luw==}
+  injectkit@1.7.0:
+    resolution: {integrity: sha512-gAeyoBJeqoUDu5Lj7OOEEASb/Q6QcV2I+kF8YhQITS5k2PseUDJDLRWTViM4PKvfrSFiuUccu4HC1/dR7GeZjQ==}
     engines: {node: '>=22'}
 
   internal-slot@1.1.0:
@@ -4987,7 +4987,7 @@ snapshots:
       '@maroonedsoftware/logger': 1.1.3
       deepmerge-ts: 7.1.5
       dotenv: 17.4.2
-      injectkit: 1.6.0
+      injectkit: 1.7.0
     optionalDependencies:
       pg: 8.22.0
       yaml: 2.9.0
@@ -5008,7 +5008,7 @@ snapshots:
       arctic: 3.7.0
       deepmerge-ts: 7.1.5
       fido2-lib: 3.5.9
-      injectkit: 1.6.0
+      injectkit: 1.7.0
       jsonwebtoken: 9.0.3
       luxon: 3.7.2
       openid-client: 6.8.4
@@ -5022,7 +5022,7 @@ snapshots:
     dependencies:
       '@maroonedsoftware/errors': 1.8.0
       '@maroonedsoftware/utilities': 1.11.0
-      injectkit: 1.6.0
+      injectkit: 1.7.0
       luxon: 3.7.2
       rate-limiter-flexible: 11.2.0
     optionalDependencies:
@@ -5032,20 +5032,20 @@ snapshots:
     dependencies:
       '@maroonedsoftware/errors': 1.8.0
       '@node-rs/argon2': 2.0.2
-      injectkit: 1.6.0
+      injectkit: 1.7.0
       luxon: 3.7.2
 
   '@maroonedsoftware/errors@1.8.0': {}
 
   '@maroonedsoftware/eventbus@0.1.2':
     dependencies:
-      injectkit: 1.6.0
+      injectkit: 1.7.0
 
   '@maroonedsoftware/jobbroker@1.11.0(pg-boss@12.27.0)':
     dependencies:
       '@maroonedsoftware/errors': 1.8.0
       '@maroonedsoftware/logger': 1.1.3
-      injectkit: 1.6.0
+      injectkit: 1.7.0
       luxon: 3.7.2
     optionalDependencies:
       pg-boss: 12.27.0
@@ -5064,7 +5064,7 @@ snapshots:
       '@maroonedsoftware/utilities': 1.11.0
       co-body: 6.2.0
       inflation: 2.1.0
-      injectkit: 1.6.0
+      injectkit: 1.7.0
       koa: 3.2.1
       luxon: 3.7.2
       qs: 6.15.3
@@ -5083,7 +5083,7 @@ snapshots:
     dependencies:
       '@maroonedsoftware/errors': 1.8.0
       '@maroonedsoftware/utilities': 1.11.0
-      injectkit: 1.6.0
+      injectkit: 1.7.0
       kysely: 0.29.4
       luxon: 3.7.2
       pg: 8.22.0
@@ -5092,7 +5092,7 @@ snapshots:
 
   '@maroonedsoftware/logger@1.1.3':
     dependencies:
-      injectkit: 1.6.0
+      injectkit: 1.7.0
 
   '@maroonedsoftware/multipart@1.3.0':
     dependencies:
@@ -5109,13 +5109,13 @@ snapshots:
 
   '@maroonedsoftware/permissions@0.2.3':
     dependencies:
-      injectkit: 1.6.0
+      injectkit: 1.7.0
       zod: 4.4.3
 
   '@maroonedsoftware/policies@0.6.0':
     dependencies:
       '@maroonedsoftware/errors': 1.8.0
-      injectkit: 1.6.0
+      injectkit: 1.7.0
       luxon: 3.7.2
 
   '@maroonedsoftware/serverfeed@0.1.0(@maroonedsoftware/logger@1.1.3)':
@@ -6995,7 +6995,7 @@ snapshots:
 
   inherits@2.0.4: {}
 
-  injectkit@1.6.0:
+  injectkit@1.7.0:
     dependencies:
       reflect-metadata: 0.2.2
 

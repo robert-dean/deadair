@@ -8,9 +8,8 @@ import {
     PluginHostFactory,
     PluginHostFactoryOptions,
 } from '../../../src/modules/plugins/plugin.host.factory.js';
-import type { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
-import type { PluginStorageRepository } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import { stubContainer } from '../../utils/stub.container.js';
 
 /**
  * The bounds on a response body a plugin has not finished reading.
@@ -37,9 +36,10 @@ function manifest(network: PluginManifest['permissions']['network'] = ['audio.ex
 }
 
 function factory(): PluginHostFactory {
-    const storage = {} as unknown as PluginStorageRepository;
-    const configService = {} as unknown as PluginConfigService;
-    return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), configService, storage, stubPluginLog().log);
+    // Nothing here reaches the database: every manifest below declares a fixed
+    // network allowlist, so no scope is ever opened.
+    const { container } = stubContainer([]);
+    return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), container, stubPluginLog().log);
 }
 
 /** A response whose body yields `chunks` in order and then ends. */
@@ -152,11 +152,7 @@ describe('response body bounds', () => {
 
         // The recorded reason rather than a bare stream error: the plugin is told
         // what happened to a body it was legitimately holding.
-        await expectPluginError(
-            readChunk(response),
-            'timeout',
-            new RegExp(`held a response body open for more than ${PLUGIN_BODY_LIFETIME_MS}ms`),
-        );
+        await expectPluginError(readChunk(response), 'timeout', new RegExp(`held a response body open for more than ${PLUGIN_BODY_LIFETIME_MS}ms`));
     });
 
     it('refuses a body that runs past the byte cap', async () => {

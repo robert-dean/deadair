@@ -2,9 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { assertCrossesBoundary, conformanceManifest } from '../../../../../packages/plugin-sdk/tests/boundary.payloads.fixture.js';
 import { PLUGIN_OAUTH_SECRET_KEY, PluginHostFactory, PluginHostFactoryOptions } from '../../../src/modules/plugins/plugin.host.factory.js';
-import type { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
-import type { PluginStorageRepository } from '../../../src/modules/plugins/plugin.storage.repository.js';
+import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
+import { PluginStorageRepository } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import { stubContainer } from '../../utils/stub.container.js';
 
 const PLUGIN_ID = 'test.conformance';
 
@@ -18,8 +19,9 @@ interface Harness {
 }
 
 /**
- * A real `PluginHostFactory` around hand-stubbed collaborators. Constructor
- * injection means plain `new` with stubs is enough: no DI container needed.
+ * A real `PluginHostFactory` around hand-stubbed collaborators, reached through
+ * a stub container because the factory opens a scope per database-touching call
+ * rather than holding the two scoped services it reads.
  * This is the boundary the SDK's fixture-driven test cannot see: the real
  * factory output, so the host cannot drift from the SDK's JSON-safe promise.
  */
@@ -39,7 +41,11 @@ function harness(): Harness {
     } as unknown as PluginStorageRepository;
 
     const options = new PluginHostFactoryOptions('https://host.example.com');
-    const factory = new PluginHostFactory(options, pluginConfigService, pluginStorageRepository, stubPluginLog().log);
+    const { container } = stubContainer([
+        [PluginConfigService, pluginConfigService],
+        [PluginStorageRepository, pluginStorageRepository],
+    ]);
+    const factory = new PluginHostFactory(options, container, stubPluginLog().log);
 
     return { factory, getSecrets, getConfig, saveConfig, storageGet, storageListKeys };
 }

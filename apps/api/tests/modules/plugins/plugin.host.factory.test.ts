@@ -22,6 +22,7 @@ import {
 } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import { stubContainer } from '../../utils/stub.container.js';
 
 /**
  * `runWithDeadline` for the tests that care about the clock and not about
@@ -107,11 +108,27 @@ const unusedConfigService = (): PluginConfigService =>
         }),
     }) as unknown as PluginConfigService;
 
+/**
+ * The factory plus the spies on the container it opens scopes from, for the
+ * tests that assert the scope discipline itself rather than what a capability
+ * returns.
+ */
+function scopedFactory(
+    storage: PluginStorageRepository = new FakeStorageRepository() as unknown as PluginStorageRepository,
+    configService: PluginConfigService = unusedConfigService(),
+) {
+    const stub = stubContainer([
+        [PluginConfigService, configService],
+        [PluginStorageRepository, storage],
+    ]);
+    return { ...stub, factory: new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), stub.container, stubPluginLog().log) };
+}
+
 function factory(
     storage: PluginStorageRepository = new FakeStorageRepository() as unknown as PluginStorageRepository,
     configService: PluginConfigService = unusedConfigService(),
 ) {
-    return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), configService, storage, stubPluginLog().log);
+    return scopedFactory(storage, configService).factory;
 }
 
 /** A fetch that never answers on its own: it settles only when the host aborts it. */
@@ -1257,6 +1274,36 @@ describe('PluginHostFactory.createHost storage', () => {
         await expectPluginError(host.storage.set('k', 1), 'internal', /does not declare the "storage" permission/);
         await expectPluginError(host.storage.delete('k'), 'internal', /does not declare the "storage" permission/);
         await expectPluginError(host.storage.list(), 'internal', /does not declare the "storage" permission/);
+    });
+});
+
+// The factory is a singleton and the two services it reads are scoped, so it holds
+// neither: it opens a scope per call and closes it again. A held one would be a
+// request's transaction still in use after that request had committed, which is the
+// captive dependency the container now refuses to build.
+describe('PluginHostFactory database scoping', () => {
+    it('opens a scope per capability call and disposes it', async () => {
+        const repo = new FakeStorageRepository() as unknown as PluginStorageRepository;
+        const { factory: f, createScopedContainer, disposeAsync } = scopedFactory(repo);
+        const host = f.createHost(manifest({ permissions: { network: [], storage: true, oauth: false } }));
+
+        await host.storage.set('k', 1);
+        await host.storage.get('k');
+
+        expect(createScopedContainer).toHaveBeenCalledTimes(2);
+        expect(disposeAsync).toHaveBeenCalledTimes(2);
+    });
+
+    // A host outlives every invocation made through it, so a scope opened once in
+    // `createHost` would be the same stale one an hour later.
+    it('disposes the scope even when the call it wrapped threw', async () => {
+        const configService = { getSecrets: vi.fn().mockRejectedValue(new Error('database is down')) } as unknown as PluginConfigService;
+        const { factory: f, disposeAsync } = scopedFactory(undefined, configService);
+        const host = f.createHost(manifest({ permissions: { network: [], storage: false, oauth: false } }));
+
+        await expect(host.secrets.get('token')).rejects.toThrow('database is down');
+
+        expect(disposeAsync).toHaveBeenCalledTimes(1);
     });
 });
 

@@ -16,6 +16,7 @@ import type { PluginConnectionResult } from '../src/plugin.lifecycle.js';
 import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
 import type { SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
+import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/llm.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -165,6 +166,54 @@ export const speechVoiceFixture: SpeechVoice = {
     id: 'host',
     label: 'Station host',
     description: 'Warm, mid-register, the one that says the station name.',
+};
+
+/**
+ * A whole tool round trip in one conversation: the ask, the assistant turn that
+ * requested a tool, and the turn answering it. That ordering is the thing worth
+ * pinning, because a model cannot make sense of a `tool` message without seeing
+ * the call it answers.
+ */
+export const llmRequestFixture: LlmRequest = {
+    messages: [
+        { role: 'system', content: 'You are the voice of a radio station. Never invent a song.' },
+        { role: 'user', content: 'Back-announce the last record and tease the next one.' },
+        {
+            role: 'assistant',
+            content: '',
+            toolCalls: [{ id: 'call_1', name: 'search_catalog', arguments: { query: 'Boards of Canada', limit: 3 } }],
+        },
+        { role: 'tool', toolCallId: 'call_1', content: '[{"title":"Roygbiv","artist":"Boards of Canada"}]' },
+    ],
+    model: 'gpt-oss:20b',
+    temperature: 0.8,
+    maxOutputTokens: 200,
+    reasoningEffort: 'low',
+    tools: [
+        {
+            name: 'search_catalog',
+            description:
+                'Find tracks the station can actually play, by title or artist. Use it before naming anything you are not certain is in the library.',
+            parameters: {
+                type: 'object',
+                properties: { query: { type: 'string' }, limit: { type: 'number' } },
+                required: ['query'],
+            },
+        },
+    ],
+};
+
+export const llmResultFixture: LlmResult = {
+    text: 'That was Roygbiv, by Boards of Canada.',
+    toolCalls: [{ id: 'call_2', name: 'search_catalog', arguments: { query: 'Telefon Tel Aviv' } }],
+    usage: { inputTokens: 412, outputTokens: 28, totalTokens: 440 },
+    finishReason: 'tool-calls',
+};
+
+export const llmModelInfoFixture: LlmModelInfo = {
+    id: 'gpt-oss:20b',
+    label: 'GPT-OSS 20B',
+    tools: true,
 };
 
 /** The `meta` argument accepted by every `PluginLogger` method. */

@@ -14,6 +14,7 @@ A plugin extends deadair by declaring capabilities:
 | `steer`      | own your audio output and let deadair only tell you what to do |
 | `enrichment` | supply facts about a track: year, genre, label, trivia, links  |
 | `speech`     | say something out loud: text in, audio out                     |
+| `llm`        | produce words: a conversation in, text out                     |
 | `oauth`      | hold operator tokens, obtained through the host's redirect     |
 
 There is no second axis. `capabilities` is the whole declaration, and the host
@@ -547,6 +548,73 @@ carrying knobs only one implementation understands.
 Implement `listVoices()` if you have more than one, so the console can draw a
 list and preview them. It is optional, and a single-voice plugin is a legitimate
 thing to be.
+
+## Producing words
+
+A plugin that declares `llm` continues a conversation. It is a **transport, not a
+writer**: nothing in this capability knows what a break, a show or a running
+order is, because deciding what to say is the station's business and the shapes
+that need saying keep multiplying.
+
+```ts
+class MyModelPlugin extends Plugin implements LlmPluginInstance {
+    async generate(request: LlmRequest): Promise<LlmHandle> {
+        const stream = streamText({
+            model: this.provider(request.model ?? this.defaultModel),
+            messages: toProviderMessages(request.messages),
+            ...(request.tools === undefined ? {} : { tools: toProviderTools(request.tools) }),
+        });
+
+        return {
+            text: stream.textStream,
+            result: buildResult(stream),
+        };
+    }
+}
+```
+
+The words come back as a stream for a stronger reason than memory: the host
+serializes generations through one slot and holds it until the words stop
+arriving, not until `generate` resolves. On a local model, releasing early lets
+two generations overlap and both get slower.
+
+A caller that only wants the answer uses `collectGeneration(handle)`, which
+drains the stream and then returns the result. Reaching for `handle.result`
+without draining `handle.text` is how a caller waits forever, because an
+undrained provider stream applies backpressure.
+
+Four things that are easy to get wrong:
+
+- **`result.text` is the authority, not the chunks.** A plugin that buffers and
+  one that forwards are both legal, and only the first would agree with whatever
+  a caller concatenated off the stream.
+- **Send `reasoning_effort` only when asked.** It means nothing to a plain model
+  and a strict OpenAI-compatible server answers 400 rather than ignoring it.
+  Absent means send nothing at all.
+- **`request.model` overrides your configured one.** A station wants a big model
+  for a show and a small one for a station ident, and one plugin holds exactly
+  one config row, so the choice has to travel with the call.
+- **Refuse tools you cannot do.** Throw `unsupported` rather than dropping them:
+  a break written without the facts a tool would have supplied is worse than one
+  that fell back to the deterministic writer.
+
+### Tools
+
+`LlmRequest.tools` are **declarations**, and what comes back in
+`LlmResult.toolCalls` is **data**. The host runs the tool and sends the result
+back as another message; nothing executable crosses this boundary in either
+direction, which is why every shape here except `LlmHandle` is JSON-safe.
+
+When you replay a conversation, an `assistant` turn that asked for a tool must
+carry its `toolCalls`, and the `tool` turn answering it must carry the matching
+`toolCallId`. A model that cannot see its own call has no idea what the message
+after it is answering.
+
+Implement `listModels()` if you want tools to work at all. Tool support is a
+property of the **model**, not the server — one endpoint commonly serves both a
+model that can call tools and one that cannot — so the host reads
+`LlmModelInfo.tools` to decide whether it may send any. With no `listModels`, it
+has no way to learn that and sends none.
 
 ## Configuration fields
 

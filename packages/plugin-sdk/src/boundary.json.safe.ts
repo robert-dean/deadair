@@ -55,6 +55,7 @@ import type {
     ProviderTrack,
     SearchTracksOptions,
 } from './capabilities/music.provider.js';
+import type { LlmMessage, LlmModelInfo, LlmRequest, LlmResult, LlmToolCall, LlmToolDeclaration, LlmUsage } from './capabilities/llm.js';
 import type { SpeechRequest, SpeechVoice } from './capabilities/speech.js';
 import type { ConfigField, ConfigFieldOption } from './plugin.config.fields.js';
 import type { TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
@@ -154,6 +155,13 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     AlbumEnrichment: IsJsonSafe<AlbumEnrichment>;
     SpeechRequest: IsJsonSafe<SpeechRequest>;
     SpeechVoice: IsJsonSafe<SpeechVoice>;
+    LlmMessage: IsJsonSafe<LlmMessage>;
+    LlmToolDeclaration: IsJsonSafe<LlmToolDeclaration>;
+    LlmToolCall: IsJsonSafe<LlmToolCall>;
+    LlmUsage: IsJsonSafe<LlmUsage>;
+    LlmRequest: IsJsonSafe<LlmRequest>;
+    LlmResult: IsJsonSafe<LlmResult>;
+    LlmModelInfo: IsJsonSafe<LlmModelInfo>;
 }>;
 
 /**
@@ -188,6 +196,13 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'AlbumEnrichment',
     'SpeechRequest',
     'SpeechVoice',
+    'LlmMessage',
+    'LlmToolDeclaration',
+    'LlmToolCall',
+    'LlmUsage',
+    'LlmRequest',
+    'LlmResult',
+    'LlmModelInfo',
 ] as const;
 
 /**
@@ -216,6 +231,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'MusicProvider',
     'EnrichmentProvider',
     'SpeechPluginInstance',
+    'LlmPluginInstance',
 ] as const;
 
 /**
@@ -237,4 +253,9 @@ export const BOUNDARY_LIVE_OBJECT_TYPES = [
     // `audio`: the engine's response body, usually forwarded straight through,
     // so the bytes are never held whole on either side of the call.
     'SpeechHandle',
+    // `text`: the words as the model produces them, and `result`: a promise that
+    // settles when it stops. The stream is what lets the host hold its single
+    // model slot until the generation really ends rather than until the call
+    // returns. `LlmResult` is the payload half, and it is JSON-safe.
+    'LlmHandle',
 ] as const;

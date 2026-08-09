@@ -33,6 +33,14 @@ export const PLUGIN_CAPABILITY_ENRICHMENT = 'enrichment';
 /** The plugin can say something out loud: text in, audio out. */
 export const PLUGIN_CAPABILITY_SPEECH = 'speech';
 
+/**
+ * The plugin can produce words: a conversation in, text out.
+ *
+ * A transport rather than a writer. What to say is the station's business, which
+ * is why this capability knows nothing about breaks, shows or running orders.
+ */
+export const PLUGIN_CAPABILITY_LLM = 'llm';
+
 export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_STREAM,
@@ -40,6 +48,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_OAUTH,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_SPEECH,
+    PLUGIN_CAPABILITY_LLM,
 ] as const;
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];

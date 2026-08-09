@@ -28,6 +28,7 @@ const BOUNDARY_SOURCE_FILES = [
     'capabilities/music.provider.ts',
     'capabilities/enrichment.ts',
     'capabilities/speech.ts',
+    'capabilities/llm.ts',
 ] as const;
 
 function exportedInterfacesIn(relativePath: string): string[] {

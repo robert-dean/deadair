@@ -3,6 +3,7 @@
 **As of:** 2026-08-08, when the station first played audio it was not given by a music provider.
 **Revised:** 2026-08-08, when piece one landed. The station now has a voice; what is left is
 something to decide what it says.
+**Revised:** 2026-08-09, with the ordering question answered: see "What to build before piece two".
 
 The station can say things, and can now say them in its own voice. What it cannot do is decide what
 to say: every word it speaks is one somebody handed it. This file was the two pieces between here
@@ -92,6 +93,60 @@ Read this rather than the design above it, which is kept for its reasoning.
 - **Voice previews exist** at `GET /voices` and `GET /voices/{id}/sample`, cached in their own
   store under a key derived from the plugin, voice and sample line. A sample is emphatically not a
   segment: no row, its own root, and so unable to reach a running order.
+
+## What to build before piece two
+
+**Decided 2026-08-09**, against the tree as it stood that day. Two of these are prerequisites and
+one is deliberately not; the point of writing it down is that the ordering does not need arguing
+again.
+
+**1. Finish the settings layer, which is half built.** `SettingsService.set` already reloads
+`AppConfigStore` through `AfterCommit`, and `settings.registry.ts` declares what a station setting
+is. What is missing is the other half: there is no `settings` contract under
+`apps/api/data/contracts/` and no settings page under `apps/web/src/routes/`. This is a prerequisite
+because piece two is almost entirely knobs — which `BreakWriter` binding, which model, the budget,
+the degradation threshold, break tone and length — and without the page every one of them is a
+`psql UPDATE` during the exact stretch of work where they get turned constantly. With the registry
+finished, each new setting is one descriptor entry.
+
+**2. Decide the LLM seam before `BreakWriter` binds to anything.** Today "LLM" exists only as
+comments on `SetGenerator` and `pick.resolver`: no client, no module, no capability. The precedent
+is one section up. Piece one was designed here as a module-local renderer POSTing to a Kokoro URL in
+`deadair.settings`, and it shipped as a `speech` plugin capability with the engine's config in the
+plugin. Every force that caused that applies harder to the model: the host is a remote Ollama today,
+`todo.md` wants other providers and model choice, and it wants the choice made per feature. A writer
+that talks to an Ollama client directly has its only dependency rewritten the first time a second
+provider arrives.
+
+So the shape is an `llm` capability in the plugin SDK, `LlmGate` as a host-side single-slot gate
+carrying the two v1 fixes named under piece two (hold until the streaming body DRAINS, budget from
+admission), and an `llm.pluginId` station setting mirroring `render.speechPluginId`. Then the
+deterministic writer is binding one and the model is binding two, which is what piece two already
+assumes.
+
+**3. SSE is NOT a prerequisite, but its data is.** There is no SSE anywhere in the tree; the console
+polls playout and air status on intervals (`playout.queries.ts`, `director.queries.ts`) and that is
+adequate for what is on screen. Building the bus today means designing a transport for two events
+that already poll fine.
+
+Piece two is the first work where an operator genuinely cannot see what is happening: a model taking
+forty seconds, a break degrading to the fallback writer, a segment going `planned → rendering →
+failed`. So build the transport AFTER the deterministic writer, when the events are real. What to do
+before then is make sure they are recorded FACTS rather than log lines — segment transitions
+timestamped, a reason on `failed`, and a degraded write recorded as data. Then the feed is a
+transport over rows that already exist instead of a redesign. This is the same want as `todo.md`'s
+console/logs/activity feed.
+
+**Deliberately skipped:** measuring segment duration. It is needed for outro cues (see "The smaller
+things this leaves behind") but intro cues work without it and the skip rule covers the failure. It
+follows a writer that exists rather than preceding one.
+
+**The order, then:** settings contract and page → `llm` capability, gate and setting with no writer
+yet → deterministic `BreakWriter` and `BreakPlanner` planting `planned` segments → the model as
+writer two → the activity feed over the transitions those two produced.
+
+**Confirm before any of it:** nobody has listened to the bed duck under a voice. That is stated as
+inference at the top of this file and it sits underneath everything above.
 
 ## Piece two: something decides what to say
 

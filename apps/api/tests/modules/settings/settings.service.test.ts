@@ -134,6 +134,18 @@ describe('SettingsService.write', () => {
         expect(written).toEqual([{ key: STREAM_KEYS.adminPassword, value: null }]);
     });
 
+    it('puts a setting back to its default when it is explicitly cleared', async () => {
+        // The only way to undo a change. A number field cleared in the console arrives as null,
+        // and without this it would be refused as "takes a number" and the default would be
+        // reachable only by remembering what it was.
+        const { service, written } = build({ [STREAM_KEYS.title]: 'Old FM' });
+
+        const model = await service.write({ [STREAM_KEYS.title]: null });
+
+        expect(written).toEqual([{ key: STREAM_KEYS.title, value: null }]);
+        expect(model.values[STREAM_KEYS.title]).toBe('Deadair');
+    });
+
     it('does not refresh the config until the transaction commits', async () => {
         const { service, reload, afterCommit } = build();
 

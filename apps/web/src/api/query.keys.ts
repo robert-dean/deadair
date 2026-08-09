@@ -25,6 +25,14 @@ export const queryKeys = {
             query === undefined ? (['plugins', 'logs', id] as const) : (['plugins', 'logs', id, query.limit ?? 'all', query.level ?? 'all'] as const),
     },
     /**
+     * The station's own settings. One key, and no per-group or per-key form: the API answers with
+     * all of them at once and a write answers with all of them again, so there is never a slice of
+     * this to invalidate on its own.
+     */
+    settings: {
+        all: () => ['settings', 'all'] as const,
+    },
+    /**
      * The voices the station can speak in. One key: it is the current speech plugin's answer, and
      * there is only ever one of those.
      */

@@ -101,6 +101,16 @@ export class SettingsService {
                 continue;
             }
 
+            // An explicit `null` deletes the row, which puts the setting back to the station's
+            // default rather than pinning it to an empty string or a zero. That is the only way an
+            // operator can UNDO a change to something like the break spacing: without it, a number
+            // field they cleared would be refused as "takes a number", and the default would be
+            // reachable only by remembering what it used to be and typing it back in.
+            if (submittedValue === null) {
+                writes.push({ key, value: null });
+                continue;
+            }
+
             const result = serializeSetting(descriptor, submittedValue);
             if ('rejected' in result) rejections.push(result.rejected);
             else writes.push({ key, value: result.value });

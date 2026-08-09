@@ -82,11 +82,6 @@ export const PlayoutModule: ServerKitModule = {
             await scope.disposeAsync();
         }
 
-        // The root container, for the same reason DirectorModule hands one over: this
-        // resolver is a singleton reached through Rundown, so it may have been built by
-        // a job or request scope that is long disposed. See `SegmentTrackResolver.root`.
-        container.get(SegmentTrackResolver).useRootContainer(container);
-
         // Starts whether or not the stream is up: with nothing answering, the loop
         // simply probes and stays quiet, and a stack started later is picked up on
         // its own.

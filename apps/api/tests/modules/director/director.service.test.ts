@@ -986,38 +986,25 @@ describe('DirectorService asking for a refill', () => {
 });
 
 describe('DirectorService opening a database scope', () => {
-    it('opens them from the root container rather than the one it was constructed with', async () => {
+    // The repositories are scoped and this class is a singleton, so every read
+    // below opens a scope of its own and closes it again. It opens them from the
+    // container it was injected with, which is the ROOT: InjectKit resolves a
+    // singleton's dependencies from the root rather than from whichever scope
+    // built it, and two of this class's dependents are resolved per scope
+    // (`ExtendLineupJob` from the job runner's, `DirectorConsoleService` from a
+    // request's). Before that rule, a race decided whether these scopes were the
+    // children of a container that had already been disposed, and it logged
+    // `Transaction is already committed` on roughly a third of boots.
+    it('opens a scope per unit of work and disposes it', async () => {
         const { director, createScope, scope, seed } = build({ items: ['a'] });
         await seed();
 
-        // The container a singleton is CONSTRUCTED with is whichever one first
-        // resolved it, and two of this class's dependents are resolved per scope:
-        // `ExtendLineupJob` from the job runner's scope, `DirectorConsoleService`
-        // from a request's. When one of those builds the singleton, the injected
-        // container is a scope that is disposed moments later, and every scope
-        // opened from it is the child of a dead one whose transaction has already
-        // committed. That is what logged `Transaction is already committed` on
-        // roughly a third of boots, from the director's first read of `station_air`.
-        // Hands out the same working stub, so the only difference under test is
-        // WHICH container was asked for it.
-        const rootCreateScope = vi.fn(() => scope);
-        director.useRootContainer({ createScopedContainer: rootCreateScope } as unknown as Container);
-
         await director.start();
-
-        expect(rootCreateScope).toHaveBeenCalled();
-        expect(createScope).not.toHaveBeenCalled();
-    });
-
-    it('falls back to the injected container when no root has been handed over', async () => {
-        // Every other test in this file relies on this: they construct the service
-        // directly, never call `useRootContainer`, and their stub scope is the one
-        // the injected container hands out.
-        const { director, createScope, seed } = build({ items: ['a'] });
-        await seed();
-
-        await director.start();
+        // `start` ends in a restore whose commit pass leaves work in flight; a scope
+        // still open here is one the assertion below would blame for leaking.
+        await settle();
 
         expect(createScope).toHaveBeenCalled();
+        expect(scope.disposeAsync).toHaveBeenCalledTimes(createScope.mock.calls.length);
     });
 });

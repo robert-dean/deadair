@@ -25,6 +25,13 @@ import { segmentAudioUrl } from '../playout.urls.js';
 @Injectable()
 export class SegmentTrackResolver extends TrackResolver {
     constructor(
+        // The ROOT container: this is a singleton, so InjectKit resolves its dependencies from
+        // the root rather than from whichever scope built it. Worth saying out loud here,
+        // because this class is reached through `Rundown` and `DirectorService` and both of
+        // those can first be built from a job or a request scope. A scope opened from one of
+        // those would be the child of a container disposed moments later, and the symptom
+        // would be quiet: a resolve that throws is caught below and answers `undefined`, so
+        // the running order would just skip the ident without saying why.
         private readonly container: Container,
         private readonly baseUrl: string,
         private readonly logger: Logger,
@@ -32,35 +39,12 @@ export class SegmentTrackResolver extends TrackResolver {
         super();
     }
 
-    /**
-     * The container scopes are opened from, and deliberately not the injected one.
-     *
-     * This is a singleton reached through `Rundown` and `DirectorService`, both of
-     * which can themselves first be built from a job or request scope. The
-     * container it was constructed with is then a scope that is disposed moments
-     * later, so every scope opened from it is the child of a dead one whose
-     * transaction has already committed.
-     *
-     * `DirectorService` had exactly this and it logged `Transaction is already
-     * committed` on a third of boots. Here it would be quieter and worse: a
-     * resolve that throws is caught below and answers `undefined`, so the running
-     * order would simply skip the segment and the station would miss the ident
-     * without saying why.
-     */
-    private root?: Container;
-
-    /** Hand over the root container. Called by `PlayoutModule.ready` before the pusher starts. */
-    useRootContainer(root: Container): void {
-        this.root = root;
-    }
-
     async resolve(item: RundownItem): Promise<string | undefined> {
         if (item.pluginId !== RENDER_PLUGIN_ID) return undefined;
 
         // Its own scope, like everything else the transport does off the request path: this runs
-        // on the pusher's loop, which has no ambient request to borrow a connection from. Opened
-        // from the ROOT, for the reason on {@link root}.
-        const scope = (this.root ?? this.container).createScopedContainer();
+        // on the pusher's loop, which has no ambient request to borrow a connection from.
+        const scope = this.container.createScopedContainer();
         try {
             const segment = await scope.get(SegmentRepository).findById(item.externalId);
             if (segment?.state !== 'ready' || segment.audioChecksum === undefined) {

@@ -146,46 +146,25 @@ export class DirectorService {
      */
     private stale = false;
     private staleTimer?: NodeJS.Timeout;
-    /**
-     * The container every scope below is opened from, and deliberately NOT the
-     * one injected into the constructor.
-     *
-     * This is a singleton, so it keeps whichever container first resolved it,
-     * and two of its dependents are resolved per scope: `ExtendLineupJob` from
-     * the job runner's own scope and `DirectorConsoleService` from a request's.
-     * Whenever one of those wins the race to build this singleton, the injected
-     * container is a scope that is disposed moments later — and every scope
-     * opened from it is then the child of a dead one, whose transaction has
-     * already committed.
-     *
-     * That is what logged `Transaction is already committed` on roughly a third
-     * of boots, from the director's first read of `station_air`, and left
-     * `active` unread on those boots. Measured: 8 of 37 scope opens were from a
-     * non-root container before this, and 0 of 10 boots error after it.
-     */
-    private root?: Container;
     private readonly unsubscribes: (() => void)[] = [];
 
     constructor(
         private readonly rundown: Rundown,
         private readonly audience: AudienceWatch,
+        // The ROOT container, without anything having to hand it over: this class is a
+        // singleton, and InjectKit resolves a singleton's dependencies from the root
+        // rather than from whichever scope happened to build it. That matters here
+        // because two of this class's dependents are resolved per scope
+        // (`ExtendLineupJob` from the job runner's, `DirectorConsoleService` from a
+        // request's), so before that rule a race decided whether every scope opened
+        // below was the child of a container that had already been disposed. It logged
+        // `Transaction is already committed` on roughly a third of boots.
         private readonly container: Container,
         // The singleton broker, which is what JobsModule documents for a non-request caller: it
         // resolves the root connection provider, and therefore pg-boss's own pool.
         private readonly jobs: PgBossJobBroker,
         private readonly logger: Logger,
     ) {}
-
-    /**
-     * Hand over the root container. Called by `DirectorModule.ready` before
-     * {@link start}, in the same style as `LiquidsoapEndpoint.useSecret`.
-     *
-     * Unset only in a unit test that constructs this directly, where the
-     * injected container is a stub and the distinction does not arise.
-     */
-    useRootContainer(root: Container): void {
-        this.root = root;
-    }
 
     /** Begin driving. Idempotent. */
     async start(): Promise<void> {
@@ -716,7 +695,7 @@ export class DirectorService {
      * which is what `PlayoutModule.ready` does for the same reason.
      */
     private async inScope<T>(work: (scope: Container) => Promise<T>): Promise<T> {
-        const scope = (this.root ?? this.container).createScopedContainer();
+        const scope = this.container.createScopedContainer();
         try {
             return await work(scope);
         } finally {

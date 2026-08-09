@@ -97,10 +97,36 @@ export interface StreamSettings {
 }
 
 /**
- * Read the stream settings, decrypting the secrets and filling in defaults that
- * match the committed static configs (`stream/radio.default.env`,
- * `stream/icecast.default.xml`), so an unconfigured station still renders a
+ * What an unconfigured station is, key by key.
+ *
+ * These match the committed static configs (`stream/radio.default.env`,
+ * `stream/icecast.default.xml`), so a station nobody has set up yet renders a
  * coherent config rather than a half-empty one.
+ *
+ * Named rather than inline because two things now have to agree about them: the
+ * resolver below, and the settings registry that offers these to an operator as
+ * the value they are about to change. A default shown in the console that is not
+ * the default the renderer uses is a bug nobody would think to look for.
+ *
+ * Secrets are deliberately absent: there is no default for one, and
+ * {@link ensureStreamSecrets} mints them instead.
+ */
+export const STREAM_DEFAULTS = {
+    title: 'Deadair',
+    description: '',
+    genre: 'Music',
+    publicUrl: '',
+    mount: '/live.mp3',
+    bitrate: '128',
+    hostname: '',
+    icecastHost: 'icecast',
+    icecastPort: '8000',
+    listenerHooks: true,
+} as const;
+
+/**
+ * Read the stream settings, decrypting the secrets and filling in
+ * {@link STREAM_DEFAULTS} for everything the operator has not set.
  */
 export function resolveStreamSettings(config: AppConfig, encryption: EncryptionProvider): StreamSettings {
     // From the config rather than a query: `deadair.settings` is one of its sources, so this reads
@@ -130,15 +156,15 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
     };
 
     return {
-        title: values.get(STREAM_KEYS.title) ?? 'Deadair',
-        description: values.get(STREAM_KEYS.description) ?? '',
-        genre: values.get(STREAM_KEYS.genre) ?? 'Music',
-        publicUrl: values.get(STREAM_KEYS.publicUrl) ?? '',
-        mount: values.get(STREAM_KEYS.mount) ?? '/live.mp3',
-        bitrate: values.get(STREAM_KEYS.bitrate) ?? '128',
-        hostname: values.get(STREAM_KEYS.hostname) ?? '',
-        icecastHost: values.get(STREAM_KEYS.icecastHost) ?? 'icecast',
-        icecastPort: values.get(STREAM_KEYS.icecastPort) ?? '8000',
+        title: values.get(STREAM_KEYS.title) ?? STREAM_DEFAULTS.title,
+        description: values.get(STREAM_KEYS.description) ?? STREAM_DEFAULTS.description,
+        genre: values.get(STREAM_KEYS.genre) ?? STREAM_DEFAULTS.genre,
+        publicUrl: values.get(STREAM_KEYS.publicUrl) ?? STREAM_DEFAULTS.publicUrl,
+        mount: values.get(STREAM_KEYS.mount) ?? STREAM_DEFAULTS.mount,
+        bitrate: values.get(STREAM_KEYS.bitrate) ?? STREAM_DEFAULTS.bitrate,
+        hostname: values.get(STREAM_KEYS.hostname) ?? STREAM_DEFAULTS.hostname,
+        icecastHost: values.get(STREAM_KEYS.icecastHost) ?? STREAM_DEFAULTS.icecastHost,
+        icecastPort: values.get(STREAM_KEYS.icecastPort) ?? STREAM_DEFAULTS.icecastPort,
         // Only an explicit `false` turns them off, so an unset key (every install
         // until someone decides otherwise) gets the fast start.
         listenerHooks: values.get(STREAM_KEYS.listenerHooks) !== 'false',

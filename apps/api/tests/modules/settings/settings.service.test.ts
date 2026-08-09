@@ -1,0 +1,166 @@
+// The write path here has two properties that are not obvious and are expensive to get wrong: it
+// is PARTIAL, so a console sending one field cannot clear the rest, and it never refreshes the
+// config inline, because a request's own transaction has not committed yet and the reload happens
+// on another connection. The read path has one: a secret is reported as a boolean and never as a
+// value, in either direction.
+
+import { randomBytes } from 'node:crypto';
+import { describe, expect, it, vi } from 'vitest';
+import { EncryptionProvider } from '@maroonedsoftware/encryption';
+import type { AppConfigStore } from '@maroonedsoftware/appconfig';
+
+import { SettingsService } from '../../../src/modules/settings/settings.service.js';
+import type { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
+import { AfterCommit } from '../../../src/modules/data/after.commit.js';
+import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
+import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
+import { settingsConfig } from '../../utils/settings.config.js';
+
+const encryption = new EncryptionProvider(randomBytes(32));
+
+function build(stored: Record<string, string> = {}) {
+    const station = settingsConfig(stored);
+    const written: { key: string; value: string | null }[] = [];
+
+    const repository = {
+        set: vi.fn(async (key: string, value: string | null) => {
+            written.push({ key, value });
+        }),
+    } as unknown as SettingsRepository;
+
+    const reload = vi.fn(async () => {
+        // What the running app does when the store rebuilds: the config catches up with the table.
+        for (const write of written) station.set(write.key, write.value ?? undefined);
+    });
+    const configStore = { reload } as unknown as AppConfigStore;
+    const afterCommit = new AfterCommit();
+
+    return {
+        service: new SettingsService(repository, configStore, station.config, encryption, afterCommit),
+        repository,
+        reload,
+        afterCommit,
+        written,
+        station,
+    };
+}
+
+describe('SettingsService.read', () => {
+    it('fills in the defaults for a station nobody has configured', () => {
+        const { service } = build();
+
+        const model = service.read();
+
+        expect(model.values[STREAM_KEYS.title]).toBe('Deadair');
+        expect(model.values[AIR_MODE_KEY]).toBe('audience');
+        expect(model.values[STREAM_KEYS.listenerHooks]).toBe(true);
+    });
+
+    it('reports a secret as whether it is stored, never as what it is', () => {
+        const ciphertext = encryption.encrypt('hunter2');
+        const { service } = build({ [STREAM_KEYS.sourcePassword]: ciphertext });
+
+        const model = service.read();
+
+        expect(model.configured[STREAM_KEYS.sourcePassword]).toBe(true);
+        expect(model.configured[STREAM_KEYS.adminPassword]).toBe(false);
+        // Neither the plaintext nor the ciphertext is anywhere in the answer.
+        expect(JSON.stringify(model)).not.toContain(ciphertext);
+        expect(JSON.stringify(model)).not.toContain('hunter2');
+    });
+
+    it('carries the descriptors, so a console needs nothing else to draw the form', () => {
+        const { service } = build();
+
+        expect(service.read().descriptors.some(descriptor => descriptor.key === AIR_MODE_KEY)).toBe(true);
+    });
+});
+
+describe('SettingsService.write', () => {
+    it('writes only the keys it was given', async () => {
+        const { service, written } = build({ [STREAM_KEYS.title]: 'Old FM' });
+
+        await service.write({ [AIR_MODE_KEY]: 'always' });
+
+        expect(written).toEqual([{ key: AIR_MODE_KEY, value: 'always' }]);
+    });
+
+    it('refuses a key nobody declared rather than storing a row nothing reads', async () => {
+        const { service, written } = build();
+
+        await expect(service.write({ 'stream.titel': 'Typo FM' })).rejects.toThrow();
+        expect(written).toEqual([]);
+    });
+
+    it('writes nothing at all when any one value is refused', async () => {
+        // A partly applied form is the worst outcome: the operator sees an error and has no way to
+        // know which half of what they typed is now live.
+        const { service, written } = build();
+
+        await expect(service.write({ [AIR_MODE_KEY]: 'always', [STREAM_KEYS.publicUrl]: 'not-a-url' })).rejects.toThrow();
+
+        expect(written).toEqual([]);
+    });
+
+    it('reports every refusal at once, not just the first', async () => {
+        const { service } = build();
+
+        const error = await service.write({ [STREAM_KEYS.publicUrl]: 'nope', [AIR_MODE_KEY]: 'sometimes' }).catch((thrown: unknown) => thrown);
+
+        expect(JSON.stringify(error)).toContain('Public URL');
+        expect(JSON.stringify(error)).toContain('sometimes');
+    });
+
+    it('encrypts a secret on the way in', async () => {
+        const { service, written } = build();
+
+        await service.write({ [STREAM_KEYS.sourcePassword]: 'hunter2' });
+
+        expect(written[0]!.value).not.toBe('hunter2');
+        expect(encryption.decrypt(written[0]!.value!)).toBe('hunter2');
+    });
+
+    it('clears a secret submitted blank rather than storing an empty one', async () => {
+        // How an operator removes a password. An empty string stored as ciphertext would read back
+        // as "configured" and decrypt to nothing.
+        const { service, written } = build();
+
+        await service.write({ [STREAM_KEYS.adminPassword]: '   ' });
+
+        expect(written).toEqual([{ key: STREAM_KEYS.adminPassword, value: null }]);
+    });
+
+    it('does not refresh the config until the transaction commits', async () => {
+        const { service, reload, afterCommit } = build();
+
+        await service.write({ [AIR_MODE_KEY]: 'always' });
+
+        // Inline, this would read the row as it stood BEFORE the write and cache that.
+        expect(reload).not.toHaveBeenCalled();
+
+        await afterCommit.run();
+
+        expect(reload).toHaveBeenCalled();
+    });
+
+    it('answers with what was written, not with what the config still says', async () => {
+        // The config refreshes after this request commits, so reading it back to build the answer
+        // would hand the console the value the operator has just replaced.
+        const { service } = build();
+
+        const model = await service.write({ [AIR_MODE_KEY]: 'always', [STREAM_KEYS.sourcePassword]: 'hunter2' });
+
+        expect(model.values[AIR_MODE_KEY]).toBe('always');
+        expect(model.configured[STREAM_KEYS.sourcePassword]).toBe(true);
+        // And still nothing about what the secret is.
+        expect(JSON.stringify(model)).not.toContain('hunter2');
+    });
+
+    it('leaves everything it was not given at its current value in the answer', async () => {
+        const { service } = build({ [STREAM_KEYS.title]: 'Old FM' });
+
+        const model = await service.write({ [AIR_MODE_KEY]: 'always' });
+
+        expect(model.values[STREAM_KEYS.title]).toBe('Old FM');
+    });
+});

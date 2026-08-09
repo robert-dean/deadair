@@ -1,7 +1,26 @@
 import { Injectable } from 'injectkit';
-import { AppConfigStore } from '@maroonedsoftware/appconfig';
+import { AppConfig, AppConfigStore } from '@maroonedsoftware/appconfig';
+import { EncryptionProvider } from '@maroonedsoftware/encryption';
+import { httpError } from '@maroonedsoftware/errors';
 import { AfterCommit } from '#modules/data/after.commit.js';
 import { SettingsRepository } from './settings.repository.js';
+import { parseSetting, serializeSetting, type SettingRejection, type SettingValue } from './setting.values.js';
+import { findDescriptor, isSecretField, isValueField, SETTING_DESCRIPTORS, type SettingDescriptor } from './settings.registry.js';
+
+/**
+ * The settings as a console may see them.
+ *
+ * Shaped like `PluginConfigReadModel`, and for the same reason: a secret is
+ * reported as whether one is stored and never as what it is, so neither the
+ * plaintext nor the ciphertext leaves this service in a read model.
+ */
+export interface SettingsReadModel {
+    descriptors: SettingDescriptor[];
+    /** Every non-secret setting, defaults filled in for whatever is not stored. */
+    values: Record<string, SettingValue>;
+    /** One entry per `secret` descriptor: whether a value is currently stored. */
+    configured: Record<string, boolean>;
+}
 
 /**
  * Station settings, backed by the `deadair.settings` key/value table.
@@ -20,8 +39,96 @@ export class SettingsService {
     constructor(
         private readonly settingsRepository: SettingsRepository,
         private readonly configStore: AppConfigStore,
+        private readonly config: AppConfig,
+        private readonly encryption: EncryptionProvider,
         private readonly afterCommit: AfterCommit,
     ) {}
+
+    /**
+     * Every declared setting, with what it is currently worth.
+     *
+     * Read through the config rather than the table, so what the console shows is
+     * what the station is actually running on rather than a second reading of the
+     * same rows that could differ from it.
+     */
+    read(): SettingsReadModel {
+        const values: Record<string, SettingValue> = {};
+        const configured: Record<string, boolean> = {};
+
+        for (const descriptor of SETTING_DESCRIPTORS) {
+            if (!isValueField(descriptor)) continue;
+
+            if (isSecretField(descriptor)) {
+                // Whether one is stored, never what it is — not even its ciphertext. A `secret` is
+                // write-only by the descriptor's own definition, and this is where that holds.
+                configured[descriptor.key] = this.config.has(descriptor.key) && this.config.get(descriptor.key, '') !== '';
+                continue;
+            }
+
+            const stored = this.config.has(descriptor.key) ? this.config.get(descriptor.key, '') : undefined;
+            values[descriptor.key] = parseSetting(descriptor, stored);
+        }
+
+        return { descriptors: [...SETTING_DESCRIPTORS], values, configured };
+    }
+
+    /**
+     * Apply a submitted settings form.
+     *
+     * Partial by design, matching `PluginConfigService.saveConfig`: a key that is
+     * present is written, a key that is absent is left exactly as it was. So a
+     * console can send one field, and a form that never renders the secrets cannot
+     * clear them by omission.
+     *
+     * A `secret` submitted blank is CLEARED rather than stored as an empty string,
+     * which is how an operator removes one. A non-secret submitted blank is stored
+     * as empty, because for several of these — an advertised hostname, a public URL
+     * — empty is a meaningful answer that means "work it out".
+     *
+     * A key nobody declared is refused rather than ignored. The alternative is a
+     * typo in a console silently writing a row nothing will ever read, which looks
+     * exactly like a setting that does not work.
+     *
+     * @throws 422 listing every value it refused, rather than the first: somebody
+     * correcting a form should see all of it at once. Nothing is written when
+     * anything is refused, so a rejected submission leaves the station as it was.
+     */
+    async write(submitted: Record<string, unknown>): Promise<SettingsReadModel> {
+        const rejections: SettingRejection[] = [];
+        const writes: { key: string; value: string | null }[] = [];
+
+        for (const [key, submittedValue] of Object.entries(submitted)) {
+            const descriptor = findDescriptor(key);
+            if (descriptor === undefined || !isValueField(descriptor)) {
+                rejections.push({ key, message: `"${key}" is not a station setting` });
+                continue;
+            }
+
+            if (isSecretField(descriptor)) {
+                const raw = typeof submittedValue === 'string' ? submittedValue.trim() : '';
+                writes.push({ key, value: raw === '' ? null : this.encryption.encrypt(raw) });
+                continue;
+            }
+
+            const result = serializeSetting(descriptor, submittedValue);
+            if ('rejected' in result) rejections.push(result.rejected);
+            else writes.push({ key, value: result.value });
+        }
+
+        if (rejections.length > 0) {
+            throw httpError(422).withDetails({ message: rejections.map(rejection => rejection.message).join('; '), rejections });
+        }
+
+        for (const write of writes) {
+            await this.settingsRepository.set(write.key, write.value);
+        }
+        this.scheduleRefresh();
+
+        // Built from the values just written rather than re-read, for the reason `set` explains:
+        // the config does not refresh until this request commits, so reading it back here would
+        // answer with what the operator has just replaced.
+        return this.readAsWritten(writes);
+    }
 
     /**
      * Write a setting, and have the app's config agree with it before answering.
@@ -47,8 +154,34 @@ export class SettingsService {
      */
     async set(key: string, value: string | null): Promise<void> {
         await this.settingsRepository.set(key, value);
+        this.scheduleRefresh();
+    }
+
+    /** Rebuild the app's config once this request's transaction has committed. See {@link set}. */
+    private scheduleRefresh(): void {
         this.afterCommit.add(async () => {
             await this.configStore.reload();
         });
+    }
+
+    /**
+     * The read model as it will be once the writes above are visible.
+     *
+     * The current config with this request's own writes laid over it, rather than
+     * either one alone: the config has everything that was NOT submitted, and the
+     * writes have what was.
+     */
+    private readAsWritten(writes: readonly { key: string; value: string | null }[]): SettingsReadModel {
+        const model = this.read();
+
+        for (const write of writes) {
+            const descriptor = findDescriptor(write.key);
+            if (descriptor === undefined) continue;
+
+            if (isSecretField(descriptor)) model.configured[write.key] = write.value !== null;
+            else model.values[write.key] = parseSetting(descriptor, write.value ?? undefined);
+        }
+
+        return model;
     }
 }

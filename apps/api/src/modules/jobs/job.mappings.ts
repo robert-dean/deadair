@@ -8,6 +8,7 @@ import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
+import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 
 /**
@@ -116,6 +117,19 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // lineup it was meant to refill actually drains.
     'director.extend_lineup': {
         job: ExtendLineupJob,
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 3 }) },
+    },
+
+    // No cron: a break is written because the planner put one in a running order, and there is
+    // nothing to find by walking. A segment left script-less by a run that never happened is
+    // skipped by the director like any other segment that is not ready.
+    //
+    // One retry. The usual failure is a writer with nothing to say, which the job records on the row
+    // rather than throwing, so the retry is only ever spent on a fault outside the writing itself.
+    // `expiresIn` is short today, because the deterministic writer is a string built in memory, and
+    // it is the one number here that a model binding will have to raise.
+    'director.write_break': {
+        job: WriteBreakJob,
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 3 }) },
     },
 

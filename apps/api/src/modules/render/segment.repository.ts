@@ -65,7 +65,16 @@ export interface SegmentEvent {
 export interface PlannedSegment {
     kind: string;
     label: string;
-    script: string;
+    /**
+     * The words, when whoever is planning it already knows them.
+     *
+     * Absent is a segment planted before it has been written: the break planner puts a row and its
+     * place in the running order down in one cheap write, and a job writes the script behind it.
+     * That order is what keeps planting idempotent, since the next pass over the order sees the gap
+     * already filled. A row that is still script-less when the renderer reaches it fails with a
+     * reason, which is a break the director skips.
+     */
+    script?: string;
     voice?: string;
     /** What decided the words. See {@link Segment.writer}. */
     writer?: string;
@@ -265,7 +274,7 @@ export class SegmentRepository extends DataRepository {
             .values({
                 kind: planned.kind,
                 label: planned.label,
-                script: planned.script,
+                script: planned.script ?? null,
                 voice: planned.voice ?? null,
                 writer: planned.writer ?? null,
                 source: RENDER_SOURCE,
@@ -278,6 +287,27 @@ export class SegmentRepository extends DataRepository {
         // the first event of a segment's life from every one after it.
         await this.record(row.id, undefined, 'planned', planned.reason);
         return toSegment(row);
+    }
+
+    /**
+     * Put the words on a segment that was planted without them.
+     *
+     * Guarded on `planned`, so a break whose slot has already been rendered, or failed, or aired is
+     * never rewritten underneath itself. The label goes with the script because the two are written
+     * together and by the same writer: a break titled for the record it introduces is only correct
+     * for the words that introduce it.
+     *
+     * @returns whether the row was still waiting to be written.
+     */
+    async writeScript(id: string, written: { script: string; label: string; writer: string }): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.segments')
+            .set({ script: written.script, label: written.label, writer: written.writer })
+            .where('id', '=', id)
+            .where('state', '=', 'planned')
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
     }
 
     /**

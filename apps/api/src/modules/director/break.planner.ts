@@ -1,20 +1,21 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { SpeechService } from '#modules/render/speech.service.js';
+import { BreakWriterRegistry } from './break.writer.registry.js';
 import type { Lineup, LineupItem } from './lineup.js';
 import type { ResolvedRules } from './rotation.rules.js';
+import { TALK_BREAK_KIND } from './talk.break.writer.js';
 
 /**
- * What kind of segment a break is, until the station has more than one sort to
- * choose from.
+ * The kind of break whose audio already exists, because somebody recorded it and
+ * dropped it in the inbox.
  *
- * A station ident is the thing every station does and the only thing this can
- * plant with no writer and no renderer behind it: the audio already exists,
- * because somebody recorded it and dropped it in. Talk breaks arrive as a second
- * kind here once something can write and speak them, and the choice of which
- * kind belongs at which slot becomes a rule rather than this constant.
+ * A station ident is the thing every station does, and it is what this plants
+ * when the station cannot write and speak one of its own.
  */
-const BREAK_KIND = 'ident';
+const IDENT_KIND = 'ident';
 
 /**
  * How far past the cursor a break may be planted.
@@ -54,6 +55,9 @@ export const PLANT_AHEAD = 4;
 export class BreakPlanner {
     constructor(
         private readonly segments: SegmentRepository,
+        private readonly writers: BreakWriterRegistry,
+        private readonly speech: SpeechService,
+        private readonly jobs: PgBossJobBroker,
         private readonly logger: Logger,
     ) {}
 
@@ -64,6 +68,16 @@ export class BreakPlanner {
      * ordinary case — a lineup whose breaks are already in place — costs the walk
      * below and no query at all. On the commit path that matters: this runs on
      * every boundary.
+     *
+     * ## Written breaks are planted empty
+     *
+     * A talk break goes in as a `planned` segment with no script, and a job
+     * writes it afterwards. The row and its place in the running order are one
+     * cheap write each and both happen HERE, synchronously, because that is what
+     * keeps this idempotent: the segment is in the order before the next commit
+     * pass walks it, so that pass finds the gap filled and plants nothing. Only
+     * the slow half is deferred, and a break that is never written is skipped by
+     * the director exactly like one that was never rendered.
      */
     async plant(lineup: Lineup, rules: ResolvedRules): Promise<number> {
         if (!rules.breaks || rules.breakEveryItems <= 0) return 0;
@@ -71,25 +85,15 @@ export class BreakPlanner {
         const positions = placementsFor(lineup.all(), lineup.cursor(), rules.breakEveryItems);
         if (positions.length === 0) return 0;
 
-        const available = await this.segments.listReady(BREAK_KIND);
-        if (available.length === 0) {
-            // Not a fault, and deliberately not a warning: a station with no idents recorded yet is
-            // an ordinary state, and it plays records. Said once per pass at info, because an
-            // operator wondering why the station never says its own name needs somewhere to look.
-            this.logger.info('director: the lineup wants a break but the library holds no idents', { lineup: lineup.id });
-            return 0;
-        }
+        // Both halves of being able to say something of the station's own: words to say, and a voice
+        // to say them in. Without a speaker a written break could never be rendered and would be
+        // skipped at every slot, which would cost the station the ident it could have had instead.
+        const canWrite = this.writers.canWrite(TALK_BREAK_KIND) && this.speech.speaker() !== undefined;
 
-        // Chosen per slot rather than once per pass, so three breaks planted together are three
-        // different idents where the library has them.
-        let previous: string | undefined;
-        const placements = positions.map(atIndex => {
-            const segment = choose(available, previous);
-            previous = segment.id;
-            return { segmentId: segment.id, atIndex };
-        });
+        const placements = canWrite ? await this.planWritten(positions) : await this.chooseIdents(lineup, positions);
+        if (placements.length === 0) return 0;
 
-        const result = await lineup.insertSegments(placements);
+        const result = await lineup.insertSegments(placements.map(({ segmentId, atIndex }) => ({ segmentId, atIndex })));
         if (!result.ok) {
             // The order moved under the walk: the director committed, or an operator edited, between
             // computing these positions and writing them. Nothing is lost — the next pass walks the
@@ -98,12 +102,84 @@ export class BreakPlanner {
                 lineup: lineup.id,
                 reason: result.reason,
             });
+            await this.abandon(placements);
             return 0;
         }
 
-        this.logger.info('director: planted breaks into a lineup', { lineup: lineup.id, count: placements.length });
+        // After the order is committed, and only for what actually went into it. A write job that
+        // ran against a segment not yet in any running order would find no neighbours and write a
+        // break about nothing.
+        for (const placement of placements) {
+            if (!placement.written) continue;
+            await this.jobs.send('director.write_break', { lineupId: lineup.id, segmentId: placement.segmentId });
+        }
+
+        this.logger.info('director: planted breaks into a lineup', { lineup: lineup.id, count: placements.length, written: canWrite });
         return placements.length;
     }
+
+    /**
+     * A `planned` row per slot, for the station to write into.
+     *
+     * One row per slot rather than one shared between them, because two breaks in the same pass sit
+     * between different records and have different things to say.
+     */
+    private async planWritten(positions: readonly number[]): Promise<Placement[]> {
+        const placements: Placement[] = [];
+        for (const atIndex of positions) {
+            // A placeholder label. The writer replaces it with one naming the records it sits
+            // between, at the same moment and by the same hand as the script.
+            const segment = await this.segments.plan({ kind: TALK_BREAK_KIND, label: 'Talk break' });
+            placements.push({ segmentId: segment.id, atIndex, written: true });
+        }
+        return placements;
+    }
+
+    /** The recorded fallback: ready idents out of the library, when nothing can write one. */
+    private async chooseIdents(lineup: Lineup, positions: readonly number[]): Promise<Placement[]> {
+        const available = await this.segments.listReady(IDENT_KIND);
+        if (available.length === 0) {
+            // Not a fault, and deliberately not a warning: a station with no idents recorded and
+            // nothing able to write its own is an ordinary state, and it plays records. Said once
+            // per pass at info, because an operator wondering why the station never says its own
+            // name needs somewhere to look.
+            this.logger.info('director: the lineup wants a break, but nothing can write one and the library holds no idents', {
+                lineup: lineup.id,
+            });
+            return [];
+        }
+
+        // Chosen per slot rather than once per pass, so three breaks planted together are three
+        // different idents where the library has them.
+        let previous: string | undefined;
+        return positions.map(atIndex => {
+            const segment = choose(available, previous);
+            previous = segment.id;
+            return { segmentId: segment.id, atIndex, written: false };
+        });
+    }
+
+    /**
+     * Rows planned for an order that then refused them.
+     *
+     * Failed rather than deleted, and rather than left `planned`. Left planned they would be picked
+     * up by nothing and sit in the console's library looking like breaks that are still coming;
+     * failed, they carry the reason and are inert. Rare by construction: it takes a commit or an
+     * operator edit landing between the walk and the write.
+     */
+    private async abandon(placements: readonly Placement[]): Promise<void> {
+        for (const placement of placements) {
+            if (!placement.written) continue;
+            await this.segments.markFailed(placement.segmentId, 'the running order moved before this break could be placed', 'planned');
+        }
+    }
+}
+
+/** One break, and where it goes. `written` distinguishes a row to write from an ident off the shelf. */
+interface Placement {
+    segmentId: string;
+    atIndex: number;
+    written: boolean;
 }
 
 /**

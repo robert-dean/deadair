@@ -23,11 +23,37 @@ const track = (externalId: string): RundownTrack => ({
 
 const ident = (id: string): Segment => ({ id, kind: 'ident', state: 'ready', label: `Ident ${id}`, source: 'library' });
 
-const build = (options: { idents?: Segment[] } = {}) => {
+/**
+ * A planner with the two halves of talking switched off by default, so the cases below are about
+ * WHERE a break goes rather than what it says. `canWrite` turns the written path on.
+ */
+const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: boolean } = {}) => {
     const listReady = vi.fn(async () => options.idents ?? [ident('seg-1')]);
+    let planned = 0;
+    const plan = vi.fn(async (input: { kind: string; label: string }) => ({
+        id: `planned-${++planned}`,
+        state: 'planned',
+        source: 'render',
+        ...input,
+    }));
+    const markFailed = vi.fn(async () => {});
+
+    const writers = { canWrite: vi.fn(() => options.canWrite ?? false) };
+    const speech = { speaker: vi.fn(() => ((options.speaker ?? options.canWrite) ? { record: { id: 'deadair.kokoro' } } : undefined)) };
+    const send = vi.fn(async () => {});
+
     return {
-        planner: new BreakPlanner({ listReady } as unknown as SegmentRepository, logger),
+        planner: new BreakPlanner(
+            { listReady, plan, markFailed } as unknown as SegmentRepository,
+            writers as never,
+            speech as never,
+            { send } as never,
+            logger,
+        ),
         listReady,
+        plan,
+        markFailed,
+        send,
     };
 };
 
@@ -179,5 +205,81 @@ describe('BreakPlanner', () => {
         // Four breaks, one revision. Four separate edits would rewrite the order four times and
         // invalidate an operator's in-flight edit four times over.
         expect(lineup.revision()).toBe(before + 1);
+    });
+});
+
+// The half that makes the station a station rather than a shuffle. A written break is planted with
+// no words in it: the row and its place in the order go down here, synchronously, and a job writes
+// the script behind them.
+describe('BreakPlanner writing its own breaks', () => {
+    it('plants empty talk breaks and sends a job to write each one', async () => {
+        const { planner, plan, send, listReady } = build({ canWrite: true });
+        const lineup = await lineupOf(12);
+
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        // Two slots in twelve records, so two rows and two jobs, and no reach for the ident shelf.
+        expect(plan).toHaveBeenCalledTimes(2);
+        expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak' }));
+        expect(plan.mock.calls.every(([input]) => input.script === undefined)).toBe(true);
+        expect(send).toHaveBeenCalledTimes(2);
+        expect(send).toHaveBeenCalledWith('director.write_break', { lineupId: 'lineup-1', segmentId: 'planned-1' });
+        expect(listReady).not.toHaveBeenCalled();
+    });
+
+    it('plants one row per slot, because two breaks sit between different records', async () => {
+        const { planner } = build({ canWrite: true });
+        const lineup = await lineupOf(12);
+
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        const used = lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentId] : []));
+        expect(new Set(used).size).toBe(used.length);
+    });
+
+    // The property the whole design rests on: planting stays idempotent even though the words arrive
+    // later, because the row is in the order before the next commit pass walks it.
+    it('plants nothing on a second pass, even though the first pass wrote no scripts', async () => {
+        const { planner, plan } = build({ canWrite: true });
+        const lineup = await lineupOf(12);
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
+        expect(plan).toHaveBeenCalledTimes(2);
+    });
+
+    it('falls back to recorded idents when nothing can write', async () => {
+        const { planner, plan, listReady, send } = build({ canWrite: false });
+        const lineup = await lineupOf(12);
+
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        expect(listReady).toHaveBeenCalledWith('ident');
+        expect(plan).not.toHaveBeenCalled();
+        expect(send).not.toHaveBeenCalled();
+    });
+
+    it('falls back to recorded idents when there is nothing to say them in', async () => {
+        // Words with no voice is a break that could never be rendered, so it would be skipped at
+        // every slot — costing the station the ident it could have aired instead.
+        const { planner, plan, listReady } = build({ canWrite: true, speaker: false });
+        const lineup = await lineupOf(12);
+
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        expect(listReady).toHaveBeenCalledWith('ident');
+        expect(plan).not.toHaveBeenCalled();
+    });
+
+    it('fails the rows it planned when the order refuses them, rather than leaving them looking pending', async () => {
+        const { planner, markFailed, send } = build({ canWrite: true });
+        const lineup = await lineupOf(12);
+        // A stale revision is what a commit or an operator edit landing mid-walk looks like here.
+        vi.spyOn(lineup, 'insertSegments').mockResolvedValue({ ok: false, reason: 'stale' } as never);
+
+        expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
+        expect(markFailed).toHaveBeenCalledTimes(2);
+        expect(markFailed).toHaveBeenCalledWith('planned-1', expect.stringContaining('moved'), 'planned');
+        expect(send).not.toHaveBeenCalled();
     });
 });

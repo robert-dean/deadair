@@ -109,10 +109,16 @@ function build(options: Options = {}) {
     // Real, over the fake repository: where a break belongs is BreakPlanner's own decision and is
     // tested there, and stubbing it here would leave the wiring — that the reactor plants at all,
     // and does it before committing — untested.
+    // Nothing can write here, so it plants recorded idents: what this file is testing is that the
+    // reactor plants at all and does it before committing, and the written path has its own tests
+    // next door.
     const breaks = new BreakPlanner(
         {
             listReady: vi.fn(async () => [{ id: 'ident-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }]),
         } as unknown as SegmentRepository,
+        { canWrite: () => false } as never,
+        { speaker: () => undefined } as never,
+        { send: vi.fn(async () => {}) } as never,
         logger,
     );
 

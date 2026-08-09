@@ -5,6 +5,14 @@ import { AuthorizationContext } from '#modules/permissions/authorization.context
 import { SessionEventRepository, SessionEventType } from './repositories/session.event.repository.js';
 import { LoginActivityRepository } from './repositories/login.activity.repository.js';
 
+/**
+ * The logger takes a message first and structured meta second, console-style.
+ * These call sites used to pass `({ err }, 'message')`, pino-style, which put an
+ * object where the message goes: every one of them landed in the log as
+ * `[object Object]` with the sentence discarded.
+ */
+const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
 const MAX_USER_AGENT_LEN = 512;
 const LOGIN_IP_CLAIM = 'loginIp';
 const LOGIN_USER_AGENT_CLAIM = 'loginUserAgent';
@@ -84,7 +92,7 @@ export class SessionActivityService {
                 mfaSatisfied: input.mfaSatisfied,
             });
         } catch (err) {
-            this.logger.warn({ err }, 'failed to record login success');
+            this.logger.warn('auth: failed to record a login success', { error: errorText(err) });
         }
     }
 
@@ -106,7 +114,7 @@ export class SessionActivityService {
                 lastReason: input.lastReason ?? null,
             });
         } catch (err) {
-            this.logger.warn({ err }, 'failed to record factor failure');
+            this.logger.warn('auth: failed to record a factor failure', { error: errorText(err) });
         }
     }
 
@@ -144,7 +152,7 @@ export class SessionActivityService {
                 metadata: meta,
             });
         } catch (err) {
-            this.logger.warn({ err }, 'failed to record session validation failure');
+            this.logger.warn('auth: failed to record a session validation failure', { error: errorText(err) });
         }
     };
 
@@ -163,7 +171,7 @@ export class SessionActivityService {
                 lastReason: 'refresh_token_reuse',
             });
         } catch (err) {
-            this.logger.warn({ err, meta }, 'failed to record refresh-reuse failure');
+            this.logger.warn('auth: failed to record a refresh-reuse failure', { error: errorText(err), ...meta });
         }
     };
 
@@ -206,7 +214,7 @@ export class SessionActivityService {
                 metadata,
             });
         } catch (err) {
-            this.logger.warn({ err, eventType }, 'failed to record session event');
+            this.logger.warn('auth: failed to record a session event', { error: errorText(err), eventType });
         }
     }
 

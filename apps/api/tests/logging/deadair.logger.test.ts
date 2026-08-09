@@ -114,18 +114,65 @@ describe('DeadairLogger', () => {
         expect(innerCalls).toEqual([{ method: 'info', message: 404, optionalParams: [] }]);
     });
 
-    it('stringifies an object message with String() rather than JSON.stringify', () => {
-        const messageObject = { toString: () => 'custom-string' };
-        logger.warn(messageObject);
+    it('renders an object message rather than writing [object Object]', () => {
+        // `String({})` is `[object Object]`, which is what five pino-style
+        // `logger.warn({ err }, 'message')` calls wrote to the log for days: both
+        // the error and the sentence gone. The call sites are fixed; this is the
+        // store refusing to lose one again.
+        logger.warn({ err: 'boom', attempt: 2 });
 
-        expect(storeCalls).toEqual([{ channel: undefined, level: 'warn', message: 'custom-string', meta: undefined }]);
+        expect(storeCalls[0]?.message).toBe('{"err":"boom","attempt":2}');
+        expect(storeCalls[0]?.message).not.toContain('[object Object]');
     });
 
-    it('stringifies an Error message via its default toString', () => {
+    it('falls back to String() for an object JSON cannot take', () => {
+        const circular: Record<string, unknown> = { tag: 'loop' };
+        circular.self = circular;
+
+        logger.warn(circular);
+
+        // Imperfect beats absent: a line that says `[object Object]` is still
+        // better than a throw from the logger.
+        expect(storeCalls[0]?.message).toBe(String(circular));
+    });
+
+    it('keeps an Error message as its sentence and puts the stack in meta', () => {
         const error = new Error('kaboom');
         logger.error(error);
 
-        expect(storeCalls[0]?.message).toBe(String(error));
+        // `String(error)` loses the stack entirely, which is why
+        // "Transaction is already committed" sat in the log for days with nothing
+        // to attribute it to.
+        expect(storeCalls[0]?.message).toBe('kaboom');
+        expect(storeCalls[0]?.meta?.errorName).toBe('Error');
+        expect(String(storeCalls[0]?.meta?.stack)).toContain('deadair.logger.test');
+    });
+
+    it('keeps only the app frames of a stack, since a truncated vendor stack names nothing', () => {
+        const error = new Error('kaboom');
+        error.stack = [
+            'Error: kaboom',
+            '    at assertNotCommitted (/repo/node_modules/.pnpm/kysely/dist/kysely.js:972:15)',
+            '    at Executor.executeQuery (/repo/node_modules/.pnpm/kysely/dist/kysely.js:1010:9)',
+            '    at StationAirRepository.get (/repo/apps/api/src/modules/director/station.air.repository.ts:48:14)',
+            '    at DirectorService.readAir (/repo/apps/api/src/modules/director/director.service.ts:664:43)',
+        ].join('\n');
+
+        logger.error(error);
+
+        const stack = String(storeCalls[0]?.meta?.stack);
+        expect(stack).toContain('StationAirRepository.get');
+        expect(stack).toContain('DirectorService.readAir');
+        expect(stack).not.toContain('node_modules');
+    });
+
+    it('keeps vendor frames when a stack has no app frames at all, rather than reporting nothing', () => {
+        const error = new Error('kaboom');
+        error.stack = ['Error: kaboom', '    at driver (/repo/node_modules/pg/lib/client.js:1:1)'].join('\n');
+
+        logger.error(error);
+
+        expect(String(storeCalls[0]?.meta?.stack)).toContain('node_modules/pg');
     });
 
     it('still tees to the inner logger even when the store append call is what is under test, keeping both sinks independent', () => {

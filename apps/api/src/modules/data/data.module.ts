@@ -9,6 +9,8 @@ import { EmptyUpdateRewriteDialect, KyselyPool, KyselyDefaultPlugins, KyselyPgTy
 import { CacheProvider } from '@maroonedsoftware/cache';
 import { IoRedisCacheProvider } from '@maroonedsoftware/cache/ioredis';
 
+const queryErrorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
 export const DataModule: ServerKitModule = {
     name: 'Data',
     setup: async (registry: Registry, config: AppConfig) => {
@@ -60,7 +62,7 @@ export const DataModule: ServerKitModule = {
                 const pool = new KyselyPool(dbConfig);
                 const logger = container.get(Logger);
                 pool.on('error', err => {
-                    logger.error(err);
+                    logger.error(`db: pool error: ${queryErrorText(err)}`);
                 });
                 return pool;
             })
@@ -76,9 +78,17 @@ export const DataModule: ServerKitModule = {
                     dialect,
                     plugins: [...KyselyDefaultPlugins],
                     log: (event: LogEvent) => {
-                        if (event.level === 'error') {
-                            logger.error(event.error);
-                        }
+                        if (event.level !== 'error') return;
+                        // The SQL, not just the message. `logger.error(event.error)` alone
+                        // renders as a bare `Error: <message>` with no query, no parameters
+                        // and no stack, which is how "Transaction is already committed" sat
+                        // in the log on every boot for days without anyone being able to
+                        // say which statement caused it.
+                        logger.error(`db: query failed: ${queryErrorText(event.error)}`, {
+                            sql: event.query.sql,
+                            parameters: event.query.parameters,
+                            durationMs: Math.round(event.queryDurationMillis),
+                        });
                     },
                 });
             })
@@ -94,7 +104,7 @@ export const DataModule: ServerKitModule = {
                     enableOfflineQueue: false,
                 });
                 redis.on('error', err => {
-                    logger.error(err);
+                    logger.error(`redis: ${queryErrorText(err)}`);
                 });
                 return redis;
             })

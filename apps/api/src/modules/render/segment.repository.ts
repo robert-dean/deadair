@@ -217,6 +217,34 @@ export class SegmentRepository extends DataRepository {
         return rows.map(toSegment);
     }
 
+    /**
+     * The last few things the station said of one kind, newest first.
+     *
+     * What a writer reads to avoid repeating itself. Deliberately every state rather than only
+     * `ready`: a break the station wrote and then failed to speak was still written, and offering it
+     * again as though it were fresh is how a phrasing that never aired blocks nothing while one that
+     * did blocks everything.
+     *
+     * This is the cheap seed of "what the station said", and it stops being enough the moment a
+     * persona is involved: a character sheet asking for a signature phrase now and then is an
+     * instruction no writer can follow from scripts alone. That wants its own table rather than a
+     * relaxation of `play_history`; see `docs/todo/dj-voice.md`.
+     */
+    async recentScripts(kind: string, limit: number): Promise<string[]> {
+        if (limit <= 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.segments')
+            .select('script')
+            .where('kind', '=', kind)
+            .where('script', 'is not', null)
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .execute();
+
+        return rows.flatMap(row => (row.script == null ? [] : [row.script]));
+    }
+
     /** The whole library, newest first, for a console that has to draw it. */
     async list(): Promise<Segment[]> {
         const rows = await this.db.selectFrom('deadair.segments').select(SEGMENT_COLUMNS).orderBy('createdAt', 'desc').execute();

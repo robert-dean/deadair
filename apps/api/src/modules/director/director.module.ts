@@ -1,7 +1,10 @@
 import { Container, Registry } from 'injectkit';
+import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { BreakPlanner } from './break.planner.js';
+import { BreakWriterRegistry } from './break.writer.registry.js';
+import { TalkBreakWriter } from './talk.break.writer.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
@@ -36,6 +39,16 @@ export const DirectorModule: ServerKitModule = {
         // which is the whole reason a pick is a NAME rather than an id.
         registry.register(SetGenerator).useClass(CatalogSetGenerator).asScoped();
         registry.register(PickResolver).useClass(PickResolver).asScoped();
+
+        // The writer seam, keyed by `segments.kind`. The list is explicit rather than discovered,
+        // following `ToolRegistry`: what the station can say is one readable line here instead of
+        // the sum of whatever registered itself. A model binding is a second entry, and the choice
+        // between it and the deterministic one is a setting rather than a search.
+        registry.register(TalkBreakWriter).useClass(TalkBreakWriter).asScoped();
+        registry
+            .register(BreakWriterRegistry)
+            .useFactory((container: Container) => new BreakWriterRegistry([container.get(TalkBreakWriter)], container.get(Logger)))
+            .asScoped();
 
         // Scoped with the repository it reads. Two callers, for two different cases: the refill job
         // plants breaks among the records it has just appended, and the reactor covers the lineups

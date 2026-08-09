@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 
 import type { AccessControlService } from '../../../src/modules/permissions/access.control.service.js';
+import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PLUGIN_OAUTH_STATE_TTL_MS, PluginOAuthStateStore } from '../../../src/modules/plugins/plugin.oauth.state.store.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
@@ -66,6 +67,7 @@ function harness(): Harness {
         store,
         accessControl,
         pluginLog.log,
+        new AfterCommit(),
     );
 
     return { service, store, pluginLog, getAuthorizeUrl, handleCallback };

@@ -11,6 +11,7 @@ import { IsHttpError } from '@maroonedsoftware/errors';
 import { PluginError, type PluginManifest } from '@deadair/plugin-sdk';
 import { ErrorCodes } from '@deadair/error-codes';
 
+import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import { AccessControlService } from '../../../src/modules/permissions/access.control.service.js';
 import { AuthorizationContext, type Actor, type UserActor } from '../../../src/modules/permissions/authorization.context.js';
 import type { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
@@ -135,6 +136,7 @@ interface Harness {
     configService: PluginConfigService;
     lifecycleManager: PluginLifecycleManager;
     registry: PluginRegistry;
+    afterCommit: AfterCommit;
 }
 
 /**
@@ -176,6 +178,9 @@ function makeService(
         rescan: vi.fn(async () => {}),
         reinitPlugin: vi.fn(async () => {}),
     } as unknown as PluginLifecycleManager;
+    // The real one, not a stub: these routes register the reinit with it instead of
+    // running it inline, so a test that wants to see the reinit has to run it.
+    const afterCommit = new AfterCommit();
     const service = new PluginsService(
         registry,
         configService,
@@ -184,9 +189,10 @@ function makeService(
         new PluginOAuthStateStore(),
         accessControl,
         stubPluginLog().log,
+        afterCommit,
     );
 
-    return { service, accessControl, requireSpy, canAccessSpy, listVisibleIdsSpy, configService, lifecycleManager, registry };
+    return { service, accessControl, requireSpy, canAccessSpy, listVisibleIdsSpy, configService, lifecycleManager, registry, afterCommit };
 }
 
 /** Asserts the rejection is a 403 `HttpError`. */
@@ -412,7 +418,7 @@ describe('PluginsService: reloadPlugin', () => {
 describe('PluginsService: disconnectOAuth', () => {
     it('clears the OAuth vault via saveConfig and reinitializes the plugin', async () => {
         const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
-        const { service, configService, lifecycleManager } = makeService(userActor('u-owner', []), fixture);
+        const { service, configService, lifecycleManager, afterCommit } = makeService(userActor('u-owner', []), fixture);
 
         const detail = await service.disconnectOAuth(SPOTIFY_ID);
 
@@ -420,6 +426,10 @@ describe('PluginsService: disconnectOAuth', () => {
         expect(configService.saveConfig).toHaveBeenCalledWith(SPOTIFY_ID, [...manifest().configFields, OAUTH_SECRET_FIELD], {
             [PLUGIN_OAUTH_SECRET_KEY]: '',
         });
+        // Registered, not run: the secret was cleared in this request's transaction and
+        // the manager reads that row on a connection of its own.
+        expect(lifecycleManager.reinitPlugin).not.toHaveBeenCalled();
+        await afterCommit.run();
         expect(lifecycleManager.reinitPlugin).toHaveBeenCalledWith(SPOTIFY_ID);
     });
 
@@ -435,7 +445,7 @@ describe('PluginsService: disconnectOAuth', () => {
 
     it('throws 501 for a plugin whose manifest does not declare the oauth capability', async () => {
         const fixture = new FakePermissionsFixture().grantOwner(OTHER_ID, 'u-owner');
-        const { service, configService, lifecycleManager } = makeService(userActor('u-owner', []), fixture);
+        const { service, configService, lifecycleManager, afterCommit } = makeService(userActor('u-owner', []), fixture);
 
         await expectHttpStatus(service.disconnectOAuth(OTHER_ID), 501);
 
@@ -449,7 +459,7 @@ describe('PluginsService: disconnectOAuth', () => {
     // rather than 503ing.
     it('succeeds for a plugin that declares oauth but has no live instance (stopped)', async () => {
         const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
-        const { service, configService, lifecycleManager, registry } = makeService(userActor('u-owner', []), fixture);
+        const { service, configService, lifecycleManager, registry, afterCommit } = makeService(userActor('u-owner', []), fixture);
         registry.upsert(record(SPOTIFY_ID, { status: 'discovered', instance: undefined }));
 
         const detail = await service.disconnectOAuth(SPOTIFY_ID);
@@ -458,12 +468,16 @@ describe('PluginsService: disconnectOAuth', () => {
         expect(configService.saveConfig).toHaveBeenCalledWith(SPOTIFY_ID, [...manifest().configFields, OAUTH_SECRET_FIELD], {
             [PLUGIN_OAUTH_SECRET_KEY]: '',
         });
+        // Registered, not run: the secret was cleared in this request's transaction and
+        // the manager reads that row on a connection of its own.
+        expect(lifecycleManager.reinitPlugin).not.toHaveBeenCalled();
+        await afterCommit.run();
         expect(lifecycleManager.reinitPlugin).toHaveBeenCalledWith(SPOTIFY_ID);
     });
 
     it('succeeds for a plugin that declares oauth but has no live instance (crashed, with an error reason)', async () => {
         const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
-        const { service, configService, lifecycleManager, registry } = makeService(userActor('u-owner', []), fixture);
+        const { service, configService, lifecycleManager, registry, afterCommit } = makeService(userActor('u-owner', []), fixture);
         registry.upsert(record(SPOTIFY_ID, { status: 'misconfigured', instance: undefined, error: 'boom' }));
 
         await expect(service.disconnectOAuth(SPOTIFY_ID)).resolves.toBeDefined();
@@ -477,6 +491,60 @@ describe('PluginsService: disconnectOAuth', () => {
  * request's. Before `PluginError` these all rendered as a 500 with a sentence,
  * which told the console nothing it could act on.
  */
+// Every route here that writes the plugin's row and then reinitializes it has to let the
+// write land first. `PluginLifecycleManager` is a singleton on a pooled connection of its
+// own: inside the request's transaction it reads the row as it was BEFORE the write, and
+// its own `setStatus` upsert then waits on the lock this request is holding while this
+// request waits on the reinit. Neither side gives way and Postgres does not call it a
+// deadlock, because only one of the two is waiting in the database.
+describe('PluginsService: reinitializing after a write', () => {
+    const owner = () => new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
+
+    it('defers the reinit after saving a settings form', async () => {
+        const { service, lifecycleManager, afterCommit } = makeService(userActor('u-owner', []), owner());
+
+        await service.updatePluginConfig(SPOTIFY_ID, { config: {} });
+
+        expect(lifecycleManager.reinitPlugin).not.toHaveBeenCalled();
+        await afterCommit.run();
+        expect(lifecycleManager.reinitPlugin).toHaveBeenCalledExactlyOnceWith(SPOTIFY_ID);
+    });
+
+    // The one that failed silently rather than hanging: `initNow` read the stored flag as
+    // it was before the write, saw `false`, and returned without instantiating anything.
+    // The operator got a 200 and a plugin that was not running.
+    it('defers the reinit after enabling, so the flag it reads is the one just written', async () => {
+        const { service, lifecycleManager, afterCommit } = makeService(userActor('u-owner', []), owner());
+
+        await service.enablePlugin(SPOTIFY_ID);
+
+        expect(lifecycleManager.reinitPlugin).not.toHaveBeenCalled();
+        await afterCommit.run();
+        expect(lifecycleManager.reinitPlugin).toHaveBeenCalledExactlyOnceWith(SPOTIFY_ID);
+    });
+
+    it('defers the reinit after disabling', async () => {
+        const { service, lifecycleManager, afterCommit } = makeService(userActor('u-owner', []), owner());
+
+        await service.disablePlugin(SPOTIFY_ID);
+
+        expect(lifecycleManager.reinitPlugin).not.toHaveBeenCalled();
+        await afterCommit.run();
+        expect(lifecycleManager.reinitPlugin).toHaveBeenCalledExactlyOnceWith(SPOTIFY_ID);
+    });
+
+    // A reload writes nothing, so there is no uncommitted row to read past and no lock of
+    // ours to wait on. It stays inline, which is what lets the detail it returns report
+    // the status the reload actually produced.
+    it('runs the reinit inline for a reload, which writes nothing', async () => {
+        const { service, lifecycleManager } = makeService(userActor('u-owner', []), owner());
+
+        await service.reloadPlugin(SPOTIFY_ID);
+
+        expect(lifecycleManager.reinitPlugin).toHaveBeenCalledExactlyOnceWith(SPOTIFY_ID);
+    });
+});
+
 describe('PluginsService: startOAuthAuthorization translates a plugin failure', () => {
     const failing = (error: unknown): PluginRecord =>
         record(SPOTIFY_ID, {

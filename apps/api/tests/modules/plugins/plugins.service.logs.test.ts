@@ -14,6 +14,7 @@ import { AccessControlService } from '../../../src/modules/permissions/access.co
 import { AuthorizationContext, type Actor, type UserActor } from '../../../src/modules/permissions/authorization.context.js';
 import type { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
 import { PluginConfigService, type PluginConfigReadModel } from '../../../src/modules/plugins/plugin.config.service.js';
+import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginLifecycleManager } from '../../../src/modules/plugins/plugin.lifecycle.manager.js';
 import { PluginLog } from '../../../src/modules/plugins/plugin.log.js';
@@ -144,6 +145,7 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture, readModel: P
         new PluginOAuthStateStore(),
         accessControl,
         pluginLog,
+        new AfterCommit(),
     );
 
     return { service, requireSpy, configService, pluginLog };
@@ -233,6 +235,7 @@ describe('PluginsService: downloadPluginLogs Content-Disposition', () => {
             new PluginOAuthStateStore(),
             accessControl,
             pluginLog,
+            new AfterCommit(),
         );
 
         const result = await service.downloadPluginLogs(rawId);

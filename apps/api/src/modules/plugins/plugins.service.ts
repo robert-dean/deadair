@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type PluginManifest } from '@deadair/plugin-sdk';
+import { AfterCommit } from '#modules/data/after.commit.js';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
 import { safeChannel } from '#src/logging/rotating.log.store.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
@@ -95,7 +96,31 @@ export class PluginsService {
         private readonly pluginOAuthStateStore: PluginOAuthStateStore,
         private readonly accessControl: AccessControlService,
         private readonly pluginLog: PluginLog,
+        private readonly afterCommit: AfterCommit,
     ) {}
+
+    /**
+     * Reinitializes the plugin once this request's transaction has committed, and
+     * not before.
+     *
+     * Every route below that reinitializes has just written the plugin's row, and
+     * `PluginLifecycleManager` is a singleton that reads and writes that row on a
+     * pooled connection of its own. Doing it inline meant it read the row as it
+     * was BEFORE the write, and then its own `setStatus` upsert blocked on the
+     * lock this request is holding — while this request was waiting on the
+     * reinit. Measured against the dev database: the read came back pre-write and
+     * the upsert was still on `Lock/transactionid` two seconds later, with no
+     * `statement_timeout` to end it.
+     *
+     * The wait is still the operator's: `AfterCommit` runs before the response is
+     * written, so a 200 here still means the plugin has been reinitialized. What
+     * changed is that the detail body below is built BEFORE that happens, so its
+     * `status` is the one the plugin had on the way in. The console refetches for
+     * this reason.
+     */
+    private reinitAfterCommit(id: string): void {
+        this.afterCommit.add(() => this.pluginLifecycleManager.reinitPlugin(id));
+    }
 
     /**
      * Narrows on top of the route policy's authentication floor: a caller who
@@ -143,7 +168,7 @@ export class PluginsService {
 
         await this.validateSubmission(manifest, body.config);
         await this.pluginConfigService.saveConfig(id, manifest.configFields, body.config);
-        await this.pluginLifecycleManager.reinitPlugin(id);
+        this.reinitAfterCommit(id);
 
         return this.detailOf(record);
     }
@@ -210,6 +235,11 @@ export class PluginsService {
     async reloadPlugin(id: string): Promise<PluginDetail> {
         await this.requirePluginPermission(id, 'configure');
         const record = this.requireRecord(id);
+        // Inline, unlike every other reinit here, and for the reason this route
+        // exists: it writes nothing. There is no uncommitted row for the manager to
+        // read past and no lock of ours for its `setStatus` to wait on, so it can
+        // run now — which means the detail below reports the status the reload
+        // actually produced.
         await this.pluginLifecycleManager.reinitPlugin(id);
         return this.detailOf(record);
     }
@@ -301,7 +331,7 @@ export class PluginsService {
         await this.pluginConfigService.saveConfig(id, [...manifest.configFields, OAUTH_SECRET_FIELD], { [PLUGIN_OAUTH_SECRET_KEY]: '' });
         // The tokens would otherwise keep working from the plugin's in-memory
         // cache until the next reload; the reinit is what drops it.
-        await this.pluginLifecycleManager.reinitPlugin(id);
+        this.reinitAfterCommit(id);
         return this.detailOf(record);
     }
 
@@ -407,8 +437,11 @@ export class PluginsService {
     private async setEnabled(record: PluginRecord, enabled: boolean): Promise<PluginDetail> {
         await this.pluginConfigService.setEnabled(record.id, enabled);
         // `reinitPlugin` covers both directions: its init step re-reads the flag
-        // and stops at a `disabled` status instead of instantiating.
-        await this.pluginLifecycleManager.reinitPlugin(record.id);
+        // and stops at a `disabled` status instead of instantiating. It re-reads
+        // it after the commit, which is what makes the flag it reads the one just
+        // written — enabling a plugin used to read back the old `false` and do
+        // nothing at all, quietly, with a 200.
+        this.reinitAfterCommit(record.id);
         return this.detailOf(record);
     }
 

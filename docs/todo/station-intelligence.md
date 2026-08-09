@@ -1,0 +1,271 @@
+# Deferred: the station's judgement
+
+**Designed:** 2026-08-09, from a capability review of the tree against what a finished station does.
+**Status:** deferred, not disputed. Every entry names the seam it drops into and what is already
+built underneath it.
+
+The station can programme itself, air a running order, plant its own breaks, speak in its own voice
+and talk over a record. What it cannot do is have an opinion. Everything it chooses, it chooses by
+rule: a weighted draw, a repeat window, an artist cooldown, an ident every fourth record. That is
+the right floor and it should stay bound as the floor. This file is the layer above it.
+
+Nothing here is a prerequisite for anything else here, with two exceptions that are called out where
+they apply. Each entry is independently shippable.
+
+## What exists, so nothing below has to re-derive it
+
+Read this before designing against it. All of it is built.
+
+- **`SetGenerator.generate` takes and returns NAMED picks** (title + artist strings, optional
+  canonical id). That shape is the whole point: it is what a language model can produce, so a second
+  generator is a second binding of the token rather than a reshape of everything downstream.
+  `CatalogSetGenerator` is the deterministic binding, and it knows the catalog id so its own
+  resolution is exact.
+- **The rotation rules are pure and table-tested** (`rotation.rules.ts`): repeat window, artist
+  cooldown, per-artist cap, artist spacing, and `rejectDisliked`, which is an instruction rather than
+  advice and cannot be turned off by a lineup. Dislikes already exist at track, record and artist
+  level.
+- **`deadair.segments` is one airable element that is not a record**, with `kind` as free text and a
+  `planned | rendering | ready | failed` state. **A segment that is not `ready` is skipped, never
+  waited for.** That rule is what lets everything below fail without costing the station silence.
+- **The station has a voice** (`speech` capability, `plugins/kokoro`, `render.speechPluginId`) and
+  can talk OVER a record, timed inside `radio.liq` against the music itself rather than against the
+  app's clock.
+- **Playout is a lease with two conditions** (a programme, and an audience), so anything below that
+  wants to drive the station has to renew it or be silently muted.
+- **`host.fetch` and `host.streams`** are the only egress a plugin gets, with per-upstream allowlists,
+  shared rate-limit buckets and an invocation-scoped budget. Anything below that talks to a third
+  party should be a plugin for that reason alone.
+
+Two things that are true and easy to assume otherwise. `radio.liq` does **no crossfading**: items
+butt up against each other, and the only level shaping is `normalize(target=-16.)` on each leaf
+source plus the duck ramp. And nothing measures audio: `duration_ms` is nominal where it exists at
+all, and `bpm` on a catalog row is whatever a provider declared, not something we heard.
+
+---
+
+## 1. An LLM DJ bound to `SetGenerator`
+
+**Lands at:** a second `SetGenerator` binding, chosen by setting, with `CatalogSetGenerator` staying
+bound as the fallback. Nothing else moves.
+
+The seam is already the right shape, so this is smaller than it sounds. What is worth building
+deliberately is everything around the call, because each of these is a failure that is inaudible
+until it has been running for a week.
+
+**Artist variety is enforced at the point of choice, not inside the discovery tools.** A model given
+tools that filter out the on-air artist returns a worse pool on a small catalogue, so leave the tools
+open and re-pick when the answer repeats. The re-pick must exclude a **window** of neighbouring
+slots (queued-and-unaired, on air, and recently played), not just the current track. An exclusion
+that remembers only the on-air artist keeps returning to whoever ranks next highest, which is the
+same artist every *other* slot rather than every slot. `spaceArtists` already models the window idea
+deterministically; this is the same rule applied to a non-deterministic picker.
+
+**The seed is not a pick.** Any prompt that hands the model the on-air track so it can seed a
+similarity search has just put the one real, well-formed track id in its context that no tool
+returned. Models echo it. Say so in the field description, once, in a shared constant, and do not
+weaken it to "never invent an id", which an echoed seed literally satisfies.
+
+**A zero-candidate run is a library-coverage fact, not a model failure.** If a circuit breaker
+counts it, a thin catalogue disables the smart picker and advises changing models. Count a run with
+no discovery calls at all, which genuinely is the model failing to drive its tools; do not count a
+run that searched honestly and found nothing.
+
+**Resolution is best-effort by design.** A model naming a song the catalog has never seen is the
+case [director-and-lineups.md](director-and-lineups.md) already scoped as live provider search. Until
+that lands, an unresolvable pick is dropped and the count comes up short, which `generate` already
+documents as an ordinary outcome.
+
+## 2. Budget and degradation tiers, built before the model, not after
+
+**Lands at:** a settings-backed gate in front of every model call, and a `settings` layer that can
+hold it (`deadair.settings` has only a repository today; the DB-backed layer is the prerequisite).
+
+This is the one entry with an ordering claim: build it **with** entry 1 rather than after it. Once
+there are forty call sites the retrofit is a different job.
+
+Three tiers over a per-day token count, and the policy lives in one module, never inline at a call
+site:
+
+- **normal**: everything runs.
+- **soft** (some percentage of the cap): fall back to `CatalogSetGenerator` and mute optional
+  segments. The station still plays and still says its name.
+- **hard** (at the cap): make **no** model call at all. Not a shorter one, not a cheaper one. The
+  deterministic generator carries the station, which it can do indefinitely.
+
+A station-wide voice switch belongs in the same module, and it must gate **before generation**, not
+at the point of speaking: gating the renderer still pays a model to write every script and then
+throws it away. Manual operator triggers stay exempt from both, the same way an explicit action
+should always beat a cadence.
+
+The invariant worth writing into the tests: **no tier makes music stop**. The floor is a
+deterministic generator and a queue, and both work with every network dependency down.
+
+## 3. Ending-aware transitions
+
+**Lands at:** an `enrichment`-capability plugin writing measured columns, plus a `cross` in
+`radio.liq` whose length is per item rather than constant.
+
+Today a track ends and the next one starts. The reason that sounds like a playlist rather than a
+station is not the absence of a crossfade, it is that a single fixed crossfade is wrong for most
+pairs: a record that fades out wants to be ridden over for eight to twelve seconds, and one that
+ends cold wants about four or the cut lands inside the last chord.
+
+So the useful unit of work is not the fade, it is the **measurement**. Analyse the last twenty
+seconds of every file and store what the ending is: fade or cold, tail loudness, tail tempo. Each
+track then carries its own exit length, and the pair logic on top of that is small.
+
+Three notes that save a pass:
+
+- **Analysis is an enrichment plugin, not app code.** It is a per-track fan-out over an upstream
+  that may be slow or absent, which is what `EnrichmentModule` already does, and it needs bytes,
+  which is what `host.streams` already is.
+- **A byte-capped or partial download cannot produce an outro.** Whatever fetches the audio has to
+  say whether it got the whole file, or the analysis will confidently describe a truncation.
+- **Do not shorten the fade inside a fixed buffer.** If the buffer is a constant and the fades are
+  shorter than it, the outgoing track plays at full level while the incoming one ramps and the two
+  sum audibly. Vary the buffer, keep fade length equal to it.
+
+The same pass cheaply yields intro length (where the vocal or the beat actually starts), which is
+what would let a talk-over cue itself instead of being handed a time.
+
+## 4. Per-track gain, alongside the live normalizer
+
+**Lands at:** a resolved gain on the `annotate:` uri the pusher pushes, read by `radio.liq`.
+
+`normalize(target=-16.)` on the leaf sources holds the station roughly level, but a live normalizer
+is a follower: it pumps on dynamic material, it takes a moment on each new item, and it fights the
+duck ramp because both are moving gain at once.
+
+The static answer is per track and decided before air: prefer the file's own ReplayGain tags where a
+source carries them, fall back to a measured figure, then **cap the boost and respect peak
+headroom** so a quiet master is not lifted into clipping. Three details that matter more than they
+look:
+
+- It is one number per item, so it rides the annotation the pusher already builds
+  (`playout/annotate.ts`), and costs nothing at air time.
+- Anything the station **renders** has to be gained by the same function, or produced audio sits at a
+  different level than the records around it. That is the failure this prevents, and it is the one
+  people notice.
+- This matters most exactly when the station spans sources, because a local file, a Navidrome file
+  and a Spotify decrypt do not agree about level and never will.
+
+## 5. Never-play rules, beyond a dislike
+
+**Lands at:** `rejectDisliked`'s neighbourhood in `rotation.rules.ts`, and the candidate SQL.
+
+A dislike is per entity. What a station also needs is a **predicate**: never play this genre, this
+tag, this mood, anything on this playlist, anything by this artist, with two qualifiers.
+
+- **A seasonal allow-window.** Inclusive month and day, wrapping the year end, in the station's zone.
+  This is the same problem the setlist mode already reasons about from the other side: a Christmas
+  record is not disliked, it is out of season eleven months a year, and putting it in a setlist
+  solves airing it but not suppressing it.
+- **An optional lineup scope**, so a rule can apply to rotation and not to a feature.
+
+Two design rules, both learned the expensive way elsewhere:
+
+- **Enforcement is inherited, never added.** Rules evaluate at the chokepoints a dislike already
+  passes through. A second filter bolted onto a pick path is how the two kinds drift until one is
+  enforced in three places and the other in two.
+- **A rule is absolute, like a dislike.** No never-starve exception, including for a listener
+  request. A rule that quietly relaxes under pressure is worse than no rule, because nobody can
+  reproduce it.
+
+Offer no one-click undo on a row that a *rule* excluded: one rule can cover hundreds of rows, and
+the edit belongs where the rule is, not where a symptom of it showed up.
+
+## 6. Catalog correctness: genres and era
+
+**Lands at:** `catalog.types.ts` and the candidate SQL. Two small pure functions, both of which the
+catalog gets wrong silently by default.
+
+**Genres are multi-value and matching is one-directional.** A tag may REFINE a request but never
+broaden it: a lineup asking for "Punk" accepts a `Punk Rock` record; one asking for "Pop Punk"
+rejects a plain `Pop` record. Containment must be word-boundary aligned or a "Rap" filter pulls
+`Trap`. Store the array; a scalar first-genre column is fine as a generated, indexable convenience,
+but it must never be the thing that is written.
+
+**Era is judged by resolved original year, not by the year on the row.** An album's `year` is the
+year of *that release*, so a compilation reports its own reissue date and every track on it lands in
+the wrong decade. Prefer an original release date where the source gives one, treat a compilation's
+plain year as **unknown** rather than as evidence, and enrich the gaps from MusicBrainz, which is
+already a plugin here. Whatever precedence the SQL uses and whatever precedence the JS uses have to
+be the same precedence, or a lineup filter and a lineup badge will disagree about the same track.
+
+Both of these are cheap now and expensive after a catalogue has been built on the wrong answer.
+
+## 7. Listener signal
+
+**Lands at:** a new table plus a route beside `POST /playout/listener`, and a weight in
+`rotation.rules.ts`.
+
+Operator dislikes are decided by somebody who is logged in. A listener is not, and requiring an
+account to press a heart means nobody presses it.
+
+So the record is **accountless**: one per apparent listener per airing, keyed by an HMAC of the IP
+under a persisted secret, with the raw IP never stored. Two consequences to accept up front rather
+than discover: one household behind NAT is one listener, and the key is stable only as long as the
+address is. Both are the right trade for not having a login.
+
+Two rules that are not obvious and are worth deciding once:
+
+- **An operator's own mark is a real record, not a separate concept**, distinguished by a marker so
+  surfaces can tell them apart. But it is **exempt from ageing out** and **exempt from the trim**,
+  because a listener signal decaying is a taste snapshot expiring, while an operator signal decaying
+  is the station forgetting curation somebody set by hand.
+- **A mark on the station is not a write to the provider.** The one defensible exception is an
+  operator unmarking when no marks remain at all, which is a toggle rather than a purge.
+
+Feeding this into rotation is a weight in the existing draw, not a new mechanism.
+
+## 8. What the operator can see
+
+**Lands at:** the console, over the existing `RotatingLogStore` and `PluginLog`.
+
+The logging chassis is better than what is built on it. Two surfaces close that gap, and the second
+one matters more than it sounds:
+
+- **An activity feed**: what aired, what was picked and why it was picked, what a plugin was asked
+  and what it answered, what a render did. Structured lines, filterable by module.
+- **A diagnosis of silence.** In `audience` mode a station with a full running order and nobody
+  connected is silent **on purpose**, and a station whose API stopped renewing the lease is silent
+  because something broke. From outside the two are identical, and the console currently says
+  `ready` for the first without being able to rule out the second. An operator asking "why can't I
+  hear anything" needs one page that names the cause: no audience, no programme, no ready segment, a
+  plugin that is failing to resolve, an upstream over its rate limit, a lease that is not being
+  renewed.
+
+The general rule: every gate that can silence the station should be able to say, in one line, that
+it is the one currently doing so.
+
+## 9. The writer, and what it must not be allowed to do
+
+**Lands at:** [dj-voice.md](dj-voice.md) piece two. Not restated here, with one addition that belongs
+with the rest of the model work above.
+
+A prompt that is asked to be concrete about music and is shown no track fields will reach into
+training data and describe a record that is not playing. The failure is specific: it is not that the
+model invents facts, it is that it frames real facts as a **cue** ("coming up", "you just heard",
+"that was"). Ban the framing rather than the noun, because a feature about an album that cannot name
+the album is not a feature. Ask separately for certainty, because inventing credits and mis-cueing a
+real record are independent failures and a single instruction covering both gets neither.
+
+## Smaller entries, noted so they are not re-derived
+
+- **The Icecast burst is a BYTE count** (`burst-size`, currently 8192, so backlog is under a second
+  and nothing downstream needs to care). If it is ever raised for faster player start, note that the
+  same byte figure is a different number of seconds on every mount at a different bitrate, and that
+  every listener then sits that far behind the live edge for the whole connection. Anything that
+  displays a playhead to a listener has to shift by the advertised depth. Do not try to measure that
+  offset in the browser from `buffered`: a player's buffered range reports what it has demuxed, not
+  what the connect burst put in an internal cache, and the two differ by roughly the whole burst.
+  `queue-size` should stay comfortably above `burst-size` or a client is evicted the moment it falls
+  behind its own primed buffer.
+- **Break kinds become a rule.** `BREAK_KIND` in `break.planner.ts` is the constant `'ident'`, with a
+  comment saying so. Once a talk break can be written, which slot gets which kind is a decision, and
+  it belongs beside `breakEveryItems` rather than in the planner.
+- **Rotation rules as settings.** `DEFAULT_RULES` is a constant with good reasoning attached and no
+  way for an operator to touch it. Already noted in
+  [director-and-lineups.md](director-and-lineups.md); repeated here because entries 1, 2 and 5 all
+  want somewhere to put a setting and none of them should be the one to invent it.

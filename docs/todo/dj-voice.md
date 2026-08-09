@@ -187,6 +187,39 @@ Port `LlmGate` from v1 with the two things it paid for in production:
 model can produce, so an LLM choosing the music is a second binding rather than a reshape. That is a
 separate piece of work from the one above and should not be bundled with it.
 
+### Four things the seam has to get right
+
+**Added 2026-08-09**, while scoping the `llm` capability. The first of these changes the shape
+described above, so read it as a correction rather than a footnote.
+
+**1. The seam is keyed by KIND, not a single `BreakWriter`.** A registry over `segments.kind`, where
+each writer takes a request carrying the moment the station is in rather than two tracks. The
+previous station did not have one generator, it had five (a talk break, a sign-on, a news bulletin, a
+DJ set, a two-voice dialogue) and every one of them read the same substrate and produced a script. A
+seam shaped as `(previous track, next track) -> line` fits exactly the first of those and has to be
+reshaped for the other four. `BREAK_KIND = 'ident'` in
+[break.planner.ts](../../apps/api/src/modules/director/break.planner.ts) already carries a comment
+saying it becomes a rule once something can write and speak a break; those kinds are what it becomes.
+
+**2. The deterministic writer is the floor, not a phase.** Every generator in the previous station
+fell back to a deterministic stub on any model failure, and that is what kept a rotation clock from
+stalling on a slow model. It is not scaffolding to be removed once the model half works.
+
+**3. What the station SAID needs somewhere to live, sooner than "The smaller things this leaves
+behind" assumes.** The moment a persona or a mood is involved, an avoid-list becomes load-bearing: a
+character sheet saying "use a signature phrase, but not in every script" is an instruction no writer
+can follow without seeing the last few scripts. Still its own table rather than a relaxation of
+`play_history`, for the reason given below.
+
+**4. Record the transitions as facts while writing them, not afterwards.** A segment moving
+`planned -> rendering -> ready | failed` wants a timestamp, a reason on `failed`, and a degraded write
+(the model declined, the stub answered) recorded as data rather than as a log line. Doing it here
+costs nothing; doing it later is a migration plus a backfill nobody can do. It is what turns the
+activity feed above into a transport over existing rows.
+
+See [station-moment.md](station-moment.md) for the request those writers take, and
+[tool-plugins.md](tool-plugins.md) for what a writer can ask mid-sentence.
+
 ## The smaller things this leaves behind
 
 - **Outro cues.** "Finish two seconds before the record ends" needs the segment's duration, and

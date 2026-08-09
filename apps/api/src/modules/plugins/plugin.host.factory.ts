@@ -495,17 +495,18 @@ const rateLimitWaitMs = (rejection: unknown): number | undefined => {
  * what makes the manifest an honest description of a well-behaved plugin's
  * blast radius.
  *
- * It is not what stops a badly-behaved one. `PluginLoader` imports plugin code
- * into this process with a plain dynamic `import()`, so a plugin that wants
- * global `fetch`, `fs`, or `process.env` has them, and gating the methods here
- * does not take them away. Treat this factory as the reliability and
- * disclosure layer it currently is; containment needs an isolate, and the
- * JSON-safe boundary below is what leaves room for one.
+ * It is not what stops a badly-behaved one, and it never will be.
+ * `PluginLoader` imports plugin code into this process with a plain dynamic
+ * `import()`, permanently (`docs/decisions/plugin-trust.md`), so a plugin that
+ * wants global `fetch`, `fs`, or `process.env` has them and gating the methods
+ * here does not take them away. This is the reliability and disclosure layer,
+ * which is all it was ever actually doing.
  *
- * Nothing that crosses back to the plugin is anything but JSON-safe: no
- * `Response`, no `Buffer`, no kysely row objects. That keeps the boundary
- * movable behind a subprocess later without touching a signature; see
- * `docs/decisions/plugin-isolation.md` for why a subprocess and not a worker.
+ * So what crosses back to a plugin is whatever suits the job: `host.fetch`
+ * hands over a real `Response` and `host.signal` a real `AbortSignal`. The
+ * JSON-safe rule still governs the payloads that are stored or sent, which is
+ * most of `capabilities/`, and `boundary.json.safe.ts` still fails `tsc` over
+ * those.
  *
  * Failures included. Everything thrown from here is thrown INTO plugin code,
  * so it is a `PluginError` and never a `ServerkitError`: the SDK deliberately

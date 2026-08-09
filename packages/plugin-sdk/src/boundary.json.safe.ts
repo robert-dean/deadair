@@ -1,5 +1,22 @@
 /**
- * Compile-time enforcement of the JSON-safe boundary rule.
+ * Compile-time enforcement of the JSON-safe rule, over the payloads it applies
+ * to.
+ *
+ * ## Which payloads, and why
+ *
+ * This rule used to cover everything a plugin touched, on the strength of a
+ * deferred move behind a subprocess: JSON was going to be the wire format, so
+ * nothing could carry a `Date`, a `Uint8Array` or a live object. That move is
+ * closed (`docs/decisions/plugin-trust.md`), and with it the reason to apply the
+ * rule to `host.fetch`'s arguments and return value, which nothing serializes.
+ *
+ * What is registered here is what has an INDEPENDENT reason to survive
+ * `JSON.parse(JSON.stringify(x))`: it is stored in Postgres, or sent to the
+ * console over HTTP, or both. A `Date` in `TrackEnrichment` is a bug whether or
+ * not plugins ever move anywhere, which is why that half of the rule outlived
+ * the argument that introduced it.
+ *
+ * ## Why compile time
  *
  * The runtime conformance suite in `tests/` round-trips hand-written fixtures,
  * which catches a value that violates the rule despite a type that permits it
@@ -16,7 +33,7 @@
  * This lives in `src/` rather than `tests/` on purpose: per the repo
  * convention the build tsconfig includes only `./src/**\/*`, so an assertion
  * in `tests/` would never run during `tsc --noEmit`. Everything here is types
- * plus two name arrays, so the runtime cost is the arrays alone.
+ * plus three name arrays, so the runtime cost is the arrays alone.
  */
 
 import type {
@@ -52,9 +69,9 @@ import type { NetworkPermissionFromConfig, NetworkPermissionHost, PluginPermissi
  *
  * Deliberately narrower than structured-clone-safe. `Date`, `Map`, `Set` and
  * typed arrays all survive `structuredClone` and are still rejected here,
- * because the deferred isolation target is a subprocess over IPC rather than
- * `worker_threads`, and a subprocess boundary is framing plus a serialization
- * format, in practice JSON. See `docs/decisions/plugin-isolation.md`.
+ * because what these payloads actually have to survive is Postgres and HTTP,
+ * and both of those are JSON. A `Date` that round-trips through
+ * `structuredClone` still comes back out of a `jsonb` column as a string.
  *
  * `any` and `unknown` pass through unchecked: there is nothing to inspect at
  * compile time, which is exactly the case the runtime fixture round-trip
@@ -99,12 +116,12 @@ type IsJsonSafe<T> = [T] extends [JsonSafe<T>] ? true : false;
 type AssertAllTrue<T extends Record<string, true>> = T;
 
 /**
- * Every data payload that crosses the plugin boundary, asserted in one place.
+ * Every payload that is stored or sent, asserted in one place.
  *
  * ADDING A BOUNDARY TYPE? Add it here and to {@link JSON_SAFE_PAYLOAD_TYPES}.
  * `tests/boundary.registry.test.ts` fails if an exported interface in a
- * boundary source file is in neither registry, so this cannot be skipped by
- * accident.
+ * boundary source file is in none of the three registries, so this cannot be
+ * skipped by accident.
  *
  * `PluginManifest` is asserted without `configSchema`, which is a zod schema:
  * a class instance, deliberately never serialized, and stripped by the host

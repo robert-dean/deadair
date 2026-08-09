@@ -76,28 +76,39 @@ operation /playout/stop: {
     }
 }
 
-# ── The stream container's half ────────────────────────────────────────────────────────
+# ── The stream container's half: the bridge ────────────────────────────────────────────
 #
-# Declared `internal` so it generates into the router but never into the SDK: the SPA has
-# no business calling it, and the only client is a process in the stream container.
-# `security: none` because that caller is not an actor and holds no session — it presents a
-# shared secret instead, which the service checks in constant time.
+# Everything under `/playout/bridge/` is called by a process in the stream container rather
+# than by a person, and the PREFIX is the gate. `bridge.secret.middleware` checks the shared
+# secret on any path beginning with it, answering 404 while the secret is unseeded and 401
+# when it does not match — so a route added here is gated by living here, and there is no
+# per-handler call anyone can forget. Do not put an operation under this prefix that is not
+# part of the bridge, and do not add a bridge route anywhere else.
+#
+# `security: none` on each is correct and is not an absence. ContractKit's policies evaluate
+# against an actor resolved from a session; Liquidsoap and Icecast have neither and present a
+# bare secret in a header, which no policy can read. Omitting the block would be the actual
+# mistake: it generates `requirePolicy()`, which gates on a session these callers cannot have.
+#
+# There is no `headers:` block either, for the same reason there is no per-handler check: the
+# middleware has already rejected a missing, empty or wrong secret before any of this runs, so
+# declaring the header again would only give the services a parameter they must not act on.
+#
+# `internal` keeps them out of the SDK. It is a generation flag, not a security property —
+# these routes are live on the wire like any other.
 
-# Liquidsoap's air confirmation, gated on the bridge secret — the same one the app presents
-# when pushing to its /control/* endpoints, materialized into radio.env by the stream module.
-# Icecast's listener hooks, gated on the same bridge secret as every other route here. Icecast
-# presents it as HTTP basic, because its URL authenticator can send no header of its own;
-# `listener.credential.middleware` moves it onto `x-playout-secret` before ServerKit's
-# authentication middleware deletes the Authorization header. The 200 carries the header Icecast
-# reads as "admit this listener": an `add` is a blocking authentication call, so a refusal here is
-# a listener who is refused the mount.
-operation(internal) /playout/listener: {
+# Icecast's listener hooks. Icecast presents the secret as HTTP basic, because its URL
+# authenticator can send no header of its own; `listener.credential.middleware` moves it onto
+# `x-playout-secret` before ServerKit's authentication middleware deletes the Authorization
+# header, and before the bridge gate reads it. The 200 carries the header Icecast reads as
+# "admit this listener": an `add` is a blocking authentication call, so a refusal here is a
+# listener who is refused the mount.
+operation(internal) /playout/bridge/listener: {
     post: { # Notes a listener arriving or leaving, so the station reacts the moment somebody tunes in rather than at the next poll of Icecast's stats. The count itself still comes from the poll, which is what makes a dropped event harmless
         name: Note a listener
         service: PlayoutService.noteListener
         security: none
         query: PlayoutListenerQuery
-        headers: PlayoutBridgeHeaders
         response: {
             200: {
                 text/plain: string
@@ -109,13 +120,34 @@ operation(internal) /playout/listener: {
     }
 }
 
-operation(internal) /playout/aired: {
+# Liquidsoap's air confirmation. The secret is the same one the app presents when pushing to
+# Liquidsoap's own /control/* endpoints, materialized into radio.env by the stream module.
+operation(internal) /playout/bridge/aired: {
     post: { # Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
         name: Confirm aired item
         service: PlayoutService.confirmAired
         security: none
         query: PlayoutAiredQuery
-        headers: PlayoutBridgeHeaders
+        response: {
+            204:
+        }
+    }
+}
+
+# Liquidsoap reporting that its playout queue stopped producing while deadair still held the
+# mount, and that it started again. Pushed rather than polled because the app's reconcile runs
+# every two seconds, so a gap shorter than that is invisible to it entirely and one starting
+# just after a tick is seen two seconds late — and a gap is the only symptom of a running order
+# the station cannot actually play.
+#
+# NB: this is the one bridge route with a side effect beyond bookkeeping (it brings the
+# reconcile forward), which is a second reason the gate on this prefix cannot be optional.
+operation(internal) /playout/bridge/starve: {
+    post: { # Reports that the running order stopped producing audio, or started again. The mount has fallen through to the local bed in between, so nothing deadair programmed is being heard
+        name: Note a starved running order
+        service: PlayoutService.noteStarve
+        security: none
+        query: PlayoutStarveQuery
         response: {
             204:
         }

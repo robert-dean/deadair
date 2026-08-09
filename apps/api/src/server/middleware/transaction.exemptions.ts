@@ -23,6 +23,8 @@
 // policies. Today's exemptions (streaming, infra) don't; anything added here
 // must clear the same bar or open its own transaction.
 
+import { LISTENER_HOOK_PATH } from './listener.credential.middleware.js';
+
 // Minimal request shape the predicates need — avoids coupling to the Koa/ServerKit ctx type.
 export type ExemptionRequest = { method: string; path: string };
 
@@ -50,7 +52,10 @@ export const nowPlayingExemption: TransactionExemption = ({ method, path }) => m
 // it moves an in-memory reading and returns a constant. Spending a pooled connection and a
 // transaction on that would be pure cost, and on a mount that has just been announced somewhere it
 // would be one per arriving listener at once.
-export const listenerHookExemption: TransactionExemption = ({ method, path }) => method === 'POST' && path === '/playout/listener';
+// Keyed off the same constant the credential middleware and the route itself use, so moving the
+// bridge cannot silently un-exempt it: a stale literal here would still compile, still pass every
+// test, and quietly put a transaction back on the one path a listener waits out.
+export const listenerHookExemption: TransactionExemption = ({ method, path }) => method === 'POST' && path === LISTENER_HOOK_PATH;
 
 export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
     infraExemption,

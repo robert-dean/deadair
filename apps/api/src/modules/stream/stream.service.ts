@@ -4,21 +4,30 @@ import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { Logger } from '@maroonedsoftware/logger';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { CONTROL_TTL_S, PLAYOUT_LEAD } from '#modules/playout/liquidsoap.control.js';
-import { playoutAiredUrl, playoutListenerUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
+import { playoutAiredUrl, playoutListenerUrl, playoutStarveUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
 import { defaultStreamAssetsDir, defaultStreamConfigDir, writeStreamConfig, type StreamPlayoutConfig } from './stream.config.js';
 import { ensureStreamSecrets, resolveStreamSettings, type StreamSettings } from './stream.settings.js';
 
 /**
- * The duck, and whether the DJ talks over the music or between tracks.
+ * How a break sounds: whether the DJ talks over the music or between tracks, how
+ * far the bed drops under it, how long that ramp takes, and the trim on the
+ * voice itself.
  *
- * Constants rather than settings: the director that would own them does not
- * exist here, and nothing pushes voice to the harbor yet, so these only decide
- * what a future break would sound like. They match `stream/radio.default.env`
- * so the rendered file agrees with the committed fallback.
+ * Constants rather than settings, still: these are the values an operator tunes
+ * by ear, and the seam that would hold them (`STREAM_KEYS` in
+ * `stream.settings.ts`) is the one every other stream value already goes
+ * through. They stay here because `radio.liq` reads all four at STARTUP, so
+ * making them settings without also solving the restart trigger would give the
+ * console a knob that silently does nothing until the container bounces. See
+ * `docs/todo/mixer-settings-in-db.md`.
+ *
+ * They match `stream/radio.default.env` so the rendered file agrees with the
+ * committed fallback.
  */
 const TALK_OVER_TRACKS = true;
 const DUCK_GAIN_DB = -12;
 const DUCK_FADE_MS = 300;
+const VOICE_GAIN_DB = 0;
 
 /** Where Liquidsoap finds the local music bed inside its own container. */
 const DEFAULT_MUSIC_DIR = '/music';
@@ -95,6 +104,7 @@ export class StreamService {
 
         return {
             playoutAiredUrl: playoutAiredUrl(base),
+            playoutStarveUrl: playoutStarveUrl(base),
             // The same base Liquidsoap reports air on, because it is the same question:
             // where this app is, as a container on the stream's network sees it.
             ...(settings.listenerHooks
@@ -104,6 +114,7 @@ export class StreamService {
             talkOverTracks: TALK_OVER_TRACKS,
             duckGainDb: DUCK_GAIN_DB,
             duckFadeMs: DUCK_FADE_MS,
+            voiceGainDb: VOICE_GAIN_DB,
             controlTtlS: CONTROL_TTL_S,
             playoutPrefetch: PLAYOUT_LEAD,
         };

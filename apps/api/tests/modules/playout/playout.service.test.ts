@@ -4,7 +4,7 @@
 // token, while the bridge only moves item ids around, so one leaking must not
 // spend the other.
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import { PlayoutService } from '../../../src/modules/playout/playout.service.js';
@@ -223,17 +223,18 @@ describe('PlayoutService.skip and stop', () => {
     });
 });
 
+// The secret is no longer these handlers' business: they sit under /playout/bridge/, and
+// `bridgeSecretMiddleware` has already refused anything that did not present it. The gate's
+// own cases live in tests/server/middleware/bridge.secret.middleware.test.ts — deliberately
+// in ONE place, since that is the point of gating the prefix rather than each handler.
 describe('PlayoutService.noteListener', () => {
-    /** What the credential middleware leaves behind once Icecast's basic auth is decoded. */
-    const presenting = (secret: string) => ({ 'x-playout-secret': secret });
-
     it('answers with the header that admits the listener', () => {
         // Icecast is holding the client's connection open waiting for this. Without the
         // header it reads as a refusal, and the listener is turned away from a mount
         // that was perfectly willing to have them.
         const { service } = build();
 
-        const answer = service.noteListener({ event: 'add' }, presenting(BRIDGE_SECRET));
+        const answer = service.noteListener({ event: 'add' });
 
         expect(answer.headers.icecastAuthUser).toBe('1');
     });
@@ -241,61 +242,94 @@ describe('PlayoutService.noteListener', () => {
     it('tells the audience which way the listener went', () => {
         const { service, audience } = build();
 
-        service.noteListener({ event: 'add' }, presenting(BRIDGE_SECRET));
-        service.noteListener({ event: 'remove' }, presenting(BRIDGE_SECRET));
+        service.noteListener({ event: 'add' });
+        service.noteListener({ event: 'remove' });
 
         expect(audience.noteArrival).toHaveBeenNthCalledWith(1, true);
         expect(audience.noteArrival).toHaveBeenNthCalledWith(2, false);
     });
-
-    it('refuses a wrong secret, and never counts one', () => {
-        const { service, audience } = build();
-
-        expect(() => service.noteListener({ event: 'add' }, presenting('not-the-secret'))).toThrow();
-        expect(audience.noteArrival).not.toHaveBeenCalled();
-    });
-
-    it('answers 404 while the bridge is unconfigured, rather than admitting everyone', () => {
-        const { service } = build({ bridgeSecret: '' });
-
-        expect(() => service.noteListener({ event: 'add' }, presenting(''))).toThrow();
-    });
 });
 
 describe('PlayoutService.confirmAired', () => {
-    it('records the item when the bridge secret matches', async () => {
+    it('records the item', () => {
         const { service, rundown } = build();
 
-        await service.confirmAired({ item: 'item-1' }, { 'x-playout-secret': BRIDGE_SECRET });
+        service.confirmAired({ item: 'item-1' });
 
         expect(rundown.markAired).toHaveBeenCalledWith('item-1');
     });
 
-    it('rejects a mismatched secret', async () => {
-        const { service, rundown } = build();
-
-        expect(await statusOf(service.confirmAired({ item: 'item-1' }, { 'x-playout-secret': 'wrong' }))).toBe(401);
-        expect(rundown.markAired).not.toHaveBeenCalled();
-    });
-
-    it('answers 404 while the bridge secret is unseeded, since nothing could match', async () => {
-        const { service } = build({ bridgeSecret: '' });
-
-        expect(await statusOf(service.confirmAired({ item: 'item-1' }, { 'x-playout-secret': '' }))).toBe(404);
-    });
-
-    it('accepts an item the rundown does not hold', async () => {
+    it('accepts an item the rundown does not hold', () => {
         // A Liquidsoap that outlived an app restart reports the item it is still
         // playing. The caller is a fire-and-forget http.post that cannot act on an
         // error, and the rundown declines to invent the id, which is the whole handling.
         const { service } = build({ markAired: false });
 
-        await expect(service.confirmAired({ item: 'from-a-previous-session' }, { 'x-playout-secret': BRIDGE_SECRET })).resolves.toBeUndefined();
+        expect(() => service.confirmAired({ item: 'from-a-previous-session' })).not.toThrow();
+    });
+});
+
+describe('PlayoutService.noteStarve', () => {
+    // The logger is a module-level mock shared by every test in this file, and the cases below
+    // assert on what was NOT logged. Without this they would see calls from earlier describes.
+    beforeEach(() => {
+        (logger.warn as unknown as ReturnType<typeof vi.fn>).mockClear();
+        (logger.debug as unknown as ReturnType<typeof vi.fn>).mockClear();
     });
 
-    it('does not accept the login secret in place of the bridge one', async () => {
+    it('hands the next item over rather than waiting out the reconcile tick', () => {
+        // The usual cause is a queue that ran dry or an item that failed to resolve, and
+        // both are fixed by pushing. Waiting is the one response that guarantees the gap
+        // lasts at least as long as the tick that would have noticed it.
+        const { service, pusher } = build();
+
+        service.noteStarve({ state: 'starved', forMs: 180_000 });
+
+        expect(pusher.reconcile).toHaveBeenCalledOnce();
+    });
+
+    it('does not push on a recovery, which is already the state it wanted', () => {
+        const { service, pusher } = build();
+
+        service.noteStarve({ state: 'recovered', forMs: 4_000 });
+
+        expect(pusher.reconcile).not.toHaveBeenCalled();
+    });
+
+    it('never throws at the caller, which is a fire-and-forget post that cannot act on it', () => {
+        const { service, pusher } = build();
+        (pusher.reconcile as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('stream went away'));
+
+        expect(() => service.noteStarve({ state: 'starved', forMs: 0 })).not.toThrow();
+    });
+
+    // Severity is decided on the RECOVERY, because that is the only edge that knows how long
+    // the gap lasted. Getting this wrong is not cosmetic: every first listener produces a real
+    // sub-second gap (the app queues nothing while the audience gate is shut), so warning at
+    // the leading edge means a warning on every arrival, and a warning on every arrival is one
+    // nobody reads.
+    it('says nothing alarming when the gap opens, however long it turns out to be', () => {
         const { service } = build();
 
-        expect(await statusOf(service.confirmAired({ item: 'item-1' }, { 'x-playout-secret': 'not-the-bridge-secret' }))).toBe(401);
+        service.noteStarve({ state: 'starved', forMs: 1_916_500 });
+
+        expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('stays quiet about a gap the reconcile closed within a tick', () => {
+        // The ordinary first-listener case, measured at ~500ms on the running station.
+        const { service } = build();
+
+        service.noteStarve({ state: 'recovered', forMs: 500 });
+
+        expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('warns about a gap that outlived the loop meant to close it', () => {
+        const { service } = build();
+
+        service.noteStarve({ state: 'recovered', forMs: 30_000 });
+
+        expect(logger.warn).toHaveBeenCalledOnce();
     });
 });

@@ -3,7 +3,7 @@
 **As of:** 2026-08-08, just after `listener.credential.middleware` landed (896db1f).
 
 Three things inside the stack call the API as themselves rather than on behalf of an operator:
-Liquidsoap (`POST /playout/aired`), Icecast (`POST /playout/listener`), and the Spotify track shim
+Liquidsoap (`POST /playout/bridge/aired`), Icecast (`POST /playout/bridge/listener`), and the Spotify track shim
 in the other direction. All of them present the same static string, and none of them is an actor.
 This file is the design for making them actors, and the reason it was not done when the question
 came up.
@@ -60,7 +60,7 @@ gives the other the same identity for free. Splitting the secret comes first, an
 settings, `radio.env`, `icecast.xml` and the shim.
 
 **`listener_add` is a blocking call on the listener's own connection.** Icecast holds the client
-until `POST /playout/listener` answers, which is why `PlayoutService.noteListener` does no database
+until `POST /playout/bridge/listener` answers, which is why `PlayoutService.noteListener` does no database
 work, takes no lock and returns a constant. Routing it through authentication as it stands adds, per
 listener connect, an issuer verify, a session materialization, and then the `existsActive` query and
 platform-role tuple read that `authorizationContextMiddleware` performs. Two Postgres round trips on

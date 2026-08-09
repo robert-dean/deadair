@@ -40,19 +40,22 @@ export interface PlayoutAiredQuery {
 }
 
 /**
- * The shared secret gating the internal playout bridge, in both directions
- * generated from [PlayoutBridgeHeaders](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L46)
- */
-export interface PlayoutBridgeHeaders {
-    'x-playout-secret': string;
-}
-
-/**
  * Which way a listener went
- * generated from [PlayoutListenerQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L50)
+ * generated from [PlayoutListenerQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L46)
  */
 export interface PlayoutListenerQuery {
     event: 'add' | 'remove';
+}
+
+/**
+ * Which way the running order went, and how long it had been that way
+ * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L50)
+ */
+export interface PlayoutStarveQuery {
+    /** `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again */
+    state: 'starved' | 'recovered';
+    /** How long the PREVIOUS state lasted, in milliseconds. On a recovery this is the length of the gap, which is the number worth reading */
+    forMs: number;
 }
 
 /**

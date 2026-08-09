@@ -16,7 +16,7 @@ import { DEFAULT_AIR_MODE, type AirMode } from './air.mode.js';
  * It POLLS, and the poll is the truth. Icecast can also push listener events,
  * and that push is worth having for the moment somebody tunes in — but a push
  * can be dropped, and a listener whose connection was yanked is only ever
- * noticed by asking. Same division as `POST /playout/aired` and
+ * noticed by asking. Same division as `POST /playout/bridge/aired` and
  * `/control/status`: the push beats the poll to the edge, the poll is what makes
  * a dropped push harmless.
  */

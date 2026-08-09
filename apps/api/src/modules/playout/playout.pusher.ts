@@ -52,8 +52,15 @@ const LEAD = PLAYOUT_LEAD;
  */
 const WARM_LEAD = 0;
 
-/** Safety net for anything that does not emit a change: a restart, a dropped push. */
-const TICK_MS = 2000;
+/**
+ * Safety net for anything that does not emit a change: a restart, a dropped push.
+ *
+ * Exported because it is also the yardstick for how long a gap in the running
+ * order has to last before it means anything: anything shorter than one pass of
+ * this loop is the queue being topped up, which is why `PlayoutService.noteStarve`
+ * judges a gap against it rather than against a second number that could drift.
+ */
+export const RECONCILE_TICK_MS = 2000;
 
 /**
  * How long a skip waits for the player to actually cross the boundary, and how
@@ -134,9 +141,9 @@ export class PlayoutPusher {
             }),
         );
 
-        this.timer = setInterval(() => this.tick(), TICK_MS);
+        this.timer = setInterval(() => this.tick(), RECONCILE_TICK_MS);
         this.timer.unref?.();
-        this.logger.info(`playout: pushing the rundown to liquidsoap (lead ${LEAD}, reconciling every ${TICK_MS}ms)`);
+        this.logger.info(`playout: pushing the rundown to liquidsoap (lead ${LEAD}, reconciling every ${RECONCILE_TICK_MS}ms)`);
     }
 
     /** Stop draining. The player keeps playing whatever it already holds. */

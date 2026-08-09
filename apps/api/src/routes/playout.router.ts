@@ -2,9 +2,9 @@ import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@marooneds
 import { PlayoutService } from '#src/modules/playout/playout.service.js';
 import {
     PlayoutAiredQuery,
-    PlayoutBridgeHeaders,
     PlayoutListenerQuery,
     PlayoutPlaylistInput,
+    PlayoutStarveQuery,
     PlayoutStatus,
 } from '../modules/playout/types/playout.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
@@ -70,17 +70,15 @@ PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Notes a listener arriving or leaving, so the station reacts the moment somebody tunes in rather than at the next poll of Icecast's stats. The count itself still comes from the poll, which is what makes a dropped event harmless
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L95)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L107)
  * anonymous access, no security required
  * @internal
  */
-PlayoutRouter.post('/playout/listener', async ctx => {
+PlayoutRouter.post('/playout/bridge/listener', async ctx => {
     const query = await parseAndValidate(ctx.query, PlayoutListenerQuery.strict());
 
-    const headers = await parseAndValidate(ctx.headers, PlayoutBridgeHeaders.strip());
-
     const service = ctx.container.get(PlayoutService);
-    const result: { body: string; headers: { icecastAuthUser: string } } = await service.noteListener(query, headers);
+    const result: { body: string; headers: { icecastAuthUser: string } } = await service.noteListener(query);
 
     ctx.status = 200;
     ctx.set('icecast-auth-user', String(result.headers['icecastAuthUser']));
@@ -90,17 +88,30 @@ PlayoutRouter.post('/playout/listener', async ctx => {
 
 /**
  * Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L113)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L126)
  * anonymous access, no security required
  * @internal
  */
-PlayoutRouter.post('/playout/aired', async ctx => {
+PlayoutRouter.post('/playout/bridge/aired', async ctx => {
     const query = await parseAndValidate(ctx.query, PlayoutAiredQuery.strict());
 
-    const headers = await parseAndValidate(ctx.headers, PlayoutBridgeHeaders.strip());
+    const service = ctx.container.get(PlayoutService);
+    await service.confirmAired(query);
+
+    ctx.status = 204;
+});
+
+/**
+ * Reports that the running order stopped producing audio, or started again. The mount has fallen through to the local bed in between, so nothing deadair programmed is being heard
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L146)
+ * anonymous access, no security required
+ * @internal
+ */
+PlayoutRouter.post('/playout/bridge/starve', async ctx => {
+    const query = await parseAndValidate(ctx.query, PlayoutStarveQuery.strict());
 
     const service = ctx.container.get(PlayoutService);
-    await service.confirmAired(query, headers);
+    await service.noteStarve(query);
 
     ctx.status = 204;
 });

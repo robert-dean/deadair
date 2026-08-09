@@ -27,7 +27,7 @@ describe('resolvePlayoutBaseUrl', () => {
 
     it('trims a trailing slash so the joined path has exactly one', () => {
         expect(playoutAiredUrl(resolvePlayoutBaseUrl(configWith({ PLAYOUT_BASE_URL: 'http://app:3333/playout//' })))).toBe(
-            'http://app:3333/playout/aired',
+            'http://app:3333/playout/bridge/aired',
         );
     });
 });
@@ -51,6 +51,13 @@ describe('segmentAudioUrl', () => {
 
 describe('playoutAiredUrl', () => {
     it('names the route the playout contract actually serves', () => {
-        expect(playoutAiredUrl(DEFAULT_PLAYOUT_BASE_URL)).toBe('http://host.docker.internal:3333/playout/aired');
+        expect(playoutAiredUrl(DEFAULT_PLAYOUT_BASE_URL)).toBe('http://host.docker.internal:3333/playout/bridge/aired');
+    });
+
+    // The /bridge segment is not decoration: `bridgeSecretMiddleware` gates on exactly that
+    // prefix, so a URL built without it reaches a route that does not exist, and Liquidsoap
+    // fire-and-forgets the call, so nobody would see the 404.
+    it('puts the aired notify under the gated bridge prefix', () => {
+        expect(playoutAiredUrl(DEFAULT_PLAYOUT_BASE_URL)).toContain('/playout/bridge/');
     });
 });

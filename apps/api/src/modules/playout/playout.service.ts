@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto';
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
@@ -7,14 +6,14 @@ import { StreamService } from '#modules/stream/stream.service.js';
 import { AudienceWatch } from './audience.watch.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
-import { PlayoutPusher } from './playout.pusher.js';
+import { PlayoutPusher, RECONCILE_TICK_MS } from './playout.pusher.js';
 import { Rundown, type RundownItem } from './rundown.js';
 import type {
     PlayoutAiredQuery,
-    PlayoutBridgeHeaders,
     PlayoutItem,
     PlayoutListenerQuery,
     PlayoutPlaylistInput,
+    PlayoutStarveQuery,
     PlayoutStatus,
 } from './types/playout.types.js';
 
@@ -25,6 +24,20 @@ import type {
  * hundreds of tracks, and this is polled every couple of seconds.
  */
 const UP_NEXT_LIMIT = 10;
+
+/**
+ * How long a gap in the running order has to last before it is worth an
+ * operator's attention.
+ *
+ * One pass of the pusher's reconcile loop, and taken from that constant rather
+ * than restated, because the whole meaning of the threshold is "did the app get
+ * a chance to fix this". A gap shorter than a tick is the queue being topped up:
+ * measured on the running station, every first listener produces one of about
+ * 500ms, because the app deliberately queues nothing while the audience gate is
+ * shut and so takes the lease a beat before the first item lands. A gap longer
+ * than a tick is one that survived the thing that was supposed to close it.
+ */
+const GAP_WARN_MS = RECONCILE_TICK_MS;
 
 /**
  * The playout surface: the console's transport, plus the one call the stream
@@ -161,12 +174,11 @@ export class PlayoutService {
      * is still playing. {@link Rundown.markAired} declines to invent it into the
      * running order, which is the whole handling it needs.
      *
-     * @throws 404 while the bridge secret is unseeded (the route is not usable
-     *   yet), 401 when the presented secret does not match.
+     * Takes no secret and checks none: it is reached under `/playout/bridge/`,
+     * where `bridgeSecretMiddleware` has already refused anything that did not
+     * present it. See the note above that prefix in `playout.ck`.
      */
-    async confirmAired(query: PlayoutAiredQuery, headers: PlayoutBridgeHeaders): Promise<void> {
-        this.requireBridgeSecret(headers['x-playout-secret']);
-
+    confirmAired(query: PlayoutAiredQuery): void {
         if (!this.rundown.markAired(query.item)) {
             this.logger.warn('playout: aired notify named an item the rundown does not hold', { item: query.item });
         }
@@ -188,14 +200,13 @@ export class PlayoutService {
      * number. A dropped event therefore costs a second of latency and nothing
      * else.
      *
-     * @throws 404 while the bridge secret is unseeded, 401 when it does not match.
+     * The secret is checked before this runs, by `bridgeSecretMiddleware` on the
+     * `/playout/bridge/` prefix. Icecast presents it as HTTP basic and
+     * `listener.credential.middleware` moves it onto the header first, because
+     * ServerKit's authentication middleware deletes Authorization before any
+     * route runs.
      */
-    noteListener(query: PlayoutListenerQuery, headers: PlayoutBridgeHeaders): { body: string; headers: { icecastAuthUser: string } } {
-        // The same header the rest of the bridge presents. Icecast sends it as HTTP
-        // basic and `listener.credential.middleware` moves it here, because ServerKit's
-        // authentication middleware deletes Authorization before any route runs.
-        this.requireBridgeSecret(headers['x-playout-secret']);
-
+    noteListener(query: PlayoutListenerQuery): { body: string; headers: { icecastAuthUser: string } } {
         this.audience.noteArrival(query.event === 'add');
         // `1` is what Icecast reads as "this listener may have the mount"; the header
         // name is the `auth_header` option in the rendered icecast.xml, and the two have
@@ -204,22 +215,58 @@ export class PlayoutService {
     }
 
     /**
-     * Gate an internal call on the shared bridge secret.
+     * Note that the running order stopped producing audio, or started again.
      *
-     * Constant-time, because this is a bare secret compared on every boundary:
-     * a length-then-bytes short circuit leaks it a byte at a time to anything
-     * that can time the response.
+     * `starved` means the playout queue went unready while deadair still held
+     * the mount, so Liquidsoap fell through to its local bed: the station is on
+     * air, and what a listener hears is not what it programmed. That is a fact
+     * the app cannot observe for itself with any precision — the reconcile runs
+     * every couple of seconds, so a gap shorter than that never appears in a
+     * reading at all — which is why the stream pushes it rather than being
+     * asked.
+     *
+     * A starve also brings the reconcile forward, because the usual cause is a
+     * queue that ran dry or an item that failed to resolve, and both are fixed
+     * by handing over the next item rather than by waiting out the tick.
+     * `reconcile` is idempotent and guards itself, so firing it from here costs
+     * nothing when the cause was something else.
+     *
+     * **The severity is decided on the recovery, not on the starve**, which
+     * looks backwards and is the only place the information exists. Measured on
+     * the running station: every first listener produces a real ~500ms gap,
+     * because the app deliberately queues nothing while the audience gate is
+     * shut ({@link PlayoutPusher}'s `WARM_LEAD`), so the lease is taken a beat
+     * before the first item lands. That gap is designed behaviour. Warning about
+     * it at the leading edge means a WARN on every arrival, which is precisely
+     * how a log line stops being read — and the leading edge cannot tell the
+     * difference, because how long a gap lasts is not known when it opens.
+     *
+     * So the arrival is recorded quietly and the DURATION is judged: shorter
+     * than a reconcile is the queue being topped up, longer is a fault nothing
+     * corrected in the time it had.
+     *
+     * Fire and forget on the other side, so this must not throw for anything the
+     * caller cannot act on. Like the rest of the bridge it takes no secret: the
+     * prefix middleware has already refused anything that did not present one.
      */
-    private requireBridgeSecret(presented: string): void {
-        const expected = this.endpoint.secret();
-        if (!expected) {
-            // Not seeded, so nothing could match. 404 rather than 401: the route is
-            // not merely refusing this caller, it cannot serve anyone yet.
-            throw httpError(404).withDetails({ message: 'the playout bridge is not configured' });
+    noteStarve(query: PlayoutStarveQuery): void {
+        if (query.state === 'starved') {
+            this.logger.debug('playout: the running order stopped producing while on air; the mount has fallen through to the local bed', {
+                playingForMs: query.forMs,
+            });
+            void this.pusher.reconcile().catch(() => undefined);
+            return;
         }
-        if (!safeEqual(presented, expected)) {
-            throw httpError(401).withDetails({ message: 'invalid playout bridge secret' });
+
+        // "The gap ended", not necessarily "it is playing again": the stream reports a recovery
+        // both when the queue produces once more and when the lease is handed back under it, so
+        // that a starve cannot stay open forever waiting for something that will not happen.
+        if (query.forMs > GAP_WARN_MS) {
+            this.logger.warn('playout: the station aired the local bed instead of its running order', { gapMs: query.forMs });
+            return;
         }
+
+        this.logger.debug('playout: a brief gap in the running order ended', { gapMs: query.forMs });
     }
 }
 
@@ -237,12 +284,4 @@ function toPlayoutItem(item: RundownItem): PlayoutItem {
         ...(item.year === undefined ? {} : { year: item.year }),
         ...(item.trackId === undefined ? {} : { trackId: item.trackId }),
     };
-}
-
-/** Constant-time compare that tolerates differing lengths. */
-function safeEqual(a: string, b: string): boolean {
-    const left = Buffer.from(a);
-    const right = Buffer.from(b);
-    // timingSafeEqual throws on a length mismatch, and the length is not the secret.
-    return left.length === right.length && timingSafeEqual(left, right);
 }

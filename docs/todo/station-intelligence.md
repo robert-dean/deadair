@@ -197,7 +197,7 @@ Both of these are cheap now and expensive after a catalogue has been built on th
 
 ## 7. Listener signal
 
-**Lands at:** a new table plus a route beside `POST /playout/listener`, and a weight in
+**Lands at:** a new table plus a route beside `POST /playout/bridge/listener`, and a weight in
 `rotation.rules.ts`.
 
 Operator dislikes are decided by somebody who is logged in. A listener is not, and requiring an

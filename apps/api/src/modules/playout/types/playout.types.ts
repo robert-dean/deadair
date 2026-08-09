@@ -47,22 +47,33 @@ export const PlayoutAiredQuery = z.strictObject({
 export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
- * The shared secret gating the internal playout bridge, in both directions
- * generated from [PlayoutBridgeHeaders](file://./../../../../data/contracts/playout/playout.types.ck#L46)
- */
-export const PlayoutBridgeHeaders = z.strictObject({
-    'x-playout-secret': z.string().min(1).max(200),
-});
-export type PlayoutBridgeHeaders = z.infer<typeof PlayoutBridgeHeaders>;
-
-/**
  * Which way a listener went
- * generated from [PlayoutListenerQuery](file://./../../../../data/contracts/playout/playout.types.ck#L50)
+ * generated from [PlayoutListenerQuery](file://./../../../../data/contracts/playout/playout.types.ck#L46)
  */
 export const PlayoutListenerQuery = z.strictObject({
     event: z.enum(['add', 'remove']),
 });
 export type PlayoutListenerQuery = z.infer<typeof PlayoutListenerQuery>;
+
+/**
+ * Which way the running order went, and how long it had been that way
+ * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L50)
+ */
+export const PlayoutStarveQuery = z.strictObject({
+    state: z
+        .enum(['starved', 'recovered'])
+        .describe(
+            '`starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again',
+        ),
+    forMs: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .describe(
+            'How long the PREVIOUS state lasted, in milliseconds. On a recovery this is the length of the gap, which is the number worth reading',
+        ),
+});
+export type PlayoutStarveQuery = z.infer<typeof PlayoutStarveQuery>;
 
 /**
  * What the PLAYER says is airing, which is not the same as what was last handed to it

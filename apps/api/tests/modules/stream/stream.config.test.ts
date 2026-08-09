@@ -46,17 +46,21 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
 });
 
 const playout = (overrides: Partial<StreamPlayoutConfig> = {}): StreamPlayoutConfig => ({
-    playoutAiredUrl: 'http://host.docker.internal:3333/api/playout/aired',
+    playoutAiredUrl: 'http://host.docker.internal:3333/api/playout/bridge/aired',
+    playoutStarveUrl: 'http://host.docker.internal:3333/api/playout/bridge/starve',
     playoutBridgeSecret: 'bridge-secret',
     talkOverTracks: true,
     duckGainDb: -12,
     duckFadeMs: 300,
+    voiceGainDb: 0,
+    controlTtlS: 6,
+    playoutPrefetch: 3,
     ...overrides,
 });
 
 const listenerHooks = {
-    addUrl: 'http://host.docker.internal:3333/api/playout/listener?event=add',
-    removeUrl: 'http://host.docker.internal:3333/api/playout/listener?event=remove',
+    addUrl: 'http://host.docker.internal:3333/api/playout/bridge/listener?event=add',
+    removeUrl: 'http://host.docker.internal:3333/api/playout/bridge/listener?event=remove',
 };
 
 /** An assets dir holding the template, plus an empty config dir to render into. */
@@ -97,9 +101,24 @@ describe('writeStreamConfig', () => {
 
         const env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
         expect(env.get('PLAYOUT_BRIDGE_SECRET')).toBe('bridge-secret');
-        expect(env.get('PLAYOUT_AIRED_URL')).toBe('http://host.docker.internal:3333/api/playout/aired');
+        expect(env.get('PLAYOUT_AIRED_URL')).toBe('http://host.docker.internal:3333/api/playout/bridge/aired');
+        expect(env.get('PLAYOUT_STARVE_URL')).toBe('http://host.docker.internal:3333/api/playout/bridge/starve');
         expect(env.get('SPOTIFY_SHIM_SECRET')).toBe('shim-secret');
         expect(env.get('HARBOR_PASSWORD')).toBe('harbor-pw');
+    });
+
+    it('writes every mixer knob, including the ones whose value is zero', () => {
+        // radio.liq reads these at startup and tolerates a missing key, so a knob left out
+        // when it happens to be at its default is one an operator cannot find in the
+        // rendered file and cannot tell apart from a materializer that skipped it.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        const env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
+        expect(env.get('TALK_OVER_TRACKS')).toBe('true');
+        expect(env.get('DUCK_GAIN_DB')).toBe('-12');
+        expect(env.get('DUCK_FADE_MS')).toBe('300');
+        expect(env.get('VOICE_GAIN_DB')).toBe('0');
     });
 
     it('quotes a value containing a single quote so the env file still sources', () => {

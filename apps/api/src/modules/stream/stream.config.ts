@@ -60,6 +60,16 @@ export interface StreamPlayoutConfig {
     /** App endpoint Liquidsoap reports the item that actually went on air to. */
     playoutAiredUrl: string;
     /**
+     * App endpoint Liquidsoap reports a queue that stopped producing to, and one
+     * that started again.
+     *
+     * Empty means "do not report": the script simply skips the call, the same
+     * way it handles an unset aired URL. So a stream pointed at an app too old to
+     * serve the route degrades to the two-second reconcile rather than logging a
+     * 404 per gap.
+     */
+    playoutStarveUrl: string;
+    /**
      * App endpoints Icecast tells about a listener arriving and leaving, or
      * `undefined` to render no hooks at all.
      *
@@ -85,6 +95,15 @@ export interface StreamPlayoutConfig {
     duckGainDb: number;
     /** How long the duck ramp takes, in ms. */
     duckFadeMs: number;
+    /**
+     * Trim on the DJ voice, in dB, applied after the mic chain in `radio.liq`.
+     *
+     * Zero leaves the chain's own compressor and the renderer's level as they
+     * are. It exists because the speech engine is a plugin and a replacement is
+     * expected, so an engine that runs consistently hot or quiet needs a
+     * correction that is not a code change to the mixer.
+     */
+    voiceGainDb: number;
     /**
      * How long one "deadair is driving" assertion holds the mount, in seconds.
      *
@@ -190,6 +209,9 @@ export function writeStreamConfig({
             // secret; AIRED_URL is the other direction, since an item is pushed and
             // downloaded one item AHEAD of air and only Liquidsoap knows when it started.
             `PLAYOUT_AIRED_URL=${shell(playout.playoutAiredUrl)}`,
+            // The other push: a queue that stopped producing while the lease was held, which the
+            // app cannot see for itself between reconciles.
+            `PLAYOUT_STARVE_URL=${shell(playout.playoutStarveUrl)}`,
             `PLAYOUT_BRIDGE_SECRET=${shell(playout.playoutBridgeSecret)}`,
             // The dead-man switch. Liquidsoap airs nothing unless the app is renewing its
             // claim inside this window, so the two ends have to agree: this is written from
@@ -204,6 +226,10 @@ export function writeStreamConfig({
             `TALK_OVER_TRACKS=${shell(playout.talkOverTracks ? 'true' : 'false')}`,
             `DUCK_GAIN_DB=${shell(String(playout.duckGainDb))}`,
             `DUCK_FADE_MS=${shell(String(playout.duckFadeMs))}`,
+            // The voice trim, read at startup with the duck. Written unconditionally, even at
+            // zero, because `radio.liq` tolerates an unset or empty value and a key that appears
+            // only when it is non-default is a key an operator cannot find in the rendered file.
+            `VOICE_GAIN_DB=${shell(String(playout.voiceGainDb))}`,
         ].join('\n') + '\n';
 
     try {

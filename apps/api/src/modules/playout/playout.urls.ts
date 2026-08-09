@@ -28,9 +28,33 @@ export function resolvePlayoutBaseUrl(config: AppConfig): string {
     return config.get('PLAYOUT_BASE_URL', DEFAULT_PLAYOUT_BASE_URL).replace(/\/+$/, '');
 }
 
+/**
+ * The bridge segment every stream-container route sits under.
+ *
+ * It has to agree with `BRIDGE_PATH_PREFIX` in `bridge.secret.middleware.ts`,
+ * which gates on it, and with the paths in `playout.ck`, which declare it. The
+ * three cannot be one constant — the contract is a `.ck` file and the middleware
+ * matches a path rather than building one — so the coupling is written down here
+ * instead: a URL built without this segment reaches a route that does not exist,
+ * and a route added outside it is one nothing checks the secret on.
+ */
+const BRIDGE = '/bridge';
+
 /** Where Liquidsoap posts the id of the item that actually started. */
 export function playoutAiredUrl(base: string): string {
-    return `${base}/aired`;
+    return `${base}${BRIDGE}/aired`;
+}
+
+/**
+ * Where Liquidsoap posts that its queue stopped producing, and that it started
+ * again.
+ *
+ * The state and the duration ride in the query, added by the caller: this is
+ * built once at materialize time and written into `radio.env`, so the script
+ * appends them per call the way it already does for the aired notify's item id.
+ */
+export function playoutStarveUrl(base: string): string {
+    return `${base}${BRIDGE}/starve`;
 }
 
 /**
@@ -64,5 +88,5 @@ export function segmentAudioUrl(base: string, segmentId: string): string {
  * log and error page an address can end up in.
  */
 export function playoutListenerUrl(base: string, event: 'add' | 'remove'): string {
-    return `${base}/listener?event=${event}`;
+    return `${base}${BRIDGE}/listener?event=${event}`;
 }

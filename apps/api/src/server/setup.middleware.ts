@@ -15,6 +15,7 @@ import { authorizationContextMiddleware } from './middleware/authorization.conte
 import { refreshCookieMiddleware } from './middleware/refresh.cookie.middleware.js';
 import { conditionalGetMiddleware } from './middleware/conditional.get.middleware.js';
 import { listenerCredentialMiddleware } from './middleware/listener.credential.middleware.js';
+import { bridgeSecretMiddleware } from './middleware/bridge.secret.middleware.js';
 
 export const setupMiddleware = (container: Container) => {
     const middlewares: ServerKitMiddleware[] = [];
@@ -51,6 +52,13 @@ export const setupMiddleware = (container: Container) => {
     // request: this is the one caller that presents its credential there and is not a
     // session. See the middleware for why Icecast has no other way to send it.
     middlewares.push(listenerCredentialMiddleware());
+    // The gate on everything under /playout/bridge/. Both sides of this position are
+    // load-bearing: AFTER the credential middleware, which is the only thing that puts
+    // Icecast's HTTP-basic password onto the header this reads, and BEFORE authentication,
+    // so a call with a wrong secret is refused without touching the session machinery.
+    // Gating the prefix rather than each handler is what makes a new bridge route protected
+    // by construction instead of by whoever remembers.
+    middlewares.push(bridgeSecretMiddleware());
     middlewares.push(authenticationMiddleware());
     middlewares.push(auditContextMiddleware());
     // authorization.context resolves the active org (validating any

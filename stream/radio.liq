@@ -69,15 +69,21 @@ end
 duck_gain_db = env_float("DUCK_GAIN_DB", -12.)
 duck_fade_ms = max(1., env_float("DUCK_FADE_MS", 300.))
 
+# The operator's trim on the DJ voice, in dB, applied after the mic chain in step 3. Zero by
+# default, because the chain below is meant to land the voice at a usable level on its own and this
+# is the correction for a renderer that runs consistently hot or quiet — not the main level control.
+voice_gain_db = env_float("VOICE_GAIN_DB", 0.)
+
 # The app fills a rundown and PUSHES it here item by item, whichever source the tracks came from:
 # a pre-signed Subsonic URL for Navidrome, a signed track-shim URL for Spotify. Switching source
 # is therefore an app-side decision that takes effect with NO container restart.
 # See stream/README.md + apps/api (stream materializer).
 #
-# One secret gates traffic in BOTH directions: the app's calls to /control/* here, and our air
-# confirmation back to the app (aired).
-playout_aired_url = environment.get("PLAYOUT_AIRED_URL", default="")
-playout_secret    = environment.get("PLAYOUT_BRIDGE_SECRET", default="")
+# One secret gates traffic in BOTH directions: the app's calls to /control/* here, and our two
+# pushes back to the app (aired, starve).
+playout_aired_url  = environment.get("PLAYOUT_AIRED_URL", default="")
+playout_starve_url = environment.get("PLAYOUT_STARVE_URL", default="")
+playout_secret     = environment.get("PLAYOUT_BRIDGE_SECRET", default="")
 
 # 1) Music bed: the local, rights-cleared library. randomize so a small library
 #    doesn't feel like a tape loop. Normalize here (a leaf source) so user tracks
@@ -141,7 +147,9 @@ station_id = map_metadata(bed_label, insert_missing=true, mksafe(single("/radio/
 #
 # NOTE: written for Liquidsoap 2.4.5 (the pinned image, stream/Dockerfile). `q.length` counts
 # both the pending queue and the resolved-but-not-yet-playing one, and EXCLUDES what is on air,
-# which is exactly the depth the app tops up against. `q.set_queue([])` clears both.
+# which is exactly the depth the app tops up against. Clearing it goes through `drop_queued` below,
+# which removes per request rather than replacing the queue: see there for why the obvious
+# `set_queue([])` orphans whatever the prefetch is mid-download.
 #
 # `prefetch` is what makes an operator skip land AT ONCE, and it is not the same thing as how many
 # items the app has pushed. Liquidsoap only ever downloads `prefetch` requests ahead of the one on
@@ -317,6 +325,82 @@ def driving() =
   lease_left() > 0.
 end
 
+# ── Starve reporting ─────────────────────────────────────────────────────────────────────────
+# Tell the app the moment its running order stops producing audio, and the moment it starts again.
+#
+# `playout_queue.is_ready()` going false while the lease is held is a specific and bad state: the
+# station IS on air, and the fallback below the queue has put the local music bed on the mount, so
+# what a listener hears is not what deadair programmed. The app cannot see it for itself with any
+# precision — its reconcile runs every two seconds, so a gap shorter than that never appears in any
+# reading it takes, and one starting just after a tick is noticed two seconds late.
+#
+# Reported ONLY while driving(). A queue with nothing in it and no lease is the ordinary off-air
+# state — the app deliberately hands over nothing when nobody is listening — so treating that as a
+# starve would fire on every stop and mean nothing.
+#
+# What is watched is the GAP itself — driving AND not producing — rather than "is it producing".
+# The difference is the whole correctness of this block. Producing goes false for two completely
+# different reasons: the queue ran dry under a held lease, which is the fault worth reporting, and
+# the operator stood the station down, which is not a fault at all. Only the first has the lease
+# still held, so conditioning the watched value on `driving()` makes a stop a non-event instead of
+# a starve reported on every Stop button.
+#
+# Seeded false, which is what a mixer that has just started is: nothing is driving it, so there is
+# no gap. It also means a station coming up reports nothing until something actually goes wrong.
+in_gap = ref(false)
+
+# How long the CURRENT state has held, counted up by the same tick that detects the change, for the
+# reason every other duration in this file is counted rather than subtracted from a clock: it cannot
+# be fooled by the container's clock being stepped.
+gap_state_for = ref(0.)
+
+# An empty URL means "do not report", the same way an empty PLAYOUT_AIRED_URL does, so a stream
+# pointed at an app too old to serve the route falls back to that app's own polling instead of
+# logging a 404 per gap.
+#
+# NEVER let this raise. An uncaught exception inside a thread.run callback kills that thread
+# permanently, which here would mean the reporting goes quiet and looks exactly like a station with
+# no gaps. The `http.post` is also blocking, so a hung app delays the next check — never the lease,
+# which is counted down by its own separate thread.
+def report_starve(state, held_s) =
+  if playout_starve_url != "" then
+    try
+      ignore(
+        http.post(
+          data="",
+          headers=[("X-Playout-Secret", playout_secret)],
+          "#{playout_starve_url}?state=#{state}&forMs=#{int_of_float(held_s * 1000.)}"
+        )
+      )
+    catch err do
+      log(label="deadair", "starve notify failed (#{err})")
+    end
+  end
+end
+
+# On the lease tick, so this cannot disagree with the `driving()` it is conditioned on: a second
+# clock would only ever be a source of edges the lease itself did not see.
+#
+# The duration reported is how long the state being LEFT lasted, so a `recovered` carries the length
+# of the gap — the number worth reading — and a `starved` carries how long the station had been
+# playing properly before it.
+#
+# Note that a gap ends when the queue produces again OR when the lease is handed back, and both are
+# reported the same way. That is deliberate: an operator stopping a starving station has ended the
+# gap, and the alternative is a starve that stays open forever because the thing it was waiting for
+# never happened.
+def watch_starve() =
+  gap = driving() and not playout_queue.is_ready()
+  if gap == in_gap() then
+    gap_state_for := gap_state_for() + lease_tick
+  else
+    report_starve(if gap then "starved" else "recovered" end, gap_state_for())
+    in_gap := gap
+    gap_state_for := 0.
+  end
+end
+thread.run(every=lease_tick, watch_starve)
+
 # One reading of the playout queue, as JSON object FIELDS (no braces, so `push` can prepend its
 # rid). Four numbers, each of which the app previously had to guess:
 #
@@ -390,9 +474,30 @@ def control_push(req) =
   end
 end
 
+# Drop everything the queue is holding that has not aired, one request at a time.
+#
+# NOT `set_queue([])`, which looks like the obvious way to say this and is a trap. `request.queue`
+# wraps a `request.dynamic`, and `set_queue` replaces that inner queue wholesale — but a request the
+# prefetch has already POPPED, and is currently downloading, is in neither the pending list nor the
+# resolved one while its fetch runs. The wholesale replace therefore does not remove it; it orphans
+# it, leaving a request nothing will ever play and a temp file nothing will ever clean up. With
+# PLAYOUT_PREFETCH at 3 there are up to three requests in that window at any moment.
+#
+# Removing per request avoids the window entirely: whatever `queue()` returns is what is there, and
+# anything mid-resolve is simply not in the list to be mishandled. `destroy` then releases the
+# downloaded file now rather than leaving it for Liquidsoap to notice as leaked.
+#
+# What the app sees is unchanged — everything queued is dropped, whatever is on air keeps playing —
+# so this is not a change to the /control/flush contract.
+def drop_queued() =
+  q = playout_queue.queue()
+  list.iter(fun (r) -> playout_queue.remove(r), q)
+  list.iter(fun (r) -> request.destroy(r), q)
+end
+
 def control_flush(req) =
   if control_authorized(req) then
-    playout_queue.set_queue([])
+    drop_queued()
     control_json('{' ^ playout_reading() ^ '}')
   else
     control_denied()
@@ -437,7 +542,7 @@ end
 def control_offair(req) =
   if control_authorized(req) then
     lease_left := 0.
-    playout_queue.set_queue([])
+    drop_queued()
     playout_queue.skip()
     # An armed cue belongs to a record that is no longer going to air. Left alone it would sit
     # there until something else armed over it, and the reading would keep claiming the DJ was
@@ -581,6 +686,40 @@ def voice_cue_check() =
 end
 thread.run(every=voice_tick, voice_cue_check)
 
+# The mic chain: what makes a rendered segment sound like a voice on a radio rather than a file
+# somebody played.
+#
+# It exists because the level of a segment is otherwise entirely whatever the renderer produced. The
+# duck depth below is a fixed number of dB, so it only lands the voice where it belongs if the voice
+# arrives somewhere predictable; a quiet engine disappears under the bed and a hot one clips into the
+# limiter. Nothing upstream can fix that for us — the engine is a plugin, and a new one is expected —
+# so the correction belongs here, on the one path every segment takes.
+#
+# A NEW name, for the same reason `bus` is one at the bottom of the file: `voice_cue_check` above
+# pushes onto `voice`, and rebinding it here would leave the cue pushing into a queue that is no
+# longer in the graph. The wrappers delegate `is_ready()` to the queue underneath, which is what both
+# mixes in step 4 key off, so the duck still follows the segment and not the operators around it.
+#
+# Order is load-bearing:
+#
+#   1. fade.in, 40ms. Some engines cut the audio hard at the clip boundary, and the compressor's
+#      makeup gain turns that edge into an audible tick. It runs FIRST so the compressor never sees
+#      the raw edge, and it is short enough not to soften the first word.
+#
+#      fade.in ONLY, and there can be no matching fade.out. On a `request.queue` source this build
+#      does not know the remaining time, so fade.out treats the WHOLE clip as inside the fade zone
+#      and multiplies it to silence — every segment airs as dead air. A tail click has to be faded
+#      at render time instead, where the length is known.
+#
+#   2. compress. Fast attack and a gentle ratio: it tames the peaks a speech synthesiser puts on
+#      plosives and brings the body of the voice forward, without the pumping a broadcast-depth
+#      ratio would give a source that is nothing but speech.
+#
+#   3. amplify, the operator trim. Last, so the compressor sees a consistent input and the knob
+#      moves the finished voice rather than how hard it is being worked.
+voice_bus = fade.in(duration=0.04, voice)
+voice_bus = compress(attack=5.0, release=120.0, threshold=-18.0, ratio=4.0, knee=2.0, gain=0.0, voice_bus)
+voice_bus = amplify(lin_of_dB(voice_gain_db), voice_bus)
 
 # 4) Mix the voice with the bed, per the talk-over mode.
 #    ON  (talk_over): the bed is amplified by a gain we ramp ourselves, and the voice is simply
@@ -627,9 +766,9 @@ end
 
 programme =
   if talk_over then
-    ducked(bed, voice)
+    ducked(bed, voice_bus)
   else
-    fallback(track_sensitive=false, [voice, bed])
+    fallback(track_sensitive=false, [voice_bus, bed])
   end
 
 # 5) The lease, applied. Everything above this line is what deadair sounds like; below it is the
@@ -716,7 +855,31 @@ end
 
 harbor.http.register.simple(port=harbor_port, method="POST", "/control/metadata", control_metadata)
 
-# 6) Encode to MP3 and push to the Icecast mount.
+# 6) The broadcast bus, then the mount.
+#
+# The bus is a brick-wall ceiling, and NOTHING else.
+#
+# This is a safety net, not a tone tool, and the distinction is the whole reason it is only one
+# operator. MP3 encoding generates inter-sample peaks around 0.5-1 dB above the source, so a modern
+# master sitting at ~-0.3 dBFS true peak clips in the LISTENER'S decoder even though nothing here
+# ever went over. A -1 dBFS ceiling leaves the headroom the encoder needs. In ordinary programme it
+# does nothing at all: typical gain reduction is 0 dB, and it is audible only on material that would
+# otherwise have distorted.
+#
+# What must NOT be added alongside it: a loudness normaliser, a stereo widener, a bus compressor.
+# Every one of them reshapes masters that are already mastered, and the station has no editorial
+# claim on how a record sounds. Per-track levelling belongs on the LEAF sources, where `normalize`
+# already sits on both the local bed and the playout queue, so tracks arrive at a consistent level
+# and this stage only has to catch the peaks.
+#
+# A NEW name, deliberately. `radio` is the handle `control_metadata` and `label_when_off_air` call
+# `insert_metadata` on; rebinding it here would move that method onto the compressor's output and
+# leave the inserts talking to a source nothing is listening to, so the mount would silently stop
+# being labelled. Metadata passes through `compress` untouched, so the label path is otherwise
+# unaffected.
+bus = compress(attack=1.0, release=80.0, threshold=-1.0, ratio=20.0, knee=0.5, gain=0.0, radio)
+
+# Encode to MP3 and push to the Icecast mount.
 output.icecast(
   %mp3(bitrate=int_of_string(environment.get("STREAM_BITRATE", default="128"))),
   host        = environment.get("ICECAST_HOST", default="icecast"),
@@ -727,5 +890,5 @@ output.icecast(
   description = environment.get("STREAM_DESCRIPTION", default=""),
   genre       = environment.get("STREAM_GENRE", default="Talk"),
   url         = environment.get("STREAM_URL", default=""),
-  radio
+  bus
 )

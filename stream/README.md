@@ -3,7 +3,7 @@
 > **Read the app-side halves as the target, not the tree.** These assets are the finished stream
 > from the pre-re-scaffold repo, restored ahead of the app code that drives them. What is NOT built
 > here yet, and what this file therefore describes as intent: the config materializer that writes
-> `radio.env`, the playout module (`Rundown`, `PlayoutPusher`, `/playout/aired`), and the
+> `radio.env`, the playout module (`Rundown`, `PlayoutPusher`, `/playout/bridge/aired`), and the
 > Spotify login route. What is genuinely gone rather than pending: the render pipeline, so nothing
 > pushes DJ voice to the harbor and there is no `GET /playout/segment/:id`; and Navidrome, so
 > Subsonic URLs are a shape this supports rather than a source that exists. There is no director,
@@ -27,6 +27,22 @@ harbor source is ready, and `add`s the voice on top. `smooth_add` fades the bed 
 back up ([#3714](https://github.com/savonet/liquidsoap/issues/3714)). Depth and ramp are
 `DUCK_GAIN_DB` / `DUCK_FADE_MS` in `radio.env`, read at startup, so tuning them by ear needs a
 Liquidsoap restart.
+
+The **voice has a mic chain** of its own, between the voice queue and both mixes: a 40 ms `fade.in`,
+a compressor, then a `VOICE_GAIN_DB` trim. It exists because the duck is a fixed number of dB, so it
+only lands the voice where it belongs if the voice arrives somewhere predictable — and without this
+the level of a segment is entirely whatever the speech plugin produced. The fade has no matching
+`fade.out` and cannot have one: on a `request.queue` source Liquidsoap does not know the remaining
+time, so `fade.out` treats the whole clip as inside the fade zone and multiplies it to silence. Fade
+a tail at render time instead.
+
+The **broadcast bus** is one operator: a brick-wall limiter at -1 dBFS, between the programme and
+the encoder. MP3 encoding generates inter-sample peaks around 0.5-1 dB over the source, so a modern
+master clips in the listener's decoder without it; in ordinary programme it does nothing at all.
+Nothing else belongs there — a loudness normaliser, a widener or a bus compressor would reshape
+masters the station has no editorial claim on, and per-track levelling already happens on the leaf
+sources. New outputs are fed from `bus`, never from `radio`, which is the handle the metadata
+inserts are attached to.
 
 ## Playout: the app pushes, Liquidsoap plays
 
@@ -78,6 +94,15 @@ correct throughout. So the app announces what started, on the same `on_track` it
 about air from, and `insert_metadata` puts that into the stream at the current position rather
 than at a boundary that may never come.
 
+`flush` and `offair` drop the queue **one request at a time** (`drop_queued` in `radio.liq`), not
+with `set_queue([])`. The obvious call is a trap: `request.queue` wraps a `request.dynamic`, and a
+request the prefetch has already popped and is currently downloading is in neither the pending list
+nor the resolved one while its fetch runs — so replacing the queue wholesale does not remove it, it
+orphans it, leaving a request nothing will play and a temp file nothing will clean up. With
+`PLAYOUT_PREFETCH` at 3 there are up to three requests in that window at any moment. Removing per
+request avoids it entirely, and `request.destroy` releases the download rather than waiting for
+Liquidsoap to flag it as leaked. What the app sees is unchanged.
+
 `skip` is the one command about the item already playing: the decoder lives here, so an operator
 skip in the console has to come through as a request to Liquidsoap. The app pushes the lead item
 first, so the skip lands on something already resolved rather than on an empty queue.
@@ -88,7 +113,31 @@ Liquidsoap restart recovers on its own within a couple of seconds, with no app r
 the container by probing `liquidsoap:8005`, then `127.0.0.1:8005`, keeping whichever answers
 (`LIQUIDSOAP_CONTROL_URL` pins one).
 
-The other direction is `POST /playout/aired`, Liquidsoap's `on_track` notify: an item is pushed
+### The other direction: the bridge
+
+Everything Liquidsoap and Icecast call **on the app** lives under `/playout/bridge/`, and that
+prefix is the gate: `bridgeSecretMiddleware` checks `PLAYOUT_BRIDGE_SECRET` on any path beginning
+with it, answering 404 while the secret is unseeded and 401 when it does not match. So a route added
+there is protected by living there, rather than by whoever remembers to call a check inside the
+handler — which is what it used to be, and what made a forgotten call a silently open route that
+still compiled. None of these can be gated by a policy instead: ContractKit's policies evaluate
+against an actor resolved from a session, and a container has neither.
+
+| Endpoint | Called by | What it says |
+| --- | --- | --- |
+| `POST /playout/bridge/aired` | Liquidsoap | which rundown item actually started |
+| `POST /playout/bridge/listener` | Icecast | a listener arrived or left |
+| `POST /playout/bridge/starve` | Liquidsoap | the running order stopped producing while the lease was held, or started again |
+
+`starve` is pushed rather than polled because the app's reconcile runs every two seconds, so a gap
+shorter than that never appears in any reading it takes, and one starting just after a tick is seen
+two seconds late — and a gap is the only symptom of a running order the station cannot actually
+play. It is conditioned on `driving()`, so an operator's Stop is a non-event rather than a reported
+starve, and a `starved` brings the app's reconcile forward instead of waiting out the tick. An empty
+`PLAYOUT_STARVE_URL` means do not report, so a stream pointed at an app without the route falls back
+to that app's own polling.
+
+`POST /playout/bridge/aired` is Liquidsoap's `on_track` notify: an item is pushed
 (and downloaded) an item before it airs, so that notify is the only thing that knows what the
 listener is actually hearing *the moment it changes*. It is still worth having alongside the
 reading — a push beats a two-second poll to the boundary — but it is no longer the only thing
@@ -135,13 +184,13 @@ The count comes from Icecast, which is the only thing that knows: Liquidsoap see
 writes to and nothing about the far end. `AudienceWatch` (apps/api, modules/playout) polls
 `GET /status-json.xsl` every five seconds (public, so no admin password is involved), and that
 poll is the **truth**. Icecast also *pushes*, through `<authentication type="url">` on the mount:
-`listener_add` and `listener_remove` call `POST /playout/listener`, gated on the same bridge secret,
+`listener_add` and `listener_remove` call `POST /playout/bridge/listener`, gated on the same bridge secret,
 so an arrival opens the gate in milliseconds instead of up to five seconds. Icecast presents that
 secret as HTTP **basic**, because its URL authenticator can send no header of its own; ServerKit's
 authentication middleware deletes `Authorization` from every request before a route runs, so
 `listener.credential.middleware` (registered ahead of it) moves the password onto the
 `x-playout-secret` header the rest of the bridge uses. Both halves have to stay in that order, or
-every listener is refused by an app that meant to admit them. Same division as `/playout/aired` and `/control/status`: the push beats the poll to the
+every listener is refused by an app that meant to admit them. Same division as `/playout/bridge/aired` and `/control/status`: the push beats the poll to the
 edge, and the poll is what makes a dropped push harmless.
 
 Two things about that push are worth knowing before they surprise you:
@@ -307,7 +356,7 @@ curl http://127.0.0.1:8000/status-json.xsl
 
 `stream/Dockerfile` pins the base image; it is currently `savonet/liquidsoap:v2.4.5`, up from
 v2.2.5. 2.4 buys async source callbacks (the playout `on_track` notify runs off the streaming
-loop), `normalize_track_gain`, and `request.queue`'s script-level `push`/`set_queue`/`length`
+loop), `normalize_track_gain`, and `request.queue`'s script-level `push`/`queue`/`remove`/`length`
 methods (which the push model is built on), and it is BREAKING in two places
 `radio.liq` touches: callbacks moved to source methods, and the `annotate` protocol now checks
 nested static uris.

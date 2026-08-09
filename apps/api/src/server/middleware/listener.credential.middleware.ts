@@ -22,7 +22,7 @@ import type { ServerKitMiddleware } from '@maroonedsoftware/koa';
  * overwrites a secret the caller sent directly, which keeps the two ways of
  * presenting it equivalent rather than ranked.
  */
-export const LISTENER_HOOK_PATH = '/playout/listener';
+export const LISTENER_HOOK_PATH = '/playout/bridge/listener';
 
 export const listenerCredentialMiddleware = (): ServerKitMiddleware => {
     return async (ctx, next) => {

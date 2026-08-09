@@ -41,8 +41,10 @@ const DEFAULT_HARBOR_PORT = '8005';
  * The containers cannot read Postgres, so every change to a stream setting has
  * to be pushed out as files on the shared volume. Today that happens at boot
  * (`StreamModule.ready`); anything that grows into a second writer of the
- * `stream.*` settings has to call {@link materialize} itself, because nothing
- * watches the table.
+ * `stream.*` settings has to call {@link materialize} itself. The app's config
+ * store does watch the table, so a write is visible to {@link settings} on its
+ * own — but nothing turns that into a render, and a render is what the
+ * containers read.
  *
  * A render only reaches the containers on their next restart: both read their
  * config once, at startup.
@@ -57,8 +59,8 @@ export class StreamService {
     ) {}
 
     /** The resolved settings, secrets decrypted. */
-    async settings(): Promise<StreamSettings> {
-        return resolveStreamSettings(this.settingsRepository, this.encryption);
+    settings(): StreamSettings {
+        return resolveStreamSettings(this.config, this.encryption);
     }
 
     /**

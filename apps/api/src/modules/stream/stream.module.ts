@@ -1,5 +1,5 @@
 import { Container, Registry } from 'injectkit';
-import { AppConfig } from '@maroonedsoftware/appconfig';
+import { AppConfig, AppConfigStore } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { IcecastStatsClient } from './icecast.stats.client.js';
@@ -14,11 +14,13 @@ import { StreamService } from './stream.service.js';
  * and nothing serving a request depends on it having finished. A failure here
  * costs the containers their newest config, not the app its socket.
  *
- * There is deliberately no listener on `deadair_settings_changed`. The trigger
- * exists, but a live re-render would only help if the containers re-read their
- * config, and both read it once at startup — so a settings change means a
- * restart either way. Anything that grows into a second writer of the `stream.*`
- * settings calls `StreamService.materialize` itself.
+ * `deadair_settings_changed` is listened to, but by the app's config store and
+ * not by this module, and the difference is the point: a settings change reaches
+ * `StreamService.settings()` on its own, and re-rendering on it would still not
+ * be heard, because Icecast and Liquidsoap read their config once at startup. So
+ * a `stream.*` change means a container restart either way, and anything that
+ * grows into a second writer of those settings calls
+ * {@link StreamService.materialize} itself.
  */
 export const StreamModule: ServerKitModule = {
     name: 'Stream',
@@ -49,13 +51,20 @@ export const StreamModule: ServerKitModule = {
             const stream = scope.get(StreamService);
 
             if (await stream.ensureSecrets()) {
+                // Everything below reads the settings through the app's CONFIG, whose settings
+                // layer was loaded before this seed happened, so without this the first boot of a
+                // fresh station would render both containers' configs with no passwords in them
+                // and hand the shim an empty pair. Awaited inline rather than deferred, which is
+                // safe here and nowhere in a request: `ready` runs outside the one-transaction-per
+                // -request middleware, so these writes are already committed.
+                await container.get(AppConfigStore).reload();
                 logger.info('stream: seeded the missing stream secrets; restart icecast and liquidsoap once to adopt them');
             }
             await stream.materialize();
 
             // After the seed, so a first boot hands over the secrets it just wrote
             // rather than the empty pair it read a moment earlier.
-            const settings = await stream.settings();
+            const settings = stream.settings();
             const { playoutBridgeSecret, spotifyShimSecret } = settings;
             container.get(SpotifyShimClient).useSecrets(playoutBridgeSecret ?? '', spotifyShimSecret ?? '');
 

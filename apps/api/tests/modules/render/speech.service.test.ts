@@ -12,7 +12,7 @@ import { PluginError, isPluginError, type PluginErrorCode, type SpeechPluginInst
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
-import type { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 import { SegmentStore } from '../../../src/modules/render/segment.store.js';
 import { SpeechService } from '../../../src/modules/render/speech.service.js';
 import { SPEECH_PLUGIN_KEY } from '../../../src/modules/render/speech.settings.js';
@@ -90,9 +90,9 @@ function fakeSpeechPlugin(options: FakePluginOptions = {}) {
 
 function service(records: PluginRecord[], configured?: string) {
     const pluginRegistry = { list: () => records } as unknown as PluginRegistry;
-    const settings = { get: vi.fn(async () => configured) } as unknown as SettingsRepository;
+    const { config } = settingsConfig(configured === undefined ? {} : { [SPEECH_PLUGIN_KEY]: configured });
 
-    return new SpeechService(pluginRegistry, passthroughInvoker(), settings, store, logger());
+    return new SpeechService(pluginRegistry, passthroughInvoker(), config, store, logger());
 }
 
 async function rejectionCode(promise: Promise<unknown>): Promise<PluginErrorCode> {
@@ -198,20 +198,25 @@ describe('SpeechService.speak', () => {
         expect(kokoro.instance.speak).not.toHaveBeenCalled();
     });
 
-    it('reads the choice from the settings key the console writes', async () => {
-        const plugin = fakeSpeechPlugin();
-        const settings = { get: vi.fn(async () => undefined) } as unknown as SettingsRepository;
+    it('follows the settings key the console writes, with no restart between', async () => {
+        const kokoro = fakeSpeechPlugin({ id: 'deadair.kokoro' });
+        const chatterbox = fakeSpeechPlugin({ id: 'deadair.chatterbox' });
+        const station = settingsConfig({ [SPEECH_PLUGIN_KEY]: 'deadair.kokoro' });
         const speech = new SpeechService(
-            { list: () => [plugin.record] } as unknown as PluginRegistry,
+            { list: () => [kokoro.record, chatterbox.record] } as unknown as PluginRegistry,
             passthroughInvoker(),
-            settings,
+            station.config,
             store,
             logger(),
         );
 
-        await speech.speak({ text: 'hello' });
+        expect((await speech.speak({ text: 'hello' })).pluginId).toBe('deadair.kokoro');
 
-        expect(settings.get).toHaveBeenCalledWith(SPEECH_PLUGIN_KEY);
+        // The operator changes the station's voice. The setting is a config layer, so the next
+        // thing spoken uses the new speaker without this service being rebuilt or told.
+        station.set(SPEECH_PLUGIN_KEY, 'deadair.chatterbox');
+
+        expect((await speech.speak({ text: 'hello' })).pluginId).toBe('deadair.chatterbox');
     });
 });
 

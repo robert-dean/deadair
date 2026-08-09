@@ -8,7 +8,7 @@ import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import { Rundown, type RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
-import { SettingsRepository } from '#modules/settings/settings.repository.js';
+import { SettingsService } from '#modules/settings/settings.service.js';
 import { DirectorService } from './director.service.js';
 import type { EditResult, Lineup as LoadedLineup, LineupSegmentItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
@@ -51,7 +51,7 @@ export class DirectorConsoleService {
         // Read-only from here. A lineup names a segment and the library owns it, so the console's
         // programming surface never writes one; that is the render module's business.
         private readonly segments: SegmentRepository,
-        private readonly settings: SettingsRepository,
+        private readonly settings: SettingsService,
         private readonly rundown: Rundown,
         // Scoped, so a send commits with the request's own transaction rather than
         // ahead of it. See JobsModule for why the request path takes this one.
@@ -147,17 +147,23 @@ export class DirectorConsoleService {
      * Change what puts the station on air.
      *
      * Stored rather than held, so a restart comes back on the same terms the
-     * operator chose. The reactor is told at once, because the mount lease is
-     * renewed every couple of seconds: a mode change that only took effect on the
-     * next throttled read would leave the console showing one thing while the
-     * station did another for several seconds.
+     * operator chose. Nothing has to be told: the mode is a setting, the settings
+     * table is a layer of the app's config, and `PlayoutPusher` asks
+     * `AudienceWatch.gateOpen()` on every reconcile — so the change is acted on
+     * within a tick rather than at the end of somebody's cache.
+     *
+     * The answer carries the mode that was just WRITTEN rather than the one the
+     * config currently reports, and the difference is real for exactly the length
+     * of this request. The config refreshes after the transaction commits (see
+     * `SettingsService.set`), which is necessarily after this method has built its
+     * return value, so reading it back here would answer with the mode the
+     * operator has just replaced and leave the console showing the old one.
      */
     async setAirMode(input: SetStationAirInput): Promise<StationAir> {
         await this.settings.set(AIR_MODE_KEY, input.airMode);
-        this.director.invalidate();
 
         this.logger.info('director: changed what puts the station on air', { airMode: input.airMode });
-        return this.getAir();
+        return { ...(await this.getAir()), airMode: input.airMode };
     }
 
     /**

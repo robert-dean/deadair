@@ -1,7 +1,8 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { IcecastStatsClient } from '#modules/stream/icecast.stats.client.js';
-import { DEFAULT_AIR_MODE, type AirMode } from './air.mode.js';
+import { AIR_MODE_KEY, parseAirMode, type AirMode } from './air.mode.js';
 
 /**
  * Who is listening, and whether that is enough to hold the mount.
@@ -53,8 +54,6 @@ export class AudienceWatch {
     private lastHeardAt = 0;
     /** What {@link hasAudience} said at the previous evaluation, so an edge can be announced once. */
     private announced = false;
-    /** What the audience is allowed to decide. Published by the director; see {@link useMode}. */
-    private mode: AirMode = DEFAULT_AIR_MODE;
     private readonly listeners = new Set<(open: boolean) => void>();
     /** One poll at a time: a slow Icecast must not stack requests behind the interval. */
     private polling = false;
@@ -63,8 +62,25 @@ export class AudienceWatch {
 
     constructor(
         private readonly stats: IcecastStatsClient,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * What the audience is allowed to decide, as the setting currently stands.
+     *
+     * Read here rather than pushed in. `deadair.settings` is a layer of the app's
+     * config, so a settings row reaches this singleton the same way an
+     * environment variable does — which it could not when the only way in was the
+     * scoped repository, and this class polls off a timer with no request scope of
+     * its own.
+     *
+     * An unset or unrecognised value falls back rather than throwing; see
+     * {@link parseAirMode} for why that is the safe direction here.
+     */
+    private get mode(): AirMode {
+        return parseAirMode(this.config.get(AIR_MODE_KEY, ''));
+    }
 
     /** Begin watching. Idempotent. */
     start(): void {
@@ -108,24 +124,6 @@ export class AudienceWatch {
     hasAudience(): boolean {
         if ((this.count ?? 0) > 0) return true;
         return this.lastHeardAt > 0 && Date.now() - this.lastHeardAt < AUDIENCE_LINGER_MS;
-    }
-
-    /**
-     * Publish what the station's air mode is.
-     *
-     * Pushed in by `DirectorService`, which re-reads the setting on its own
-     * throttle, rather than read here: this is polled from a singleton with no
-     * request scope, and a settings query every few seconds to answer a question
-     * the director has already answered is a query for nothing.
-     *
-     * Announces immediately if it moved the gate, so switching to `always` puts a
-     * silent station on air on the instant rather than at the next poll.
-     */
-    useMode(mode: AirMode): void {
-        if (mode === this.mode) return;
-
-        this.mode = mode;
-        this.settle();
     }
 
     /**
@@ -250,10 +248,12 @@ export class AudienceWatch {
     /**
      * Re-evaluate the gate and tell the subscribers if it moved.
      *
-     * Called from the poll even when nothing was read, because the linger window
-     * expires on the clock rather than on a reading: the fall from "an audience"
-     * to "none" happens a minute after the last listener left, with no event of
-     * its own to hang it on.
+     * Called from the poll even when nothing was read, because two of the things
+     * that move this gate arrive with no event of their own to hang them on. The
+     * linger window expires on the clock, so the fall from "an audience" to "none"
+     * happens a minute after the last listener left. And {@link mode} is read from
+     * the config at the moment it is asked, so an operator switching to `always`
+     * is noticed here, within one poll, rather than announced by the write.
      */
     private settle(): void {
         const open = this.gateOpen();

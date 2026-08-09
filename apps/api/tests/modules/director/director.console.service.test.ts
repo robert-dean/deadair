@@ -17,7 +17,7 @@ import type { TracksRepository } from '../../../src/modules/catalog/tracks.repos
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
 import type { Rundown, RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
-import type { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
+import type { SettingsService } from '../../../src/modules/settings/settings.service.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -87,7 +87,7 @@ function build(options: Options = {}) {
         findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
     } as unknown as SegmentRepository;
 
-    const settings = { set: vi.fn(async () => {}) } as unknown as SettingsRepository;
+    const settings = { set: vi.fn(async () => {}) } as unknown as SettingsService;
     const rundown = { load: vi.fn() } as unknown as Rundown;
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as JobBroker;
 
@@ -214,21 +214,29 @@ describe('DirectorConsoleService.importPlaylist', () => {
 });
 
 describe('DirectorConsoleService.setAirMode', () => {
-    it('stores the mode and tells the reactor at once', async () => {
+    it('stores the mode, and tells nothing, because nothing has to be told', async () => {
         const { service, settings, director } = build();
 
         const air = await service.setAirMode({ airMode: 'always' });
 
         expect(settings.set).toHaveBeenCalledWith(AIR_MODE_KEY, 'always');
-        // Not on the next throttled read: the lease is renewed every couple of seconds,
-        // and a console showing one mode while the station runs on another is the gap
-        // this closes.
-        // Invalidated rather than reloaded, and the difference is the transaction rather than the
-        // timing. This runs inside the request's own uncommitted transaction, so a re-read here
-        // would read the state before the write that just prompted it.
-        expect(director.invalidate).toHaveBeenCalled();
+        // The mode is a setting, the settings table is a layer of the app's config, and the
+        // transport asks the audience gate for it on every reconcile. There is nothing left here
+        // to push it into, and nothing to re-read: a re-read would be wrong anyway, because this
+        // runs inside the request's own uncommitted transaction.
         expect(director.reload).not.toHaveBeenCalled();
-        expect(air.airMode).toBe('audience'); // what the (stubbed) reactor reports back
+        expect(director.invalidate).not.toHaveBeenCalled();
+    });
+
+    it('answers with the mode just written, not the one the config still reports', async () => {
+        // The config refreshes after this request COMMITS (see `SettingsService.set`), which is
+        // necessarily after this method has built its answer. Reading it back here would hand the
+        // console the mode the operator has just replaced, and the console would render it.
+        const { service } = build();
+
+        const air = await service.setAirMode({ airMode: 'always' });
+
+        expect(air.airMode).toBe('always');
     });
 });
 

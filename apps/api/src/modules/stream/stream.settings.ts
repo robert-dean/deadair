@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 
 /**
@@ -101,8 +102,20 @@ export interface StreamSettings {
  * `stream/icecast.default.xml`), so an unconfigured station still renders a
  * coherent config rather than a half-empty one.
  */
-export async function resolveStreamSettings(repository: SettingsRepository, encryption: EncryptionProvider): Promise<StreamSettings> {
-    const values = await repository.getMany(Object.values(STREAM_KEYS));
+export function resolveStreamSettings(config: AppConfig, encryption: EncryptionProvider): StreamSettings {
+    // From the config rather than a query: `deadair.settings` is one of its sources, so this reads
+    // the same rows the repository would and costs no round trip. What it does NOT change is the
+    // ciphertext — the source loads the table as it is stored, so the secrets arrive here
+    // encrypted exactly as they did before, and are decrypted below.
+    //
+    // Built through `has` rather than a default of `''`, which keeps the distinction the defaults
+    // below are written against: an ABSENT key has to fall through to its default, and a key
+    // stored as the empty string has to stay empty. Reading every key with `get(key, '')` would
+    // collapse the two and quietly turn `stream.title` into the empty string on a fresh install.
+    const values = new Map<string, string>();
+    for (const key of Object.values(STREAM_KEYS)) {
+        if (config.has(key)) values.set(key, config.get(key, ''));
+    }
 
     const decrypt = (raw: string | undefined): string | undefined => {
         if (!raw) return undefined;

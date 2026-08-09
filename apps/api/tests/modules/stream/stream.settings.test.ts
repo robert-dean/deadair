@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ensureStreamSecrets, resolveStreamSettings, STREAM_KEYS, STREAM_SECRET_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import type { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 
 const encryption = new EncryptionProvider(randomBytes(32));
 
@@ -82,8 +83,8 @@ describe('ensureStreamSecrets', () => {
 });
 
 describe('resolveStreamSettings', () => {
-    it('fills defaults matching the committed radio.default.env', async () => {
-        const settings = await resolveStreamSettings(fakeRepository(), encryption);
+    it('fills defaults matching the committed radio.default.env', () => {
+        const settings = resolveStreamSettings(settingsConfig().config, encryption);
 
         expect(settings.mount).toBe('/live.mp3');
         expect(settings.bitrate).toBe('128');
@@ -92,17 +93,29 @@ describe('resolveStreamSettings', () => {
         expect(settings.sourcePassword).toBeUndefined();
     });
 
-    it('decrypts the stored secrets', async () => {
-        const repository = fakeRepository({ [STREAM_KEYS.sourcePassword]: encryption.encrypt('hunter2') });
+    it('decrypts the stored secrets', () => {
+        const { config } = settingsConfig({ [STREAM_KEYS.sourcePassword]: encryption.encrypt('hunter2') });
 
-        expect((await resolveStreamSettings(repository, encryption)).sourcePassword).toBe('hunter2');
+        expect(resolveStreamSettings(config, encryption).sourcePassword).toBe('hunter2');
     });
 
-    it('passes through a value that will not decrypt, rather than failing the read', async () => {
+    it('passes through a value that will not decrypt, rather than failing the read', () => {
         // An operator seeding a password by hand with psql is reasonable, and failing
         // here would take the whole render down over one setting.
-        const repository = fakeRepository({ [STREAM_KEYS.adminPassword]: 'set-by-hand' });
+        const { config } = settingsConfig({ [STREAM_KEYS.adminPassword]: 'set-by-hand' });
 
-        expect((await resolveStreamSettings(repository, encryption)).adminPassword).toBe('set-by-hand');
+        expect(resolveStreamSettings(config, encryption).adminPassword).toBe('set-by-hand');
+    });
+
+    it('lets an absent key fall through to its default, and an empty one stay empty', () => {
+        // The distinction the defaults are written against. Reading every key with a default of
+        // `''` instead of asking whether it is there at all would collapse the two, and a fresh
+        // install would advertise a station with no name rather than "Deadair".
+        const { config } = settingsConfig({ [STREAM_KEYS.genre]: '' });
+
+        const settings = resolveStreamSettings(config, encryption);
+
+        expect(settings.title).toBe('Deadair');
+        expect(settings.genre).toBe('');
     });
 });

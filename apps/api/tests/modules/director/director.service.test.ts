@@ -15,7 +15,7 @@ import { Lineup, type LineupMode, type LineupOnEnd } from '../../../src/modules/
 import { LineupRepository } from '../../../src/modules/director/lineup.repository.js';
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { StationAirRepository, type StationAir } from '../../../src/modules/director/station.air.repository.js';
-import { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 import { AIR_MODE_KEY, type AirMode } from '../../../src/modules/playout/air.mode.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
@@ -101,9 +101,9 @@ function build(options: Options = {}) {
 
     const history = { record: vi.fn(async () => {}) } as unknown as PlayHistoryRepository;
 
-    const settings = {
-        get: vi.fn(async (key: string) => (key === AIR_MODE_KEY ? options.airMode : undefined)),
-    } as unknown as SettingsRepository;
+    // The air mode is a SETTING, and settings are a layer of the app's config now, so it reaches
+    // the director and the audience gate through this rather than through a scoped repository.
+    const station = settingsConfig(options.airMode === undefined ? {} : { [AIR_MODE_KEY]: options.airMode });
 
     // Real, over the fake repository: where a break belongs is BreakPlanner's own decision and is
     // tested there, and stubbing it here would leave the wiring — that the reactor plants at all,
@@ -129,13 +129,11 @@ function build(options: Options = {}) {
                 ? lineups
                 : token === StationAirRepository
                   ? airRepository
-                  : token === SettingsRepository
-                    ? settings
-                    : token === SegmentRepository
-                      ? segments
-                      : token === BreakPlanner
-                        ? breaks
-                        : history,
+                  : token === SegmentRepository
+                    ? segments
+                    : token === BreakPlanner
+                      ? breaks
+                      : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -145,14 +143,15 @@ function build(options: Options = {}) {
     // The singleton broker, which is what JobsModule documents for a non-request caller.
     const jobs = { send: vi.fn(async () => 'job-1') };
 
-    // A stub: what the gate does to the mount is PlayoutPusher's, and is tested there.
-    // What matters here is only that the mode reaches it.
-    const audience = { useMode: vi.fn() } as unknown as AudienceWatch;
+    // A stub: what the gate does to the mount is PlayoutPusher's, and is tested there. The
+    // director no longer tells it anything — it reads the same setting from the same config.
+    const audience = {} as unknown as AudienceWatch;
 
-    const director = new DirectorService(rundown, audience, container, jobs as unknown as PgBossJobBroker, logger);
+    const director = new DirectorService(rundown, audience, container, jobs as unknown as PgBossJobBroker, station.config, logger);
 
     return {
         director,
+        station,
         container,
         createScope,
         scope,
@@ -165,7 +164,6 @@ function build(options: Options = {}) {
         jobs,
         history,
         airRepository,
-        settings,
         audience,
         seed: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(track)),
         setAir: (next: StationAir | undefined) => {
@@ -267,27 +265,34 @@ describe('DirectorService reading the air mode', () => {
         expect(director.status().airMode).toBe('audience');
     });
 
-    it('publishes the mode to the transport, which is what acts on it', async () => {
-        const { director, audience, seed } = build({ airMode: 'always' });
+    it('notices a change made elsewhere without being told, and without re-reading anything', async () => {
+        // The mode is a setting an operator can change from anywhere, and the console is not the
+        // only writer this has to survive. It used to be re-read on the same throttle as
+        // `station_air` and then pushed into the audience gate; now it is simply read from the
+        // config, so there is no window in which this and the gate disagree about it.
+        const { director, station, seed } = build();
         await seed();
-
         await director.start();
 
-        expect(audience.useMode).toHaveBeenCalledWith('always');
+        expect(director.status().airMode).toBe('audience');
+
+        station.set(AIR_MODE_KEY, 'always');
+
+        // No `reload()`, no tick, nothing invalidated.
+        expect(director.status().airMode).toBe('always');
     });
 
-    it('re-reads the mode with the row, so a change made elsewhere is noticed', async () => {
-        // The mode is a setting an operator can change from anywhere, and the console
-        // is not the only writer this has to survive. It rides the same throttled read
-        // as `station_air` rather than being remembered from boot.
-        const { director, settings, seed } = build();
+    it('falls back rather than throwing on a value nobody recognises', async () => {
+        // Somebody typed into the settings table by hand. This is read on the path that decides
+        // whether the station airs at all, so the safe direction is the default rather than an
+        // exception out of a getter.
+        const { director, station, seed } = build();
         await seed();
         await director.start();
 
-        vi.mocked(settings.get).mockResolvedValue('always');
-        await director.reload();
+        station.set(AIR_MODE_KEY, 'sometimes');
 
-        expect(director.status().airMode).toBe('always');
+        expect(director.status().airMode).toBe('audience');
     });
 });
 

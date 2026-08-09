@@ -4,7 +4,7 @@ import { PluginError, type SpeechHandle, type SpeechRequest, type SpeechVoice } 
 import { asSpeechPlugin, type SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
-import { SettingsRepository } from '#modules/settings/settings.repository.js';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { explainNoSpeaker, selectSpeechPlugin, SPEECH_PLUGIN_KEY } from './speech.settings.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentExtension } from './segment.store.js';
 import type { VoiceSampleStore } from './voice.sample.store.js';
@@ -68,10 +68,21 @@ export class SpeechService {
     constructor(
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
-        private readonly settings: SettingsRepository,
+        private readonly config: AppConfig,
         private readonly store: SegmentStore,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * The plugin id the operator chose, or an empty string for "they have not".
+     *
+     * From the config rather than the settings repository, so this costs no query and no scope:
+     * `deadair.settings` is a layer of the app's config, and a write to the row is live here on
+     * the next read.
+     */
+    private get configuredSpeaker(): string {
+        return this.config.get(SPEECH_PLUGIN_KEY, '');
+    }
 
     /** Every plugin that could speak right now, in a stable order. */
     speakers(): SpeechPlugin[] {
@@ -89,13 +100,25 @@ export class SpeechService {
      * Not a throw, because every caller so far treats "nobody can speak" as a state rather than a
      * fault: a station with no TTS plugin plays records, which is what it did yesterday.
      */
-    async speaker(): Promise<SpeechPlugin | undefined> {
+    speaker(): SpeechPlugin | undefined {
         const candidates = this.speakers();
-        const configured = await this.settings.get(SPEECH_PLUGIN_KEY);
+        const configured = this.configuredSpeaker;
         const chosen = selectSpeechPlugin(candidates, configured);
 
         if (chosen === undefined) this.logger.info(`render: nothing to speak with (${explainNoSpeaker(candidates, configured)})`);
         return chosen;
+    }
+
+    /**
+     * Why there is nobody to speak, in a sentence an operator can act on.
+     *
+     * Here rather than at each caller because there are three of them — a 503, an empty voice list
+     * with a reason attached, and the throw below — and every one of them needs the candidates and
+     * the configured id together. Answers a sentence even when there IS a speaker, so it is only
+     * worth calling once {@link speaker} has said `undefined`.
+     */
+    explainSpeaker(): string {
+        return explainNoSpeaker(this.speakers(), this.configuredSpeaker);
     }
 
     /**
@@ -107,12 +130,8 @@ export class SpeechService {
      * else, so a caller branches on `code` rather than on a message.
      */
     async speak(request: SpeechRequest): Promise<SpokenAudio> {
-        const plugin = await this.speaker();
-        if (plugin === undefined) {
-            const candidates = this.speakers();
-            const reason = explainNoSpeaker(candidates, await this.settings.get(SPEECH_PLUGIN_KEY));
-            throw new PluginError(`render: ${reason}`).withCode('unavailable');
-        }
+        const plugin = this.speaker();
+        if (plugin === undefined) throw new PluginError(`render: ${this.explainSpeaker()}`).withCode('unavailable');
 
         return await this.speakWith(plugin, request);
     }

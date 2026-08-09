@@ -2,13 +2,11 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
-import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import type { SegmentCreate, SegmentList, SegmentScanResult, Segment as SegmentView, VoiceList } from './types/render.types.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType, type SegmentExtension } from './segment.store.js';
 import { SpeechService } from './speech.service.js';
-import { explainNoSpeaker, SPEECH_PLUGIN_KEY } from './speech.settings.js';
 import { SAMPLE_TEXT, VoiceSampleStore } from './voice.sample.store.js';
 
 /**
@@ -52,7 +50,6 @@ export class RenderService {
         private readonly jobs: PgBossJobBroker,
         private readonly speech: SpeechService,
         private readonly samples: VoiceSampleStore,
-        private readonly settings: SettingsRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -123,11 +120,8 @@ export class RenderService {
      * it guessing.
      */
     async listVoices(): Promise<VoiceList> {
-        const plugin = await this.speech.speaker();
-        if (plugin === undefined) {
-            const candidates = this.speech.speakers();
-            return { voices: [], reason: explainNoSpeaker(candidates, await this.settings.get(SPEECH_PLUGIN_KEY)) };
-        }
+        const plugin = this.speech.speaker();
+        if (plugin === undefined) return { voices: [], reason: this.speech.explainSpeaker() };
 
         const voices = await this.speech.voices(plugin);
         return { voices, pluginId: plugin.record.id };
@@ -149,11 +143,8 @@ export class RenderService {
      * rather than about the voice asked for, which is why neither is a 404.
      */
     async getVoiceSample(voiceId: string): Promise<SegmentAudioResponse> {
-        const plugin = await this.speech.speaker();
-        if (plugin === undefined) {
-            const candidates = this.speech.speakers();
-            throw httpError(503).withDetails({ message: explainNoSpeaker(candidates, await this.settings.get(SPEECH_PLUGIN_KEY)) });
-        }
+        const plugin = this.speech.speaker();
+        if (plugin === undefined) throw httpError(503).withDetails({ message: this.speech.explainSpeaker() });
 
         const key = this.samples.keyFor(plugin.record.id, voiceId);
 

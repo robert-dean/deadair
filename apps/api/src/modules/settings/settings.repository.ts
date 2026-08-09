@@ -9,9 +9,16 @@ import { DataRepository } from '../data/data.repository.js';
  * a secret, so a caller storing one is the one that encrypts it (see
  * `EncryptionProvider`, and `STREAM_SECRET_KEYS` for the stream's set).
  *
- * Every write fires the `deadair_settings_changed` NOTIFY installed by
- * migration `0003_settings.sql`. Nothing listens on it yet; the stream config
- * is materialized at boot and by explicit calls (see `StreamService`).
+ * Every write fires the `deadair_settings_changed` NOTIFY installed by migration
+ * `0003_settings.sql`, and the app's config store listens on it: the table is a
+ * layer of `AppConfig`, so a row written here is readable as config once the
+ * notification lands. Postgres holds notifications until COMMIT, so a write made
+ * inside a request cannot be read back through the config within that same
+ * request — prefer `SettingsService.set`, which closes that window rather than
+ * racing it.
+ *
+ * What the NOTIFY does NOT do is re-render anything: the stream config is
+ * materialized at boot and by explicit calls (see `StreamService`).
  */
 @Injectable()
 export class SettingsRepository extends DataRepository {

@@ -1,13 +1,13 @@
 import { Container, Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
-import { AIR_MODE_KEY, DEFAULT_AIR_MODE, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
+import { AppConfig } from '@maroonedsoftware/appconfig';
+import { AIR_MODE_KEY, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { Epoch } from '#modules/shared/epoch.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
-import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { BreakPlanner } from './break.planner.js';
 import type { Lineup, LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
@@ -85,14 +85,16 @@ export class DirectorService {
     private airReadAt = 0;
     private active = false;
     /**
-     * What puts the station on air, read from the settings on the same throttle as
-     * the row above.
+     * What puts the station on air, as the setting currently stands.
      *
-     * Held here rather than read by the pusher because this is already the class
-     * that opens a scope to re-read what is on air; the pusher reconciles every
-     * couple of seconds and has no scope of its own to spend on a settings query.
+     * Reported here and acted on by {@link AudienceWatch}, which reads it the same
+     * way. Neither of them holds a copy: `deadair.settings` is a layer of the app's
+     * config, so this is the row itself rather than a reading of it taken on some
+     * throttle, and the console cannot show a mode the gate is not using.
      */
-    private airMode: AirMode = DEFAULT_AIR_MODE;
+    private get airMode(): AirMode {
+        return parseAirMode(this.config.get(AIR_MODE_KEY, ''));
+    }
     /** One commit pass at a time: appending to the rundown emits a change, which re-enters here. */
     private busy = false;
     /** A wake that arrived mid-pass. Coalesced rather than dropped; see {@link commit}. */
@@ -163,6 +165,7 @@ export class DirectorService {
         // The singleton broker, which is what JobsModule documents for a non-request caller: it
         // resolves the root connection provider, and therefore pg-boss's own pool.
         private readonly jobs: PgBossJobBroker,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -667,22 +670,7 @@ export class DirectorService {
     private async readAir(force = false): Promise<StationAir | undefined> {
         if (!force && this.active && Date.now() - this.airReadAt < AIR_TTL_MS) return this.air;
 
-        // Both in one scope, and strictly one after the other. A scope owns a single
-        // pooled connection inside a single transaction, so issuing the two reads
-        // concurrently races them onto it: the first to finish ends the transaction and
-        // the second fails with "Transaction is already committed", which reaches here
-        // as a restore that silently commits nothing and a station that never airs.
-        const [air, airMode] = await this.inScope(async scope => {
-            const row = await scope.get(StationAirRepository).get(MAIN_SLOT);
-            const mode = parseAirMode(await scope.get(SettingsRepository).get(AIR_MODE_KEY));
-            return [row, mode] as const;
-        });
-
-        this.air = air;
-        this.airMode = airMode;
-        // Published rather than kept: the transport is what acts on it, every couple of
-        // seconds, and it has no scope of its own to read a setting from.
-        this.audience.useMode(airMode);
+        this.air = await this.inScope(async scope => scope.get(StationAirRepository).get(MAIN_SLOT));
         this.airReadAt = Date.now();
         return this.air;
     }

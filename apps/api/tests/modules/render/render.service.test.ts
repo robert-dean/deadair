@@ -56,12 +56,13 @@ const service = (options: ServiceOptions = {}) => {
 
     // `undefined`, not `null`: that is what the service checks for, and a fake answering
     // something else would test a branch the real code never takes.
-    const speaker = vi.fn().mockResolvedValue(options.speaker === null ? undefined : SPEAKER);
+    const speaker = vi.fn().mockReturnValue(options.speaker === null ? undefined : SPEAKER);
     const speakers = vi.fn().mockReturnValue(options.speaker === null ? [] : [SPEAKER]);
     const voices = vi.fn().mockResolvedValue(options.voices ?? []);
     const speakAs = vi.fn(options.speakAs ?? (async () => 'mp3'));
     const sampleRead = vi.fn().mockResolvedValue(options.sample);
-    const settingsGet = vi.fn().mockResolvedValue(undefined);
+    // Why nobody can speak is SpeechService's sentence to write, and is tested there.
+    const explainSpeaker = vi.fn().mockReturnValue('no active plugin can speak; install and enable a TTS plugin');
 
     const samples = {
         keyFor: (pluginId: string, voiceId: string) => `key:${pluginId}:${voiceId}`,
@@ -77,9 +78,8 @@ const service = (options: ServiceOptions = {}) => {
                 scan,
             } as unknown as SegmentLibrary,
             { send } as never,
-            { speaker, speakers, voices, speakAs } as never,
+            { speaker, speakers, voices, speakAs, explainSpeaker } as never,
             samples as never,
-            { get: settingsGet } as never,
             logger as never,
         ),
         findById,

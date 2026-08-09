@@ -89,8 +89,20 @@ export class BreakPlanner {
         // to say them in. Without a speaker a written break could never be rendered and would be
         // skipped at every slot, which would cost the station the ident it could have had instead.
         const canWrite = this.writers.canWrite(TALK_BREAK_KIND) && this.speech.speaker() !== undefined;
+        const idents = await this.segments.listReady(IDENT_KIND);
 
-        const placements = canWrite ? await this.planWritten(positions) : await this.chooseIdents(lineup, positions);
+        if (!canWrite && idents.length === 0) {
+            // Not a fault, and deliberately not a warning: a station with no idents recorded and
+            // nothing able to write its own is an ordinary state, and it plays records. Said once
+            // per pass at info, because an operator wondering why the station never says its own
+            // name needs somewhere to look.
+            this.logger.info('director: the lineup wants a break, but nothing can write one and the library holds no idents', {
+                lineup: lineup.id,
+            });
+            return 0;
+        }
+
+        const placements = await this.fill(positions, idents, canWrite, await this.lastKindBefore(lineup, positions[0]!));
         if (placements.length === 0) return 0;
 
         const result = await lineup.insertSegments(placements.map(({ segmentId, atIndex }) => ({ segmentId, atIndex })));
@@ -119,44 +131,64 @@ export class BreakPlanner {
     }
 
     /**
-     * A `planned` row per slot, for the station to write into.
+     * One break per slot, alternating what sort each one is.
      *
-     * One row per slot rather than one shared between them, because two breaks in the same pass sit
-     * between different records and have different things to say.
+     * A written break at one slot and a recorded ident at the next, which is what keeps the
+     * station's own name in rotation instead of letting the DJ become the only voice on the
+     * station. The alternation runs from the kind of the last segment ALREADY in the order rather
+     * than restarting per pass, or a pass that plants one break at a time would plant the same kind
+     * every time and never alternate at all.
+     *
+     * Availability wins over the alternation, in both directions: a station with no idents recorded
+     * gets talk breaks at every slot, and one with no speaker gets idents at every slot. Neither
+     * needs a branch anywhere else, and neither is worth skipping a break over.
      */
-    private async planWritten(positions: readonly number[]): Promise<Placement[]> {
+    private async fill(positions: readonly number[], idents: readonly Segment[], canWrite: boolean, lastKind: string | undefined): Promise<Placement[]> {
         const placements: Placement[] = [];
+        let previousKind = lastKind;
+        // Chosen per slot rather than once per pass, so two idents planted together are two
+        // different recordings where the library has them.
+        let previousIdent: string | undefined;
+
         for (const atIndex of positions) {
-            // A placeholder label. The writer replaces it with one naming the records it sits
-            // between, at the same moment and by the same hand as the script.
-            const segment = await this.segments.plan({ kind: TALK_BREAK_KIND, label: 'Talk break' });
-            placements.push({ segmentId: segment.id, atIndex, written: true });
+            const write = canWrite && (previousKind !== TALK_BREAK_KIND || idents.length === 0);
+
+            if (write) {
+                // A placeholder label. The writer replaces it with one naming the records it sits
+                // between, at the same moment and by the same hand as the script.
+                const segment = await this.segments.plan({ kind: TALK_BREAK_KIND, label: 'Talk break' });
+                placements.push({ segmentId: segment.id, atIndex, written: true });
+                previousKind = TALK_BREAK_KIND;
+                continue;
+            }
+
+            const segment = choose(idents, previousIdent);
+            previousIdent = segment.id;
+            placements.push({ segmentId: segment.id, atIndex, written: false });
+            previousKind = IDENT_KIND;
         }
+
         return placements;
     }
 
-    /** The recorded fallback: ready idents out of the library, when nothing can write one. */
-    private async chooseIdents(lineup: Lineup, positions: readonly number[]): Promise<Placement[]> {
-        const available = await this.segments.listReady(IDENT_KIND);
-        if (available.length === 0) {
-            // Not a fault, and deliberately not a warning: a station with no idents recorded and
-            // nothing able to write its own is an ordinary state, and it plays records. Said once
-            // per pass at info, because an operator wondering why the station never says its own
-            // name needs somewhere to look.
-            this.logger.info('director: the lineup wants a break, but nothing can write one and the library holds no idents', {
-                lineup: lineup.id,
-            });
-            return [];
-        }
+    /**
+     * What sort of break the station last put in this order, before the first slot being filled.
+     *
+     * Costs one query, and only on a pass that is actually planting something — which is the rare
+     * one. The lineup item names a segment by id and nothing else (`deadair.segments` is the single
+     * truth for the rest), so the kind has to be read rather than remembered. A segment that has
+     * since been deleted reads as no answer at all, which starts the alternation fresh.
+     */
+    private async lastKindBefore(lineup: Lineup, before: number): Promise<string | undefined> {
+        const items = lineup.all();
+        for (let index = Math.min(before, items.length) - 1; index >= 0; index--) {
+            const item = items[index]!;
+            if (item.kind !== 'segment') continue;
 
-        // Chosen per slot rather than once per pass, so three breaks planted together are three
-        // different idents where the library has them.
-        let previous: string | undefined;
-        return positions.map(atIndex => {
-            const segment = choose(available, previous);
-            previous = segment.id;
-            return { segmentId: segment.id, atIndex, written: false };
-        });
+            const found = await this.segments.findByIds([item.segmentId]);
+            return found.get(item.segmentId)?.kind;
+        }
+        return undefined;
     }
 
     /**

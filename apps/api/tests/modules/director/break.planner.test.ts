@@ -37,6 +37,10 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
         ...input,
     }));
     const markFailed = vi.fn(async () => {});
+    // What the alternation reads: the lineup item names a segment by id, so the kind of the last
+    // one already in the order has to be looked up rather than remembered.
+    const known = new Map<string, Segment>((options.idents ?? [ident('seg-1')]).map(segment => [segment.id, segment]));
+    const findByIds = vi.fn(async (ids: readonly string[]) => new Map([...known].filter(([id]) => ids.includes(id))));
 
     const writers = { canWrite: vi.fn(() => options.canWrite ?? false) };
     const speech = { speaker: vi.fn(() => ((options.speaker ?? options.canWrite) ? { record: { id: 'deadair.kokoro' } } : undefined)) };
@@ -44,7 +48,7 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
 
     return {
         planner: new BreakPlanner(
-            { listReady, plan, markFailed } as unknown as SegmentRepository,
+            { listReady, plan, markFailed, findByIds } as unknown as SegmentRepository,
             writers as never,
             speech as never,
             { send } as never,
@@ -212,29 +216,35 @@ describe('BreakPlanner', () => {
 // no words in it: the row and its place in the order go down here, synchronously, and a job writes
 // the script behind them.
 describe('BreakPlanner writing its own breaks', () => {
-    it('plants empty talk breaks and sends a job to write each one', async () => {
-        const { planner, plan, send, listReady } = build({ canWrite: true });
+    it('plants an empty talk break and sends a job to write it', async () => {
+        const { planner, plan, send } = build({ canWrite: true });
         const lineup = await lineupOf(12);
 
         await planner.plant(lineup, rules({ breakEveryItems: 4 }));
 
-        // Two slots in twelve records, so two rows and two jobs, and no reach for the ident shelf.
-        expect(plan).toHaveBeenCalledTimes(2);
         expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak' }));
+        // Planted with no words in it: the job fills them in behind the placement.
         expect(plan.mock.calls.every(([input]) => input.script === undefined)).toBe(true);
-        expect(send).toHaveBeenCalledTimes(2);
         expect(send).toHaveBeenCalledWith('director.write_break', { lineupId: 'lineup-1', segmentId: 'planned-1' });
-        expect(listReady).not.toHaveBeenCalled();
     });
 
-    it('plants one row per slot, because two breaks sit between different records', async () => {
-        const { planner } = build({ canWrite: true });
-        const lineup = await lineupOf(12);
+    it('sends a write job only for the breaks it actually planted', async () => {
+        const { planner, plan, send } = build({ canWrite: true });
+        const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breakEveryItems: 4 }));
 
-        const used = lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentId] : []));
-        expect(new Set(used).size).toBe(used.length);
+        expect(send).toHaveBeenCalledTimes(plan.mock.calls.length);
+    });
+
+    it('plants one row per written slot, because two breaks sit between different records', async () => {
+        const { planner } = build({ canWrite: true });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        const written = lineup.all().flatMap(item => (item.kind === 'segment' && item.segmentId.startsWith('planned-') ? [item.segmentId] : []));
+        expect(new Set(written).size).toBe(written.length);
     });
 
     // The property the whole design rests on: planting stays idempotent even though the words arrive
@@ -243,9 +253,10 @@ describe('BreakPlanner writing its own breaks', () => {
         const { planner, plan } = build({ canWrite: true });
         const lineup = await lineupOf(12);
         await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        const planted = plan.mock.calls.length;
 
         expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
-        expect(plan).toHaveBeenCalledTimes(2);
+        expect(plan).toHaveBeenCalledTimes(planted);
     });
 
     it('falls back to recorded idents when nothing can write', async () => {
@@ -278,8 +289,56 @@ describe('BreakPlanner writing its own breaks', () => {
         vi.spyOn(lineup, 'insertSegments').mockResolvedValue({ ok: false, reason: 'stale' } as never);
 
         expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
-        expect(markFailed).toHaveBeenCalledTimes(2);
         expect(markFailed).toHaveBeenCalledWith('planned-1', expect.stringContaining('moved'), 'planned');
         expect(send).not.toHaveBeenCalled();
+    });
+});
+
+// A written break at one slot and a recorded ident at the next, so the DJ does not become the only
+// voice on the station and the station's own name stays in rotation.
+describe('BreakPlanner alternating what a break is', () => {
+    /** Which kind landed at each segment position, in order. */
+    const kindsPlanted = (lineup: Lineup): string[] =>
+        lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentId.startsWith('planned-') ? 'talkbreak' : 'ident'] : []));
+
+    it('alternates written breaks with recorded idents', async () => {
+        const { planner } = build({ canWrite: true, idents: [ident('a'), ident('b')] });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        expect(kindsPlanted(lineup)).toEqual(['talkbreak', 'ident', 'talkbreak', 'ident']);
+    });
+
+    // Without this a pass that plants a single break would start from the same kind every time and
+    // never alternate at all, which is exactly what the commit path does on a lineup already in flight.
+    it('carries the alternation on from the last break already in the order', async () => {
+        const { planner } = build({ canWrite: true });
+        const lineup = await lineupOf(20);
+        // One break at a time, the way the commit pass plants as the cursor advances.
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await lineup.takeNext(6);
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        const kinds = kindsPlanted(lineup);
+        for (let index = 1; index < kinds.length; index++) expect(kinds[index]).not.toBe(kinds[index - 1]);
+    });
+
+    it('plants talk breaks at every slot when the library holds no idents', async () => {
+        const { planner } = build({ canWrite: true, idents: [] });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        expect(new Set(kindsPlanted(lineup))).toEqual(new Set(['talkbreak']));
+    });
+
+    it('plants idents at every slot when nothing can write', async () => {
+        const { planner } = build({ canWrite: false, idents: [ident('a'), ident('b')] });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        expect(new Set(kindsPlanted(lineup))).toEqual(new Set(['ident']));
     });
 });

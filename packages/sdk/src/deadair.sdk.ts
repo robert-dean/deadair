@@ -10,6 +10,7 @@ import { PlaylistsClient } from './playlists/playlists.client.js';
 import { PlayoutClient } from './playout/playout.client.js';
 import { PluginsClient } from './plugins/plugins.client.js';
 import { RenderClient } from './render/render.client.js';
+import { SettingsClient } from './settings/settings.client.js';
 
 export class DeadairSdk {
     readonly art: ArtClient;
@@ -22,6 +23,7 @@ export class DeadairSdk {
     readonly playout: PlayoutClient;
     readonly plugins: PluginsClient;
     readonly render: RenderClient;
+    readonly settings: SettingsClient;
 
     constructor(options: SdkOptions) {
         const sdkFetch = options.fetch ?? createSdkFetch(options);
@@ -35,5 +37,6 @@ export class DeadairSdk {
         this.playout = new PlayoutClient(sdkFetch);
         this.plugins = new PluginsClient(sdkFetch);
         this.render = new RenderClient(sdkFetch);
+        this.settings = new SettingsClient(sdkFetch);
     }
 }

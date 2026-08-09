@@ -62,6 +62,15 @@ export const STREAM_KEYS = {
     playoutBridgeSecret: 'stream.playoutBridgeSecret',
 } as const;
 
+/**
+ * Whether a settings key is one the rendered container configs are built from.
+ *
+ * What makes a `stream.*` write different from any other setting: Icecast and
+ * Liquidsoap cannot read the database, so a change to one of these is not in
+ * force until it has been written out as files. See `StreamService.materialize`.
+ */
+export const isStreamSettingKey = (key: string): boolean => (Object.values(STREAM_KEYS) as string[]).includes(key);
+
 /** The keys whose stored values are ciphertext. */
 export const STREAM_SECRET_KEYS: string[] = [
     STREAM_KEYS.sourcePassword,

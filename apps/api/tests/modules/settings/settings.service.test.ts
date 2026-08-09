@@ -15,6 +15,7 @@ import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+import type { StreamService } from '../../../src/modules/stream/stream.service.js';
 
 const encryption = new EncryptionProvider(randomBytes(32));
 
@@ -34,11 +35,14 @@ function build(stored: Record<string, string> = {}) {
     });
     const configStore = { reload } as unknown as AppConfigStore;
     const afterCommit = new AfterCommit();
+    const materialize = vi.fn(async () => true);
+    const stream = { materialize } as unknown as StreamService;
 
     return {
-        service: new SettingsService(repository, configStore, station.config, encryption, afterCommit),
+        service: new SettingsService(repository, configStore, station.config, encryption, stream, afterCommit),
         repository,
         reload,
+        materialize,
         afterCommit,
         written,
         station,
@@ -162,5 +166,44 @@ describe('SettingsService.write', () => {
         const model = await service.write({ [AIR_MODE_KEY]: 'always' });
 
         expect(model.values[STREAM_KEYS.title]).toBe('Old FM');
+    });
+});
+
+describe('SettingsService and the containers that cannot read the database', () => {
+    it('re-renders the stream config after a stream setting changes', async () => {
+        const { service, materialize, afterCommit } = build();
+
+        await service.write({ [STREAM_KEYS.mount]: '/other.mp3' });
+        expect(materialize).not.toHaveBeenCalled();
+
+        await afterCommit.run();
+
+        expect(materialize).toHaveBeenCalled();
+    });
+
+    it('renders from the settings as they now are, not as they were', async () => {
+        // The renderer reads these through the same config this request has just changed, so the
+        // order of the two deferred tasks is the whole of whether the rendered file is right.
+        const { service, reload, materialize, afterCommit } = build();
+        const order: string[] = [];
+        reload.mockImplementation(async () => void order.push('reload'));
+        materialize.mockImplementation(async () => {
+            order.push('materialize');
+            return true;
+        });
+
+        await service.write({ [STREAM_KEYS.mount]: '/other.mp3' });
+        await afterCommit.run();
+
+        expect(order).toEqual(['reload', 'materialize']);
+    });
+
+    it('does not re-render for a setting no container reads', async () => {
+        const { service, materialize, afterCommit } = build();
+
+        await service.write({ [AIR_MODE_KEY]: 'always' });
+        await afterCommit.run();
+
+        expect(materialize).not.toHaveBeenCalled();
     });
 });

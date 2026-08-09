@@ -22,4 +22,6 @@ export * from './plugins/types/index.js';
 export * from './render/render.client.js';
 export * from './render/types/index.js';
 export * from './sdk-options.js';
+export * from './settings/settings.client.js';
+export * from './settings/types/index.js';
 export * from './shared/types/index.js';

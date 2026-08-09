@@ -9,6 +9,7 @@ import { NowplayingRouter } from './nowplaying.router.js';
 import { PlayoutRouter } from './playout.router.js';
 import { PluginsRouter } from './plugins.router.js';
 import { RenderRouter } from './render.router.js';
+import { SettingsRouter } from './settings.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
 
 export const routers = [
@@ -23,5 +24,6 @@ export const routers = [
     DirectorRouter,
     RenderRouter,
     PluginsRouter,
+    SettingsRouter,
     OnboardingRouter,
 ];

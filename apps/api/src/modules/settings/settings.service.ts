@@ -3,24 +3,12 @@ import { AppConfig, AppConfigStore } from '@maroonedsoftware/appconfig';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { httpError } from '@maroonedsoftware/errors';
 import { AfterCommit } from '#modules/data/after.commit.js';
+import { StreamService } from '#modules/stream/stream.service.js';
+import { isStreamSettingKey } from '#modules/stream/stream.settings.js';
 import { SettingsRepository } from './settings.repository.js';
 import { parseSetting, serializeSetting, type SettingRejection, type SettingValue } from './setting.values.js';
-import { findDescriptor, isSecretField, isValueField, SETTING_DESCRIPTORS, type SettingDescriptor } from './settings.registry.js';
-
-/**
- * The settings as a console may see them.
- *
- * Shaped like `PluginConfigReadModel`, and for the same reason: a secret is
- * reported as whether one is stored and never as what it is, so neither the
- * plaintext nor the ciphertext leaves this service in a read model.
- */
-export interface SettingsReadModel {
-    descriptors: SettingDescriptor[];
-    /** Every non-secret setting, defaults filled in for whatever is not stored. */
-    values: Record<string, SettingValue>;
-    /** One entry per `secret` descriptor: whether a value is currently stored. */
-    configured: Record<string, boolean>;
-}
+import { findDescriptor, isSecretField, isValueField, SETTING_DESCRIPTORS } from './settings.registry.js';
+import type { StationSettings, StationSettingsInput } from './types/settings.types.js';
 
 /**
  * Station settings, backed by the `deadair.settings` key/value table.
@@ -41,6 +29,9 @@ export class SettingsService {
         private readonly configStore: AppConfigStore,
         private readonly config: AppConfig,
         private readonly encryption: EncryptionProvider,
+        // Injected for one reason: a `stream.*` write has to be rendered out to the containers,
+        // which cannot read the database. Nothing here reads the stream's settings.
+        private readonly stream: StreamService,
         private readonly afterCommit: AfterCommit,
     ) {}
 
@@ -51,7 +42,7 @@ export class SettingsService {
      * what the station is actually running on rather than a second reading of the
      * same rows that could differ from it.
      */
-    read(): SettingsReadModel {
+    read(): StationSettings {
         const values: Record<string, SettingValue> = {};
         const configured: Record<string, boolean> = {};
 
@@ -93,7 +84,7 @@ export class SettingsService {
      * correcting a form should see all of it at once. Nothing is written when
      * anything is refused, so a rejected submission leaves the station as it was.
      */
-    async write(submitted: Record<string, unknown>): Promise<SettingsReadModel> {
+    async write(submitted: Record<string, unknown>): Promise<StationSettings> {
         const rejections: SettingRejection[] = [];
         const writes: { key: string; value: string | null }[] = [];
 
@@ -124,10 +115,37 @@ export class SettingsService {
         }
         this.scheduleRefresh();
 
+        // A `stream.*` change is not in force until it has been written out as files: Icecast and
+        // Liquidsoap cannot read the database. Queued AFTER the refresh and never instead of it,
+        // because the renderer reads these settings through the same config — materializing first
+        // would write the values as they stood before this request.
+        //
+        // It does NOT restart either container, so what this buys is that the next restart adopts
+        // the change rather than the operator having to remember to re-render. See
+        // `docs/todo/mixer-settings-in-db.md` for why the restart is its own piece of work.
+        if (writes.some(write => isStreamSettingKey(write.key))) {
+            this.afterCommit.add(async () => {
+                await this.stream.materialize();
+            });
+        }
+
         // Built from the values just written rather than re-read, for the reason `set` explains:
         // the config does not refresh until this request commits, so reading it back here would
         // answer with what the operator has just replaced.
         return this.readAsWritten(writes);
+    }
+
+    /**
+     * {@link write}, taking the request body the route hands over.
+     *
+     * Its own method rather than reshaping `write`, because the envelope is the
+     * contract's and the map is the domain's: everything that is not a route —
+     * the tests, and anything that grows into a second caller — has a map and
+     * would otherwise have to wrap it in a `values` key to talk to its own
+     * service.
+     */
+    async writeSubmitted(input: StationSettingsInput): Promise<StationSettings> {
+        return await this.write(input.values);
     }
 
     /**
@@ -171,7 +189,7 @@ export class SettingsService {
      * either one alone: the config has everything that was NOT submitted, and the
      * writes have what was.
      */
-    private readAsWritten(writes: readonly { key: string; value: string | null }[]): SettingsReadModel {
+    private readAsWritten(writes: readonly { key: string; value: string | null }[]): StationSettings {
         const model = this.read();
 
         for (const write of writes) {

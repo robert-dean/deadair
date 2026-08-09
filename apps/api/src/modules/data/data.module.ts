@@ -8,6 +8,7 @@ import { Redis } from 'ioredis';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { EmptyUpdateRewriteDialect, KyselyPool, KyselyDefaultPlugins, KyselyPgTypeOverrides } from '@maroonedsoftware/kysely';
 import { CacheProvider } from '@maroonedsoftware/cache';
+import { resolveRuntimeConnection } from './database.connection.js';
 import { IoRedisCacheProvider } from '@maroonedsoftware/cache/ioredis';
 
 const queryErrorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -15,17 +16,6 @@ const queryErrorText = (error: unknown): string => (error instanceof Error ? err
 export const DataModule: ServerKitModule = {
     name: 'Data',
     setup: async (registry: Registry, config: AppConfig) => {
-        // Runtime query pool. When DATABASE_APP_USER is configured we connect as
-        // the non-owner `app_user` role so the org-isolation RLS policies
-        // actually enforce (the table owner bypasses RLS). dbmate (migrations)
-        // and pg-boss (queue-schema management, see JobsModule) keep their own
-        // owner connections via DATABASE_USER. Falls back to the owner when
-        // app_user isn't configured.
-        const appUser = config.get('DATABASE_APP_USER', '');
-        const useAppUser = !!appUser;
-        // The owner connection details (DATABASE_USER). When app_user is
-        // configured the runtime pool uses app_user; the MaintenanceDb pool
-        // always uses these owner details for privileged ops.
         // Pool tunables. Each HTTP request holds a connection for its whole lifetime (one
         // transaction per request), so an unbounded acquire wait (pg default) means a burst of
         // slow requests queues forever with no signal. Cap the pool and time out acquisition.
@@ -42,20 +32,15 @@ export const DataModule: ServerKitModule = {
             idleTimeoutMillis: numberOr('DATABASE_POOL_IDLE_TIMEOUT_MS', 10_000),
         };
 
-        const ownerConfig = {
-            host: config.get('DATABASE_HOST', ''),
-            port: config.get('DATABASE_PORT', 55432),
-            user: config.get('DATABASE_USER', ''),
-            password: config.get('DATABASE_PASSWORD', ''),
-            database: config.get('DATABASE_NAME', ''),
-            types: KyselyPgTypeOverrides,
-        };
-        const dbConfig = {
-            ...ownerConfig,
-            ...poolTuning,
-            user: useAppUser ? appUser : ownerConfig.user,
-            password: useAppUser ? config.get('DATABASE_APP_PASSWORD', '') : ownerConfig.password,
-        };
+        // The runtime query pool connects as the non-owner `app_user` role where one is configured,
+        // so the RLS policies actually enforce (the table owner bypasses them) and falls back to
+        // the owner otherwise. dbmate (migrations) and pg-boss (queue-schema management, see
+        // JobsModule) keep their own owner connections.
+        //
+        // Which role that is gets decided in one place rather than here, because there are now two
+        // callers of the answer: this pool, and the settings config source that reads
+        // `deadair.settings` in `setup.server.ts` before any pool exists.
+        const dbConfig = { ...resolveRuntimeConnection(config), ...poolTuning, types: KyselyPgTypeOverrides };
 
         registry
             .register(KyselyPool)

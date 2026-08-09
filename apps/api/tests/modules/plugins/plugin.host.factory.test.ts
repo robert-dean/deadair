@@ -23,6 +23,15 @@ import {
 import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
+/**
+ * `runWithDeadline` for the tests that care about the clock and not about
+ * cancellation, with a signal nothing ever aborts.
+ *
+ * Named for what it establishes rather than for what it does: everything inside
+ * runs as though `PluginInvoker` had called it.
+ */
+const inInvocation = <T>(deadlineAt: number, fn: () => Promise<T>): Promise<T> => runWithDeadline(deadlineAt, new AbortController().signal, fn);
+
 function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
     return {
         id: 'test.plugin',
@@ -110,6 +119,14 @@ const neverResolvingFetch = () =>
     vi.fn(
         async (_url: URL, init: RequestInit) =>
             new Promise<Response>((_resolve, reject) => {
+                // Real `fetch` rejects at once on a signal that is ALREADY
+                // aborted rather than waiting for an event that has been and
+                // gone. Without this the mock hangs forever on exactly the case
+                // where the caller cancelled before the request went out.
+                if (init.signal?.aborted) {
+                    reject(new Error('aborted'));
+                    return;
+                }
                 init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
             }),
     );
@@ -960,7 +977,7 @@ describe('PluginHostFactory fetch budget', () => {
         const host = factory().createHost(allowlisted('api.example.com'));
 
         // Default fetch budget is 10s; the call it is running inside ends in 2.
-        const call = runWithDeadline(Date.now() + 2_000, async () => host.fetch('https://api.example.com/slow'));
+        const call = inInvocation(Date.now() + 2_000, async () => host.fetch('https://api.example.com/slow'));
         const assertion = expectPluginError(call, 'timeout', /timed out after 2000ms/);
 
         await vi.advanceTimersByTimeAsync(2_100);
@@ -973,7 +990,7 @@ describe('PluginHostFactory fetch budget', () => {
         const host = factory().createHost(allowlisted('api.example.com'));
 
         // A background job that gave itself a minute, asking for 30s of it.
-        const call = runWithDeadline(Date.now() + 60_000, async () => host.fetch('https://api.example.com/slow', { timeoutMs: 30_000 }));
+        const call = inInvocation(Date.now() + 60_000, async () => host.fetch('https://api.example.com/slow', { timeoutMs: 30_000 }));
         const assertion = expectPluginError(call, 'timeout', /timed out after 30000ms/);
 
         let settled = false;
@@ -993,7 +1010,7 @@ describe('PluginHostFactory fetch budget', () => {
     it('reports the remaining budget to the plugin, so it can shed optional work on purpose', async () => {
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        const inside = await runWithDeadline(Date.now() + 4_000, async () => host.remainingMs());
+        const inside = await inInvocation(Date.now() + 4_000, async () => host.remainingMs());
 
         expect(inside).toBeGreaterThan(3_000);
         expect(inside).toBeLessThanOrEqual(4_000);
@@ -1002,13 +1019,13 @@ describe('PluginHostFactory fetch budget', () => {
     it('reports the ordinary per-call default when nothing is waiting on the plugin', async () => {
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expect(host.remainingMs()).resolves.toBe(PLUGIN_INVOKE_TIMEOUT_MS);
+        expect(host.remainingMs()).toBe(PLUGIN_INVOKE_TIMEOUT_MS);
     });
 
     it('never reports a negative budget: the plugin is deciding whether to start work, not measuring lateness', async () => {
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        await expect(runWithDeadline(Date.now() - 5_000, async () => host.remainingMs())).resolves.toBe(0);
+        await expect(inInvocation(Date.now() - 5_000, async () => host.remainingMs())).resolves.toBe(0);
     });
 
     it('refuses without a round trip when the invocation is already out of time', async () => {
@@ -1016,10 +1033,58 @@ describe('PluginHostFactory fetch budget', () => {
         vi.stubGlobal('fetch', fetchMock);
         const host = factory().createHost(allowlisted('api.example.com'));
 
-        const call = runWithDeadline(Date.now() - 1, async () => host.fetch('https://api.example.com/x'));
+        const call = inInvocation(Date.now() - 1, async () => host.fetch('https://api.example.com/x'));
 
         await expectPluginError(call, 'timeout', /deadline had already passed/);
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('hands the plugin the invocation own signal, not a copy of it', async () => {
+        const host = factory().createHost(allowlisted('api.example.com'));
+        const controller = new AbortController();
+
+        const seen = await runWithDeadline(Date.now() + 1_000, controller.signal, async () => host.signal);
+
+        expect(seen).toBe(controller.signal);
+    });
+
+    it('hands back a signal that never aborts when nothing is waiting on the plugin', () => {
+        const host = factory().createHost(allowlisted('api.example.com'));
+
+        // A plugin calling from a timer of its own is a real state, not an
+        // error, so an already-aborted signal here would refuse legitimate work.
+        expect(host.signal.aborted).toBe(false);
+    });
+
+    it('reads the ambient signal per call, so one host object serves every invocation through it', async () => {
+        const host = factory().createHost(allowlisted('api.example.com'));
+        const first = new AbortController();
+        const second = new AbortController();
+
+        const a = await runWithDeadline(Date.now() + 1_000, first.signal, async () => host.signal);
+        const b = await runWithDeadline(Date.now() + 1_000, second.signal, async () => host.signal);
+
+        expect(a).toBe(first.signal);
+        expect(b).toBe(second.signal);
+    });
+
+    it("abandons a fetch when the plugin's own signal aborts, ahead of any deadline", async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('fetch', neverResolvingFetch());
+        const host = factory().createHost(allowlisted('api.example.com'));
+        const mine = new AbortController();
+
+        const call = host.fetch('https://api.example.com/slow', { signal: mine.signal });
+        // The default fetch budget is 10s and nothing here advances near it, so
+        // settling at all is the assertion: only the plugin's own signal could
+        // have ended this.
+        const assertion = expectPluginError(call, 'timeout', /timed out/);
+
+        // Let the request actually go out before cancelling it.
+        await vi.advanceTimersByTimeAsync(1);
+        mine.abort();
+        await vi.advanceTimersByTimeAsync(1);
+        await assertion;
     });
 
     it('skips a Retry-After back-off that would outlast the budget, handing the 429 back instead', async () => {

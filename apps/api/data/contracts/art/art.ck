@@ -14,10 +14,9 @@ options {
 # The operation is anonymous by necessity: this URL is the src of an <img>, and an image request
 # carries no bearer token. What it exposes is a cover the catalog already points the console at.
 #
-# That note lives up HERE rather than above the `security: none` line it explains, because the
-# formatter deletes a comment written inside or immediately above a `security` block and it had
-# already done so once. Comments inside `response` blocks round-trip; these do not. See the Gotchas
-# in .claude/skills/contractkit/SKILL.md.
+# That note lives up HERE for historical reasons: the formatter used to delete a comment written
+# inside or immediately above a `security` block, and had already done so once. Fixed in core 0.26 —
+# a note above `security: none` round-trips now and would be the better home for it.
 
 operation /art/{id}: {
     params: {

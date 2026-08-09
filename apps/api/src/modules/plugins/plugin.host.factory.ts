@@ -21,7 +21,7 @@ import type {
 } from '@deadair/plugin-sdk';
 import { SpotifyShimClient } from '#modules/stream/spotify.shim.client.js';
 import { PluginConfigService } from './plugin.config.service.js';
-import { invocationRemainingMs } from './plugin.invocation.deadline.js';
+import { invocationRemainingMs, invocationSignal } from './plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
 import { PluginLog } from './plugin.log.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
@@ -315,6 +315,38 @@ const cancelBody = async (response: Response): Promise<void> => {
 };
 
 /**
+ * The controller bounding one egress call: the host's own deadline, plus
+ * whatever the plugin passed in.
+ *
+ * A plain timer rather than `AbortSignal.timeout`, because that one's timer is
+ * unref'd and invisible to fake timers, so the deadline would be neither
+ * reliable nor testable. One controller rather than `AbortSignal.any` for the
+ * same reason the timer is explicit: the caller aborts this itself on a
+ * transport failure, and a derived signal has no such handle.
+ *
+ * `dispose` drops the listener as well as the timer. A plugin's own signal is
+ * routinely the invocation's, which outlives any single fetch, so leaving one
+ * behind per call is a listener leak on a long background job rather than a
+ * theoretical one.
+ */
+const egressController = (deadlineAt: number, external?: AbortSignal): { controller: AbortController; dispose: () => void } => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(0, deadlineAt - Date.now()));
+
+    const onExternalAbort = (): void => controller.abort(external?.reason);
+    if (external?.aborted) onExternalAbort();
+    else external?.addEventListener('abort', onExternalAbort, { once: true });
+
+    return {
+        controller,
+        dispose: () => {
+            clearTimeout(timer);
+            external?.removeEventListener('abort', onExternalAbort);
+        },
+    };
+};
+
+/**
  * Races `work` against an idle timer, failing with `onTimeout` if nothing
  * arrives in time.
  *
@@ -523,11 +555,18 @@ export class PluginHostFactory {
                     closeStream(streams, streamId);
                 },
             },
+            // A getter, not a captured value: the host object outlives every
+            // invocation made through it, so it has to read the ambient one at
+            // the moment the plugin asks rather than whichever was running when
+            // `createHost` was called.
+            get signal() {
+                return invocationSignal();
+            },
             // Never negative: a plugin reading this is deciding whether to
             // start more work, and "-40" and "0" are the same answer to that
             // question. `hostFetch` reads the raw value instead, because it
             // does need to tell "expired" apart from "expiring".
-            remainingMs: async () => Math.max(0, invocationRemainingMs() ?? PLUGIN_INVOKE_TIMEOUT_MS),
+            remainingMs: () => Math.max(0, invocationRemainingMs() ?? PLUGIN_INVOKE_TIMEOUT_MS),
             storage: this.createStorage(manifest),
             secrets: this.createSecrets(manifest),
             config: this.createConfig(manifest),
@@ -757,11 +796,7 @@ export class PluginHostFactory {
         const { url: target, entry } = this.assertAllowed(manifest, entries, logger, url);
         const { deadlineAt, budgetMs } = this.budgetFor(manifest, target, init);
 
-        // A controller on a plain timer rather than `AbortSignal.timeout`: that
-        // one's timer is unref'd and invisible to fake timers, so the deadline
-        // would be neither reliable nor testable.
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), Math.max(0, deadlineAt - Date.now()));
+        const { controller, dispose } = egressController(deadlineAt, init?.signal);
 
         try {
             const sent = await this.sendWithRetry(manifest, entries, limiters, logger, entry, target, init, controller, deadlineAt, budgetMs);
@@ -779,7 +814,7 @@ export class PluginHostFactory {
 
             return { ...flattenResponse(sent.response, sent.url, sent.redirected), body };
         } finally {
-            clearTimeout(timer);
+            dispose();
         }
     }
 
@@ -910,8 +945,7 @@ export class PluginHostFactory {
 
         const { deadlineAt, budgetMs } = this.budgetFor(manifest, target, init);
 
-        const controller = new AbortController();
-        const openTimer = setTimeout(() => controller.abort(), Math.max(0, deadlineAt - Date.now()));
+        const { controller, dispose } = egressController(deadlineAt, init?.signal);
 
         let sent: SentResponse;
         try {
@@ -922,9 +956,9 @@ export class PluginHostFactory {
             throw error;
         } finally {
             // The open deadline is done with either way. From here the stream's
-            // own bounds apply, and leaving this timer armed would abort a
+            // own bounds apply, and leaving the timer armed would abort a
             // perfectly healthy stream mid-read.
-            clearTimeout(openTimer);
+            dispose();
         }
 
         const streamId = randomUUID();

@@ -11,7 +11,7 @@ export const RenderRouter = ServerKitRouter();
 
 /**
  * Everything the station can play that is not a record
- * from [render.ck](file://./../../data/contracts/render/render.ck#L27)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L28)
  */
 RenderRouter.get('/segments', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -24,7 +24,7 @@ RenderRouter.get('/segments', requirePolicy({ policy: 'platform.view' }), async 
 
 /**
  * Plans something for the station to say, and starts rendering it
- * from [render.ck](file://./../../data/contracts/render/render.ck#L36)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L37)
  */
 RenderRouter.post('/segments', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, SegmentCreate);
@@ -39,7 +39,7 @@ RenderRouter.post('/segments', requirePolicy({ policy: 'platform.manage' }), bod
 
 /**
  * Takes whatever audio is sitting in the inbox directory into the library. Safe to repeat: a segment is identified by its audio, so the same recording arriving twice is one segment
- * from [render.ck](file://./../../data/contracts/render/render.ck#L54)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L55)
  */
 RenderRouter.post('/segments/scan', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -52,7 +52,7 @@ RenderRouter.post('/segments/scan', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * The voices the station can be asked to speak in
- * from [render.ck](file://./../../data/contracts/render/render.ck#L69)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L70)
  */
 RenderRouter.get('/voices', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -65,7 +65,7 @@ RenderRouter.get('/voices', requirePolicy({ policy: 'platform.view' }), async ct
 
 /**
  * A short line spoken in one voice, so an operator can hear it before choosing it
- * from [render.ck](file://./../../data/contracts/render/render.ck#L94)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L95)
  */
 RenderRouter.get('/voices/:voiceId/sample', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { voiceId } = await parseAndValidate(
@@ -91,7 +91,7 @@ RenderRouter.get('/voices/:voiceId/sample', requirePolicy({ policy: 'platform.vi
 
 /**
  * The audio of one segment
- * from [render.ck](file://./../../data/contracts/render/render.ck#L120)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L121)
  * anonymous access, no security required
  */
 RenderRouter.get('/segments/:id/audio', async ctx => {

@@ -336,15 +336,24 @@ of this: see below.
 
 Every call into your code has a deadline, and it is not a constant: a
 background job may run on a far longer budget than a request someone is waiting
-on, and the same method of yours gets called both ways. `host.remainingMs()`
-tells you what is left of the current one.
+on, and the same method of yours gets called both ways. Two things tell you
+about it, and they answer different questions.
 
-Reach for it when the work is a sequence whose later steps are optional, which
-is the usual shape for anything paced against a rate-limited API:
+`host.signal` is an `AbortSignal` that fires when the host gives up on the call.
+It is the host's own signal, not a copy, so honouring it and being abandoned are
+the same moment rather than two clocks that nearly agree. `host.fetch` watches
+it for you; pass it on to anything else of yours that takes one. Outside any
+host call (from a timer you set yourself) it is a signal that never aborts,
+because nothing is waiting on that work.
+
+`host.remainingMs()` is the number behind it, for deciding whether to START
+something rather than for being interrupted during it. Reach for it when the
+work is a sequence whose later steps are optional, which is the usual shape for
+anything paced against a rate-limited API:
 
 ```ts
 const core = await this.lookup(ref);
-if ((await host.remainingMs()) < 2_000) return core;  // good enough, out of time
+if (host.remainingMs() < 2_000) return core;  // good enough, out of time
 return { ...core, ...(await this.enrich(core)) };
 ```
 

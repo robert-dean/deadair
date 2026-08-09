@@ -22,7 +22,8 @@ options {
 #
 # It takes platform.manage rather than the file's platform.view floor, because planning a segment is
 # an operator action that spends somebody else's compute. That rationale lives out here because the
-# formatter eats comments inside a `security` block.
+# formatter used to eat comments inside a `security` block; since core 0.26 it does not, and the
+# note could sit on the POST's own `security:` instead.
 operation /segments: {
     get: { # Everything the station can play that is not a record
         name: List segments

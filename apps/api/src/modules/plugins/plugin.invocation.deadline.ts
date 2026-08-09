@@ -1,7 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 /**
- * The deadline of the call into plugin code that is currently running.
+ * The deadline of the call into plugin code that is currently running, and the
+ * signal that fires when it passes.
  *
  * `PluginInvoker` decides how long any one call gets, per call: it takes a
  * `timeoutMs` and falls back to `PLUGIN_INVOKE_TIMEOUT_MS`. Everything the
@@ -19,19 +20,39 @@ import { AsyncLocalStorage } from 'node:async_hooks';
  *
  * Module-level rather than `@Injectable` for the same reason `RotatingLogStore`
  * is: it must be one store for the whole process (a second instance would be a
- * second, empty context), and it holds no configuration to inject. The
- * subprocess isolation target does not need it at all, since a deadline then
- * rides in the IPC call frame where it belongs.
+ * second, empty context), and it holds no configuration to inject.
  */
 interface PluginInvocation {
     /** Epoch ms at which `PluginInvoker` abandons the call. */
     deadlineAt: number;
+
+    /**
+     * Aborts when the invoker gives up on the call.
+     *
+     * The invoker has always built this and raced against it; what is new is
+     * that plugin code may now have it. It is the same controller, not a copy,
+     * so a plugin that honours it and the invoker that abandons the call agree
+     * by construction rather than by both watching a clock.
+     */
+    signal: AbortSignal;
 }
 
 const invocations = new AsyncLocalStorage<PluginInvocation>();
 
-/** Runs `fn` as the invocation that ends at `deadlineAt`. */
-export const runWithDeadline = <T>(deadlineAt: number, fn: () => Promise<T>): Promise<T> => invocations.run({ deadlineAt }, fn);
+/**
+ * A signal for code running outside any invocation.
+ *
+ * Never aborts, because nothing is waiting: a plugin holding its host and
+ * calling it from a timer of its own is a real state rather than an error, and
+ * an already-aborted signal would refuse work that is legitimately unbounded.
+ * One instance for the process, since it carries no state and listeners on it
+ * are never called.
+ */
+const NEVER_ABORTS: AbortSignal = new AbortController().signal;
+
+/** Runs `fn` as the invocation that ends at `deadlineAt` and aborts `signal`. */
+export const runWithDeadline = <T>(deadlineAt: number, signal: AbortSignal, fn: () => Promise<T>): Promise<T> =>
+    invocations.run({ deadlineAt, signal }, fn);
 
 /**
  * Milliseconds left in the running invocation, or `undefined` when there is
@@ -47,3 +68,6 @@ export const invocationRemainingMs = (): number | undefined => {
     const invocation = invocations.getStore();
     return invocation === undefined ? undefined : invocation.deadlineAt - Date.now();
 };
+
+/** The running invocation's signal, or one that never aborts when there is none. */
+export const invocationSignal = (): AbortSignal => invocations.getStore()?.signal ?? NEVER_ABORTS;

@@ -8,6 +8,11 @@ description: Write or change ContractKit `.ck` contracts in `apps/api/data/contr
 `.ck` files under `apps/api/data/contracts/` are the source of truth for every HTTP route in this
 repo. One `.ck` edit regenerates code in three places. Never hand-edit any of them.
 
+Everything below was checked against the installed toolchain: `@contractkit/cli` 0.10.6,
+`@contractkit/core` 0.26.0, `@contractkit/plugin-typescript` 0.31.1, `@contractkit/prettier-plugin`
+0.14.1. Behaviour here has changed under several of those minors, so check the version before
+trusting a claim that contradicts what you observe.
+
 ## The loop
 
 1. Edit the `.ck` file (or add a new one under `apps/api/data/contracts/<area>/`).
@@ -80,10 +85,14 @@ Most files in this repo declare the floor once in `options` and override only wh
 genuinely differs. **This means reading a single verb no longer tells you its security** — check the
 options block too. Every floor carries a comment saying what it is and which operations override it.
 
-Note a parser quirk when writing those comments: a `#` line is **not** legal directly in the
-`options` block body, and a free comment before an `operation` becomes that *route's* description
-and leaks into the SDK JSDoc. Put cascade notes inside the `security { }` block, or inside
-`keys { }` when the floor is a bare `security: none` with no block to hold them.
+Since core 0.26 there is a safe home for those comments: **inside the `security { }` block, or on
+the line(s) directly above a `security:` key in a verb body.** Both round-trip through the formatter
+and neither reaches generated documentation. That is the place to write the rationale.
+
+The one position that still leaks is a comment run sitting *directly* above an `operation` with no
+blank line between: it becomes that route's description and surfaces on any verb that has none of
+its own. Leave a blank line and it is a standalone divider instead, kept verbatim and generated
+nowhere.
 
 ### Choosing a policy
 
@@ -137,13 +146,21 @@ lying mime and letting the client sniff.
 
 ## Gotchas
 
-- **The formatter still deletes comments inside a `security { }` block.** Above `policy:`, or above
-  a `security: none` line — they are gone on the next `pnpm format`, silently. The identical bug in
-  `response { }` blocks was fixed in 0.14, so comments there now round-trip; nobody has fixed this
-  one. Put security rationale in the free-standing `#` block above the operation, or in the file
-  header, both of which survive. `render.ck` does this deliberately. `plugins.ck` still carries a
-  long note inside its `security { }` block that the next format run will eat.
-- **The formatter drops the trailing newline** at end of file.
+- **The formatter used to eat comments in and around a `security { }` block, and dropped the
+  trailing newline. Both were fixed in core 0.26 / prettier-plugin 0.14.1.** Comments inside a
+  `security { }` block, above a body key in an operation body, above a verb that already carries its
+  own inline `# ...`, and after the last key before a closing brace all round-trip now, as do
+  comments above `options`, inside the `options` body, and on a `keys`/`services` entry. `art.ck` and
+  `render.ck` each still hoist a security note out to the file header to dodge the old bug; that is
+  no longer necessary, and new contracts should put the rationale where it belongs.
+- **A bare `#` in a `name:` is data, not a comment.** Only whitespace-then-`#` opens one, so
+  `name: Generate C# client` now keeps its full text where it used to truncate silently to
+  `Generate C`. The SDK method name derives from `name:`, so a contract that was relying on the
+  truncated value gets its method renamed. Nothing in this repo has a `#` in a `name:`.
+- **The CLI deletes generated files it no longer claims.** Remove or rename a `.ck`, or shrink a
+  plugin's `output` set, and the orphaned `.ts` goes with it on the next run. Do not hand-delete
+  generated output; run `pnpm build:contracts` and let the cleanup do it, then drop the router from
+  `routes.setup.ts`, which is hand-written and will otherwise import a missing file.
 - **`rootDir` in `apps/api/contractkit.config.json` is an absolute `~/projects/deadair/` path.**
   It resolves case-insensitively on this Mac, but a checkout at another path silently compiles
   nothing (empty glob, no error). If a run reports zero files, look there first.

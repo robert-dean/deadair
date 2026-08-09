@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { BOUNDARY_METHOD_TYPES, JSON_SAFE_PAYLOAD_TYPES } from '../src/boundary.json.safe.js';
+import { BOUNDARY_LIVE_OBJECT_TYPES, BOUNDARY_METHOD_TYPES, JSON_SAFE_PAYLOAD_TYPES } from '../src/boundary.json.safe.js';
 
 /**
  * The compile-time guard in `src/boundary.json.safe.ts` is exhaustive over the
@@ -38,7 +38,7 @@ function exportedInterfacesIn(relativePath: string): string[] {
 
 const declared = BOUNDARY_SOURCE_FILES.flatMap(file => exportedInterfacesIn(file).map(name => [file, name] as const));
 
-const registered = new Set<string>([...JSON_SAFE_PAYLOAD_TYPES, ...BOUNDARY_METHOD_TYPES]);
+const registered = new Set<string>([...JSON_SAFE_PAYLOAD_TYPES, ...BOUNDARY_METHOD_TYPES, ...BOUNDARY_LIVE_OBJECT_TYPES]);
 
 describe('boundary type registry coverage', () => {
     it('finds the boundary interfaces at all (guards against a broken scan)', () => {
@@ -48,10 +48,11 @@ describe('boundary type registry coverage', () => {
     it.each(declared)('%s exports %s, which is classified in the registry', (_file, name) => {
         expect(
             registered.has(name),
-            `"${name}" crosses the plugin boundary but is in neither JSON_SAFE_PAYLOAD_TYPES nor ` +
-                `BOUNDARY_METHOD_TYPES in src/boundary.json.safe.ts. If it is a data payload, add it to ` +
-                `both JSON_SAFE_PAYLOAD_TYPES and AssertAllBoundaryPayloadsAreJsonSafe. If it describes ` +
-                `methods, add it to BOUNDARY_METHOD_TYPES.`,
+            `"${name}" crosses the plugin boundary but is in none of the three registries in ` +
+                `src/boundary.json.safe.ts. If it is a data payload, add it to both JSON_SAFE_PAYLOAD_TYPES ` +
+                `and AssertAllBoundaryPayloadsAreJsonSafe. If it describes methods, add it to ` +
+                `BOUNDARY_METHOD_TYPES. If it deliberately carries a live object, add it to ` +
+                `BOUNDARY_LIVE_OBJECT_TYPES and say in a comment which field and why.`,
         ).toBe(true);
     });
 
@@ -62,7 +63,11 @@ describe('boundary type registry coverage', () => {
     });
 
     it('classifies each name exactly once', () => {
-        const overlap = JSON_SAFE_PAYLOAD_TYPES.filter(name => (BOUNDARY_METHOD_TYPES as readonly string[]).includes(name));
-        expect(overlap, `classified as both a payload and a method contract: ${overlap.join(', ')}`).toEqual([]);
+        const counts = new Map<string, number>();
+        for (const name of [...JSON_SAFE_PAYLOAD_TYPES, ...BOUNDARY_METHOD_TYPES, ...BOUNDARY_LIVE_OBJECT_TYPES]) {
+            counts.set(name, (counts.get(name) ?? 0) + 1);
+        }
+        const duplicated = [...counts].filter(([, count]) => count > 1).map(([name]) => name);
+        expect(duplicated, `classified in more than one registry: ${duplicated.join(', ')}`).toEqual([]);
     });
 });

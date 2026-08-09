@@ -124,11 +124,13 @@ export class PluginInvoker {
             // `fn` may throw synchronously; wrapping it keeps that on the same
             // path as a rejection instead of escaping the race entirely.
             //
-            // Published as the ambient deadline as well as raced against, so
-            // host services the plugin calls back into can size their own
-            // budgets against the time this call actually has left rather than
-            // against the default constant. See `plugin.invocation.deadline.ts`.
-            const call = runWithDeadline(Date.now() + timeoutMs, async () => fn(timeout.signal));
+            // Published as the ambient deadline and signal as well as raced
+            // against, so host services the plugin calls back into can size
+            // their own budgets against the time this call actually has left
+            // rather than against the default constant, and so the plugin
+            // itself can watch the same signal this races on rather than
+            // polling a clock. See `plugin.invocation.deadline.ts`.
+            const call = runWithDeadline(Date.now() + timeoutMs, timeout.signal, async () => fn(timeout.signal));
             const result = await Promise.race([call, timeout.expiry]);
             this.recordSuccess(pluginId);
             return result;

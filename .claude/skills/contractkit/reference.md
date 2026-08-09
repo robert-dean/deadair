@@ -29,8 +29,14 @@ The options block also accepts a `security` block (the file-level floor — see 
 `request: { headers: { ... } }` / `response: { headers: { ... } }`, which merge declared headers into
 every operation in the file. Nothing here uses the header defaults yet.
 
-A `#` comment is **not** legal directly in the options block body. It is legal inside `keys { }`,
-`services { }` and `security { }`.
+A `#` comment is legal above `options`, directly in the options body between its sub-blocks, inside
+`keys { }` / `services { }` / `security { }`, and trailing an individual `keys`/`services` entry.
+All of those round-trip through the formatter as of core 0.26 / prettier-plugin 0.14.1.
+
+Two spacing rules on a service path: an unquoted value ends at whitespace-then-`#`, so
+`PluginsService: #src/modules/plugins/plugins.service.js` (no space before the `#`) is a subpath, not
+a comment, and stays unquoted through formatting. A value the formatter cannot read back bare is
+quoted for you.
 
 ## Contracts
 
@@ -67,10 +73,15 @@ contract CatalogQuery: Pagination & {    # intersection: inherits Pagination's f
 - A contract may carry `format(input=snake, output=snake)` to name fields in camelCase while the
   wire stays snake_case. The auth token contracts use `format(output=snake)`. Read the SKILL.md note
   before extending this — inheritance across multiple bases is not fully implemented.
-- `#` starts a comment. A comment on the same line as a field or operation becomes the JSDoc on the
-  generated member — and so does one on the line *above* it. Both end up in the public SDK, so write
-  them for the reader of the SDK, not for the next contract author. A free comment before an
-  `operation` becomes that route's description and surfaces on any verb that has none of its own.
+- `#` starts a comment, and **a blank line decides whether it is documentation.** On the same line as
+  a field or operation, or on the line directly above it, it becomes the JSDoc on the generated
+  member and ends up in the public SDK — so write those for the reader of the SDK, not for the next
+  contract author. Separated from the declaration below it by a blank line, it is a standalone
+  divider: kept verbatim in the `.ck`, generated nowhere. A doc comment before an `operation` becomes
+  that route's description and surfaces on any verb that has none of its own.
+- Comments in an operation *body* (above `security:`, above a verb that already has its own inline
+  `# ...`, or after the last key before the closing brace) are layout, not documentation. That is
+  where policy rationale goes.
 - Cross-file references resolve project-wide, so `Pagination` from `shared/pagination.ck` is usable
   anywhere without an import.
 
@@ -122,10 +133,21 @@ console cannot import.
 
 ## Response statuses
 
-The generated router hardcodes the status of the **first response entry that carries a body**.
-Additional statuses (a `304`, an error shape) are documentation for the SDK and OpenAPI surface,
-not runtime behaviour: they have to be produced by middleware or by the service throwing. See the
-comments in `art/art.ck` for the worked example.
+A status may list several mimes, and an operation may declare several statuses. **A status is
+emitted by the service if it carries a block, or is 2xx.**
+
+| Declared | Meaning |
+| --- | --- |
+| `200: { application/json: X }` | the service returns it |
+| `304: {}` | the service returns it, carrying nothing |
+| `304:` (bare) | documented only; middleware or a throw produces it |
+| `404(documented): { ... }` | has a block but stays on the throw path |
+
+Several mimes on one status → the service returns `contentType` alongside the body and the router
+sets `ctx.type` from it. Several emitted statuses → the service returns a union discriminated on
+`status`, and the SDK returns a matching union rather than throwing. Statuses left on the throw path
+get a generated `…ErrorBody` alias, and `SdkError` is parameterized by it. `art/art.ck` (four image
+mimes plus a bare `304`) is the worked example.
 
 ## Generated schema names
 

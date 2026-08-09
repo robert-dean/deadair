@@ -42,6 +42,16 @@ export interface HostFetchInit {
      * deadline for a call into plugin code, so asking for more buys nothing.
      */
     timeoutMs?: number;
+
+    /**
+     * Your own reason to give up, on top of the host's.
+     *
+     * Composed with the host's deadline rather than replacing it: whichever
+     * fires first ends the request, and {@link PluginHost.signal} is already
+     * watched for you. Pass one when the plugin has a cancellation of its own,
+     * such as a caller that walked away or a race between two upstreams.
+     */
+    signal?: AbortSignal;
 }
 
 /** JSON-safe subset of `Response`. */
@@ -224,9 +234,27 @@ export interface PluginHost {
     streams: PluginStreams;
 
     /**
+     * Aborts when the host gives up on the call you are currently inside.
+     *
+     * The same signal the host itself races the call against, not a copy, so
+     * honouring it and being abandoned are the same moment rather than two
+     * clocks that nearly agree. `host.fetch` already watches it; pass it on to
+     * anything else of yours that takes one.
+     *
+     * Outside any host call (from a timer you set yourself) this is a signal
+     * that never aborts, because nothing is waiting on that work.
+     */
+    signal: AbortSignal;
+
+    /**
      * Milliseconds left before the host abandons the call you are currently
      * inside, so work that does not fit can be dropped deliberately instead of
      * being cut off halfway.
+     *
+     * The number behind {@link PluginHost.signal}, for deciding whether to
+     * START something rather than for being interrupted during it. The signal
+     * tells you the call is over; this tells you it is nearly over, which is
+     * the only one of the two that can save a partial result.
      *
      * The host gives every call into your code a deadline, and it is not a
      * constant: a background job may run on a far longer budget than a request
@@ -239,7 +267,7 @@ export interface PluginHost {
      *
      * ```ts
      * const core = await this.lookup(ref);
-     * if (await host.remainingMs() < 2_000) return core;  // good enough, out of time
+     * if (host.remainingMs() < 2_000) return core;  // good enough, out of time
      * return { ...core, ...(await this.enrich(core)) };
      * ```
      *
@@ -247,7 +275,7 @@ export interface PluginHost {
      * call does, and `host.fetch` already caps its own timeout by it. Treat a
      * small number as advice to wrap up, not as permission to run that long.
      */
-    remainingMs(): Promise<number>;
+    remainingMs(): number;
 
     storage: PluginStorage;
 

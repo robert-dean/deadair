@@ -40,7 +40,7 @@ import type {
 } from './capabilities/music.provider.js';
 import type { SpeechHandle, SpeechRequest, SpeechVoice } from './capabilities/speech.js';
 import type { ConfigField, ConfigFieldOption } from './plugin.config.fields.js';
-import type { HostFetchInit, HostFetchResponse, TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
+import type { HostFetchResponse, TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { NetworkPermissionFromConfig, NetworkPermissionHost, PluginPermissions } from './plugin.permissions.js';
@@ -112,7 +112,6 @@ type AssertAllTrue<T extends Record<string, true>> = T;
  * before a manifest is sent anywhere.
  */
 export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
-    HostFetchInit: IsJsonSafe<HostFetchInit>;
     HostFetchResponse: IsJsonSafe<HostFetchResponse>;
     // The whole reason `data` is a base64 string. A `Uint8Array` here would
     // survive `structuredClone` and fail this, which is the distinction the
@@ -155,7 +154,6 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
  * from the boundary source files.
  */
 export const JSON_SAFE_PAYLOAD_TYPES = [
-    'HostFetchInit',
     'HostFetchResponse',
     'StreamChunk',
     'HostStreamChunk',
@@ -217,4 +215,22 @@ export const BOUNDARY_METHOD_TYPES = [
     'EnrichmentProvider',
     'PluginStreamSource',
     'SpeechPluginInstance',
+] as const;
+
+/**
+ * Boundary interfaces that deliberately carry a LIVE object, and so are neither
+ * payloads nor method contracts.
+ *
+ * The host and the plugin share a realm, permanently (see
+ * `docs/decisions/plugin-trust.md`), so handing over a real `AbortSignal` or a
+ * real stream is the correct design rather than a shortcut around the rule.
+ * They are listed rather than simply left out, because the registry-coverage
+ * test treats an unclassified boundary interface as an omission, and "this one
+ * holds a live object on purpose" is a decision somebody should have to make in
+ * writing.
+ */
+export const BOUNDARY_LIVE_OBJECT_TYPES = [
+    // `signal`: the invocation's own `AbortSignal`, watched by `host.fetch` and
+    // passed on by the plugin to anything else that takes one.
+    'HostFetchInit',
 ] as const;

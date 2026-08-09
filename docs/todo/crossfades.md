@@ -1,11 +1,19 @@
 # Crossfades between rundown items
 
 **Written:** 2026-08-09, while adding a bus limiter and a voice chain to `stream/radio.liq`.
+**Revised:** 2026-08-09, when the near-term goal became a station the operator listens to all day.
 **State of the tree:** items butt up against each other. There is no `cross` anywhere in the graph.
 
 This is the largest single audio-quality gap the station has. It is deferred not because it is hard
 to write — the operator is four lines — but because of what it does to the one measurement the
 station's timing is built on.
+
+**It is no longer a someday.** Measured against a full working day of listening rather than against
+a feature list, this is second only to the station being able to talk: a gap between records is heard
+every three minutes for eight hours, where most of what is deferred elsewhere is heard once. See
+[dj-voice.md](dj-voice.md), "The order, restated against daily listening". It stays second rather
+than first for the reason immediately below, which is unchanged: it moves the clock the DJ breaks are
+timed against, so it wants those breaks landing reliably first.
 
 ---
 

@@ -5,6 +5,9 @@
 something to decide what it says.
 **Revised:** 2026-08-09, with the ordering question answered: see "What to build before piece two".
 **Revised:** 2026-08-09, when the ducking was finally heard rather than inferred.
+**Revised:** 2026-08-09, when the first two of those three landed and the goal was restated as a
+station the operator listens to all day instead of a streaming service. That restatement reorders
+what is left; see "The order, restated against daily listening".
 
 The station can say things, and can now say them in its own voice. What it cannot do is decide what
 to say: every word it speaks is one somebody handed it. This file was the two pieces between here
@@ -115,7 +118,11 @@ Read this rather than the design above it, which is kept for its reasoning.
 one is deliberately not; the point of writing it down is that the ordering does not need arguing
 again.
 
-**1. Finish the settings layer, which is half built.** `SettingsService.set` already reloads
+**1. Finish the settings layer, which is half built. BUILT.** `apps/api/data/contracts/settings` and
+`apps/web/src/routes/settings.tsx` both exist, so each new knob is one descriptor entry in
+`settings.registry.ts` as intended. The rest of this item is kept for its reasoning.
+
+`SettingsService.set` already reloads
 `AppConfigStore` through `AfterCommit`, and `settings.registry.ts` declares what a station setting
 is. What is missing is the other half: there is no `settings` contract under
 `apps/api/data/contracts/` and no settings page under `apps/web/src/routes/`. This is a prerequisite
@@ -124,7 +131,15 @@ the degradation threshold, break tone and length — and without the page every 
 `psql UPDATE` during the exact stretch of work where they get turned constantly. With the registry
 finished, each new setting is one descriptor entry.
 
-**2. Decide the LLM seam before `BreakWriter` binds to anything.** Today "LLM" exists only as
+**2. Decide the LLM seam before `BreakWriter` binds to anything. BUILT**, and shipped as the shape
+predicted at the end of this item: an `llm` capability in the plugin SDK, `modules/llm/` holding
+`LlmGate`, the tool loop and `ToolRegistry` host-side, and an `llm.pluginId` setting mirroring
+`render.speechPluginId` including its refusal to guess. `LlmService.canGenerate()` answers "no model
+installed" without throwing, which is what lets a writer pick its deterministic binding rather than
+fail. See the CLAUDE.md section on it for what stayed host-side and why. What follows is the
+reasoning that produced it.
+
+Today "LLM" exists only as
 comments on `SetGenerator` and `pick.resolver`: no client, no module, no capability. The precedent
 is one section up. Piece one was designed here as a module-local renderer POSTing to a Kokoro URL in
 `deadair.settings`, and it shipped as a `speech` plugin capability with the engine's config in the
@@ -160,8 +175,51 @@ follows a writer that exists rather than preceding one.
 yet → deterministic `BreakWriter` and `BreakPlanner` planting `planned` segments → the model as
 writer two → the activity feed over the transitions those two produced.
 
-**Confirm before any of it:** nobody has listened to the bed duck under a voice. That is stated as
-inference at the top of this file and it sits underneath everything above.
+The first two are built and the ducking has been confirmed by ear, so what remains of that order is
+its last three. The section below reorders them.
+
+## The order, restated against daily listening
+
+**Written 2026-08-09.** The goal was restated: the near-term target is a station the operator leaves
+on all day in place of a streaming service. That is a different test from "the station has a DJ", and
+it moves one item onto this list that was never on it and reprioritises another.
+
+**What is already good enough, so it does not need revisiting.** Selection is not the gap.
+`rotation.rules.ts` gives a repeat window, an artist cooldown, a per-batch artist cap, artist
+spacing so no act follows itself, and dislikes as an instruction a setlist cannot switch off;
+`CatalogSetGenerator` weights liked tracks 2:1 without collapsing onto the same handful, and the
+lineup auto-extends. Nothing on the list below is about which records play.
+
+Three things stand between that and a working day of listening:
+
+**1. It does not talk.** Every break is a pre-recorded ident chosen from the library
+(`BreakPlanner.plant` reads `listReady('ident')`), so a station whose library holds none plants
+nothing and is a shuffle. The deterministic writer is the whole difference between a playlist and a
+station, and it needs no model: a back-announce is the two neighbouring lineup items, both already in
+hand. This stays first.
+
+**2. Records butt up against each other.** [crossfades.md](crossfades.md) calls this the largest
+single audio-quality gap the station has, and over eight hours it is the one heard every three
+minutes. It was never on the ordering above because that ordering was about the DJ rather than about
+listening. It goes second, and it stays second rather than first because it changes
+`on_air_elapsed`, which is the measurement every break is timed against and currently the part of
+the system with no error in it. It wants breaks landing reliably before it moves the clock they
+depend on.
+
+**3. A failure is invisible.** A missed voice cue is not surfaced anywhere (see the note under "What
+exists"), so a break that is silently dropped and a DJ that talks less are the same observation. Over
+a day of listening that is the difference between knowing it is broken and wondering.
+
+**The order, then:** deterministic writer and `BreakPlanner` planting `planned` segments → listen to
+it for a week, because that surfaces real defects better than more planning does → crossfades → the
+model as writer two → the activity feed.
+
+Cue visibility rides along with the writer rather than being its own pass: the writer is the first
+thing whose output can be silently dropped, and it is a `missed` state `radio.liq` already tracks.
+
+The model moving behind crossfades is deliberate and is not a demotion. A slow remote host degrading
+to a correct back-announce is the entire design, and whether that path works cannot be judged until
+the floor exists and has been heard.
 
 ## Piece two: something decides what to say
 

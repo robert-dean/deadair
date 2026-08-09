@@ -8,11 +8,12 @@ import { apiErrorMessage } from './sdk.error';
 /**
  * How long a plugin read stays fresh.
  *
- * Statuses move when the operator moves them — and every one of those calls hands back the
- * authoritative record, which is written straight into the cache below — or when the reload
- * listener reacts to a change in `plugin_configs`. Only the second is invisible from here, and it
- * is rare enough that polling for it would spend far more requests than it earns; navigating back
- * to the list after the stale time re-reads it.
+ * Statuses move when the operator moves them — and those calls hand back the record, which is
+ * written straight into the cache below, with the ones that also reinitialize the plugin
+ * refetching for the status their body could not carry (see `writePluginDetailPendingReinit`) —
+ * or when the reload listener reacts to a change in `plugin_configs`. Only the last is invisible
+ * from here, and it is rare enough that polling for it would spend far more requests than it
+ * earns; navigating back to the list after the stale time re-reads it.
  */
 const PLUGIN_STALE_TIME = 30_000;
 
@@ -57,15 +58,37 @@ function toSummary(detail: PluginDetail): PluginSummary {
 /**
  * Files a `PluginDetail` the API just returned into both places it is read from.
  *
- * Every mutating call answers with the plugin as it now stands, so that response is the truth and
- * an invalidate would only buy a second request for an answer already in hand. The list is patched
+ * A mutating call answers with the plugin's own record, so that response is the truth and an
+ * invalidate would only buy a second request for an answer already in hand. The list is patched
  * rather than dropped so a card does not blank out mid-toggle.
+ *
+ * The exception is a call that also reinitializes the plugin, whose body predates the reinit:
+ * those go through `writePluginDetailPendingReinit` instead.
  */
 export function writePluginDetail(queryClient: QueryClient, detail: PluginDetail): void {
     queryClient.setQueryData(queryKeys.plugins.detail(detail.id), detail);
     queryClient.setQueryData(queryKeys.plugins.list(), (current: PluginSummary[] | undefined) =>
         current?.map(plugin => (plugin.id === detail.id ? toSummary(detail) : plugin)),
     );
+}
+
+/**
+ * The same, for the calls whose answer is authoritative about everything EXCEPT the plugin's
+ * status.
+ *
+ * A call that changes a plugin's stored settings reinitializes it, and the API defers that
+ * reinit until its own transaction has committed — it has to, or the reinit reads the row as
+ * it stood before the write. The response body is built before that happens, so its `status`
+ * is the one the plugin had on the way in: `disabled` on the call that just enabled it.
+ *
+ * So the body is still filed, because it is the truth about the configuration and filing it is
+ * what keeps a card from blanking mid-toggle, and then the record is refetched for the status.
+ * Not awaited: the mutation is done, and the refetch is for whatever renders next.
+ */
+function writePluginDetailPendingReinit(queryClient: QueryClient, detail: PluginDetail): void {
+    writePluginDetail(queryClient, detail);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.detail(detail.id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.list() });
 }
 
 /**
@@ -77,7 +100,7 @@ export function useSetPluginEnabled() {
     return useMutation({
         mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => (enabled ? sdk.plugins.enablePlugin(id) : sdk.plugins.disablePlugin(id)),
         onSuccess: detail => {
-            writePluginDetail(queryClient, detail);
+            writePluginDetailPendingReinit(queryClient, detail);
         },
     });
 }
@@ -91,7 +114,7 @@ export function useUpdatePluginConfig(id: string) {
     return useMutation({
         mutationFn: (config: Record<string, unknown>) => sdk.plugins.updatePluginConfiguration(id, { config }),
         onSuccess: detail => {
-            writePluginDetail(queryClient, detail);
+            writePluginDetailPendingReinit(queryClient, detail);
         },
     });
 }
@@ -148,15 +171,16 @@ export function useStartPluginOAuth(id: string) {
 }
 
 /**
- * Revokes a plugin's stored OAuth connection. Mirrors `useSetPluginEnabled`'s shape: the API hands
- * back the plugin as it now stands, which is written straight into the cache rather than refetched.
+ * Revokes a plugin's stored OAuth connection. Mirrors `useSetPluginEnabled`'s shape, including the
+ * refetch: clearing the vault reinitializes the plugin, and that happens after the response body
+ * was built.
  */
 export function useDisconnectPluginOAuth(id: string) {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: () => sdk.plugins.disconnectPluginOAuth(id),
         onSuccess: detail => {
-            writePluginDetail(queryClient, detail);
+            writePluginDetailPendingReinit(queryClient, detail);
         },
     });
 }

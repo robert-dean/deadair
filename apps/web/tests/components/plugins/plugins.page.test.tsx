@@ -74,7 +74,7 @@ describe('PluginsPage', () => {
     });
 
     it('turns a plugin off through the card switch', async () => {
-        listPlugins.mockResolvedValue([pluginSummary()]);
+        listPlugins.mockResolvedValueOnce([pluginSummary()]).mockResolvedValue([pluginSummary({ enabled: false, status: 'disabled' })]);
         disablePlugin.mockResolvedValue({ ...pluginSummary({ enabled: false, status: 'disabled' }), config: {} });
 
         render(<PluginsPage />);
@@ -84,7 +84,11 @@ describe('PluginsPage', () => {
             expect(screen.getByLabelText('Enable Spotify')).not.toBeChecked();
         });
         expect(disablePlugin).toHaveBeenCalledWith('deadair.spotify');
-        // The response is the truth, so the list is patched from it rather than re-fetched.
-        expect(listPlugins).toHaveBeenCalledTimes(1);
+        // The card is patched from the response so it does not blank mid-toggle, and then the
+        // list is re-read: the API reinitializes the plugin only once the request that flipped
+        // the flag has committed, so the status in that response is the one it had on the way in.
+        await waitFor(() => {
+            expect(listPlugins).toHaveBeenCalledTimes(2);
+        });
     });
 });

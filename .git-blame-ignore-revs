@@ -5,3 +5,9 @@
 #
 # Honored automatically by GitHub. Locally, enable it once with:
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Run the formatter over the tree, 2026-08-09.
+# Accumulated prettier drift across api, web, sdk and plugins. The .ck files are
+# one character each: prettier-plugin-contractkit 0.14.1 stopped eating the
+# trailing newline it had been dropping on every format.
+b9f652bda21f4303dbfcbc37d2a4816ffedd6952

@@ -158,14 +158,7 @@ describe('PluginLoader.discover', () => {
     });
 
     it('never rejects: every quarantine case in the same sweep resolves alongside the valid plugin', async () => {
-        const records = await discoverWith(
-            'valid-plugin',
-            'bad-manifest',
-            'wrong-api-version',
-            'duplicate-id',
-            'throwing-module',
-            'not-a-plugin',
-        );
+        const records = await discoverWith('valid-plugin', 'bad-manifest', 'wrong-api-version', 'duplicate-id', 'throwing-module', 'not-a-plugin');
 
         // not-a-plugin contributes no record; the other five all do.
         expect(records).toHaveLength(5);

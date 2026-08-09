@@ -199,7 +199,15 @@ export function PluginConfigForm({ plugin }: PluginConfigFormProps) {
                     />
                 );
             case 'url':
-                return <TextInput key={field.key} {...common} inputMode="url" placeholder={field.placeholder ?? 'https://'} {...form.getInputProps(field.key)} />;
+                return (
+                    <TextInput
+                        key={field.key}
+                        {...common}
+                        inputMode="url"
+                        placeholder={field.placeholder ?? 'https://'}
+                        {...form.getInputProps(field.key)}
+                    />
+                );
             default:
                 return <TextInput key={field.key} {...common} placeholder={field.placeholder} {...form.getInputProps(field.key)} />;
         }

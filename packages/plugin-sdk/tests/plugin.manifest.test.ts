@@ -34,7 +34,10 @@ describe('pluginManifestSchema', () => {
         ['non-reverse-DNS id (uppercase)', { ...validManifest(), id: 'Deadair.Spotify' }],
         ['missing apiVersion', { ...validManifest(), apiVersion: undefined }],
         ['unknown config-field type', { ...validManifest(), configFields: [{ key: 'k', label: 'K', type: 'wat' }] }],
-        ['malformed permissions (network not an array)', { ...validManifest(), permissions: { network: 'api.spotify.com', storage: true, oauth: true } }],
+        [
+            'malformed permissions (network not an array)',
+            { ...validManifest(), permissions: { network: 'api.spotify.com', storage: true, oauth: true } },
+        ],
         ['malformed permissions (missing storage)', { ...validManifest(), permissions: { network: [], oauth: true } }],
         ['configSchema not a zod schema', { ...validManifest(), configSchema: {} }],
     ])('rejects: %s', (_label, manifest) => {
@@ -63,7 +66,7 @@ describe('pluginManifestSchema', () => {
 
         expect(result.success).toBe(true);
         if (result.success) {
-            expect(result.data.configFields.map((field) => field.key)).toEqual(['clientId', 'clientSecret', 'region']);
+            expect(result.data.configFields.map(field => field.key)).toEqual(['clientId', 'clientSecret', 'region']);
             expect(result.data.configFields).toEqual(configFields);
         }
     });

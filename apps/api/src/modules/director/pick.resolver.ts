@@ -50,10 +50,7 @@ export class PickResolver {
         if (identified.length === 0) return [];
 
         const trackIds = identified.map(entry => entry.trackId);
-        const [bindings, metadata] = await Promise.all([
-            this.candidates.bindingsFor(trackIds, preference),
-            this.tracks.findByIds(trackIds),
-        ]);
+        const [bindings, metadata] = await Promise.all([this.candidates.bindingsFor(trackIds, preference), this.tracks.findByIds(trackIds)]);
 
         const resolved: RundownTrack[] = [];
         for (const { pick, trackId } of identified) {

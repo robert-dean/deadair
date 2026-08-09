@@ -12,8 +12,8 @@ const tempDirs: string[] = [];
 const openStores: RotatingLogStore[] = [];
 
 afterEach(async () => {
-    await Promise.all(openStores.splice(0).map((store) => store.close()));
-    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+    await Promise.all(openStores.splice(0).map(store => store.close()));
+    await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })));
     vi.restoreAllMocks();
 });
 

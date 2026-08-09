@@ -132,11 +132,7 @@ export class StationAirRepository extends DataRepository {
      * the delete path so the row does not have to be read to be understood.
      */
     async forgetLineup(lineupId: string): Promise<void> {
-        await this.db
-            .updateTable('deadair.stationAir')
-            .set({ lineupId: null, cursor: 0, active: false })
-            .where('lineupId', '=', lineupId)
-            .execute();
+        await this.db.updateTable('deadair.stationAir').set({ lineupId: null, cursor: 0, active: false }).where('lineupId', '=', lineupId).execute();
 
         await this.db
             .updateTable('deadair.stationAir')

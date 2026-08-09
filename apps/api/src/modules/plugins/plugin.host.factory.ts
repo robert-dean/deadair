@@ -202,8 +202,7 @@ const normalizeNetwork = (network: PluginPermissions['network'], config: Record<
 };
 
 /** Whether any entry needs the plugin's config read before the allowlist is known. */
-const needsConfig = (network: PluginPermissions['network']): boolean =>
-    network.some(entry => typeof entry !== 'string' && 'fromConfig' in entry);
+const needsConfig = (network: PluginPermissions['network']): boolean => network.some(entry => typeof entry !== 'string' && 'fromConfig' in entry);
 
 /**
  * The limiter shape for a declared rate, capped at the host's ceiling: a plugin
@@ -551,7 +550,7 @@ export class PluginHostFactory {
             streams: {
                 open: (url, init) => this.openStream(manifest, entries, limiters, logger, streams, url, init),
                 read: (streamId, maxBytes) => this.readStream(manifest, streams, streamId, maxBytes),
-                close: async (streamId) => {
+                close: async streamId => {
                     closeStream(streams, streamId);
                 },
             },
@@ -968,7 +967,10 @@ export class PluginHostFactory {
         // is nothing to stream, so the handle is born finished: the plugin still
         // gets the status and headers, and its first read says `done`.
         const body = sent.response.body;
-        const lifetimeTimer = setTimeout(() => failStream(streams, streamId, lifetimeExpired(manifest, PLUGIN_STREAM_LIFETIME_MS)), PLUGIN_STREAM_LIFETIME_MS);
+        const lifetimeTimer = setTimeout(
+            () => failStream(streams, streamId, lifetimeExpired(manifest, PLUGIN_STREAM_LIFETIME_MS)),
+            PLUGIN_STREAM_LIFETIME_MS,
+        );
         // Nothing is waiting on this timer; without unref a process with an idle
         // stream would refuse to exit for up to the whole lifetime cap.
         lifetimeTimer.unref?.();
@@ -1026,9 +1028,9 @@ export class PluginHostFactory {
         let result: ReadableStreamReadResult<Uint8Array>;
         try {
             result = await withIdleDeadline(stream.reader.read(), PLUGIN_STREAM_IDLE_TIMEOUT_MS, () =>
-                new PluginError(
-                    `plugin "${manifest.id}" stream "${streamId}" produced nothing for ${PLUGIN_STREAM_IDLE_TIMEOUT_MS}ms`,
-                ).withCode('timeout'),
+                new PluginError(`plugin "${manifest.id}" stream "${streamId}" produced nothing for ${PLUGIN_STREAM_IDLE_TIMEOUT_MS}ms`).withCode(
+                    'timeout',
+                ),
             );
         } catch (error) {
             // The lifetime timer may have fired while this read was parked, in
@@ -1057,9 +1059,9 @@ export class PluginHostFactory {
             throw failStream(
                 streams,
                 streamId,
-                new PluginError(
-                    `plugin "${manifest.id}" stream "${streamId}" is over the ${PLUGIN_STREAM_MAX_BYTES} byte limit`,
-                ).withCode('upstream'),
+                new PluginError(`plugin "${manifest.id}" stream "${streamId}" is over the ${PLUGIN_STREAM_MAX_BYTES} byte limit`).withCode(
+                    'upstream',
+                ),
             );
         }
 

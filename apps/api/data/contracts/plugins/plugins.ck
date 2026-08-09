@@ -180,10 +180,10 @@ operation /plugins/{id}/logs/download: {
         service: PluginsService.downloadPluginLogs
         response: {
             200: {
+                text/plain: string
                 headers: {
                     Content-Disposition?: string
                 }
-                text/plain: string
             }
         }
     }
@@ -247,7 +247,7 @@ operation /plugins/{id}/oauth/callback: {
     get: { # Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
         name: Complete plugin OAuth authorization
         service: PluginsService.completeOAuthCallback
-        query: PluginOAuthCallbackQuery 
+        query: PluginOAuthCallbackQuery
         security: none
         response: {
             200: {

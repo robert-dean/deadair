@@ -166,9 +166,7 @@ describe('SpotifyPlugin', () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
 
-            await expect(plugin.handleCallback({ error: 'access_denied' })).rejects.toThrow(
-                'Spotify authorisation was refused: access_denied',
-            );
+            await expect(plugin.handleCallback({ error: 'access_denied' })).rejects.toThrow('Spotify authorisation was refused: access_denied');
         });
     });
 
@@ -252,7 +250,13 @@ describe('SpotifyPlugin', () => {
             host.queueResponse(
                 apiResponse({
                     items: [
-                        { id: 'pl-1', name: 'Playlist One', description: 'desc', images: [{ url: 'https://img.test/pl.jpg' }], tracks: { total: 12 } },
+                        {
+                            id: 'pl-1',
+                            name: 'Playlist One',
+                            description: 'desc',
+                            images: [{ url: 'https://img.test/pl.jpg' }],
+                            tracks: { total: 12 },
+                        },
                         { id: 'pl-2' },
                     ],
                 }),

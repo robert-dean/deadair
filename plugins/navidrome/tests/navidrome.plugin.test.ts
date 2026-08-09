@@ -123,7 +123,16 @@ describe('listPlaylists', () => {
 
     it('pages the list itself, because getPlaylists returns all of it at once', async () => {
         const { host, plugin } = await build();
-        host.queueResponse(ok({ playlists: { playlist: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }] } }));
+        host.queueResponse(
+            ok({
+                playlists: {
+                    playlist: [
+                        { id: 'a', name: 'A' },
+                        { id: 'b', name: 'B' },
+                    ],
+                },
+            }),
+        );
 
         const playlists = await plugin.listPlaylists({ limit: 1, offset: 1 });
 

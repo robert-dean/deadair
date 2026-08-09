@@ -12,8 +12,8 @@ const openStores: RotatingLogStore[] = [];
 afterEach(async () => {
     // Reset the process-wide holder so tests don't leak state into each other.
     setLogStore(undefined as unknown as RotatingLogStore);
-    await Promise.all(openStores.splice(0).map((store) => store.close()));
-    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+    await Promise.all(openStores.splice(0).map(store => store.close()));
+    await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })));
 });
 
 async function makeStore(): Promise<RotatingLogStore> {

@@ -5,11 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-    DEFAULT_TRANSACTION_EXEMPTIONS,
-    isTransactionExempt,
-    nowPlayingExemption,
-} from '../../../src/server/middleware/transaction.exemptions.js';
+import { DEFAULT_TRANSACTION_EXEMPTIONS, isTransactionExempt, nowPlayingExemption } from '../../../src/server/middleware/transaction.exemptions.js';
 
 const exempt = (method: string, path: string) => isTransactionExempt({ method, path }, DEFAULT_TRANSACTION_EXEMPTIONS);
 

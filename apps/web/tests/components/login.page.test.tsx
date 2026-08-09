@@ -81,7 +81,12 @@ describe('LoginPage', () => {
 
     it('puts server-side validation messages on the matching fields', async () => {
         requestToken.mockRejectedValue(
-            new SdkError(422, 'Unprocessable Entity', { statusCode: 422, message: 'Invalid', details: { email: 'Not a known address' } }, new Headers()),
+            new SdkError(
+                422,
+                'Unprocessable Entity',
+                { statusCode: 422, message: 'Invalid', details: { email: 'Not a known address' } },
+                new Headers(),
+            ),
         );
         render(<LoginPage />);
 

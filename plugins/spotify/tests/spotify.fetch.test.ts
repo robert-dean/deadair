@@ -39,7 +39,11 @@ describe('createHostFetch', () => {
         const host = createFakePluginHost();
         host.queueResponse({});
         host.queueResponse({});
-        const requestImpl = createHostFetch(host, vi.fn(async () => 'token'), vi.fn(async () => 'token'));
+        const requestImpl = createHostFetch(
+            host,
+            vi.fn(async () => 'token'),
+            vi.fn(async () => 'token'),
+        );
 
         await requestImpl(new URL('https://api.spotify.com/v1/albums'), undefined);
         await requestImpl(new Request('https://api.spotify.com/v1/tracks'), undefined);
@@ -51,7 +55,11 @@ describe('createHostFetch', () => {
     it('defaults to GET when no method is given', async () => {
         const host = createFakePluginHost();
         host.queueResponse({});
-        const requestImpl = createHostFetch(host, vi.fn(async () => 'token'), vi.fn(async () => 'token'));
+        const requestImpl = createHostFetch(
+            host,
+            vi.fn(async () => 'token'),
+            vi.fn(async () => 'token'),
+        );
 
         await requestImpl('https://api.spotify.com/v1/me', undefined);
 
@@ -62,7 +70,11 @@ describe('createHostFetch', () => {
     it('respects the request timeout budget from the manifest', async () => {
         const host = createFakePluginHost();
         host.queueResponse({});
-        const requestImpl = createHostFetch(host, vi.fn(async () => 'token'), vi.fn(async () => 'token'));
+        const requestImpl = createHostFetch(
+            host,
+            vi.fn(async () => 'token'),
+            vi.fn(async () => 'token'),
+        );
 
         await requestImpl('https://api.spotify.com/v1/me', undefined);
 
@@ -73,14 +85,22 @@ describe('createHostFetch', () => {
 
     it('throws on an unsupported method', async () => {
         const host = createFakePluginHost();
-        const requestImpl = createHostFetch(host, vi.fn(async () => 'token'), vi.fn(async () => 'token'));
+        const requestImpl = createHostFetch(
+            host,
+            vi.fn(async () => 'token'),
+            vi.fn(async () => 'token'),
+        );
 
         await expect(requestImpl('https://api.spotify.com/v1/me', { method: 'TRACE' })).rejects.toThrow(/unsupported method/);
     });
 
     it('rejects a non-string request body', async () => {
         const host = createFakePluginHost();
-        const requestImpl = createHostFetch(host, vi.fn(async () => 'token'), vi.fn(async () => 'token'));
+        const requestImpl = createHostFetch(
+            host,
+            vi.fn(async () => 'token'),
+            vi.fn(async () => 'token'),
+        );
 
         await expect(
             requestImpl('https://api.spotify.com/v1/me', { method: 'POST', body: new Uint8Array([1, 2, 3]) as unknown as BodyInit }),
@@ -91,7 +111,11 @@ describe('createHostFetch', () => {
         for (const status of [204, 205, 304]) {
             const host = createFakePluginHost();
             host.queueResponse({ status, statusText: '', body: '' });
-            const requestImpl = createHostFetch(host, vi.fn(async () => 'token'), vi.fn(async () => 'token'));
+            const requestImpl = createHostFetch(
+                host,
+                vi.fn(async () => 'token'),
+                vi.fn(async () => 'token'),
+            );
 
             const response = await requestImpl('https://api.spotify.com/v1/me/player/pause', { method: 'PUT' });
 
@@ -240,7 +264,7 @@ describe('SpotifyResponseValidator', () => {
         });
     });
 
-    it('carries Spotify\'s Retry-After through as milliseconds', async () => {
+    it("carries Spotify's Retry-After through as milliseconds", async () => {
         const validator = new SpotifyResponseValidator();
         const response = new Response('rate limited', { status: 429, headers: { 'retry-after': '30' } });
 

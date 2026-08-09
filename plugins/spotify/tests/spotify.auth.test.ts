@@ -71,27 +71,21 @@ describe('HostVaultAuthStrategy', () => {
             const host = createFakePluginHost();
             const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);
 
-            await expect(strategy.handleCallback({ error: 'access_denied' })).rejects.toThrow(
-                'Spotify authorisation was refused: access_denied',
-            );
+            await expect(strategy.handleCallback({ error: 'access_denied' })).rejects.toThrow('Spotify authorisation was refused: access_denied');
         });
 
         it('throws when the callback carries no code', async () => {
             const host = createFakePluginHost();
             const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);
 
-            await expect(strategy.handleCallback({ state: 'state-3' })).rejects.toThrow(
-                'Spotify callback carried no authorization code',
-            );
+            await expect(strategy.handleCallback({ state: 'state-3' })).rejects.toThrow('Spotify callback carried no authorization code');
         });
 
         it('throws when there is no matching PKCE verifier', async () => {
             const host = createFakePluginHost();
             const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);
 
-            await expect(strategy.handleCallback({ code: 'auth-code', state: 'unknown-state' })).rejects.toThrow(
-                /no matching PKCE verifier/,
-            );
+            await expect(strategy.handleCallback({ code: 'auth-code', state: 'unknown-state' })).rejects.toThrow(/no matching PKCE verifier/);
         });
 
         it('throws when the callback carries no state at all', async () => {
@@ -148,9 +142,7 @@ describe('HostVaultAuthStrategy', () => {
             const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);
             await strategy.getAuthorizeUrl('state-5');
 
-            await expect(strategy.handleCallback({ code: 'auth-code', state: 'state-5' })).rejects.toThrow(
-                'Spotify token request failed (HTTP 400)',
-            );
+            await expect(strategy.handleCallback({ code: 'auth-code', state: 'state-5' })).rejects.toThrow('Spotify token request failed (HTTP 400)');
         });
 
         it('throws when the token response carries no access token', async () => {
@@ -290,7 +282,10 @@ describe('HostVaultAuthStrategy', () => {
             let fetchCalls = 0;
             host.setFetchImpl(async () => {
                 fetchCalls += 1;
-                return fakeHostFetchResponse({ body: '{"access_token":"fresh-once","expires_in":3600}', url: 'https://accounts.spotify.com/api/token' });
+                return fakeHostFetchResponse({
+                    body: '{"access_token":"fresh-once","expires_in":3600}',
+                    url: 'https://accounts.spotify.com/api/token',
+                });
             });
             host.seedTokens({ accessToken: 'old-access', refreshToken: 'old-refresh', expiresAt: String(Date.now() - 1000) });
             const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);

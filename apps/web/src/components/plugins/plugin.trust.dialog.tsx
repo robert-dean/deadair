@@ -22,15 +22,13 @@ export function PluginTrustDialog({ plugin, opened, onCancel, onConfirm }: Plugi
         <Modal opened={opened} onClose={onCancel} title={`Enable ${plugin.name}?`} centered>
             <Stack gap="md">
                 <Text size="sm">
-                    Plugins are trusted code. {plugin.name} runs inside the deadair server process with the server&apos;s own
-                    privileges. It can read and write your files, open network connections to anywhere, and read the
-                    server&apos;s environment, including database and encryption credentials. The permissions a plugin
-                    declares are a description of what it says it needs, not a limit on what it can do.
+                    Plugins are trusted code. {plugin.name} runs inside the deadair server process with the server&apos;s own privileges. It can read
+                    and write your files, open network connections to anywhere, and read the server&apos;s environment, including database and
+                    encryption credentials. The permissions a plugin declares are a description of what it says it needs, not a limit on what it can
+                    do.
                 </Text>
 
-                <Text size="sm">
-                    Enable a plugin the same way you would add a dependency to this project: because you trust who wrote it.
-                </Text>
+                <Text size="sm">Enable a plugin the same way you would add a dependency to this project: because you trust who wrote it.</Text>
 
                 <Stack gap={6}>
                     <Text size="xs" c="dimmed" ff="monospace">

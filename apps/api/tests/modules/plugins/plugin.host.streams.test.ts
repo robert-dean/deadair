@@ -110,7 +110,10 @@ describe('host.streams.open', () => {
             }),
             { status: 200, headers: { 'content-type': 'audio/mpeg' } },
         );
-        vi.stubGlobal('fetch', vi.fn(async () => response));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => response),
+        );
         const host = factory().createHost(manifest());
 
         const opened = await host.streams.open('https://audio.example.com/speech.mp3');
@@ -131,7 +134,10 @@ describe('host.streams.open', () => {
 
     it('re-checks the allowlist on a redirect hop, exactly as host.fetch does', async () => {
         const redirect = new Response(null, { status: 302, headers: { location: 'https://elsewhere.example.com/x.mp3' } });
-        vi.stubGlobal('fetch', vi.fn(async () => redirect));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => redirect),
+        );
         const host = factory().createHost(manifest(['audio.example.com']));
 
         await expectPluginError(
@@ -142,7 +148,10 @@ describe('host.streams.open', () => {
     });
 
     it('refuses to open more than the host allows at once, and counts only live streams', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => bodyOf([bytes(1)])));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => bodyOf([bytes(1)])),
+        );
         const host = factory().createHost(manifest());
 
         const opened = [];
@@ -161,7 +170,10 @@ describe('host.streams.open', () => {
 
 describe('host.streams.read', () => {
     it('walks the body in order and ends with a terminal chunk carrying no data', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => bodyOf([bytes(1, 2), bytes(3)])));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => bodyOf([bytes(1, 2), bytes(3)])),
+        );
         const host = factory().createHost(manifest());
         const { streamId } = await host.streams.open('https://audio.example.com/speech.mp3');
 
@@ -178,7 +190,10 @@ describe('host.streams.read', () => {
     });
 
     it('holds back what maxBytes did not take, so a small read costs round trips and never bytes', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => bodyOf([bytes(1, 2, 3, 4, 5)])));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => bodyOf([bytes(1, 2, 3, 4, 5)])),
+        );
         const host = factory().createHost(manifest());
         const { streamId } = await host.streams.open('https://audio.example.com/speech.mp3');
 
@@ -193,7 +208,10 @@ describe('host.streams.read', () => {
     });
 
     it('answers a stream that already ended as one that does not exist', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => bodyOf([bytes(1)])));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => bodyOf([bytes(1)])),
+        );
         const host = factory().createHost(manifest());
         const { streamId } = await host.streams.open('https://audio.example.com/speech.mp3');
 
@@ -214,7 +232,10 @@ describe('host.streams.read', () => {
 
     it('gives up on a body that stalls, and calls it a timeout', async () => {
         vi.useFakeTimers();
-        vi.stubGlobal('fetch', vi.fn(async () => stallingBodyAfter(bytes(1))));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => stallingBodyAfter(bytes(1))),
+        );
         const host = factory().createHost(manifest());
         const { streamId } = await host.streams.open('https://audio.example.com/speech.mp3');
 
@@ -234,7 +255,10 @@ describe('host.streams.read', () => {
 
     it('refuses a stream that outlives the lifetime cap, and says so on the next read', async () => {
         vi.useFakeTimers();
-        vi.stubGlobal('fetch', vi.fn(async () => stallingBodyAfter(bytes(1))));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => stallingBodyAfter(bytes(1))),
+        );
         const host = factory().createHost(manifest());
         const { streamId } = await host.streams.open('https://audio.example.com/speech.mp3');
 
@@ -254,7 +278,10 @@ describe('host.streams.read', () => {
         // Two chunks either side of the cap, so the running count is what catches
         // it rather than any declared length.
         const half = new Uint8Array(PLUGIN_STREAM_MAX_BYTES / 2 + 1);
-        vi.stubGlobal('fetch', vi.fn(async () => bodyOf([half, half])));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => bodyOf([half, half])),
+        );
         const host = factory().createHost(manifest());
         const { streamId } = await host.streams.open('https://audio.example.com/big.wav');
 
@@ -264,7 +291,10 @@ describe('host.streams.read', () => {
     });
 
     it('reads a response that had no body at all as an immediately finished stream', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 204 })));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => new Response(null, { status: 204 })),
+        );
         const host = factory().createHost(manifest());
         const opened = await host.streams.open('https://audio.example.com/speech.mp3');
 
@@ -275,7 +305,10 @@ describe('host.streams.read', () => {
 
 describe('host.streams.close', () => {
     it('is idempotent, so a plugin can always call it from a finally', async () => {
-        vi.stubGlobal('fetch', vi.fn(async () => bodyOf([bytes(1)])));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => bodyOf([bytes(1)])),
+        );
         const host = factory().createHost(manifest());
         const { streamId } = await host.streams.open('https://audio.example.com/speech.mp3');
 

@@ -58,7 +58,10 @@ describe('PluginHostFactory boundary conformance', () => {
         headers.append('set-cookie', 'a=1');
         headers.append('set-cookie', 'b=2');
         const response = new Response(JSON.stringify({ ok: true }), { status: 200, headers });
-        vi.stubGlobal('fetch', vi.fn(async () => response));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => response),
+        );
 
         const result = await host.fetch('https://api.example.com/tracks');
 

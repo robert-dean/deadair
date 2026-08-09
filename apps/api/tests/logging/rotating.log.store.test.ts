@@ -3,12 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-    MAX_LINE_BYTES_CEILING,
-    RotatingLogStore,
-    safeChannel,
-    type RotatingLogStoreOptions,
-} from '../../src/logging/rotating.log.store.js';
+import { MAX_LINE_BYTES_CEILING, RotatingLogStore, safeChannel, type RotatingLogStoreOptions } from '../../src/logging/rotating.log.store.js';
 
 const tempDirs: string[] = [];
 const openStores: RotatingLogStore[] = [];
@@ -22,8 +17,8 @@ async function makeStore(options: Partial<RotatingLogStoreOptions> = {}): Promis
 }
 
 afterEach(async () => {
-    await Promise.all(openStores.splice(0).map((store) => store.close()));
-    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+    await Promise.all(openStores.splice(0).map(store => store.close()));
+    await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })));
     vi.restoreAllMocks();
 });
 
@@ -41,7 +36,7 @@ describe('RotatingLogStore constructor', () => {
         await store.close();
 
         const raw = await readFile(join(root, 'api.log'), 'utf8');
-        const line = raw.split('\n').filter((l) => l.length > 0)[0] ?? '';
+        const line = raw.split('\n').filter(l => l.length > 0)[0] ?? '';
         expect(Buffer.byteLength(line, 'utf8')).toBeLessThanOrEqual(MAX_LINE_BYTES_CEILING);
     });
 
@@ -98,7 +93,7 @@ describe('RotatingLogStore.append / tail', () => {
         const reader = new RotatingLogStore({ root });
         openStores.push(reader);
         const entries = await reader.tail(undefined);
-        expect(entries.map((e) => e.text)).toEqual(['first', 'second', 'third']);
+        expect(entries.map(e => e.text)).toEqual(['first', 'second', 'third']);
     });
 
     it('caps the returned entries at the requested limit, keeping the newest', async () => {
@@ -111,7 +106,7 @@ describe('RotatingLogStore.append / tail', () => {
         const reader = new RotatingLogStore({ root });
         openStores.push(reader);
         const entries = await reader.tail(undefined, { limit: 2 });
-        expect(entries.map((e) => e.text)).toEqual(['line-3', 'line-4']);
+        expect(entries.map(e => e.text)).toEqual(['line-3', 'line-4']);
     });
 
     it('filters by minimum severity level', async () => {
@@ -126,7 +121,7 @@ describe('RotatingLogStore.append / tail', () => {
         const reader = new RotatingLogStore({ root });
         openStores.push(reader);
         const entries = await reader.tail(undefined, { level: 'warn' });
-        expect(entries.map((e) => e.text)).toEqual(['a warn line', 'an error line']);
+        expect(entries.map(e => e.text)).toEqual(['a warn line', 'an error line']);
     });
 
     it('treats level filtering as case-insensitive', async () => {
@@ -184,7 +179,7 @@ describe('RotatingLogStore.append / tail', () => {
         await store.close();
 
         const raw = await readFile(join(root, 'api.log'), 'utf8');
-        const line = raw.split('\n').filter((l) => l.length > 0)[0] ?? '';
+        const line = raw.split('\n').filter(l => l.length > 0)[0] ?? '';
         expect(Buffer.byteLength(line, 'utf8')).toBeLessThanOrEqual(100);
         expect(line.endsWith('…')).toBe(true);
     });
@@ -195,7 +190,7 @@ describe('RotatingLogStore.append / tail', () => {
         await store.close();
 
         const raw = await readFile(join(root, 'api.log'), 'utf8');
-        const lines = raw.split('\n').filter((l) => l.length > 0);
+        const lines = raw.split('\n').filter(l => l.length > 0);
         expect(lines).toHaveLength(1);
         expect(lines[0]).toContain('line one\\nline two\\nline three');
     });
@@ -256,8 +251,8 @@ describe('RotatingLogStore.clear', () => {
         await reopened.clear(undefined);
 
         const rootFiles = await readdir(root, { withFileTypes: true });
-        expect(rootFiles.some((e) => e.isFile())).toBe(false);
-        expect(rootFiles.some((e) => e.isDirectory() && e.name === safeChannel('a-plugin'))).toBe(true);
+        expect(rootFiles.some(e => e.isFile())).toBe(false);
+        expect(rootFiles.some(e => e.isDirectory() && e.name === safeChannel('a-plugin'))).toBe(true);
 
         const pluginContent = await readFile(join(root, safeChannel('a-plugin'), 'plugin.log'), 'utf8');
         expect(pluginContent).toContain('plugin message');
@@ -312,7 +307,7 @@ describe('RotatingLogStore.close', () => {
         openStores.push(reader);
 
         const tailed = await reader.tail(undefined);
-        expect(tailed.map((e) => e.text)).toEqual(['before close', 'after close']);
+        expect(tailed.map(e => e.text)).toEqual(['before close', 'after close']);
 
         const all = await reader.readAll(undefined);
         expect(all).toContain('before close');
@@ -337,7 +332,7 @@ describe('RotatingLogStore.close', () => {
         await expect(store.close()).resolves.toBeUndefined();
     });
 
-    it('writes a post-close append for a plugin channel to that channel\'s own file', async () => {
+    it("writes a post-close append for a plugin channel to that channel's own file", async () => {
         const { store, root } = await makeStore();
         await store.close();
 
@@ -360,9 +355,7 @@ describe('RotatingLogStore.close', () => {
         expect(() => store.append(undefined, 'info', 'first failing write')).not.toThrow();
         expect(() => store.append(undefined, 'info', 'second failing write')).not.toThrow();
 
-        const failureWarnings = warnSpy.mock.calls.filter((call) =>
-            String(call[0]).includes('failed to write post-close log entry'),
-        );
+        const failureWarnings = warnSpy.mock.calls.filter(call => String(call[0]).includes('failed to write post-close log entry'));
         expect(failureWarnings).toHaveLength(1);
     });
 });
@@ -388,7 +381,7 @@ describe('RotatingLogStore rotation', () => {
         // Entries are collected across segments and must stay in ascending
         // write order end to end (oldest first, newest last).
         const indices = entries
-            .map((e) => /^entry-(\d+)-/.exec(e.text)?.[1])
+            .map(e => /^entry-(\d+)-/.exec(e.text)?.[1])
             .filter((value): value is string => value !== undefined)
             .map(Number);
         expect(indices.length).toBeGreaterThan(0);
@@ -428,7 +421,7 @@ describe('RotatingLogStore rotation', () => {
         const reader = new RotatingLogStore({ root });
         openStores.push(reader);
         const content = await reader.readAll(undefined);
-        const indices = Array.from(content.matchAll(/entry-(\d+)-/g)).map((m) => Number(m[1]));
+        const indices = Array.from(content.matchAll(/entry-(\d+)-/g)).map(m => Number(m[1]));
         expect(indices.length).toBeGreaterThan(1);
         for (let i = 1; i < indices.length; i++) {
             expect(indices[i]).toBeGreaterThan(indices[i - 1] as number);
@@ -448,7 +441,7 @@ describe('RotatingLogStore concurrent writes', () => {
         const reader = new RotatingLogStore({ root });
         openStores.push(reader);
         const entries = await reader.tail(undefined, { limit: 100 });
-        expect(entries.map((e) => e.text)).toEqual(Array.from({ length: 50 }, (_, i) => `burst-${i}`));
+        expect(entries.map(e => e.text)).toEqual(Array.from({ length: 50 }, (_, i) => `burst-${i}`));
     });
 });
 
@@ -472,7 +465,7 @@ describe('RotatingLogStore unwritable root', () => {
             expect(() => store.append(undefined, 'info', 'should not throw')).not.toThrow();
 
             // Give the stream a chance to emit its 'error' event asynchronously.
-            await new Promise((resolve) => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 50));
         } finally {
             process.off('unhandledRejection', onUnhandled);
         }

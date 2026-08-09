@@ -38,7 +38,10 @@ describe('writePluginDetail', () => {
 
         writePluginDetail(queryClient, pluginDetail({ enabled: false, status: 'disabled', config: { clientId: 'abc' } }));
 
-        expect(queryClient.getQueryData(queryKeys.plugins.detail('deadair.spotify'))).toMatchObject({ status: 'disabled', config: { clientId: 'abc' } });
+        expect(queryClient.getQueryData(queryKeys.plugins.detail('deadair.spotify'))).toMatchObject({
+            status: 'disabled',
+            config: { clientId: 'abc' },
+        });
 
         const list = queryClient.getQueryData(queryKeys.plugins.list()) as { id: string; status: string }[];
         expect(list.map(plugin => [plugin.id, plugin.status])).toEqual([
@@ -74,7 +77,9 @@ describe('completePluginOAuth', () => {
     });
 
     it('turns a request that never landed into a sentence rather than a rejection', async () => {
-        completePluginOAuthAuthorization.mockRejectedValue(new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'plugin host restarting' }, new Headers()));
+        completePluginOAuthAuthorization.mockRejectedValue(
+            new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'plugin host restarting' }, new Headers()),
+        );
 
         const outcome = await completePluginOAuth(createTestQueryClient(), 'deadair.spotify', { state: 'st-1' });
 
@@ -166,7 +171,7 @@ describe('useSetPluginLogLevel', () => {
         });
     });
 
-    it('leaves a different plugin\'s cached log tail alone', async () => {
+    it("leaves a different plugin's cached log tail alone", async () => {
         const queryClient = createTestQueryClient();
         const otherPluginKey = queryKeys.plugins.logs('other-plugin', { level: 'warn' });
         queryClient.setQueryData(otherPluginKey, { entries: [], nextCursor: undefined });

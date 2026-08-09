@@ -85,8 +85,7 @@ export function selectSong(songs: SubsonicChild[] | undefined, ref: MatchRef): S
         // Exact beats decorated, and a matching album breaks the tie between two
         // that are otherwise equal — which is what picks the album track over the
         // greatest-hits copy of it.
-        const score =
-            (title === 'exact' ? 4 : 0) + (artist === 'exact' ? 2 : 0) + (ref.album && agree(song.album, ref.album) !== 'none' ? 1 : 0);
+        const score = (title === 'exact' ? 4 : 0) + (artist === 'exact' ? 2 : 0) + (ref.album && agree(song.album, ref.album) !== 'none' ? 1 : 0);
 
         if (!best || score > best.score) best = { song, score };
     }

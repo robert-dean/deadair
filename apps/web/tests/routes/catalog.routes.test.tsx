@@ -48,7 +48,11 @@ const ALBUM_ID = '22222222-2222-4222-8222-222222222222';
 
 const emptyPage = { meta: { total: 0, page: 0, pageSize: 50, sort: 'asc' }, data: [] };
 
-type LoaderArgs = { context: { queryClient: ReturnType<typeof createTestQueryClient> }; params?: Record<string, string>; deps: { page: number; search?: string } };
+type LoaderArgs = {
+    context: { queryClient: ReturnType<typeof createTestQueryClient> };
+    params?: Record<string, string>;
+    deps: { page: number; search?: string };
+};
 
 function runLoader(route: unknown, args: LoaderArgs) {
     return (route as { loader: (args: LoaderArgs) => Promise<unknown> }).loader(args);
@@ -136,7 +140,9 @@ describe('the drill-down loaders', () => {
         listArtistAlbums.mockResolvedValue(emptyPage);
         const queryClient = createTestQueryClient();
 
-        await expect(runLoader(ArtistRoute, { context: { queryClient }, params: { artistId: ARTIST_ID }, deps: { page: 0 } })).resolves.toBeUndefined();
+        await expect(
+            runLoader(ArtistRoute, { context: { queryClient }, params: { artistId: ARTIST_ID }, deps: { page: 0 } }),
+        ).resolves.toBeUndefined();
         expect(queryClient.getQueryState(queryKeys.catalog.artist(ARTIST_ID))?.status).toBe('error');
     });
 });

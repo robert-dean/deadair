@@ -28,7 +28,9 @@ function signInError(error: unknown): string | undefined {
     }
     if (isRateLimited(error)) {
         const wait = retryAfterMs(error);
-        return wait === undefined ? 'Too many attempts. Wait a moment and try again.' : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
+        return wait === undefined
+            ? 'Too many attempts. Wait a moment and try again.'
+            : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
     }
     if (apiErrorDetails(error)) {
         return undefined;

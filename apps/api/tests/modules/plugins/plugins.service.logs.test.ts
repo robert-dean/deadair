@@ -295,7 +295,9 @@ function filterRawEntries(
 ): Array<{ ts: string; level: string; text: string }> {
     const minSeverity = options?.level !== undefined ? LEVEL_ORDER[options.level] : undefined;
     const filtered =
-        minSeverity === undefined ? [...rawEntries] : rawEntries.filter(entry => LEVEL_ORDER[entry.level.toLowerCase() as PluginLogLevel] >= minSeverity);
+        minSeverity === undefined
+            ? [...rawEntries]
+            : rawEntries.filter(entry => LEVEL_ORDER[entry.level.toLowerCase() as PluginLogLevel] >= minSeverity);
     return options?.limit !== undefined ? filtered.slice(-options.limit) : filtered;
 }
 
@@ -322,8 +324,8 @@ describe('PluginsService: getPluginLogs default level filter', () => {
         (harness.pluginLog.setLevel as ReturnType<typeof vi.fn>).mockImplementation((_id: string, level: PluginLogLevel | undefined) => {
             currentLevel = level ?? initialLevel;
         });
-        (harness.pluginLog.tail as ReturnType<typeof vi.fn>).mockImplementation(async (_id: string, options?: { limit?: number; level?: PluginLogLevel }) =>
-            filterRawEntries(rawEntries, options),
+        (harness.pluginLog.tail as ReturnType<typeof vi.fn>).mockImplementation(
+            async (_id: string, options?: { limit?: number; level?: PluginLogLevel }) => filterRawEntries(rawEntries, options),
         );
 
         return harness;
@@ -356,7 +358,7 @@ describe('PluginsService: getPluginLogs default level filter', () => {
         expect(page.level).toBe('debug');
     });
 
-    it("the returned level field always matches the filter actually applied, in both branches", async () => {
+    it('the returned level field always matches the filter actually applied, in both branches', async () => {
         const { service, pluginLog } = makeFilteringHarness('info');
 
         const withoutQuery = await service.getPluginLogs(SPOTIFY_ID, {});

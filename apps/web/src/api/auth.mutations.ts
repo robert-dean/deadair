@@ -23,8 +23,7 @@ export interface LoginCredentials {
 export function useLoginMutation() {
     return useMutation({
         retry: false,
-        mutationFn: ({ email, password }: LoginCredentials) =>
-            sdk.authentication.requestToken({ grant_type: 'password', username: email, password }),
+        mutationFn: ({ email, password }: LoginCredentials) => sdk.authentication.requestToken({ grant_type: 'password', username: email, password }),
         onSuccess: (response: AuthenticationTokenResponseOutput) => {
             if (response.result === 'token') {
                 setSession(response.access_token, response.expires_in);

@@ -44,6 +44,9 @@ export type EnrichmentPluginInstance = PluginLifecycle & EnrichmentProvider;
  * export default definePlugin(manifest, () => new MyPlugin());
  * ```
  */
-export function definePlugin<TInstance extends PluginInstance>(manifest: PluginManifest, factory: PluginFactory<TInstance>): DeadairPlugin<TInstance> {
+export function definePlugin<TInstance extends PluginInstance>(
+    manifest: PluginManifest,
+    factory: PluginFactory<TInstance>,
+): DeadairPlugin<TInstance> {
     return { manifest, factory };
 }

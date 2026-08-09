@@ -204,7 +204,7 @@ export class RotatingLogStore {
                     continue;
                 }
 
-                const lines = raw.split('\n').filter((line) => line.length > 0);
+                const lines = raw.split('\n').filter(line => line.length > 0);
                 for (let i = lines.length - 1; i >= 0; i--) {
                     if (collectedNewestFirst.length >= limit) break;
 
@@ -274,9 +274,7 @@ export class RotatingLogStore {
             const dir = this.channelDir(channel);
             if (channel === undefined) {
                 const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
-                await Promise.all(
-                    entries.filter((entry) => entry.isFile()).map((entry) => rm(join(dir, entry.name), { force: true })),
-                );
+                await Promise.all(entries.filter(entry => entry.isFile()).map(entry => rm(join(dir, entry.name), { force: true })));
             } else {
                 await rm(dir, { recursive: true, force: true });
             }
@@ -298,8 +296,8 @@ export class RotatingLogStore {
 
         await Promise.all(
             streams.map(
-                (stream) =>
-                    new Promise<void>((resolvePromise) => {
+                stream =>
+                    new Promise<void>(resolvePromise => {
                         stream.once('close', () => resolvePromise());
                         stream.once('error', () => resolvePromise());
                         stream.end();
@@ -382,7 +380,7 @@ export class RotatingLogStore {
             path: dir,
         });
 
-        stream.on('error', (error) => {
+        stream.on('error', error => {
             if (!this.warnedChannels.has(key)) {
                 this.warnedChannels.add(key);
                 console.warn(`[RotatingLogStore] write error on channel "${key}"`, error);
@@ -466,10 +464,10 @@ async function listSegmentsByMtime(dir: string): Promise<string[]> {
         return [];
     }
 
-    const files = entries.filter((entry) => entry.isFile()).map((entry) => join(dir, entry.name));
+    const files = entries.filter(entry => entry.isFile()).map(entry => join(dir, entry.name));
 
     const stamped = await Promise.all(
-        files.map(async (path) => {
+        files.map(async path => {
             try {
                 const stats = await stat(path);
                 return { path, mtimeMs: stats.mtimeMs };
@@ -482,7 +480,7 @@ async function listSegmentsByMtime(dir: string): Promise<string[]> {
     return stamped
         .filter((entry): entry is { path: string; mtimeMs: number } => entry !== undefined)
         .sort((a, b) => a.mtimeMs - b.mtimeMs)
-        .map((entry) => entry.path);
+        .map(entry => entry.path);
 }
 
 /**
@@ -491,13 +489,7 @@ async function listSegmentsByMtime(dir: string): Promise<string[]> {
  * characters `\` `n` in both the message and meta values, so the
  * one-entry-per-line invariant holds even for a multi-line stack trace.
  */
-function formatLine(
-    level: string,
-    message: string,
-    meta: Record<string, unknown> | undefined,
-    maxValueChars: number,
-    maxLineBytes: number,
-): string {
+function formatLine(level: string, message: string, meta: Record<string, unknown> | undefined, maxValueChars: number, maxLineBytes: number): string {
     const ts = new Date().toISOString();
     const levelToken = level.toUpperCase().padEnd(5, ' ');
     let line = `${ts} ${levelToken} ${escapeNewlines(message)}`;

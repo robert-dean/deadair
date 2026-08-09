@@ -142,9 +142,7 @@ export class SpeechService {
             // Close it before complaining: the plugin has a socket open on our behalf and nothing
             // else will ever ask it to let go.
             await this.closeQuietly(plugin, handle.streamId);
-            throw new PluginError(`plugin "${pluginId}" answered with "${handle.mime}", which the segment store cannot hold`).withCode(
-                'unsupported',
-            );
+            throw new PluginError(`plugin "${pluginId}" answered with "${handle.mime}", which the segment store cannot hold`).withCode('unsupported');
         }
 
         try {
@@ -175,9 +173,7 @@ export class SpeechService {
         const ext = EXTENSION_BY_MIME.get(handle.mime.split(';')[0]!.trim().toLowerCase());
         if (ext === undefined) {
             await this.closeQuietly(plugin, handle.streamId);
-            throw new PluginError(`plugin "${pluginId}" answered with "${handle.mime}", which the segment store cannot hold`).withCode(
-                'unsupported',
-            );
+            throw new PluginError(`plugin "${pluginId}" answered with "${handle.mime}", which the segment store cannot hold`).withCode('unsupported');
         }
 
         try {

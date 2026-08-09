@@ -164,9 +164,9 @@ export class KokoroPlugin implements SpeechPluginInstance {
             // "was any of this plausibly audio" is only answerable at the end.
             if (speaking.delivered < MIN_PLAUSIBLE_AUDIO_BYTES) {
                 await this.closeStream(streamId);
-                throw new PluginError(
-                    `kokoro returned only ${speaking.delivered} bytes, which is not audio — check the model and voice`,
-                ).withCode('upstream');
+                throw new PluginError(`kokoro returned only ${speaking.delivered} bytes, which is not audio — check the model and voice`).withCode(
+                    'upstream',
+                );
             }
             this.speaking.delete(streamId);
             return { seq: chunk.seq, done: true };
@@ -232,5 +232,4 @@ const nonEmpty = (value: unknown): string | undefined => {
 /** The base URL without a trailing slash, so paths can be appended with one. */
 const trimSlashes = (value: string): string => value.trim().replace(/\/+$/, '');
 
-const isResponseFormat = (value: unknown): value is ResponseFormat =>
-    typeof value === 'string' && Object.hasOwn(RESPONSE_FORMATS, value);
+const isResponseFormat = (value: unknown): value is ResponseFormat => typeof value === 'string' && Object.hasOwn(RESPONSE_FORMATS, value);

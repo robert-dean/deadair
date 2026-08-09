@@ -160,7 +160,13 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
                     ) : (
                         <Stack gap={2}>
                             {entries.map((entry, index) => (
-                                <Text key={`${entry.ts}-${index}`} size="xs" ff="monospace" c={LOG_LEVEL_COLOR[entry.level]} style={{ overflowWrap: 'anywhere' }}>
+                                <Text
+                                    key={`${entry.ts}-${index}`}
+                                    size="xs"
+                                    ff="monospace"
+                                    c={LOG_LEVEL_COLOR[entry.level]}
+                                    style={{ overflowWrap: 'anywhere' }}
+                                >
                                     <Text component="span" c="dimmed" inherit>
                                         {entry.ts}
                                     </Text>{' '}

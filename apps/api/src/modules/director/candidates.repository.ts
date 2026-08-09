@@ -73,12 +73,7 @@ export class CandidatesRepository extends DataRepository {
             .selectFrom('deadair.tracks')
             .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
             .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
-            .select([
-                'deadair.tracks.id as trackId',
-                'deadair.tracks.title',
-                'deadair.artists.name as artist',
-                'deadair.tracks.artists as credit',
-            ])
+            .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.artists.name as artist', 'deadair.tracks.artists as credit'])
             // One number for "how does the station feel about this", taken as the lowest of
             // the three: disliking an artist has to outweigh liking one of their songs.
             .select(

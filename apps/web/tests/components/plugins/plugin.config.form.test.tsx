@@ -142,7 +142,12 @@ describe('PluginConfigForm', () => {
     it('puts the API validation messages on the fields they name', async () => {
         const plugin = pluginDetail({ configFields: [{ key: 'clientId', label: 'Client ID', type: 'string' }], config: { clientId: 'abc' } });
         updatePluginConfiguration.mockRejectedValue(
-            new SdkError(422, 'Unprocessable Entity', { statusCode: 422, message: 'configuration is invalid', details: { clientId: 'Too short' } }, new Headers()),
+            new SdkError(
+                422,
+                'Unprocessable Entity',
+                { statusCode: 422, message: 'configuration is invalid', details: { clientId: 'Too short' } },
+                new Headers(),
+            ),
         );
 
         render(<PluginConfigForm plugin={plugin} />);

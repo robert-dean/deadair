@@ -74,7 +74,13 @@ export class TracksRepository extends DataRepository {
         const rows = await this.db
             .selectFrom('deadair.tracks')
             .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
-            .select(['deadair.tracks.id', 'deadair.tracks.title', 'deadair.tracks.artists', 'deadair.tracks.year', 'deadair.albums.name as albumName'])
+            .select([
+                'deadair.tracks.id',
+                'deadair.tracks.title',
+                'deadair.tracks.artists',
+                'deadair.tracks.year',
+                'deadair.albums.name as albumName',
+            ])
             .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
             .where('deadair.tracks.id', 'in', [...trackIds])
             .where('deadair.tracks.mergedIntoId', 'is', null)
@@ -117,23 +123,25 @@ export class TracksRepository extends DataRepository {
     async findByBindings(pluginId: string, externalIds: readonly string[]) {
         if (externalIds.length === 0) return [];
 
-        return this.db
-            .selectFrom('deadair.trackSources')
-            .innerJoin('deadair.tracks', 'deadair.tracks.id', 'deadair.trackSources.trackId')
-            // Left, like the list above: a single ingested outside any release is still a track.
-            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
-            .select([
-                'deadair.trackSources.externalId',
-                'deadair.tracks.id as trackId',
-                'deadair.tracks.year',
-                'deadair.albums.name as albumName',
-            ])
-            .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
-            .where('deadair.trackSources.pluginId', '=', pluginId)
-            .where('deadair.trackSources.externalId', 'in', [...externalIds])
-            // A merged row is a duplicate the catalog has already disowned; its metadata
-            // is the same work described twice, and reading it would report the loser.
-            .where('deadair.tracks.mergedIntoId', 'is', null)
-            .execute();
+        return (
+            this.db
+                .selectFrom('deadair.trackSources')
+                .innerJoin('deadair.tracks', 'deadair.tracks.id', 'deadair.trackSources.trackId')
+                // Left, like the list above: a single ingested outside any release is still a track.
+                .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+                .select([
+                    'deadair.trackSources.externalId',
+                    'deadair.tracks.id as trackId',
+                    'deadair.tracks.year',
+                    'deadair.albums.name as albumName',
+                ])
+                .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
+                .where('deadair.trackSources.pluginId', '=', pluginId)
+                .where('deadair.trackSources.externalId', 'in', [...externalIds])
+                // A merged row is a duplicate the catalog has already disowned; its metadata
+                // is the same work described twice, and reading it would report the loser.
+                .where('deadair.tracks.mergedIntoId', 'is', null)
+                .execute()
+        );
     }
 }

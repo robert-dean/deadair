@@ -364,4 +364,3 @@ contract ActorPreferences: { # The current user's display preferences, auto-dete
     locale?: string(max=32) # RFC 5646 locale, e.g. "en-US"
     timezone?: string(max=64) # Olson timezone, e.g. "America/New_York"
 }
-

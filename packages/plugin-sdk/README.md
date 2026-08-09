@@ -7,14 +7,14 @@ dependency so you and the host share one copy.
 
 A plugin extends deadair by declaring capabilities:
 
-| capability   | what it lets you do                                              |
-| ------------ | ---------------------------------------------------------------- |
-| `catalog`    | supply music: list playlists, list their tracks                   |
-| `stream`     | get the station the audio to play (`resolveStreamUrl`)            |
-| `steer`      | own your audio output and let deadair only tell you what to do    |
-| `enrichment` | supply facts about a track: year, genre, label, trivia, links     |
-| `speech`     | say something out loud: text in, audio out                        |
-| `oauth`      | hold operator tokens, obtained through the host's redirect        |
+| capability   | what it lets you do                                            |
+| ------------ | -------------------------------------------------------------- |
+| `catalog`    | supply music: list playlists, list their tracks                |
+| `stream`     | get the station the audio to play (`resolveStreamUrl`)         |
+| `steer`      | own your audio output and let deadair only tell you what to do |
+| `enrichment` | supply facts about a track: year, genre, label, trivia, links  |
+| `speech`     | say something out loud: text in, audio out                     |
+| `oauth`      | hold operator tokens, obtained through the host's redirect     |
 
 There is no second axis. `capabilities` is the whole declaration, and the host
 checks it on every call together with whether you actually implemented the
@@ -51,11 +51,12 @@ your package is just a package.
    `init()`. `host.fetch()` is your egress, and it will refuse any hostname you
    did not declare in `permissions.network`.
 
-   This is a rule, not a cage. The host imports you into its own process today,
-   so global `fetch` and `fs` are technically within reach. Use them and you
-   opt out of the rate limiting, timeouts, redirect checks, and audit logging
-   the host does on your behalf, you make your manifest a lie to the operator
-   who installed you, and you break the day plugins move into an isolate.
+    This is a rule, not a cage. The host imports you into its own process today,
+    so global `fetch` and `fs` are technically within reach. Use them and you
+    opt out of the rate limiting, timeouts, redirect checks, and audit logging
+    the host does on your behalf, you make your manifest a lie to the operator
+    who installed you, and you break the day plugins move into an isolate.
+
 2. **Everything crossing the boundary is JSON-safe.** No `Date`, no `Response`,
    no class instances, no functions in payloads. Durations are integers in
    milliseconds; dates are ISO-8601 strings. The host runs plugins in-process
@@ -221,7 +222,7 @@ more than that: MusicBrainz wants a contact address, which usually means a
 
 An upstream that answers is not a failure: a 404 or a 500 comes back as an
 ordinary `HostFetchResponse` with `ok: false`, and what it means is yours to
-decide. `host.fetch` only *rejects* when there is no response to give you, and
+decide. `host.fetch` only _rejects_ when there is no response to give you, and
 when it does it rejects with a `PluginError` carrying the same
 [`PluginErrorCode`](src/plugin.error.ts) vocabulary your own failures use, so
 you can branch on it:
@@ -281,7 +282,7 @@ rather than a limitation for anything that parses as JSON.
 wildcard subdomain that does not match the apex:
 
 ```ts
-network: ['api.spotify.com', 'accounts.spotify.com']
+network: ['api.spotify.com', 'accounts.spotify.com'];
 ```
 
 Use the object form when the upstream publishes a rate limit. `host.fetch`
@@ -293,7 +294,7 @@ network: [
     { host: 'musicbrainz.org', ratePerSecond: 1, bucket: 'musicbrainz' },
     { host: '*.musicbrainz.org', ratePerSecond: 1, bucket: 'musicbrainz' },
     'coverartarchive.org',
-]
+];
 ```
 
 `bucket` is what makes those first two entries share one allowance. Published
@@ -353,7 +354,7 @@ anything paced against a rate-limited API:
 
 ```ts
 const core = await this.lookup(ref);
-if (host.remainingMs() < 2_000) return core;  // good enough, out of time
+if (host.remainingMs() < 2_000) return core; // good enough, out of time
 return { ...core, ...(await this.enrich(core)) };
 ```
 
@@ -429,7 +430,7 @@ time. That is what turns a second pass into a lookup instead of another search,
 so state it whenever you have one.
 
 It is deliberately separate from `externalIds`, which answers a different
-question: what this thing is called *elsewhere*. List those in whatever order
+question: what this thing is called _elsewhere_. List those in whatever order
 you like, including ids that are not yours. A local library that reads a
 MusicBrainz id out of a file's tags should absolutely report it, and doing so
 must not cost it its own ref.
@@ -448,13 +449,14 @@ ones it implements in `manifest.capabilities`:
   with no headers from us. A provider that cannot answer it plays its own audio
   and declares `steer` instead.
 
-  How you get that URL is your business. Most providers mint one out of their
-  own head. If your audio is reachable only to a process speaking a protocol you
-  do not — Spotify's, whose tracks come off the CDN encrypted — lend the
-  station's fetcher a login and return the URL it gives you back; see *When your
-  audio needs a helper to fetch it* above. A byte-level protocol for audio that
-  no URL can reach at all is specified in `docs/decisions/plugin-streaming.md`,
-  but it is not implemented and there is no `host.streams` to call.
+    How you get that URL is your business. Most providers mint one out of their
+    own head. If your audio is reachable only to a process speaking a protocol you
+    do not — Spotify's, whose tracks come off the CDN encrypted — lend the
+    station's fetcher a login and return the URL it gives you back; see _When your
+    audio needs a helper to fetch it_ above. A byte-level protocol for audio that
+    no URL can reach at all is specified in `docs/decisions/plugin-streaming.md`,
+    but it is not implemented and there is no `host.streams` to call.
+
 - **`steer`** — `enqueue`, `play`, `pause`, `skip`, `getPlaybackState`. The
   provider owns the audio output and deadair only tells it what to do. Named
   from the plugin's side on purpose: deadair's own `playout` module is the
@@ -485,7 +487,7 @@ handle and the host pulls the audio out:
 
 ```ts
 class KokoroPlugin implements SpeechPluginInstance {
-    private readonly open = new Map<string, string>();  // ours -> the host's
+    private readonly open = new Map<string, string>(); // ours -> the host's
 
     async speak({ text, voice }: SpeechRequest): Promise<SpeechHandle> {
         const opened = await this.host.streams.open(`${this.baseUrl}/audio/speech`, {
@@ -549,15 +551,15 @@ thing to be.
 `configFields` is a declarative form description. The host renders it; plugins
 never ship UI.
 
-| type      | notes                                                             |
-| --------- | ----------------------------------------------------------------- |
-| `string`  | free text                                                          |
-| `url`     | free text, validated as a URL                                      |
-| `secret`  | write-only, encrypted, read via `host.secrets.get()`               |
-| `number`  | numeric input                                                      |
-| `boolean` | toggle                                                             |
-| `select`  | one of `options`                                                   |
-| `note`    | not an input; static help text in the form                         |
+| type      | notes                                                |
+| --------- | ---------------------------------------------------- |
+| `string`  | free text                                            |
+| `url`     | free text, validated as a URL                        |
+| `secret`  | write-only, encrypted, read via `host.secrets.get()` |
+| `number`  | numeric input                                        |
+| `boolean` | toggle                                               |
+| `select`  | one of `options`                                     |
+| `note`    | not an input; static help text in the form           |
 
 Use `dependsOn` to hide a field until another one is filled in. Use
 `configSchema` for anything the form cannot express: the host parses the

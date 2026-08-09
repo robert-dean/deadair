@@ -785,10 +785,7 @@ describe('PluginHostFactory fetch pacing', () => {
         const host = factory().createHost(
             manifest({
                 permissions: {
-                    network: [
-                        { host: 'slow.example.com', ratePerSecond: 1 },
-                        { host: 'fast.example.com' },
-                    ],
+                    network: [{ host: 'slow.example.com', ratePerSecond: 1 }, { host: 'fast.example.com' }],
                     storage: false,
                     oauth: false,
                 },
@@ -845,8 +842,7 @@ describe('PluginHostFactory config-derived allowlist', () => {
         return { service: { getConfig } as unknown as PluginConfigService, getConfig };
     };
 
-    const fromConfig = (...network: PluginManifest['permissions']['network']) =>
-        manifest({ permissions: { network, storage: false, oauth: false } });
+    const fromConfig = (...network: PluginManifest['permissions']['network']) => manifest({ permissions: { network, storage: false, oauth: false } });
 
     it('allows the host the operator configured', async () => {
         const fetchMock = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));

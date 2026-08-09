@@ -21,9 +21,7 @@ interface BuildCtx {
 type SubjectsBuilder = (objectId: Expression<string>) => RawBuilder<{ user_id: string }>;
 
 type ParsedSubjectType =
-    | { kind: 'concrete'; namespace: string }
-    | { kind: 'wildcard'; namespace: string }
-    | { kind: 'userset'; namespace: string; relation: string };
+    { kind: 'concrete'; namespace: string } | { kind: 'wildcard'; namespace: string } | { kind: 'userset'; namespace: string; relation: string };
 
 // SubjectType strings per @maroonedsoftware/permissions:
 //   "<ns>"          — concrete (e.g. "user", "org")

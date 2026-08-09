@@ -49,14 +49,18 @@ describe('/playlists/$pluginId/$playlistId loader', () => {
     });
 
     it('resolves rather than rejecting when the plugin is unavailable, so navigation still lands', async () => {
-        getPlaylistTracks.mockRejectedValue(new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'plugin is not running' }, new Headers()));
+        getPlaylistTracks.mockRejectedValue(
+            new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'plugin is not running' }, new Headers()),
+        );
         const queryClient = createTestQueryClient();
 
         await expect(runLoader(queryClient)).resolves.toBeUndefined();
     });
 
     it('leaves the failure in the query cache, which is what the page renders its alert from', async () => {
-        getPlaylistTracks.mockRejectedValue(new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'plugin is not running' }, new Headers()));
+        getPlaylistTracks.mockRejectedValue(
+            new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'plugin is not running' }, new Headers()),
+        );
         const queryClient = createTestQueryClient();
 
         await runLoader(queryClient);

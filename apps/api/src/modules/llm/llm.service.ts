@@ -1,24 +1,53 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { PluginError, type LlmHandle, type LlmModelInfo, type LlmRequest } from '@deadair/plugin-sdk';
+import { PluginError, type LlmHandle, type LlmModelInfo, type LlmRequest, type LlmResult } from '@deadair/plugin-sdk';
 import { asLlmPlugin, type LlmPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
+import { LlmGate } from './llm.gate.js';
 import { explainNoGenerator, LLM_PLUGIN_KEY, selectLlmPlugin } from './llm.settings.js';
 
 /**
- * How long one `generate` may take before the host abandons it.
+ * How long the plugin gets to hand back a handle.
  *
- * Bounds getting the HANDLE back and nothing more, exactly as `SPEAK_TIMEOUT_MS` bounds a request
- * and its headers: the words arrive afterwards, on the host's own per-body idle and lifetime caps.
- * That split is the whole reason a long answer does not have to be a long invocation.
+ * Bounds STARTING a generation and nothing more, exactly as `SPEAK_TIMEOUT_MS` bounds a speech
+ * request and its headers. The words arrive afterwards, which is the whole reason a long answer does
+ * not have to be a long invocation.
  *
- * Generous, because the model this station is pointed at is a remote Ollama whose first token can
- * be a while coming when the context spills its VRAM. A budget tight enough to catch that is also
- * tight enough to abort every ordinary generation on a busy machine.
+ * Generous, because the model this station is pointed at is a remote Ollama whose first token can be
+ * a while coming when the context spills its VRAM. A bound tight enough to catch that is also tight
+ * enough to abort every ordinary generation on a busy machine.
  */
-export const GENERATE_TIMEOUT_MS = 120_000;
+export const START_TIMEOUT_MS = 120_000;
+
+/**
+ * How long a whole generation gets, from being admitted to the model to the last word.
+ *
+ * This is the one that matters, because a generation holds the station's only model slot until its
+ * stream ends. Without it, one model that produces forever costs the station every future line it
+ * would have said, and the symptom is a station that quietly stops talking.
+ *
+ * Well above {@link START_TIMEOUT_MS}: a show is thousands of tokens and the slow path here is two
+ * tokens a second, so this has to accommodate the case the deterministic writer exists to rescue
+ * rather than pre-empt it.
+ */
+export const GENERATION_BUDGET_MS = 600_000;
+
+/** How one caller wants its generation treated. Every field falls back to this module's own bounds. */
+export interface LlmCallOptions {
+    /** Override {@link GENERATION_BUDGET_MS} for one call. */
+    budgetMs?: number;
+
+    /**
+     * Give up waiting for the model after this long, before anything is spent.
+     *
+     * Absent means wait. Worth setting for anything with a deadline of its own: a break writer that
+     * would rather produce a deterministic line now than a better one after the show in front of it
+     * finishes should say so here.
+     */
+    maxWaitMs?: number;
+}
 
 /**
  * Asking a model for words.
@@ -45,6 +74,7 @@ export class LlmService {
     constructor(
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
+        private readonly gate: LlmGate,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -121,11 +151,11 @@ export class LlmService {
      * `PluginError`, because `PluginInvoker` flattens anything else, so a caller branches on `code`
      * rather than on a message.
      */
-    async generate(request: LlmRequest): Promise<LlmHandle> {
+    async generate(request: LlmRequest, options: LlmCallOptions = {}): Promise<LlmHandle> {
         const plugin = this.generator();
         if (plugin === undefined) throw new PluginError(`llm: ${this.explainGenerator()}`).withCode('unavailable');
 
-        return await this.generateWith(plugin, request);
+        return await this.generateWith(plugin, request, options);
     }
 
     /**
@@ -133,11 +163,33 @@ export class LlmService {
      *
      * Separate so a console can exercise a named plugin without it having to be the station's
      * current one, which is how an operator decides whether it should be.
+     *
+     * Every generation goes through the gate, including this one. A console preview that jumped the
+     * queue would be doing the exact thing the gate exists to stop, on a station that is on air.
      */
-    async generateWith(plugin: LlmPlugin, request: LlmRequest): Promise<LlmHandle> {
-        return await this.pluginInvoker.invoke(plugin.record.id, 'llm.generate', async () => plugin.instance.generate(request), {
-            timeoutMs: GENERATE_TIMEOUT_MS,
-        });
+    async generateWith(plugin: LlmPlugin, request: LlmRequest, options: LlmCallOptions = {}): Promise<LlmHandle> {
+        const gated = await this.gate.run<LlmResult>(
+            async () =>
+                await this.pluginInvoker.invoke(
+                    plugin.record.id,
+                    'llm.generate',
+                    async () => {
+                        const handle = await plugin.instance.generate(request);
+                        return { stream: handle.text, result: handle.result };
+                    },
+                    // Bounds getting the handle back, and stops there. The words arrive afterwards
+                    // and are bounded by the gate's budget instead, because they are what holds the
+                    // station's only model slot.
+                    { timeoutMs: START_TIMEOUT_MS },
+                ),
+            {
+                budgetMs: options.budgetMs ?? GENERATION_BUDGET_MS,
+                ...(options.maxWaitMs === undefined ? {} : { maxWaitMs: options.maxWaitMs }),
+                label: plugin.record.id,
+            },
+        );
+
+        return { text: gated.stream, result: gated.result };
     }
 
     /**

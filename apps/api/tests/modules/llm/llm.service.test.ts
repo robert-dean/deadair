@@ -9,6 +9,7 @@ import { isPluginError, type LlmModelInfo, type LlmPluginInstance } from '@deada
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
+import { LlmGate } from '../../../src/modules/llm/llm.gate.js';
 import { LlmService } from '../../../src/modules/llm/llm.service.js';
 import { LLM_PLUGIN_KEY } from '../../../src/modules/llm/llm.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -54,8 +55,9 @@ function fakeLlmPlugin(options: FakeOptions = {}): PluginRecord {
 
 function serviceFor(records: PluginRecord[], settings: Record<string, string> = {}) {
     const { config, set } = settingsConfig(settings);
-    const service = new LlmService({ list: () => records } as unknown as PluginRegistry, passthroughInvoker(), config, logger());
-    return { service, set };
+    const gate = new LlmGate(logger());
+    const service = new LlmService({ list: () => records } as unknown as PluginRegistry, passthroughInvoker(), gate, config, logger());
+    return { service, set, gate };
 }
 
 describe('choosing a generator', () => {
@@ -105,6 +107,29 @@ describe('choosing a generator', () => {
         const handle = await service.generate({ messages: [{ role: 'user', content: 'hi' }] });
 
         await expect(handle.result).resolves.toMatchObject({ text: 'words', finishReason: 'stop' });
+    });
+
+    it('runs every generation through the gate, so nothing bypasses the one slot', async () => {
+        // Asserted rather than assumed: a path that reached the plugin directly would work
+        // perfectly in isolation and overlap generations on a live station.
+        const { service, gate } = serviceFor([fakeLlmPlugin()]);
+
+        const handle = await service.generate({ messages: [{ role: 'user', content: 'hi' }] });
+        expect(gate.generating()).toBe(true);
+
+        await handle.text.cancel();
+        expect(gate.generating()).toBe(false);
+    });
+
+    it('holds the slot across a preview too, which is the path most likely to be special-cased', async () => {
+        const { service, gate } = serviceFor([fakeLlmPlugin()]);
+        const plugin = service.generator()!;
+
+        const handle = await service.generateWith(plugin, { messages: [{ role: 'user', content: 'hi' }] });
+        expect(gate.generating()).toBe(true);
+
+        await handle.text.cancel();
+        expect(gate.generating()).toBe(false);
     });
 });
 

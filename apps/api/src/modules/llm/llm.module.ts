@@ -1,5 +1,6 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { LlmGate } from './llm.gate.js';
 import { LlmService } from './llm.service.js';
 
 /**
@@ -33,9 +34,16 @@ import { LlmService } from './llm.service.js';
 export const LlmModule: ServerKitModule = {
     name: 'Llm',
     setup: async (registry: Registry) => {
+        // SINGLETON, and this is the one registration here that would be a bug any other way. The
+        // gate is one slot for the process, because there is one model. Scoped, every request would
+        // get a gate of its own and two concurrent requests would overlap on the model exactly as
+        // if there were no gate at all — while every test of the gate in isolation still passed.
+        registry.register(LlmGate).useClass(LlmGate).asSingleton();
+
         // Scoped, like `SpeechService` which it is shaped on: it holds no state between calls, and
         // everything about one generation lives in the call. The stream it hands back belongs to
-        // the plugin instance rather than to this.
+        // the plugin instance rather than to this. It resolves the singleton gate, which is how one
+        // slot is shared across every scope.
         registry.register(LlmService).useClass(LlmService).asScoped();
     },
 };

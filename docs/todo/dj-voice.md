@@ -4,6 +4,7 @@
 **Revised:** 2026-08-08, when piece one landed. The station now has a voice; what is left is
 something to decide what it says.
 **Revised:** 2026-08-09, with the ordering question answered: see "What to build before piece two".
+**Revised:** 2026-08-09, when the ducking was finally heard rather than inferred.
 
 The station can say things, and can now say them in its own voice. What it cannot do is decide what
 to say: every word it speaks is one somebody handed it. This file was the two pieces between here
@@ -33,10 +34,24 @@ Read this part before designing against it. All of it is built and verified on t
 - **The segment audio route** is `GET /segments/{id}/audio`, anonymous, serving one declared mime.
   Liquidsoap HEADs it before it GETs and picks its decoder from that header.
 
-Two things that are true and easy to assume otherwise: nothing measures a segment's duration
-(`duration_ms` is null on every row), and **nobody has yet listened to the bed duck under a voice**.
-The ducking path is `radio.liq`'s existing `ducked()` and the voice queue satisfies its readiness
-check, but that is inference. Confirm it by ear before building on it.
+One thing that is true and easy to assume otherwise: nothing measures a segment's duration
+(`duration_ms` is null on every row).
+
+**The ducking is confirmed by ear, 2026-08-09.** It was inference until then. A `talkbreak` segment
+spoken by `plugins/kokoro` was planted with `overAtMs: 10000` through
+`POST /director/lineups/{id}/segments`, and the bed ducked under the voice ten seconds into the
+record it rides and came back up. Everything on that path works as designed: the segment never
+became an item of the running order, the cue was armed as the record was handed over, and the
+record aired with no starve and no fall-through to the local bed.
+
+Two things that pass follow from it, and neither is fixed. **Whether a cue fired is invisible from
+the app side.** `radio.liq` tracks `idle | armed | fired | missed` and says in its own comment that
+`missed` is the one worth reading, but nothing surfaces it: it is absent from `/playout/status`, the
+pusher never logs it, and `armVoice` is fire-and-forget with a swallowed `catch`. So a break that is
+silently dropped looks exactly like a DJ that talks less than it should — see
+[station-intelligence.md](station-intelligence.md) entry 8. And **the control bridge occasionally
+answers 502**: one `POST /playout/skip` failed that way during the same session while the station
+carried on airing normally. Both are worth a look before anything depends on a cue actually landing.
 
 ## Piece one: the station speaks in its own voice — BUILT
 

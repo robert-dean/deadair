@@ -24,8 +24,8 @@ export const DEFAULT_VOICE = 'af_heart';
 /**
  * How long one synthesis may take.
  *
- * This bounds the OPEN only — the POST and its headers — and not the audio,
- * which arrives afterwards under `host.streams`' own idle and lifetime bounds.
+ * This bounds the request and its headers only, not the audio, which arrives
+ * afterwards under the host's own per-body idle, lifetime and byte bounds.
  * Kokoro on CPU thinks for a few seconds before the first byte and that is
  * normal, not a fault, so this sits well above it.
  */

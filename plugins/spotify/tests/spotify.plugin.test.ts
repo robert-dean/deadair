@@ -12,7 +12,7 @@ const NO_ACTIVE_DEVICE_MESSAGE = 'no active Spotify device; open Spotify or star
 /** Matches `SpotifyPlugin`'s private `DEVICE_ID_CACHE_TTL_MS`. */
 const DEVICE_ID_CACHE_TTL_MS = 60_000;
 
-/** A scripted JSON `HostFetchResponse` from the Spotify API. */
+/** A scripted JSON response from the Spotify API. */
 function apiResponse(body: unknown, overrides: Partial<Parameters<typeof fakeHostFetchResponse>[0]> = {}) {
     return fakeHostFetchResponse({ body: JSON.stringify(body), url: 'https://api.spotify.com/v1/', ...overrides });
 }

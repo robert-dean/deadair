@@ -1,10 +1,10 @@
 /**
  * End-to-end proof that the station can speak, without a server or a database.
  *
- * Wires the real Kokoro plugin to the real `PluginHostFactory` and drains it exactly as
- * `SpeechService` does: `speak` opens a stream, `readStream` pulls it a chunk at a time, and the
- * chunks land in a real `SegmentStore`. Everything between the manifest's allowlist and the bytes on
- * disk is the shipping code path.
+ * Wires the real Kokoro plugin to the real `PluginHostFactory` and reads it exactly as
+ * `SpeechService` does: `speak` hands back the engine's response body and it goes straight into a
+ * real `SegmentStore`. Everything between the manifest's allowlist and the bytes on disk is the
+ * shipping code path.
  *
  * What it deliberately skips is the parts a unit test already pins: the job's state transitions and
  * the route. Those need a database and a session; this needs a Kokoro on the other end, which is the
@@ -64,29 +64,31 @@ const started = Date.now();
 const handle = await plugin.speak({ text: SCRIPT, voice: 'host' });
 console.log(`  speak() answered in ${Date.now() - started}ms with mime ${handle.mime}`);
 
+// Counted for the report, and it is worth reporting: one chunk would mean the body was buffered
+// somewhere it should not have been.
 let chunks = 0;
-async function* drain(): AsyncGenerator<Uint8Array> {
-    for (;;) {
-        const chunk = await plugin.readStream(handle.streamId, 256 * 1024);
-        if (chunk.done) return;
-        if (chunk.data === undefined) continue;
-        chunks += 1;
-        yield Buffer.from(chunk.data, 'base64');
-    }
-}
+const counted = handle.audio.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+            chunks += 1;
+            controller.enqueue(chunk);
+        },
+    }),
+);
 
 try {
-    const checksum = await store.writeStream(drain(), 'mp3');
+    const checksum = await store.writeStream(counted, 'mp3');
     const path = store.pathFor(checksum, 'mp3');
     const { size } = await stat(path);
 
-    console.log(`  drained ${chunks} chunks in ${Date.now() - started}ms total`);
+    console.log(`  read ${chunks} chunks in ${Date.now() - started}ms total`);
     console.log(`  wrote ${size} bytes to ${path}`);
     console.log(`\n  play it:  afplay ${path}\n`);
 
     if (size < 1024) throw new Error(`only ${size} bytes: that is not audio`);
 } finally {
-    await plugin.closeStream(handle.streamId);
+    // `counted`, not `handle.audio`: piping locks the original, so cancelling that one throws.
+    await counted.cancel().catch(() => {});
     await plugin.dispose?.();
     // The file is the point, so the directory stays. Say where, and let the caller bin it.
     console.log(`  (temp store at ${root} — rm -rf it when done)`);

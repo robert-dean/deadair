@@ -47,29 +47,32 @@ your package is just a package.
 
 ## The rules
 
-1. **No ambient I/O.** Get at the world through the `PluginHost` handed to
-   `init()`. `host.fetch()` is your egress, and it will refuse any hostname you
-   did not declare in `permissions.network`.
+1. **No ambient I/O.** Get at the world through the `PluginHost`. `host.fetch()`
+   is your egress, and it will refuse any hostname you did not declare in
+   `permissions.network`.
 
-    This is a rule, not a cage. The host imports you into its own process today,
-    so global `fetch` and `fs` are technically within reach. Use them and you
-    opt out of the rate limiting, timeouts, redirect checks, and audit logging
-    the host does on your behalf, you make your manifest a lie to the operator
-    who installed you, and you break the day plugins move into an isolate.
+    This is a rule, not a cage, and it is never going to be one. The host
+    imports you into its own process, permanently, so global `fetch` and `fs`
+    are within reach. Use them and you opt out of the rate limiting, timeouts,
+    redirect checks and audit logging the host does on your behalf, and you make
+    your manifest a lie to the operator who installed you.
 
-2. **Everything crossing the boundary is JSON-safe.** No `Date`, no `Response`,
-   no class instances, no functions in payloads. Durations are integers in
-   milliseconds; dates are ISO-8601 strings. The host runs plugins in-process
-   today and may move them behind a subprocess tomorrow, and your code should
-   not notice. That target is a subprocess over IPC rather than
-   `worker_threads`, which is why the rule is JSON-safe and not merely
-   structured-clone-safe: a `Uint8Array` would survive a `worker_threads` move
-   but not a subprocess one.
+2. **Payloads that get stored or sent are JSON-safe.** No `Date`, no class
+   instances, no functions on anything in `capabilities/`. Durations are
+   integers in milliseconds; dates are ISO-8601 strings. Not because the
+   boundary is a wire (it is a function call) but because those values end up in
+   Postgres and in the console's JSON, and a `Date` comes back out of a `jsonb`
+   column as a string either way.
+
+    The host's own methods are under no such rule: `host.fetch` hands you a real
+    `Response`, `host.signal` a real `AbortSignal`, and `speak()` returns a real
+    `ReadableStream`.
+
 3. **Ask for what you need and no more.** `permissions` is shown to the
-   operator before they install you.
+   operator before they enable you.
 4. **`undefined`, never `null`,** for "not set".
-5. **Do no work in the factory.** Build the object, put setup in `init()`, and
-   undo it in `dispose()`.
+5. **Do no work in the factory.** Build the object, put setup in `onLoad()`, and
+   register the undo for anything you start.
 6. **Secrets are write-only.** A `secret` config field is encrypted at rest and
    never read back into the settings UI. Read it with `host.secrets.get()`.
 7. **A URL you hand back to be stored must be stable.** `artworkUrl` is kept,
@@ -91,7 +94,7 @@ import {
     definePlugin,
     type EnrichmentPluginInstance,
     jsonBody,
-    type PluginHost,
+    Plugin,
     type PluginManifest,
     type TrackEnrichment,
     type TrackRef,
@@ -134,20 +137,18 @@ const manifest: PluginManifest = {
     configSchema,
 };
 
-class RecordBinPlugin implements EnrichmentPluginInstance {
+class RecordBinPlugin extends Plugin implements EnrichmentPluginInstance {
     priority = 500;
     matchKeys: EnrichmentPluginInstance['matchKeys'] = ['isrc'];
 
-    private host?: PluginHost;
     private apiKey?: string;
     private includeGenres = true;
 
-    async init(host: PluginHost): Promise<void> {
-        this.host = host;
-        this.apiKey = await host.secrets.get('apiKey');
-        const config = await host.config.get();
+    protected async onLoad(): Promise<void> {
+        this.apiKey = await this.host.secrets.get('apiKey');
+        const config = await this.host.config.get();
         this.includeGenres = config.includeGenres !== false;
-        host.logger.info('record bin ready');
+        this.host.logger.info('record bin ready');
     }
 
     async testConnection(): Promise<{ ok: boolean; message?: string }> {
@@ -160,11 +161,12 @@ class RecordBinPlugin implements EnrichmentPluginInstance {
 
         const response = await this.request(`/recordings/${encodeURIComponent(ref.isrc)}`);
         if (!response.ok) {
-            this.host?.logger.warn('lookup failed', { isrc: ref.isrc, status: response.status });
+            await response.body?.cancel().catch(() => {});
+            this.host.logger.warn('lookup failed', { isrc: ref.isrc, status: response.status });
             return {};
         }
 
-        const body = jsonBody<{ year?: number; genres?: string[]; label?: string }>(response);
+        const body = await jsonBody<{ year?: number; genres?: string[]; label?: string }>(response);
 
         return {
             year: body.year,
@@ -174,13 +176,8 @@ class RecordBinPlugin implements EnrichmentPluginInstance {
         };
     }
 
-    async dispose(): Promise<void> {
-        this.host = undefined;
-    }
-
-    private async request(path: string) {
-        if (!this.host) throw new Error('init() was never called');
-        return this.host.fetch(`https://api.recordbin.example.com${path}`, {
+    private async request(path: string): Promise<Response> {
+        return await this.host.fetch(`https://api.recordbin.example.com${path}`, {
             headers: { authorization: `Bearer ${this.apiKey ?? ''}` },
             timeoutMs: 5_000,
         });
@@ -192,27 +189,43 @@ export default definePlugin(manifest, () => new RecordBinPlugin());
 
 ## What `host.fetch` gives back
 
-A `HostFetchResponse` is a POJO, not a `Response`, per rule 2. Most of it maps
-one-for-one; the parts that do not:
+A real `Response`. Not a copy, not a POJO: `await response.json()` is how you
+read JSON, `response.body` is how you stream audio, and you can hand it to any
+library that takes one. That is what lets the Spotify SDK's `fetch` hook be
+wired straight through instead of adapted in both directions.
 
-- **`body` is always a string, always whole.** The host buffers it under the
-  request's deadline and under a size cap, so an oversized response fails the
-  call rather than arriving truncated. There is no streaming and no binary: a
-  body that is not UTF-8 text will not survive.
-- **`setCookie` is a separate array.** `headers` is a `Record`, which can only
-  hold one value per name, and `Set-Cookie` is the header servers routinely
-  repeat. It is absent from `headers` entirely so there is no half-truth to
-  read. Other repeated headers arrive joined with `", "`.
-- **`url` is where the response came from,** the last hop of the redirect
-  chain, which is not necessarily what you asked for. `redirected` tells you
-  whether it moved.
+Two things about it are the host's doing rather than the platform's, and both
+are part of the contract:
 
-`jsonBody(response)` parses the body and throws with the status, the URL and
-the start of the body when it will not parse, which beats
+- **`url` is the last hop of the redirect chain,** not necessarily what you
+  asked for, so relative links in the body resolve against it. `redirected`
+  tells you whether it moved. The host follows redirects by hand to re-check
+  your allowlist on every hop, so it sets both itself.
+- **The body is bounded.** `timeoutMs` covers getting the response (connect,
+  headers, the whole redirect chain) and stops there, because a large body
+  legitimately outlives the call that asked for it. Reading it is bounded
+  separately by an idle deadline between chunks, a total byte cap and a lifetime
+  cap. Exceeding any of them fails the read rather than truncating it, so bytes
+  you get are always bytes the server sent.
+
+**A body you are not going to read is one you should `cancel()`.** The host
+force-cancels whatever you still hold when your plugin is disposed, and the
+lifetime cap catches the rest, but neither is prompt. On an error path, let it
+go yourself:
+
+```ts
+if (!response.ok) {
+    await response.body?.cancel().catch(() => {});
+    throw new PluginError(`upstream said ${response.status}`).withCode('upstream');
+}
+```
+
+`jsonBody(response)` parses the body and throws with the status, the URL and the
+start of the body when it will not parse, which beats
 `Unexpected token < in JSON at position 0` when an API answers a 200 with an
 HTML error page. `tryJsonBody(response)` returns `undefined` instead of
-throwing. Both are ordinary functions rather than methods on the response,
-because a method would make the payload itself unserializable.
+throwing. Both are `async`, and both are ordinary functions rather than methods,
+so the response you hold stays the platform's own.
 
 The host sets a `User-Agent` for you (`<your plugin id>/<version> (deadair)`)
 when you do not set one yourself, because a number of APIs refuse the default
@@ -221,21 +234,25 @@ more than that: MusicBrainz wants a contact address, which usually means a
 `contact` config field the operator fills in. Yours always wins.
 
 An upstream that answers is not a failure: a 404 or a 500 comes back as an
-ordinary `HostFetchResponse` with `ok: false`, and what it means is yours to
-decide. `host.fetch` only _rejects_ when there is no response to give you, and
-when it does it rejects with a `PluginError` carrying the same
+ordinary `Response` with `ok: false`, and what it means is yours to decide.
+`host.fetch` only _rejects_ when there is no response to give you, and when it
+does it rejects with a `PluginError` carrying the same
 [`PluginErrorCode`](src/plugin.error.ts) vocabulary your own failures use, so
 you can branch on it:
 
 - `upstream` — the request never completed, or the server misbehaved (an
   unreachable host, a redirect chain past the cap, a redirect somewhere your
   manifest does not allow, a body over the size cap).
-- `timeout` — the host abandoned the call at its deadline.
+- `timeout` — the host abandoned the call at its deadline, or the body went
+  quiet for longer than the idle deadline allows.
 - `rate_limited` — you are over the host's fetch quota by more time than the
   call had left. `retryAfterMs` says how long the wait would have been.
 - `forbidden` — the hostname is not in your `permissions.network`.
 - `config` — the URL did not parse, or was not http(s). Usually an operator
   setting you built it from.
+
+The body's own failures arrive the same way, on the read rather than on the
+fetch, because that is when they happen.
 
 Let these propagate unless you can do something better with them. The host
 maps each one to a status and error code for the operator console, and
@@ -243,38 +260,28 @@ swallowing them turns a precise answer into a silent empty result.
 
 ## When the body should not arrive whole
 
-`host.fetch` buffers a body into one string under a size cap, which is right for
-the JSON almost every upstream answers with and wrong for audio. `host.streams`
-is the same egress for the other case: identical allowlist, redirect and
-rate-limit policy, bounded by a byte cap and a lifetime instead of by one
-deadline.
+Nothing special. `response.body` is a `ReadableStream<Uint8Array>` and you read
+it, or pass it on, or pipe it through something:
 
 ```ts
-const opened = await host.streams.open(url, { method: 'POST', body });
-try {
-    for (;;) {
-        const chunk = await host.streams.read(opened.streamId);
-        if (chunk.done) break;
-        // `chunk.data` is base64. Bytes cross this boundary as strings.
-    }
-} finally {
-    await host.streams.close(opened.streamId);
+const response = await host.fetch(`${this.baseUrl}/audio/speech`, { method: 'POST', body });
+if (!response.ok || response.body === null) {
+    await response.body?.cancel().catch(() => {});
+    throw new PluginError(`engine said ${response.status}`).withCode('upstream');
 }
+
+return { mime: 'audio/mpeg', audio: response.body };
 ```
 
-`open` costs one rate-limit point; `read` costs nothing, because charging per
-read against a requests-per-second budget would make any file over a few hundred
-kilobytes impossible. Reads are bounded by an idle deadline, the whole stream by
-a byte cap and a lifetime cap, and the host closes anything you still hold when
-your plugin is disposed. Needs no permission of its own: a stream is an egress,
-gated by `permissions.network` like any other.
+There was once a second egress here, `host.streams`, with handles, sequence
+numbers, base64 chunks and an idempotent `close()`, because a live object could
+not cross the boundary. All of it is gone: a `ReadableStream` is already a
+pull-based stream with backpressure and a cancel, and the boundary is a function
+call. See `docs/decisions/plugin-trust.md`.
 
-There is no `AbortSignal` and there will not be one — it is a live object and
-would not survive the boundary. `close()` is the cancel, it is idempotent, and it
-belongs in a `finally`.
-
-Reach for this only when `fetch` genuinely will not do. Its size cap is a feature
-rather than a limitation for anything that parses as JSON.
+What survives is the bounds, and they are the reason it was ever thought about:
+a body is read outside the deadline that fetched it, so an idle deadline, a
+lifetime cap and a byte cap are what stop it being an unbounded socket.
 
 ## Declaring the upstreams you reach
 
@@ -451,11 +458,15 @@ ones it implements in `manifest.capabilities`:
 
     How you get that URL is your business. Most providers mint one out of their
     own head. If your audio is reachable only to a process speaking a protocol you
-    do not — Spotify's, whose tracks come off the CDN encrypted — lend the
-    station's fetcher a login and return the URL it gives you back; see _When your
-    audio needs a helper to fetch it_ above. A byte-level protocol for audio that
-    no URL can reach at all is specified in `docs/decisions/plugin-streaming.md`,
-    but it is not implemented and there is no `host.streams` to call.
+    do not (Spotify's, whose tracks come off the CDN encrypted) lend the station's
+    fetcher a login and return the URL it gives you back; see _When your audio
+    needs a helper to fetch it_ above.
+
+    This capability is a URL, not bytes. Audio that reaches the station as bytes
+    through Node is the exceptional path and always was, even now that
+    `response.body` makes it trivial: the audio consumer is Liquidsoap in a
+    sibling container, so a URL it can fetch is zero copies and a stream through
+    here is two.
 
 - **`steer`** — `enqueue`, `play`, `pause`, `skip`, `getPlaybackState`. The
   provider owns the audio output and deadair only tells it what to do. Named
@@ -467,11 +478,9 @@ ones it implements in `manifest.capabilities`:
   exchange the code.
 
 ```ts
-import { definePlugin, type MusicProviderPluginInstance, type ProviderTrack } from '@deadair/plugin-sdk';
+import { definePlugin, type MusicProviderPluginInstance, Plugin, type ProviderTrack } from '@deadair/plugin-sdk';
 
-class LibraryPlugin implements MusicProviderPluginInstance {
-    async init(): Promise<void> {}
-
+class LibraryPlugin extends Plugin implements MusicProviderPluginInstance {
     async searchTracks(query: string): Promise<ProviderTrack[]> {
         // ...
         return [];
@@ -481,49 +490,42 @@ class LibraryPlugin implements MusicProviderPluginInstance {
 
 ## Speaking
 
-A `tts` plugin declares `speech` and turns a line of text into audio. It is the
-one capability whose result does not fit in a return value, so it hands back a
-handle and the host pulls the audio out:
+A plugin that declares `speech` turns a line of text into audio. The result is a
+stream rather than a value, and the usual implementation is to hand back the
+engine's own response body:
 
 ```ts
-class KokoroPlugin implements SpeechPluginInstance {
-    private readonly open = new Map<string, string>(); // ours -> the host's
-
+class KokoroPlugin extends Plugin implements SpeechPluginInstance {
     async speak({ text, voice }: SpeechRequest): Promise<SpeechHandle> {
-        const opened = await this.host.streams.open(`${this.baseUrl}/audio/speech`, {
+        const response = await this.host.fetch(`${this.baseUrl}/audio/speech`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ input: text, voice: this.voices[voice ?? ''] ?? this.defaultVoice }),
         });
-        if (!opened.ok) throw new PluginError(`TTS answered ${opened.status}`).withCode('upstream');
 
-        const streamId = randomUUID();
-        this.open.set(streamId, opened.streamId);
-        return { streamId, mime: 'audio/mpeg' };
-    }
+        if (!response.ok || response.body === null) {
+            await response.body?.cancel().catch(() => {});
+            throw new PluginError(`TTS answered ${response.status}`).withCode('upstream');
+        }
 
-    async readStream(streamId: string, maxBytes?: number): Promise<StreamChunk> {
-        const hostId = this.open.get(streamId);
-        if (!hostId) throw new PluginError(`no stream "${streamId}"`).withCode('not_found');
-        return await this.host.streams.read(hostId, maxBytes);
-    }
-
-    async closeStream(streamId: string): Promise<void> {
-        const hostId = this.open.get(streamId);
-        this.open.delete(streamId);
-        if (hostId) await this.host.streams.close(hostId);
+        return { mime: 'audio/mpeg', audio: response.body };
     }
 }
 ```
 
+That is the whole thing. The audio is never held whole on either side, the host
+reads it or cancels it, and cancelling reaches the socket without this plugin
+forwarding anything.
+
 Three things that are easy to get wrong:
 
-- **Keep your ids and the host's apart.** Handing the host's `streamId` straight
-  back happens to work in-process today and is exactly the sort of thing that
-  stops working behind IPC.
-- **`readStream`/`closeStream` come from `PluginStreamSource`, not from speech.**
-  Any capability that produces bytes extends the same interface, so a plugin
-  keeps one stream table however many of them it implements.
+- **Let go of a refusal's body.** `speak` throws instead of handing it over, so
+  that `cancel()` is the only chance anything has to release it.
+- **Check the size at the END, not on the first chunk.** A server can dribble a
+  short JSON error out in several pieces, so "was any of that plausibly audio"
+  is only answerable once the stream stops. A `TransformStream` that counts and
+  throws in `flush` is the shape that fits; failing there fails the render
+  loudly instead of storing a click.
 - **`mime` is the answer, not the request.** `SpeechRequest.format` is a hint you
   may ignore; what you return in `SpeechHandle.mime` is what the station stores
   and later serves, and both consumers of station audio pick their behaviour from
@@ -563,7 +565,7 @@ never ship UI.
 
 Use `dependsOn` to hide a field until another one is filled in. Use
 `configSchema` for anything the form cannot express: the host parses the
-operator's submission with it before storing, so by the time `init()` runs
+operator's submission with it before storing, so by the time `onLoad()` runs
 your config is already valid.
 
 ## Versioning

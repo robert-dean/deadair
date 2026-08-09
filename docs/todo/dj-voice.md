@@ -75,10 +75,11 @@ Read this rather than the design above it, which is kept for its reasoning.
   keys following `stream.settings.ts`. The one station-level setting is `render.speechPluginId`,
   which picks the speaker when more than one plugin can talk; with several installed and none
   chosen it declines to guess rather than picking.
-- **The audio streams both ways.** `speak()` returns a handle, not bytes, and the host drains it
-  through `PluginStreamSource`. That made `docs/decisions/plugin-streaming.md`'s byte protocol its
-  first implementer, five days after it was specified and shelved. `ContentStore.writeStream`
-  hashes as it writes, so a long break never exists whole in the process.
+- **The audio streams.** `speak()` returns a `ReadableStream<Uint8Array>`, not bytes, and it is
+  usually the engine's own `host.fetch` body forwarded straight through. `ContentStore.writeStream`
+  hashes as it writes, so a long break never exists whole in the process. This first shipped as
+  `docs/decisions/plugin-streaming.md`'s handle-and-base64-chunks protocol and was cut back to a
+  plain stream once the subprocess option closed; see `docs/decisions/plugin-trust.md`.
 - **A voice is an opaque station-level id.** The host passes `host` or `newsreader` and never
   interprets it; each plugin maps it in its own config. That is v1's engine-agnostic ref kept and
   v1's host-side per-provider matrix left behind.

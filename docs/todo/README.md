@@ -22,5 +22,8 @@ Two rules for this directory:
 | [station-intelligence.md](station-intelligence.md) | The layer above the rules: an LLM DJ on the `SetGenerator` seam, model budget and degradation tiers, ending-aware transitions, per-track gain, never-play rules, genre and era correctness, listener signal, and what the console can tell an operator about silence |
 | [multi-station.md](multi-station.md) | A `deadair.stations` table so one install runs several stations, and what it subsumes |
 | [rundown.md](rundown.md) | What the rundown deliberately does not do yet: persistence and playhead corroboration, and why neither turned out to be a prerequisite for breaks |
+| [crossfades.md](crossfades.md) | Blending one rundown item into the next, and why the cross buffer has to be paid for in the voice cue timing before it can land |
+| [mixer-settings-in-db.md](mixer-settings-in-db.md) | The four constants that decide how a break sounds, the settings seam they bypass, and the restart trigger that is the real work |
+| [stream-formats.md](stream-formats.md) | Why incoming audio already needs nothing, and the Opus/AAC/FLAC mounts and hourly archive the station does not serve |
 | [service-actors.md](service-actors.md) | Giving Liquidsoap and Icecast their own credentials, actor kind and permission tuples instead of one shared bridge secret |
 | [from-v1.md](from-v1.md) | Things the previous station did that this tree will eventually want back: the render pipeline, breaks, shows, the monitoring feed, extra sources, now-playing sinks |

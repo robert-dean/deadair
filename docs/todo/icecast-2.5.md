@@ -53,8 +53,11 @@ comment at `apps/api/src/modules/playout/annotate.ts:39` describes the 2.4 keys,
 image moves.
 
 **4. Verify the two 2.5 paths against a real 2.5.** Everything the app does on 2.5 was written from
-the upstream source (`src/admin.c`, `src/event.c`, `src/event_stream.c`) and has never met a running
-2.5 server. The shapes to confirm:
+the upstream source (`src/admin.c`, `src/event.c`, `src/event_stream.c`). The client code has been
+driven end to end — auth, attach, whole counts reaching the audience gate, a frame split across two
+reads, a reconnect after a drop — but against a **stand-in** speaking those two endpoints, so what is
+still unconfirmed is upstream's actual field names and framing rather than our handling of them. The
+shapes to confirm:
 
 ```
 curl -u admin:<pw> http://127.0.0.1:8000/admin/publicstats.json     # icestats.source, listenurl, listeners

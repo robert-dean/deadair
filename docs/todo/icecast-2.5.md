@@ -62,6 +62,25 @@ Both are covered by tests holding these payloads verbatim, in
 Also measured: `publicstats` answers an ANONYMOUS request on this build, while `eventfeed` returns
 401. The app authenticates on both anyway, since access is a role decision an operator can tighten.
 
+## The dashboard, and what it asked for
+
+2.5's admin dashboard carries a maintenance panel. On this station it raised four items; three are
+answered and the fourth is a decision already recorded elsewhere.
+
+| Item | Answer |
+| --- | --- |
+| Hostname not useful | `stream.publicUrl` (or `stream.hostname`). Cleared. Note Icecast prefers the request's `Host` header for `listenurl` and falls back to `<hostname>`, so the loopback probe still reads `127.0.0.1` while a request through the edge reads the public name |
+| Location not useful | `stream.location`, rendering `<location>`. Cleared. Empty renders no element rather than the `Earth` placeholder the template used to hardcode |
+| No content language | `stream.language` → `STREAM_LANGUAGE` → Liquidsoap's `Content-Language` header on the source connection, which is the only way Icecast learns one. Cleared; the value shows as `content-language` in `/admin/stats.json` |
+| Legacy/unsupported format | **Permanent, by choice.** Icecast handles Ogg, Opus and WebM natively and routes everything else through a generic best-effort handler, so any MP3 mount raises this. The answer is a different container, which is `docs/todo/stream-formats.md`, not configuration |
+
+A `no-aged` flag ("the stream did not mature yet") also appears for a while after a source
+reconnects. It is transient and needs nothing.
+
+The 2.4-era metadata note in `annotate.ts` is corrected: 2.5 reports `display-title`, `publicstats`
+drops `title` entirely, and neither version ever splits out an `artist`. 2.5 also keeps a `playlist`
+of recent titles on the mount, which is a lossy echo of what the rundown already knows.
+
 ## What is left
 
 **1. The anonymous role, if it is ever wanted.** A station could render
@@ -69,16 +88,7 @@ Also measured: `publicstats` answers an ANONYMOUS request on this build, while `
 argues for it today: the endpoint already answers anonymously on a default config, and the app holds
 the password regardless for the feed. Left as a note so nobody re-derives it.
 
-**2. `display-title`.** 2.5 adds a `display-title` stats key to replace `title` and `artist`. Nothing
-reads those from Icecast — the station knows what it is playing because it put it there — but the
-comment at `apps/api/src/modules/playout/annotate.ts:39` describes the 2.4 keys, and the console's
-`StreamMonitor` reads metadata from the stream itself rather than from stats. Worth a pass when
-something next touches now-playing metadata.
-
-**3. The Icecast dashboard.** 2.5 ships a redesigned web interface and warns about legacy sources.
-Nobody has looked at what it says about ours, which is a 2.4-style `<mount type="normal">`.
-
-**4. A digest pin.** The image is pinned by version only, and the publisher rebuilds tags in place
+**2. A digest pin.** The image is pinned by version only, and the publisher rebuilds tags in place
 when base packages move. `docker inspect --format='{{index .RepoDigests 0}}' libretime/icecast:2.5.0`
 gives the digest if that ever matters more than tracking their rebuilds.
 

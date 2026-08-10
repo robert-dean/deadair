@@ -734,6 +734,51 @@ describe('DirectorService committing across a change underneath it', () => {
         expect(director.status().active).toBe(false);
     });
 
+    // Putting a lineup on air is NOT a stand-down: the station stays on, so it goes through
+    // `invalidate` rather than `reset`, and that is the path a pass in flight used to survive.
+    // The operator switches programming, the suspended pass resumes past its own guard, and the
+    // records of the lineup they just took off are appended to the running order that was
+    // retracted for them — a quarter of an hour of the old programme after the switch.
+    it('commits nothing from the old lineup when a different one is put on air mid-pass', async () => {
+        const { director, rundown, lineup, other, segmentStub, seed, setAir } = build({
+            items: ['a', 'b', 'c'],
+            other: { id: 'lineup-2', items: ['x', 'y', 'z'] },
+            segments: [{ id: 'seg-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],
+        });
+        await seed();
+        await other!.append([track('x'), track('y'), track('z')]);
+        // A segment at the head, so the pass must await a lookup before it can commit anything.
+        await lineup.insertSegment('seg-1', 0);
+
+        let began: (() => void) | undefined;
+        const started = new Promise<void>(resolve => (began = resolve));
+        let unblock: (() => void) | undefined;
+        const held = new Promise<void>(resolve => (unblock = resolve));
+        segmentStub.findByIds = vi.fn(async () => {
+            began?.();
+            await held;
+            return new Map<string, Segment>();
+        });
+
+        const starting = director.start();
+        await started;
+
+        // The switch, landing exactly inside the lookup: what `DirectorConsoleService.putOnAir`
+        // does, in the order it does it.
+        setAir({ slot: 'main', lineupId: 'lineup-2', cursor: 0, active: true });
+        director.invalidate();
+        rundown.load([]);
+
+        unblock!();
+        await starting;
+        await settle();
+
+        // Nothing from the lineup that was taken off air, and its cursor never moved, so putting
+        // it back on later starts where it actually stopped.
+        expect(rundown.upcoming()).toHaveLength(0);
+        expect(lineup.cursor()).toBe(0);
+    });
+
     // A cursor advanced before the lines are usable loses them for good: they sit behind it and
     // nothing offers them again. A lookup that throws is the ordinary way to get there.
     it('leaves the cursor alone when the work before the hand-over fails', async () => {

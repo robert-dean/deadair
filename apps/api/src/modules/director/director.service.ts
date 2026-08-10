@@ -210,8 +210,21 @@ export class DirectorService {
      * a pass that happens after the request is over. See {@link stale}.
      *
      * Cheap and idempotent: several edits in one request cost one re-read.
+     *
+     * **Bumps the epoch as well as raising the flag, and the two cover different passes.** The flag
+     * stops every pass that starts AFTER this. The bump is the only thing that stops the one
+     * already in flight: it took its token and made its own `stale` check before this was called,
+     * and it is suspended in a database read — `readAir`, `plantBreaks`, a segment lookup — which
+     * is exactly where a request handler runs. Without the bump it resumes, passes its check at the
+     * hand-over, and appends the OLD lineup's records into the running order `putOnAir` has just
+     * retracted. Three of them, which is a quarter of an hour of the programme the operator has
+     * just taken off air.
      */
     invalidate(): void {
+        this.epoch.bump();
+        // A cue is about a particular record in a particular running order; one held across a
+        // change of lineup attaches itself to the first record of something else entirely.
+        this.pendingVoice = undefined;
         this.stale = true;
     }
 

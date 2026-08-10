@@ -14,6 +14,7 @@ import { PickResolver } from './pick.resolver.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { SetGenerator } from './set.generator.js';
 import { StationAirRepository } from './station.air.repository.js';
+import { StationLineupRepository } from './station.lineup.repository.js';
 
 /**
  * The station's programming: the lineups it means to air, which one is on, and
@@ -30,6 +31,10 @@ export const DirectorModule: ServerKitModule = {
         // execution its own scope, so these are per-run there and per-request on
         // the request path.
         registry.register(LineupRepository).useClass(LineupRepository).asScoped();
+        // Registered before anything reads it, which is the whole of this step: the running
+        // order it stores is what takes over from `lineups`, and a seam nothing calls yet is
+        // the only honest place to start migrating a writer from.
+        registry.register(StationLineupRepository).useClass(StationLineupRepository).asScoped();
         registry.register(StationAirRepository).useClass(StationAirRepository).asScoped();
         registry.register(PlayHistoryRepository).useClass(PlayHistoryRepository).asScoped();
         registry.register(CandidatesRepository).useClass(CandidatesRepository).asScoped();

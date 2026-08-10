@@ -355,6 +355,20 @@ export interface DeadairStationAir {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairStationLineup {
+  createdAt: Generated<DateTime>;
+  items: Generated<Json>;
+  mode: Generated<"rotation" | "setlist" | "feature">;
+  name: Generated<string>;
+  onEnd: Generated<"extend" | "repeat" | "stop">;
+  rules: Json | null;
+  source: Generated<string>;
+  sourcePlaylistId: string | null;
+  sourcePluginId: string | null;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairTrackEnrichment {
   createdAt: Generated<DateTime>;
   data: Json;
@@ -436,6 +450,7 @@ export interface DB {
   "deadair.segments": DeadairSegments;
   "deadair.settings": DeadairSettings;
   "deadair.stationAir": DeadairStationAir;
+  "deadair.stationLineup": DeadairStationLineup;
   "deadair.trackEnrichment": DeadairTrackEnrichment;
   "deadair.tracks": DeadairTracks;
   "deadair.trackSources": DeadairTrackSources;

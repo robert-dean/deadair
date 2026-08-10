@@ -5,6 +5,13 @@
 --   lineups        what the station INTENDS to air, as ordered lists. Many named rows,
 --                  because a daypart schedule names a different one per part of the day
 --                  and the whole point is that they coexist.
+--
+--                  SUPERSEDED by station_lineup below, and being emptied out rather than
+--                  extended. Everything this comment says about several lineups coexisting
+--                  is the library half of a job it turned out could not do both halves of;
+--                  see `docs/decisions/on-air-ownership.md`.
+--   station_lineup the ONE live running order per station: what is airing, item by item,
+--                  each item carrying its own state.
 --   station_air    what is on air right now, per output. Which lineup, and how far
 --                  through it the broadcast has got.
 --   play_history   what actually AIRED, which is the only thing the rotation rules may be
@@ -89,6 +96,61 @@ create table deadair.lineups (
 );
 select deadair.add_updated_at_trigger('deadair.lineups');
 
+-- The live on-air running order: one row per station, and the only thing that airs.
+--
+-- Not a library, and that is the whole difference between it and `lineups` above. A lineup
+-- was asked to be both a reusable named list and the broadcast in progress, and every
+-- mechanism that had to reconcile the two (the cursor, the revision, compaction) was a
+-- source of bugs rather than a feature. See `docs/decisions/on-air-ownership.md`.
+--
+-- So there is exactly one of these per station, it is built when the station goes ON AIR,
+-- and it is consumed. Prepared material is a playlist: a provider's, or `deadair.playlists`.
+-- The rule that keeps the two honest is that if it is airing it is a lineup, and if it is
+-- prepared it is a playlist.
+--
+-- Keyed by station rather than being a single-row table, from the first migration that
+-- creates it rather than once rows exist: one director per station is the answer
+-- multi-station wants, and a key added later is a migration over live broadcast state.
+-- Today there is exactly one, 'main', matching `station_air.slot`.
+create table deadair.station_lineup (
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now() check (updated_at >= created_at),
+    station_key text primary key default 'main',
+    -- What the operator is told is on: "Discover Weekly, from Spotify". A label for this
+    -- broadcast rather than the identity of a stored object, which is why nothing looks a
+    -- row up by it.
+    name text not null default '',
+    -- The ordered list: every item, breaks among them, each carrying its own state.
+    --
+    --   planned  committed to nothing yet. The only state an operator may edit.
+    --   handed   given to the player, not yet confirmed on air. A promise, not a fact.
+    --   airing   the player says this is what a listener is hearing.
+    --   played   heard, and behind us.
+    --   skipped  passed over: a segment with no audio, or an item the player never started.
+    --
+    -- One document rather than a row per item, deliberately. A live running order is bounded
+    -- at tens of items, the order IS the data, nothing joins to an individual line, and the
+    -- writes are coalesced on a throttle whatever the shape. Rows only win if something needs
+    -- to query across items, and nothing does.
+    items jsonb not null default '[]'::jsonb,
+    -- Where more material comes from, which is a BINDING and not an identity. A lineup starts
+    -- from a playlist, gets topped up by the generator, gets requests inserted and breaks
+    -- planted, so material from several sources sits in one lineup at once and the binding can
+    -- change mid-life.
+    source text not null default 'director',
+    source_plugin_id text,
+    source_playlist_id text,
+    -- What this broadcast IS, and what happens when it runs out. Same vocabulary as `lineups`
+    -- minus the arms that only meant anything to a library: `resume` and `rotation` both named
+    -- another stored lineup to hand the station back to, and there is no longer one to name.
+    mode text not null default 'rotation' constraint station_lineup_mode_check check (mode in ('rotation', 'setlist', 'feature')),
+    on_end text not null default 'extend' constraint station_lineup_on_end_check check (on_end in ('extend', 'repeat', 'stop')),
+    -- Per-broadcast overrides of the station's defaults, field by field. Null uses the
+    -- defaults, which follow from `mode`.
+    rules jsonb
+);
+select deadair.add_updated_at_trigger('deadair.station_lineup');
+
 -- What is on air, one row per output.
 --
 -- Keyed by slot rather than being a single-row table: a second mount, or a pre-roll deck,
@@ -166,4 +228,5 @@ create index play_history_artist_idx on deadair.play_history (artist_key, aired_
 
 drop table if exists deadair.play_history;
 drop table if exists deadair.station_air;
+drop table if exists deadair.station_lineup;
 drop table if exists deadair.lineups;

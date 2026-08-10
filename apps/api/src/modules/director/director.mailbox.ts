@@ -33,6 +33,8 @@
  * against the state it finds, and the state it finds cannot change underneath it.
  */
 
+import type { RundownTrack } from '#modules/playout/rundown.js';
+
 /**
  * Something the director has been asked to do.
  *
@@ -61,7 +63,20 @@ export type DirectorCommand =
      * a listener: an edit to the tail is not a reason to retract what has already
      * been handed over and is about to be heard.
      */
-    | { kind: 'planChanged' };
+    | { kind: 'planChanged' }
+    /**
+     * A refill has finished generating: put these records at the end of that lineup.
+     *
+     * Carries the tracks because generating them is the slow half — a sample, two
+     * history reads, and rate-limited providers to come — and that happens before
+     * the command is posted. All this does is append, which is what keeps a refill
+     * from holding the station's only decision-making path for the length of a
+     * provider call.
+     *
+     * Names its lineup, unlike the two above, because a refill can be asked for on a
+     * lineup that is NOT on air and the answer differs: see the handler.
+     */
+    | { kind: 'appendTracks'; lineupId: string; tracks: readonly RundownTrack[] };
 
 /** One posted command and the caller waiting on it. */
 interface Envelope {

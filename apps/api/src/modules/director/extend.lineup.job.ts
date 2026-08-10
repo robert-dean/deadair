@@ -3,7 +3,6 @@ import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { overrideJobActor } from '#modules/jobs/job.authorization.js';
-import { BreakPlanner } from './break.planner.js';
 import { DirectorService } from './director.service.js';
 import { isTrackItem, type LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
@@ -69,7 +68,6 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         private readonly lineups: LineupRepository,
         private readonly generator: SetGenerator,
         private readonly resolver: PickResolver,
-        private readonly breaks: BreakPlanner,
         // The reactor, which is a singleton: this job runs in its own scope and still has to reach
         // the one object that is actually airing the lineup it just extended.
         private readonly director: DirectorService,
@@ -132,20 +130,22 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         // Back down to what was asked for. The oversample is headroom against what the
         // rules and the resolver discard, not a licence to hand back half an hour more
         // programming than the station wanted.
-        const added = await lineup.append(resolved.slice(0, count));
+        const added = resolved.slice(0, count);
 
-        // Breaks go in HERE rather than being left to the director, because this is where the
-        // records they sit between arrive. Fifteen tracks appended at once want three or four
-        // idents among them, and planting them now means one write for the batch instead of the
-        // director noticing a gap on each of the next several boundaries. The director keeps its
-        // own pass for the lineups nothing ever extends, an imported playlist chief among them.
-        const planted = await this.breaks.plant(lineup, rules);
-
-        // The reactor is holding its own copy of this lineup and has no idea it just grew. Without
-        // this the refill lands in the database and is never aired: the reactor only re-reads a
-        // lineup when the id on air CHANGES, so it would carry on to the end of the order it
-        // already had and then stand the station down with a full lineup sitting behind it.
-        this.director.invalidate();
+        // **This job no longer writes the lineup, and that is the point of it.** It used to load
+        // its own `Lineup`, spend the seconds above generating, and then append through a store
+        // guarded on the revision moving. The break planner writes through the same guard from the
+        // director's pass, so whichever of the two landed second was discarded in silence and this
+        // very log line reported fifteen tracks that were never stored. Handing the finished
+        // records to the one owner leaves nothing to race.
+        //
+        // Awaited, so a failure to append is this job's failure and its retry is a real one.
+        // Everything slow is already behind us, so the command itself is an array push.
+        //
+        // Breaks are not planted from here either. The director's own pass walks the whole tail and
+        // plants every slot it finds in one write, so doing it now would buy a boundary's latency
+        // and cost the single writer this job just stopped being.
+        await this.director.post({ kind: 'appendTracks', lineupId: lineup.id, tracks: added });
 
         this.logger.info('director: extended a lineup', {
             job: this.context.id,
@@ -154,7 +154,6 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
             named: picks.length,
             resolved: resolved.length,
             added: added.length,
-            breaks: planted,
         });
     }
 }

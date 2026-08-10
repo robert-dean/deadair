@@ -61,17 +61,22 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
     );
     const resolver = { resolve } as unknown as PickResolver;
 
-    // The planner is its own unit and is tested as one. What matters here is that a refill plants
-    // breaks among the records it just appended, rather than leaving the director to notice the gap
-    // on each of the next several boundaries.
-    const breaks = { plant: vi.fn(async () => 0) } as unknown as BreakPlanner;
-    // The reactor is holding its own copy of the lineup this job just grew.
-    const director = { invalidate: vi.fn() } as unknown as DirectorService;
+    // The one writer. This job hands finished records over rather than appending them itself, so
+    // the fake applies the command the way the real director does: that is what keeps the
+    // assertions below about the lineup rather than about a mock call.
+    const posted: DirectorCommand[] = [];
+    const director = {
+        invalidate: vi.fn(),
+        post: vi.fn(async (command: DirectorCommand) => {
+            posted.push(command);
+            if (command.kind === 'appendTracks') await lineup.append(command.tracks);
+        }),
+    } as unknown as DirectorService;
 
     return {
-        job: new ExtendLineupJob(lineups, generator, resolver, breaks, director, station.config, context, container, logger),
+        job: new ExtendLineupJob(lineups, generator, resolver, director, station.config, context, container, logger),
         director,
-        breaks,
+        posted: () => posted,
         lineup,
         station,
         seed: async () => (options.existing ? lineup.append(options.existing) : undefined),
@@ -186,5 +191,47 @@ describe('ExtendLineupJob', () => {
 
         expect(lineup.all()[0]!.track.title).toBe('Kept');
         expect(lineup.size()).toBe(3);
+    });
+});
+
+// Bug 3, and the reason this job stopped writing. It used to load its own `Lineup`, spend seconds
+// generating, and append through a store guarded on the revision moving. The break planner writes
+// through that same guard from the director's pass, so whichever landed second was discarded in
+// silence while the job logged the tracks it had just lost as `added`.
+describe('ExtendLineupJob not writing the lineup itself', () => {
+    it('hands the records to the one owner rather than appending them', async () => {
+        const { job, director, posted } = build();
+
+        await job.run({ lineupId: 'lineup-1', count: 3 });
+
+        expect(director.post).toHaveBeenCalledOnce();
+        const [command] = posted();
+        expect(command?.kind).toBe('appendTracks');
+        expect(command).toMatchObject({ lineupId: 'lineup-1' });
+    });
+
+    it('cannot lose a refill to a writer that got there first', async () => {
+        // The store's guard matches only while the stored revision is older than the one being
+        // written, so a second writer landing during the generate above used to make this append a
+        // no-op that reported success. There is one writer now, so the refill cannot be dropped
+        // whatever else happened while it was being generated.
+        const { job, lineup, posted } = build();
+
+        await job.run({ lineupId: 'lineup-1', count: 4 });
+
+        const [command] = posted();
+        const handed = command?.kind === 'appendTracks' ? command.tracks.length : 0;
+        expect(handed).toBe(4);
+        // What was handed over is what is in the lineup: no silent gap between the two.
+        expect(lineup.size()).toBe(handed);
+    });
+
+    it('fails the job when the append fails, rather than logging tracks nobody stored', async () => {
+        // The old shape could not tell: a discarded write and a successful one looked identical
+        // from here. Awaiting the command makes a failure this job's failure, so its retry is real.
+        const { job, director } = build();
+        vi.mocked(director.post).mockRejectedValueOnce(new Error('the database is gone'));
+
+        await expect(job.run({ lineupId: 'lineup-1', count: 3 })).rejects.toThrow('the database is gone');
     });
 });

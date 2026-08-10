@@ -391,7 +391,49 @@ export class DirectorService {
                 this.stale = false;
                 await this.restore();
                 return;
+
+            case 'appendTracks':
+                await this.appendTracks(command.lineupId, command.tracks);
+                return;
         }
+    }
+
+    /**
+     * Put a finished refill at the end of a lineup.
+     *
+     * **The whole reason a refill posts rather than writing.** `ExtendLineupJob` used to load its
+     * own `Lineup`, spend seconds generating, and then append through the same revision-guarded
+     * store the break planner writes through. Whichever of the two got there second had its write
+     * silently discarded, and the job logged the tracks it had just lost as `added`. Here there is
+     * one instance and one writer, so there is nothing to lose a race to.
+     *
+     * A lineup that is NOT on air is loaded and appended to in its own right. That is not a special
+     * case so much as the honest one: nothing is airing from it, so nothing else is writing it, and
+     * refusing would leave an operator unable to top up a lineup before putting it on. It goes
+     * through here anyway rather than being left to the job, so `lineups.items` keeps exactly one
+     * writer no matter which lineup is meant.
+     */
+    private async appendTracks(lineupId: string, tracks: readonly RundownTrack[]): Promise<void> {
+        if (tracks.length === 0) return;
+
+        if (this.lineup?.id === lineupId) {
+            await this.lineup.append(tracks);
+            // Breaks are NOT planted here. The next pass walks the whole tail and plants every slot
+            // it finds in one write, so doing it now would buy a boundary's latency and a second
+            // writer. See `BreakPlanner.plant` and `placementsFor`.
+            await this.commit();
+            return;
+        }
+
+        await this.inScope(async scope => {
+            const lineup = await scope.get(LineupRepository).load(lineupId);
+            if (!lineup) {
+                // Deleted between the refill being asked for and it finishing. An ordinary race.
+                this.logger.info('director: the lineup a refill was for is gone', { lineup: lineupId });
+                return;
+            }
+            await lineup.append(tracks);
+        });
     }
 
     /**

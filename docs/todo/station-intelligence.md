@@ -33,9 +33,9 @@ Read this before designing against it. All of it is built.
   app's clock.
 - **Playout is a lease with two conditions** (a programme, and an audience), so anything below that
   wants to drive the station has to renew it or be silently muted.
-- **`host.fetch` and `host.streams`** are the only egress a plugin gets, with per-upstream allowlists,
-  shared rate-limit buckets and an invocation-scoped budget. Anything below that talks to a third
-  party should be a plugin for that reason alone.
+- **`host.fetch` is the only egress a plugin gets**, with per-upstream allowlists, shared rate-limit
+  buckets and an invocation-scoped budget. Anything below that talks to a third party should be a
+  plugin for that reason alone.
 
 Two things that are true and easy to assume otherwise. `radio.liq` does **no crossfading**: items
 butt up against each other, and the only level shaping is `normalize(target=-16.)` on each leaf
@@ -119,9 +119,13 @@ Three notes that save a pass:
 
 - **Analysis is an enrichment plugin, not app code.** It is a per-track fan-out over an upstream
   that may be slow or absent, which is what `EnrichmentModule` already does, and it needs bytes,
-  which is what `host.streams` already is.
+  which is `response.body` off `host.fetch`.
 - **A byte-capped or partial download cannot produce an outro.** Whatever fetches the audio has to
-  say whether it got the whole file, or the analysis will confidently describe a truncation.
+  say whether it got the whole file, or the analysis will confidently describe a truncation. Note
+  that a body is bounded separately from the fetch that returned it, by
+  `PLUGIN_BODY_IDLE_TIMEOUT_MS`, `PLUGIN_BODY_LIFETIME_MS` and `PLUGIN_RESPONSE_MAX_BYTES` — an
+  audio file is exactly the case those bounds exist for, and a truncation caused by one of them has
+  to be told apart from a short track rather than measured.
 - **Do not shorten the fade inside a fixed buffer.** If the buffer is a constant and the fades are
   shorter than it, the outgoing track plays at full level while the incoming one ramps and the two
   sum audibly. Vary the buffer, keep fade length equal to it.

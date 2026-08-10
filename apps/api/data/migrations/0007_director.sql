@@ -134,3 +134,9 @@ create index play_history_artist_idx on deadair.play_history (artist_key, aired_
 drop table if exists deadair.play_history;
 drop table if exists deadair.station_air;
 drop table if exists deadair.station_lineup;
+-- Not created by the `up` above any more, and dropped here on purpose. Migrations in this repo are
+-- edited in place, so a database that applied an EARLIER version of this file still has the table
+-- that version created — and a `down` that only undoes the current `up` leaves it orphaned, where
+-- the next `up` will not touch it and nothing will ever drop it. See `deadair.lineups` in
+-- `docs/decisions/on-air-ownership.md`: it was the library half of a job a lineup could not do.
+drop table if exists deadair.lineups;

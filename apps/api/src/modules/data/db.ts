@@ -204,21 +204,6 @@ export interface DeadairArtistSources {
   uri: string | null;
 }
 
-export interface DeadairLineups {
-  createdAt: Generated<DateTime>;
-  id: Generated<string>;
-  items: Generated<Json>;
-  mode: Generated<string>;
-  name: string;
-  onEnd: Generated<string>;
-  revision: Generated<number>;
-  rules: Json | null;
-  source: Generated<string>;
-  sourcePlaylistId: string | null;
-  sourcePluginId: string | null;
-  updatedAt: Generated<DateTime>;
-}
-
 export interface DeadairLoginEvents {
   actorId: string;
   factorId: string | null;
@@ -432,7 +417,6 @@ export interface DB {
   "deadair.artistEnrichment": DeadairArtistEnrichment;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
-  "deadair.lineups": DeadairLineups;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;

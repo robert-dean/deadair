@@ -37,6 +37,11 @@ exists.
   the rate limiting, redirect chasing and breaker all exist.
 - `docs/decisions/plugin-streaming.md` (superseded) for the bounds on a body read outside the call
   that fetched it, which survived the protocol they were written for.
+- `docs/decisions/on-air-ownership.md` (proposed, not yet built) for why the director must be the
+  sole owner of the on-air queue, and the four bugs that were all the same bug. Read it before
+  touching `director/`, `Rundown`, or anything that writes `lineups.items` or `station_air`: it
+  names three docblocks in the tree that are now false, and it is why the answer to "should this
+  write the running order too?" is no.
 - `docs/todo/` for work that was designed against the real tree and then deliberately deferred, and
   the seam each piece drops into. Read it before designing a station feature from scratch: the call
   may already have been made. It describes the current tree only.

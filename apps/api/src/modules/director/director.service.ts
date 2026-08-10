@@ -5,7 +5,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { Epoch } from '#modules/shared/epoch.js';
-import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
+import { Rundown, type RetractedLines, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { BreakPlanner } from './break.planner.js';
@@ -180,7 +180,11 @@ export class DirectorService {
         // director has to hear it, or the next change event refills the running order
         // and the station is back on air a second after the operator stopped it.
         this.unsubscribes.push(
-            this.rundown.onReset(standingDown => {
+            this.rundown.onReset((standingDown, retracted) => {
+                // Before the stand-down, and for both kinds of reset. A replacement retracts the
+                // tail and leaves the station on air; a stand-down retracts everything. Either way
+                // the cursor has counted lines nobody heard, and the correction is the same.
+                this.reclaimRetracted(retracted);
                 if (standingDown) void this.standDown();
             }),
         );
@@ -431,6 +435,57 @@ export class DirectorService {
     }
 
     /**
+     * Take back the position spent on lines the player was handed and then had
+     * taken away from it.
+     *
+     * **The one place the plan is corrected by the fact.** Committing a line is a
+     * promise and airing it is a fact, and a retraction is where they come apart:
+     * the cursor has already counted those lines, so without this they sit behind
+     * it, where nothing will ever offer them again and every editor refuses them as
+     * `already-aired`. That is programming the operator planned, paid for and never
+     * heard, lost silently.
+     *
+     * Driven by the retraction rather than measured from the steady state, and that
+     * distinction is the whole correctness of it. Three things make "look at what the
+     * rundown holds and infer the position" wrong, and each was found the hard way:
+     *
+     * - An item merely HANDED OVER has not been dropped. The pusher runs a lead ahead
+     *   of the listener by design, so treating those as unheard commits them twice
+     *   and the listener hears the record twice.
+     * - A line can legitimately produce NO rundown item. A talk-over rides on the
+     *   record after it and a segment that is not ready is skipped, so the newest
+     *   item in the rundown can sit several lines behind the cursor with nothing
+     *   wrong.
+     * - Putting a lineup back on air deliberately resets the cursor to the top while
+     *   the record it committed last time is still playing. Inferring from the player
+     *   there would undo the operator's own decision.
+     *
+     * The two arms come from {@link RetractedLines} and are not interchangeable. An
+     * unheard line is offered again from the top; the line that was ON AIR was heard,
+     * so the cursor goes just PAST it rather than replaying a record mid-way through.
+     *
+     * Walks the unheard lines in air order and stops at the first this lineup still
+     * holds, because that is the earliest point the plan has to go back to. A line
+     * this lineup does not recognise is skipped rather than ending the walk: after a
+     * change of programming the retraction is full of the previous lineup's lines.
+     *
+     * In memory only, deliberately. Persisting here would race the very request that
+     * caused the retraction — `putOnAir` writes `cursor = 0` inside its own
+     * transaction and this runs synchronously from its `Rundown.load([])` — so the
+     * write is left to the next commit pass, which is also the first moment it could
+     * be true.
+     */
+    private reclaimRetracted(retracted: RetractedLines): void {
+        const lineup = this.lineup;
+        if (!lineup) return;
+
+        for (const planId of retracted.unheard) {
+            if (lineup.rewindToStartOf(planId)) return;
+        }
+        if (retracted.aired !== undefined) lineup.rewindTo(retracted.aired);
+    }
+
+    /**
      * Put the station's own segments into the lineup, where the rules say there
      * should be some and there are not.
      *
@@ -481,7 +536,10 @@ export class DirectorService {
 
         for (const item of items) {
             if (item.kind === 'track') {
-                tracks.push(pending === undefined ? item.track : { ...item.track, voice: pending });
+                // `planId` is stamped HERE and nowhere else. It is what lets `rewindToAir` ask the
+                // player which line the listener is actually on, and the lineup's own item never
+                // carries it: see the field's note in `rundown.ts`.
+                tracks.push({ ...item.track, planId: item.id, ...(pending === undefined ? {} : { voice: pending }) });
                 pending = undefined;
                 continue;
             }
@@ -512,7 +570,7 @@ export class DirectorService {
                 continue;
             }
 
-            tracks.push(segmentRundownTrack(segment));
+            tracks.push({ ...segmentRundownTrack(segment), planId: item.id });
         }
 
         // Held for the next pass rather than dropped. A batch is only three items, so a talk-over

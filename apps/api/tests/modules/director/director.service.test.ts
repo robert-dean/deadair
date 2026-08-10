@@ -186,6 +186,9 @@ beforeEach(() => {
 /** Let the pending microtasks of a commit pass settle. */
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
+/** The running order by provider id, which is what makes an assertion about it readable. */
+const idsOf = (items: readonly { externalId: string }[]) => items.map(item => item.externalId);
+
 /**
  * One wake, with no side effect on the running order.
  *
@@ -334,6 +337,86 @@ describe('DirectorService noticing the row', () => {
         await director.reload();
 
         expect(director.status().active).toBe(false);
+    });
+});
+
+// Committing a line is a promise; only the player can say it aired. A retraction is where the two
+// come apart, and without a correction the cursor has already counted lines nobody heard: they sit
+// behind it, nothing offers them again, and every editor refuses them as already-aired. That is
+// planned programming lost silently, which is the whole of bug 4.
+describe('DirectorService reclaiming what was retracted', () => {
+    it('offers again the lines a replacement took back', async () => {
+        const { director, rundown, seed } = build();
+        await seed();
+        await director.start();
+        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+
+        // What `putOnAir` and an edit both do: retract the tail, leave the station on air.
+        rundown.load([]);
+        await settle();
+
+        // The same three, not the three after them. Without the reclaim the cursor stays at 3 and
+        // a, b and c are never heard by anyone.
+        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+    });
+
+    it('does not replay the line that was on air, which the listener did hear', async () => {
+        const { director, rundown, seed } = build();
+        await seed();
+        await director.start();
+
+        // Hand one over and let the player confirm it, so there is a line that genuinely aired.
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        expect(rundown.nowPlaying()?.item.externalId).toBe('a');
+
+        // A stand-down drops what is airing too, unlike a replacement.
+        rundown.reset();
+        await settle();
+
+        // 'a' aired, so the cursor belongs PAST it: reclaiming it would replay a record the
+        // listener was in the middle of. 'b' and 'c' were promised and not heard, so they come
+        // back.
+        expect(director.status().cursor).toBe(1);
+    });
+
+    it('leaves alone what the player is merely holding', async () => {
+        // The hazard that makes this event-driven rather than measured from the rundown. An item
+        // handed over is the ordinary steady state, not a dropped one: the pusher runs a lead ahead
+        // of the listener by design. Treating those as unheard commits them twice and the listener
+        // hears the record twice.
+        const { director, rundown, seed } = build();
+        await seed();
+        await director.start();
+
+        // 'a' is handed over and confirmed; 'b' and 'c' are handed over and still merely held.
+        const pulled = await rundown.next();
+        rundown.markAired(pulled!.item.id);
+        await settle();
+
+        // The running order moves ON: 'd' tops up behind the two still held. Nothing is reclaimed,
+        // nothing is committed twice, and the cursor only ever went forwards.
+        expect(idsOf(rundown.upcoming())).toEqual(['b', 'c', 'd']);
+        expect(director.status().cursor).toBe(4);
+    });
+
+    it('steps over lines this lineup does not hold rather than stopping at them', async () => {
+        // After a change of programming the retraction is full of the previous lineup's lines, so
+        // the FIRST unheard line is routinely one this lineup knows nothing about. A walk that
+        // stopped there would reclaim nothing and the loss would be silent.
+        const { director, rundown, seed } = build();
+        await seed();
+
+        // Something already in the running order that names a line from a lineup we do not hold.
+        rundown.load([{ ...track('x'), planId: 'a-line-from-some-other-lineup' }]);
+        await director.start();
+        expect(idsOf(rundown.upcoming())).toEqual(['x', 'a', 'b']);
+
+        rundown.load([]);
+        await settle();
+
+        // 'a' and 'b' come back despite the unrecognised line ahead of them in the retraction.
+        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
     });
 });
 

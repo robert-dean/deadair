@@ -57,6 +57,27 @@ export interface RundownItem {
      */
     trackId?: string;
     /**
+     * The lineup line this item was committed from, when it came from one.
+     *
+     * The rundown mints {@link id} itself, so it names a PLAY of something rather
+     * than a line of the plan, and the two deliberately differ: the same line
+     * committed twice is two rundown items. That leaves nothing able to answer
+     * "which line is the listener actually on", which is the question the director
+     * has to ask before it can correct its own position against what aired. So the
+     * item carries the line's id back.
+     *
+     * Opaque here, like `trackId` and `voice`: the rundown neither reads it nor acts
+     * on it beyond {@link Rundown.airingPlanId} and {@link Rundown.firstHeldPlanId}
+     * answering with it.
+     *
+     * Optional, and **only the director sets it.** An item pushed by anything that
+     * is not working from a lineup has no line to name, and `RundownTrack` inherits
+     * this field only because it is `Omit<RundownItem, 'id'>` — the import and
+     * generation paths that build a `RundownTrack` must leave it alone, or a plan id
+     * would be persisted inside `lineups.items` where it means nothing.
+     */
+    planId?: string;
+    /**
      * Something the station means to SAY over this item, rather than after it.
      *
      * Opaque here, exactly as `trackId` is: the rundown neither reads it nor acts
@@ -72,6 +93,30 @@ export interface RundownItem {
      * items over one at a time.
      */
     voice?: { segmentId: string; atMs: number };
+}
+
+/**
+ * The lineup lines a retraction has taken back, so their owner can offer them
+ * again.
+ *
+ * Committing a line is a promise and airing it is a fact, and a retraction is
+ * where the two come apart: whoever committed these has already counted them,
+ * and unless it is told, they sit behind its position where nothing will ever
+ * offer them again. That is the whole reason this rides on the reset.
+ *
+ * The two arms are not the same event and must not be merged. An item that was
+ * merely handed over was never heard, so its line should be offered again from
+ * the top. An item that was ON AIR was heard, at least partly, and offering it
+ * again would replay a record the listener is in the middle of.
+ *
+ * Lines with no `planId` are left out: they came from something not working from
+ * a lineup, so there is nobody to give them back to.
+ */
+export interface RetractedLines {
+    /** Handed to the player and taken back unheard, in the order they would have aired. */
+    unheard: string[];
+    /** The line that was on air and went with it. Only a stand-down drops this. */
+    aired?: string;
 }
 
 /** An item handed over, with the URL the player was told to fetch. */
@@ -169,7 +214,7 @@ export class Rundown {
     private readonly epoch = new Epoch();
 
     private readonly changeListeners = new Set<() => void>();
-    private readonly resetListeners = new Set<(standingDown: boolean) => void>();
+    private readonly resetListeners = new Set<(standingDown: boolean, retracted: RetractedLines) => void>();
     private readonly airedListeners = new Set<(item: RundownItem) => void>();
 
     constructor(
@@ -188,6 +233,11 @@ export class Rundown {
      */
     load(tracks: readonly RundownTrack[]): void {
         this.epoch.bump();
+        // Taken BEFORE the replacement, and it covers the queue as well as what the player holds.
+        // Both were committed by whoever planned them and neither was heard, so both have to be
+        // offered again; the queue is easy to overlook because it is replaced rather than emptied.
+        const retracted = this.retractedLines(false);
+
         this.queue = tracks.map(track => ({ ...track, id: randomUUID() }));
         // What is on air is NOT abandoned here — it keeps playing, and the reading
         // that names it is the truth. Only what was handed over and retracted is.
@@ -195,7 +245,7 @@ export class Rundown {
         this.served = [];
         // Not a stand-down: the station is still on air, playing the item it was
         // already playing, and only the order behind it has changed.
-        this.announceReset(false);
+        this.announceReset(false, retracted);
         this.emit();
     }
 
@@ -234,11 +284,13 @@ export class Rundown {
      */
     reset(): void {
         this.epoch.bump();
+        const retracted = this.retractedLines(true);
+
         this.queue = [];
         this.abandon([...this.served.map(entry => entry.item.id), ...(this.airing ? [this.airing.item.id] : [])]);
         this.served = [];
         this.airing = undefined;
-        this.announceReset(true);
+        this.announceReset(true, retracted);
         this.emit();
     }
 
@@ -459,8 +511,12 @@ export class Rundown {
      * replacement keeps the station on air and only retracts what has not been
      * heard yet, while a stand-down ends the broadcast. Only the second one is
      * allowed to cut a listener off mid-track.
+     *
+     * `retracted` names the lineup lines that went with it, so whoever planned them
+     * can offer them again rather than leaving them behind a position that has
+     * already counted them. See {@link RetractedLines}.
      */
-    onReset(listener: (standingDown: boolean) => void): () => void {
+    onReset(listener: (standingDown: boolean, retracted: RetractedLines) => void): () => void {
         this.resetListeners.add(listener);
         return () => this.resetListeners.delete(listener);
     }
@@ -598,7 +654,24 @@ export class Rundown {
         for (const listener of this.changeListeners) listener();
     }
 
-    private announceReset(standingDown: boolean): void {
-        for (const listener of this.resetListeners) listener(standingDown);
+    /**
+     * The lines this retraction is about to take back, in the order they would have
+     * aired.
+     *
+     * Read before the state is cleared, obviously, and split the way
+     * {@link RetractedLines} describes: the item on air was heard and only a
+     * stand-down drops it, while everything behind it was promised and was not.
+     */
+    private retractedLines(includeAiring: boolean): RetractedLines {
+        const unheard = [...this.served.map(entry => entry.item), ...this.queue]
+            .map(item => item.planId)
+            .filter((planId): planId is string => planId !== undefined);
+
+        const aired = includeAiring ? this.airing?.item.planId : undefined;
+        return { unheard, ...(aired === undefined ? {} : { aired }) };
+    }
+
+    private announceReset(standingDown: boolean, retracted: RetractedLines): void {
+        for (const listener of this.resetListeners) listener(standingDown, retracted);
     }
 }

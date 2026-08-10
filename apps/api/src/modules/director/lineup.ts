@@ -318,6 +318,47 @@ export class Lineup {
     }
 
     /**
+     * Put the cursor just PAST the given line, because a listener has heard it.
+     *
+     * Moves the cursor backwards, which is the whole point and the opposite of every
+     * other mover here. Committing is a promise and airing is a fact, and this is
+     * where the fact wins: everything between the line that aired and wherever the
+     * cursor had reached was handed over and then dropped, so counting it as played
+     * silently loses that programming.
+     *
+     * Synchronous and in memory, like {@link advance} and for the same reason.
+     * Persisting is {@link saveCursor}'s job.
+     *
+     * @returns whether the line is still in this lineup. False for one an edit has
+     *   since removed, which is not a failure: there is simply nothing truthful to
+     *   move the cursor to.
+     */
+    rewindTo(itemId: string): boolean {
+        const index = this.itemList.findIndex(item => item.id === itemId);
+        if (index < 0) return false;
+
+        this.cursorIndex = Math.min(index + 1, this.itemList.length);
+        return true;
+    }
+
+    /**
+     * Put the cursor back ONTO the given line, because it was promised and never
+     * heard.
+     *
+     * The counterpart to {@link rewindTo}, and the gap between them is the gap
+     * between already played and already promised. A line the player was handed and
+     * then had taken back did not air, so leaving the cursor past it would skip it
+     * for good, which is exactly the loss both methods exist to prevent.
+     */
+    rewindToStartOf(itemId: string): boolean {
+        const index = this.itemList.findIndex(item => item.id === itemId);
+        if (index < 0) return false;
+
+        this.cursorIndex = index;
+        return true;
+    }
+
+    /**
      * Write down how far this broadcast has committed, and drop the played prefix
      * once enough of it has built up.
      *

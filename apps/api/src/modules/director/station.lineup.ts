@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { LiveOrder } from '#modules/playout/live.order.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 
 /**
@@ -21,6 +22,11 @@ import type { RundownTrack } from '#modules/playout/rundown.js';
  * aired, and every version of that disagreement is one of the four bugs the
  * decision doc lists. A state on the item cannot, because the same fact that moves
  * it is the one the player reported.
+ *
+ * Implements {@link LiveOrder}, which is the narrow half of this the transport is
+ * allowed to touch: it may move an item between states, because it is the thing that
+ * hands items over and reads the player back, and it may not reorder, append or
+ * remove, because that is programming and programming is the director's.
  *
  * ## Pure memory, and no store
  *
@@ -177,7 +183,7 @@ export const MAX_PLAYED_KEPT = 20;
 /** The states an item is in once it is no longer this broadcast's to decide about. */
 const isPast = (state: StationLineupItemState): boolean => state === 'played' || state === 'skipped';
 
-export class StationLineup {
+export class StationLineup implements LiveOrder {
     private itemList: StationLineupItem[];
 
     constructor(
@@ -295,6 +301,17 @@ export class StationLineup {
     /** One item by its id, for a caller holding an id the player gave back. */
     find(itemId: string): StationLineupItem | undefined {
         return this.itemList.find(item => item.id === itemId);
+    }
+
+    /**
+     * Whether this order holds the item at all.
+     *
+     * What tells an id from a session before this process started apart from one of
+     * ours that has simply moved on. The transport asks it before reporting a fault:
+     * see `Rundown.observeOnAir`.
+     */
+    has(itemId: string): boolean {
+        return this.itemList.some(item => item.id === itemId);
     }
 
     /**

@@ -7,10 +7,16 @@
 // So these tests are mostly about the recovery paths, because those are the ones a
 // running station exercises and nobody watches: a dropped push, a notify that never
 // arrived, a Liquidsoap that restarted and forgot everything it was handed.
+//
+// The rundown no longer holds a list. There is ONE ordered list — the director's
+// `StationLineup` — and an item's state on it is where it has got to, so these cases
+// drive the real one rather than a fake: what is being tested is precisely what the
+// two do together.
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
+import { Rundown, type RundownItem, type RundownTrack } from '../../../src/modules/playout/rundown.js';
+import { StationLineup, isTrackItem } from '../../../src/modules/director/station.lineup.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
 import type { Logger } from '@maroonedsoftware/logger';
 
@@ -34,10 +40,39 @@ const track = (externalId: string): RundownTrack => ({
     durationMs: 200_000,
 });
 
+/**
+ * Prepare items for the player: the director's half, which here is a straight copy.
+ *
+ * A record already carries everything the player needs. A segment would need its row read, which is
+ * exactly why preparing is the director's job and not the transport's.
+ */
+const prepareAll = (rundown: Rundown, order: StationLineup): void => {
+    rundown.prepare(order.all().flatMap(item => (isTrackItem(item) ? [{ ...item.track, id: item.id } as RundownItem] : [])));
+};
+
+/** A transport over a running order, attached and prepared, the way the director leaves it. */
 const rundownWith = (ids: string[], resolver: TrackResolver = new StubResolver()): Rundown => {
     const rundown = new Rundown(resolver, logger);
-    rundown.load(ids.map(track));
+    orderOf(rundown, ids);
     return rundown;
+};
+
+/** The same over tracks a case has built itself, for the ones that need a cue attached. */
+const seedWith = (rundown: Rundown, tracks: readonly RundownTrack[]): StationLineup => {
+    const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+    order.replaceFrom(tracks);
+    rundown.attach(order);
+    prepareAll(rundown, order);
+    return order;
+};
+
+/** The same, handing the order back for a case that asserts on its states. */
+const orderOf = (rundown: Rundown, ids: string[]): StationLineup => {
+    const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+    order.replaceFrom(ids.map(track));
+    rundown.attach(order);
+    prepareAll(rundown, order);
+    return order;
 };
 
 describe('Rundown hand-over', () => {
@@ -63,9 +98,11 @@ describe('Rundown hand-over', () => {
         expect(rundown.queuedCount()).toBe(1);
     });
 
-    it('gives each item an id of our own rather than reusing the provider id', async () => {
+    it("carries the running order's own id rather than the provider id", async () => {
         // The id rides through Liquidsoap on the annotation and comes back on the
         // notify; a provider id would collide the moment a playlist repeats a track.
+        // It is the ORDER's id, which is what makes it survive a restart: the row
+        // holds it, so an app that comes back can name what the player is airing.
         const rundown = rundownWith(['a', 'a']);
 
         const first = await rundown.next();
@@ -276,25 +313,45 @@ describe('Rundown.reconcile', () => {
     });
 });
 
-describe('Rundown.load and reset', () => {
+describe('Rundown.retract and reset', () => {
     it('announces a reset so the transport can take back what has not aired', async () => {
         const rundown = rundownWith(['a']);
         const onReset = vi.fn();
         rundown.onReset(onReset);
 
-        rundown.load([track('b')]);
+        rundown.retract();
 
         expect(onReset).toHaveBeenCalledOnce();
-        expect((await rundown.next())?.item.externalId).toBe('b');
     });
 
-    it('forgets what was handed over, so a stale notify cannot resurrect it', async () => {
+    it('offers a retracted item again rather than losing it', async () => {
+        // The item was promised and never heard, so it goes back to `planned` on the one
+        // order. It used to be dropped from a second list and left behind a cursor that had
+        // already counted it, which is programming nobody hears.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = orderOf(rundown, ['a']);
+        const pulled = await rundown.next();
+        expect(order.all()[0]!.state).toBe('handed');
+
+        rundown.retract();
+
+        expect(order.all()[0]!.state).toBe('planned');
+        expect(pulled!.item.id).toBe(order.all()[0]!.id);
+    });
+
+    it('does not take a retracted item as a fault when the player still names it', async () => {
+        // Liquidsoap skips in its streaming loop rather than in the request that asked for it,
+        // so the very next reading can still name something the station has just given up on.
+        // It is ours, it is simply not ours to play any more.
         const rundown = rundownWith(['a']);
         const pulled = await rundown.next();
+        rundown.retract();
+        vi.mocked(logger.warn).mockClear();
 
-        rundown.load([track('b')]);
+        rundown.reconcile({ queued: 0, ready: true, onAir: pulled!.item.id });
 
-        expect(rundown.markAired(pulled!.item.id)).toBe(false);
+        expect(logger.warn).not.toHaveBeenCalled();
+        expect(rundown.nowPlaying()).toBeUndefined();
     });
 
     it('leaves what is on air alone: a new order is not a reason to cut the listener off', async () => {
@@ -302,7 +359,7 @@ describe('Rundown.load and reset', () => {
         const pulled = await rundown.next();
         rundown.markAired(pulled!.item.id);
 
-        rundown.load([track('b')]);
+        rundown.retract();
 
         expect(rundown.nowPlaying()?.item.externalId).toBe('a');
     });
@@ -381,23 +438,27 @@ describe('Rundown.load and reset', () => {
         const announced: boolean[] = [];
         rundown.onReset(standingDown => announced.push(standingDown));
 
-        rundown.load([{ pluginId: 'deadair.spotify', externalId: 'b', title: 'B', artists: ['An Artist'] }]);
+        rundown.retract();
         rundown.reset();
 
         expect(announced).toEqual([false, true]);
     });
 });
 
-describe('Rundown.append', () => {
-    it('adds to the end without disturbing what the player already holds', async () => {
-        // The whole point of appending rather than reloading: a top-up must not
-        // retract items the player has already downloaded and hand them back.
-        const rundown = rundownWith(['a', 'b']);
+// Preparing is the director telling the transport HOW to play what the order already says. It
+// changes nothing about the order, which is what makes it safe to do on every pass.
+describe('Rundown.prepare', () => {
+    it('does not disturb what the player already holds', async () => {
+        // A top-up must not retract items the player has already downloaded and hand them
+        // back. Under one list it cannot: preparing touches no state at all.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = orderOf(rundown, ['a', 'b']);
         const pulled = await rundown.next();
         rundown.markAired(pulled!.item.id);
         const served = await rundown.next();
 
-        rundown.append([track('c')]);
+        order.append([track('c')]);
+        prepareAll(rundown, order);
 
         expect(rundown.nowPlaying()?.item.externalId).toBe('a');
         expect(rundown.servedCount()).toBe(1);
@@ -405,44 +466,52 @@ describe('Rundown.append', () => {
     });
 
     it('announces no reset, because the plan is continuing rather than changing', () => {
-        // A reset is what makes the pusher flush the player's queue. An append that
-        // announced one would drop the very items it is topping up behind.
-        const rundown = rundownWith(['a']);
+        // A reset is what makes the pusher flush the player's queue. Preparing a top-up that
+        // announced one would drop the very items it is filling in behind.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = orderOf(rundown, ['a']);
         const resets: boolean[] = [];
         rundown.onReset(standingDown => resets.push(standingDown));
 
-        rundown.append([track('b')]);
+        order.append([track('b')]);
+        prepareAll(rundown, order);
 
         expect(resets).toEqual([]);
     });
 
     it('wakes the pusher, so a station that had drained starts again', () => {
-        const rundown = rundownWith([]);
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = orderOf(rundown, []);
         const changed = vi.fn();
         rundown.onChange(changed);
 
-        rundown.append([track('a')]);
+        order.append([track('a')]);
+        prepareAll(rundown, order);
 
         expect(changed).toHaveBeenCalled();
         expect(rundown.hasProgramme()).toBe(true);
     });
 
-    it('says nothing for an empty append', () => {
+    it('says nothing when there is nothing to prepare', () => {
         const rundown = rundownWith(['a']);
         const changed = vi.fn();
         rundown.onChange(changed);
 
-        expect(rundown.append([])).toEqual([]);
+        rundown.prepare([]);
+
         expect(changed).not.toHaveBeenCalled();
     });
 
-    it('gives back the items it minted, so a caller can correlate its own plan', () => {
-        const rundown = rundownWith([]);
+    it('will not offer an item the director has not prepared', async () => {
+        // An item in the order with no playable form is a PLAN, not something the player
+        // could be given: a segment whose row has not been read yet is exactly that.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = orderOf(rundown, ['a']);
+        order.append([track('b')]);
 
-        const [item] = rundown.append([track('a')]);
-
-        expect(item!.externalId).toBe('a');
-        expect(rundown.upcoming()[0]!.id).toBe(item!.id);
+        expect(rundown.upcoming().map(entry => entry.externalId)).toEqual(['a']);
+        await rundown.next();
+        expect(await rundown.next()).toBeUndefined();
     });
 });
 
@@ -533,7 +602,7 @@ describe('Rundown.onAired', () => {
 
 // Resolving is the longest await in the transport: a provider call for a track, a database read for
 // a segment. The running order can be replaced or dropped entirely while one is in flight, because
-// `load` and `reset` run synchronously from a request handler on the same thread. What must not
+// `retract` and `reset` run synchronously from a request handler on the same thread. What must not
 // happen is the resolved item landing in a running order that no longer exists.
 describe('Rundown resolving across a change of plan', () => {
     /** A resolver whose answer can be released by the test, so an await can be held open. */
@@ -556,7 +625,7 @@ describe('Rundown resolving across a change of plan', () => {
     it('drops an item whose running order was stood down mid-resolve', async () => {
         const { resolver, started, unblock } = heldResolver();
         const rundown = new Rundown(resolver, logger);
-        rundown.load([track('a'), track('b')]);
+        orderOf(rundown, ['a', 'b']);
 
         const pulling = rundown.next();
         await started;
@@ -573,24 +642,25 @@ describe('Rundown resolving across a change of plan', () => {
     it('drops an item whose running order was replaced mid-resolve', async () => {
         const { resolver, started, unblock } = heldResolver();
         const rundown = new Rundown(resolver, logger);
-        rundown.load([track('a')]);
+        const order = orderOf(rundown, ['a']);
 
         const pulling = rundown.next();
         await started;
-        rundown.load([track('x')]);
+        rundown.retract();
         unblock();
 
         expect(await pulling).toBeUndefined();
-        // The replacement is untouched and still waiting: the dropped item belonged to the order
-        // that was thrown away, and re-queueing it would put a record from the old plan at the head
-        // of the new one.
-        expect(rundown.upcoming().map(item => item.externalId)).toEqual(['x']);
+        // The item is back where it started rather than half handed over, which is the whole
+        // difference the shared order makes: it used to be dropped from a second list while the
+        // plan behind it went on believing it had been committed.
+        expect(order.all()[0]!.state).toBe('planned');
+        expect(rundown.servedCount()).toBe(0);
     });
 
     it('hands the item over as usual when nothing changed', async () => {
         const { resolver, started, unblock } = heldResolver();
         const rundown = new Rundown(resolver, logger);
-        rundown.load([track('a')]);
+        orderOf(rundown, ['a']);
 
         const pulling = rundown.next();
         await started;
@@ -607,7 +677,7 @@ describe('Rundown resolving across a change of plan', () => {
 describe('Rundown resolving a talk-over cue', () => {
     it('resolves the cue alongside the record and hands both over', async () => {
         const rundown = new Rundown(new StubResolver(), logger);
-        rundown.load([{ ...track('a'), voice: { segmentId: 'seg-1', atMs: 8000 } }]);
+        seedWith(rundown, [{ ...track('a'), voice: { segmentId: 'seg-1', atMs: 8000 } }]);
 
         const pulled = await rundown.next();
 
@@ -617,7 +687,7 @@ describe('Rundown resolving a talk-over cue', () => {
 
     it('hands the record over without a cue when nothing asked for one', async () => {
         const rundown = new Rundown(new StubResolver(), logger);
-        rundown.load([track('a')]);
+        orderOf(rundown, ['a']);
 
         expect((await rundown.next())?.voice).toBeUndefined();
     });
@@ -626,7 +696,7 @@ describe('Rundown resolving a talk-over cue', () => {
     // one. The cue is the part that gives way.
     it('airs the record anyway when the cue will not resolve', async () => {
         const rundown = new Rundown(new StubResolver(new Set(['seg-1'])), logger);
-        rundown.load([{ ...track('a'), voice: { segmentId: 'seg-1', atMs: 8000 } }]);
+        seedWith(rundown, [{ ...track('a'), voice: { segmentId: 'seg-1', atMs: 8000 } }]);
 
         const pulled = await rundown.next();
 

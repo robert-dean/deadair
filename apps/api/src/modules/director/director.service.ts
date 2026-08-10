@@ -5,7 +5,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { Epoch } from '#modules/shared/epoch.js';
-import { Rundown, type RetractedLines, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
+import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { BreakPlanner } from './break.planner.js';
@@ -186,11 +186,11 @@ export class DirectorService {
         // director has to hear it, or the next change event refills the running order
         // and the station is back on air a second after the operator stopped it.
         this.unsubscribes.push(
-            this.rundown.onReset((standingDown, retracted) => {
-                // Before the stand-down, and for both kinds of reset. A replacement retracts the
-                // tail and leaves the station on air; a stand-down retracts everything. Either way
-                // items were promised and not heard, and the correction is the same.
-                this.applyRetraction(retracted);
+            this.rundown.onReset(standingDown => {
+                // Nothing to put back here any more. The rundown shares the running order, so by
+                // the time this runs the items it retracted are already `planned` again — which is
+                // the whole point of there being one list rather than two that had to be walked
+                // against each other.
                 if (!standingDown) return;
 
                 // Cancel first, in this stack frame, then queue the write. See `beginStandDown`:
@@ -223,6 +223,7 @@ export class DirectorService {
      */
     async stop(): Promise<void> {
         for (const unsubscribe of this.unsubscribes.splice(0)) unsubscribe();
+        this.rundown.detach();
         await this.flushPersist();
     }
 
@@ -294,15 +295,31 @@ export class DirectorService {
         this.active = air?.active ?? false;
 
         this.lineup = await this.inScope(async scope => scope.get(StationLineupRepository).load());
+        if (!this.lineup) return;
+
+        // The transport drives the order directly from here on. It owns each item's transport
+        // state and this class owns the order; there is no second copy for the two to disagree
+        // about, which is what step 8 of the decision bought.
+        this.rundown.attach(this.lineup);
 
         // Everything the player was holding belongs to a process that is gone. The items
         // themselves are still in the order, saying they were handed over, and nothing has
         // heard them — so they are offered again rather than skipped. This is the same
         // correction a retraction makes, applied to the retraction a restart IS.
-        const reclaimed = this.lineup?.reclaimAll() ?? 0;
+        const reclaimed = this.lineup.reclaimAll();
         if (reclaimed > 0) {
             this.logger.info('director: taking back what a previous process had handed over', { items: reclaimed });
             await this.persist();
+        }
+
+        // **What makes a restart recoverable.** The item the row says is airing is prepared
+        // before anything else, so the first reading of the player names something this process
+        // can speak for. Without it the app comes back unable to recognise its own broadcast and
+        // stands the clock down over a track a listener is still hearing.
+        const airing = this.lineup.airing();
+        if (airing) {
+            await this.prepareForPlayer([airing]);
+            this.logger.info('director: picking up the item a previous process left on air', { item: airing.id });
         }
 
         if (this.active) await this.commit();
@@ -382,12 +399,13 @@ export class DirectorService {
         // coming off, and leaving it there would air a few records of it behind the new one.
         // What is ON AIR is left alone: changing the programming is not a reason to cut a
         // listener off mid-record.
-        this.rundown.load([]);
+        this.rundown.retract();
 
         const lineup = this.lineup ?? new StationLineup(binding);
         lineup.rebind(binding);
         lineup.replaceFrom(tracks);
         this.lineup = lineup;
+        this.rundown.attach(lineup);
         await this.persist();
 
         await this.inScope(async scope => scope.get(StationAirRepository).goOnAir());
@@ -511,8 +529,22 @@ export class DirectorService {
             // turns out not to be ready — or a database that will not answer — costs this
             // pass and nothing else. Marking items handed first and then doing this work is how
             // a failure in the middle loses programming for good.
-            const taken = lineup.nextPlanned(COMMIT_LEAD - held);
-            const committed = taken.length === 0 ? undefined : await this.toRundownTracks(taken);
+            //
+            // Note what this pass does NOT do any more: it never marks an item handed. Preparing
+            // is telling the transport HOW to play what the order already says; handing over is
+            // the transport's own act, and it marks it at the moment it happens. Two things used
+            // to claim that transition and the order was whichever ran last.
+            //
+            // What is asked for is the next planned items the transport does NOT already have.
+            // Preparing is idempotent and changes nothing about the order, but it announces a
+            // change and a change asks for another pass — so a pass that simply offered the next
+            // few planned items would prepare the same ones on every pass and never stop.
+            const wanted = COMMIT_LEAD - held;
+            const taken = lineup
+                .nextPlanned(COMMIT_LEAD)
+                .filter(item => !this.rundown.isPrepared(item.id))
+                .slice(0, wanted);
+            const prepared = taken.length === 0 ? undefined : await this.toPlayerItems(taken);
 
             // ── apply ───────────────────────────────────────────────────────────────
             // One check, then the mutations, with NO await between them. That is what makes
@@ -522,18 +554,16 @@ export class DirectorService {
             // {@link Epoch}.
             if (!this.epoch.isCurrent(token)) return;
 
-            if (committed) {
-                if (committed.tracks.length > 0) this.rundown.append(committed.tracks);
-                for (const itemId of committed.handed) lineup.markHanded(itemId);
-                for (const itemId of committed.skipped) lineup.markSkipped(itemId);
+            if (prepared) {
+                this.rundown.prepare(prepared.items);
+                for (const itemId of prepared.skipped) lineup.markSkipped(itemId);
 
                 // The order moved, so a refill decision made a moment ago is stale.
                 this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
-                // Throttled, and written after the hand-over rather than before it. Nobody is
-                // waiting on this, and both ways of being late fail the same direction: the
-                // record says less has been committed than has, so the recovery replays rather
-                // than skips. For a station whose order is read back at boot, hearing a record
-                // again is the cheaper of the two.
+                // Throttled. Nobody is waiting on this, and both ways of being late fail the same
+                // direction: the record says less has been committed than has, so the recovery
+                // replays rather than skips. For a station whose order is read back at boot,
+                // hearing a record again is the cheaper of the two.
                 this.persistSoon();
             }
         }
@@ -544,37 +574,6 @@ export class DirectorService {
         }
 
         await this.topUpIfShort(lineup, rules);
-    }
-
-    /**
-     * Take back items the player was handed and then had taken away from it.
-     *
-     * **The one place the plan is corrected by the fact.** Committing an item is a
-     * promise and airing it is a fact, and a retraction is where they come apart: an
-     * item marked `handed` was never heard, so without this it sits there spent, where
-     * nothing will ever offer it again and every editor refuses it. That is
-     * programming the operator planned, paid for and never heard, lost silently.
-     *
-     * Driven by the retraction rather than measured from the steady state, and that
-     * distinction is the whole correctness of it. An item merely HANDED OVER has not
-     * been dropped — the pusher runs a lead ahead of the listener by design — so
-     * treating the steady state as a retraction commits them twice and the listener
-     * hears the record twice.
-     *
-     * The item that was ON AIR was heard, so it is marked `played` rather than
-     * offered again: replaying a record mid-way through is the opposite mistake and
-     * just as audible. Only a stand-down reports one.
-     *
-     * In memory only, deliberately. This runs synchronously from `Rundown.load([])`
-     * inside whatever caused the retraction, and the write is left to the commit pass
-     * behind it, which is also the first moment it could be true.
-     */
-    private applyRetraction(retracted: RetractedLines): void {
-        const lineup = this.lineup;
-        if (!lineup) return;
-
-        lineup.reclaim(retracted.unheard);
-        if (retracted.aired !== undefined) lineup.markPlayed(retracted.aired);
     }
 
     /**
@@ -601,8 +600,8 @@ export class DirectorService {
     }
 
     /**
-     * Turn the items just taken from the order into something the player can be
-     * handed, and say what became of each.
+     * Turn the items just taken from the order into the form the player can be
+     * handed, and say which of them the station will pass over.
      *
      * A record passes straight through: the order already holds everything the
      * player needs. A segment is a reference, so its row is read here — and a
@@ -617,13 +616,12 @@ export class DirectorService {
      * One read for the whole batch rather than one per item, because a commit
      * pass runs on every track boundary and the lead is only three items.
      */
-    private async toRundownTracks(items: readonly StationLineupItem[]): Promise<{ tracks: RundownTrack[]; handed: string[]; skipped: string[] }> {
+    private async toPlayerItems(items: readonly StationLineupItem[]): Promise<{ items: RundownItem[]; skipped: string[] }> {
         const wanted = items.filter(item => item.kind === 'segment').map(item => item.segmentId);
         const segments =
             wanted.length === 0 ? new Map<string, Segment>() : await this.inScope(async scope => scope.get(SegmentRepository).findByIds(wanted));
 
-        const tracks: RundownTrack[] = [];
-        const handed: string[] = [];
+        const playable: RundownItem[] = [];
         const skipped: string[] = [];
         // A talk-over waiting for a record to attach itself to. It may have arrived in an earlier
         // batch: see the field's own note.
@@ -632,14 +630,14 @@ export class DirectorService {
 
         for (const item of items) {
             if (item.kind === 'track') {
-                // `planId` is stamped HERE and nowhere else. It is what lets the retraction above
-                // name the item the player gave back: see the field's note in `rundown.ts`.
-                tracks.push({
+                // The order's own id, carried through unchanged. It rides the annotation into
+                // Liquidsoap and comes back on its readings, which is what lets a restarted
+                // process name the record a listener is in the middle of.
+                playable.push({
                     ...item.track,
-                    planId: item.id,
+                    id: item.id,
                     ...(pending === undefined ? {} : { voice: { segmentId: pending.segmentId, atMs: pending.atMs } }),
                 });
-                handed.push(item.id);
                 pending = undefined;
                 continue;
             }
@@ -671,14 +669,15 @@ export class DirectorService {
                 // Marked handed HERE rather than when it finds its record, and the difference is
                 // a loop rather than a nicety: a cue left `planned` is the first thing the next
                 // pass offers, so it would be picked up again, hold itself for the record after,
-                // and never let the running order move past it.
-                handed.push(item.id);
+                // and never let the running order move past it. It is the one thing this class
+                // still hands over itself, because a cue is never given to the player in its own
+                // right and so the transport never reaches it.
+                this.lineup?.markHanded(item.id);
                 pending = { itemId: item.id, segmentId: segment.id, atMs: item.over.atMs };
                 continue;
             }
 
-            tracks.push({ ...segmentRundownTrack(segment), planId: item.id });
-            handed.push(item.id);
+            playable.push({ ...segmentRundownTrack(segment), id: item.id });
         }
 
         // Held for the next pass rather than dropped. A batch is only three items, so a talk-over
@@ -686,7 +685,14 @@ export class DirectorService {
         // discarding it would silently lose that many breaks. It is cleared wherever the plan
         // changes, alongside the epoch it would otherwise outlive.
         this.pendingVoice = pending;
-        return { tracks, handed, skipped };
+        return { items: playable, skipped };
+    }
+
+    /** Prepare these items and mark whatever the station will pass over. */
+    private async prepareForPlayer(items: readonly StationLineupItem[]): Promise<void> {
+        const prepared = await this.toPlayerItems(items);
+        this.rundown.prepare(prepared.items);
+        for (const itemId of prepared.skipped) this.lineup?.markSkipped(itemId);
     }
 
     /**
@@ -769,15 +775,10 @@ export class DirectorService {
      * before anybody had played it.
      */
     private remember(item: RundownItem): void {
-        // The order's own record of what is on air moves here too, for the same reason: this is
-        // the one moment the player has said so.
-        if (item.planId !== undefined) {
-            this.lineup?.markAiring(item.planId);
-            // Not awaited and not persisted here. The next commit pass writes it, and a crash in
-            // between replays the record rather than skipping it, which is the side of that trade
-            // this codebase has already chosen.
-        }
-
+        // The item's own state has already moved: the rundown marks it airing at the moment the
+        // player says so, on the one shared order. This listener is only for what has to be
+        // written DOWN about it.
+        //
         // Play history exists to steer what the station plays NEXT: the repeat window and the
         // artist cooldown are both reads of it. A segment is not a record and has no artist, so a
         // row for it would put "Station ident" into the song key space and have the station

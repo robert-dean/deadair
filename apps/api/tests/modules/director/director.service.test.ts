@@ -201,20 +201,28 @@ describe('DirectorService committing', () => {
         expect(rundown.upcoming()).toHaveLength(3);
     });
 
-    it('marks exactly what it committed, and nothing else', async () => {
-        // There is no cursor to advance. The position IS the states, which is what makes it
-        // impossible for the plan and what aired to disagree.
-        const { director, lineup, seed } = build();
+    it('prepares what the transport has room for, and marks nothing itself', async () => {
+        // There is no cursor to advance, and no hand-over to claim. Preparing is telling the
+        // transport HOW to play what the order already says; handing over is the transport's own
+        // act, and it marks it at the moment it happens. Two things used to claim that
+        // transition and the order was whichever ran last.
+        const { director, lineup, rundown, seed } = build();
         await seed();
 
         await director.start();
 
-        expect(
-            lineup
-                .all()
-                .slice(0, 4)
-                .map(item => item.state),
-        ).toEqual(['handed', 'handed', 'handed', 'planned']);
+        expect(rundown.upcoming()).toHaveLength(3);
+        expect(lineup.all().every(item => item.state === 'planned')).toBe(true);
+    });
+
+    it('leaves the marking to the hand-over, where it is a fact', async () => {
+        const { director, lineup, rundown, seed } = build();
+        await seed();
+        await director.start();
+
+        const pulled = await rundown.next();
+
+        expect(lineup.find(pulled!.item.id)?.state).toBe('handed');
     });
 
     it('refills the window as the player consumes it', async () => {
@@ -347,13 +355,16 @@ describe('DirectorService reclaiming what was retracted', () => {
         await seed();
         await director.start();
         expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+        // Handed to the player, and heard by nobody.
+        await rundown.next();
+        await rundown.next();
 
-        // What `putOnAir` and an edit both do: retract the tail, leave the station on air.
-        rundown.load([]);
+        // What `putOnAir` does: retract the tail, leave the station on air.
+        rundown.retract();
         await settle();
 
-        // The same three, not the three after them. Without the reclaim the cursor stays at 3 and
-        // a, b and c are never heard by anyone.
+        // The same three, not the three after them. Without the reclaim they would sit spent in
+        // the order, where nothing would ever offer them and no listener ever heard them.
         expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
     });
 
@@ -392,37 +403,40 @@ describe('DirectorService reclaiming what was retracted', () => {
 
         // 'a' is handed over and confirmed; 'b' and 'c' are handed over and still merely held.
         const pulled = await rundown.next();
+        await rundown.next();
+        await rundown.next();
         rundown.markAired(pulled!.item.id);
         await settle();
 
-        // The running order moves ON: 'd' tops up behind the two still held. Nothing is reclaimed
-        // and nothing is committed twice.
+        // The running order moves ON: 'd' is prepared behind the two the player is holding.
+        // Nothing is reclaimed and nothing is offered twice.
         expect(idsOf(rundown.upcoming())).toEqual(['b', 'c', 'd']);
         expect(
             lineup
                 .all()
                 .slice(0, 5)
                 .map(item => item.state),
-        ).toEqual(['airing', 'handed', 'handed', 'handed', 'planned']);
+        ).toEqual(['airing', 'handed', 'handed', 'planned', 'planned']);
     });
 
-    it('steps over lines this lineup does not hold rather than stopping at them', async () => {
-        // After a change of programming the retraction is full of the previous lineup's lines, so
-        // the FIRST unheard line is routinely one this lineup knows nothing about. A walk that
-        // stopped there would reclaim nothing and the loss would be silent.
-        const { director, rundown, seed } = build();
+    it('recognises what a previous process left on air, rather than standing the clock down', async () => {
+        // The reason item ids are the ORDER's, and the case the merge exists for. A restart used
+        // to come back unable to name what Liquidsoap was still producing, log a diagnostic about
+        // an id it had never handed over, and stand its clock down over a record a listener was in
+        // the middle of.
+        const { director, rundown, lineup, seed } = build();
         await seed();
+        // The row as a crashed process left it: one item handed over, and confirmed on air.
+        const [wasAiring] = lineup.nextPlanned(1);
+        lineup.markHanded(wasAiring!.id);
+        lineup.markAiring(wasAiring!.id);
 
-        // Something already in the running order that names a line from a lineup we do not hold.
-        rundown.load([{ ...track('x'), planId: 'a-line-from-some-other-lineup' }]);
         await director.start();
-        expect(idsOf(rundown.upcoming())).toEqual(['x', 'a', 'b']);
+        vi.mocked(logger.warn).mockClear();
+        rundown.reconcile({ queued: 0, ready: true, onAir: wasAiring!.id });
 
-        rundown.load([]);
-        await settle();
-
-        // 'a' and 'b' come back despite the unrecognised line ahead of them in the retraction.
-        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+        expect(rundown.nowPlaying()?.item.id).toBe(wasAiring!.id);
+        expect(logger.warn).not.toHaveBeenCalled();
     });
 });
 
@@ -437,7 +451,10 @@ describe('DirectorService committing under a burst of events', () => {
 
         // Several per boundary is the real rate: the item handed over and the item confirmed on
         // air are two events milliseconds apart, and the pusher reconciles on top of that.
-        for (let index = 0; index < 8; index++) rundown.append([]);
+        for (let index = 0; index < 8; index++) rundown.prepare([]);
+        // Nothing to prepare announces nothing, so the burst is staged the way a real one arrives:
+        // through the player consuming what it was given.
+        await rundown.next();
         await settle();
 
         const ids = idsOf(rundown.upcoming());
@@ -465,7 +482,7 @@ describe('DirectorService committing under a burst of events', () => {
         });
 
         await director.start();
-        for (let index = 0; index < 5; index++) rundown.append([]);
+        for (let index = 0; index < 5; index++) await rundown.next();
         await settle();
 
         expect(overlapped).toBe(false);
@@ -525,14 +542,14 @@ describe('DirectorService standing down', () => {
         expect(airRepository.standDown).toHaveBeenCalled();
     });
 
-    it('ignores a replacement, which is not a stand-down', async () => {
-        // `load` announces a reset too, but the station is still on air playing what
-        // it was playing; only the order behind it changed.
+    it('ignores a retraction, which is not a stand-down', async () => {
+        // A retraction announces a reset too, but the station is still on air playing what it was
+        // playing; only what comes after it changed.
         const { director, rundown, seed } = build();
         await seed();
         await director.start();
 
-        rundown.load([track('x')]);
+        rundown.retract();
         await new Promise(resolve => setImmediate(resolve));
 
         expect(director.status().active).toBe(true);
@@ -605,17 +622,20 @@ describe('DirectorService at the end of a lineup', () => {
             await settle();
         }
 
-        // 'a' is behind the listener, so it is offered again and goes straight back to the
-        // player. 'b' is not, because they are in the middle of it.
+        // 'a' is behind the listener, so it is offered again and prepared for the player. 'b' is
+        // not, because they are in the middle of it.
         expect(idsOf(rundown.upcoming())).toEqual(['a']);
-        expect(lineup.all().map(item => item.state)).toEqual(['handed', 'airing']);
+        expect(lineup.all().map(item => item.state)).toEqual(['planned', 'airing']);
     });
 
-    it('stands the station down when a lineup says to stop', async () => {
+    it('stands the station down when the running order says to stop', async () => {
+        // Reached once the last item is with the player rather than at the moment it is prepared:
+        // handing over is what spends it, and the transport is what does that.
         const { director, rundown, seed } = build({ items: ['a'], mode: 'feature', onEnd: 'stop' });
         await seed();
 
         await director.start();
+        await rundown.next();
         await new Promise(resolve => setImmediate(resolve));
 
         expect(director.status().active).toBe(false);
@@ -1040,9 +1060,10 @@ describe('DirectorService editing what is on air', () => {
     });
 
     it('refuses an edit to what the player is already holding', async () => {
-        const { director, lineup, seed } = build();
+        const { director, lineup, rundown, seed } = build();
         await seed();
         await director.start();
+        await rundown.next();
 
         const committed = lineup.all()[0]!;
         expect(await director.applyEdit({ kind: 'remove', itemId: committed.id })).toMatchObject({ ok: false, reason: 'already-aired' });

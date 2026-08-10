@@ -8,20 +8,24 @@ Playback is built and working: playlist → `Rundown` → signed track-shim URL 
 `request.queue` → mount, with Liquidsoap's `on_track` posting back which item actually started. The
 list below is what was consciously left out of that pass. **Do not assume any of it exists.**
 
-## No persistence
+## Persistence — BUILT, and not by this file's route
 
-Restarting the API loses the running order; the player keeps airing what it holds, and the reactor
-rebuilds a lead from the lineup cursor within seconds.
+The running order is durable, because it stopped being the rundown's. `deadair.station_lineup` holds
+it as one document of stateful items, written on a throttle by the director, and the rundown keeps
+only what a restart is allowed to lose: each item's playable form, when it was handed over, and the
+playhead. See `docs/decisions/on-air-ownership.md`.
 
-This file used to say persistence "lands with breaks and not before", because v1 could not time a
-break without naming what was on air across a restart. Breaks have since landed without it, and the
-reason is worth keeping: **the timing here is positional rather than scheduled.** A segment sits
-between two lines of a lineup, and a talk-over cue is expressed against a running-order item and
-evaluated inside `radio.liq`. Neither needs to survive a restart, because neither is a time.
+What that bought is the thing this file called deferred: **item ids survive a restart**, so an app
+that comes back recognises the record Liquidsoap is still producing instead of standing its clock
+down over an id it has never seen.
 
-So this is now deferred on its own merits rather than as a prerequisite for anything. What would
-actually want it is something that must know what aired across a restart — a resume that is exact to
-the second, or an as-run log the operator can trust.
+The reason this file gave for not needing it still stands and is still worth keeping: **the timing
+here is positional rather than scheduled.** A segment sits between two items of the running order,
+and a talk-over cue is expressed against an item and evaluated inside `radio.liq`. Neither is a
+time, so neither needed persistence — it arrived for ownership rather than for timing.
+
+Still deferred: an as-run log the operator can trust, which is a different record from the running
+order and outlives it.
 
 ## No playhead corroboration
 

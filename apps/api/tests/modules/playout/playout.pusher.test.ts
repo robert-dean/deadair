@@ -7,7 +7,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
-import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
+import { Rundown, type RundownItem, type RundownTrack } from '../../../src/modules/playout/rundown.js';
+import { StationLineup, isTrackItem } from '../../../src/modules/director/station.lineup.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
 import { PLAYOUT_LEAD, type PlayoutControlClient, type QueueStatus } from '../../../src/modules/playout/liquidsoap.control.js';
 import type { Logger } from '@maroonedsoftware/logger';
@@ -27,6 +28,22 @@ const track = (externalId: string): RundownTrack => ({
     title: `Track ${externalId}`,
     artists: ['An Artist'],
 });
+
+/**
+ * A running order, attached and prepared, which is what the director does for the transport.
+ *
+ * The real `StationLineup` rather than a fake: it IS the `LiveOrder` the rundown drives, and the
+ * point of these cases is what the two do together. Preparing is the director's half — it resolves
+ * each item into the form the player can be handed — and here that is a straight copy, because a
+ * record already carries everything it needs.
+ */
+function seed(rundown: Rundown, tracks: readonly RundownTrack[]): StationLineup {
+    const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+    order.replaceFrom(tracks);
+    rundown.attach(order);
+    rundown.prepare(order.all().flatMap(item => (isTrackItem(item) ? [{ ...item.track, id: item.id } as RundownItem] : [])));
+    return order;
+}
 
 /** A control client over a canned reading, recording what was pushed. */
 function stubControl(reading: QueueStatus | undefined, options: { pushLands?: boolean } = {}) {
@@ -128,7 +145,7 @@ function stubAudience(open = true) {
  */
 async function onAirStation(ids: string[]) {
     const rundown = new Rundown(new StubResolver(), logger);
-    rundown.load(ids.map(track));
+    seed(rundown, ids.map(track));
     const { control, pushed } = scriptedControl();
     const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience().audience, logger);
 
@@ -146,7 +163,7 @@ async function onAirStation(ids: string[]) {
 
 function setup(ids: string[], reading: QueueStatus | undefined, options: { pushLands?: boolean; audience?: boolean } = {}) {
     const rundown = new Rundown(new StubResolver(), logger);
-    rundown.load(ids.map(track));
+    seed(rundown, ids.map(track));
     const { control, pushed, spy } = stubControl(reading, options);
     const gate = stubAudience(options.audience ?? true);
     return { rundown, pusher: new PlayoutPusher(rundown, control, gate.audience, logger), pushed, spy, gate };
@@ -460,7 +477,7 @@ describe('PlayoutPusher lifecycle', () => {
         pusher.start();
 
         try {
-            rundown.load([track('b')]);
+            rundown.retract();
             expect(spy.flush).toHaveBeenCalledOnce();
             expect(spy.releaseOnAir).not.toHaveBeenCalled();
         } finally {
@@ -489,7 +506,7 @@ describe('PlayoutPusher lifecycle', () => {
         pusher.start();
         pusher.stop();
 
-        rundown.load([track('b')]);
+        rundown.retract();
 
         expect(spy.flush).not.toHaveBeenCalled();
     });
@@ -501,7 +518,7 @@ describe('PlayoutPusher pushing across a change underneath it', () => {
     /** The pusher over a running order, with an audience gate the test can close mid-push. */
     const build = (onFirstPush: () => void) => {
         const rundown = new Rundown(new StubResolver(), logger);
-        rundown.load([track('a'), track('b'), track('c'), track('d')]);
+        seed(rundown, [track('a'), track('b'), track('c'), track('d')]);
 
         const reading: QueueStatus = { queued: 0, ready: false, remainingMs: -1, driving: true };
         const pushed: string[] = [];
@@ -565,7 +582,7 @@ describe('PlayoutPusher pushing across a change underneath it', () => {
 describe('PlayoutPusher arming a talk-over', () => {
     const build = (voice?: { url: string; atMs: number }) => {
         const rundown = new Rundown(new StubResolver(), logger);
-        rundown.load([{ ...track('a'), ...(voice ? { voice: { segmentId: 'seg-1', atMs: voice.atMs } } : {}) }]);
+        seed(rundown, [{ ...track('a'), ...(voice ? { voice: { segmentId: 'seg-1', atMs: voice.atMs } } : {}) }]);
 
         const reading: QueueStatus = { queued: 0, ready: false, remainingMs: -1, driving: true };
         const control = {
@@ -610,7 +627,7 @@ describe('PlayoutPusher arming a talk-over', () => {
         const { pusher, control, rundown } = build();
         pusher.start();
 
-        rundown.load([track('x')]);
+        rundown.retract();
 
         expect(control.clearVoice).toHaveBeenCalled();
         pusher.stop();

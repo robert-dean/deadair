@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -55,6 +56,13 @@ type sessionHolder struct {
 	// reconnect storm against Spotify.
 	lastFailure time.Time
 	backoff     time.Duration
+	// Why the last login attempt failed, for the health probe.
+	//
+	// A station that cannot play anything shows up as a fetch timing out and a queue that never
+	// advances, and the reason is several layers down. Keeping it here means one HTTP call
+	// answers "why is nothing playing", instead of a log dig through a wall of backoff lines
+	// that all say the same thing.
+	lastError string
 
 	creds  credentialSource
 	log    librespot.Logger
@@ -65,6 +73,18 @@ const (
 	minBackoff = 2 * time.Second
 	maxBackoff = 60 * time.Second
 )
+
+// get() refusing to attempt anything, as opposed to attempting one and being refused by Spotify.
+//
+// Its own type so a caller can tell the two apart, which matters for exactly one decision: whether
+// the failure is worth telling an operator about. Being held off is this shim working — the login
+// that failed has already been reported — and warning per request would bury that one report under
+// a line per track.
+type holdingOff struct{ wait time.Duration }
+
+func (e holdingOff) Error() string {
+	return fmt.Sprintf("holding off %s after a failed login", e.wait.Round(time.Millisecond))
+}
 
 func newSessionHolder(creds credentialSource, log librespot.Logger, client *http.Client) *sessionHolder {
 	return &sessionHolder{creds: creds, log: log, client: client}
@@ -80,35 +100,53 @@ func (h *sessionHolder) get(ctx context.Context) (*session, error) {
 		return h.current, nil
 	}
 	if wait := time.Until(h.lastFailure.Add(h.backoff)); wait > 0 {
-		return nil, fmt.Errorf("holding off %s after a failed login", wait.Round(time.Millisecond))
+		return nil, holdingOff{wait: wait}
 	}
 
 	username, token, err := h.creds.fetch(ctx, h.client)
 	if err != nil {
-		h.noteFailure()
+		h.noteFailure(err)
 		return nil, err
 	}
 	sess, err := connect(ctx, h.log, h.client, username, token)
 	if err != nil {
-		h.noteFailure()
+		h.noteFailure(err)
 		return nil, err
 	}
-	h.current, h.backoff = sess, 0
+	h.current, h.backoff, h.lastError = sess, 0, ""
 	return sess, nil
 }
 
 // Warm the session in the background, so a login that has to happen anyway does not happen inside
 // the fetch of an item that is about to air.
 //
-// Errors are logged and dropped: this is speculative work, and the fetch path opens (and reports)
-// its own session if this never succeeded. The backoff in get() still applies, so a station whose
-// credentials are rejected does not turn every push into another login attempt.
+// Errors are dropped rather than returned: this is speculative work, and the fetch path opens (and
+// reports) its own session if this never succeeded. The backoff in get() still applies, so a station
+// whose credentials are rejected does not turn every push into another login attempt.
+//
+// **Reported at warn, not debug.** A rejected login here is the same rejection the fetch path would
+// hit, and it is the only place the REASON appears at all: once the backoff is set, every later
+// request reports "holding off ..." and the cause is never printed again. Logging it quietly is how
+// a station that cannot play anything presents as an unexplained sixty-second cycle. Holding off is
+// not itself worth a warning — it is this shim working as intended — so that one stays quiet.
 func (h *sessionHolder) warm(timeout time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	if _, err := h.get(ctx); err != nil {
-		h.log.WithError(err).Debugf("could not warm the session after a pushed login")
+		var held holdingOff
+		if errors.As(err, &held) {
+			h.log.WithError(err).Debugf("not warming the session yet")
+			return
+		}
+		h.log.WithError(err).Warnf("could not log in to Spotify; the station cannot fetch tracks until this succeeds")
 	}
+}
+
+// Why the last login attempt failed, or "" if the last one succeeded. For the health probe.
+func (h *sessionHolder) failure() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.lastError
 }
 
 // Drop any live session and forget the backoff, so the next request logs in again from scratch.
@@ -119,7 +157,7 @@ func (h *sessionHolder) reset() {
 	defer h.mu.Unlock()
 	h.current.close()
 	h.current = nil
-	h.lastFailure, h.backoff = time.Time{}, 0
+	h.lastFailure, h.backoff, h.lastError = time.Time{}, 0, ""
 }
 
 // Forget the backoff without touching a live session.
@@ -161,8 +199,10 @@ func (h *sessionHolder) shutdown() {
 	h.current = nil
 }
 
-func (h *sessionHolder) noteFailure() {
+func (h *sessionHolder) noteFailure(err error) {
 	h.lastFailure = time.Now()
+	h.lastError = err.Error()
+
 	switch {
 	case h.backoff == 0:
 		h.backoff = minBackoff

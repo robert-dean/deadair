@@ -51,10 +51,16 @@ docker compose exec -T liquidsoap sh -c 'set -a; . /streamconfig/radio.env; dead
 Three endpoints:
 
 ```
-GET  /health         → {"ok":true,"session":false}
+GET  /health         → {"ok":true,"session":false,"loginError":"…"}
 POST /session        ← the app hands over a Spotify login
 GET  /track/{id}?t=  → the track as audio/ogg
 ```
+
+`loginError` is the reason the last login attempt was refused, absent once one succeeds. It is the
+first thing to read when the station queues tracks and never plays one: a refused login shows up
+everywhere else as a fetch that times out, and the reason is several layers down. The same reason is
+logged once, at warn, when the login is attempted — never per request, because once the backoff is
+set every later request would repeat it a line per track.
 
 `POST /session` takes `{"username","accessToken","expiresAt"}` (unix **milli**seconds, matching the
 app's plugin boundary) behind `X-Spotify-Login-Secret`, and answers **202** without waiting for the

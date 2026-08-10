@@ -16,7 +16,7 @@ import (
 // The HTTP half: one track per request, so Liquidsoap's request.queue can fetch a Spotify track
 // the same way it fetches a pre-signed Subsonic URL.
 //
-//	GET  /health        → {"ok":true,"session":false}
+//	GET  /health        → {"ok":true,"session":false,"loginError":"..."}
 //	POST /session       ← the app hands over a Spotify login
 //	GET  /track/{id}?t= → the track as audio/ogg
 //
@@ -61,7 +61,16 @@ func (s *server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	// Reports whether a login is CURRENTLY established, and never establishes one: a health probe
 	// that logs in would make every container restart hit Spotify whether or not the station is
 	// even in Spotify mode.
-	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "session": s.sessions.live()})
+	//
+	// `loginError` is the last reason a login was refused, and it is the whole point of probing
+	// this while nothing plays: without it a station that cannot fetch a single track looks
+	// identical to one nobody has asked for anything yet, and the reason is buried under a wall of
+	// identical backoff lines.
+	body := map[string]any{"ok": true, "session": s.sessions.live()}
+	if failure := s.sessions.failure(); failure != "" {
+		body["loginError"] = failure
+	}
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 // The body of POST /session: the login the app lends this shim.

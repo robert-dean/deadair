@@ -21,8 +21,8 @@ import { SseFrameReader, isMountUri, listenerEvent } from './icecast.eventfeed.p
  *
  * **It stays asleep on Icecast 2.4.** The feed only exists on a server that also
  * serves the admin stats endpoint, so this waits for the poll to have resolved
- * that endpoint before opening anything. On the pinned 2.4.4 image it never
- * connects and costs nothing.
+ * that endpoint before opening anything, and attaches on the poll that finds one.
+ * Against a 2.4 server it never opens a socket and costs nothing.
  *
  * Note this is the INBOUND direction, which is why it parses SSE by hand rather
  * than using ServerKit's: `openSseStream` and `serverFeedRouter` push events out

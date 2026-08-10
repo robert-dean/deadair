@@ -113,7 +113,7 @@ export class PlayoutService {
     }
 
     /**
-     * Play a plugin playlist: import it as a lineup and put that on air.
+     * Play a plugin playlist: build the running order from it and go on air.
      *
      * A delegate, not an implementation. The station's programming is the
      * director's, and this route predates it — keeping a second path that wrote
@@ -121,13 +121,15 @@ export class PlayoutService {
      * of each other, and whichever ran last would win. So the shortcut stays,
      * because it is a genuinely useful one, and it goes the long way round.
      *
+     * It is now one call rather than two, because there is no import step left to
+     * make: putting a playlist on air READS it, and nothing is stored in between.
+     *
      * The 403/404/422/501/503 answers all still come from the same place they
-     * always did: the import reads through `PlaylistsService`, which narrows on
-     * the actor's view of the plugin.
+     * always did: the read goes through `PlaylistsService`, which narrows on the
+     * actor's view of the plugin.
      */
     async playPlaylist(input: PlayoutPlaylistInput): Promise<PlayoutStatus> {
-        const lineup = await this.director.importPlaylist({ pluginId: input.pluginId, playlistId: input.playlistId });
-        await this.director.putOnAir({ lineupId: lineup.id });
+        await this.director.putOnAir({ pluginId: input.pluginId, playlistId: input.playlistId });
 
         // Hand the first item over now rather than waiting out the reconcile tick,
         // so the console's own response already reflects a station that is starting.

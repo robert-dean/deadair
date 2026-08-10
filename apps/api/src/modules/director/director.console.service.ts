@@ -5,42 +5,48 @@ import { Logger } from '@maroonedsoftware/logger';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
-import { AfterCommit } from '#modules/data/after.commit.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
-import type { DirectorCommand } from './director.mailbox.js';
+import type { OrderEdit } from './director.mailbox.js';
 import { DirectorService } from './director.service.js';
 import type { EditResult, Lineup as LoadedLineup, LineupSegmentItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { StationAirRepository } from './station.air.repository.js';
+import type { StationLineupBinding, StationLineupSegmentItem, StationLineupSnapshot } from './station.lineup.js';
 import type {
     AddLineupSegmentInput,
+    AddStationSegmentInput,
     EditLineupInput,
     ExtendLineupInput,
+    ExtendStationInput,
     ImportLineupInput,
     Lineup,
     LineupItem as LineupItemView,
     LineupList,
     MoveLineupItemInput,
+    MoveStationItemInput,
     PutOnAirInput,
     SetStationAirInput,
     StationAir,
+    StationOrder,
+    StationOrderItem,
 } from './types/director.types.js';
 
 /**
  * The operator's side of the director: everything a request does to the
  * station's programming.
  *
- * Scoped, and deliberately the only writer of lineups on the request path. The
- * reactor is a singleton with no actor and no request scope; this is where a
- * person's decisions arrive, which is why the permission narrowing and the
+ * Scoped. The reactor is a singleton with no actor and no request scope; this is
+ * where a person's decisions arrive, which is why the permission narrowing and the
  * plugin reads live here.
  *
- * Every change to what is on air ends by telling the reactor, so an operator's
- * action takes effect at once rather than at the next boundary. That call is
- * in-process and cheap: they are the same object graph.
+ * **It does not write the running order, and nothing on the request path does.**
+ * Every change to what is on air is a command posted to the director, which owns
+ * it. That call is in-process and cheap — they are the same object graph — and the
+ * caller waits for its own change to have happened rather than being told it will
+ * happen shortly.
  */
 @Injectable()
 export class DirectorConsoleService {
@@ -54,9 +60,6 @@ export class DirectorConsoleService {
         // programming surface never writes one; that is the render module's business.
         private readonly segments: SegmentRepository,
         private readonly settings: SettingsService,
-        // How this request's decisions reach the reactor once they are durable. See
-        // {@link announceAirChange}.
-        private readonly afterCommit: AfterCommit,
         // Scoped, so a send commits with the request's own transaction rather than
         // ahead of it. See JobsModule for why the request path takes this one.
         private readonly jobs: JobBroker,
@@ -103,8 +106,6 @@ export class DirectorConsoleService {
             ),
         );
 
-        this.announceEdit(lineup.id);
-
         this.logger.info('director: put a segment into a lineup', {
             lineup: lineup.id,
             segment: segment.id,
@@ -122,29 +123,48 @@ export class DirectorConsoleService {
      * nothing has been committed from it, so nothing in it is beyond editing.
      */
     private async load(lineupId: string): Promise<LoadedLineup> {
-        const status = this.director.status();
-        const cursor = status.lineupId === lineupId ? status.cursor : 0;
-
-        const lineup = await this.lineups.load(lineupId, cursor);
+        // Always at zero. Nothing airs from a stored lineup any more, so nothing has been
+        // committed from one and the whole of it is editable.
+        const lineup = await this.lineups.load(lineupId, 0);
         if (!lineup) throw httpError(404).withDetails({ message: 'no such lineup' });
         return lineup;
     }
 
-    /** What is on air right now. */
+    /**
+     * What is on air right now.
+     *
+     * Answered entirely from the director, which is where the running order lives.
+     * No query at all, and no chance of the console being shown a row the reactor has
+     * not acted on: those were the same thing and both were bugs.
+     */
     async getAir(): Promise<StationAir> {
         const status = this.director.status();
-        if (!status.lineupId) return { active: status.active, airMode: status.airMode, cursor: 0, remaining: 0 };
-
-        const summaries = await this.lineups.list();
-        const named = summaries.find(summary => summary.id === status.lineupId);
         return {
             active: status.active,
             airMode: status.airMode,
-            lineupId: status.lineupId,
-            ...(named === undefined ? {} : { lineupName: named.name }),
-            cursor: status.cursor,
+            ...(status.name === undefined ? {} : { name: status.name }),
+            ...(status.source === undefined ? {} : { source: status.source }),
             remaining: status.remaining,
         };
+    }
+
+    /**
+     * The live running order, item by item.
+     *
+     * A segment is filled in from `deadair.segments` rather than from anything stored
+     * in the order, which is why this has a query in it. The order holds an id and the
+     * library holds the truth, so an operator renaming a segment sees the new name
+     * against what is on air, and one that has lost its audio is drawn as something the
+     * station will skip instead of as an item that looks fine.
+     */
+    async getOrder(): Promise<StationOrder> {
+        const order = this.director.order();
+        if (!order) {
+            // Nothing on air is an ordinary state, not a 404: the console draws an empty
+            // running order and the operator puts something on.
+            return { name: '', mode: 'rotation', onEnd: 'extend', source: 'director', items: [] };
+        }
+        return await this.toOrder(order);
     }
 
     /**
@@ -211,36 +231,66 @@ export class DirectorConsoleService {
     }
 
     /**
-     * Put a lineup on air, from the top.
+     * Put the station on air, building the running order from a playlist.
      *
      * What is playing finishes: changing the programming is not a reason to cut a
-     * listener off mid-track. The running order behind it is retracted, because
-     * it belongs to a lineup the station is no longer airing.
+     * listener off mid-track. What was committed behind it is retracted, because it
+     * belongs to a programme the station is no longer airing.
      *
-     * @param interrupting - Whether to remember what this displaced, so a lineup
-     *   ending with `on_end: 'resume'` can hand the station back. What an album
-     *   feature wants; not what an operator changing programming wants.
+     * **The playlist is READ, not copied.** That is the whole difference stage 2
+     * makes, and it closes two things at once: an imported list went stale the moment
+     * it was imported and was never re-read, and the break planner wrote the station's
+     * own idents into it, so an operator's playlist was permanently altered by having
+     * been aired. Neither is expressible now.
+     *
+     * A source is optional. Naming none starts the station with an empty order and
+     * lets the generator fill it, which is what a rotation with no playlist behind it
+     * is.
+     *
+     * @throws 422 when the playlist has nothing to play.
      */
     async putOnAir(input: PutOnAirInput): Promise<StationAir> {
-        const lineup = await this.load(input.lineupId);
+        const tracks = await this.sourceTracks(input);
 
-        const current = input.interrupting ? this.director.status() : undefined;
-        await this.air.putOnAir(lineup.id, current?.lineupId ? { lineupId: current.lineupId, cursor: current.cursor } : undefined);
-
-        this.announceAirChange({ kind: 'putOnAir' });
-
-        this.logger.info('director: put a lineup on air', { lineup: lineup.id, interrupting: input.interrupting ?? false });
-        // Built from what was just written rather than read back from the reactor, which has not
-        // acted on it yet and would answer with the lineup this one replaced. The row says the
-        // cursor is zero, so the whole of this lineup is still to come.
-        return {
-            active: true,
-            airMode: this.director.status().airMode,
-            lineupId: lineup.id,
-            lineupName: lineup.name,
-            cursor: 0,
-            remaining: lineup.size(),
+        const binding: StationLineupBinding = {
+            name: input.name ?? (input.pluginId === undefined ? 'The station' : `From ${input.pluginId}`),
+            mode: input.mode ?? 'rotation',
+            onEnd: input.onEnd ?? 'extend',
+            source: input.pluginId === undefined ? 'director' : 'import',
+            ...(input.pluginId === undefined ? {} : { sourcePluginId: input.pluginId }),
+            ...(input.playlistId === undefined ? {} : { sourcePlaylistId: input.playlistId }),
         };
+
+        // Synchronously, then the command: a commit pass may already be gathering against the
+        // programme coming off, and only the epoch can reach it. See {@link announceAirChange}.
+        this.director.invalidate();
+        await this.director.post({ kind: 'putOnAir', binding, tracks });
+
+        this.logger.info('director: put the station on air', {
+            plugin: input.pluginId,
+            playlist: input.playlistId,
+            tracks: tracks.length,
+        });
+        return await this.getAir();
+    }
+
+    /**
+     * The records a broadcast starts from.
+     *
+     * Read through {@link PlaylistsService} rather than by calling the plugin directly,
+     * so the same narrowing applies as when the console lists them: an actor who cannot
+     * see the plugin gets the same 403 whether or not it is installed, and a plugin that
+     * is not catalog-capable answers 501 rather than failing halfway through.
+     */
+    private async sourceTracks(input: PutOnAirInput): Promise<RundownTrack[]> {
+        if (input.pluginId === undefined || input.playlistId === undefined) return [];
+
+        const { tracks } = await this.playlists.getPlaylistTracks(input.pluginId, input.playlistId);
+        if (tracks.length === 0) {
+            // A running order that plays nothing would report success and then air silence.
+            throw httpError(422).withDetails({ message: 'that playlist has no tracks to play' });
+        }
+        return await this.toRundownTracks(input.pluginId, tracks);
     }
 
     /**
@@ -256,11 +306,72 @@ export class DirectorConsoleService {
         await this.jobs.send('director.extend_lineup', { lineupId, ...(input.count === undefined ? {} : { count: input.count }) });
     }
 
+    // ── the live running order ─────────────────────────────────────────────────
+    //
+    // Every one of these posts a command and none of them writes the order, which is the
+    // rule the whole decision rests on. They read as thin because they are: the work is
+    // the director's, and what is left here is turning a refusal into a status code.
+
+    /** Add tracks to what is on air now, rather than waiting for it to run short. */
+    async extendOrder(input: ExtendStationInput): Promise<void> {
+        await this.jobs.send('director.extend_lineup', { ...(input.count === undefined ? {} : { count: input.count }) });
+    }
+
+    /** Shuffle everything on air that has not been handed to the player. */
+    async shuffleOrder(): Promise<StationOrder> {
+        return await this.editOrder({ kind: 'shuffle' });
+    }
+
+    /** Move an item within the running order. */
+    async moveOrderItem(itemId: string, input: MoveStationItemInput): Promise<StationOrder> {
+        return await this.editOrder({ kind: 'move', itemId, toIndex: input.toIndex });
+    }
+
+    /** Drop an item that has not been handed to the player yet. */
+    async removeOrderItem(itemId: string): Promise<StationOrder> {
+        return await this.editOrder({ kind: 'remove', itemId });
+    }
+
+    /**
+     * Put a segment into the running order at a position.
+     *
+     * @throws 404 when the segment does not exist, and 422 when it has no audio.
+     *   Refused at the door rather than planted and skipped when it comes round: an
+     *   operator who asks for a specific ident should be told it cannot play, not
+     *   watch the order accept it and the station quietly pass over it.
+     */
+    async addSegmentToOrder(input: AddStationSegmentInput): Promise<StationOrder> {
+        const segment = await this.segments.findById(input.segmentId);
+        if (segment === undefined) throw httpError(404).withDetails({ message: 'no such segment' });
+        if (segment.state !== 'ready') {
+            throw httpError(422).withDetails({ message: `that segment is ${segment.state} and has no audio to play yet` });
+        }
+
+        return await this.editOrder({
+            kind: 'insertSegment',
+            segmentId: segment.id,
+            ...(input.atIndex === undefined ? {} : { atIndex: input.atIndex }),
+            ...(input.overAtMs === undefined ? {} : { overAtMs: input.overAtMs }),
+        });
+    }
+
+    /**
+     * Hand one edit to the director and answer with the order it produced.
+     *
+     * Cancel-then-post, like {@link putOnAir}, because an edit changes what the pass
+     * currently gathering was going to commit. The order is read back from the director
+     * rather than rebuilt here, because the director is the only thing that has it.
+     */
+    private async editOrder(edit: OrderEdit): Promise<StationOrder> {
+        this.director.invalidate();
+        this.require(await this.director.applyEdit(edit));
+        return await this.getOrder();
+    }
+
     /** Shuffle everything in a lineup that has not been committed yet. */
     async shuffleLineup(lineupId: string, input: EditLineupInput): Promise<Lineup> {
         const lineup = await this.load(lineupId);
         this.require(await lineup.shuffleRemaining(input.revision));
-        this.announceEdit(lineup.id);
         return await this.toLineup(lineup);
     }
 
@@ -268,7 +379,6 @@ export class DirectorConsoleService {
     async moveItem(lineupId: string, itemId: string, input: MoveLineupItemInput): Promise<Lineup> {
         const lineup = await this.load(lineupId);
         this.require(await lineup.move(itemId, input.toIndex, input.revision));
-        this.announceEdit(lineup.id);
         return await this.toLineup(lineup);
     }
 
@@ -276,61 +386,19 @@ export class DirectorConsoleService {
     async removeItem(lineupId: string, itemId: string, input: EditLineupInput): Promise<Lineup> {
         const lineup = await this.load(lineupId);
         this.require(await lineup.remove(itemId, input.revision));
-        this.announceEdit(lineup.id);
         return await this.toLineup(lineup);
     }
 
     /**
      * Delete a lineup outright.
      *
-     * @throws 409 while it is on air. Deleting what a listener is hearing is
-     *   almost never what someone means, and standing the station down is a
-     *   separate decision they can make explicitly first.
+     * Nothing can be on air from one any more, so there is no 409 left to answer: the
+     * running order is the director's own and a stored lineup is prepared material that
+     * nothing is playing from.
      */
     async deleteLineup(lineupId: string): Promise<void> {
-        if (this.director.status().lineupId === lineupId) {
-            throw httpError(409).withDetails({ message: 'that lineup is on air; stop the station or put another one on first' });
-        }
-
         await this.lineups.remove(lineupId);
         await this.air.forgetLineup(lineupId);
-    }
-
-    /**
-     * Tell the reactor that a lineup it might be airing has changed under it.
-     *
-     * Only when it IS airing it: an operator tidying a lineup that is not on air changes nothing
-     * the station is doing, and making the reactor re-read the plan for that would be work with no
-     * listener behind it.
-     *
-     * Not a re-read from here: this runs inside the request's own uncommitted transaction, so a
-     * re-read now would see the state before the edit that prompted it. See
-     * {@link announceAirChange}.
-     */
-    private announceEdit(lineupId: string): void {
-        if (this.director.status().lineupId !== lineupId) return;
-        this.announceAirChange({ kind: 'planChanged' });
-    }
-
-    /**
-     * Tell the reactor what this request did, in the two halves that need different timing.
-     *
-     * **Cancel now, act after the commit**, and the split is the whole reason this method exists
-     * rather than one call.
-     *
-     * {@link DirectorService.invalidate} is synchronous because a pass may already be gathering
-     * against the plan this request has just changed. Only the epoch can reach that pass; a command
-     * cannot, because it runs AFTER it and by then the stale decision has been applied. That is the
-     * same lesson `beginStandDown` is written around.
-     *
-     * The command is deferred because the reactor reads on its own connection, so it can only see
-     * this write once the transaction holding it has ended. `AfterCommit` runs before the response
-     * is written, so the operator still waits for their own change to take effect rather than being
-     * told it will happen shortly.
-     */
-    private announceAirChange(command: DirectorCommand): void {
-        this.director.invalidate();
-        this.afterCommit.add(() => this.director.post(command));
     }
 
     /** Turn an edit refusal into the status code that says the same thing. */
@@ -392,6 +460,42 @@ export class DirectorConsoleService {
     }
 
     /**
+     * The running order as the console reads it.
+     *
+     * One query for the whole order, not one per item.
+     */
+    private async toOrder(order: StationLineupSnapshot): Promise<StationOrder> {
+        const segments = await this.segments.findByIds(order.items.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])));
+
+        return {
+            name: order.name,
+            mode: order.mode,
+            onEnd: order.onEnd,
+            source: order.source,
+            ...(order.sourcePluginId === undefined ? {} : { sourcePluginId: order.sourcePluginId }),
+            ...(order.sourcePlaylistId === undefined ? {} : { sourcePlaylistId: order.sourcePlaylistId }),
+            items: order.items.map(item => {
+                if (item.kind === 'segment') return toOrderSegment(item, segments.get(item.segmentId));
+
+                return {
+                    id: item.id,
+                    kind: 'track' as const,
+                    state: item.state,
+                    pluginId: item.track.pluginId,
+                    externalId: item.track.externalId,
+                    title: item.track.title,
+                    artists: item.track.artists,
+                    ...(item.track.durationMs === undefined ? {} : { durationMs: item.track.durationMs }),
+                    ...(item.track.album === undefined ? {} : { album: item.track.album }),
+                    ...(item.track.artworkUrl === undefined ? {} : { artworkUrl: item.track.artworkUrl }),
+                    ...(item.track.year === undefined ? {} : { year: item.track.year }),
+                    ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
+                };
+            }),
+        };
+    }
+
+    /**
      * A loaded lineup as the console reads it.
      *
      * `committed` is the whole point of drawing the cursor: everything at or before
@@ -441,6 +545,33 @@ export class DirectorConsoleService {
         };
     }
 }
+
+/**
+ * A segment of the running order, as drawn from the library row it points at.
+ *
+ * One whose segment is gone still draws, as itself: the order does hold it, the station
+ * will pass over it, and hiding it would leave an operator wondering why what they can
+ * see does not match what they hear.
+ */
+const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undefined): StationOrderItem => ({
+    id: item.id,
+    kind: 'segment' as const,
+    state: item.state,
+    segmentId: item.segmentId,
+    title: segment?.label ?? 'a segment the library no longer holds',
+    // Empty, and not the station's name. A segment has no artist, and inventing one would put it
+    // in front of a listener as though it were a record by somebody.
+    artists: [],
+    segmentState: segment?.state ?? 'gone',
+    playable: segment?.state === 'ready',
+    // The reason, where the operator is already looking. Without it a break that could not be
+    // written and a DJ that simply talks less are the same observation, and the difference is a
+    // sentence the row has been carrying all along.
+    ...(segment?.error === undefined ? {} : { segmentError: segment.error }),
+    ...(segment?.writer === undefined ? {} : { segmentWriter: segment.writer }),
+    ...(item.over === undefined ? {} : { overAtMs: item.over.atMs }),
+    ...(segment?.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
+});
 
 /**
  * A segment line, as drawn from the library row the order points at.

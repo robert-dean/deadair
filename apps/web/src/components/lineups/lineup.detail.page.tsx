@@ -2,7 +2,7 @@ import { Alert, Anchor, Badge, Card, Group, Skeleton, Stack, Text, Title } from 
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { lineupOptions, useRemoveLineupItem, useStationAir } from '../../api/director.queries';
+import { lineupOptions, useRemoveLineupItem } from '../../api/director.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { LineupActions } from './lineup.actions';
 import { STALE_LINEUP_MESSAGE, useLineupEditGuard } from './lineup.edit.guard';
@@ -22,19 +22,12 @@ export interface LineupDetailPageProps {
  */
 export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
     const lineup = useQuery(lineupOptions(lineupId));
-    const air = useStationAir();
     const guard = useLineupEditGuard(lineupId);
     const removeItem = useRemoveLineupItem();
 
     // Bound once: every edit below sends the revision of the order that was drawn, and reading it
     // back off the query at call time would send whatever the cache had drifted to instead.
     const loaded = lineup.data;
-    const onAir = air.data?.lineupId === lineupId;
-    // Both halves come from the lineup's own cursor rather than one from here and one from the air
-    // poll. The two readings are taken on different clocks, and mixing them puts a sentence on the
-    // page whose numbers do not add up to the track count printed beside them.
-    const committed = loaded?.cursor ?? 0;
-    const toGo = loaded === undefined ? 0 : loaded.items.length - loaded.cursor;
 
     return (
         <Stack gap="lg">
@@ -48,11 +41,6 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
                     <Stack gap={6}>
                         <Group gap="sm" wrap="nowrap">
                             <Title order={1}>{loaded?.name ?? lineupId}</Title>
-                            {onAir ? (
-                                <Badge variant={air.data?.active ? 'filled' : 'light'} color={air.data?.active ? 'red' : 'gray'}>
-                                    {air.data?.active ? 'on air' : 'stood down'}
-                                </Badge>
-                            ) : undefined}
                         </Group>
                         {loaded ? (
                             <Group gap="xs">
@@ -64,18 +52,11 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
                                 </Badge>
                                 <Text size="sm" c="dimmed">
                                     {loaded.items.length === 1 ? '1 track' : `${loaded.items.length} tracks`}
-                                    {/* Only while this is the lineup on air. A cursor on a lineup
-                                        nobody is playing reads as zero, which is honest, and
-                                        saying "0 played" about it would imply it is queued to.
-
-                                        "Played" would also be wrong by the commit lead: the last few
-                                        locked lines are still waiting their turn. */}
-                                    {onAir ? ` • ${committed} locked • ${toGo} to go` : ''}
                                 </Text>
                             </Group>
                         ) : undefined}
                     </Stack>
-                    {loaded ? <LineupActions lineup={loaded} onAir={onAir} onEditError={guard.onError} /> : undefined}
+                    {loaded ? <LineupActions lineup={loaded} onEditError={guard.onError} /> : undefined}
                 </Group>
             </Stack>
 
@@ -98,7 +79,7 @@ export function LineupDetailPage({ lineupId }: LineupDetailPageProps) {
             {loaded?.items.length === 0 ? (
                 <Card withBorder padding="xl" radius="sm">
                     <Text size="sm" c="dimmed">
-                        This lineup holds nothing. Putting it on air would air silence.
+                        This lineup holds nothing.
                     </Text>
                 </Card>
             ) : undefined}

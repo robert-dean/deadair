@@ -1,10 +1,14 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type {
+    AddStationSegmentInput,
+    StationOrder,
     EditLineupInput,
     ExtendLineupInput,
+    ExtendStationInput,
     ImportLineupInput,
     Lineup,
     MoveLineupItemInput,
+    MoveStationItemInput,
     PutOnAirInput,
     SetStationAirInput,
 } from '@deadair/sdk';
@@ -92,6 +96,25 @@ const EXTEND_FOLLOW_UP_MS = [1_500, 4_000, 8_000];
 /** Pending follow-ups per lineup, so extending twice replaces the first schedule rather than stacking on it. */
 const extendFollowUps = new Map<string, ReturnType<typeof setTimeout>[]>();
 
+/** Pending follow-ups for the running order, which has no id to key on because there is one of it. */
+let stationExtendFollowUps: ReturnType<typeof setTimeout>[] = [];
+
+/**
+ * Keep looking at the running order for a moment, because the growth is on its way.
+ *
+ * Exported for tests; `useExtendOrder` is the only caller.
+ */
+export function followStationExtend(queryClient: QueryClient): void {
+    for (const timer of stationExtendFollowUps) clearTimeout(timer);
+
+    stationExtendFollowUps = EXTEND_FOLLOW_UP_MS.map(delay =>
+        setTimeout(() => {
+            void queryClient.refetchQueries({ queryKey: queryKeys.director.order() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.air() });
+        }, delay),
+    );
+}
+
 /**
  * Keep looking at a lineup for a moment, because the growth is on its way.
  *
@@ -123,20 +146,88 @@ export function useImportLineup() {
 }
 
 /**
- * Puts a lineup on air from the top.
+ * The live running order: what is on air, item by item.
  *
- * Both the air reading and the lineup are rewritten: the lineup's cursor is the CURRENT broadcast's,
- * so a lineup that read zero a moment ago is now the one being committed from.
+ * Polled like the air reading, and for the same reason: items move through their states as the
+ * player consumes them, which begins nowhere near this browser.
  */
-export function usePutLineupOnAir() {
+export const stationOrderOptions = queryOptions({
+    queryKey: queryKeys.director.order(),
+    queryFn: () => sdk.director.getTheRunningOrder(),
+    refetchInterval: AIR_POLL_MS,
+});
+
+export function useStationOrder() {
+    return useQuery(stationOrderOptions);
+}
+
+/**
+ * Puts the station on air, building the running order from a playlist.
+ *
+ * The playlist is READ rather than copied, so nothing here has to worry about a stored list going
+ * stale or being written into: there is no stored list.
+ */
+export function usePutStationOnAir() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (input: PutOnAirInput) => sdk.director.putALineupOnAir(input),
-        onSuccess: (air, input) => {
+        mutationFn: (input: PutOnAirInput) => sdk.director.putTheStationOnAir(input),
+        onSuccess: air => {
             queryClient.setQueryData(queryKeys.director.air(), air);
-            void queryClient.invalidateQueries({ queryKey: queryKeys.director.lineup(input.lineupId) });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
             // The transport is about to start handing this out, and it polls on its own clock.
             void queryClient.invalidateQueries({ queryKey: queryKeys.playout.status() });
+        },
+    });
+}
+
+/**
+ * Every edit to the running order answers with the order it produced.
+ *
+ * So each of these writes that answer straight into the cache rather than invalidating and
+ * re-reading: the director applied the edit before it replied, and a re-read would race the
+ * transport's own next move.
+ */
+function orderMutation<TInput>(queryClient: QueryClient, run: (input: TInput) => Promise<StationOrder>) {
+    return {
+        mutationFn: run,
+        onSuccess: (order: StationOrder) => {
+            queryClient.setQueryData(queryKeys.director.order(), order);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.air() });
+        },
+    };
+}
+
+export function useShuffleOrder() {
+    const queryClient = useQueryClient();
+    return useMutation(orderMutation<void>(queryClient, () => sdk.director.shuffleTheRunningOrder()));
+}
+
+export function useMoveOrderItem() {
+    const queryClient = useQueryClient();
+    return useMutation(
+        orderMutation<{ itemId: string } & MoveStationItemInput>(queryClient, ({ itemId, ...body }) =>
+            sdk.director.moveARunningOrderItem(itemId, body),
+        ),
+    );
+}
+
+export function useRemoveOrderItem() {
+    const queryClient = useQueryClient();
+    return useMutation(orderMutation<string>(queryClient, itemId => sdk.director.removeARunningOrderItem(itemId)));
+}
+
+export function useAddOrderSegment() {
+    const queryClient = useQueryClient();
+    return useMutation(orderMutation<AddStationSegmentInput>(queryClient, body => sdk.director.addASegmentToTheRunningOrder(body)));
+}
+
+/** Queues a refill of what is on air. Returns as soon as it is queued; the tracks land later. */
+export function useExtendOrder() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (input: ExtendStationInput) => sdk.director.extendTheRunningOrder(input),
+        onSuccess: () => {
+            followStationExtend(queryClient);
         },
     });
 }

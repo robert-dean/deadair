@@ -157,7 +157,8 @@ function labelFor({ previous, next }: PhrasingInputs): string {
  * going missing.
  */
 export function spoken(text: string): string {
-    const furniture = /\b(remaster(ed)?|re-?master|deluxe|expanded|anniversary|mono|stereo|single version|album version|radio edit|bonus track|\d{4} mix)\b/i;
+    const furniture =
+        /\b(remaster(ed)?|re-?master|deluxe|expanded|anniversary|mono|stereo|single version|album version|radio edit|bonus track|\d{4} mix)\b/i;
 
     let cleaned = text
         // "Title (2011 Remaster)" and "Title [Deluxe Edition]".

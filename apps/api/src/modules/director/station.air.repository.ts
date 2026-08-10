@@ -60,77 +60,31 @@ export class StationAirRepository extends DataRepository {
     }
 
     /**
-     * Put a lineup on air, from the top.
+     * Switch the station on.
      *
-     * `interrupting` is what makes a feature able to hand the station back: the
-     * lineup and cursor being displaced are remembered, so an album played over
-     * the afternoon rotation resumes that rotation where it left off rather than
-     * at its beginning. Passing nothing CLEARS that memory, which is right for an
-     * operator deliberately changing programming — there is nothing to go back to.
+     * All this row says now is WHETHER the station is driving. What it is driving is
+     * the director's own running order, in `station_lineup`, which is why nothing here
+     * names a lineup any more: a pointer to programming kept beside the programming
+     * itself is two answers to one question, and the older one always won.
      */
-    async putOnAir(lineupId: string, interrupting?: { lineupId: string; cursor: number }, slot = MAIN_SLOT): Promise<void> {
-        const values = {
-            lineupId,
-            cursor: 0,
-            active: true,
-            resumeLineupId: interrupting?.lineupId ?? null,
-            resumeCursor: interrupting?.cursor ?? null,
-        };
-
+    async goOnAir(slot = MAIN_SLOT): Promise<void> {
         await this.db
             .insertInto('deadair.stationAir')
-            .values({ slot, ...values })
-            .onConflict(oc => oc.column('slot').doUpdateSet(values))
+            .values({ slot, active: true })
+            .onConflict(oc => oc.column('slot').doUpdateSet({ active: true }))
             .execute();
     }
 
     /**
-     * Go back to a remembered lineup at a remembered position, and forget it.
+     * Stand the station down: stop driving.
      *
-     * The one place a cursor is restored rather than reset. Clearing the memory in
-     * the same statement matters: a second resume would otherwise return to the
-     * same point a second time, replaying whatever aired in between.
-     */
-    async resume(lineupId: string, cursor: number, slot = MAIN_SLOT): Promise<void> {
-        await this.db
-            .updateTable('deadair.stationAir')
-            .set({ lineupId, cursor, active: true, resumeLineupId: null, resumeCursor: null })
-            .where('slot', '=', slot)
-            .execute();
-    }
-
-    /**
-     * Stand the station down: stop driving, and forget what it was going to
-     * resume.
-     *
-     * The lineup and cursor are LEFT ALONE, so the console can still say what the
-     * station was playing. `active` is the whole difference between stopped and
+     * The running order is LEFT ALONE, in `station_lineup`, with every item still
+     * saying where it got to — so the console can still draw what the station stopped
+     * part-way through. `active` is the whole difference between stopped and
      * stopped-and-lost.
-     *
-     * **The preserved cursor is not reachable today**, and this used to claim it was.
-     * There is no resume route: `PUT /director/air` is the only way back on air and
-     * it writes `cursor: 0`, so stopping and starting replays the lineup from the
-     * top. The cursor is kept against the resume that `docs/todo/` still wants, and
-     * it is now honest enough to build one on — the director puts it back onto the
-     * first line nobody heard when the running order is retracted, where before it
-     * pointed past a handful of records that were promised and dropped, and a resume
-     * built on it would have skipped every one of them.
      */
     async standDown(slot = MAIN_SLOT): Promise<void> {
-        await this.db
-            .updateTable('deadair.stationAir')
-            .set({ active: false, resumeLineupId: null, resumeCursor: null })
-            .where('slot', '=', slot)
-            .execute();
-    }
-
-    /** Name the slot's home programming, for `on_end: 'rotation'`. */
-    async setDefaultLineup(lineupId: string | undefined, slot = MAIN_SLOT): Promise<void> {
-        await this.db
-            .insertInto('deadair.stationAir')
-            .values({ slot, defaultLineupId: lineupId ?? null })
-            .onConflict(oc => oc.column('slot').doUpdateSet({ defaultLineupId: lineupId ?? null }))
-            .execute();
+        await this.db.updateTable('deadair.stationAir').set({ active: false }).where('slot', '=', slot).execute();
     }
 
     /**

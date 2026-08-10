@@ -297,6 +297,24 @@ export class StationLineup {
         return this.itemList.find(item => item.id === itemId);
     }
 
+    /**
+     * The index everything before which belongs to the player.
+     *
+     * One past the last item this broadcast has done something with, rather than the
+     * first `planned` one. The two are the same in the ordinary case, where the order
+     * is a spent head followed by a planned tail. They differ after a retraction hands
+     * items back mid-order, and taking the first planned index there would open the
+     * head up to editing while the player is still holding part of it.
+     *
+     * What the old `Lineup.cursor()` answered, derived rather than counted.
+     */
+    committedThrough(): number {
+        for (let index = this.itemList.length - 1; index >= 0; index--) {
+            if (this.itemList[index]!.state !== 'planned') return index + 1;
+        }
+        return 0;
+    }
+
     /** The row as it should be stored. */
     toSnapshot(): StationLineupSnapshot {
         return { ...this.binding, items: [...this.itemList] };
@@ -557,22 +575,6 @@ export class StationLineup {
     }
 
     // ── internals ──────────────────────────────────────────────────────────────
-
-    /**
-     * The index everything before which belongs to the player.
-     *
-     * One past the last item this broadcast has done something with, rather than the
-     * first `planned` one. The two are the same in the ordinary case, where the order
-     * is a spent head followed by a planned tail. They differ after a retraction hands
-     * items back mid-order, and taking the first planned index there would open the
-     * head up to editing while the player is still holding part of it.
-     */
-    private committedThrough(): number {
-        for (let index = this.itemList.length - 1; index >= 0; index--) {
-            if (this.itemList[index]!.state !== 'planned') return index + 1;
-        }
-        return 0;
-    }
 
     /** Move one item between two states, and say whether it was in the first one. */
     private transition(itemId: string, from: StationLineupItemState, to: StationLineupItemState): boolean {

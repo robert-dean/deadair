@@ -79,7 +79,10 @@ describe('BreakWriterRegistry', () => {
 
     it('keeps the first of two writers claiming one kind, and says so', async () => {
         const log = logger();
-        const registry = new BreakWriterRegistry([new StubWriter('talkbreak', words('first')), new StubWriter('talkbreak', words('second'))], log as never);
+        const registry = new BreakWriterRegistry(
+            [new StubWriter('talkbreak', words('first')), new StubWriter('talkbreak', words('second'))],
+            log as never,
+        );
 
         await expect(registry.write({ kind: 'talkbreak' })).resolves.toEqual({ script: 'first', label: 'a break' });
         expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('talkbreak'));

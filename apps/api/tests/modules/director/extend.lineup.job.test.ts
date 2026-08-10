@@ -13,8 +13,9 @@ import type { BreakPlanner } from '../../../src/modules/director/break.planner.j
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import { ExtendLineupJob } from '../../../src/modules/director/extend.lineup.job.js';
-import { Lineup, type LineupMode } from '../../../src/modules/director/lineup.js';
-import type { LineupRepository } from '../../../src/modules/director/lineup.repository.js';
+import { StationLineup, type StationLineupMode } from '../../../src/modules/director/station.lineup.js';
+import type { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
+import type { DirectorCommand } from '../../../src/modules/director/director.mailbox.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
 import type { SetGenerator, SetInputs, TrackPick } from '../../../src/modules/director/set.generator.js';
@@ -34,7 +35,7 @@ const track = (title: string, artist = 'One'): RundownTrack => ({
 });
 
 interface Options {
-    mode?: LineupMode;
+    mode?: StationLineupMode;
     existing?: RundownTrack[];
     /** What the generator names. Defaults to twenty tracks, more than any ask here. */
     picks?: TrackPick[];
@@ -46,11 +47,11 @@ interface Options {
 function build(options: Options & { stationRules?: Record<string, string> } = {}) {
     // The station's own rotation rules, as an operator has them set. Empty means every default.
     const station = settingsConfig(options.stationRules ?? {});
-    const lineup = new Lineup({ id: 'lineup-1', name: 'Afternoons', mode: options.mode ?? 'rotation', onEnd: 'extend', source: 'director' });
+    const lineup = new StationLineup({ name: 'Afternoons', mode: options.mode ?? 'rotation', onEnd: 'extend', source: 'director' });
 
     const lineups = {
         load: vi.fn(async () => (options.missing ? undefined : lineup)),
-    } as unknown as LineupRepository;
+    } as unknown as StationLineupRepository;
 
     const named = options.picks ?? Array.from({ length: 20 }, (_, index) => ({ title: `T${index}`, artist: `Artist${index}` }));
     const generate = vi.fn(async (_inputs: SetInputs) => named);
@@ -69,7 +70,8 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
         invalidate: vi.fn(),
         post: vi.fn(async (command: DirectorCommand) => {
             posted.push(command);
-            if (command.kind === 'appendTracks') await lineup.append(command.tracks);
+            if (command.kind === 'appendTracks') lineup.append(command.tracks);
+            return undefined;
         }),
     } as unknown as DirectorService;
 
@@ -92,7 +94,7 @@ describe('ExtendLineupJob', () => {
         // hand back half an hour more programming than the station wanted.
         const { job, lineup } = build();
 
-        await job.run({ lineupId: 'lineup-1', count: 5 });
+        await job.run({ count: 5 });
 
         expect(lineup.size()).toBe(5);
     });
@@ -100,7 +102,7 @@ describe('ExtendLineupJob', () => {
     it('asks for more names than it needs, because most of a batch is discarded', async () => {
         const { job, generate } = build();
 
-        await job.run({ lineupId: 'lineup-1', count: 10 });
+        await job.run({ count: 10 });
 
         expect(generate.mock.calls[0]![0]!.count).toBeGreaterThan(10);
     });
@@ -111,7 +113,7 @@ describe('ExtendLineupJob', () => {
         const { job, seed, generate } = build({ existing: [track('Already Here')] });
         await seed();
 
-        await job.run({ lineupId: 'lineup-1', count: 1 });
+        await job.run({ count: 1 });
 
         expect(generate.mock.calls[0]![0]!.avoidSongKeys).toContain(songKey('Already Here', ['One']));
     });
@@ -122,7 +124,7 @@ describe('ExtendLineupJob', () => {
         const { job, seed, generate } = build({ existing: [track('A', 'One')] });
         await seed();
 
-        await job.run({ lineupId: 'lineup-1', count: 1 });
+        await job.run({ count: 1 });
 
         expect(generate.mock.calls[0]![0]!.avoidArtistKeys).toBeUndefined();
     });
@@ -136,7 +138,7 @@ describe('ExtendLineupJob', () => {
             resolvable: picks => picks.filter(pick => pick.title === 'Playable').map(pick => track(pick.title, pick.artist)),
         });
 
-        await job.run({ lineupId: 'lineup-1', count: 2 });
+        await job.run({ count: 2 });
 
         expect(lineup.all().map(item => item.track.title)).toEqual(['Playable']);
     });
@@ -146,7 +148,7 @@ describe('ExtendLineupJob', () => {
         // reporting a bug upstream rather than making a request.
         const { job, lineup, generate } = build({ mode: 'setlist' });
 
-        await job.run({ lineupId: 'lineup-1', count: 5 });
+        await job.run({ count: 5 });
 
         expect(generate).not.toHaveBeenCalled();
         expect(lineup.isEmpty()).toBe(true);
@@ -155,7 +157,7 @@ describe('ExtendLineupJob', () => {
     it('refuses to generate into a feature', async () => {
         const { job, generate } = build({ mode: 'feature' });
 
-        await job.run({ lineupId: 'lineup-1', count: 5 });
+        await job.run({ count: 5 });
 
         expect(generate).not.toHaveBeenCalled();
     });
@@ -163,22 +165,24 @@ describe('ExtendLineupJob', () => {
     it('shrugs at a lineup that was deleted between the send and the run', async () => {
         const { job, generate } = build({ missing: true });
 
-        await expect(job.run({ lineupId: 'lineup-1' })).resolves.toBeUndefined();
+        await expect(job.run({})).resolves.toBeUndefined();
         expect(generate).not.toHaveBeenCalled();
     });
 
-    it('shrugs at a payload with nothing to extend', async () => {
-        const { job, lineups } = build();
+    it('shrugs when the station has nothing on air to extend', async () => {
+        // An ordinary race with a stand-down rather than a fault: the job was sent while there
+        // was a running order and ran after it went away.
+        const { job, director } = build({ missing: true });
 
         await expect(job.run({})).resolves.toBeUndefined();
         await expect(job.run()).resolves.toBeUndefined();
-        expect(lineups.load).not.toHaveBeenCalled();
+        expect(director.post).not.toHaveBeenCalled();
     });
 
     it('stops when the run is cancelled before it writes', async () => {
         const { job, lineup } = build();
 
-        await job.run({ lineupId: 'lineup-1', count: 5 }, AbortSignal.abort());
+        await job.run({ count: 5 }, AbortSignal.abort());
 
         expect(lineup.isEmpty()).toBe(true);
     });
@@ -187,7 +191,7 @@ describe('ExtendLineupJob', () => {
         const { job, seed, lineup } = build({ existing: [track('Kept')] });
         await seed();
 
-        await job.run({ lineupId: 'lineup-1', count: 2 });
+        await job.run({ count: 2 });
 
         expect(lineup.all()[0]!.track.title).toBe('Kept');
         expect(lineup.size()).toBe(3);
@@ -202,12 +206,13 @@ describe('ExtendLineupJob not writing the lineup itself', () => {
     it('hands the records to the one owner rather than appending them', async () => {
         const { job, director, posted } = build();
 
-        await job.run({ lineupId: 'lineup-1', count: 3 });
+        await job.run({ count: 3 });
 
         expect(director.post).toHaveBeenCalledOnce();
         const [command] = posted();
         expect(command?.kind).toBe('appendTracks');
-        expect(command).toMatchObject({ lineupId: 'lineup-1' });
+        // No running order is named, because there is only one and the director owns it.
+        expect(command).not.toHaveProperty('lineupId');
     });
 
     it('cannot lose a refill to a writer that got there first', async () => {
@@ -217,7 +222,7 @@ describe('ExtendLineupJob not writing the lineup itself', () => {
         // whatever else happened while it was being generated.
         const { job, lineup, posted } = build();
 
-        await job.run({ lineupId: 'lineup-1', count: 4 });
+        await job.run({ count: 4 });
 
         const [command] = posted();
         const handed = command?.kind === 'appendTracks' ? command.tracks.length : 0;
@@ -232,6 +237,6 @@ describe('ExtendLineupJob not writing the lineup itself', () => {
         const { job, director } = build();
         vi.mocked(director.post).mockRejectedValueOnce(new Error('the database is gone'));
 
-        await expect(job.run({ lineupId: 'lineup-1', count: 3 })).rejects.toThrow('the database is gone');
+        await expect(job.run({ count: 3 })).rejects.toThrow('the database is gone');
     });
 });

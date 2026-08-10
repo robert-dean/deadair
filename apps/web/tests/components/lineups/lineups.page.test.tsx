@@ -38,7 +38,7 @@ describe('LineupsPage', () => {
         listLineups.mockResolvedValue({
             lineups: [lineupSummary(), lineupSummary({ id: 'lineup-2', name: 'Breakfast', itemCount: 1, sourcePluginId: undefined })],
         });
-        getStationAir.mockResolvedValue({ active: false, cursor: 0, remaining: 0 });
+        getStationAir.mockResolvedValue({ active: false, airMode: 'audience', remaining: 0 });
 
         render(<LineupsPage />);
 
@@ -50,31 +50,22 @@ describe('LineupsPage', () => {
         expect(screen.getByText(/^1 track$/)).toBeInTheDocument();
     });
 
-    it('marks the lineup that is on air, and only that one', async () => {
+    it('marks nothing as on air, because nothing airs from a stored lineup', async () => {
+        // What is on air is built from a playlist when the station goes on, so the station has no
+        // opinion about a stored lineup at all. A badge here would be inventing one.
         listLineups.mockResolvedValue({ lineups: [lineupSummary(), lineupSummary({ id: 'lineup-2', name: 'Breakfast' })] });
         getStationAir.mockResolvedValue(stationAir());
 
         render(<LineupsPage />);
 
-        expect(await screen.findByText('on air')).toBeInTheDocument();
-        expect(screen.getAllByText('on air')).toHaveLength(1);
-    });
-
-    it('says a station was stood down rather than dropping the badge entirely', async () => {
-        // The API keeps sending the lineup id after a stand-down precisely so the console can still
-        // say what the station was playing. Showing nothing would throw that away.
-        listLineups.mockResolvedValue({ lineups: [lineupSummary()] });
-        getStationAir.mockResolvedValue(stationAir({ active: false }));
-
-        render(<LineupsPage />);
-
-        expect(await screen.findByText('stood down')).toBeInTheDocument();
+        expect(await screen.findByText('Late shift')).toBeInTheDocument();
         expect(screen.queryByText('on air')).not.toBeInTheDocument();
+        expect(screen.queryByText('stood down')).not.toBeInTheDocument();
     });
 
     it('points an empty station at the playlists it could import from', async () => {
         listLineups.mockResolvedValue({ lineups: [] });
-        getStationAir.mockResolvedValue({ active: false, cursor: 0, remaining: 0 });
+        getStationAir.mockResolvedValue({ active: false, airMode: 'audience', remaining: 0 });
 
         render(<LineupsPage />);
 
@@ -86,7 +77,7 @@ describe('LineupsPage', () => {
         listLineups.mockRejectedValue(
             new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'the database is not answering' }, new Headers()),
         );
-        getStationAir.mockResolvedValue({ active: false, cursor: 0, remaining: 0 });
+        getStationAir.mockResolvedValue({ active: false, airMode: 'audience', remaining: 0 });
 
         render(<LineupsPage />);
 

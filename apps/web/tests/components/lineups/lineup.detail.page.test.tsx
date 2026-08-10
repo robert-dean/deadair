@@ -65,31 +65,18 @@ afterEach(() => {
 });
 
 describe('LineupDetailPage', () => {
-    it('draws the order and says how far the broadcast has got into it', async () => {
+    it('draws the order it holds, and says nothing about the station', async () => {
+        // Nothing airs from a stored lineup any more, so there is no broadcast position to draw
+        // against it: a cursor here would be describing a broadcast that is not happening.
         getALineup.mockResolvedValue(lineupOnAir());
         getStationAir.mockResolvedValue(stationAir());
 
         render(<LineupDetailPage lineupId="lineup-1" />);
 
         expect(await screen.findByText('Late shift')).toBeInTheDocument();
-        expect(screen.getByText('on air')).toBeInTheDocument();
-        expect(screen.getByText(/3 tracks • 1 locked • 2 to go/)).toBeInTheDocument();
-        // The committed line stays on the page: it is how an operator reads where the station is.
+        expect(screen.getByText(/3 tracks/)).toBeInTheDocument();
+        expect(screen.queryByText('on air')).not.toBeInTheDocument();
         expect(screen.getByText('Windowlicker')).toBeInTheDocument();
-        expect(screen.getByText('locked')).toBeInTheDocument();
-    });
-
-    it('counts both halves off the lineup, so they add up when the air poll has moved on', async () => {
-        // The two readings are taken on different clocks: the air poll runs every five seconds and
-        // the lineup is only re-read when something changes it. Taking "locked" from one and "to go"
-        // from the other puts a sentence on the page whose numbers do not sum to the track count
-        // printed beside them, which is exactly what happened on the real station.
-        getALineup.mockResolvedValue(lineupOnAir());
-        getStationAir.mockResolvedValue(stationAir({ cursor: 2, remaining: 1 }));
-
-        render(<LineupDetailPage lineupId="lineup-1" />);
-
-        expect(await screen.findByText(/3 tracks • 1 locked • 2 to go/)).toBeInTheDocument();
     });
 
     it('offers no way to drop a line the player is already holding', async () => {
@@ -143,26 +130,15 @@ describe('LineupDetailPage', () => {
         expect(screen.queryByText('That edit was refused')).not.toBeInTheDocument();
     });
 
-    it('will not offer to air a lineup that holds nothing', async () => {
+    it('says an empty lineup holds nothing, without offering to air it', async () => {
+        // There is no Put on air here at all. That decision moved to the playlists page, beside
+        // the thing the running order is actually built from.
         getALineup.mockResolvedValue(lineup({ items: [], cursor: 0 }));
-        getStationAir.mockResolvedValue({ active: false, cursor: 0, remaining: 0 });
+        getStationAir.mockResolvedValue({ active: false, airMode: 'audience', remaining: 0 });
 
         render(<LineupDetailPage lineupId="lineup-1" />);
 
-        expect(await screen.findByText(/Putting it on air would air silence/)).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Put on air' })).toBeDisabled();
-    });
-
-    it('puts a lineup on air from the top, without claiming to be interrupting anything', async () => {
-        getALineup.mockResolvedValue(lineup());
-        getStationAir.mockResolvedValue({ active: false, cursor: 0, remaining: 0 });
-        putALineupOnAir.mockResolvedValue(stationAir());
-
-        render(<LineupDetailPage lineupId="lineup-1" />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Put on air' }));
-
-        // `interrupting` is for a feature that means to hand the station back, not for an operator
-        // changing the programming.
-        await waitFor(() => expect(putALineupOnAir).toHaveBeenCalledWith({ lineupId: 'lineup-1' }));
+        expect(await screen.findByText(/This lineup holds nothing/)).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Put on air' })).not.toBeInTheDocument();
     });
 });

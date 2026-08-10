@@ -90,10 +90,7 @@ export function LineupOrderTable({ items, cursor, onRemove, removingItemId, onMo
                                     <Tooltip
                                         multiline
                                         maw={360}
-                                        label={
-                                            item.segmentError ??
-                                            `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`
-                                        }
+                                        label={item.segmentError ?? `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`}
                                     >
                                         <Badge size="xs" variant="light" color="yellow">
                                             will skip

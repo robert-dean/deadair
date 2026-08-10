@@ -67,6 +67,8 @@ export const queryKeys = {
         lineup: (lineupId: string) => ['director', 'lineup', lineupId] as const,
         /** What is on air. One key, for the reason `playout.status` is one key, and polled for the same reason. */
         air: () => ['director', 'air'] as const,
+        /** The live running order, item by item. One key, because there is one of them per station. */
+        order: () => ['director', 'order'] as const,
     },
     /**
      * The station's own catalog, as opposed to `playlists`, which is whatever the enabled plugins

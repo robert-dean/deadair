@@ -7,7 +7,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BreakPlanner, PLANT_AHEAD } from '../../../src/modules/director/break.planner.js';
-import { Lineup } from '../../../src/modules/director/lineup.js';
+import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
@@ -61,16 +61,21 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
     };
 };
 
-/** A rotation of `count` records, at a cursor, with nothing planted yet. */
-const lineupOf = async (count: number, cursor = 0): Promise<Lineup> => {
-    const lineup = new Lineup({ id: 'lineup-1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
-    await lineup.append(Array.from({ length: count }, (_, index) => track(`t${index}`)));
-    if (cursor > 0) await lineup.takeNext(cursor);
+/** Hand the first `count` planned items over, the way a commit pass does. */
+const hand = (lineup: StationLineup, count: number): void => {
+    for (const item of lineup.nextPlanned(count)) lineup.markHanded(item.id);
+};
+
+/** A rotation of `count` records, `committed` of them already with the player, nothing planted yet. */
+const lineupOf = async (count: number, committed = 0): Promise<StationLineup> => {
+    const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+    lineup.append(Array.from({ length: count }, (_, index) => track(`t${index}`)));
+    if (committed > 0) hand(lineup, committed);
     return lineup;
 };
 
 /** Which lines are segments, by index. */
-const segmentsAt = (lineup: Lineup): number[] =>
+const segmentsAt = (lineup: StationLineup): number[] =>
     lineup
         .all()
         .map((item, index) => (item.kind === 'segment' ? index : -1))
@@ -108,8 +113,8 @@ describe('BreakPlanner', () => {
         const { planner } = build();
         const lineup = await lineupOf(20);
         // A break two records back, both of them already committed.
-        await lineup.insertSegment('seg-old', 3);
-        await lineup.takeNext(6);
+        lineup.insertSegment('seg-old', 3);
+        hand(lineup, 6);
 
         await planner.plant(lineup, rules({ breakEveryItems: 4 }));
 
@@ -124,7 +129,7 @@ describe('BreakPlanner', () => {
     it('does not count a segment toward the spacing', async () => {
         const { planner } = build();
         const lineup = await lineupOf(12);
-        await lineup.insertSegment('seg-other', 2);
+        lineup.insertSegment('seg-other', 2);
 
         await planner.plant(lineup, rules({ breakEveryItems: 4 }));
 
@@ -199,16 +204,19 @@ describe('BreakPlanner', () => {
         expect(lineup.all().filter(item => item.kind === 'segment')).not.toHaveLength(0);
     });
 
-    it('writes the whole batch once rather than once per break', async () => {
+    it('puts the whole batch in with one edit rather than one per break', async () => {
         const { planner } = build();
         const lineup = await lineupOf(20);
-        const before = lineup.revision();
+        const insert = vi.spyOn(lineup, 'insertSegments');
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        const planted = await planner.plant(lineup, rules({ breakEveryItems: 4 }));
 
-        // Four breaks, one revision. Four separate edits would rewrite the order four times and
-        // invalidate an operator's in-flight edit four times over.
-        expect(lineup.revision()).toBe(before + 1);
+        // Four breaks, one edit. Applying them one at a time would make every placement after
+        // the first mean something different from what the walk computed, since each insert
+        // shifts the indices behind it.
+        expect(planted).toBe(4);
+        expect(insert).toHaveBeenCalledTimes(1);
+        expect(insert.mock.calls[0]![0]).toHaveLength(4);
     });
 });
 
@@ -225,7 +233,7 @@ describe('BreakPlanner writing its own breaks', () => {
         expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak' }));
         // Planted with no words in it: the job fills them in behind the placement.
         expect(plan.mock.calls.every(([input]) => input.script === undefined)).toBe(true);
-        expect(send).toHaveBeenCalledWith('director.write_break', { lineupId: 'lineup-1', segmentId: 'planned-1' });
+        expect(send).toHaveBeenCalledWith('director.write_break', { segmentId: 'planned-1' });
     });
 
     it('sends a write job only for the breaks it actually planted', async () => {
@@ -317,7 +325,7 @@ describe('BreakPlanner alternating what a break is', () => {
         const lineup = await lineupOf(20);
         // One break at a time, the way the commit pass plants as the cursor advances.
         await planner.plant(lineup, rules({ breakEveryItems: 4 }));
-        await lineup.takeNext(6);
+        hand(lineup, 6);
         await planner.plant(lineup, rules({ breakEveryItems: 4 }));
 
         const kinds = kindsPlanted(lineup);

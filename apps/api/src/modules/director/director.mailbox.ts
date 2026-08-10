@@ -34,6 +34,20 @@
  */
 
 import type { RundownTrack } from '#modules/playout/rundown.js';
+import type { EditResult, StationLineupBinding } from './station.lineup.js';
+
+/**
+ * A change to the running order made by somebody at the desk.
+ *
+ * Its own union rather than five more arms on {@link DirectorCommand}, because
+ * these are the operator's vocabulary and they share one answer: the edit happened,
+ * or precisely why it did not. See {@link EditResult}.
+ */
+export type OrderEdit =
+    | { kind: 'shuffle' }
+    | { kind: 'move'; itemId: string; toIndex: number }
+    | { kind: 'remove'; itemId: string }
+    | { kind: 'insertSegment'; segmentId: string; atIndex?: number; overAtMs?: number };
 
 /**
  * Something the director has been asked to do.
@@ -45,43 +59,53 @@ import type { RundownTrack } from '#modules/playout/rundown.js';
 export type DirectorCommand =
     /** Something changed what the player is holding; top the running order up. */
     | { kind: 'wake' }
-    /** The station is going off air, from the transport or from a lineup that ended. */
+    /**
+     * Read what the station was doing and pick it back up: what boot does.
+     *
+     * A command like everything else, because it ends in a commit pass and a pass run
+     * outside the queue has a second one running beside it the moment it awaits — its
+     * own append announces a change, which posts a wake. Both then reach the refill
+     * guard before either has set it.
+     */
+    | { kind: 'restore' }
+    /** The station is going off air, from the transport or from an order that ended. */
     | { kind: 'standDown' }
     /**
-     * `station_air` names a different lineup: read it, and retract the running order
-     * belonging to the one coming off.
+     * Put the station on air with a new running order, built from these records.
      *
-     * Carries no payload on purpose. The row is the decision, this is only the news
-     * that it changed, and a lineup id copied into the command would be a second
-     * opinion about what is on air that could disagree with the first.
+     * Carries the material rather than naming a row to read, which is the whole
+     * shape of stage 2: the source is a PLAYLIST, it is read at the moment the
+     * operator presses the button, and the running order built from it is the
+     * director's own state. Reading a provider is the slow half and happens before
+     * this is posted.
      */
-    | { kind: 'putOnAir' }
+    | { kind: 'putOnAir'; binding: StationLineupBinding; tracks: readonly RundownTrack[] }
     /**
-     * The lineup on air was edited in place: re-read it, but keep the running order.
-     *
-     * Distinct from `putOnAir` in exactly one way, and it is the one that matters to
-     * a listener: an edit to the tail is not a reason to retract what has already
-     * been handed over and is about to be heard.
-     */
-    | { kind: 'planChanged' }
-    /**
-     * A refill has finished generating: put these records at the end of that lineup.
+     * A refill has finished generating: put these records at the end of the order.
      *
      * Carries the tracks because generating them is the slow half — a sample, two
-     * history reads, and rate-limited providers to come — and that happens before
-     * the command is posted. All this does is append, which is what keeps a refill
-     * from holding the station's only decision-making path for the length of a
-     * provider call.
-     *
-     * Names its lineup, unlike the two above, because a refill can be asked for on a
-     * lineup that is NOT on air and the answer differs: see the handler.
+     * history reads, and rate-limited providers to come. All this does is append,
+     * which is what keeps a refill from holding the station's only decision-making
+     * path for the length of a provider call.
      */
-    | { kind: 'appendTracks'; lineupId: string; tracks: readonly RundownTrack[] };
+    | { kind: 'appendTracks'; tracks: readonly RundownTrack[] }
+    /**
+     * Somebody at the desk changed the order. Answers with whether it took.
+     *
+     * The edit is applied HERE rather than by the caller, because the running order
+     * is the director's own state and there is no copy for a request to edit. That is
+     * the difference stage 2 makes: an edit used to be a write to a row that the
+     * reactor then re-read, with all the racing that implies.
+     */
+    | { kind: 'edit'; edit: OrderEdit };
+
+/** What a handled command answers with. Only an edit has anything to say. */
+export type DirectorCommandResult = EditResult | undefined;
 
 /** One posted command and the caller waiting on it. */
 interface Envelope {
     command: DirectorCommand;
-    resolve: () => void;
+    resolve: (result: DirectorCommandResult) => void;
     reject: (error: unknown) => void;
 }
 
@@ -93,7 +117,7 @@ export class DirectorMailbox {
      * @param handle - What to do with a command. Called one at a time, never
      *   re-entered, and awaited to completion before the next command starts.
      */
-    constructor(private readonly handle: (command: DirectorCommand) => Promise<void>) {}
+    constructor(private readonly handle: (command: DirectorCommand) => Promise<DirectorCommandResult>) {}
 
     /**
      * Hand a command over, and find out how it went.
@@ -106,8 +130,8 @@ export class DirectorMailbox {
      * a listener on the pusher's loop, say — must catch, or an unhandled rejection
      * takes the process down for a failure the next tick would have retried.
      */
-    post(command: DirectorCommand): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
+    post(command: DirectorCommand): Promise<DirectorCommandResult> {
+        return new Promise<DirectorCommandResult>((resolve, reject) => {
             this.waiting.push({ command, resolve, reject });
             void this.drain();
         });
@@ -140,8 +164,7 @@ export class DirectorMailbox {
             while (this.waiting.length > 0) {
                 const envelope = this.waiting.shift()!;
                 try {
-                    await this.handle(envelope.command);
-                    envelope.resolve();
+                    envelope.resolve(await this.handle(envelope.command));
                 } catch (error) {
                     envelope.reject(error);
                 }

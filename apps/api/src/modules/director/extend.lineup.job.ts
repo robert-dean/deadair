@@ -4,8 +4,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { overrideJobActor } from '#modules/jobs/job.authorization.js';
 import { DirectorService } from './director.service.js';
-import { isTrackItem, type LineupItem } from './lineup.js';
-import { LineupRepository } from './lineup.repository.js';
+import { isTrackItem, type StationLineupItem } from './station.lineup.js';
+import { StationLineupRepository } from './station.lineup.repository.js';
 import { PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
@@ -26,15 +26,6 @@ const DEFAULT_COUNT = 15;
 const OVERSAMPLE = 1.6;
 
 export interface ExtendLineupPayload {
-    /**
-     * Which lineup to top up.
-     *
-     * Optional in the type and required in practice, the way `CatalogSyncPayload`
-     * is: a job registration is typed against a payload the broker may deliver as
-     * `{}`, so this cannot be declared required without the mapping refusing it.
-     * The run guards on it instead.
-     */
-    lineupId?: string;
     /** How many tracks to add. Absent means {@link DEFAULT_COUNT}. */
     count?: number;
 }
@@ -65,7 +56,7 @@ export interface ExtendLineupPayload {
 @Injectable()
 export class ExtendLineupJob implements Job<ExtendLineupPayload> {
     constructor(
-        private readonly lineups: LineupRepository,
+        private readonly order: StationLineupRepository,
         private readonly generator: SetGenerator,
         private readonly resolver: PickResolver,
         // The reactor, which is a singleton: this job runs in its own scope and still has to reach
@@ -83,17 +74,14 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
     async run(payload?: ExtendLineupPayload, signal?: AbortSignal): Promise<void> {
         overrideJobActor(this.container as ScopedContainer, this.context);
 
-        if (!payload?.lineupId) {
-            // Nothing to do rather than an error: this job is only ever sent, never
-            // scheduled, so a payload-less run is a caller's bug and not a station fault.
-            this.logger.warn('director: an extend was sent with no lineup to extend', { job: this.context.id });
-            return;
-        }
-
-        const lineup = await this.lineups.load(payload.lineupId);
+        // Read for its RULES and for what it already holds, never to write it: the append at the
+        // end goes through the director, which is the one thing that may. A copy read here going
+        // stale while the generator runs is exactly why this cannot be the writer.
+        const lineup = await this.order.load();
         if (!lineup) {
-            // Deleted between the send and the run. An ordinary race, not a failure.
-            this.logger.info('director: the lineup to extend is gone', { job: this.context.id, lineup: payload.lineupId });
+            // The station has never been given anything to play. An ordinary race with a
+            // stand-down, not a failure.
+            this.logger.info('director: there is no running order to extend', { job: this.context.id });
             return;
         }
 
@@ -101,15 +89,14 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         if (!rules.autoExtend) {
             // A setlist or a feature. Nothing generates into those, and a caller that
             // asked is telling us something is wrong upstream rather than asking politely.
-            this.logger.warn('director: refusing to extend a lineup that is not a rotation', {
+            this.logger.warn('director: refusing to extend a running order that is not a rotation', {
                 job: this.context.id,
-                lineup: lineup.id,
                 mode: lineup.mode,
             });
             return;
         }
 
-        const count = Math.max(1, payload.count ?? DEFAULT_COUNT);
+        const count = Math.max(1, payload?.count ?? DEFAULT_COUNT);
         const picks = await this.generator.generate({
             count: Math.ceil(count * OVERSAMPLE),
             rules,
@@ -145,11 +132,10 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         // Breaks are not planted from here either. The director's own pass walks the whole tail and
         // plants every slot it finds in one write, so doing it now would buy a boundary's latency
         // and cost the single writer this job just stopped being.
-        await this.director.post({ kind: 'appendTracks', lineupId: lineup.id, tracks: added });
+        await this.director.post({ kind: 'appendTracks', tracks: added });
 
-        this.logger.info('director: extended a lineup', {
+        this.logger.info('director: extended the running order', {
             job: this.context.id,
-            lineup: lineup.id,
             asked: count,
             named: picks.length,
             resolved: resolved.length,
@@ -159,10 +145,10 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
 }
 
 /**
- * The songs a lineup already holds, as keys the generator can avoid choosing again.
+ * The songs the running order already holds, as keys the generator can avoid choosing again.
  *
- * Records only. A lineup's segments are not songs and have no artists, so feeding their labels into
+ * Records only. The order's segments are not songs and have no artists, so feeding their labels into
  * the key space would have the generator avoiding a track it has never chosen.
  */
-const songKeysOf = (items: readonly LineupItem[]): Set<string> =>
+const songKeysOf = (items: readonly StationLineupItem[]): Set<string> =>
     new Set(items.filter(isTrackItem).map(item => songKey(item.track.title, item.track.artists)));

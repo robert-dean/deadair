@@ -27,12 +27,13 @@ const ON_END_LABELS: Record<LineupSummary['onEnd'], string> = {
 /**
  * Whether this lineup is the one the station is programmed with.
  *
- * `active` is a separate question from which lineup it is: a stood-down station still remembers
- * what it was playing, which is the whole reason the API keeps sending the id.
+ * Never, now: nothing airs FROM a stored lineup. What is on air is built from a playlist when the
+ * station goes on, so a stored one is prepared material and the station has no opinion about it.
+ * Kept as one function returning nothing rather than threaded out of every caller, because the
+ * whole page goes when the on-air console lands.
  */
-function airState(lineup: LineupSummary, air: StationAir | undefined): 'on-air' | 'stood-down' | undefined {
-    if (air?.lineupId !== lineup.id) return undefined;
-    return air.active ? 'on-air' : 'stood-down';
+function airState(_lineup: LineupSummary, _air: StationAir | undefined): 'on-air' | 'stood-down' | undefined {
+    return undefined;
 }
 
 /**

@@ -2,15 +2,19 @@ import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
     AddLineupSegmentInput,
+    AddStationSegmentInput,
     EditLineupInput,
     ExtendLineupInput,
+    ExtendStationInput,
     ImportLineupInput,
     Lineup,
     LineupList,
     MoveLineupItemInput,
+    MoveStationItemInput,
     PutOnAirInput,
     SetStationAirInput,
     StationAir,
+    StationOrder,
 } from './types/director.types.js';
 
 export class DirectorClient {
@@ -48,10 +52,10 @@ export class DirectorClient {
     }
 
     /**
-     * @name Put a lineup on air
-     * @description Puts a lineup on air from the top. What is playing finishes: changing the programming is not a reason to cut a listener off mid-track
+     * @name Put the station on air
+     * @description Puts the station on air, building the running order from a playlist read at this moment. What is playing finishes: changing the programming is not a reason to cut a listener off mid-track
      */
-    async putALineupOnAir(body: PutOnAirInput): Promise<StationAir> {
+    async putTheStationOnAir(body: PutOnAirInput): Promise<StationAir> {
         const result = await this.fetch(`/director/air`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -71,6 +75,71 @@ export class DirectorClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<StationAir>(result);
+    }
+
+    /**
+     * @name Get the running order
+     * @description The live running order, item by item, each saying where it has got to
+     */
+    async getTheRunningOrder(): Promise<StationOrder> {
+        const result = await this.fetch(`/director/air/order`, { method: 'GET' });
+        return await parseJson<StationOrder>(result);
+    }
+
+    /**
+     * @name Extend the running order
+     * @description Queues a refill and returns at once. Generating a set walks the catalog, and an operator pressing a button should not be held open through it
+     */
+    async extendTheRunningOrder(body: ExtendStationInput): Promise<void> {
+        await this.fetch(`/director/air/extend`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+    }
+
+    /**
+     * @name Shuffle the running order
+     * @description Shuffles everything not yet handed to the player. The head is already in the player's hands and is left alone
+     */
+    async shuffleTheRunningOrder(): Promise<StationOrder> {
+        const result = await this.fetch(`/director/air/shuffle`, { method: 'POST' });
+        return await parseJson<StationOrder>(result);
+    }
+
+    /**
+     * @name Add a segment to the running order
+     * @description Puts something the station says into the running order. A segment with no audio yet is refused here rather than accepted and skipped when it comes round, so an operator is told why it cannot play
+     */
+    async addASegmentToTheRunningOrder(body: AddStationSegmentInput): Promise<StationOrder> {
+        const result = await this.fetch(`/director/air/segments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<StationOrder>(result);
+    }
+
+    /**
+     * @name Move a running order item
+     * @description Moves an item. A position already handed to the player is refused rather than clamped
+     */
+    async moveARunningOrderItem(itemId: string, body: MoveStationItemInput): Promise<StationOrder> {
+        const result = await this.fetch(`/director/air/items/${encodeURIComponent(itemId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<StationOrder>(result);
+    }
+
+    /**
+     * @name Remove a running order item
+     * @description Drops an item that has not been handed to the player yet
+     */
+    async removeARunningOrderItem(itemId: string): Promise<StationOrder> {
+        const result = await this.fetch(`/director/air/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+        return await parseJson<StationOrder>(result);
     }
 
     /**

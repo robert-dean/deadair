@@ -16,7 +16,7 @@ import {
     useDeleteLineup,
     useExtendLineup,
     useMoveLineupItem,
-    usePutLineupOnAir,
+    usePutStationOnAir,
     useRemoveLineupItem,
     useShuffleLineup,
 } from '../../src/api/director.queries';
@@ -27,7 +27,7 @@ import { createTestQueryClient } from '../utils/render';
 const shuffleALineup = vi.fn();
 const removeALineupItem = vi.fn();
 const moveALineupItem = vi.fn();
-const putALineupOnAir = vi.fn();
+const putTheStationOnAir = vi.fn();
 const extendALineup = vi.fn();
 const deleteALineup = vi.fn();
 
@@ -37,7 +37,7 @@ vi.mock('../../src/api/client', () => ({
             shuffleALineup: (...args: unknown[]) => shuffleALineup(...args),
             removeALineupItem: (...args: unknown[]) => removeALineupItem(...args),
             moveALineupItem: (...args: unknown[]) => moveALineupItem(...args),
-            putALineupOnAir: (...args: unknown[]) => putALineupOnAir(...args),
+            putTheStationOnAir: (...args: unknown[]) => putTheStationOnAir(...args),
             extendALineup: (...args: unknown[]) => extendALineup(...args),
             deleteALineup: (...args: unknown[]) => deleteALineup(...args),
         },
@@ -134,19 +134,19 @@ describe('an edit that answers with the lineup', () => {
     });
 });
 
-describe('usePutLineupOnAir', () => {
-    it('writes the air reading and re-reads the lineup, whose cursor is now the live one', async () => {
+describe('usePutStationOnAir', () => {
+    it('writes the air reading and re-reads the running order it just built', async () => {
         const air = stationAir();
-        putALineupOnAir.mockResolvedValue(air);
+        putTheStationOnAir.mockResolvedValue(air);
         const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
 
-        const { result } = renderHook(() => usePutLineupOnAir(), { wrapper: wrapWithQueryClient(queryClient) });
+        const { result } = renderHook(() => usePutStationOnAir(), { wrapper: wrapWithQueryClient(queryClient) });
         await act(async () => {
-            await result.current.mutateAsync({ lineupId: 'lineup-1' });
+            await result.current.mutateAsync({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
         });
 
         expect(queryClient.getQueryData(queryKeys.director.air())).toEqual(air);
-        expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.director.lineup('lineup-1') });
+        expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.director.order() });
         // The transport polls on its own clock; this is the one moment it moved because of us.
         expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.playout.status() });
     });

@@ -8,8 +8,8 @@ import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import type { BreakTrack } from './break.writer.js';
 import { BreakWriterRegistry, isWritten } from './break.writer.registry.js';
-import { isTrackItem, type Lineup } from './lineup.js';
-import { LineupRepository } from './lineup.repository.js';
+import { isTrackItem, type StationLineup } from './station.lineup.js';
+import { StationLineupRepository } from './station.lineup.repository.js';
 import { DETERMINISTIC_WRITER } from './talk.break.writer.js';
 
 /** How many recent scripts a writer is shown, so it can avoid repeating itself. */
@@ -17,13 +17,13 @@ const RECENT_WINDOW = 6;
 
 export interface WriteBreakPayload {
     /**
-     * Which running order the break was planted into, and which segment it is.
+     * Which segment to write.
      *
-     * Both optional in the type and required in practice, the way `ExtendLineupPayload.lineupId`
-     * is: a job registration is typed against a payload the broker may deliver as `{}`. The run
-     * guards on them instead.
+     * Optional in the type and required in practice: a job registration is typed against a payload
+     * the broker may deliver as `{}`. The run guards on it instead.
+     *
+     * It does not name a running order, because there is only one and the director owns it.
      */
-    lineupId?: string;
     segmentId?: string;
 }
 
@@ -35,7 +35,7 @@ export interface WriteBreakPayload {
  * order sees the gap filled and plants nothing — and everything after it happens here, where nobody
  * is waiting.
  *
- * Nobody is waiting in the strong sense: a segment that is not `ready` when the cursor reaches it is
+ * Nobody is waiting in the strong sense: a segment that is not `ready` when it comes round is
  * SKIPPED, never held for. So a writer that is slow, a model that is down, or this job never running
  * at all costs the station a break and never silence. That is the rule the whole design rests on and
  * the reason this can be a background job with no deadline.
@@ -55,7 +55,7 @@ export interface WriteBreakPayload {
 @Injectable()
 export class WriteBreakJob implements Job<WriteBreakPayload> {
     constructor(
-        private readonly lineups: LineupRepository,
+        private readonly order: StationLineupRepository,
         private readonly segments: SegmentRepository,
         private readonly writers: BreakWriterRegistry,
         private readonly jobs: PgBossJobBroker,
@@ -71,12 +71,12 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
     async run(payload?: WriteBreakPayload): Promise<void> {
         overrideJobActor(this.container as ScopedContainer, this.context);
 
-        if (!payload?.lineupId || !payload.segmentId) {
+        if (!payload?.segmentId) {
             // A caller's bug rather than a station fault: this job is only ever sent.
             this.logger.warn('director: a break write was sent with nothing to write', { job: this.context.id });
             return;
         }
-        const { lineupId, segmentId } = payload;
+        const { segmentId } = payload;
 
         const segment = await this.segments.findById(segmentId);
         if (segment === undefined || segment.state !== 'planned') {
@@ -86,7 +86,7 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
             return;
         }
 
-        const lineup = await this.lineups.load(lineupId);
+        const lineup = await this.order.load();
         if (lineup === undefined) {
             await this.fail(segmentId, 'the running order this break was planted into is gone');
             return;
@@ -133,7 +133,7 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
  * another segment still knows what music it sits between. Either side may be absent, at the head or
  * the tail of an order, and that is a shape the writers already answer for.
  */
-function neighboursOf(lineup: Lineup, segmentId: string): { previous?: BreakTrack; next?: BreakTrack } {
+function neighboursOf(lineup: StationLineup, segmentId: string): { previous?: BreakTrack; next?: BreakTrack } {
     const items = lineup.all();
     const at = items.findIndex(item => item.kind === 'segment' && item.segmentId === segmentId);
     if (at < 0) return {};

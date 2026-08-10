@@ -11,11 +11,12 @@ import type { JobBroker } from '@maroonedsoftware/jobbroker';
 import { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import { Lineup } from '../../../src/modules/director/lineup.js';
+import { StationLineup } from '../../../src/modules/director/station.lineup.js';
+import type { DirectorCommand, OrderEdit } from '../../../src/modules/director/director.mailbox.js';
 import type { LineupRepository, NewLineup } from '../../../src/modules/director/lineup.repository.js';
 import type { StationAirRepository } from '../../../src/modules/director/station.air.repository.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
-import type { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { SettingsService } from '../../../src/modules/settings/settings.service.js';
@@ -29,7 +30,9 @@ interface Options {
     catalogRows?: { externalId: string; trackId: string; year: number | null; albumName: string | null; albumImageUrl: string | null }[];
     catalogError?: Error;
     /** What the director says it is airing. */
-    onAir?: { lineupId?: string; cursor?: number };
+    onAir?: { active?: boolean; name?: string; source?: string; remaining?: number };
+    /** What the running order holds, for the edit cases. */
+    order?: StationLineup;
     existing?: RundownTrack[];
     missing?: boolean;
     /** What the segment library holds, for the lines a lineup names by id. */
@@ -53,15 +56,29 @@ function build(options: Options = {}) {
     } as unknown as LineupRepository;
 
     const air = {
-        putOnAir: vi.fn(async () => {}),
+        goOnAir: vi.fn(async () => {}),
         forgetLineup: vi.fn(async () => {}),
     } as unknown as StationAirRepository;
 
+    // The one owner of the running order. The fake APPLIES an edit rather than recording that it
+    // was asked for, so the assertions below are about what the order became.
+    const order = options.order;
+    const posted: DirectorCommand[] = [];
     const director = {
-        status: vi.fn(() => ({ active: true, airMode: 'audience', cursor: options.onAir?.cursor ?? 0, remaining: 0, ...options.onAir })),
-        reload: vi.fn(async () => {}),
+        status: vi.fn(() => ({ active: true, airMode: 'audience', remaining: order?.remaining() ?? 0, ...options.onAir })),
         invalidate: vi.fn(),
-        post: vi.fn(async () => {}),
+        post: vi.fn(async (command: DirectorCommand) => {
+            posted.push(command);
+            return undefined;
+        }),
+        order: vi.fn(() => order?.toSnapshot()),
+        applyEdit: vi.fn(async (edit: OrderEdit) => {
+            if (!order) return { ok: false, reason: 'not-found', message: 'nothing on air' } as const;
+            if (edit.kind === 'shuffle') return order.shuffleRemaining();
+            if (edit.kind === 'move') return order.move(edit.itemId, edit.toIndex);
+            if (edit.kind === 'remove') return order.remove(edit.itemId);
+            return order.insertSegment(edit.segmentId, edit.atIndex ?? order.size());
+        }),
     } as unknown as DirectorService;
 
     const playlists = {
@@ -90,29 +107,19 @@ function build(options: Options = {}) {
     } as unknown as SegmentRepository;
 
     const settings = { set: vi.fn(async () => {}) } as unknown as SettingsService;
-    // Runs the deferred task straight away, which is what the real one does relative to everything
-    // this file asserts on: `AfterCommit` fires before the response is written.
-    const deferred: (() => Promise<void>)[] = [];
-    const afterCommit = {
-        add: vi.fn((task: () => Promise<void>) => {
-            deferred.push(task);
-        }),
-    } as unknown as AfterCommit;
-    const settle = async () => {
-        for (const task of deferred.splice(0)) await task();
-    };
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as JobBroker;
 
     return {
-        service: new DirectorConsoleService(lineups, air, director, playlists, tracks, segments, settings, afterCommit, jobs, logger),
+        service: new DirectorConsoleService(lineups, air, director, playlists, tracks, segments, settings, jobs, logger),
         segments,
         settings,
         lineup,
         lineups,
         air,
         director,
-        afterCommit,
-        settle,
+        playlists,
+        order,
+        posted: () => posted,
         jobs,
         tracks,
         createdWith: () => created,
@@ -235,9 +242,7 @@ describe('DirectorConsoleService.setAirMode', () => {
         expect(settings.set).toHaveBeenCalledWith(AIR_MODE_KEY, 'always');
         // The mode is a setting, the settings table is a layer of the app's config, and the
         // transport asks the audience gate for it on every reconcile. There is nothing left here
-        // to push it into, and nothing to re-read: a re-read would be wrong anyway, because this
-        // runs inside the request's own uncommitted transaction.
-        expect(director.reload).not.toHaveBeenCalled();
+        // to push it into, and nothing to cancel: the running order has not changed.
         expect(director.invalidate).not.toHaveBeenCalled();
     });
 
@@ -254,52 +259,62 @@ describe('DirectorConsoleService.setAirMode', () => {
 });
 
 describe('DirectorConsoleService.putOnAir', () => {
-    it('cancels the reactor at once and hands it the change after the commit', async () => {
-        // The two halves need different timing. A pass may already be gathering against the plan
-        // this request just replaced, and only the epoch reaches that pass: a command runs AFTER
-        // it, by which time the stale decision has been applied. The command is deferred because
-        // the reactor reads on its own connection and cannot see this write until it commits.
-        const { service, director, settle } = build();
+    it('reads the playlist and hands the records to the director', async () => {
+        // The whole of stage 2 in one assertion. Nothing is stored between the playlist and the
+        // air: the source is READ at this moment, so it cannot go stale by having been imported
+        // and the station's own idents are never written back into somebody's playlist.
+        const { service, director, posted } = build();
 
-        await service.putOnAir({ lineupId: 'lineup-1' });
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1', name: 'Discover Weekly' });
 
-        expect(director.invalidate).toHaveBeenCalled();
+        const [command] = posted();
+        expect(command).toMatchObject({
+            kind: 'putOnAir',
+            binding: { name: 'Discover Weekly', source: 'import', sourcePluginId: 'deadair.spotify', sourcePlaylistId: 'pl_1' },
+        });
+        expect(command?.kind === 'putOnAir' && command.tracks).toHaveLength(1);
+    });
+
+    it('cancels the reactor before it posts, not after', async () => {
+        // A pass may already be gathering against the programme coming off, and only the epoch
+        // reaches it: a command runs AFTER that pass, by which time the stale decision has been
+        // applied and three records of the old show are in the new one. That was bug 1.
+        const { service, director } = build();
+        const order: string[] = [];
+        (director.invalidate as unknown as { mockImplementation: (fn: () => void) => void }).mockImplementation(() => order.push('invalidate'));
+        (director.post as unknown as { mockImplementation: (fn: () => Promise<undefined>) => void }).mockImplementation(async () => {
+            order.push('post');
+            return undefined;
+        });
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(order).toEqual(['invalidate', 'post']);
+    });
+
+    it('starts empty when no playlist is named, rather than refusing', async () => {
+        // A rotation with nothing behind it is an ordinary way to start a station: the generator
+        // fills it.
+        const { service, posted, playlists } = build();
+
+        await service.putOnAir({});
+
+        expect(playlists.getPlaylistTracks).not.toHaveBeenCalled();
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', tracks: [], binding: { source: 'director' } });
+    });
+
+    it('refuses an empty playlist rather than airing silence', async () => {
+        const { service, director } = build({ tracks: [] });
+
+        expect(await statusOf(service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(422);
         expect(director.post).not.toHaveBeenCalled();
-
-        await settle();
-
-        expect(director.post).toHaveBeenCalledWith({ kind: 'putOnAir' });
     });
 
-    it('answers with what it wrote, not with the lineup it just replaced', async () => {
-        // The reactor has not acted on the row yet, so reading it back through `status()` here
-        // answers with the previous lineup and the console renders the change as not having
-        // happened.
-        const { service } = build({ onAir: { lineupId: 'lineup-9', cursor: 12 } });
+    it('lets the playlists read own the plugin narrowing', async () => {
+        const forbidden = Object.assign(new Error('Forbidden'), { status: 403 });
+        const { service } = build({ playlistError: forbidden });
 
-        const air = await service.putOnAir({ lineupId: 'lineup-1' });
-
-        expect(air.lineupId).toBe('lineup-1');
-        expect(air.cursor).toBe(0);
-        expect(air.active).toBe(true);
-    });
-
-    it('remembers what it displaced only when it is interrupting', async () => {
-        // An album feature hands the station back afterwards; an operator changing
-        // programming has nothing to go back to.
-        const { service, air } = build({ onAir: { lineupId: 'lineup-9', cursor: 12 } });
-
-        await service.putOnAir({ lineupId: 'lineup-1', interrupting: true });
-        expect(air.putOnAir).toHaveBeenCalledWith('lineup-1', { lineupId: 'lineup-9', cursor: 12 });
-
-        await service.putOnAir({ lineupId: 'lineup-1' });
-        expect(air.putOnAir).toHaveBeenLastCalledWith('lineup-1', undefined);
-    });
-
-    it('refuses a lineup that does not exist', async () => {
-        const { service } = build({ missing: true });
-
-        expect(await statusOf(service.putOnAir({ lineupId: 'lineup-1' }))).toBe(404);
+        expect(await statusOf(service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(403);
     });
 });
 
@@ -338,13 +353,13 @@ describe('DirectorConsoleService editing', () => {
 });
 
 describe('DirectorConsoleService.remove', () => {
-    it('refuses to delete what is on air', async () => {
-        // Deleting what a listener is hearing is almost never what someone means, and
-        // stopping the station is a separate decision they can make explicitly.
-        const { service, lineups } = build({ onAir: { lineupId: 'lineup-1' } });
+    it('deletes one without asking what is on air, because nothing airs from a stored lineup', async () => {
+        // There is no 409 left to answer. A stored lineup is prepared material; the running order
+        // is the director's own, and deleting the first cannot interrupt the second.
+        const { service, lineups } = build();
 
-        expect(await statusOf(service.deleteLineup('lineup-1'))).toBe(409);
-        expect(lineups.remove).not.toHaveBeenCalled();
+        expect(await statusOf(service.deleteLineup('lineup-1'))).toBe(200);
+        expect(lineups.remove).toHaveBeenCalledWith('lineup-1');
     });
 
     it('deletes one that is not, and clears any pointer to it', async () => {
@@ -434,58 +449,97 @@ describe('DirectorConsoleService reading a lineup with segments', () => {
     });
 });
 
-// Every edit to the ORDER of a lineup has to reach the reactor, which is holding its own copy of
-// it. None of these did before, so an operator could reorder what was on air and hear no
-// difference until something else happened to make the reactor re-read the plan.
-describe('DirectorConsoleService telling the reactor about an edit', () => {
+// The live running order. Every one of these posts a command and none of them writes anything,
+// which is the property the whole decision rests on: there is one copy of what is on air and one
+// thing allowed to change it.
+describe('DirectorConsoleService editing the running order', () => {
     const READY = { id: 'seg-1', kind: 'ident', state: 'ready' as const, label: 'Ident', source: 'library' };
-    const onAir = { onAir: { lineupId: 'lineup-1' } };
 
-    it('announces a segment added to the lineup that is on air', async () => {
-        const { service, director, seed } = build({ segments: [READY], ...onAir });
-        await seed();
+    const onAirWith = (count: number): StationLineup => {
+        const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.append(Array.from({ length: count }, (_, index) => ({ pluginId: 'p', externalId: `t${index}`, title: `T${index}`, artists: ['X'] })));
+        return order;
+    };
 
-        await service.addSegment('lineup-1', { segmentId: 'seg-1' });
+    it('cancels the reactor and applies the edit through it', async () => {
+        const order = onAirWith(3);
+        const { service, director } = build({ order });
 
-        expect(director.invalidate).toHaveBeenCalled();
-    });
-
-    it('announces a shuffle', async () => {
-        const { service, director, seed, settle } = build({
-            ...onAir,
-            existing: [
-                { pluginId: 'p', externalId: 'a', title: 'A', artists: ['X'] },
-                { pluginId: 'p', externalId: 'b', title: 'B', artists: ['Y'] },
-            ],
-        });
-        await seed();
-
-        await service.shuffleLineup('lineup-1', {});
-        await settle();
+        const result = await service.shuffleOrder();
 
         expect(director.invalidate).toHaveBeenCalled();
-        // `planChanged`, not `putOnAir`: an edit to the part nobody has heard yet is not a reason
-        // to retract the part they are about to.
-        expect(director.post).toHaveBeenCalledWith({ kind: 'planChanged' });
+        expect(director.applyEdit).toHaveBeenCalledWith({ kind: 'shuffle' });
+        expect(result.items).toHaveLength(3);
     });
 
-    it('announces a line being dropped', async () => {
-        const { service, director, lineup, seed } = build({ ...onAir, existing: [{ pluginId: 'p', externalId: 'a', title: 'A', artists: ['X'] }] });
-        await seed();
+    it('answers with the running order the edit produced', async () => {
+        const order = onAirWith(2);
+        const { service } = build({ order });
 
-        await service.removeItem('lineup-1', lineup.all()[0]!.id, {});
+        const after = await service.removeOrderItem(order.all()[1]!.id);
 
-        expect(director.invalidate).toHaveBeenCalled();
+        expect(after.items.map(item => item.externalId)).toEqual(['t0']);
     });
 
-    // An operator tidying a lineup that is not on air changes nothing the station is doing, and
-    // making the reactor re-read the plan for that is work with no listener behind it.
-    it('says nothing about a lineup that is not on air', async () => {
-        const { service, director, seed } = build({ segments: [READY], onAir: { lineupId: 'a-different-lineup' } });
-        await seed();
+    it('maps an unknown item onto a not-found', async () => {
+        const { service } = build({ order: onAirWith(2) });
 
-        await service.addSegment('lineup-1', { segmentId: 'seg-1' });
+        expect(await statusOf(service.removeOrderItem('nope'))).toBe(404);
+    });
 
-        expect(director.invalidate).not.toHaveBeenCalled();
+    it('maps an item already with the player onto an unprocessable request', async () => {
+        // The operator is asking to reorder something a listener is about to hear. Quietly doing
+        // something else instead is worse than saying no.
+        const order = onAirWith(3);
+        for (const item of order.nextPlanned(2)) order.markHanded(item.id);
+        const { service } = build({ order });
+
+        expect(await statusOf(service.removeOrderItem(order.all()[0]!.id))).toBe(422);
+    });
+
+    it('maps a shuffle with nothing left onto an unprocessable request', async () => {
+        const { service } = build({ order: onAirWith(1) });
+
+        expect(await statusOf(service.shuffleOrder())).toBe(422);
+    });
+
+    it('refuses a segment with no audio at the door rather than planting one the station will skip', async () => {
+        // An operator who asks for a specific ident should be told it cannot play, not watch the
+        // order accept it and the station quietly pass over it.
+        const { service, director } = build({ order: onAirWith(2), segments: [{ ...READY, state: 'planned' }] });
+
+        expect(await statusOf(service.addSegmentToOrder({ segmentId: 'seg-1' }))).toBe(422);
+        expect(director.applyEdit).not.toHaveBeenCalled();
+    });
+
+    it('refuses a segment the library does not hold', async () => {
+        const { service } = build({ order: onAirWith(2) });
+
+        expect(await statusOf(service.addSegmentToOrder({ segmentId: 'seg-1' }))).toBe(404);
+    });
+
+    it('puts a ready segment into the order', async () => {
+        const { service } = build({ order: onAirWith(2), segments: [READY] });
+
+        const after = await service.addSegmentToOrder({ segmentId: 'seg-1', atIndex: 1 });
+
+        expect(after.items.map(item => item.kind)).toEqual(['track', 'segment', 'track']);
+    });
+
+    it('queues an extend rather than making the operator wait for it', async () => {
+        // Generating walks the catalog and, later, rate-limited providers.
+        const { service, jobs } = build({ order: onAirWith(2) });
+
+        await service.extendOrder({ count: 5 });
+
+        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { count: 5 });
+    });
+
+    it('draws an empty running order rather than a 404 when nothing is on', async () => {
+        // Nothing on air is an ordinary state. The console shows an empty order and the operator
+        // puts something on.
+        const { service } = build();
+
+        expect(await service.getOrder()).toMatchObject({ items: [] });
     });
 });

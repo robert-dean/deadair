@@ -57,11 +57,10 @@ function build(options: Options = {}) {
     } as unknown as PlayoutControlClient;
 
     const director = {
-        importPlaylist: vi.fn(async () => {
+        putOnAir: vi.fn(async () => {
             if (options.importError) throw options.importError;
-            return { id: 'lineup-1' };
+            return { active: true, airMode: 'audience' as const, remaining: 0 };
         }),
-        putOnAir: vi.fn(async () => ({ active: true, cursor: 0, remaining: 0 })),
     } as unknown as DirectorConsoleService;
 
     // Deliberately always resolves an address, even when the stream is down: that is
@@ -102,16 +101,18 @@ const statusOf = async (call: Promise<unknown>): Promise<number> => {
 };
 
 describe('PlayoutService.playPlaylist', () => {
-    it('imports the playlist as a lineup and puts that on air', async () => {
+    it('builds the running order from the playlist and goes on air', async () => {
         // The shortcut stays, because it is a useful one, but it goes the long way
         // round: two paths writing the running order would give the station two
         // writers with no idea of each other, and whichever ran last would win.
+        //
+        // One call rather than two now, because there is no import step left to make: putting a
+        // playlist on air READS it, and nothing is stored in between.
         const { service, director } = build();
 
         await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
 
-        expect(director.importPlaylist).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
-        expect(director.putOnAir).toHaveBeenCalledWith({ lineupId: 'lineup-1' });
+        expect(director.putOnAir).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
     });
 
     it('hands the first item over without waiting for the tick', async () => {
@@ -124,14 +125,14 @@ describe('PlayoutService.playPlaylist', () => {
         expect(pusher.reconcile).toHaveBeenCalledOnce();
     });
 
-    it('lets the import own the refusals it always owned', async () => {
-        // 403/404/422/501/503 still come from the plugin narrowing inside the import,
-        // so this route answers exactly as it did when it read the playlist itself.
+    it('lets the playlist read own the refusals it always owned', async () => {
+        // 403/404/422/501/503 still come from the plugin narrowing inside the read, so this route
+        // answers exactly as it did when it read the playlist itself.
         const forbidden = Object.assign(new Error('Forbidden'), { status: 403 });
-        const { service, director } = build({ importError: forbidden });
+        const { service, pusher } = build({ importError: forbidden });
 
         expect(await statusOf(service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(403);
-        expect(director.putOnAir).not.toHaveBeenCalled();
+        expect(pusher.reconcile).not.toHaveBeenCalled();
     });
 });
 

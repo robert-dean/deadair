@@ -60,8 +60,8 @@ operation /director/air: {
             }
         }
     }
-    post: { # Puts a lineup on air from the top. What is playing finishes: changing the programming is not a reason to cut a listener off mid-track
-        name: Put a lineup on air
+    post: { # Puts the station on air, building the running order from a playlist read at this moment. What is playing finishes: changing the programming is not a reason to cut a listener off mid-track
+        name: Put the station on air
         service: DirectorConsoleService.putOnAir
         security: {
             policy: platform.manage
@@ -87,6 +87,110 @@ operation /director/air: {
         response: {
             200: {
                 application/json: StationAir
+            }
+        }
+    }
+}
+
+# ── The live running order ─────────────────────────────────────────────────────────────
+#
+# What is ON AIR, which is one thing per station and is owned outright by the director.
+# Every route here posts a command to it rather than writing the order, because a second
+# writer of a running order is the whole class of bug this shape exists to remove. See
+# `docs/decisions/on-air-ownership.md`.
+
+operation /director/air/order: {
+    get: { # The live running order, item by item, each saying where it has got to
+        name: Get the running order
+        service: DirectorConsoleService.getOrder
+        security: {
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: StationOrder
+            }
+        }
+    }
+}
+
+operation /director/air/extend: {
+    post: { # Queues a refill and returns at once. Generating a set walks the catalog, and an operator pressing a button should not be held open through it
+        name: Extend the running order
+        service: DirectorConsoleService.extendOrder
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: ExtendStationInput
+        }
+        response: {
+            202:
+        }
+    }
+}
+
+operation /director/air/shuffle: {
+    post: { # Shuffles everything not yet handed to the player. The head is already in the player's hands and is left alone
+        name: Shuffle the running order
+        service: DirectorConsoleService.shuffleOrder
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationOrder
+            }
+        }
+    }
+}
+
+operation /director/air/segments: {
+    post: { # Puts something the station says into the running order. A segment with no audio yet is refused here rather than accepted and skipped when it comes round, so an operator is told why it cannot play
+        name: Add a segment to the running order
+        service: DirectorConsoleService.addSegmentToOrder
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: AddStationSegmentInput
+        }
+        response: {
+            200: {
+                application/json: StationOrder
+            }
+        }
+    }
+}
+
+operation /director/air/items/{itemId}: {
+    params: {
+        itemId: string(min=1, max=100)
+    }
+    patch: { # Moves an item. A position already handed to the player is refused rather than clamped
+        name: Move a running order item
+        service: DirectorConsoleService.moveOrderItem
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: MoveStationItemInput
+        }
+        response: {
+            200: {
+                application/json: StationOrder
+            }
+        }
+    }
+    delete: { # Drops an item that has not been handed to the player yet
+        name: Remove a running order item
+        service: DirectorConsoleService.removeOrderItem
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationOrder
             }
         }
     }

@@ -11,8 +11,8 @@ import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 
 import { DirectorService } from '../../../src/modules/director/director.service.js';
-import { Lineup, type LineupMode, type LineupOnEnd } from '../../../src/modules/director/lineup.js';
-import { LineupRepository } from '../../../src/modules/director/lineup.repository.js';
+import { StationLineup, type StationLineupMode, type StationLineupOnEnd } from '../../../src/modules/director/station.lineup.js';
+import { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { StationAirRepository, type StationAir } from '../../../src/modules/director/station.air.repository.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -43,60 +43,49 @@ const track = (externalId: string): RundownTrack => ({
 interface Options {
     air?: Partial<StationAir>;
     items?: string[];
-    mode?: LineupMode;
-    onEnd?: LineupOnEnd;
-    /** A second lineup the air row can be pointed at. */
-    other?: { id: string; items: string[] };
+    mode?: StationLineupMode;
+    onEnd?: StationLineupOnEnd;
     /** What the stored air mode says, if anything is stored at all. */
     airMode?: AirMode;
-    /** What the segment library holds, for the lines a lineup names by id. */
+    /** What the segment library holds, for the items the order names by id. */
     segments?: Partial<Segment>[];
+    /** The station has never been given anything to play. */
+    noOrder?: boolean;
 }
 
 function build(options: Options = {}) {
     const rundown = new Rundown(new StubResolver(), logger);
 
-    const lineup = new Lineup({
-        id: 'lineup-1',
+    const lineup = new StationLineup({
         name: 'Afternoons',
         mode: options.mode ?? 'rotation',
         onEnd: options.onEnd ?? 'extend',
         source: 'import',
     });
 
-    const other = options.other
-        ? new Lineup({ id: options.other.id, name: 'Other', mode: 'rotation', onEnd: 'extend', source: 'import' })
-        : undefined;
-
     let air: StationAir | undefined = {
         slot: 'main',
-        lineupId: 'lineup-1',
-        cursor: 0,
         active: true,
         ...options.air,
     };
 
+    // The record, not the authority: the director holds the order and writes it here. The fake
+    // hands back the same instance so a test can assert on what was written by reading it.
+    const saved: number[] = [];
     const lineups = {
-        // Honours the cursor the way the real repository does: it is loaded FROM the air row, so a
-        // fake that ignored it could not show the reactor picking up a cursor moved underneath it —
-        // which is the case that used to leave the station stuck at the end of a lineup.
-        load: vi.fn(async (id: string, cursor = 0) => {
-            const found = id === 'lineup-1' ? lineup : id === other?.id ? other : undefined;
-            found?.advance(cursor);
-            return found;
+        load: vi.fn(async () => (options.noOrder ? undefined : lineup)),
+        save: vi.fn(async () => {
+            saved.push(lineup.size());
         }),
-    } as unknown as LineupRepository;
+    } as unknown as StationLineupRepository;
 
     const airRepository = {
         get: vi.fn(async () => air),
         standDown: vi.fn(async () => {
             air = air ? { ...air, active: false } : air;
         }),
-        resume: vi.fn(async (lineupId: string, cursor: number) => {
-            air = { slot: 'main', lineupId, cursor, active: true };
-        }),
-        putOnAir: vi.fn(async (lineupId: string) => {
-            air = { slot: 'main', lineupId, cursor: 0, active: true };
+        goOnAir: vi.fn(async () => {
+            air = { slot: 'main', active: true };
         }),
     } as unknown as StationAirRepository;
 
@@ -132,7 +121,7 @@ function build(options: Options = {}) {
 
     const scope = {
         get: vi.fn((token: unknown) =>
-            token === LineupRepository
+            token === StationLineupRepository
                 ? lineups
                 : token === StationAirRepository
                   ? airRepository
@@ -167,7 +156,7 @@ function build(options: Options = {}) {
         breaks,
         segmentStub,
         lineup,
-        other,
+        saved: () => saved,
         jobs,
         history,
         airRepository,
@@ -212,13 +201,20 @@ describe('DirectorService committing', () => {
         expect(rundown.upcoming()).toHaveLength(3);
     });
 
-    it('advances the lineup cursor by exactly what it committed', async () => {
+    it('marks exactly what it committed, and nothing else', async () => {
+        // There is no cursor to advance. The position IS the states, which is what makes it
+        // impossible for the plan and what aired to disagree.
         const { director, lineup, seed } = build();
         await seed();
 
         await director.start();
 
-        expect(lineup.cursor()).toBe(3);
+        expect(
+            lineup
+                .all()
+                .slice(0, 4)
+                .map(item => item.state),
+        ).toEqual(['handed', 'handed', 'handed', 'planned']);
     });
 
     it('refills the window as the player consumes it', async () => {
@@ -331,10 +327,11 @@ describe('DirectorService noticing the row', () => {
         await director.start();
         expect(rundown.upcoming()).toHaveLength(3);
 
-        setAir({ slot: 'main', lineupId: 'lineup-1', cursor: 3, active: false });
-        // Forced past the throttle the way a stand-down does, since this station IS on
-        // air and a busy director does not re-read on every single wake.
-        await director.reload();
+        setAir({ slot: 'main', active: false });
+        // Past the throttle, because this station IS on air and a busy director reads the row
+        // once every few seconds rather than on every wake.
+        vi.setSystemTime(Date.now() + 10_000);
+        await wake(rundown);
 
         expect(director.status().active).toBe(false);
     });
@@ -361,7 +358,7 @@ describe('DirectorService reclaiming what was retracted', () => {
     });
 
     it('does not replay the line that was on air, which the listener did hear', async () => {
-        const { director, rundown, seed } = build();
+        const { director, rundown, lineup, seed } = build();
         await seed();
         await director.start();
 
@@ -374,10 +371,14 @@ describe('DirectorService reclaiming what was retracted', () => {
         rundown.reset();
         await settle();
 
-        // 'a' aired, so the cursor belongs PAST it: reclaiming it would replay a record the
-        // listener was in the middle of. 'b' and 'c' were promised and not heard, so they come
-        // back.
-        expect(director.status().cursor).toBe(1);
+        // 'a' aired, so it stays played: offering it again would replay a record the listener
+        // was in the middle of. 'b' and 'c' were promised and not heard, so they come back.
+        expect(
+            lineup
+                .all()
+                .slice(0, 3)
+                .map(item => item.state),
+        ).toEqual(['played', 'planned', 'planned']);
     });
 
     it('leaves alone what the player is merely holding', async () => {
@@ -385,7 +386,7 @@ describe('DirectorService reclaiming what was retracted', () => {
         // handed over is the ordinary steady state, not a dropped one: the pusher runs a lead ahead
         // of the listener by design. Treating those as unheard commits them twice and the listener
         // hears the record twice.
-        const { director, rundown, seed } = build();
+        const { director, rundown, lineup, seed } = build();
         await seed();
         await director.start();
 
@@ -394,10 +395,15 @@ describe('DirectorService reclaiming what was retracted', () => {
         rundown.markAired(pulled!.item.id);
         await settle();
 
-        // The running order moves ON: 'd' tops up behind the two still held. Nothing is reclaimed,
-        // nothing is committed twice, and the cursor only ever went forwards.
+        // The running order moves ON: 'd' tops up behind the two still held. Nothing is reclaimed
+        // and nothing is committed twice.
         expect(idsOf(rundown.upcoming())).toEqual(['b', 'c', 'd']);
-        expect(director.status().cursor).toBe(4);
+        expect(
+            lineup
+                .all()
+                .slice(0, 5)
+                .map(item => item.state),
+        ).toEqual(['airing', 'handed', 'handed', 'handed', 'planned']);
     });
 
     it('steps over lines this lineup does not hold rather than stopping at them', async () => {
@@ -446,7 +452,7 @@ describe('DirectorService committing under a burst of events', () => {
             segments: [{ id: 'seg-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],
         });
         await seed();
-        await lineup.insertSegment('seg-1', 0);
+        lineup.insertSegment('seg-1', 0);
 
         let inFlight = 0;
         let overlapped = false;
@@ -580,15 +586,29 @@ describe('DirectorService refilling', () => {
 });
 
 describe('DirectorService at the end of a lineup', () => {
-    it('wraps a setlist back to the top', async () => {
+    it('offers a setlist again once it has been heard, rather than while it is still in hand', async () => {
+        // The old shape wrapped an INDEX, so a two-item setlist against a lead of three handed
+        // the player 'a' twice in one batch. Wrapping is now a state put back, so an item still
+        // with the player cannot be offered again — and the setlist repeats when it is actually
+        // over, which is what `on_end: 'repeat'` was always meant to mean.
         const { director, rundown, lineup, seed } = build({ items: ['a', 'b'], mode: 'setlist', onEnd: 'repeat' });
         await seed();
 
         await director.start();
+        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b']);
 
-        // Two items, a lead of three: the setlist wrapped rather than running out.
-        expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a', 'b', 'a']);
-        expect(lineup.cursor()).toBe(1);
+        // Both are handed over, then both air. Everything BEHIND the record now playing is
+        // offered again; the one still airing is not, because a listener is in the middle of it.
+        for (let index = 0; index < 2; index++) {
+            const pulled = await rundown.next();
+            rundown.markAired(pulled!.item.id);
+            await settle();
+        }
+
+        // 'a' is behind the listener, so it is offered again and goes straight back to the
+        // player. 'b' is not, because they are in the middle of it.
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
+        expect(lineup.all().map(item => item.state)).toEqual(['handed', 'airing']);
     });
 
     it('stands the station down when a lineup says to stop', async () => {
@@ -602,70 +622,45 @@ describe('DirectorService at the end of a lineup', () => {
         expect(rundown.upcoming()).toHaveLength(0);
     });
 
-    it('hands the station back to what a feature interrupted', async () => {
-        const { director, airRepository, seed } = build({
-            items: ['a'],
-            mode: 'feature',
-            onEnd: 'resume',
-            air: { resumeLineupId: 'lineup-2', resumeCursor: 4 },
-            other: { id: 'lineup-2', items: ['x', 'y'] },
-        });
-        await seed();
-
-        await director.start();
-
-        expect(airRepository.resume).toHaveBeenCalledWith('lineup-2', 4);
-    });
-
-    it('stands down rather than guessing when there is nothing to resume', async () => {
-        const { director, seed } = build({ items: ['a'], mode: 'feature', onEnd: 'resume' });
-        await seed();
-
-        await director.start();
-        await new Promise(resolve => setImmediate(resolve));
-
-        expect(director.status().active).toBe(false);
-    });
-
-    it('falls to the slot home programming when one is named', async () => {
-        const { director, airRepository, seed } = build({
-            items: ['a'],
-            mode: 'feature',
-            onEnd: 'rotation',
-            air: { defaultLineupId: 'lineup-2' },
-            other: { id: 'lineup-2', items: ['x', 'y'] },
-        });
-        await seed();
-
-        await director.start();
-
-        expect(airRepository.putOnAir).toHaveBeenCalledWith('lineup-2');
-    });
-
-    it('stands down when no home programming has been named', async () => {
-        // Naming none is a choice, not an oversight to paper over with a lineup
-        // nobody picked.
-        const { director, seed } = build({ items: ['a'], mode: 'feature', onEnd: 'rotation' });
-        await seed();
-
-        await director.start();
-        await new Promise(resolve => setImmediate(resolve));
-
-        expect(director.status().active).toBe(false);
-    });
+    // `on_end: 'resume'` and `on_end: 'rotation'` are gone with the library. Both named another
+    // STORED lineup for the station to fall back to, and there is no longer one to name: what is
+    // on air is built when it goes on air. `stop` above is what a finite programme does now.
 });
 
-describe('DirectorService switching', () => {
-    it('picks up a lineup put on air out of band', async () => {
-        const { director, setAir, other, seed } = build({ other: { id: 'lineup-2', items: ['x', 'y'] } });
+describe('DirectorService going on air', () => {
+    it('replaces the running order with what it was handed, and retracts the old one', async () => {
+        const { director, rundown, lineup, seed } = build();
         await seed();
-        await other!.append([track('x'), track('y')]);
+        await director.start();
+        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x'), track('y')],
+        });
+
+        // Nothing of the previous programme survives behind the record still playing. That is
+        // the retraction, and it is why a change of lineup used to leak three records into the
+        // new show.
+        expect(idsOf(rundown.upcoming())).toEqual(['x', 'y']);
+        expect(lineup.all().map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y']);
+        expect(director.status().name).toBe('Something else');
+    });
+
+    it('switches the station on, so a restart comes back to it', async () => {
+        const { director, airRepository, seed } = build({ air: { active: false } });
+        await seed();
         await director.start();
 
-        setAir({ slot: 'main', lineupId: 'lineup-2', cursor: 0, active: true });
-        await director.reload();
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x')],
+        });
 
-        expect(director.status().lineupId).toBe('lineup-2');
+        expect(airRepository.goOnAir).toHaveBeenCalled();
+        expect(director.status().active).toBe(true);
     });
 });
 
@@ -678,7 +673,7 @@ describe('DirectorService committing segments', () => {
     it('commits a ready segment as an ordinary item, so nothing downstream has to know what it is', async () => {
         const { director, lineup, rundown, seed } = build({ items: ['a', 'b'], segments: [READY] });
         await seed();
-        await lineup.insertSegment('seg-1', 1);
+        lineup.insertSegment('seg-1', 1);
 
         await director.start();
         await settle();
@@ -696,7 +691,7 @@ describe('DirectorService committing segments', () => {
             segments: [{ id: 'seg-1', kind: 'talkbreak', state: 'planned', label: 'A talk break', source: 'render' }],
         });
         await seed();
-        await lineup.insertSegment('seg-1', 1);
+        lineup.insertSegment('seg-1', 1);
 
         await director.start();
         await settle();
@@ -713,7 +708,7 @@ describe('DirectorService committing segments', () => {
     it('skips a segment the library has lost', async () => {
         const { director, lineup, rundown, seed } = build({ items: ['a', 'b'], segments: [] });
         await seed();
-        await lineup.insertSegment('seg-1', 1);
+        lineup.insertSegment('seg-1', 1);
 
         await director.start();
         await settle();
@@ -726,7 +721,7 @@ describe('DirectorService committing segments', () => {
     it('keeps a segment out of play history when it airs', async () => {
         const { director, lineup, rundown, history, seed } = build({ items: ['a', 'b'], segments: [READY] });
         await seed();
-        await lineup.insertSegment('seg-1', 0);
+        lineup.insertSegment('seg-1', 0);
         await director.start();
         await settle();
 
@@ -777,7 +772,7 @@ describe('DirectorService planting breaks', () => {
         // Everything planted is still ahead of the cursor: nothing was dropped into the part of the
         // order the player is already holding.
         const planted = lineup.all().flatMap((item, index) => (item.kind === 'segment' ? [index] : []));
-        expect(planted.every(index => index >= lineup.cursor())).toBe(true);
+        expect(planted.every(index => index >= lineup.committedThrough())).toBe(true);
     });
 
     it('plants at the spacing the operator set, not at the built-in default', async () => {
@@ -838,7 +833,7 @@ describe('DirectorService committing across a change underneath it', () => {
         });
         await seed();
         // A segment at the head, so the pass must await a lookup before it can commit anything.
-        await lineup.insertSegment('seg-1', 0);
+        lineup.insertSegment('seg-1', 0);
 
         let began: (() => void) | undefined;
         const started = new Promise<void>(resolve => (began = resolve));
@@ -868,16 +863,17 @@ describe('DirectorService committing across a change underneath it', () => {
     // The operator switches programming, the suspended pass resumes past its own guard, and the
     // records of the lineup they just took off are appended to the running order that was
     // retracted for them — a quarter of an hour of the old programme after the switch.
-    it('commits nothing from the old lineup when a different one is put on air mid-pass', async () => {
-        const { director, rundown, lineup, other, segmentStub, seed, setAir } = build({
+    it('commits nothing from the old programme when a new one goes on air mid-pass', async () => {
+        // Bug 1, and the reason `invalidate` is synchronous. A pass suspended in a segment lookup
+        // has already decided what to commit; a command queued behind it arrives too late to stop
+        // it, and the records it appends land inside the programme that has just replaced them.
+        const { director, rundown, lineup, segmentStub, seed } = build({
             items: ['a', 'b', 'c'],
-            other: { id: 'lineup-2', items: ['x', 'y', 'z'] },
             segments: [{ id: 'seg-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],
         });
         await seed();
-        await other!.append([track('x'), track('y'), track('z')]);
         // A segment at the head, so the pass must await a lookup before it can commit anything.
-        await lineup.insertSegment('seg-1', 0);
+        lineup.insertSegment('seg-1', 0);
 
         let began: (() => void) | undefined;
         const started = new Promise<void>(resolve => (began = resolve));
@@ -893,27 +889,31 @@ describe('DirectorService committing across a change underneath it', () => {
         await started;
 
         // The switch, landing exactly inside the lookup: what `DirectorConsoleService.putOnAir`
-        // does, in the order it does it.
-        setAir({ slot: 'main', lineupId: 'lineup-2', cursor: 0, active: true });
+        // does, in the order it does it. The cancel is synchronous and reaches the pass already
+        // gathering; the command queues behind it.
         director.invalidate();
-        rundown.load([]);
+        const switched = director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x'), track('y')],
+        });
 
         unblock!();
         await starting;
+        await switched;
         await settle();
 
-        // Nothing from the lineup that was taken off air, and its cursor never moved, so putting
-        // it back on later starts where it actually stopped.
-        expect(rundown.upcoming()).toHaveLength(0);
-        expect(lineup.cursor()).toBe(0);
+        // Only the new programme. Without the synchronous cancel the blocked pass resumes past
+        // its own guard and appends the OLD records behind these, which is a quarter of an hour
+        // of a show the operator has just taken off air.
+        expect(idsOf(rundown.upcoming())).toEqual(['x', 'y']);
+        expect(lineup.all().map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y']);
     });
 
-    // A cursor advanced before the lines are usable loses them for good: they sit behind it and
-    // nothing offers them again. A lookup that throws is the ordinary way to get there.
-    it('leaves the cursor alone when the work before the hand-over fails', async () => {
+    it('marks nothing when the work before the hand-over fails', async () => {
         const { director, lineup, segmentStub, seed } = build({ items: ['a', 'b', 'c'] });
         await seed();
-        await lineup.insertSegment('seg-1', 0);
+        lineup.insertSegment('seg-1', 0);
         segmentStub.findByIds = vi.fn(async () => {
             throw new Error('the database is gone');
         });
@@ -921,8 +921,9 @@ describe('DirectorService committing across a change underneath it', () => {
         await director.start().catch(() => undefined);
         await settle();
 
-        // All four lines are still ahead of the cursor and will be offered again.
-        expect(lineup.cursor()).toBe(0);
+        // Marking first and gathering afterwards is how a failure in the middle loses programming
+        // for good: the items would read as spent and nothing would ever offer them again.
+        expect(lineup.committedThrough()).toBe(0);
         expect(lineup.remaining()).toBe(4);
     });
 });
@@ -936,7 +937,7 @@ describe('DirectorService committing a talk-over', () => {
     it('attaches it to the record that follows rather than committing it as an item', async () => {
         const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c'], segments: [READY] });
         await seed();
-        await lineup.insertSegment('seg-1', 1, undefined, { atMs: 8000 });
+        lineup.insertSegment('seg-1', 1, { atMs: 8000 });
 
         await director.start();
         await settle();
@@ -954,7 +955,7 @@ describe('DirectorService committing a talk-over', () => {
         const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c', 'd'], segments: [READY] });
         await seed();
         // After a, b, c — so it is the last line of the first batch of three.
-        await lineup.insertSegment('seg-1', 3, undefined, { atMs: 5000 });
+        lineup.insertSegment('seg-1', 3, { atMs: 5000 });
 
         await director.start();
         await settle();
@@ -975,8 +976,8 @@ describe('DirectorService committing a talk-over', () => {
             segments: [READY, { id: 'seg-2', kind: 'talkbreak', state: 'ready', label: 'Also over the intro', source: 'library' }],
         });
         await seed();
-        await lineup.insertSegment('seg-1', 1, undefined, { atMs: 1000 });
-        await lineup.insertSegment('seg-2', 2, undefined, { atMs: 2000 });
+        lineup.insertSegment('seg-1', 1, { atMs: 1000 });
+        lineup.insertSegment('seg-2', 2, { atMs: 2000 });
 
         await director.start();
         await settle();
@@ -989,13 +990,19 @@ describe('DirectorService committing a talk-over', () => {
     it('forgets a held talk-over when the station stands down', async () => {
         const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c', 'd'], segments: [READY] });
         await seed();
-        await lineup.insertSegment('seg-1', 3, undefined, { atMs: 5000 });
+        lineup.insertSegment('seg-1', 3, { atMs: 5000 });
         await director.start();
         await settle();
 
         rundown.reset();
         await settle();
-        await director.reload();
+        // Back on air with the same order: the held cue must not attach itself to the first
+        // record of what comes next.
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x'), track('y')],
+        });
         await settle();
 
         expect(rundown.upcoming().every(item => item.voice === undefined)).toBe(true);
@@ -1006,7 +1013,7 @@ describe('DirectorService committing a talk-over', () => {
     it('leaves a plain segment as an item of its own', async () => {
         const { director, lineup, rundown, seed } = build({ items: ['a', 'b'], segments: [READY] });
         await seed();
-        await lineup.insertSegment('seg-1', 1);
+        lineup.insertSegment('seg-1', 1);
 
         await director.start();
         await settle();
@@ -1016,151 +1023,65 @@ describe('DirectorService committing a talk-over', () => {
     });
 });
 
-// The reactor holds the lineup it is airing in memory, so anything that changes the plan has to be
-// able to tell it. Doing that as a flag consumed on a TIMER, rather than at the top of a commit
-// pass, is the whole point: `putOnAir` calls `Rundown.load([])`, whose change event fires a pass
-// synchronously and still inside the request whose transaction has not committed. A pass that
-// consumed the flag would re-read the state from before the write that prompted it.
-describe('DirectorService noticing the plan changed', () => {
-    const loadCount = (lineups: LineupRepository) => (lineups.load as ReturnType<typeof vi.fn>).mock.calls.length;
-
-    beforeEach(() => {
-        vi.useFakeTimers();
-    });
-    afterEach(() => {
-        vi.useRealTimers();
-    });
-
-    it('re-reads the plan once the timer comes round', async () => {
-        const { director, lineups, seed } = build();
+// An edit used to be a write to a row that the reactor then re-read on a timer, with all the
+// racing that implies: a flag, a one-second poll, and a window in which the reactor committed from
+// a plan it had already been told was wrong. The running order is the reactor's own state now, so
+// an edit is a command applied to it and there is nothing to re-read at all.
+describe('DirectorService editing what is on air', () => {
+    it('applies an edit and answers with whether it took', async () => {
+        const { director, lineup, seed } = build();
         await seed();
         await director.start();
-        const before = loadCount(lineups);
 
-        director.invalidate();
-        await vi.advanceTimersByTimeAsync(1100);
-
-        expect(loadCount(lineups)).toBeGreaterThan(before);
+        const before = lineup.size();
+        const last = lineup.all()[before - 1]!;
+        expect(await director.applyEdit({ kind: 'remove', itemId: last.id })).toEqual({ ok: true });
+        expect(lineup.size()).toBe(before - 1);
     });
 
-    // The case that used to leave the station stuck: the row said start from the top, and the
-    // reactor carried on from where it was because nothing ever made it look again.
-    it('picks up a cursor moved underneath it', async () => {
-        const { director, setAir, seed } = build();
+    it('refuses an edit to what the player is already holding', async () => {
+        const { director, lineup, seed } = build();
         await seed();
         await director.start();
-        expect(director.status().cursor).toBe(3);
 
-        // What putOnAir writes: same lineup, back to the top. The id is unchanged, which is
-        // precisely why the reactor used to ignore it.
-        setAir({ slot: 'main', lineupId: 'lineup-1', cursor: 0, active: true });
-        director.invalidate();
-        await vi.advanceTimersByTimeAsync(1100);
-
-        expect(director.status().cursor).toBe(0);
+        const committed = lineup.all()[0]!;
+        expect(await director.applyEdit({ kind: 'remove', itemId: committed.id })).toMatchObject({ ok: false, reason: 'already-aired' });
     });
 
-    // A pass fired inside the request must not consume the flag: at that moment the write it is
-    // about to read has not committed.
-    it('does not re-read on a rundown event, only on the timer', async () => {
-        const { director, lineups, rundown, seed } = build();
-        await seed();
+    it('answers rather than throwing when nothing is on air', async () => {
+        const { director } = build({ noOrder: true });
         await director.start();
-        const before = loadCount(lineups);
 
-        director.invalidate();
-        await rundown.next();
-        await Promise.resolve();
-
-        expect(loadCount(lineups)).toBe(before);
+        expect(await director.applyEdit({ kind: 'shuffle' })).toMatchObject({ ok: false, reason: 'not-found' });
     });
 
-    it('costs nothing while nothing has changed', async () => {
-        const { director, lineups, seed } = build();
+    it('writes the edit down before the caller is told it happened', async () => {
+        // The one write that cannot ride the throttle: the response says it happened, so it has
+        // to have happened. A transport transition is the other side of that trade — nobody is
+        // waiting on those, and the correct failure for them is to replay.
+        const { director, lineups, lineup, seed } = build();
         await seed();
         await director.start();
-        const before = loadCount(lineups);
+        vi.mocked(lineups.save).mockClear();
 
-        await vi.advanceTimersByTimeAsync(5000);
+        await director.applyEdit({ kind: 'remove', itemId: lineup.all()[lineup.size() - 1]!.id });
 
-        expect(loadCount(lineups)).toBe(before);
+        expect(lineups.save).toHaveBeenCalled();
     });
 
-    it('coalesces several changes into one re-read', async () => {
-        const { director, lineups, seed } = build();
+    it('tops the running order back up after a removal leaves room', async () => {
+        const { director, rundown, lineup, seed } = build({ items: ['a', 'b', 'c', 'd'] });
         await seed();
         await director.start();
-        const before = loadCount(lineups);
+        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
 
-        director.invalidate();
-        director.invalidate();
-        director.invalidate();
-        await vi.advanceTimersByTimeAsync(1100);
+        // Drop what is on air and the pass behind the edit fills the gap from the tail.
+        await director.applyEdit({ kind: 'remove', itemId: lineup.all()[3]!.id });
 
-        expect(loadCount(lineups)).toBe(before + 1);
-    });
-
-    it('stops looking once it has been stopped', async () => {
-        const { director, lineups, seed } = build();
-        await seed();
-        await director.start();
-        director.stop();
-        const before = loadCount(lineups);
-
-        director.invalidate();
-        await vi.advanceTimersByTimeAsync(5000);
-
-        expect(loadCount(lineups)).toBe(before);
+        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
     });
 });
 
-// The guard that makes the flag more than a hint. A pass running while the plan is known to be
-// wrong would commit from the copy it is holding AND write the cursor it reached — on its own
-// connection, landing after the request that just reset that cursor. The reset would be undone by
-// the reactor moments after it was made, which is exactly what "put this lineup on air" hit.
-describe('DirectorService while it knows the plan is wrong', () => {
-    it('commits nothing until it has re-read', async () => {
-        const { director, rundown, lineup, seed } = build();
-        await seed();
-        await director.start();
-        const cursorWhenInvalidated = lineup.cursor();
-
-        director.invalidate();
-        // Drain what the player is holding, which is the loudest possible reason to commit more.
-        await rundown.next();
-        await rundown.next();
-        await settle();
-
-        expect(lineup.cursor()).toBe(cursorWhenInvalidated);
-    });
-
-    it('starts committing again once the re-read has happened', async () => {
-        vi.useFakeTimers();
-        try {
-            const { director, rundown, lineup, seed } = build();
-            await seed();
-            await director.start();
-
-            director.invalidate();
-            await vi.advanceTimersByTimeAsync(1100);
-            // Re-read, so back to the top of the order the air row names.
-            expect(lineup.cursor()).toBe(0);
-
-            // Empty what the player is holding, which is the one thing that makes the reactor
-            // commit again. Before the re-read this would have done nothing at all.
-            rundown.load([]);
-            await vi.advanceTimersByTimeAsync(10);
-
-            expect(lineup.cursor()).toBe(3);
-        } finally {
-            vi.useRealTimers();
-        }
-    });
-});
-
-// The refill is the only thing standing between a rotation and silence, and both ways it used to
-// fail were invisible: the send threw where nobody was waiting, and the guard that stops a burst of
-// duplicate sends latched anyway, so it never tried again.
 describe('DirectorService asking for a refill', () => {
     it('sends the refill from a scope of its own', async () => {
         const { director, jobs, seed } = build({ items: ['a', 'b', 'c'] });
@@ -1169,7 +1090,7 @@ describe('DirectorService asking for a refill', () => {
         await director.start();
         await settle();
 
-        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { lineupId: 'lineup-1' });
+        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', {});
     });
 
     // The one that turned a transient failure into a permanent one.

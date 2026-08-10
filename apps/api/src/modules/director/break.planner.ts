@@ -4,7 +4,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
-import type { Lineup, LineupItem } from './lineup.js';
+import type { StationLineup, StationLineupItem } from './station.lineup.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
 
@@ -79,10 +79,10 @@ export class BreakPlanner {
      * the slow half is deferred, and a break that is never written is skipped by
      * the director exactly like one that was never rendered.
      */
-    async plant(lineup: Lineup, rules: ResolvedRules): Promise<number> {
+    async plant(lineup: StationLineup, rules: ResolvedRules): Promise<number> {
         if (!rules.breaks || rules.breakEveryItems <= 0) return 0;
 
-        const positions = placementsFor(lineup.all(), lineup.cursor(), rules.breakEveryItems);
+        const positions = placementsFor(lineup.all(), lineup.committedThrough(), rules.breakEveryItems);
         if (positions.length === 0) return 0;
 
         // Both halves of being able to say something of the station's own: words to say, and a voice
@@ -96,24 +96,19 @@ export class BreakPlanner {
             // nothing able to write its own is an ordinary state, and it plays records. Said once
             // per pass at info, because an operator wondering why the station never says its own
             // name needs somewhere to look.
-            this.logger.info('director: the lineup wants a break, but nothing can write one and the library holds no idents', {
-                lineup: lineup.id,
-            });
+            this.logger.info('director: the running order wants a break, but nothing can write one and the library holds no idents');
             return 0;
         }
 
         const placements = await this.fill(positions, idents, canWrite, await this.lastKindBefore(lineup, positions[0]!));
         if (placements.length === 0) return 0;
 
-        const result = await lineup.insertSegments(placements.map(({ segmentId, atIndex }) => ({ segmentId, atIndex })));
+        const result = lineup.insertSegments(placements.map(({ segmentId, atIndex }) => ({ segmentId, atIndex })));
         if (!result.ok) {
             // The order moved under the walk: the director committed, or an operator edited, between
             // computing these positions and writing them. Nothing is lost — the next pass walks the
             // order as it stands and plants against that.
-            this.logger.info('director: a break placement was refused; it will be planned again', {
-                lineup: lineup.id,
-                reason: result.reason,
-            });
+            this.logger.info('director: a break placement was refused; it will be planned again', { reason: result.reason });
             await this.abandon(placements);
             return 0;
         }
@@ -123,10 +118,10 @@ export class BreakPlanner {
         // break about nothing.
         for (const placement of placements) {
             if (!placement.written) continue;
-            await this.jobs.send('director.write_break', { lineupId: lineup.id, segmentId: placement.segmentId });
+            await this.jobs.send('director.write_break', { segmentId: placement.segmentId });
         }
 
-        this.logger.info('director: planted breaks into a lineup', { lineup: lineup.id, count: placements.length, written: canWrite });
+        this.logger.info('director: planted breaks into the running order', { count: placements.length, written: canWrite });
         return placements.length;
     }
 
@@ -143,7 +138,12 @@ export class BreakPlanner {
      * gets talk breaks at every slot, and one with no speaker gets idents at every slot. Neither
      * needs a branch anywhere else, and neither is worth skipping a break over.
      */
-    private async fill(positions: readonly number[], idents: readonly Segment[], canWrite: boolean, lastKind: string | undefined): Promise<Placement[]> {
+    private async fill(
+        positions: readonly number[],
+        idents: readonly Segment[],
+        canWrite: boolean,
+        lastKind: string | undefined,
+    ): Promise<Placement[]> {
         const placements: Placement[] = [];
         let previousKind = lastKind;
         // Chosen per slot rather than once per pass, so two idents planted together are two
@@ -179,7 +179,7 @@ export class BreakPlanner {
      * truth for the rest), so the kind has to be read rather than remembered. A segment that has
      * since been deleted reads as no answer at all, which starts the alternation fresh.
      */
-    private async lastKindBefore(lineup: Lineup, before: number): Promise<string | undefined> {
+    private async lastKindBefore(lineup: StationLineup, before: number): Promise<string | undefined> {
         const items = lineup.all();
         for (let index = Math.min(before, items.length) - 1; index >= 0; index--) {
             const item = items[index]!;
@@ -230,7 +230,7 @@ interface Placement {
  * Returns indices into the order as it stands, which is what
  * {@link Lineup.insertSegments} expects.
  */
-function placementsFor(items: readonly LineupItem[], cursor: number, every: number): number[] {
+function placementsFor(items: readonly StationLineupItem[], cursor: number, every: number): number[] {
     let since = recordsSinceLastSegment(items, cursor);
     const placements: number[] = [];
 
@@ -270,7 +270,7 @@ function placementsFor(items: readonly LineupItem[], cursor: number, every: numb
 }
 
 /** How many records the station has played since it last said anything. */
-function recordsSinceLastSegment(items: readonly LineupItem[], cursor: number): number {
+function recordsSinceLastSegment(items: readonly StationLineupItem[], cursor: number): number {
     let count = 0;
     for (let index = cursor - 1; index >= 0; index--) {
         if (items[index]!.kind === 'segment') return count;

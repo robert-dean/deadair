@@ -65,18 +65,48 @@ export interface AddLineupSegmentInput {
 export type AirMode = 'audience' | 'always';
 
 /**
- * Put a lineup on air, from the top
- * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L90)
+ * What the station does when the running order runs out
+ * generated from [StationOnEnd](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L90)
  */
-export interface PutOnAirInput {
-    lineupId: string;
-    /** Remember what this displaced, so a lineup ending with `resume` hands the station back to it. What an album feature wants; not what an operator changing programming wants */
-    interrupting?: boolean;
+export type StationOnEnd = 'extend' | 'repeat' | 'stop';
+
+/**
+ * Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around
+ * generated from [StationItemState](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L93)
+ */
+export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped';
+
+/**
+ * Put something the station says into the running order
+ * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L134)
+ */
+export interface AddStationSegmentInput {
+    segmentId: string;
+    /** Where to put it. Absent puts it at the end. A position already handed to the player is refused */
+    atIndex?: number;
+    /** Play it OVER the record that follows, this far into it, rather than in the gap before it. Absent plays it between two records, which is the simpler path */
+    overAtMs?: number;
+}
+
+/**
+ * Move an item within the running order
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L140)
+ */
+export interface MoveStationItemInput {
+    toIndex: number;
+}
+
+/**
+ * Add tracks to the running order now, rather than waiting for it to run short
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L144)
+ */
+export interface ExtendStationInput {
+    count?: number;
 }
 
 /**
  * Add tracks to a lineup now, rather than waiting for it to run short
- * generated from [ExtendLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L95)
+ * generated from [ExtendLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L148)
  */
 export interface ExtendLineupInput {
     count?: number;
@@ -84,7 +114,7 @@ export interface ExtendLineupInput {
 
 /**
  * An edit, carrying the view of the order it was made against
- * generated from [EditLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L99)
+ * generated from [EditLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L152)
  */
 export interface EditLineupInput {
     /** Absent skips the check. Send it and an edit made against a list that has since changed is refused rather than applied to whatever is in that position now */
@@ -93,7 +123,7 @@ export interface EditLineupInput {
 
 /**
  * Move a line within a lineup
- * generated from [MoveLineupItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L103)
+ * generated from [MoveLineupItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L156)
  */
 export interface MoveLineupItemInput {
     toIndex: number;
@@ -121,7 +151,7 @@ export interface LineupSummary {
 
 /**
  * Build a lineup from a plugin playlist
- * generated from [ImportLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L82)
+ * generated from [ImportLineupInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L81)
  */
 export interface ImportLineupInput {
     pluginId: string;
@@ -153,23 +183,76 @@ export interface Lineup {
  * generated from [StationAir](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L69)
  */
 export interface StationAir {
-    /** False means the station was stood down. The lineup is remembered so the console can still say what it was playing */
+    /** False means the station was stood down. What it was playing is remembered so the console can still say what it was */
     active: boolean;
     /** What puts the station on air. In `audience` mode a station that is active with a full running order is still silent while nobody is connected, which is the intended state and not a fault */
     airMode: AirMode;
-    lineupId?: string;
-    lineupName?: string;
-    cursor: number;
-    /** Lines left in the lineup before it runs out and `onEnd` decides what happens */
+    /** What is on. Absent before the station has ever been given anything to play */
+    name?: string;
+    /** Who built what is on: `import` or `director` */
+    source?: string;
+    /** Items left before the running order runs out and `onEnd` decides what happens */
     remaining: number;
 }
 
 /**
  * Change how the station decides to be on air
- * generated from [SetStationAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L78)
+ * generated from [SetStationAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L77)
  */
 export interface SetStationAirInput {
     airMode: AirMode;
+}
+
+/**
+ * Put the station on air, building its running order from the top
+ * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L126)
+ */
+export interface PutOnAirInput {
+    /** The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming */
+    pluginId?: string;
+    /** Required alongside `pluginId`. The playlist is READ at this moment rather than copied, so it is never edited by having been aired */
+    playlistId?: string;
+    /** What to call this broadcast. Absent names it after the plugin, since only the surface that listed the playlist knows its own name for it */
+    name?: string;
+    mode?: LineupMode;
+    onEnd?: StationOnEnd;
+}
+
+/**
+ * One item of the live running order, and where it has got to
+ * generated from [StationOrderItem](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L95)
+ */
+export interface StationOrderItem {
+    /** What an edit names, what rides through the player, and what comes back on its readings */
+    id: string;
+    /** Whether this is a record or something the station says: an ident, a stinger, a talk break */
+    kind: 'track' | 'segment';
+    state: StationItemState;
+    /** The record's title, or the segment's label. What the mount is labelled with while it airs */
+    title: string;
+    /** Empty for a segment, which has no artist */
+    artists: string[];
+    durationMs?: number;
+    /** Absent on a segment: the station serves its own audio */
+    pluginId?: string;
+    /** Absent on a segment */
+    externalId?: string;
+    album?: string;
+    artworkUrl?: string;
+    year?: number;
+    /** The canonical catalog track, when this is one the catalog holds */
+    trackId?: string;
+    /** Which segment this plays. Present only on a segment */
+    segmentId?: string;
+    segmentState?: 'planned' | 'rendering' | 'ready' | 'failed' | 'gone';
+    /** Whether the station can actually air this segment. One that cannot is SKIPPED when it comes round, rather than held open */
+    playable?: boolean;
+    /** Why this segment will not air, in a sentence. Present only on a failed one */
+    segmentError?: string;
+    /** What decided the words: the station's own templates, or the model that wrote them. Absent on a recording somebody made */
+    segmentWriter?: string;
+    /** Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right */
+    overAtMs?: number;
 }
 
 /**
@@ -177,4 +260,21 @@ export interface SetStationAirInput {
  */
 export interface LineupList {
     lineups: LineupSummary[];
+}
+
+/**
+ * The station's live running order: what is airing, item by item
+ * generated from [StationOrder](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L116)
+ */
+export interface StationOrder {
+    /** What is on, for a console to draw. A label for this broadcast rather than the name of a stored object */
+    name: string;
+    mode: LineupMode;
+    onEnd: StationOnEnd;
+    /** Who built it: `import` or `director` */
+    source: string;
+    /** Where more material is pulled from, when it came from a playlist */
+    sourcePluginId?: string;
+    sourcePlaylistId?: string;
+    items: StationOrderItem[];
 }

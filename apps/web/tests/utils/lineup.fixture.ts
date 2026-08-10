@@ -53,13 +53,12 @@ export function lineupSummary(overrides: Partial<LineupSummary> = {}): LineupSum
     };
 }
 
-/** A station driving a lineup. */
+/** A station on air. What it is airing is its own running order, not a stored lineup. */
 export function stationAir(overrides: Partial<StationAir> = {}): StationAir {
     return {
         active: true,
-        lineupId: 'lineup-1',
-        lineupName: 'Late shift',
-        cursor: 1,
+        name: 'Late shift',
+        source: 'import',
         remaining: 2,
         ...overrides,
     };

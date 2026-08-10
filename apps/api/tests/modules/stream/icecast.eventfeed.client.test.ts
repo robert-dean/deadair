@@ -11,8 +11,30 @@ import type { IcecastStatsClient } from '../../../src/modules/stream/icecast.sta
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
-/** A stats client that has, or has not, resolved a 2.5 server. */
-const stats = (api?: { base: string; password: string }) => ({ adminApi: () => api }) as unknown as IcecastStatsClient;
+/**
+ * A stats client that has, or has not, resolved a 2.5 server — and that can
+ * resolve one later, the way the real poll does a moment after boot.
+ */
+function stats(api?: { base: string; password: string }) {
+    let current = api;
+    const listeners = new Set<() => void>();
+
+    const client = {
+        adminApi: () => current,
+        onResolved: (listener: () => void) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+        },
+    };
+    return {
+        client: client as unknown as IcecastStatsClient,
+        /** The poll settling on an endpoint, which is what should wake the feed. */
+        resolve(next: { base: string; password: string }) {
+            current = next;
+            for (const listener of listeners) listener();
+        },
+    };
+}
 
 /** A `fetch` answering with an event stream the test writes into. */
 function stubFeed() {
@@ -49,7 +71,7 @@ describe('IcecastEventFeed', () => {
 
     it('opens nothing on an Icecast with no admin API', async () => {
         const feed = stubFeed();
-        const client = new IcecastEventFeed(stats(undefined), logger);
+        const client = new IcecastEventFeed(stats(undefined).client, logger);
 
         client.watch('/live.mp3', vi.fn());
         await settle();
@@ -58,10 +80,30 @@ describe('IcecastEventFeed', () => {
         expect(feed.asked).toEqual([]);
     });
 
+    it('attaches as soon as the poll resolves a 2.5 server, not on its own retry', async () => {
+        // The order at boot: the watcher starts the feed and the poll in the same
+        // breath, so the first look finds nothing resolved yet. Waiting for the idle
+        // retry after that would leave a freshly booted station on the poll alone for
+        // half a minute for no reason.
+        const feed = stubFeed();
+        const server = stats(undefined);
+        const client = new IcecastEventFeed(server.client, logger);
+
+        client.watch('/live.mp3', vi.fn());
+        await settle();
+        expect(feed.asked).toEqual([]);
+
+        server.resolve({ base: 'http://127.0.0.1:8000', password: 'pw' });
+        await settle();
+        client.stop();
+
+        expect(feed.asked.map(call => call.url)).toEqual(['http://127.0.0.1:8000/admin/eventfeed']);
+    });
+
     it('follows the feed with the admin credentials and reports whole counts', async () => {
         const feed = stubFeed();
         const counts: number[] = [];
-        const client = new IcecastEventFeed(stats({ base: 'http://127.0.0.1:8000', password: 'hunter2' }), logger);
+        const client = new IcecastEventFeed(stats({ base: 'http://127.0.0.1:8000', password: 'hunter2' }).client, logger);
 
         client.watch('/live.mp3', count => counts.push(count));
         await settle();
@@ -83,7 +125,7 @@ describe('IcecastEventFeed', () => {
     it('stops reading when it is stopped', async () => {
         const feed = stubFeed();
         const counts: number[] = [];
-        const client = new IcecastEventFeed(stats({ base: 'http://127.0.0.1:8000', password: 'pw' }), logger);
+        const client = new IcecastEventFeed(stats({ base: 'http://127.0.0.1:8000', password: 'pw' }).client, logger);
 
         client.watch('/live.mp3', count => counts.push(count));
         await settle();

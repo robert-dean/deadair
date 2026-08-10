@@ -142,6 +142,8 @@ export class IcecastStatsClient {
     private reportedMissing = false;
     /** The same discipline for "the admin endpoint refused us". See {@link noteRefusal}. */
     private reportedDenied = false;
+    /** Told when the endpoint changes. See {@link onResolved}. */
+    private readonly resolvedListeners = new Set<() => void>();
 
     constructor(
         private readonly config: AppConfig,
@@ -186,6 +188,21 @@ export class IcecastStatsClient {
      * poll has resolved one, and `undefined` for a server whose answer came from
      * the deprecated endpoint, which has no feed to read.
      */
+    /**
+     * Be told when the poll settles on a different endpoint. Returns the
+     * unsubscribe.
+     *
+     * The event feed is the subscriber, and this is what makes it attach on the
+     * poll that discovers a 2.5 server rather than on its own retry: the two are
+     * asking about the same server, and the poll is the one that finds out. Fired
+     * on any change, including to an endpoint with no feed behind it, because
+     * "this is a 2.4 now" is news of the same kind.
+     */
+    onResolved(listener: () => void): () => void {
+        this.resolvedListeners.add(listener);
+        return () => this.resolvedListeners.delete(listener);
+    }
+
     adminApi(): { base: string; password: string } | undefined {
         if (!this.resolved || !isAdminEndpoint(this.resolved.path) || !this.adminPassword) return undefined;
 
@@ -237,7 +254,17 @@ export class IcecastStatsClient {
         const changed = this.resolved?.base !== endpoint.base || this.resolved.path !== endpoint.path;
         this.resolved = endpoint;
         this.reportedMissing = false;
-        if (changed) this.logger.info(`icecast: reading the audience from ${endpoint.base}${endpoint.path}`);
+        if (!changed) return;
+
+        this.logger.info(`icecast: reading the audience from ${endpoint.base}${endpoint.path}`);
+        for (const listener of this.resolvedListeners) {
+            try {
+                listener();
+            } catch (error) {
+                // A subscriber that throws must not stop the poll that found this out.
+                this.logger.warn(`icecast: a listener threw on the resolved endpoint (${message(error)})`);
+            }
+        }
     }
 
     /** One read of a stats endpoint. `undefined` for anything that is not a stats document. */
@@ -346,3 +373,5 @@ function matchesMount(listenUrl: string, mount: string): boolean {
         return listenUrl.endsWith(path);
     }
 }
+
+const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

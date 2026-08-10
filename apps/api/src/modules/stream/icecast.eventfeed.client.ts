@@ -53,6 +53,8 @@ export class IcecastEventFeed {
     private reportedDown = false;
     /** Whether being attached has been said, so a reconnect storm cannot either. */
     private announced = false;
+    /** Stops listening for the poll settling on an endpoint. See {@link watch}. */
+    private unsubscribe?: () => void;
 
     constructor(
         private readonly stats: IcecastStatsClient,
@@ -72,12 +74,19 @@ export class IcecastEventFeed {
         if (this.running) return;
 
         this.running = true;
+        // The poll is what discovers whether this Icecast has a feed at all, so the
+        // moment it settles on an endpoint is the moment to try — rather than up to
+        // IDLE_RETRY_MS later, which would leave a freshly booted station without its
+        // push half for no reason.
+        this.unsubscribe = this.stats.onResolved(() => this.wake?.());
         void this.loop();
     }
 
     /** Stop following it. The connection in flight is aborted rather than left to time out. */
     stop(): void {
         this.running = false;
+        this.unsubscribe?.();
+        this.unsubscribe = undefined;
         this.connection?.abort();
         this.connection = undefined;
         this.wake?.();

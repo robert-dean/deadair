@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as OnairRouteImport } from './routes/onair'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as VoicesRouteImport } from './routes/voices'
@@ -40,6 +41,11 @@ const AboutRoute = AboutRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnairRoute = OnairRouteImport.update({
+  id: '/onair',
+  path: '/onair',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
+  '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
+  '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
+  '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/login'
+    | '/onair'
     | '/onboarding'
     | '/settings'
     | '/voices'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/login'
+    | '/onair'
     | '/onboarding'
     | '/settings'
     | '/voices'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/login'
+    | '/onair'
     | '/onboarding'
     | '/settings'
     | '/voices'
@@ -236,6 +248,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   LoginRoute: typeof LoginRoute
+  OnairRoute: typeof OnairRoute
   OnboardingRoute: typeof OnboardingRoute
   SettingsRoute: typeof SettingsRoute
   VoicesRoute: typeof VoicesRoute
@@ -273,6 +286,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onair': {
+      id: '/onair'
+      path: '/onair'
+      fullPath: '/onair'
+      preLoaderRoute: typeof OnairRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -380,6 +400,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   LoginRoute: LoginRoute,
+  OnairRoute: OnairRoute,
   OnboardingRoute: OnboardingRoute,
   SettingsRoute: SettingsRoute,
   VoicesRoute: VoicesRoute,

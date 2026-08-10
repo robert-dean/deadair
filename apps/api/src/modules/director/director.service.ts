@@ -374,6 +374,23 @@ export class DirectorService {
             case 'standDown':
                 await this.standDown();
                 return;
+
+            case 'putOnAir':
+                // Retract FIRST, then read. What the player is holding belongs to the lineup
+                // coming off, and leaving it there would air a few records of the old programme
+                // behind the new one. What is ON AIR is left alone by `load`: changing the
+                // programming is not a reason to cut a listener off mid-record.
+                this.rundown.load([]);
+                this.stale = false;
+                await this.restore();
+                return;
+
+            case 'planChanged':
+                // No retraction. An edit to the part nobody has heard yet says nothing about the
+                // part they are about to.
+                this.stale = false;
+                await this.restore();
+                return;
         }
     }
 

@@ -44,7 +44,24 @@ export type DirectorCommand =
     /** Something changed what the player is holding; top the running order up. */
     | { kind: 'wake' }
     /** The station is going off air, from the transport or from a lineup that ended. */
-    | { kind: 'standDown' };
+    | { kind: 'standDown' }
+    /**
+     * `station_air` names a different lineup: read it, and retract the running order
+     * belonging to the one coming off.
+     *
+     * Carries no payload on purpose. The row is the decision, this is only the news
+     * that it changed, and a lineup id copied into the command would be a second
+     * opinion about what is on air that could disagree with the first.
+     */
+    | { kind: 'putOnAir' }
+    /**
+     * The lineup on air was edited in place: re-read it, but keep the running order.
+     *
+     * Distinct from `putOnAir` in exactly one way, and it is the one that matters to
+     * a listener: an edit to the tail is not a reason to retract what has already
+     * been handed over and is about to be heard.
+     */
+    | { kind: 'planChanged' };
 
 /** One posted command and the caller waiting on it. */
 interface Envelope {

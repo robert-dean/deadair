@@ -5,10 +5,12 @@ import { Logger } from '@maroonedsoftware/logger';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
+import { AfterCommit } from '#modules/data/after.commit.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
-import { Rundown, type RundownTrack } from '#modules/playout/rundown.js';
+import type { RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
+import type { DirectorCommand } from './director.mailbox.js';
 import { DirectorService } from './director.service.js';
 import type { EditResult, Lineup as LoadedLineup, LineupSegmentItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
@@ -52,7 +54,9 @@ export class DirectorConsoleService {
         // programming surface never writes one; that is the render module's business.
         private readonly segments: SegmentRepository,
         private readonly settings: SettingsService,
-        private readonly rundown: Rundown,
+        // How this request's decisions reach the reactor once they are durable. See
+        // {@link announceAirChange}.
+        private readonly afterCommit: AfterCommit,
         // Scoped, so a send commits with the request's own transaction rather than
         // ahead of it. See JobsModule for why the request path takes this one.
         private readonly jobs: JobBroker,
@@ -223,17 +227,20 @@ export class DirectorConsoleService {
         const current = input.interrupting ? this.director.status() : undefined;
         await this.air.putOnAir(lineup.id, current?.lineupId ? { lineupId: current.lineupId, cursor: current.cursor } : undefined);
 
-        // Invalidated BEFORE the running order is retracted, not after. `Rundown.load` announces a
-        // change synchronously, and the reactor's pass on that event would otherwise commit from
-        // the plan it is still holding and write its own cursor over the reset this just made.
-        this.director.invalidate();
-
-        // Retract what the player is holding from the previous lineup. What is ON AIR
-        // is left alone by `load`; only the uncommitted tail goes.
-        this.rundown.load([]);
+        this.announceAirChange({ kind: 'putOnAir' });
 
         this.logger.info('director: put a lineup on air', { lineup: lineup.id, interrupting: input.interrupting ?? false });
-        return this.getAir();
+        // Built from what was just written rather than read back from the reactor, which has not
+        // acted on it yet and would answer with the lineup this one replaced. The row says the
+        // cursor is zero, so the whole of this lineup is still to come.
+        return {
+            active: true,
+            airMode: this.director.status().airMode,
+            lineupId: lineup.id,
+            lineupName: lineup.name,
+            cursor: 0,
+            remaining: lineup.size(),
+        };
     }
 
     /**
@@ -296,12 +303,34 @@ export class DirectorConsoleService {
      * the station is doing, and making the reactor re-read the plan for that would be work with no
      * listener behind it.
      *
-     * Not awaited, and not a re-read: see {@link DirectorService.invalidate}. This runs inside the
-     * request's own uncommitted transaction, so a re-read now would read the state before the edit
-     * that just prompted it.
+     * Not a re-read from here: this runs inside the request's own uncommitted transaction, so a
+     * re-read now would see the state before the edit that prompted it. See
+     * {@link announceAirChange}.
      */
     private announceEdit(lineupId: string): void {
-        if (this.director.status().lineupId === lineupId) this.director.invalidate();
+        if (this.director.status().lineupId !== lineupId) return;
+        this.announceAirChange({ kind: 'planChanged' });
+    }
+
+    /**
+     * Tell the reactor what this request did, in the two halves that need different timing.
+     *
+     * **Cancel now, act after the commit**, and the split is the whole reason this method exists
+     * rather than one call.
+     *
+     * {@link DirectorService.invalidate} is synchronous because a pass may already be gathering
+     * against the plan this request has just changed. Only the epoch can reach that pass; a command
+     * cannot, because it runs AFTER it and by then the stale decision has been applied. That is the
+     * same lesson `beginStandDown` is written around.
+     *
+     * The command is deferred because the reactor reads on its own connection, so it can only see
+     * this write once the transaction holding it has ended. `AfterCommit` runs before the response
+     * is written, so the operator still waits for their own change to take effect rather than being
+     * told it will happen shortly.
+     */
+    private announceAirChange(command: DirectorCommand): void {
+        this.director.invalidate();
+        this.afterCommit.add(() => this.director.post(command));
     }
 
     /** Turn an edit refusal into the status code that says the same thing. */

@@ -15,7 +15,8 @@ import type { LineupRepository, NewLineup } from '../../../src/modules/director/
 import type { StationAirRepository } from '../../../src/modules/director/station.air.repository.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
-import type { Rundown, RundownTrack } from '../../../src/modules/playout/rundown.js';
+import type { AfterCommit } from '../../../src/modules/data/after.commit.js';
+import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { SettingsService } from '../../../src/modules/settings/settings.service.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
@@ -60,6 +61,7 @@ function build(options: Options = {}) {
         status: vi.fn(() => ({ active: true, airMode: 'audience', cursor: options.onAir?.cursor ?? 0, remaining: 0, ...options.onAir })),
         reload: vi.fn(async () => {}),
         invalidate: vi.fn(),
+        post: vi.fn(async () => {}),
     } as unknown as DirectorService;
 
     const playlists = {
@@ -88,18 +90,29 @@ function build(options: Options = {}) {
     } as unknown as SegmentRepository;
 
     const settings = { set: vi.fn(async () => {}) } as unknown as SettingsService;
-    const rundown = { load: vi.fn() } as unknown as Rundown;
+    // Runs the deferred task straight away, which is what the real one does relative to everything
+    // this file asserts on: `AfterCommit` fires before the response is written.
+    const deferred: (() => Promise<void>)[] = [];
+    const afterCommit = {
+        add: vi.fn((task: () => Promise<void>) => {
+            deferred.push(task);
+        }),
+    } as unknown as AfterCommit;
+    const settle = async () => {
+        for (const task of deferred.splice(0)) await task();
+    };
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as JobBroker;
 
     return {
-        service: new DirectorConsoleService(lineups, air, director, playlists, tracks, segments, settings, rundown, jobs, logger),
+        service: new DirectorConsoleService(lineups, air, director, playlists, tracks, segments, settings, afterCommit, jobs, logger),
         segments,
         settings,
         lineup,
         lineups,
         air,
         director,
-        rundown,
+        afterCommit,
+        settle,
         jobs,
         tracks,
         createdWith: () => created,
@@ -241,18 +254,34 @@ describe('DirectorConsoleService.setAirMode', () => {
 });
 
 describe('DirectorConsoleService.putOnAir', () => {
-    it('retracts the tail of the previous lineup and tells the director at once', async () => {
-        // What is ON AIR is left alone by `load`; only the uncommitted tail goes, so
-        // changing programming does not cut a listener off mid-track.
-        const { service, rundown, director } = build();
+    it('cancels the reactor at once and hands it the change after the commit', async () => {
+        // The two halves need different timing. A pass may already be gathering against the plan
+        // this request just replaced, and only the epoch reaches that pass: a command runs AFTER
+        // it, by which time the stale decision has been applied. The command is deferred because
+        // the reactor reads on its own connection and cannot see this write until it commits.
+        const { service, director, settle } = build();
 
         await service.putOnAir({ lineupId: 'lineup-1' });
 
-        expect(rundown.load).toHaveBeenCalledWith([]);
-        // The row this just wrote says cursor zero. A re-read from inside this request would not
-        // see it, which is exactly how putting the on-air lineup back on air used to leave the
-        // cursor where it was instead of at the top.
         expect(director.invalidate).toHaveBeenCalled();
+        expect(director.post).not.toHaveBeenCalled();
+
+        await settle();
+
+        expect(director.post).toHaveBeenCalledWith({ kind: 'putOnAir' });
+    });
+
+    it('answers with what it wrote, not with the lineup it just replaced', async () => {
+        // The reactor has not acted on the row yet, so reading it back through `status()` here
+        // answers with the previous lineup and the console renders the change as not having
+        // happened.
+        const { service } = build({ onAir: { lineupId: 'lineup-9', cursor: 12 } });
+
+        const air = await service.putOnAir({ lineupId: 'lineup-1' });
+
+        expect(air.lineupId).toBe('lineup-1');
+        expect(air.cursor).toBe(0);
+        expect(air.active).toBe(true);
     });
 
     it('remembers what it displaced only when it is interrupting', async () => {
@@ -422,7 +451,7 @@ describe('DirectorConsoleService telling the reactor about an edit', () => {
     });
 
     it('announces a shuffle', async () => {
-        const { service, director, seed } = build({
+        const { service, director, seed, settle } = build({
             ...onAir,
             existing: [
                 { pluginId: 'p', externalId: 'a', title: 'A', artists: ['X'] },
@@ -432,8 +461,12 @@ describe('DirectorConsoleService telling the reactor about an edit', () => {
         await seed();
 
         await service.shuffleLineup('lineup-1', {});
+        await settle();
 
         expect(director.invalidate).toHaveBeenCalled();
+        // `planChanged`, not `putOnAir`: an edit to the part nobody has heard yet is not a reason
+        // to retract the part they are about to.
+        expect(director.post).toHaveBeenCalledWith({ kind: 'planChanged' });
     });
 
     it('announces a line being dropped', async () => {

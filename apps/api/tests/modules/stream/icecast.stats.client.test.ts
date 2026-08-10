@@ -67,6 +67,63 @@ describe('listenersForMount', () => {
     });
 });
 
+describe('listenersForMount, on 2.5 publicstats', () => {
+    /**
+     * Captured verbatim from `GET /admin/publicstats.json` on Icecast 2.5.0.
+     *
+     * Nothing about this shape is guessable from the endpoint it replaces: the
+     * document is an ARRAY whose first element is a namespace header, the stats sit
+     * in the second with no `icestats` wrapper, and `source` is a map keyed by mount
+     * rather than an array or a bare object. The first version of this client was
+     * written from upstream's source and read zero listeners off all of it.
+     */
+    const publicstats = (count: number) => [
+        { name: 'icestats', ns: 'http://icecast.org/specs/legacystats-0.0.1' },
+        {
+            admin: 'admin@localhost',
+            host: 'localhost',
+            server_id: 'Icecast 2.5.0',
+            modules: {},
+            source: {
+                '/live.mp3': {
+                    genre: 'Music',
+                    listeners: count,
+                    listenurl: 'http://127.0.0.1:8000/live.mp3',
+                    server_name: 'Deadair',
+                    'content-type': 'audio/mpeg',
+                },
+            },
+        },
+    ];
+
+    it('reads the count out of the array envelope and the mount-keyed map', () => {
+        expect(listenersForMount(publicstats(3), '/live.mp3')).toBe(3);
+    });
+
+    it('is zero for a mount that is not in the map', () => {
+        expect(listenersForMount(publicstats(3), '/other.mp3')).toBe(0);
+    });
+
+    it('is zero, not unknown, for a 2.5 server with nothing connected', () => {
+        expect(listenersForMount([{ name: 'icestats', ns: 'x' }, { server_id: 'Icecast 2.5.0' }], '/live.mp3')).toBe(0);
+    });
+
+    it('adds up several mounts, matching only ours', () => {
+        const body = [
+            { name: 'icestats', ns: 'x' },
+            {
+                server_id: 'Icecast 2.5.0',
+                source: {
+                    '/live.mp3': { listeners: 2, listenurl: 'http://127.0.0.1:8000/live.mp3' },
+                    '/other.mp3': { listeners: 40, listenurl: 'http://127.0.0.1:8000/other.mp3' },
+                },
+            },
+        ];
+
+        expect(listenersForMount(body, '/live.mp3')).toBe(2);
+    });
+});
+
 describe('statsCandidates', () => {
     it('offers the compose service and the host-published port', () => {
         expect(statsCandidates('icecast', '8000')).toEqual(['http://icecast:8000', 'http://127.0.0.1:8000']);

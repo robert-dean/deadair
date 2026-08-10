@@ -52,6 +52,37 @@ describe('SseFrameReader', () => {
     });
 });
 
+describe('listenerEvent, on what Icecast 2.5.0 actually sends', () => {
+    /**
+     * Captured verbatim from `GET /admin/eventfeed` on Icecast 2.5.0, listener
+     * attaching to `/live.mp3`.
+     *
+     * The two things upstream's source does not tell you, and that the first
+     * version of this parser got wrong: the fields are nested under `crude`, and
+     * the count is a STRING.
+     */
+    const attach =
+        '{"type":"event","crude":{"trigger":"source-listener-attach","uri":"/live.mp3","source-media-type":"audio/mpeg",' +
+        '"source-instance":"d9f92068-9a94-4056-8bfb-8b591234900f","source-listener-count":"1","connection-ip":"172.21.0.1",' +
+        '"client-useragent":"curl/8.7.1","connection-id":21,"connection-time":1786368613},"mount":"/live.mp3"}';
+
+    const changed =
+        '{"type":"event","crude":{"trigger":"source-listeners-changed","uri":"/live.mp3","source-media-type":"audio/mpeg",' +
+        '"source-instance":"d9f92068-9a94-4056-8bfb-8b591234900f","source-listener-count":"1"},"mount":"/live.mp3"}';
+
+    it('reads an attach frame', () => {
+        expect(listenerEvent(attach)).toEqual({ trigger: 'source-listener-attach', uri: '/live.mp3', listeners: 1 });
+    });
+
+    it('reads a listeners-changed frame', () => {
+        expect(listenerEvent(changed)).toEqual({ trigger: 'source-listeners-changed', uri: '/live.mp3', listeners: 1 });
+    });
+
+    it('falls back to the envelope mount when the inner uri is absent', () => {
+        expect(listenerEvent('{"type":"event","mount":"/live.mp3","crude":{"source-listener-count":"4"}}')?.uri).toBe('/live.mp3');
+    });
+});
+
 describe('listenerEvent', () => {
     const payload = (fields: Record<string, unknown>) => JSON.stringify(fields);
 

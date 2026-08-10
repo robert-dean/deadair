@@ -186,18 +186,20 @@ five seconds, and that poll is the **truth**.
 
 Which endpoint it polls depends on the Icecast, not on anything an operator set. `IcecastStatsClient`
 asks `GET /admin/publicstats.json` first (2.5's, presented with the `stream.adminPassword` as HTTP
-basic, because it sits under `/admin/` where 2.5 decides access by role and the roles it ships deny
-anonymous), and falls back to `GET /status-json.xsl` (2.4's, which 2.5 deprecates and the pinned
-2.4.4 image serves). The base and path that answered are cached together, so the endpoint an install
+basic — it answers anonymously on a default 2.5 config, but access under `/admin/` is a role decision
+an operator can tighten, and `/admin/eventfeed` on the same server is not anonymous), and falls back
+to `GET /status-json.xsl` (2.4's, which 2.5 deprecates). The two documents carry the same facts in
+**different shapes**; `listenersForMount` handles both, and `docs/todo/icecast-2.5.md` has each
+payload as measured. The base and path that answered are cached together, so the endpoint an install
 does not have costs one probe per re-probe rather than one per poll, and a boot log line names the
 one in use. A 401 or 403 from the admin endpoint is said once and then ignored: it means a server
 that has it and will not let us read it, which is a config to fix, not a reason to stop polling. See
-`docs/todo/icecast-2.5.md` for the container upgrade this is waiting on.
+`docs/todo/icecast-2.5.md` for what the 2.5.0 upgrade did and did not settle.
 
 On a 2.5 there is a second push half: `IcecastEventFeed` holds `GET /admin/eventfeed` open (SSE) and
 hands each `source-listener-count` for the mount straight to `AudienceWatch.report()`, so a change
-lands in milliseconds. It attaches **only** when the poll resolved the admin endpoint, so on the
-pinned 2.4.4 it never opens a socket, and it reconnects with backoff because a dropped feed is an
+lands in milliseconds. It attaches **only** when the poll resolved the admin endpoint, so against a
+2.4 server it never opens a socket, and it reconnects with backoff because a dropped feed is an
 ordinary state. Whole counts, never deltas, which is what makes a lost message cost the edge rather
 than the number. Icecast also *pushes*, through `<authentication type="url">` on the mount:
 `listener_add` and `listener_remove` call `POST /playout/bridge/listener`, gated on the same bridge secret,
@@ -362,18 +364,19 @@ docker compose exec -T liquidsoap sh -c 'set -a; . /streamconfig/radio.env; dead
 
 ## Verify Icecast
 
-The Icecast image ships no HTTP client, so probe from the host:
+The Icecast image ships no HTTP client, so probe from the host. On the 2.5.0 the compose file runs,
+the stats document is:
 
 ```
-curl http://127.0.0.1:8000/status-json.xsl
+curl http://127.0.0.1:8000/admin/publicstats.json
 ```
 
-On an Icecast 2.5 that endpoint is deprecated; ask its replacement instead, which needs the admin
-password (`select value from deadair.settings where key = 'stream.adminPassword'` is ciphertext, so
-take it from the rendered `.docvol/streamconfig/icecast.xml`):
+`/status-json.xsl` still answers there and is what a 2.4 server has, but it is deprecated upstream.
+The event feed needs the admin password, which is ciphertext in `deadair.settings`, so take it from
+the rendered `.docvol/streamconfig/icecast.xml`:
 
 ```
-curl -u admin:<admin-password> http://127.0.0.1:8000/admin/publicstats.json
+curl -N -u admin:<admin-password> http://127.0.0.1:8000/admin/eventfeed
 ```
 
 ## Liquidsoap version (and what to check after a bump)

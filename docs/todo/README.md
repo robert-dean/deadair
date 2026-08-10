@@ -31,7 +31,7 @@ Two rules for this directory:
 | [spotify-api-currency.md](spotify-api-currency.md) | Where the Spotify plugin has fallen behind the Web API. The two search-limit bugs were fixed on the spot; still open are the two scopes that unlock nothing, the SDK's removed batch overload, `account_id`, and the Premium requirement development mode grew |
 | [youtube-music.md](youtube-music.md) | A third music provider, split into a catalog half that is ordinary plugin code and an audio half that is a second track fetcher and a sidecar, plus the two pieces of the host that stop being Spotify-shaped when it lands |
 | [stream-formats.md](stream-formats.md) | Why incoming audio already needs nothing, and the Opus/AAC/FLAC mounts and hourly archive the station does not serve |
-| [icecast-2.5.md](icecast-2.5.md) | The container upgrade the stats poll and the event feed are already written for: 2.4.4's support ends 2026-12-31, no 2.5 image is chosen, and the rendered `icecast.xml` has two parts (the listener-hook auth, the stats endpoint's role) that land in exactly what 2.5 changed |
+| [icecast-2.5.md](icecast-2.5.md) | **Mostly done** (2026-08-10): the container runs 2.5.0, the poll reads `/admin/publicstats` and the audience follows `/admin/eventfeed`. Kept for the two document shapes measured off a live 2.5, which match neither the old endpoint nor upstream's source, and for the four small leftovers |
 | [service-actors.md](service-actors.md) | Giving Liquidsoap and Icecast their own credentials, actor kind and permission tuples instead of one shared bridge secret |
 | [from-v1.md](from-v1.md) | Things the previous station did that this tree will eventually want back: the render pipeline, breaks, shows, the monitoring feed, extra sources, now-playing sinks |
 

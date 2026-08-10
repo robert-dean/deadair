@@ -84,7 +84,14 @@ services:
     # settings if it points STREAM_CONFIG_DIR at the shared volume. See
     # stream/README.md.
     icecast:
-        image: libretime/icecast:2.4.4
+        # 2.5.0, up from 2.4.4, whose upstream support ends 2026-12-31. Same publisher
+        # and the same build (from source, prefix /usr, libcurl4 in the runtime layer,
+        # which is what `<authentication type="url">` needs for the listener hooks), so
+        # the paths in stream/icecast.xml.tmpl still hold and 2.5 reads a 2.4 config.
+        # What actually changes for the app: /status-json.xsl is deprecated in favour of
+        # /admin/publicstats, and /admin/eventfeed exists. Both are already handled —
+        # see apps/api/src/modules/stream/ and docs/todo/icecast-2.5.md.
+        image: libretime/icecast:2.5.0
         container_name: deadair-icecast
         restart: unless-stopped
         # Use the app-rendered config from the volume if it exists; otherwise fall

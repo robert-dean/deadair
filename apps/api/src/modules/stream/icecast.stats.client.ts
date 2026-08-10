@@ -11,12 +11,15 @@ import { Logger } from '@maroonedsoftware/logger';
  * Two endpoints answer with that document, and which one an install has depends
  * on its Icecast rather than on anything the operator chose, so both are spoken
  * here. `/admin/publicstats.json` is 2.5's, and `/status-json.xsl` is the 2.4
- * endpoint it deprecates — kept, because the deprecated one is what the pinned
- * image serves and will keep serving. Both render the same public stats tree
- * through the same xml2json convention, which is why {@link listenersForMount}
- * reads either without knowing which it got. 2.5's lives under `/admin/`, so
- * unlike the endpoint it replaces it is read as the admin user; see
- * {@link isAdminEndpoint}.
+ * endpoint it deprecates — kept, because a 2.4 server serves only the latter and
+ * will keep serving it.
+ *
+ * They carry the same FACTS in two different SHAPES, which is the trap: the
+ * envelope, the wrapper and the form of `source` all differ, and reading
+ * upstream's source suggests otherwise. {@link listenersForMount} handles both,
+ * measured against 2.4.4 and 2.5.0 rather than inferred, and it is where anything
+ * about either document belongs. 2.5's lives under `/admin/`, so unlike the
+ * endpoint it replaces it is read as the admin user; see {@link isAdminEndpoint}.
  *
  * Best-effort throughout. An Icecast that is down, starting, or answering
  * something other than a stats document resolves to `undefined` rather than
@@ -48,10 +51,13 @@ export interface StatsEndpoint {
  * Whether an endpoint is Icecast's admin namespace, and so has to be asked as
  * the admin user.
  *
- * `/admin/publicstats` publishes only what a listener could discover anyway, but
- * it lives under `/admin/` all the same, where 2.5 decides access by role and the
- * roles Icecast ships deny anonymous. Authenticating is what makes the endpoint
- * work on a default config rather than on one every operator was told to edit.
+ * `/admin/publicstats` publishes only what a listener could discover anyway, and
+ * measured against 2.5.0 it does answer an anonymous request — but it lives under
+ * `/admin/` all the same, where 2.5 decides access by role, and a station whose
+ * roles are tightened would lose the reading with no way back that is not a code
+ * change. So it is asked as the admin user, which costs nothing and cannot be
+ * refused by a config the operator is entitled to write. `/admin/eventfeed` is
+ * NOT anonymous on the same server, which is the same point made loudly.
  * The deprecated `status-json.xsl` is not under it and never gets the header:
  * sending a password to an endpoint that does not want one is how it ends up in
  * somebody's proxy log.
@@ -322,38 +328,72 @@ export class IcecastStatsClient {
 
 /** Whether a parsed body is Icecast's stats document rather than something else that parsed. */
 function isStatsDocument(body: unknown): boolean {
-    const stats = (body as { icestats?: unknown } | undefined)?.icestats;
-    return typeof stats === 'object' && stats !== null;
+    return statsOf(body) !== undefined;
+}
+
+/**
+ * The stats object itself, out of whichever envelope this endpoint wraps it in.
+ *
+ * The two endpoints disagree, and NOT in the way reading upstream's source
+ * suggested. `status-json.xsl` is `{ icestats: { … } }`. `/admin/publicstats.json`
+ * is an ARRAY whose first element is a namespace header (`{ name: 'icestats',
+ * ns: … }`) and whose second is the stats with no wrapper at all — measured
+ * against Icecast 2.5.0, not inferred.
+ *
+ * Recognised by content rather than by position: an object carrying `source` or
+ * `server_id` is the stats, and anything else in the envelope is not. That is
+ * also what keeps the probe honest, since it is the same test that decides
+ * whether an endpoint answered with a stats document or with a proxy's error
+ * page.
+ */
+function statsOf(body: unknown): Record<string, unknown> | undefined {
+    if (Array.isArray(body)) {
+        for (const element of body) {
+            const stats = statsOf(element);
+            if (stats) return stats;
+        }
+        return undefined;
+    }
+
+    if (typeof body !== 'object' || body === null) return undefined;
+    const record = body as Record<string, unknown>;
+
+    // The legacy wrapper, which nests one level deeper.
+    if (typeof record.icestats === 'object' && record.icestats !== null) return statsOf(record.icestats) ?? {};
+
+    return 'source' in record || 'server_id' in record ? record : undefined;
 }
 
 /**
  * Pull one mount's listener count out of a stats body, from either endpoint.
  *
- * `icestats.source` is an ARRAY when several mounts are connected and a bare
- * OBJECT when exactly one is, which is the shape most consumers of this document
- * get wrong. Both are handled, and anything else reads as no listeners rather
- * than throwing.
+ * Three shapes for `source`, all real, and this is the whole reason this function
+ * is separate and tested:
  *
- * A source is matched on its `listenurl` ending in the mount path. Icecast does
- * not report the mount as its own field, and the url is the only place the path
- * appears. With no source connected at all the document has no `source` key,
- * which is `0` and not "unknown": Icecast answered, and it says nobody is there.
+ * - an ARRAY, when 2.4 has several mounts connected;
+ * - a bare OBJECT, when 2.4 has exactly one, which is the shape most consumers of
+ *   that document get wrong;
+ * - a MAP KEYED BY MOUNT PATH, which is what 2.5's publicstats sends whatever the
+ *   number of sources.
+ *
+ * So a source is matched on its key where it has one and on its `listenurl`
+ * otherwise, and anything else reads as no listeners rather than throwing. With
+ * no source connected at all the document has no `source` key, which is `0` and
+ * not "unknown": Icecast answered, and it says nobody is there.
  *
  * Exported for tests: this is the whole compatibility boundary with Icecast.
  */
 export function listenersForMount(body: unknown, mount: string): number {
-    const stats = (body as { icestats?: { source?: unknown } } | undefined)?.icestats;
+    const stats = statsOf(body);
     if (!stats) return 0;
 
-    const sources = Array.isArray(stats.source) ? stats.source : stats.source === undefined ? [] : [stats.source];
-
     let total = 0;
-    for (const source of sources) {
+    for (const [key, source] of sourceEntries(stats.source)) {
         if (!source || typeof source !== 'object') continue;
 
         const record = source as { listenurl?: unknown; listeners?: unknown };
         const listenUrl = typeof record.listenurl === 'string' ? record.listenurl : '';
-        if (!matchesMount(listenUrl, mount)) continue;
+        if (!matchesMount(key ?? listenUrl, mount)) continue;
 
         const listeners = Number(record.listeners);
         if (Number.isFinite(listeners) && listeners > 0) total += listeners;
@@ -361,16 +401,35 @@ export function listenersForMount(body: unknown, mount: string): number {
     return total;
 }
 
-/** Whether a `listenurl` names this mount. Tolerant of a mount written with or without its slash. */
-function matchesMount(listenUrl: string, mount: string): boolean {
-    if (!listenUrl) return false;
+/**
+ * The connected sources, as `[mount or undefined, source]` pairs.
+ *
+ * The map form is told from the single-source form by whether the object looks
+ * like a source itself: one carrying `listeners` or `listenurl` IS the source,
+ * and one carrying neither is a map of them.
+ */
+function sourceEntries(source: unknown): [string | undefined, unknown][] {
+    if (source === undefined || source === null) return [];
+    if (Array.isArray(source)) return source.map(entry => [undefined, entry]);
+    if (typeof source !== 'object') return [];
+
+    const record = source as Record<string, unknown>;
+    if ('listeners' in record || 'listenurl' in record) return [[undefined, record]];
+
+    return Object.entries(record).map(([mount, entry]) => [mount, entry]);
+}
+
+/** Whether a mount key or a `listenurl` names this mount. Tolerant of either written without its slash. */
+function matchesMount(nameOrUrl: string, mount: string): boolean {
+    if (!nameOrUrl) return false;
 
     const path = mount.startsWith('/') ? mount : `/${mount}`;
     try {
-        return new URL(listenUrl).pathname === path;
+        return new URL(nameOrUrl).pathname === path;
     } catch {
-        // Not a url Icecast built; fall back to the tail, which is what it always is.
-        return listenUrl.endsWith(path);
+        // A mount key, or a url Icecast did not build; either way it is the path itself,
+        // and the tail is what a path always is.
+        return (nameOrUrl.startsWith('/') ? nameOrUrl : `/${nameOrUrl}`) === path || nameOrUrl.endsWith(path);
     }
 }
 

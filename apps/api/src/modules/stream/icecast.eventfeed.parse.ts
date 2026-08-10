@@ -89,7 +89,18 @@ export interface ListenerEvent {
  * The count is what the whole feed is here for: Icecast reports the source's
  * listener count as a total, which is what `AudienceWatch.report` wants and what
  * a delta could never safely be, since a dropped message would leave the station
- * airing to a room that emptied.
+ * airing to a room that emptied. Measured against Icecast 2.5.0, one frame is:
+ *
+ * ```json
+ * { "type": "event", "mount": "/live.mp3",
+ *   "crude": { "trigger": "source-listener-attach", "uri": "/live.mp3",
+ *              "source-listener-count": "1", "connection-ip": "…" } }
+ * ```
+ *
+ * So the fields live under `crude` and the count arrives as a STRING — neither of
+ * which is visible in the event source that describes them. Both spellings are
+ * accepted (`crude` first, then the top level) rather than only the observed one,
+ * because the envelope is the part upstream is most likely to move.
  *
  * The TRIGGER is not filtered on, only kept. 2.5 emits several that carry a
  * count (`source-listeners-changed`, `source-listeners-is-zero`,
@@ -106,13 +117,21 @@ export function listenerEvent(payload: string): ListenerEvent | undefined {
     }
 
     if (typeof body !== 'object' || body === null) return undefined;
-    const record = body as Record<string, unknown>;
+    const outer = body as Record<string, unknown>;
+    const inner = typeof outer.crude === 'object' && outer.crude !== null ? (outer.crude as Record<string, unknown>) : {};
 
-    const uri = typeof record.uri === 'string' ? record.uri : '';
-    const trigger = typeof record.trigger === 'string' ? record.trigger : '';
-    // Icecast renders its stats values as strings in places, so a numeric string is
-    // the same answer as a number here.
-    const listeners = Number(record['source-listener-count']);
+    const text = (key: string): string => {
+        const value = inner[key] ?? outer[key];
+        return typeof value === 'string' ? value : '';
+    };
+
+    // `uri` is the source's own name for the mount; `mount` is the envelope's, and
+    // 2.5 sends both. Either identifies it.
+    const uri = text('uri') || text('mount');
+    const trigger = text('trigger');
+    // A count rendered as a string is the same answer as one rendered as a number,
+    // and 2.5 sends the string.
+    const listeners = Number(inner['source-listener-count'] ?? outer['source-listener-count']);
     if (!uri || !Number.isFinite(listeners) || listeners < 0) return undefined;
 
     return { trigger, uri, listeners: Math.trunc(listeners) };

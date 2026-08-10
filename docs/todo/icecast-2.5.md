@@ -1,71 +1,86 @@
 # The Icecast 2.5 upgrade
 
 **Written:** 2026-08-10, when the stats poll learned to read either generation's endpoint.
-**State of the tree:** `docker-compose.yml` pins `libretime/icecast:2.4.4`. The app now speaks both
-2.4's and 2.5's stats endpoints and consumes 2.5's event feed when one is there, so nothing here
-blocks the station. What is left is the container itself, and it has a date on it.
+**Updated:** 2026-08-10, when the container moved to 2.5.0 and the two shapes below were measured
+against it rather than inferred.
+**State of the tree:** `docker-compose.yml` runs `libretime/icecast:2.5.0`. The app reads
+`/admin/publicstats.json` and follows `/admin/eventfeed` on it, and still reads `/status-json.xsl`
+on a 2.4 server. The upgrade is DONE; what is left is the smaller list at the end.
 
 ---
 
-## Why it has to happen
+## Why it happened
 
-Icecast **2.5.0 shipped 2025-12-31**. Support for the 2.4.4 the compose file pins ends
-**2026-12-31**, and `web/status-json.xsl` in 2.5 carries a deprecation header saying so in the file
-itself: kept for 2.4.x compatibility only, migrate to `/admin/publicstats`, consider
-`/admin/eventfeed`, no future non-security tickets accepted for it.
+Icecast **2.5.0 shipped 2025-12-31**, and support for the 2.4.4 this repo ran ends **2026-12-31**.
+`web/status-json.xsl` in 2.5 carries a deprecation header saying as much in the file itself: kept for
+2.4.x compatibility only, migrate to `/admin/publicstats`, consider `/admin/eventfeed`, no future
+non-security tickets accepted for it.
 
-## What already landed, so it does not get rebuilt
+## What landed, so it does not get rebuilt
 
 - `IcecastStatsClient` probes `/admin/publicstats.json` then `/status-json.xsl` and caches the base
   and path that answered together, so the endpoint an install does not have costs one probe per
-  re-probe, not one per poll. It refuses to settle on JSON that has no `icestats` object, because
+  re-probe, not one per poll. It refuses to settle on JSON that is not a stats document, because
   probing several paths means a proxy's error document can answer 200 on one of them.
 - The admin endpoint is read as `admin:<stream.adminPassword>`, HTTP basic, and `status-json.xsl`
   never is. A 401 or 403 there is logged once and falls through.
 - `IcecastEventFeed` reads `/admin/eventfeed` (SSE) and hands whole listener counts to
   `AudienceWatch.report()`. It connects **only** when the stats poll resolved the admin endpoint, so
-  on the pinned 2.4.4 it never opens a socket.
+  against a 2.4 server it never opens a socket, and it attaches on the poll that discovers a 2.5 one.
+- The image is `libretime/icecast:2.5.0` (same publisher as the old 2.4.4 pin, built from source with
+  `libcurl4` in the runtime layer, which is what the listener hooks need). 2.5 accepted the 2.4-shaped
+  `icecast.xml` the app renders, unchanged, including `<authentication type="url">`: a real listener is
+  admitted and released, and the paths in `stream/icecast.xml.tmpl` still match the image layout.
+
+## The two shapes, measured
+
+Both endpoints carry the same facts in different shapes, and NEITHER matches what upstream's source
+suggests. Written down because the first version of this client was inferred from `src/admin.c` and
+`src/event.c` and read zero listeners off a live 2.5.
+
+`GET /admin/publicstats.json` — an ARRAY, a namespace header first, the stats second with no
+`icestats` wrapper, and `source` keyed by mount rather than an array or a bare object:
+
+```json
+[ { "name": "icestats", "ns": "http://icecast.org/specs/legacystats-0.0.1" },
+  { "server_id": "Icecast 2.5.0",
+    "source": { "/live.mp3": { "listeners": 1, "listenurl": "http://127.0.0.1:8000/live.mp3" } } } ]
+```
+
+`GET /admin/eventfeed` — SSE, and the event's fields are nested under `crude` with the count as a
+STRING:
+
+```
+id: 2b272bf4-…
+data: {"type":"event","mount":"/live.mp3","crude":{"trigger":"source-listener-attach",
+       "uri":"/live.mp3","source-listener-count":"1","connection-ip":"172.21.0.1"}}
+```
+
+Both are covered by tests holding these payloads verbatim, in
+`tests/modules/stream/icecast.stats.client.test.ts` and `icecast.eventfeed.parse.test.ts`.
+
+Also measured: `publicstats` answers an ANONYMOUS request on this build, while `eventfeed` returns
+401. The app authenticates on both anyway, since access is a role decision an operator can tighten.
 
 ## What is left
 
-**1. The image.** No 2.5 image is chosen. The current pin comes from LibreTime rather than upstream,
-and upstream publishes no official image, so this is a real decision (a maintained third-party 2.5
-image, or a small Dockerfile of our own). Two things the replacement must keep, both load-bearing
-here: **libcurl**, or `<authentication type="url">` will not start and the listener hooks that make
-an arrival instant are gone (`stream.listenerHooks` is the escape hatch, at the cost of up to one
-poll interval of silence for whoever just tuned in); and the ability to read the config the app
-renders onto the shared volume, which is 2.4-shaped.
+**1. The anonymous role, if it is ever wanted.** A station could render
+`<role type="anonymous" allow-admin="publicstats"/>` and drop the credential from the poll. Nothing
+argues for it today: the endpoint already answers anonymously on a default config, and the app holds
+the password regardless for the feed. Left as a note so nobody re-derives it.
 
-**2. `icecast.xml.tmpl` under the 2.5 role system.** 2.5 reads 2.4 configs, so the rendered file
-should keep working, but two parts of ours are exactly the parts that changed:
-
-- `<authentication type="url">` on the mount, which is the listener-hook push. Re-verify it admits
-  and releases listeners under the new auth stack before trusting the audience gate on 2.5.
-- Whether to keep authenticating the stats poll or render an anonymous role that allows
-  `publicstats` (`<role type="anonymous" match-admin="publicstats" allow-admin="publicstats"/>`,
-  roughly). Authenticating is what the app does today and it works on a default config; a role would
-  put the endpoint back where 2.4's was, public. Not decided, and it costs nothing to leave as is.
-
-**3. `display-title`.** 2.5 adds a `display-title` stats key to replace `title` and `artist`. Nothing
+**2. `display-title`.** 2.5 adds a `display-title` stats key to replace `title` and `artist`. Nothing
 reads those from Icecast — the station knows what it is playing because it put it there — but the
 comment at `apps/api/src/modules/playout/annotate.ts:39` describes the 2.4 keys, and the console's
-`StreamMonitor` reads metadata from the stream itself rather than from stats. Check both when the
-image moves.
+`StreamMonitor` reads metadata from the stream itself rather than from stats. Worth a pass when
+something next touches now-playing metadata.
 
-**4. Verify the two 2.5 paths against a real 2.5.** Everything the app does on 2.5 was written from
-the upstream source (`src/admin.c`, `src/event.c`, `src/event_stream.c`). The client code has been
-driven end to end — auth, attach, whole counts reaching the audience gate, a frame split across two
-reads, a reconnect after a drop — but against a **stand-in** speaking those two endpoints, so what is
-still unconfirmed is upstream's actual field names and framing rather than our handling of them. The
-shapes to confirm:
+**3. The Icecast dashboard.** 2.5 ships a redesigned web interface and warns about legacy sources.
+Nobody has looked at what it says about ours, which is a 2.4-style `<mount type="normal">`.
 
-```
-curl -u admin:<pw> http://127.0.0.1:8000/admin/publicstats.json     # icestats.source, listenurl, listeners
-curl -N -u admin:<pw> http://127.0.0.1:8000/admin/eventfeed         # id:/data: frames, source-listener-count
-```
-
-`ICECAST_STATS_URL` points the app at a server on another port, which is the cheap way to run a 2.5
-container beside the pinned one and watch which endpoint the boot log names.
+**4. A digest pin.** The image is pinned by version only, and the publisher rebuilds tags in place
+when base packages move. `docker inspect --format='{{index .RepoDigests 0}}' libretime/icecast:2.5.0`
+gives the digest if that ever matters more than tracking their rebuilds.
 
 ## One thing that moves if a plugin ever needs it
 

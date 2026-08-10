@@ -18,8 +18,6 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as VoicesRouteImport } from './routes/voices'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as CatalogTracksRouteImport } from './routes/catalog/tracks'
-import { Route as LineupsIndexRouteImport } from './routes/lineups/index'
-import { Route as LineupsLineupIdRouteImport } from './routes/lineups/$lineupId'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
 import { Route as CatalogAlbumsAlbumIdRouteImport } from './routes/catalog/albums/$albumId'
@@ -73,16 +71,6 @@ const CatalogTracksRoute = CatalogTracksRouteImport.update({
   path: '/catalog/tracks',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LineupsIndexRoute = LineupsIndexRouteImport.update({
-  id: '/lineups/',
-  path: '/lineups/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LineupsLineupIdRoute = LineupsLineupIdRouteImport.update({
-  id: '/lineups/$lineupId',
-  path: '/lineups/$lineupId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PlaylistsIndexRoute = PlaylistsIndexRouteImport.update({
   id: '/playlists/',
   path: '/playlists/',
@@ -129,9 +117,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
   '/catalog/tracks': typeof CatalogTracksRoute
-  '/lineups/$lineupId': typeof LineupsLineupIdRoute
   '/catalog/': typeof CatalogIndexRoute
-  '/lineups/': typeof LineupsIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
@@ -149,9 +135,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
   '/catalog/tracks': typeof CatalogTracksRoute
-  '/lineups/$lineupId': typeof LineupsLineupIdRoute
   '/catalog': typeof CatalogIndexRoute
-  '/lineups': typeof LineupsIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
@@ -170,9 +154,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
   '/catalog/tracks': typeof CatalogTracksRoute
-  '/lineups/$lineupId': typeof LineupsLineupIdRoute
   '/catalog/': typeof CatalogIndexRoute
-  '/lineups/': typeof LineupsIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
@@ -192,9 +174,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/voices'
     | '/catalog/tracks'
-    | '/lineups/$lineupId'
     | '/catalog/'
-    | '/lineups/'
     | '/playlists/'
     | '/plugins/'
     | '/catalog/albums/$albumId'
@@ -212,9 +192,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/voices'
     | '/catalog/tracks'
-    | '/lineups/$lineupId'
     | '/catalog'
-    | '/lineups'
     | '/playlists'
     | '/plugins'
     | '/catalog/albums/$albumId'
@@ -232,9 +210,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/voices'
     | '/catalog/tracks'
-    | '/lineups/$lineupId'
     | '/catalog/'
-    | '/lineups/'
     | '/playlists/'
     | '/plugins/'
     | '/catalog/albums/$albumId'
@@ -253,9 +229,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   VoicesRoute: typeof VoicesRoute
   CatalogTracksRoute: typeof CatalogTracksRoute
-  LineupsLineupIdRoute: typeof LineupsLineupIdRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
-  LineupsIndexRoute: typeof LineupsIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
   CatalogAlbumsAlbumIdRoute: typeof CatalogAlbumsAlbumIdRoute
@@ -330,20 +304,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CatalogTracksRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/lineups/': {
-      id: '/lineups/'
-      path: '/lineups'
-      fullPath: '/lineups/'
-      preLoaderRoute: typeof LineupsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/lineups/$lineupId': {
-      id: '/lineups/$lineupId'
-      path: '/lineups/$lineupId'
-      fullPath: '/lineups/$lineupId'
-      preLoaderRoute: typeof LineupsLineupIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/playlists/': {
       id: '/playlists/'
       path: '/playlists'
@@ -405,9 +365,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   VoicesRoute: VoicesRoute,
   CatalogTracksRoute: CatalogTracksRoute,
-  LineupsLineupIdRoute: LineupsLineupIdRoute,
   CatalogIndexRoute: CatalogIndexRoute,
-  LineupsIndexRoute: LineupsIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,
   CatalogAlbumsAlbumIdRoute: CatalogAlbumsAlbumIdRoute,

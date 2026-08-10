@@ -208,9 +208,9 @@ export interface DeadairLineups {
   createdAt: Generated<DateTime>;
   id: Generated<string>;
   items: Generated<Json>;
-  mode: Generated<"rotation" | "setlist" | "feature">;
+  mode: Generated<string>;
   name: string;
-  onEnd: Generated<"extend" | "repeat" | "resume" | "rotation" | "stop">;
+  onEnd: Generated<string>;
   revision: Generated<number>;
   rules: Json | null;
   source: Generated<string>;
@@ -346,11 +346,6 @@ export interface DeadairSettings {
 export interface DeadairStationAir {
   active: Generated<boolean>;
   createdAt: Generated<DateTime>;
-  cursor: Generated<number>;
-  defaultLineupId: string | null;
-  lineupId: string | null;
-  resumeCursor: number | null;
-  resumeLineupId: string | null;
   slot: Generated<string>;
   updatedAt: Generated<DateTime>;
 }

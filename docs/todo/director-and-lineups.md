@@ -39,7 +39,12 @@ from the catalog itself.
 
 ## The daypart schedule
 
-Morning / afternoon / evening / night, each naming a lineup. The director already re-reads
+Morning / afternoon / evening / night, each naming a PLAYLIST rather than a stored lineup: there is
+no stored lineup to name any more, and a changeover builds the running order from its slot's source
+the way `putOnAir` does. See `docs/decisions/on-air-ownership.md`, which also records why the
+schedule must post commands and bump the epoch synchronously rather than writing anything itself.
+
+The original entry, still true of the mechanism: The director already re-reads
 `deadair.station_air` on every wake and switches when it names a different lineup, which is the
 behaviour a scheduler needs. What is deferred is the `Programme` seam (`current(): { slot, lineupId }`)
 and the changeover policy: finish the track, then swap.
@@ -84,8 +89,9 @@ column exists already.
 Distilling genres and year bands from enrichment to bias selection. The rotation rules land without
 it; it is a weighting refinement, not a correctness one.
 
-## The station console page
+## The station console page — BUILT
 
-A lineup picker, the list with cover art and the cursor drawn as a line, per-row remove and move, and
-Shuffle / Extend / Import / Put on air controls. Until then the existing transport bar shows what is
-on air and what is next, and the API is drivable directly.
+`/onair` draws the live running order with each item's state, and offers Shuffle / Extend / Drop /
+Stop. Put on air lives on the playlists page, beside the thing the order is built from. What is not
+built: moving an item (the API route and the table's `onMove` seam both exist), and adding a segment
+from the console.

@@ -9,7 +9,6 @@ import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
 import { DirectorService } from './director.service.js';
-import { LineupRepository } from './lineup.repository.js';
 import { PickResolver } from './pick.resolver.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { SetGenerator } from './set.generator.js';
@@ -17,8 +16,8 @@ import { StationAirRepository } from './station.air.repository.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 
 /**
- * The station's programming: the lineups it means to air, which one is on, and
- * the actor that keeps the running order full from it.
+ * The station's programming: the one running order it is airing, and the actor
+ * that owns it.
  *
  * Registered after PlayoutModule, whose singleton `Rundown` the director drives,
  * and after CatalogModule and PlaylistsModule, which are where its tracks come
@@ -30,10 +29,6 @@ export const DirectorModule: ServerKitModule = {
         // Scoped like every other repository here: the job runner gives each
         // execution its own scope, so these are per-run there and per-request on
         // the request path.
-        registry.register(LineupRepository).useClass(LineupRepository).asScoped();
-        // Registered before anything reads it, which is the whole of this step: the running
-        // order it stores is what takes over from `lineups`, and a seam nothing calls yet is
-        // the only honest place to start migrating a writer from.
         registry.register(StationLineupRepository).useClass(StationLineupRepository).asScoped();
         registry.register(StationAirRepository).useClass(StationAirRepository).asScoped();
         registry.register(PlayHistoryRepository).useClass(PlayHistoryRepository).asScoped();
@@ -55,17 +50,16 @@ export const DirectorModule: ServerKitModule = {
             .useFactory((container: Container) => new BreakWriterRegistry([container.get(TalkBreakWriter)], container.get(Logger)))
             .asScoped();
 
-        // Scoped with the repository it reads. Two callers, for two different cases: the refill job
-        // plants breaks among the records it has just appended, and the reactor covers the lineups
-        // nothing ever refills, an imported provider playlist chief among them.
+        // Scoped with the repository it reads. Called from the director's own pass, which is the
+        // one thing that may change the running order.
         registry.register(BreakPlanner).useClass(BreakPlanner).asScoped();
         // ExtendLineupJob is deliberately NOT registered here. JobsModule registers
         // every class in `JobMappings` itself, transient, and registering it twice is
         // a boot failure rather than a merge.
 
         // The reactor is a singleton by necessity, not for tidiness: it holds the
-        // rundown subscriptions and the lineup on air, and a per-request copy would
-        // give every caller a different, empty view of what the station is doing.
+        // rundown subscriptions and the running order itself, and a per-request copy
+        // would give every caller a different, empty view of what the station is doing.
         registry.register(DirectorService).useClass(DirectorService).asSingleton();
         // Its request-facing half is scoped like any other service, and only holds a
         // reference to the singleton above.

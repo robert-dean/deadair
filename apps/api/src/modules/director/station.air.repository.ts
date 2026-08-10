@@ -7,56 +7,37 @@ import { DataRepository } from '#modules/data/data.repository.js';
  */
 export const MAIN_SLOT = 'main';
 
-/** What is on air, as stored. */
+/** Whether the station is driving, as stored. */
 export interface StationAir {
     slot: string;
-    /** The lineup being aired, absent when the station has never been given one. */
-    lineupId?: string;
-    /** How far through it this broadcast has committed. */
-    cursor: number;
     /**
      * Whether the station is driving. False after a stand-down, and read at boot:
      * a station stopped before a restart must not put itself back on air.
      */
     active: boolean;
-    /** What to go back to when the current lineup ends with `on_end: 'resume'`, and where in it. */
-    resumeLineupId?: string;
-    resumeCursor?: number;
-    /** The slot's home programming, for `on_end: 'rotation'`. */
-    defaultLineupId?: string;
 }
 
 /**
- * Storage for `deadair.station_air`: what the station is airing right now.
+ * Storage for `deadair.station_air`: whether the station is driving.
  *
- * Separate from the lineup itself because it describes this BROADCAST rather
- * than the plan. The same lineup put on air again tomorrow starts from the top,
- * and a lineup being edited off air has no cursor at all.
+ * One column of substance, and that is the point of it. This row used to name the
+ * lineup on air and hold the position the broadcast had reached, which made it a
+ * second opinion about programming that lives next door in `station_lineup` — and
+ * the older opinion always won. What the station is airing is the running order
+ * itself; all this says is whether the station is putting it out.
  *
  * The row is created on first use rather than seeded by the migration, so a
  * station that has never been given anything to play has no row and reads as
- * "nothing on air, not active" — which is exactly what it is.
+ * "not active" — which is exactly what it is.
  */
 @Injectable()
 export class StationAirRepository extends DataRepository {
-    /** What is on air in this slot, or `undefined` before the station has ever aired anything. */
+    /** Whether this slot is driving, or `undefined` before the station has ever aired anything. */
     async get(slot = MAIN_SLOT): Promise<StationAir | undefined> {
-        const row = await this.db
-            .selectFrom('deadair.stationAir')
-            .select(['slot', 'lineupId', 'cursor', 'active', 'resumeLineupId', 'resumeCursor', 'defaultLineupId'])
-            .where('slot', '=', slot)
-            .executeTakeFirst();
+        const row = await this.db.selectFrom('deadair.stationAir').select(['slot', 'active']).where('slot', '=', slot).executeTakeFirst();
         if (!row) return undefined;
 
-        return {
-            slot: row.slot,
-            ...(row.lineupId == null ? {} : { lineupId: row.lineupId }),
-            cursor: row.cursor,
-            active: row.active,
-            ...(row.resumeLineupId == null ? {} : { resumeLineupId: row.resumeLineupId }),
-            ...(row.resumeCursor == null ? {} : { resumeCursor: row.resumeCursor }),
-            ...(row.defaultLineupId == null ? {} : { defaultLineupId: row.defaultLineupId }),
-        };
+        return { slot: row.slot, active: row.active };
     }
 
     /**
@@ -85,22 +66,5 @@ export class StationAirRepository extends DataRepository {
      */
     async standDown(slot = MAIN_SLOT): Promise<void> {
         await this.db.updateTable('deadair.stationAir').set({ active: false }).where('slot', '=', slot).execute();
-    }
-
-    /**
-     * Forget a lineup that has been deleted.
-     *
-     * The foreign keys already null the pointers, but the cursor and `active` flag
-     * are left behind by that and would describe a broadcast of nothing. Called by
-     * the delete path so the row does not have to be read to be understood.
-     */
-    async forgetLineup(lineupId: string): Promise<void> {
-        await this.db.updateTable('deadair.stationAir').set({ lineupId: null, cursor: 0, active: false }).where('lineupId', '=', lineupId).execute();
-
-        await this.db
-            .updateTable('deadair.stationAir')
-            .set({ resumeLineupId: null, resumeCursor: null })
-            .where('resumeLineupId', '=', lineupId)
-            .execute();
     }
 }

@@ -57,14 +57,11 @@ export const queryKeys = {
         status: () => ['playout', 'status'] as const,
     },
     /**
-     * The station's programming, as opposed to `playout`, which is the running order the player was
-     * actually handed. A lineup is the plan; the transport is what has become of the head of it.
+     * The station's programming, as opposed to `playout`, which is what the player was actually
+     * handed. There is one running order and the director owns it; the transport is what has become
+     * of the head of it.
      */
     director: {
-        /** Every lineup the station holds, without their orders. */
-        lineups: () => ['director', 'lineups'] as const,
-        /** One lineup and its whole order. Keyed on the id, since an edit answers with that one lineup. */
-        lineup: (lineupId: string) => ['director', 'lineup', lineupId] as const,
         /** What is on air. One key, for the reason `playout.status` is one key, and polled for the same reason. */
         air: () => ['director', 'air'] as const,
         /** The live running order, item by item. One key, because there is one of them per station. */

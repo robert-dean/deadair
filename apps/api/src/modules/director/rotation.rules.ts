@@ -1,5 +1,5 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
-import type { LineupMode, LineupRules } from './lineup.js';
+import type { StationLineupMode, StationLineupRules } from './station.lineup.js';
 
 /**
  * The rules that shape a generated set: what not to play again yet, and how not
@@ -139,7 +139,7 @@ const NO_RULES: ResolvedRules = {
  *
  * Precedence, tightest last: station defaults, then the lineup's own overrides.
  */
-export const resolveRules = (mode: LineupMode, overrides?: LineupRules, station: ResolvedRules = DEFAULT_RULES): ResolvedRules => {
+export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupRules, station: ResolvedRules = DEFAULT_RULES): ResolvedRules => {
     const base = mode === 'rotation' ? station : NO_RULES;
     return {
         repeatWindowDays: overrides?.repeatWindowDays ?? base.repeatWindowDays,

@@ -4,7 +4,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { Lineup } from '../../../src/modules/director/lineup.js';
+import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { WriteBreakJob } from '../../../src/modules/director/write.break.job.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment } from '../../../src/modules/render/segment.repository.js';
@@ -22,14 +22,14 @@ const planned = (overrides: Partial<Segment> = {}): Segment =>
     ({ id: 'seg-1', kind: 'talkbreak', state: 'planned', label: 'Talk break', source: 'render', ...overrides }) as Segment;
 
 /** A rotation with a break planted between the second and third record. */
-const lineupWithBreak = async (segmentId = 'seg-1'): Promise<Lineup> => {
-    const lineup = new Lineup({ id: 'lineup-1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
-    await lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
-    await lineup.insertSegments([{ segmentId, atIndex: 1 }]);
+const lineupWithBreak = async (segmentId = 'seg-1'): Promise<StationLineup> => {
+    const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+    lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+    lineup.insertSegments([{ segmentId, atIndex: 1 }]);
     return lineup;
 };
 
-function harness(options: { segment?: Segment; lineup?: Lineup; written?: unknown; wrote?: boolean } = {}) {
+function harness(options: { segment?: Segment; lineup?: StationLineup; written?: unknown; wrote?: boolean } = {}) {
     const segments = {
         findById: vi.fn(async () => ('segment' in options ? options.segment : planned())),
         recentScripts: vi.fn(async () => []),
@@ -60,7 +60,7 @@ describe('WriteBreakJob', () => {
     it('writes the script and sends the render', async () => {
         const { job, segments, jobs } = harness({ lineup: await lineupWithBreak() });
 
-        await job.run({ lineupId: 'lineup-1', segmentId: 'seg-1' });
+        await job.run({ segmentId: 'seg-1' });
 
         expect(segments.writeScript).toHaveBeenCalledWith('seg-1', {
             script: 'talking',
@@ -76,7 +76,7 @@ describe('WriteBreakJob', () => {
         // played, which is the one mistake a listener can catch it out in.
         const { job, writers } = harness({ lineup: await lineupWithBreak() });
 
-        await job.run({ lineupId: 'lineup-1', segmentId: 'seg-1' });
+        await job.run({ segmentId: 'seg-1' });
 
         expect(writers.write).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -90,7 +90,7 @@ describe('WriteBreakJob', () => {
     it('records the reason on the row when the writer has nothing to say', async () => {
         const { job, segments, jobs } = harness({ lineup: await lineupWithBreak(), written: { reason: 'nothing to say' } });
 
-        await job.run({ lineupId: 'lineup-1', segmentId: 'seg-1' });
+        await job.run({ segmentId: 'seg-1' });
 
         expect(segments.markFailed).toHaveBeenCalledWith('seg-1', 'nothing to say', 'planned');
         expect(jobs.send).not.toHaveBeenCalled();
@@ -99,7 +99,7 @@ describe('WriteBreakJob', () => {
     it('fails the segment when its running order has gone', async () => {
         const { job, segments } = harness({ lineup: undefined });
 
-        await job.run({ lineupId: 'lineup-1', segmentId: 'seg-1' });
+        await job.run({ segmentId: 'seg-1' });
 
         expect(segments.markFailed).toHaveBeenCalledWith('seg-1', expect.stringContaining('gone'), 'planned');
     });
@@ -108,7 +108,7 @@ describe('WriteBreakJob', () => {
         // Already rendering, already written, or deleted. All ordinary races, all the same answer.
         const { job, segments, jobs } = harness({ segment: planned({ state: 'rendering' }) });
 
-        await job.run({ lineupId: 'lineup-1', segmentId: 'seg-1' });
+        await job.run({ segmentId: 'seg-1' });
 
         expect(segments.writeScript).not.toHaveBeenCalled();
         expect(segments.markFailed).not.toHaveBeenCalled();
@@ -118,7 +118,7 @@ describe('WriteBreakJob', () => {
     it('does not render when the row was claimed between the write and the save', async () => {
         const { job, jobs } = harness({ lineup: await lineupWithBreak(), wrote: false });
 
-        await job.run({ lineupId: 'lineup-1', segmentId: 'seg-1' });
+        await job.run({ segmentId: 'seg-1' });
 
         expect(jobs.send).not.toHaveBeenCalled();
     });

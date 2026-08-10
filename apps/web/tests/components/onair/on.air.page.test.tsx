@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import type { StationOrder, StationOrderItem } from '@deadair/sdk';
 
 import { OnAirPage } from '../../../src/components/onair/on.air.page';
-import { stationAir } from '../../utils/lineup.fixture';
+import { stationAir } from '../../utils/station.fixture';
 import { render, screen, waitFor } from '../../utils/render';
 
 const getStationAir = vi.fn();

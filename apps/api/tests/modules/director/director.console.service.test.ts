@@ -1,8 +1,7 @@
-// The operator's side. Two things matter here: an import must carry through
-// everything the catalog knows about a track without ever failing the import over
-// it, and every refusal an edit can produce has to arrive as the status code that
-// says the same thing, because a console has to tell someone standing at the desk
-// why nothing happened.
+// The operator's side. Two things matter here: putting a playlist on air must carry through
+// everything the catalog knows about a track without ever failing the broadcast over it, and every
+// refusal an edit can produce has to arrive as the status code that says the same thing, because a
+// console has to tell somebody standing at the desk why nothing happened.
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
@@ -10,10 +9,8 @@ import type { JobBroker } from '@maroonedsoftware/jobbroker';
 
 import { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
-import { Lineup } from '../../../src/modules/director/lineup.js';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import type { DirectorCommand, OrderEdit } from '../../../src/modules/director/director.mailbox.js';
-import type { LineupRepository, NewLineup } from '../../../src/modules/director/lineup.repository.js';
 import type { StationAirRepository } from '../../../src/modules/director/station.air.repository.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
@@ -33,32 +30,12 @@ interface Options {
     onAir?: { active?: boolean; name?: string; source?: string; remaining?: number };
     /** What the running order holds, for the edit cases. */
     order?: StationLineup;
-    existing?: RundownTrack[];
-    missing?: boolean;
     /** What the segment library holds, for the lines a lineup names by id. */
     segments?: Partial<Segment>[];
 }
 
 function build(options: Options = {}) {
-    const lineup = new Lineup({ id: 'lineup-1', name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
-
-    let created: NewLineup | undefined;
-    const lineups = {
-        list: vi.fn(async () => [{ id: 'lineup-1', name: 'Afternoons' }]),
-        load: vi.fn(async (id: string) => (options.missing || id !== 'lineup-1' ? undefined : lineup)),
-        create: vi.fn(async (input: NewLineup) => {
-            created = input;
-            const made = new Lineup({ id: 'lineup-2', name: input.name, mode: 'rotation', onEnd: 'extend', source: 'import' });
-            if (input.tracks) await made.append(input.tracks);
-            return made;
-        }),
-        remove: vi.fn(async () => {}),
-    } as unknown as LineupRepository;
-
-    const air = {
-        goOnAir: vi.fn(async () => {}),
-        forgetLineup: vi.fn(async () => {}),
-    } as unknown as StationAirRepository;
+    const air = { goOnAir: vi.fn(async () => {}) } as unknown as StationAirRepository;
 
     // The one owner of the running order. The fake APPLIES an edit rather than recording that it
     // was asked for, so the assertions below are about what the order became.
@@ -110,11 +87,9 @@ function build(options: Options = {}) {
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as JobBroker;
 
     return {
-        service: new DirectorConsoleService(lineups, air, director, playlists, tracks, segments, settings, jobs, logger),
+        service: new DirectorConsoleService(air, director, playlists, tracks, segments, settings, jobs, logger),
         segments,
         settings,
-        lineup,
-        lineups,
         air,
         director,
         playlists,
@@ -122,8 +97,6 @@ function build(options: Options = {}) {
         posted: () => posted,
         jobs,
         tracks,
-        createdWith: () => created,
-        seed: async () => (options.existing ? lineup.append(options.existing) : undefined),
     };
 }
 
@@ -140,53 +113,45 @@ beforeEach(() => {
     vi.clearAllMocks();
 });
 
-describe('DirectorConsoleService.importPlaylist', () => {
-    it('builds a lineup from the playlist and remembers where it came from', async () => {
-        const { service, createdWith } = build();
-
-        await service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1', name: 'Discover Weekly' });
-
-        expect(createdWith()).toMatchObject({
-            name: 'Discover Weekly',
-            source: 'import',
-            sourcePluginId: 'deadair.spotify',
-            sourcePlaylistId: 'pl_1',
-        });
-    });
+// What the console carries through from the provider and the catalog. It used to be tested through
+// an import step; there is no import any more, so it is tested where it now happens: on the way to
+// air.
+describe('DirectorConsoleService building a running order from a playlist', () => {
+    const tracksOf = (posted: DirectorCommand[]) => (posted[0]?.kind === 'putOnAir' ? posted[0].tracks : []);
 
     it('keeps what the provider says about the copy it will actually serve', async () => {
-        // The provider describes the thing that will play. The catalog describes the
-        // work, and must not overwrite the album printed on the copy being aired.
-        const { service, createdWith } = build({
+        // The provider describes the thing that will play. The catalog describes the work, and
+        // must not overwrite the album printed on the copy being aired.
+        const { service, posted } = build({
             tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], album: 'The Single' }],
             catalogRows: [{ externalId: 'trk_9', trackId: 'cat-1', year: 1979, albumName: 'The Album', albumImageUrl: null }],
         });
 
-        await service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
 
-        expect(createdWith()?.tracks?.[0]).toMatchObject({ album: 'The Single', year: 1979, trackId: 'cat-1' });
+        expect(tracksOf(posted())[0]).toMatchObject({ album: 'The Single', year: 1979, trackId: 'cat-1' });
     });
 
     it('takes the catalog cover over the provider one, because it may already be cached locally', async () => {
-        const { service, createdWith } = build({
+        const { service, posted } = build({
             tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], artworkUrl: 'https://provider.test/cover.jpg' }],
             catalogRows: [{ externalId: 'trk_9', trackId: 'cat-1', year: null, albumName: null, albumImageUrl: 'art/asset-1' }],
         });
 
-        await service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
 
-        expect(createdWith()?.tracks?.[0]).toMatchObject({ artworkUrl: 'art/asset-1' });
+        expect(tracksOf(posted())[0]).toMatchObject({ artworkUrl: 'art/asset-1' });
     });
 
     it('falls back to the provider cover for a track the catalog has never seen', async () => {
-        const { service, createdWith } = build({
+        const { service, posted } = build({
             tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], artworkUrl: 'https://provider.test/cover.jpg' }],
             catalogRows: [],
         });
 
-        await service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
 
-        expect(createdWith()?.tracks?.[0]).toEqual({
+        expect(tracksOf(posted())[0]).toEqual({
             pluginId: 'deadair.spotify',
             externalId: 'trk_9',
             title: 'B Side',
@@ -195,13 +160,13 @@ describe('DirectorConsoleService.importPlaylist', () => {
         });
     });
 
-    it('imports anyway when the catalog read fails', async () => {
+    it('goes on air anyway when the catalog read fails', async () => {
         // Metadata is decoration; airing is the job.
-        const { service, createdWith } = build({ catalogError: new Error('the pool is gone') });
+        const { service, posted } = build({ catalogError: new Error('the pool is gone') });
 
-        await service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
 
-        expect(createdWith()?.tracks).toHaveLength(1);
+        expect(tracksOf(posted())).toHaveLength(1);
     });
 
     it('asks the catalog once for the whole playlist', async () => {
@@ -212,24 +177,10 @@ describe('DirectorConsoleService.importPlaylist', () => {
             ],
         });
 
-        await service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
 
         expect(tracks.findByBindings).toHaveBeenCalledOnce();
         expect(tracks.findByBindings).toHaveBeenCalledWith('deadair.spotify', ['trk_1', 'trk_2']);
-    });
-
-    it('refuses an empty playlist rather than making a lineup that airs silence', async () => {
-        const { service, lineups } = build({ tracks: [] });
-
-        expect(await statusOf(service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(422);
-        expect(lineups.create).not.toHaveBeenCalled();
-    });
-
-    it('lets the playlists read own the plugin narrowing', async () => {
-        const forbidden = Object.assign(new Error('Forbidden'), { status: 403 });
-        const { service } = build({ playlistError: forbidden });
-
-        expect(await statusOf(service.importPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(403);
     });
 });
 
@@ -315,137 +266,6 @@ describe('DirectorConsoleService.putOnAir', () => {
         const { service } = build({ playlistError: forbidden });
 
         expect(await statusOf(service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(403);
-    });
-});
-
-describe('DirectorConsoleService editing', () => {
-    it('maps a stale revision onto a conflict', async () => {
-        // The console drew a list and the operator acted on it; the director has
-        // appended since. Re-read and try again is the only honest answer.
-        const { service, seed, lineup } = build({ existing: [{ pluginId: 'p', externalId: 'a', title: 'A', artists: ['One'] }] });
-        await seed();
-
-        expect(await statusOf(service.removeItem('lineup-1', lineup.all()[0]!.id, { revision: 99 }))).toBe(409);
-    });
-
-    it('maps an unknown line onto a not-found', async () => {
-        const { service, seed } = build({ existing: [{ pluginId: 'p', externalId: 'a', title: 'A', artists: ['One'] }] });
-        await seed();
-
-        expect(await statusOf(service.removeItem('lineup-1', 'nope', {}))).toBe(404);
-    });
-
-    it('maps a shuffle with nothing left onto an unprocessable request', async () => {
-        const { service } = build();
-
-        expect(await statusOf(service.shuffleLineup('lineup-1', {}))).toBe(422);
-    });
-
-    it('queues an extend rather than making the operator wait for it', async () => {
-        // Generating walks the catalog and, later, rate-limited providers. A button
-        // press should not hold a connection open through that.
-        const { service, jobs } = build();
-
-        await service.extendLineup('lineup-1', { count: 20 });
-
-        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { lineupId: 'lineup-1', count: 20 });
-    });
-});
-
-describe('DirectorConsoleService.remove', () => {
-    it('deletes one without asking what is on air, because nothing airs from a stored lineup', async () => {
-        // There is no 409 left to answer. A stored lineup is prepared material; the running order
-        // is the director's own, and deleting the first cannot interrupt the second.
-        const { service, lineups } = build();
-
-        expect(await statusOf(service.deleteLineup('lineup-1'))).toBe(200);
-        expect(lineups.remove).toHaveBeenCalledWith('lineup-1');
-    });
-
-    it('deletes one that is not, and clears any pointer to it', async () => {
-        const { service, lineups, air } = build({ onAir: { lineupId: 'lineup-9' } });
-
-        await service.deleteLineup('lineup-1');
-
-        expect(lineups.remove).toHaveBeenCalledWith('lineup-1');
-        expect(air.forgetLineup).toHaveBeenCalledWith('lineup-1');
-    });
-});
-
-// An operator putting a specific ident into the order. The load-bearing decision is that a segment
-// with no audio is refused HERE rather than accepted and skipped at the boundary: the station's own
-// planting can afford to be optimistic, but somebody who asked for this ident by name should be
-// told why it will not play.
-describe('DirectorConsoleService.addSegment', () => {
-    const READY = { id: 'seg-1', kind: 'ident', state: 'ready' as const, label: 'Top of the hour', source: 'library' };
-
-    it('puts a ready segment into the order and answers with the lineup', async () => {
-        const { service, seed } = build({ segments: [READY], existing: [{ pluginId: 'p', externalId: 'a', title: 'A', artists: ['X'] }] });
-        await seed();
-
-        const lineup = await service.addSegment('lineup-1', { segmentId: 'seg-1', atIndex: 1 });
-
-        expect(lineup.items[1]).toMatchObject({ kind: 'segment', segmentId: 'seg-1', title: 'Top of the hour', playable: true });
-    });
-
-    it('404s a segment the library does not have', async () => {
-        const { service } = build({ segments: [] });
-
-        expect(await statusOf(service.addSegment('lineup-1', { segmentId: 'seg-1' }))).toBe(404);
-    });
-
-    it('422s one that has no audio yet, rather than planting a line the station will skip', async () => {
-        const { service } = build({ segments: [{ id: 'seg-1', kind: 'talkbreak', state: 'planned', label: 'A talk break', source: 'render' }] });
-
-        expect(await statusOf(service.addSegment('lineup-1', { segmentId: 'seg-1' }))).toBe(422);
-    });
-
-    it('409s an insert made against an order that has moved', async () => {
-        const { service, seed } = build({ segments: [READY] });
-        await seed();
-
-        expect(await statusOf(service.addSegment('lineup-1', { segmentId: 'seg-1', revision: 99 }))).toBe(409);
-    });
-});
-
-// A lineup line names a segment by id and nothing else, so everything a console draws about it is
-// read from the library. That is what makes a renamed segment read correctly against every lineup
-// that plays it, and a segment that has lost its audio read as one the station will skip.
-describe('DirectorConsoleService reading a lineup with segments', () => {
-    it('fills a segment line in from the library', async () => {
-        const { service, lineup, seed } = build({
-            segments: [{ id: 'seg-1', kind: 'ident', state: 'ready', label: 'Top of the hour', source: 'library', durationMs: 4000 }],
-        });
-        await seed();
-        await lineup.insertSegment('seg-1', 0);
-
-        const drawn = await service.getLineup('lineup-1');
-
-        expect(drawn.items[0]).toMatchObject({ kind: 'segment', title: 'Top of the hour', durationMs: 4000, playable: true, artists: [] });
-    });
-
-    // Drawn as itself rather than hidden: the lineup does hold the line and the station will pass
-    // over it, and hiding it would leave an operator wondering why what they see is not what they
-    // hear.
-    it('draws a line whose segment is gone as one that will be skipped', async () => {
-        const { service, lineup, seed } = build({ segments: [] });
-        await seed();
-        await lineup.insertSegment('seg-1', 0);
-
-        const drawn = await service.getLineup('lineup-1');
-
-        expect(drawn.items[0]).toMatchObject({ kind: 'segment', segmentState: 'gone', playable: false });
-    });
-
-    it('asks the library once for the whole order', async () => {
-        const { service, segments, lineup, seed } = build({ segments: [] });
-        await seed();
-        await lineup.insertSegment('seg-1', 0);
-        await lineup.insertSegment('seg-2', 1);
-
-        await service.getLineup('lineup-1');
-
-        expect(segments.findByIds).toHaveBeenCalledOnce();
     });
 });
 

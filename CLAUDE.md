@@ -3,8 +3,11 @@
 An AI radio station. Today the repo is a Koa API (`apps/api`), a React console (`apps/web`), a
 plugin system for music providers and enrichment sources (`packages/plugin-sdk`, `plugins/*`), and
 the identity/permissions/settings chassis underneath them. The station actors themselves (director,
-render pipeline, rundown, now-playing reactor) are the goal, not the current tree: audio never
-touches Node, and Liquidsoap and Icecast run in sibling containers.
+render pipeline, rundown, now-playing reactor) are the goal, not the current tree: **no decoding,
+mixing or encoding happens in Node**, and Liquidsoap and Icecast run in sibling containers. That is
+the true version of "audio never touches Node", which this file used to state as an absolute the
+code visibly contradicted: `speak()` returns a real `ReadableStream`, the render pipeline writes
+segment audio through Node, and Liquidsoap fetches it back over HTTP.
 
 ## Workspace
 
@@ -37,14 +40,14 @@ exists.
   the rate limiting, redirect chasing and breaker all exist.
 - `docs/decisions/plugin-streaming.md` (superseded) for the bounds on a body read outside the call
   that fetched it, which survived the protocol they were written for.
-- `docs/decisions/on-air-ownership.md` (stage 1 built, stage 2 decided and not built) for why the
-  director is the sole writer of `lineups.items`, and the four bugs that were all the same bug. Read
-  it before touching `director/`, `Rundown`, or anything that writes `lineups.items` or
-  `station_air`. Two things in it are load-bearing for anything new: **every writer posts a command
-  and none of them writes the lineup itself**, and **a mailbox cannot cancel**: serializing
-  decisions stops them interleaving but does not un-decide one already made, so anything that must
-  stop work in flight bumps the epoch synchronously and posts only the durable half. Stage 2 is
-  where the lineup stops being a library, so do not build a second one.
+- `docs/decisions/on-air-ownership.md` (stage 1 built; stage 2 built except its rundown merge) for
+  why the director is the sole writer of the running order, and the four bugs that were all the same
+  bug. Read it before touching `director/`, `Rundown`, or anything that writes
+  `deadair.station_lineup` or `station_air`. Three things in it are load-bearing for anything new:
+  **every writer posts a command and none of them writes the running order itself**; **a mailbox
+  cannot cancel**, so anything that must stop work in flight bumps the epoch synchronously and posts
+  only the durable half; and **nothing runs a commit pass off the queue**, including the first one at
+  boot.
 - `docs/todo/` for work that was designed against the real tree and then deliberately deferred, and
   the seam each piece drops into. Read it before designing a station feature from scratch: the call
   may already have been made. It describes the current tree only.
@@ -143,6 +146,17 @@ pooled connection, so from inside the request's transaction it reads the row as 
 write and its own `setStatus` upsert then waits on the lock the request is holding, while the
 request waits on it. Postgres does not call that a deadlock, because only one of the two is waiting
 in the database. `reloadPlugin` is inline precisely because it writes nothing.
+
+**One running order per station, owned by the director, and it is not a library.**
+`deadair.station_lineup` holds it as one jsonb document of items, each carrying its own state
+(`planned → handed → airing → played`, with `skipped` off the side). There is no cursor and no
+revision: the position IS the states, so the plan and what actually aired cannot disagree. It is
+built from a playlist when the station goes on air and CONSUMED — prepared material is a playlist,
+and the rule that keeps the two honest is that if it is airing it is a lineup and if it is prepared
+it is a playlist. Memory is the authority and the row is the record: an acknowledged edit is written
+through before its caller is answered, everything the transport does rides a throttle, and a
+graceful shutdown flushes. `station_air` says only whether the station is driving. Every writer
+posts a command to `DirectorService`; nothing else may write it.
 
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on

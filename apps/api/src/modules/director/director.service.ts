@@ -9,6 +9,7 @@ import { Rundown, type RetractedLines, type RundownItem, type RundownTrack } fro
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { BreakPlanner } from './break.planner.js';
+import { DirectorMailbox, type DirectorCommand } from './director.mailbox.js';
 import type { Lineup, LineupItem } from './lineup.js';
 import { LineupRepository } from './lineup.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -121,6 +122,15 @@ export class DirectorService {
      */
     private readonly epoch = new Epoch();
     /**
+     * The one way in, and eventually the only one.
+     *
+     * Introduced alongside the flags above rather than instead of them, on purpose. Every writer
+     * has to be moved onto it before any of them can be deleted, and a queue that is provably inert
+     * is the only honest place to start: the existing tests pass unchanged against this, which is
+     * the evidence that it changed nothing.
+     */
+    private readonly mailbox = new DirectorMailbox(command => this.handle(command));
+    /**
      * A talk-over whose record has not been committed yet.
      *
      * A commit batch is three items, so a talk-over planted before the last record of a batch has
@@ -174,6 +184,10 @@ export class DirectorService {
         if (this.unsubscribes.length > 0) return;
 
         this.unsubscribes.push(this.rundown.onChange(() => this.wake()));
+        // NOT a command. This runs on the boundary, records what a listener actually heard, and
+        // hands its own work off to a job; queueing it behind a commit pass would delay play
+        // history for no benefit and put a write nobody is waiting on in front of the decisions
+        // that keep the station on air.
         this.unsubscribes.push(this.rundown.onAired(item => this.remember(item)));
         // A stand-down is the station being stopped, from wherever: the transport's
         // own Stop, or this class reaching the end of a lineup that says to stop. The
@@ -185,7 +199,13 @@ export class DirectorService {
                 // tail and leaves the station on air; a stand-down retracts everything. Either way
                 // the cursor has counted lines nobody heard, and the correction is the same.
                 this.reclaimRetracted(retracted);
-                if (standingDown) void this.standDown();
+                if (!standingDown) return;
+
+                // Cancel first, in this stack frame, then queue the write. See `beginStandDown`:
+                // a command cannot cancel a pass that is already gathering, because it runs after
+                // it.
+                this.beginStandDown();
+                this.send({ kind: 'standDown' });
             }),
         );
 
@@ -312,9 +332,49 @@ export class DirectorService {
         if (this.active) await this.commit();
     }
 
-    /** Fire a commit pass from a listener, swallowing anything it throws. */
+    /** Ask for a commit pass from a listener, swallowing anything it throws. */
     private wake(): void {
-        this.commit().catch(error => this.logger.warn(`director: a commit pass failed (${message(error)})`));
+        this.send({ kind: 'wake' });
+    }
+
+    /**
+     * Post a command with nobody to hand a failure to.
+     *
+     * What every listener uses. They run on the pusher's loop or on a track boundary, so there is
+     * no caller to reject to and an uncaught one would take the process down for something the next
+     * event retries anyway. A caller that DOES want the outcome awaits {@link post} instead.
+     */
+    private send(command: DirectorCommand): void {
+        void this.post(command).catch(error => this.logger.warn(`director: a ${command.kind} command failed (${message(error)})`));
+    }
+
+    /**
+     * Hand the director something to do, and wait for it to be done.
+     *
+     * The way in for anything outside this class. Commands are handled one at a time and in order,
+     * so a caller is not racing the reactor's own work: see {@link DirectorMailbox}.
+     */
+    async post(command: DirectorCommand): Promise<void> {
+        await this.mailbox.post(command);
+    }
+
+    /**
+     * What each command actually does.
+     *
+     * Deliberately thin. A command names a decision and this routes it; the work stays in the
+     * methods that already do it, so the mailbox is a way IN rather than a second place where the
+     * station's behaviour lives.
+     */
+    private async handle(command: DirectorCommand): Promise<void> {
+        switch (command.kind) {
+            case 'wake':
+                await this.commit();
+                return;
+
+            case 'standDown':
+                await this.standDown();
+                return;
+        }
     }
 
     /**
@@ -707,14 +767,32 @@ export class DirectorService {
         );
     }
 
-    /** Stop driving and remember that the station is off, so a restart stays off. */
-    private async standDown(): Promise<void> {
+    /**
+     * Stop driving, NOW, in the caller's own stack frame.
+     *
+     * Split from {@link standDown} because stopping and recording that you stopped want different
+     * timing, and the split is load-bearing rather than tidy. A stand-down has to cancel a commit
+     * pass that is already in flight, and **the mailbox cannot do that**: a queued command runs
+     * after that pass, by which time it has appended and the station is back on air with three
+     * records nobody asked for. Serializing decisions stops them interleaving; it does not
+     * un-decide one that was already made, which is what the epoch is for.
+     *
+     * So the cancellation is synchronous and the durable write is queued behind it.
+     */
+    private beginStandDown(): void {
         this.epoch.bump();
         this.pendingVoice = undefined;
         this.active = false;
         this.extendSent = false;
         this.airReadAt = 0;
         this.standingDown = true;
+    }
+
+    /** Remember that the station is off, so a restart stays off. */
+    private async standDown(): Promise<void> {
+        // Idempotent, and called directly by the `standDown` command as well as after
+        // {@link beginStandDown}. A stand-down reached any other way still has to cancel.
+        this.beginStandDown();
 
         try {
             await this.inScope(async scope => scope.get(StationAirRepository).standDown());

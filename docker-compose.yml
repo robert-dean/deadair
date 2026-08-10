@@ -106,7 +106,8 @@ services:
             - ./stream/icecast.default.xml:/defaults/icecast.xml:ro
         # No healthcheck: this image ships no HTTP client (no wget/curl/busybox, only
         # libcurl4), so an in-container HTTP probe can't run. Verify from the host
-        # instead (curl http://127.0.0.1:8000/status-json.xsl — see stream/README.md).
+        # instead (curl http://127.0.0.1:8000/status-json.xsl on this 2.4 image, or
+        # /admin/publicstats.json with the admin password on a 2.5 — see stream/README.md).
 
     liquidsoap:
         # Custom image = stock Liquidsoap + the Spotify track shim, so a Spotify track can be

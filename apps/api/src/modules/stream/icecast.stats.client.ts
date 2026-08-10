@@ -14,7 +14,9 @@ import { Logger } from '@maroonedsoftware/logger';
  * endpoint it deprecates — kept, because the deprecated one is what the pinned
  * image serves and will keep serving. Both render the same public stats tree
  * through the same xml2json convention, which is why {@link listenersForMount}
- * reads either without knowing which it got.
+ * reads either without knowing which it got. 2.5's lives under `/admin/`, so
+ * unlike the endpoint it replaces it is read as the admin user; see
+ * {@link isAdminEndpoint}.
  *
  * Best-effort throughout. An Icecast that is down, starting, or answering
  * something other than a stats document resolves to `undefined` rather than
@@ -41,6 +43,20 @@ export interface StatsEndpoint {
     base: string;
     path: string;
 }
+
+/**
+ * Whether an endpoint is Icecast's admin namespace, and so has to be asked as
+ * the admin user.
+ *
+ * `/admin/publicstats` publishes only what a listener could discover anyway, but
+ * it lives under `/admin/` all the same, where 2.5 decides access by role and the
+ * roles Icecast ships deny anonymous. Authenticating is what makes the endpoint
+ * work on a default config rather than on one every operator was told to edit.
+ * The deprecated `status-json.xsl` is not under it and never gets the header:
+ * sending a password to an endpoint that does not want one is how it ends up in
+ * somebody's proxy log.
+ */
+export const isAdminEndpoint = (path: string): boolean => path.startsWith('/admin/');
 
 /**
  * Where to look, in preference order: the compose service name, then the
@@ -120,8 +136,12 @@ export class IcecastStatsClient {
     private port = '8000';
     /** The mount whose listeners are the station's audience. */
     private mount = '/live.mp3';
+    /** Icecast's admin password, for the admin endpoint only. Unset until a station has one. */
+    private adminPassword?: string;
     /** Whether "nothing answered" has already been said, so a poll loop cannot fill the log. */
     private reportedMissing = false;
+    /** The same discipline for "the admin endpoint refused us". See {@link noteRefusal}. */
+    private reportedDenied = false;
 
     constructor(
         private readonly config: AppConfig,
@@ -129,19 +149,27 @@ export class IcecastStatsClient {
     ) {}
 
     /**
-     * Install the mount and the address it lives at.
+     * Install the mount, the address it lives at, and the admin password to read
+     * the admin endpoint with.
      *
      * Pushed in rather than read per call for the reason the bridge secret is:
      * these are settings behind a scoped repository, and the caller polls every
-     * few seconds from a singleton that has no request scope to borrow.
+     * few seconds from a singleton that has no request scope to borrow. The
+     * password arrives decrypted, from the same resolved settings the rendered
+     * `icecast.xml` was built from, so the two cannot disagree about it.
      */
-    useMount(args: { host: string; port: string; mount: string }): void {
+    useMount(args: { host: string; port: string; mount: string; adminPassword?: string }): void {
         this.host = args.host || this.host;
         this.port = args.port || this.port;
         this.mount = args.mount || this.mount;
-        // The address may have changed with it, so stop trusting the old one.
+        this.adminPassword = args.adminPassword || undefined;
+        // The address may have changed with it, so stop trusting the old one, and a
+        // station that has just been given a password deserves to be told afresh if
+        // this one is refused too.
         this.resolved = undefined;
+        this.reportedDenied = false;
     }
+
 
     /** The mount being watched, for a caller that has to name it in a log line. */
     mountPath(): string {
@@ -199,8 +227,14 @@ export class IcecastStatsClient {
     /** One read of a stats endpoint. `undefined` for anything that is not a stats document. */
     private async read(endpoint: StatsEndpoint): Promise<unknown> {
         try {
-            const response = await fetch(`${endpoint.base}${endpoint.path}`, { signal: AbortSignal.timeout(STATS_TIMEOUT_MS) });
-            if (!response.ok) return undefined;
+            const response = await fetch(`${endpoint.base}${endpoint.path}`, {
+                signal: AbortSignal.timeout(STATS_TIMEOUT_MS),
+                headers: this.headers(endpoint),
+            });
+            if (!response.ok) {
+                this.noteRefusal(endpoint, response.status);
+                return undefined;
+            }
 
             const body = (await response.json()) as unknown;
             // Probing several paths means something other than Icecast can answer one of
@@ -213,6 +247,33 @@ export class IcecastStatsClient {
             // body that is not JSON. All the same thing here: this address did not answer.
             return undefined;
         }
+    }
+
+    /** The admin credentials, on the admin endpoint and nowhere else. */
+    private headers(endpoint: StatsEndpoint): Record<string, string> {
+        if (!this.adminPassword || !isAdminEndpoint(endpoint.path)) return {};
+
+        return { authorization: `Basic ${Buffer.from(`admin:${this.adminPassword}`).toString('base64')}` };
+    }
+
+    /**
+     * Say once when the admin endpoint is there but will not answer us.
+     *
+     * A 401 or 403 is not "Icecast is down" and not "this server is 2.4": it is a
+     * server that has the endpoint and disagrees about the password or the role
+     * allowed to read it. The poll falls through to the deprecated endpoint and
+     * keeps working, so the only cost is that nobody would ever know why the
+     * station is still on the old one — hence the line, said once per resolve.
+     */
+    private noteRefusal(endpoint: StatsEndpoint, status: number): void {
+        if (!isAdminEndpoint(endpoint.path) || (status !== 401 && status !== 403) || this.reportedDenied) return;
+
+        this.reportedDenied = true;
+        this.logger.info(
+            this.adminPassword
+                ? `icecast: ${endpoint.base}${endpoint.path} refused the admin password (${status}); falling back to the deprecated stats endpoint`
+                : `icecast: ${endpoint.base}${endpoint.path} needs credentials and the station has no admin password; falling back to the deprecated stats endpoint`,
+        );
     }
 }
 

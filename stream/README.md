@@ -181,9 +181,18 @@ to `always`. Producing audio costs a provider fetch and a download per track on 
 account, and an empty mount is the one case where nobody benefits from spending them.
 
 The count comes from Icecast, which is the only thing that knows: Liquidsoap sees a socket it
-writes to and nothing about the far end. `AudienceWatch` (apps/api, modules/playout) polls
-`GET /status-json.xsl` every five seconds (public, so no admin password is involved), and that
-poll is the **truth**. Icecast also *pushes*, through `<authentication type="url">` on the mount:
+writes to and nothing about the far end. `AudienceWatch` (apps/api, modules/playout) polls it every
+five seconds, and that poll is the **truth**.
+
+Which endpoint it polls depends on the Icecast, not on anything an operator set. `IcecastStatsClient`
+asks `GET /admin/publicstats.json` first (2.5's, presented with the `stream.adminPassword` as HTTP
+basic, because it sits under `/admin/` where 2.5 decides access by role and the roles it ships deny
+anonymous), and falls back to `GET /status-json.xsl` (2.4's, which 2.5 deprecates and the pinned
+2.4.4 image serves). The base and path that answered are cached together, so the endpoint an install
+does not have costs one probe per re-probe rather than one per poll, and a boot log line names the
+one in use. A 401 or 403 from the admin endpoint is said once and then ignored: it means a server
+that has it and will not let us read it, which is a config to fix, not a reason to stop polling. See
+`docs/todo/icecast-2.5.md` for the container upgrade this is waiting on. Icecast also *pushes*, through `<authentication type="url">` on the mount:
 `listener_add` and `listener_remove` call `POST /playout/bridge/listener`, gated on the same bridge secret,
 so an arrival opens the gate in milliseconds instead of up to five seconds. Icecast presents that
 secret as HTTP **basic**, because its URL authenticator can send no header of its own; ServerKit's
@@ -350,6 +359,14 @@ The Icecast image ships no HTTP client, so probe from the host:
 
 ```
 curl http://127.0.0.1:8000/status-json.xsl
+```
+
+On an Icecast 2.5 that endpoint is deprecated; ask its replacement instead, which needs the admin
+password (`select value from deadair.settings where key = 'stream.adminPassword'` is ciphertext, so
+take it from the rendered `.docvol/streamconfig/icecast.xml`):
+
+```
+curl -u admin:<admin-password> http://127.0.0.1:8000/admin/publicstats.json
 ```
 
 ## Liquidsoap version (and what to check after a bump)

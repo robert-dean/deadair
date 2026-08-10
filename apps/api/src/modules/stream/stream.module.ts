@@ -69,11 +69,14 @@ export const StreamModule: ServerKitModule = {
             container.get(SpotifyShimClient).useSecrets(playoutBridgeSecret ?? '', spotifyShimSecret ?? '');
 
             // The mount whose listeners are the station's audience, from the same settings
-            // the rendered icecast.xml was built from a moment ago.
+            // the rendered icecast.xml was built from a moment ago — including the admin
+            // password, because 2.5 serves the stats document from under `/admin/` and the
+            // roles it ships deny anonymous.
             container.get(IcecastStatsClient).useMount({
                 host: settings.icecastHost,
                 port: settings.icecastPort,
                 mount: settings.mount,
+                adminPassword: settings.adminPassword,
             });
         } finally {
             await scope.disposeAsync();

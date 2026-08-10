@@ -142,19 +142,36 @@ const document = (count: number) => ({ icestats: { source: source('/live.mp3', c
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
-/** A `fetch` answering from a url→body table; anything unlisted is a 404. */
+/** What one stubbed request was: where it went, and what it carried. */
+interface Asked {
+    url: string;
+    authorization?: string;
+}
+
+/**
+ * A `fetch` answering from a url→body table; anything unlisted is a 404.
+ *
+ * A body of a bare number stands for a status code, so a test can say "this
+ * endpoint is there and refuses you" as easily as "it is not there".
+ */
 function stubFetch(answers: Record<string, unknown>) {
-    const calls: string[] = [];
-    const fetchMock = vi.fn(async (url: string | URL) => {
+    const calls: Asked[] = [];
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
         const asked = String(url);
-        calls.push(asked);
+        const headers = (init?.headers ?? {}) as Record<string, string>;
+        calls.push({ url: asked, authorization: headers.authorization });
+
         const body = answers[asked];
         if (body === undefined) return new Response('not found', { status: 404 });
+        if (typeof body === 'number') return new Response('denied', { status: body });
         return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
     });
     vi.stubGlobal('fetch', fetchMock);
     return calls;
 }
+
+/** Just the urls, for the tests that only care where the client went. */
+const urls = (calls: Asked[]): string[] => calls.map(call => call.url);
 
 describe('IcecastStatsClient', () => {
     afterEach(() => {
@@ -163,9 +180,9 @@ describe('IcecastStatsClient', () => {
     });
 
     /** A client pointed at loopback only, so the address table stays two rows long. */
-    function client() {
+    function client(adminPassword?: string) {
         const stats = new IcecastStatsClient(settingsConfig().config, logger);
-        stats.useMount({ host: '127.0.0.1', port: '8000', mount: '/live.mp3' });
+        stats.useMount({ host: '127.0.0.1', port: '8000', mount: '/live.mp3', adminPassword });
         return stats;
     }
 
@@ -173,14 +190,44 @@ describe('IcecastStatsClient', () => {
         const calls = stubFetch({ 'http://127.0.0.1:8000/admin/publicstats.json': document(3) });
 
         await expect(client().listeners()).resolves.toBe(3);
-        expect(calls).toEqual(['http://127.0.0.1:8000/admin/publicstats.json']);
+        expect(urls(calls)).toEqual(['http://127.0.0.1:8000/admin/publicstats.json']);
     });
 
     it('falls back to the deprecated endpoint on a 2.4 server', async () => {
         const calls = stubFetch({ 'http://127.0.0.1:8000/status-json.xsl': document(2) });
 
         await expect(client().listeners()).resolves.toBe(2);
-        expect(calls).toEqual(['http://127.0.0.1:8000/admin/publicstats.json', 'http://127.0.0.1:8000/status-json.xsl']);
+        expect(urls(calls)).toEqual(['http://127.0.0.1:8000/admin/publicstats.json', 'http://127.0.0.1:8000/status-json.xsl']);
+    });
+
+    it('presents the admin password on the admin endpoint and nowhere else', async () => {
+        const calls = stubFetch({ 'http://127.0.0.1:8000/status-json.xsl': document(1) });
+
+        await client('hunter2').listeners();
+
+        const expected = `Basic ${Buffer.from('admin:hunter2').toString('base64')}`;
+        expect(calls[0]).toEqual({ url: 'http://127.0.0.1:8000/admin/publicstats.json', authorization: expected });
+        expect(calls[1]).toEqual({ url: 'http://127.0.0.1:8000/status-json.xsl', authorization: undefined });
+    });
+
+    it('sends no header at all when the station has no admin password', async () => {
+        const calls = stubFetch({ 'http://127.0.0.1:8000/admin/publicstats.json': document(1) });
+
+        await client().listeners();
+
+        expect(calls[0]?.authorization).toBeUndefined();
+    });
+
+    it('keeps reading the deprecated endpoint when the admin one refuses the password', async () => {
+        // A 2.5 server whose role denies us. Not "Icecast is down", and not a reason to
+        // stop reading the endpoint that does answer.
+        const calls = stubFetch({
+            'http://127.0.0.1:8000/admin/publicstats.json': 401,
+            'http://127.0.0.1:8000/status-json.xsl': document(5),
+        });
+
+        await expect(client('wrong').listeners()).resolves.toBe(5);
+        expect(urls(calls)).toHaveLength(2);
     });
 
     it('probes the endpoint it does not have once, not once per poll', async () => {
@@ -193,8 +240,8 @@ describe('IcecastStatsClient', () => {
 
         // One probe of publicstats on the first read, and the endpoint that answered
         // for every read after it.
-        expect(calls.filter(url => url.endsWith('/admin/publicstats.json'))).toHaveLength(1);
-        expect(calls.filter(url => url.endsWith('/status-json.xsl'))).toHaveLength(3);
+        expect(urls(calls).filter(url => url.endsWith('/admin/publicstats.json'))).toHaveLength(1);
+        expect(urls(calls).filter(url => url.endsWith('/status-json.xsl'))).toHaveLength(3);
     });
 
     it('does not settle on JSON that is not a stats document', async () => {
@@ -206,7 +253,7 @@ describe('IcecastStatsClient', () => {
         });
 
         await expect(client().listeners()).resolves.toBe(4);
-        expect(calls).toHaveLength(2);
+        expect(urls(calls)).toHaveLength(2);
     });
 
     it('is unknown, and re-probes from the top, when nothing answers', async () => {
@@ -216,7 +263,7 @@ describe('IcecastStatsClient', () => {
         await expect(stats.listeners()).resolves.toBeUndefined();
         await expect(stats.listeners()).resolves.toBeUndefined();
 
-        expect(calls).toEqual([
+        expect(urls(calls)).toEqual([
             'http://127.0.0.1:8000/admin/publicstats.json',
             'http://127.0.0.1:8000/status-json.xsl',
             'http://127.0.0.1:8000/admin/publicstats.json',

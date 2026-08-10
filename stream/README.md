@@ -192,7 +192,14 @@ anonymous), and falls back to `GET /status-json.xsl` (2.4's, which 2.5 deprecate
 does not have costs one probe per re-probe rather than one per poll, and a boot log line names the
 one in use. A 401 or 403 from the admin endpoint is said once and then ignored: it means a server
 that has it and will not let us read it, which is a config to fix, not a reason to stop polling. See
-`docs/todo/icecast-2.5.md` for the container upgrade this is waiting on. Icecast also *pushes*, through `<authentication type="url">` on the mount:
+`docs/todo/icecast-2.5.md` for the container upgrade this is waiting on.
+
+On a 2.5 there is a second push half: `IcecastEventFeed` holds `GET /admin/eventfeed` open (SSE) and
+hands each `source-listener-count` for the mount straight to `AudienceWatch.report()`, so a change
+lands in milliseconds. It attaches **only** when the poll resolved the admin endpoint, so on the
+pinned 2.4.4 it never opens a socket, and it reconnects with backoff because a dropped feed is an
+ordinary state. Whole counts, never deltas, which is what makes a lost message cost the edge rather
+than the number. Icecast also *pushes*, through `<authentication type="url">` on the mount:
 `listener_add` and `listener_remove` call `POST /playout/bridge/listener`, gated on the same bridge secret,
 so an arrival opens the gate in milliseconds instead of up to five seconds. Icecast presents that
 secret as HTTP **basic**, because its URL authenticator can send no header of its own; ServerKit's

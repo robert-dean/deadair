@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { IcecastStatsClient } from '#modules/stream/icecast.stats.client.js';
+import { IcecastEventFeed } from '#modules/stream/icecast.eventfeed.client.js';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from './air.mode.js';
 
 /**
@@ -62,6 +63,7 @@ export class AudienceWatch {
 
     constructor(
         private readonly stats: IcecastStatsClient,
+        private readonly feed: IcecastEventFeed,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -89,11 +91,16 @@ export class AudienceWatch {
         this.timer = setInterval(() => void this.poll(), AUDIENCE_POLL_MS);
         this.timer.unref?.();
         void this.poll();
+        // The push half, where Icecast is new enough to offer one. It hands over whole
+        // counts, which is why it can feed `report` directly: a message that never
+        // arrives costs the edge, never the number.
+        this.feed.watch(this.stats.mountPath(), count => this.report(count));
         this.logger.info(`audience: watching ${this.stats.mountPath()} every ${AUDIENCE_POLL_MS}ms (linger ${AUDIENCE_LINGER_MS}ms)`);
     }
 
     /** Stop watching. The last reading is kept, and stops being refreshed. */
     stop(): void {
+        this.feed.stop();
         if (this.timer) clearInterval(this.timer);
         this.timer = undefined;
         if (this.refresh) clearTimeout(this.refresh);

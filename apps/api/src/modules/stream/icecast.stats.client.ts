@@ -177,6 +177,22 @@ export class IcecastStatsClient {
     }
 
     /**
+     * The server this client has actually been talking to, and how to talk to it.
+     *
+     * For the event feed, which is a second admin endpoint on the same Icecast:
+     * this poll is what discovers the address that answers and whether the server
+     * is new enough to have an admin API at all, and discovering it twice would be
+     * two sets of probes disagreeing about the same server. `undefined` until the
+     * poll has resolved one, and `undefined` for a server whose answer came from
+     * the deprecated endpoint, which has no feed to read.
+     */
+    adminApi(): { base: string; password: string } | undefined {
+        if (!this.resolved || !isAdminEndpoint(this.resolved.path) || !this.adminPassword) return undefined;
+
+        return { base: this.resolved.base, password: this.adminPassword };
+    }
+
+    /**
      * How many clients are attached to the station's mount, or `undefined` when
      * Icecast did not answer.
      *

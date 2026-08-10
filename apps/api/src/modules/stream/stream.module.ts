@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { AppConfig, AppConfigStore } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { IcecastEventFeed } from './icecast.eventfeed.client.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SpotifyShimClient } from './spotify.shim.client.js';
 import { StreamService } from './stream.service.js';
@@ -37,6 +38,12 @@ export const StreamModule: ServerKitModule = {
         // and its address are pushed in at `ready`, and the poll loop that reads them
         // (`AudienceWatch`) is itself a singleton with no request scope to borrow.
         registry.register(IcecastStatsClient).useClass(IcecastStatsClient).asSingleton();
+
+        // The push half of the same reading, and a singleton for the same reason: it
+        // holds one connection, started and stopped by the singleton that polls. It
+        // reads the address and credentials off the stats client rather than the
+        // settings, so the two can never disagree about which Icecast is being asked.
+        registry.register(IcecastEventFeed).useClass(IcecastEventFeed).asSingleton();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {

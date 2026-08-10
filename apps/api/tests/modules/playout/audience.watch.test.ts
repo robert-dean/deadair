@@ -10,6 +10,7 @@ import { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import type { IcecastStatsClient } from '../../../src/modules/stream/icecast.stats.client.js';
+import type { IcecastEventFeed } from '../../../src/modules/stream/icecast.eventfeed.client.js';
 import type { Logger } from '@maroonedsoftware/logger';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -33,6 +34,15 @@ function stubStats(initial: number | undefined) {
     };
 }
 
+/**
+ * An event feed that never attaches, which is every install on the pinned 2.4.
+ *
+ * The feed's own behaviour is tested where it lives; what matters here is that
+ * the poll is the truth with or without one, so these tests deliberately run
+ * without it.
+ */
+const feed = () => ({ watch: vi.fn(), stop: vi.fn(), attached: () => false }) as unknown as IcecastEventFeed;
+
 /** One poll cycle: advance to the interval and let the awaited read settle. */
 async function tick(ms = 5_000): Promise<void> {
     await vi.advanceTimersByTimeAsync(ms);
@@ -50,7 +60,7 @@ describe('AudienceWatch', () => {
 
     it('reads zero, and no audience, before anything has answered', () => {
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
 
         expect(watch.listenerCount()).toBe(0);
         expect(watch.hasAudience()).toBe(false);
@@ -58,7 +68,7 @@ describe('AudienceWatch', () => {
 
     it('has an audience as soon as somebody is listening', async () => {
         const { stats, answer } = stubStats(0);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -77,7 +87,7 @@ describe('AudienceWatch', () => {
 
     it('keeps the audience through the linger window after the last listener leaves', async () => {
         const { stats, answer } = stubStats(1);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -103,7 +113,7 @@ describe('AudienceWatch', () => {
 
     it('gives up the audience once the linger window has passed', async () => {
         const { stats, answer } = stubStats(2);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -120,7 +130,7 @@ describe('AudienceWatch', () => {
 
     it('holds the last reading when Icecast stops answering', async () => {
         const { stats, answer } = stubStats(3);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
 
         watch.start();
         await tick(0);
@@ -139,7 +149,7 @@ describe('AudienceWatch', () => {
     it('holds the gate open in `always` mode, with nobody listening', async () => {
         const { stats } = stubStats(0);
         const station = settingsConfig();
-        const watch = new AudienceWatch(stats, station.config, logger);
+        const watch = new AudienceWatch(stats, feed(), station.config, logger);
 
         expect(watch.gateOpen()).toBe(false);
 
@@ -156,7 +166,7 @@ describe('AudienceWatch', () => {
     it('announces a mode change on the next poll, having had no event to announce it on', async () => {
         const { stats } = stubStats(0);
         const station = settingsConfig();
-        const watch = new AudienceWatch(stats, station.config, logger);
+        const watch = new AudienceWatch(stats, feed(), station.config, logger);
         const edges: boolean[] = [];
         watch.onChange(open => edges.push(open));
 
@@ -181,7 +191,7 @@ describe('AudienceWatch', () => {
     it('does not close the gate on an empty room in `always` mode', async () => {
         const { stats, answer } = stubStats(2);
         const station = settingsConfig({ [AIR_MODE_KEY]: 'always' });
-        const watch = new AudienceWatch(stats, station.config, logger);
+        const watch = new AudienceWatch(stats, feed(), station.config, logger);
         const edges: boolean[] = [];
         watch.onChange(open => edges.push(open));
 
@@ -199,7 +209,7 @@ describe('AudienceWatch', () => {
 
     it('takes a pushed count without waiting for the poll', () => {
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -216,7 +226,7 @@ describe('AudienceWatch', () => {
         // station would stay silent for exactly as long as the person is waiting to
         // hear it.
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
         watch.start();
         await tick(0);
 
@@ -229,7 +239,7 @@ describe('AudienceWatch', () => {
 
     it('replaces the guess with a real reading a moment later', async () => {
         const { stats, answer } = stubStats(0);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
         watch.start();
         await tick(0);
 
@@ -248,7 +258,7 @@ describe('AudienceWatch', () => {
 
     it('coalesces a burst of arrivals into one reading', async () => {
         const { stats, spy } = stubStats(0);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
         watch.start();
         await tick(0);
         const before = spy.listeners.mock.calls.length;
@@ -264,7 +274,7 @@ describe('AudienceWatch', () => {
         // A `remove` for a listener this process never saw arrive: an app that started
         // after them, or an event whose partner was dropped.
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
 
         watch.noteArrival(false);
 
@@ -273,7 +283,7 @@ describe('AudienceWatch', () => {
 
     it('keeps announcing to the other subscribers when one of them throws', async () => {
         const { stats, answer } = stubStats(0);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
         const seen: boolean[] = [];
         watch.onChange(() => {
             throw new Error('a subscriber that cannot cope');
@@ -291,7 +301,7 @@ describe('AudienceWatch', () => {
 
     it('stops reading once stopped', async () => {
         const { stats, spy } = stubStats(1);
-        const watch = new AudienceWatch(stats, config, logger);
+        const watch = new AudienceWatch(stats, feed(), config, logger);
 
         watch.start();
         await tick(0);

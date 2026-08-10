@@ -158,7 +158,9 @@ whichever stats endpoint that Icecast has: `/admin/publicstats.json` (2.5's, rea
 since it lives under `/admin/` where the shipped roles deny anonymous) or `/status-json.xsl` (2.4's,
 which 2.5 deprecates). Whichever answers is cached, so the other is probed once per re-probe rather
 than once per poll; see `docs/todo/icecast-2.5.md` for the upgrade that is still outstanding. The
-count is also pushed by Icecast's `listener_add`/`listener_remove` hooks into
+count is also pushed, two ways: on a 2.5, `IcecastEventFeed` holds `/admin/eventfeed` open and reports
+whole counts (it attaches only where the poll resolved the admin endpoint, so it is inert on the
+pinned 2.4.4); and on any version by Icecast's `listener_add`/`listener_remove` hooks into
 `POST /playout/listener`, which only makes the arrival edge faster. That route's credential arrives
 as HTTP basic and is moved onto `x-playout-secret` by `listener.credential.middleware`, which MUST
 stay registered before `authenticationMiddleware`: ServerKit deletes `Authorization` from every

@@ -126,8 +126,20 @@ export interface LineupSnapshot {
  * few minutes for the sake of one integer.
  */
 export interface LineupStore {
-    /** Persist the order. Called on an edit, an append, or a compaction. */
+    /** Persist the order. Called on an edit or an append, both of which bump the revision. */
     saveItems(lineupId: string, items: readonly LineupItem[], revision: number): Promise<void>;
+    /**
+     * Persist a compacted order AT THE REVISION IT ALREADY HAS.
+     *
+     * Separate from {@link saveItems} because of the revision, which is the whole
+     * difference. Every other write to the order bumps it, so a store can guard on
+     * the stored revision being strictly older and know it is not overwriting
+     * somebody's newer list. Compaction deliberately does NOT bump — nothing about
+     * the plan changed, only how much of the past is still being carried — so that
+     * guard rejects it, silently, and the compaction is thrown away while the
+     * cursor it reset is kept. See {@link compactIfNeeded}.
+     */
+    saveCompaction(lineupId: string, items: readonly LineupItem[], revision: number): Promise<void>;
     /** Persist how far this broadcast has committed. Called on every take. */
     saveCursor(lineupId: string, cursor: number): Promise<void>;
 }
@@ -316,10 +328,19 @@ export class Lineup {
      * and the next boundary commits the same lines a second time. For a station
      * whose running order is rebuilt from this cursor on every restart, hearing a
      * record again is the cheaper of the two.
+     *
+     * **The same rule decides the order of the two writes below.** A compaction is
+     * a shortened list and a cursor reset to zero, in two different tables, so it
+     * cannot be made atomic and one of them lands first. Items first and the crash
+     * leaves a compacted list with the OLD cursor still on it, which points a whole
+     * prefix further on than it means to and skips that much programming. Cursor
+     * first and the same crash leaves the full list at zero, which replays. Same
+     * trade as above, same answer.
      */
     async saveCursor(): Promise<void> {
-        await this.compactIfNeeded();
+        const compacted = this.compactIfNeeded();
         await this.store?.saveCursor(this.id, this.cursorIndex);
+        if (compacted) await this.store?.saveCompaction(this.id, compacted.items, compacted.revision);
     }
 
     /**
@@ -526,19 +547,34 @@ export class Lineup {
     }
 
     /**
-     * Drop the consumed prefix once enough of it has built up.
+     * Drop the consumed prefix once enough of it has built up, in memory, and hand
+     * back what has to be written for it.
      *
      * Not for a `setlist`: it wraps back to the top, so the prefix is not history
      * at all. Deliberately does NOT bump the revision — nothing about the plan
      * changed, only how much of the past is still being carried, and bumping
      * would invalidate a console's in-flight edit for a housekeeping detail.
+     *
+     * Synchronous, and it persists nothing itself, so its caller can put the two
+     * writes in the order a crash between them should fail in. It went through
+     * {@link LineupStore.saveItems} once, which looked right and was not: that
+     * write is guarded on the revision moving, this one deliberately does not move
+     * it, so every compaction was discarded by the store while the cursor reset
+     * that came with it was kept — leaving the stored list whole with a cursor near
+     * zero on it, and the station replaying the top of a lineup it was an hour
+     * into.
+     *
+     * The snapshot is taken here rather than read back later so a concurrent append
+     * cannot be written out under this revision. If one lands in between, the
+     * revision has moved and the store declines this write — correctly, because
+     * that append has already persisted the compacted list itself.
      */
-    private async compactIfNeeded(): Promise<void> {
-        if (this.mode === 'setlist' || this.cursorIndex < COMPACT_AT) return;
+    private compactIfNeeded(): { items: LineupItem[]; revision: number } | undefined {
+        if (this.mode === 'setlist' || this.cursorIndex < COMPACT_AT) return undefined;
 
         this.itemList = this.itemList.slice(this.cursorIndex);
         this.cursorIndex = 0;
-        await this.store?.saveItems(this.id, this.itemList, this.revisionNo);
+        return { items: [...this.itemList], revision: this.revisionNo };
     }
 }
 

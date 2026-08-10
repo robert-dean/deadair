@@ -182,6 +182,34 @@ export class LineupRepository extends DataRepository {
     }
 
     /**
+     * Persist a compacted order without moving the revision.
+     *
+     * Matches on the revision being EXACTLY the one the compaction was computed
+     * from, where {@link saveItems} needs it to be strictly older. That difference
+     * is the whole reason this exists rather than a flag on the other method:
+     * compaction is the one write that leaves the revision alone, so `<` can never
+     * match it and every compaction was being dropped on the floor.
+     *
+     * Safe against the writer `saveItems` guards against, by the same argument. An
+     * append or an edit that lands first has bumped the stored revision, so this no
+     * longer matches and writes nothing — which is right, because that write
+     * already carried the compacted list: compaction mutates the in-memory order
+     * before anything else can read it.
+     *
+     * `items` alone is set, deliberately. Writing `revision` back at its current
+     * value would be a no-op today and a trap the first time anything reads this as
+     * the place a revision is assigned.
+     */
+    async saveCompaction(lineupId: string, items: readonly LineupItem[], revision: number): Promise<void> {
+        await this.db
+            .updateTable('deadair.lineups')
+            .set({ items: jsonb(items) })
+            .where('id', '=', lineupId)
+            .where('revision', '=', revision)
+            .execute();
+    }
+
+    /**
      * The cursor is broadcast state, not plan state, so this hands it to the
      * other table rather than writing here. Implemented so a `Lineup` has one
      * store to bind rather than two.

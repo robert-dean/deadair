@@ -176,8 +176,13 @@ describe('Lineup editing', () => {
 
 describe('Lineup durability', () => {
     const storeSpy = () => {
-        const store: LineupStore & { saveItems: ReturnType<typeof vi.fn>; saveCursor: ReturnType<typeof vi.fn> } = {
+        const store: LineupStore & {
+            saveItems: ReturnType<typeof vi.fn>;
+            saveCompaction: ReturnType<typeof vi.fn>;
+            saveCursor: ReturnType<typeof vi.fn>;
+        } = {
             saveItems: vi.fn(async () => {}),
+            saveCompaction: vi.fn(async () => {}),
             saveCursor: vi.fn(async () => {}),
         };
         return store;
@@ -266,6 +271,69 @@ describe('Lineup compaction', () => {
         await lineup.takeNext(35);
 
         expect(lineup.revision()).toBe(before);
+    });
+
+    // The two tests above are about memory, and memory was never the part that was wrong. A
+    // compaction that is dropped by the store takes the cursor reset with it into a state neither
+    // half is true in: the stored list is still whole and the stored cursor is back near zero, so
+    // the next restore replays the top of a lineup the station was an hour into.
+    it('persists the shortened order, at the revision it already had', async () => {
+        const store = {
+            saveItems: vi.fn(async () => {}),
+            saveCompaction: vi.fn(async () => {}),
+            saveCursor: vi.fn(async () => {}),
+        };
+        const lineup = await lineupWith(Array.from({ length: 40 }, (_, index) => `t${index}`));
+        lineup.bindStore(store);
+        const revision = lineup.revision();
+
+        await lineup.takeNext(35);
+
+        // Through the compaction door, not the ordinary one: `saveItems` is guarded on the
+        // revision moving, and this write deliberately leaves it where it was.
+        expect(store.saveItems).not.toHaveBeenCalled();
+        expect(store.saveCompaction).toHaveBeenCalledOnce();
+
+        const [id, items, saved] = store.saveCompaction.mock.calls[0]!;
+        expect(id).toBe('lineup-1');
+        expect(saved).toBe(revision);
+        expect(idsOf(items as { track: RundownTrack }[])).toEqual(['t35', 't36', 't37', 't38', 't39']);
+    });
+
+    it('writes the cursor before the shortened order, so a crash between them replays', async () => {
+        // The two live in different tables and cannot be made atomic. Items first would leave a
+        // compacted list carrying the old cursor, which points a whole prefix too far on and skips
+        // that much programming; this way round the same crash replays, which is the cheaper half.
+        const order: string[] = [];
+        const store = {
+            saveItems: vi.fn(async () => {}),
+            saveCompaction: vi.fn(async () => void order.push('items')),
+            saveCursor: vi.fn(async () => void order.push('cursor')),
+        };
+        const lineup = await lineupWith(Array.from({ length: 40 }, (_, index) => `t${index}`));
+        lineup.bindStore(store);
+
+        await lineup.takeNext(35);
+
+        expect(order).toEqual(['cursor', 'items']);
+        expect(store.saveCursor).toHaveBeenCalledWith('lineup-1', 0);
+    });
+
+    it('writes no compaction at all on an ordinary take', async () => {
+        // The overwhelmingly common case: one boundary, three items, nothing to drop. A store call
+        // here would be rewriting a several-hundred-line document every few minutes.
+        const store = {
+            saveItems: vi.fn(async () => {}),
+            saveCompaction: vi.fn(async () => {}),
+            saveCursor: vi.fn(async () => {}),
+        };
+        const lineup = await lineupWith(Array.from({ length: 40 }, (_, index) => `t${index}`));
+        lineup.bindStore(store);
+
+        await lineup.takeNext(3);
+
+        expect(store.saveCompaction).not.toHaveBeenCalled();
+        expect(store.saveCursor).toHaveBeenCalledWith('lineup-1', 3);
     });
 });
 

@@ -2,6 +2,8 @@
 
 **Written:** 2026-08-09, while adding a bus limiter and a voice chain to `stream/radio.liq`.
 **Revised:** 2026-08-09, when the near-term goal became a station the operator listens to all day.
+**Revised:** 2026-08-10, with where the blend length comes from, which is a measurement of both
+records rather than a setting.
 **State of the tree:** items butt up against each other. There is no `cross` anywhere in the graph.
 
 This is the largest single audio-quality gap the station has. It is deferred not because it is hard
@@ -14,6 +16,11 @@ every three minutes for eight hours, where most of what is deferred elsewhere is
 [dj-voice.md](dj-voice.md), "The order, restated against daily listening". It stays second rather
 than first for the reason immediately below, which is unchanged: it moves the clock the DJ breaks are
 timed against, so it wants those breaks landing reliably first.
+
+**It has one genuine prerequisite**, added 2026-08-10: the per-track measurement in
+[station-intelligence.md](station-intelligence.md) §3, because without it there is no honest number
+to blend for. A fixed duration is not a smaller version of this feature, it is the thing that makes
+transitions sound wrong on most pairs, which is the problem being solved.
 
 ---
 
@@ -29,9 +36,38 @@ bed = fallback(track_sensitive=false, [playout_bed, music, station_id])
 
 Per-item durations ride the `annotate:` metadata that already exists: `itemAnnotations` in
 [apps/api/src/modules/playout/annotate.ts](../../apps/api/src/modules/playout/annotate.ts) builds the
-map, and adding a `liq_cross_duration` key there is the whole app-side change. The rundown item
-already knows its own duration, so a short ident and a five-minute album track can carry different
-blends without a second mechanism.
+map, and adding a `liq_cross_duration` key there is the whole app-side change.
+
+## Where the length comes from
+
+Not from a setting, and not from the item's own duration. A blend is a property of the PAIR, and the
+input is a measurement of both records. See
+[station-intelligence.md](station-intelligence.md), "Measure four points, not one classification":
+each track carries `cue_in`, `intro_end`, `outro_start` and `cue_out`, from which
+
+```
+buffer = min(outgoing.outro, incoming.intro)
+```
+
+A record that ends cold has a short outro and is barely ridden. One that fades has a long one and is
+ridden for as long as the next record's intro can absorb it, never longer, so a blend can never eat a
+cold opening. There is no constant to tune and no operator knob to get wrong.
+
+Two consequences for this file specifically:
+
+- **The stamp is a property of the boundary, not of the item.** `liq_cross_duration` is stamped on
+  the OUTGOING item, but its value depends on the incoming one, so the pusher can only compute it
+  once it knows what follows. That is fine — the pusher hands items over in order and already knows
+  the running order — but it means the annotation cannot be built from an item in isolation, which
+  is how `itemAnnotations` reads today.
+- **The last item handed over has no successor yet.** Stamp it with its own outro length as the
+  ceiling and restamp is not possible, so either accept the ceiling or hold the stamp until the next
+  item is chosen. Neither is hard; deciding which before writing it saves a rewrite.
+
+**A cheaper thing lives at the same seam.** `liq_cue_in` and `liq_cue_out` are already annotate keys,
+and trimming the dead air off the head and tail of each record needs no `cross`, no pair logic, and
+none of the clock work below. If the measurement pass lands before this one does, that trim is worth
+shipping on its own.
 
 ## Why it is deferred: the cross buffer moves the clock
 
@@ -48,7 +84,8 @@ to both and cancels. A cross breaks that symmetry, because it delays the bed and
 
 Landing crossfades therefore means:
 
-1. Subtracting the cross duration from the cue's due time, per item, since the duration is per item.
+1. Subtracting the cross duration from the cue's due time, per boundary, since by the section above
+   the duration is decided per pair rather than per item and is not a constant anywhere.
 2. Deciding what happens to a cue armed against a record whose blend is still running — the outgoing
    and incoming tracks are both audible, and `on_air_item()` has already moved on.
 3. Re-verifying break placement on air by ear, because there is no test that can hear it.

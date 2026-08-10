@@ -1,6 +1,8 @@
 # Deferred: the station's judgement
 
 **Designed:** 2026-08-09, from a capability review of the tree against what a finished station does.
+**Revised:** 2026-08-10, section 3 only, after a survey of what track metadata can actually be
+bought. Nothing sells an ending; the revision is a better measurement, not a source.
 **Status:** deferred, not disputed. Every entry names the seam it drops into and what is already
 built underneath it.
 
@@ -111,27 +113,76 @@ station is not the absence of a crossfade, it is that a single fixed crossfade i
 pairs: a record that fades out wants to be ridden over for eight to twelve seconds, and one that
 ends cold wants about four or the cut lands inside the last chord.
 
-So the useful unit of work is not the fade, it is the **measurement**. Analyse the last twenty
-seconds of every file and store what the ending is: fade or cold, tail loudness, tail tempo. Each
-track then carries its own exit length, and the pair logic on top of that is small.
+So the useful unit of work is not the fade, it is the **measurement**.
 
-Three notes that save a pass:
+### Measure four points, not one classification
 
+An earlier draft of this section said to classify the ending as fade-or-cold and map the two classes
+onto a length. Do not build that. It is a classifier plus a lookup table, both of which have to be
+tuned by ear, and it describes one track when the thing being decided is a pair.
+
+Measure instead, per track, four points on one timeline:
+
+| Point | What it is |
+| --- | --- |
+| `cue_in` | where audio actually starts, past the leading silence |
+| `intro_end` | where the record is fully underway (the vocal or the beat), so the talk-up limit |
+| `outro_start` | where the ending begins, so the earliest a blend may start |
+| `cue_out` | where audio actually stops, before the trailing silence |
+
+All four are absolute offsets from the start of the FILE, including `cue_out`. Storing it relative
+to `cue_in` is the obvious-looking choice and it is wrong: everything downstream seeks in file time,
+so a relative figure has to be re-based at every read and eventually is not.
+
+Two lengths fall out: `intro = intro_end - cue_in`, `outro = cue_out - outro_start`. The blend for a
+given pair is then
+
+```
+buffer = min(outgoing.outro, incoming.intro)
+```
+
+which has no tuned constant in it. A record that ends cold has a short outro and is barely ridden;
+one that fades has a long one and is ridden for as long as the next record's intro can absorb, and
+never longer, so a blend can never eat a cold opening. The pair logic that the earlier draft promised
+would be small turns out to be this line.
+
+Detection can be cruder than it sounds. `cue_in` and `cue_out` are the first and last crossings of a
+level floor, about -60 dBFS, and that is the whole algorithm for two of the four points. `intro_end`
+and `outro_start` are the real work, and the failure mode to design against is a detector that
+weights low frequencies only: it places `outro_start` too early on a quiet ending, which is exactly
+the case the whole feature exists to serve.
+
+**`cue_in` and `cue_out` are separately shippable, and cheaper.** Trimming dead air off the head and
+tail of every record is audible on its own, needs no pair logic, no `cross`, and none of the clock
+work in [crossfades.md](crossfades.md), because it changes where an item starts and stops rather than
+how two of them overlap. `liq_cue_in` and `liq_cue_out` are already annotate keys. If this section is
+ever cut for time, cut it down to those two rather than dropping it.
+
+### Four notes that save a pass
+
+- **Nobody sells this, so do not go looking.** Checked 2026-08-10. Every catalog and audio-features
+  upstream that still answers returns the same vector: tempo, key, energy, and their neighbours.
+  None of them returns an ending. The one large free corpus of computed descriptors stopped taking
+  submissions in 2022 and is a fixed dump, so it is a cold-start layer for back catalogue keyed by
+  recording id and nothing for anything released since. The open toolkits that would compute these
+  values are worth a look for the two hard points, with a licence check first, because the usual one
+  in this space is AGPL and this would run inside the API process.
 - **Analysis is an enrichment plugin, not app code.** It is a per-track fan-out over an upstream
   that may be slow or absent, which is what `EnrichmentModule` already does, and it needs bytes,
   which is `response.body` off `host.fetch`.
 - **A byte-capped or partial download cannot produce an outro.** Whatever fetches the audio has to
-  say whether it got the whole file, or the analysis will confidently describe a truncation. Note
-  that a body is bounded separately from the fetch that returned it, by
-  `PLUGIN_BODY_IDLE_TIMEOUT_MS`, `PLUGIN_BODY_LIFETIME_MS` and `PLUGIN_RESPONSE_MAX_BYTES` — an
-  audio file is exactly the case those bounds exist for, and a truncation caused by one of them has
-  to be told apart from a short track rather than measured.
+  say whether it got the whole file, or the analysis will confidently describe a truncation as a
+  cold ending. A body is bounded separately from the fetch that returned it, by
+  `PLUGIN_BODY_IDLE_TIMEOUT_MS`, `PLUGIN_BODY_LIFETIME_MS` and `PLUGIN_RESPONSE_MAX_BYTES`, and an
+  audio file is exactly the case those bounds exist for. A truncation caused by one of them has to
+  be told apart from a short track rather than measured.
 - **Do not shorten the fade inside a fixed buffer.** If the buffer is a constant and the fades are
   shorter than it, the outgoing track plays at full level while the incoming one ramps and the two
-  sum audibly. Vary the buffer, keep fade length equal to it.
+  sum audibly. Vary the buffer, keep fade length equal to it. With the rule above the buffer is
+  already per pair, so this is satisfied by construction rather than by care.
 
-The same pass cheaply yields intro length (where the vocal or the beat actually starts), which is
-what would let a talk-over cue itself instead of being handed a time.
+`intro_end` is worth measuring even if no crossfade is ever built: it is the talk-up limit, which is
+what would let a talk-over cue itself against the record instead of being handed a time.
 
 ## 4. Per-track gain, alongside the live normalizer
 

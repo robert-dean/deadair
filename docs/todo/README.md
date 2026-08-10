@@ -46,7 +46,10 @@ no pass. What is left, in order:
    visibility did NOT ride with it, because breaks are planted between records rather than over them;
    see [dj-voice.md](dj-voice.md) for what shipped and what that leaves.
 2. **[Crossfades](crossfades.md)**, once breaks are landing reliably, because the cross buffer moves
-   the clock those breaks are timed against.
+   the clock those breaks are timed against. Note it grew a prerequisite on 2026-08-10: the
+   per-track measurement in [station-intelligence.md](station-intelligence.md) §3, which is what
+   decides how long a blend should be. Nothing can be bought that answers that, so the measurement
+   is part of the crossfade work rather than an alternative to it.
 3. **A model as the writer's second binding**, with the deterministic one kept underneath as the
    floor rather than as scaffolding.
 4. **The activity feed** over the segment transitions the two writers produce, which is why those

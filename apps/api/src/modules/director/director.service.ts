@@ -40,6 +40,21 @@ const EXTEND_BELOW = 8;
 const AIR_TTL_MS = 5_000;
 
 /**
+ * How long the record may lag the running order.
+ *
+ * A **throttle, not a debounce**, and the difference is the whole reason this is a
+ * number rather than a delay: a debounce reset by each new transition can starve
+ * indefinitely under continuous activity, which is exactly when a stale record is
+ * least affordable. Worst-case staleness here is one interval, whatever the rate.
+ *
+ * It applies only to what NOBODY IS WAITING FOR: an item handed over, one going on
+ * air, one played. Losing an interval of those means replaying, which is the side
+ * of the trade this codebase already chose. An acknowledged edit is written through
+ * before its caller is answered, because the response says it happened.
+ */
+const PERSIST_THROTTLE_MS = 2_000;
+
+/**
  * The music director: the actor that keeps the station's running order full,
  * remembers what aired, and decides what happens when the order ends.
  *
@@ -134,6 +149,8 @@ export class DirectorService {
      */
     private pendingVoice?: { itemId: string; segmentId: string; atMs: number };
     private readonly unsubscribes: (() => void)[] = [];
+    /** A write the throttle owes. Set while a timer is pending; see {@link persistSoon}. */
+    private persistTimer?: NodeJS.Timeout;
 
     constructor(
         private readonly rundown: Rundown,
@@ -197,9 +214,16 @@ export class DirectorService {
         await this.post({ kind: 'restore' });
     }
 
-    /** Stop driving. The player keeps whatever it already holds. */
-    stop(): void {
+    /**
+     * Stop driving. The player keeps whatever it already holds.
+     *
+     * Flushes what the throttle owes, which is the whole difference between a
+     * graceful shutdown and a kill: a clean stop should not cost the station the
+     * last couple of seconds of transitions and replay a record for it.
+     */
+    async stop(): Promise<void> {
         for (const unsubscribe of this.unsubscribes.splice(0)) unsubscribe();
+        await this.flushPersist();
     }
 
     /**
@@ -505,11 +529,12 @@ export class DirectorService {
 
                 // The order moved, so a refill decision made a moment ago is stale.
                 this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
-                // Written after the hand-over, deliberately: a crash between them leaves the
-                // record saying less has been committed than has, which replays rather than
-                // skips. For a station whose order is read back at boot, hearing a record again
-                // is the cheaper of the two.
-                await this.persist();
+                // Throttled, and written after the hand-over rather than before it. Nobody is
+                // waiting on this, and both ways of being late fail the same direction: the
+                // record says less has been committed than has, so the recovery replays rather
+                // than skips. For a station whose order is read back at boot, hearing a record
+                // again is the cheaper of the two.
+                this.persistSoon();
             }
         }
 
@@ -569,7 +594,7 @@ export class DirectorService {
     private async plantBreaks(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
         try {
             const planted = await this.inScope(async scope => scope.get(BreakPlanner).plant(lineup, rules));
-            if (planted > 0) await this.persist();
+            if (planted > 0) this.persistSoon();
         } catch (error) {
             this.logger.warn(`director: could not plan breaks for the running order (${message(error)})`);
         }
@@ -812,16 +837,53 @@ export class DirectorService {
     }
 
     /**
-     * Write the running order down.
+     * Ask for the running order to be written down within {@link PERSIST_THROTTLE_MS}.
+     *
+     * For everything nobody is waiting on. Returns early when a write is already
+     * owed rather than restarting the timer, which is what makes this a throttle:
+     * a debounce reset by every transition would put off the write for as long as
+     * the station kept moving.
+     */
+    private persistSoon(): void {
+        if (this.persistTimer) return;
+
+        this.persistTimer = setTimeout(() => {
+            this.persistTimer = undefined;
+            // Swallowed: the authority is memory, and a write that failed is retried by the next
+            // transition. A boundary must not be held up by the record of it.
+            void this.persist().catch(error => this.logger.warn(`director: could not write the running order down (${message(error)})`));
+        }, PERSIST_THROTTLE_MS);
+        this.persistTimer.unref?.();
+    }
+
+    /** Write now if the throttle owes anything, and forget the timer. */
+    private async flushPersist(): Promise<void> {
+        if (!this.persistTimer) return;
+
+        clearTimeout(this.persistTimer);
+        this.persistTimer = undefined;
+        await this.persist().catch(error => this.logger.warn(`director: could not write the running order down (${message(error)})`));
+    }
+
+    /**
+     * Write the running order down, now.
      *
      * Memory is the authority and this is the record. The station does not need
      * Postgres up to advance a track, which is why nothing here is on the path
      * between a boundary and the next item going to the player.
+     *
+     * Called directly only where somebody is waiting for the answer: an operator's
+     * edit, and going on air. Everything else goes through {@link persistSoon}.
      */
     private async persist(): Promise<void> {
         const lineup = this.lineup;
         if (!lineup) return;
 
+        // A write that lands makes the timer's pending one redundant.
+        if (this.persistTimer) {
+            clearTimeout(this.persistTimer);
+            this.persistTimer = undefined;
+        }
         lineup.trimPast();
         await this.inScope(async scope => scope.get(StationLineupRepository).save(lineup.toSnapshot()));
     }

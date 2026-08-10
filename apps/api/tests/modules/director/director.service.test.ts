@@ -1122,6 +1122,76 @@ describe('DirectorService asking for a refill', () => {
     });
 });
 
+// Memory is the authority and the row is the record. The split is by whether anything is waiting
+// for an answer: an operator's edit is written through before they are told it happened, and the
+// transport's own transitions ride a throttle, because nobody is waiting on those and the correct
+// failure for them is to replay.
+describe('DirectorService writing the running order down', () => {
+    it('does not write on every transition', async () => {
+        const { director, rundown, lineups, seed } = build();
+        await seed();
+        await director.start();
+        vi.mocked(lineups.save).mockClear();
+
+        for (let index = 0; index < 3; index++) {
+            const pulled = await rundown.next();
+            rundown.markAired(pulled!.item.id);
+            await settle();
+        }
+
+        expect(lineups.save).not.toHaveBeenCalled();
+    });
+
+    it('writes within the throttle, however busy the station is', async () => {
+        // A throttle rather than a debounce. A debounce reset by each new transition starves
+        // exactly when a stale record is least affordable — a station that never stops moving.
+        vi.useFakeTimers();
+        try {
+            const { director, rundown, lineups, seed } = build();
+            await seed();
+            await director.start();
+            vi.mocked(lineups.save).mockClear();
+
+            await rundown.next();
+            await vi.advanceTimersByTimeAsync(500);
+            await rundown.next();
+            await vi.advanceTimersByTimeAsync(500);
+            expect(lineups.save).not.toHaveBeenCalled();
+
+            await vi.advanceTimersByTimeAsync(2_000);
+            expect(lineups.save).toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('flushes what it owes on a graceful stop', async () => {
+        // The difference between a clean shutdown and a kill: a stop that dropped the pending
+        // write would cost the station its last couple of seconds and replay a record for them.
+        const { director, rundown, lineups, seed } = build();
+        await seed();
+        await director.start();
+        vi.mocked(lineups.save).mockClear();
+        await rundown.next();
+
+        await director.stop();
+
+        expect(lineups.save).toHaveBeenCalled();
+    });
+
+    it('writes an acknowledged edit through rather than throttling it', async () => {
+        // The response says it happened, so it has to have happened.
+        const { director, lineup, lineups, seed } = build();
+        await seed();
+        await director.start();
+        vi.mocked(lineups.save).mockClear();
+
+        await director.applyEdit({ kind: 'remove', itemId: lineup.all()[lineup.size() - 1]!.id });
+
+        expect(lineups.save).toHaveBeenCalled();
+    });
+});
+
 describe('DirectorService opening a database scope', () => {
     // The repositories are scoped and this class is a singleton, so every read
     // below opens a scope of its own and closes it again. It opens them from the

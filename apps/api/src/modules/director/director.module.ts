@@ -82,6 +82,9 @@ export const DirectorModule: ServerKitModule = {
     },
 
     shutdown: async (container: Container) => {
-        container.get(DirectorService).stop();
+        // Awaited: the stop flushes whatever the persist throttle owes, and a shutdown that did
+        // not wait would cost the station its last couple of seconds of transitions and replay a
+        // record for them.
+        await container.get(DirectorService).stop();
     },
 };

@@ -19,6 +19,7 @@ const TEMPLATE = `<icecast>
   <source-password>{{SOURCE_PASSWORD}}</source-password>
   <admin-password>{{ADMIN_PASSWORD}}</admin-password>
   <hostname>{{HOSTNAME}}</hostname>
+{{LOCATION}}
   <mount-name>{{MOUNT}}</mount-name>
   <stream-name>{{STREAM_NAME}}</stream-name>
   <stream-description>{{STREAM_DESCRIPTION}}</stream-description>
@@ -34,6 +35,8 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     mount: '/live.mp3',
     bitrate: '128',
     hostname: '',
+    location: '',
+    language: '',
     icecastHost: 'icecast',
     icecastPort: '8000',
     listenerHooks: true,
@@ -188,6 +191,28 @@ describe('writeStreamConfig', () => {
         writeStreamConfig({ settings: settings({ publicUrl: 'https://radio.example.com/live' }), playout: playout(), assetsDir, configDir });
 
         expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).toContain('<hostname>radio.example.com</hostname>');
+    });
+
+    it('renders a location only when the operator set one', () => {
+        // "Earth" used to be hardcoded here, and it is the placeholder Icecast 2.5's
+        // dashboard flags as unset. No location is more honest than a wrong one.
+        const unset = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), ...unset });
+        expect(readFileSync(join(unset.configDir, 'icecast.xml'), 'utf8')).not.toContain('<location>');
+
+        const set = dirs();
+        writeStreamConfig({ settings: settings({ location: 'Bristol, UK' }), playout: playout(), ...set });
+        expect(readFileSync(join(set.configDir, 'icecast.xml'), 'utf8')).toContain('<location>Bristol, UK</location>');
+    });
+
+    it('hands the language to liquidsoap rather than to icecast', () => {
+        // Icecast learns it from the source's Content-Language header, and there is no
+        // server-side option for it at all, so it rides radio.env.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings({ language: 'en-GB' }), playout: playout(), assetsDir, configDir });
+
+        expect(parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8')).get('STREAM_LANGUAGE')).toBe('en-GB');
+        expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).not.toContain('en-GB');
     });
 
     it('falls back to localhost when there is neither a public URL nor a hostname', () => {

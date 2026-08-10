@@ -21,6 +21,24 @@ export const STREAM_KEYS = {
     bitrate: 'stream.bitrate',
     /** Hostname Icecast advertises in its own config. */
     hostname: 'stream.hostname',
+    /**
+     * Where the station broadcasts from, as Icecast advertises it.
+     *
+     * A setting rather than the `Earth` the template used to hardcode, because
+     * 2.5's dashboard flags that literal as a placeholder nobody filled in — and
+     * it is right to: the field exists so a directory and a listener can tell one
+     * station from another, and only the operator knows the answer. Empty renders
+     * no `<location>` at all rather than a lie.
+     */
+    location: 'stream.location',
+    /**
+     * The language of what the station broadcasts, as a BCP 47 tag.
+     *
+     * Sent by Liquidsoap as `Content-Language` on the source connection, which is
+     * the only way Icecast learns it: 2.5 reads that header and flags a source
+     * without one. Empty sends no header.
+     */
+    language: 'stream.language',
     /** Host and port the app tells Liquidsoap to publish to (the compose service). */
     icecastHost: 'stream.icecastHost',
     icecastPort: 'stream.icecastPort',
@@ -89,6 +107,10 @@ export interface StreamSettings {
     bitrate: string;
     /** Hostname Icecast advertises. Empty means "derive it from publicUrl, else localhost". */
     hostname: string;
+    /** Where the station broadcasts from. Empty renders no `<location>`. */
+    location: string;
+    /** BCP 47 tag sent as `Content-Language` on the source connection. Empty sends none. */
+    language: string;
     icecastHost: string;
     icecastPort: string;
     /** Whether Icecast is asked to notify the app of each listener. See {@link STREAM_KEYS.listenerHooks}. */
@@ -128,6 +150,8 @@ export const STREAM_DEFAULTS = {
     mount: '/live.mp3',
     bitrate: '128',
     hostname: '',
+    location: '',
+    language: '',
     icecastHost: 'icecast',
     icecastPort: '8000',
     listenerHooks: true,
@@ -172,6 +196,8 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         mount: values.get(STREAM_KEYS.mount) ?? STREAM_DEFAULTS.mount,
         bitrate: values.get(STREAM_KEYS.bitrate) ?? STREAM_DEFAULTS.bitrate,
         hostname: values.get(STREAM_KEYS.hostname) ?? STREAM_DEFAULTS.hostname,
+        location: values.get(STREAM_KEYS.location) ?? STREAM_DEFAULTS.location,
+        language: values.get(STREAM_KEYS.language) ?? STREAM_DEFAULTS.language,
         icecastHost: values.get(STREAM_KEYS.icecastHost) ?? STREAM_DEFAULTS.icecastHost,
         icecastPort: values.get(STREAM_KEYS.icecastPort) ?? STREAM_DEFAULTS.icecastPort,
         // Only an explicit `false` turns them off, so an unset key (every install

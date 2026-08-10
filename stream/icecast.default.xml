@@ -10,7 +10,9 @@
   restart. Do NOT put real secrets here — this file is committed.
 -->
 <icecast>
-  <location>Earth</location>
+  <!-- No <location>: this is the cold-start config, and "Earth" is the placeholder
+       Icecast 2.5's dashboard flags as unset. The rendered config carries one once
+       the operator sets stream.location. -->
   <admin>admin@localhost</admin>
 
   <limits>

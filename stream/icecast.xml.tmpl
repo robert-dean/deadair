@@ -6,8 +6,10 @@
   See apps/api/src/modules/stream/stream.config.ts.
 -->
 <icecast>
-  <location>Earth</location>
-  <admin>{{ADMIN_EMAIL}}</admin>
+  <!-- Rendered only when the operator set stream.location. The literal "Earth" that
+       used to be here is the placeholder Icecast 2.5's dashboard flags as unset, and
+       it was: only the operator knows where the station broadcasts from. -->
+{{LOCATION}}  <admin>{{ADMIN_EMAIL}}</admin>
 
   <limits>
     <clients>100</clients>

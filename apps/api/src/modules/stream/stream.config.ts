@@ -178,6 +178,7 @@ export function writeStreamConfig({
         STREAM_DESCRIPTION: xml(settings.description),
         STREAM_GENRE: xml(settings.genre),
         STREAM_URL: xml(settings.publicUrl),
+        LOCATION: settings.location ? `  <location>${xml(settings.location)}</location>\n` : '',
         LISTENER_HOOKS: listenerHooksXml(playout.listenerHooks, playout.playoutBridgeSecret),
     };
     // An unknown token is left as written rather than blanked: a typo in the template
@@ -195,6 +196,10 @@ export function writeStreamConfig({
             `STREAM_DESCRIPTION=${shell(settings.description)}`,
             `STREAM_GENRE=${shell(settings.genre)}`,
             `STREAM_URL=${shell(settings.publicUrl)}`,
+            // Icecast learns the stream's language only from the Content-Language header
+            // the source sends, so this reaches it through radio.liq rather than through
+            // icecast.xml. Empty means the header is not sent at all.
+            `STREAM_LANGUAGE=${shell(settings.language)}`,
             `MUSIC_DIR=${shell(musicDir)}`,
             // The harbor is the DJ voice input. Nothing pushes to it yet, but radio.liq
             // opens the mount regardless, so it gets the seeded password rather than the

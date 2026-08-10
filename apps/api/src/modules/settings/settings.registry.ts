@@ -109,6 +109,22 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'station',
+        key: STREAM_KEYS.location,
+        label: 'Location',
+        type: 'string',
+        default: STREAM_DEFAULTS.location,
+        help: 'Where the station broadcasts from, as Icecast advertises it. Leave empty to advertise none.',
+    },
+    {
+        group: 'station',
+        key: STREAM_KEYS.language,
+        label: 'Language',
+        type: 'string',
+        default: STREAM_DEFAULTS.language,
+        help: 'The language of what is broadcast, as a BCP 47 tag such as `en` or `en-GB`. Sent to Icecast with the stream.',
+    },
+    {
+        group: 'station',
         key: STREAM_KEYS.icecastHost,
         label: 'Icecast host',
         type: 'string',

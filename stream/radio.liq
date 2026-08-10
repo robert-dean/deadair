@@ -879,9 +879,23 @@ harbor.http.register.simple(port=harbor_port, method="POST", "/control/metadata"
 # unaffected.
 bus = compress(attack=1.0, release=80.0, threshold=-1.0, ratio=20.0, knee=0.5, gain=0.0, radio)
 
+# The stream's language, as a `Content-Language` header on the source connection.
+#
+# That header is the ONLY way Icecast learns it — there is no config option for it on the server
+# side, because the server is not the thing that knows — and 2.5 flags a source without one. An
+# unset STREAM_LANGUAGE sends no header rather than an empty one, which would be a claim of its own.
+stream_language = environment.get("STREAM_LANGUAGE", default="")
+source_headers = if stream_language == "" then [] else [("Content-Language", stream_language)] end
+
 # Encode to MP3 and push to the Icecast mount.
+#
+# `protocol` is left at its default of "http", which is the PUT method Icecast has wanted since
+# 2.4 and 2.5 deprecates SOURCE in favour of. MP3 still shows in 2.5's dashboard as a generic
+# format, and that is inherent to the container rather than something to configure away — see
+# docs/todo/stream-formats.md for the Opus mount that would answer it.
 output.icecast(
   %mp3(bitrate=int_of_string(environment.get("STREAM_BITRATE", default="128"))),
+  headers     = source_headers,
   host        = environment.get("ICECAST_HOST", default="icecast"),
   port        = int_of_string(environment.get("ICECAST_PORT", default="8000")),
   password    = environment.get("ICECAST_SOURCE_PASSWORD"),

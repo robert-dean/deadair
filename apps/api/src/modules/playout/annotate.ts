@@ -34,13 +34,24 @@ export const ITEM_KEY = 'deadair_item';
  * whatever the file's own tags said with nothing, and for a local library those
  * tags are better than silence.
  *
- * What this looks like on the other side, verified against a live mount: Icecast
- * composes the ICY `StreamTitle` from the two and reports it as ONE field —
- * `"title": "Coal Chamber - Loco"` in `/status-json.xsl`, with the `artist` field
- * left null. So a check that the mount is labelled reads the combined `title`;
- * expecting a separate artist there finds nothing and looks like a fault that is
- * not one. The unlabelled state is recognisable instead by the artist arriving
- * with no title, which is a file's own tags showing through from the local bed.
+ * What this looks like on the other side, measured against live mounts on both
+ * generations: Icecast composes the ICY `StreamTitle` from the two and reports it
+ * as ONE field, never as a split. Which field, and where, moved with 2.5:
+ *
+ * | Endpoint | 2.4.4 | 2.5.0 |
+ * | --- | --- | --- |
+ * | `/status-json.xsl` | `title`, `artist` null | `title` AND `display-title`, no `artist` at all |
+ * | `/admin/publicstats.json` | — | `display-title` only, no `title` |
+ *
+ * So a check that the mount is labelled reads `display-title` where it exists and
+ * `title` otherwise; expecting a separate artist finds nothing on either version
+ * and looks like a fault that is not one. On 2.4 the unlabelled state is
+ * recognisable instead by the artist arriving with no title, which is a file's own
+ * tags showing through from the local bed.
+ *
+ * 2.5 also reports a `playlist` of recent titles on the mount, which is Icecast's
+ * own history of what it was told. It is not the station's: the rundown knows what
+ * aired, in order, with ids, and this is a lossy echo of the same thing.
  */
 export function itemAnnotations(item: RundownItem): Record<string, string> {
     const artist = item.artists.join(', ');

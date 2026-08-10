@@ -104,8 +104,17 @@ export class StationAirRepository extends DataRepository {
      * resume.
      *
      * The lineup and cursor are LEFT ALONE, so the console can still say what the
-     * station was playing and pressing play again continues rather than starting
-     * over. `active` is the whole difference between stopped and stopped-and-lost.
+     * station was playing. `active` is the whole difference between stopped and
+     * stopped-and-lost.
+     *
+     * **The preserved cursor is not reachable today**, and this used to claim it was.
+     * There is no resume route: `PUT /director/air` is the only way back on air and
+     * it writes `cursor: 0`, so stopping and starting replays the lineup from the
+     * top. The cursor is kept against the resume that `docs/todo/` still wants, and
+     * it is now honest enough to build one on — the director puts it back onto the
+     * first line nobody heard when the running order is retracted, where before it
+     * pointed past a handful of records that were promised and dropped, and a resume
+     * built on it would have skipped every one of them.
      */
     async standDown(slot = MAIN_SLOT): Promise<void> {
         await this.db

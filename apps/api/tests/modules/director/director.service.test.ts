@@ -420,6 +420,52 @@ describe('DirectorService reclaiming what was retracted', () => {
     });
 });
 
+// `busy` and `pending` used to hand-roll this: a pass in progress set a flag, and the tail of that
+// pass re-fired. The mailbox does it by construction, and these are what say so, because deleting a
+// guard is only safe if something proves the property it was guarding.
+describe('DirectorService committing under a burst of events', () => {
+    it('commits each line once however many events arrive at once', async () => {
+        const { director, rundown, seed } = build();
+        await seed();
+        await director.start();
+
+        // Several per boundary is the real rate: the item handed over and the item confirmed on
+        // air are two events milliseconds apart, and the pusher reconciles on top of that.
+        for (let index = 0; index < 8; index++) rundown.append([]);
+        await settle();
+
+        const ids = idsOf(rundown.upcoming());
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(ids).toEqual(['a', 'b', 'c']);
+    });
+
+    it('does not run two passes at once', async () => {
+        // The hazard the flags existed for: two passes reading the same depth and both committing
+        // against it, which hands the player twice the lead and plays a record twice.
+        const { director, rundown, segmentStub, lineup, seed } = build({
+            segments: [{ id: 'seg-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],
+        });
+        await seed();
+        await lineup.insertSegment('seg-1', 0);
+
+        let inFlight = 0;
+        let overlapped = false;
+        segmentStub.findByIds = vi.fn(async () => {
+            inFlight += 1;
+            if (inFlight > 1) overlapped = true;
+            await new Promise(resolve => setImmediate(resolve));
+            inFlight -= 1;
+            return new Map<string, Segment>();
+        });
+
+        await director.start();
+        for (let index = 0; index < 5; index++) rundown.append([]);
+        await settle();
+
+        expect(overlapped).toBe(false);
+    });
+});
+
 describe('DirectorService standing down', () => {
     it('stops committing when the transport is stopped', async () => {
         // `PlayoutService.stop` resets the rundown. If the director did not hear that,

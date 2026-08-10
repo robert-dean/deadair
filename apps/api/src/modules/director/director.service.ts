@@ -41,16 +41,15 @@ const EXTEND_BELOW = 8;
 const AIR_TTL_MS = 5_000;
 
 /**
- * How often to notice that the plan has been changed under us.
+ * How often to retry a re-read that has not happened yet.
  *
- * The one timer in this class, and it exists because the reactor's premise — that rundown events
- * arrive often enough to drive everything — is not quite true. Those events come from the player
- * doing things, and a station playing a four-minute record produces none for four minutes. A plan
- * change cannot wait that long: an operator who edits what is on air expects the station to notice
- * before the next boundary, and a refill that lands is worthless until the reactor re-reads it.
+ * No longer the way a plan change is noticed. Every writer now posts a command once its own
+ * transaction has committed, so the re-read arrives on the operator's own request rather than up to
+ * a second later. What is left is the failure case: a `planChanged` that threw leaves the flag set,
+ * and this asks again.
  *
- * It does nothing at all unless {@link invalidate} has been called, so an idle station still costs
- * one flag comparison a second and no queries.
+ * It does nothing at all unless {@link invalidate} has been called and the re-read has not yet
+ * succeeded, so a healthy station costs one flag comparison a second and no queries.
  */
 const STALE_CHECK_MS = 1_000;
 
@@ -61,9 +60,21 @@ const STALE_CHECK_MS = 1_000;
  * It REACTS rather than schedules. The rundown announces a change (an item
  * handed over, an item confirmed on air) and this commits whatever that leaves
  * room for, which means the station is driven by what the player has actually
- * done rather than by a clock guessing at it. There is no timer here at all: the
- * pusher already reconciles against Liquidsoap every couple of seconds, and its
- * work produces the events this listens to.
+ * done rather than by a clock guessing at it.
+ *
+ * **Everything reaches it as a command on one queue**, handled one at a time and
+ * in order: see {@link DirectorMailbox}. An operator's change, a finished refill
+ * and the player's own events all arrive the same way, which is what stops two of
+ * them landing in the middle of each other's decisions.
+ *
+ * The queue is not the whole answer, and the gap is worth knowing before adding
+ * to it. Serializing decisions stops them interleaving; it does not un-decide one
+ * already made. A pass that has gathered its material and is waiting on a database
+ * read has already decided, and a command queued behind it arrives too late to
+ * stop it. So anything that must CANCEL rather than merely follow — a stand-down,
+ * a lineup replaced — bumps {@link epoch} synchronously at the moment it happens
+ * and posts only the durable half. `beginStandDown` and
+ * `DirectorConsoleService.announceAirChange` are both written around that.
  *
  * One per process, for the reason `Rundown` and `PlayoutPusher` are: it holds
  * subscriptions and the loaded lineup, and a per-request copy would hand every
@@ -96,10 +107,6 @@ export class DirectorService {
     private get airMode(): AirMode {
         return parseAirMode(this.config.get(AIR_MODE_KEY, ''));
     }
-    /** One commit pass at a time: appending to the rundown emits a change, which re-enters here. */
-    private busy = false;
-    /** A wake that arrived mid-pass. Coalesced rather than dropped; see {@link commit}. */
-    private pending = false;
     /** A refill is already queued. Cleared once the lineup has actually grown. */
     private extendSent = false;
     /**
@@ -145,8 +152,8 @@ export class DirectorService {
     /**
      * Something changed the plan and this reactor has not re-read it yet.
      *
-     * Deliberately a flag consumed on a LATER pass rather than a re-read done on the spot, and that
-     * is the whole point of it. Every writer that changes the plan is inside a request, and every
+     * Deliberately a flag rather than a re-read done on the spot, and that is the whole point of
+     * it. Every writer that changes the plan is inside a request, and every
      * request runs inside one database transaction that commits when it ends
      * (`audit.context.middleware`). This class reads through a scope it opens itself, on another
      * connection, so a re-read performed during that request sees the state BEFORE the write.
@@ -268,14 +275,13 @@ export class DirectorService {
      */
     private refreshIfStale(): void {
         if (!this.stale) return;
-        this.stale = false;
 
-        this.restore().catch(error => {
-            // Left stale so the next tick tries again: the alternative is a reactor that quietly
-            // keeps airing a plan it has been told is wrong.
-            this.stale = true;
-            this.logger.warn(`director: could not re-read the plan (${message(error)})`);
-        });
+        // POSTED rather than read directly, which is the last hole in the mailbox being closed.
+        // This runs on a timer, so a `restore` called from here would enter a commit pass beside
+        // one already running as a command: two passes reading the same rundown depth and both
+        // committing against it. The command handler clears the flag once its re-read has actually
+        // happened, so a failure leaves it set and this tries again on the next tick.
+        this.send({ kind: 'planChanged' });
     }
 
     /**
@@ -311,6 +317,15 @@ export class DirectorService {
      * stood down before a restart must not put itself back on air, and the only
      * thing that knows it was stood down is the row.
      */
+    private async reread(): Promise<void> {
+        await this.restore();
+        // AFTER the read rather than before it, which is the difference between a failed re-read
+        // leaving the reactor cautious and leaving it confident. A throw above rejects the command
+        // and leaves `stale` set, so the timer asks again on its next tick and the station keeps
+        // refusing to commit from a plan it has been told is wrong in the meantime.
+        this.stale = false;
+    }
+
     private async restore(): Promise<void> {
         this.epoch.bump();
         this.pendingVoice = undefined;
@@ -381,15 +396,13 @@ export class DirectorService {
                 // behind the new one. What is ON AIR is left alone by `load`: changing the
                 // programming is not a reason to cut a listener off mid-record.
                 this.rundown.load([]);
-                this.stale = false;
-                await this.restore();
+                await this.reread();
                 return;
 
             case 'planChanged':
                 // No retraction. An edit to the part nobody has heard yet says nothing about the
                 // part they are about to.
-                this.stale = false;
-                await this.restore();
+                await this.reread();
                 return;
 
             case 'appendTracks':
@@ -446,16 +459,6 @@ export class DirectorService {
      * failing to resolve leaves a hole this has to fill.
      */
     private async commit(): Promise<void> {
-        // A wake that lands mid-pass is REMEMBERED, not dropped. Several arrive per
-        // track boundary — the item handed over and the item confirmed on air are two
-        // separate events a few milliseconds apart — and a pass that started before
-        // the second one computed its depth from a rundown that has since changed.
-        // Dropping it leaves the running order one item short until the next event.
-        if (this.busy) {
-            this.pending = true;
-            return;
-        }
-        this.busy = true;
         // Taken before the first await of the pass, and checked immediately before anything is
         // handed over. Everything below this line runs with the event loop free at each await, and
         // the operator's Stop, a lineup put on air, and a reload all land there.
@@ -543,13 +546,9 @@ export class DirectorService {
 
             await this.topUpIfShort(lineup, rules);
         } finally {
-            this.busy = false;
-            if (this.pending) {
-                this.pending = false;
-                // Not awaited: this is the tail of a pass, and the caller was a listener
-                // with nobody to hand a rejection to. `wake` carries its own catch.
-                this.wake();
-            }
+            // Nothing to release. `busy` and `pending` used to live here, hand-rolling what the
+            // mailbox now does: a wake arriving mid-pass is a queued command rather than a flag to
+            // remember, and the queue will not start it until this pass has returned.
         }
     }
 

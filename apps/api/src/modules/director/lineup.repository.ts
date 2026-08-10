@@ -169,8 +169,20 @@ export class LineupRepository extends DataRepository {
      * The guard is what makes two writers safe without a lock: the update matches
      * only while the stored revision is still the one this order was built on, so
      * a director appending at the same moment an operator reorders cannot
-     * overwrite the other's list with a stale copy. A no-op update is silent
-     * here — {@link Lineup} has already refused the edit that could produce one.
+     * overwrite the other's list with a stale copy.
+     *
+     * **A no-op update is silent here, and that used to be a bug rather than a
+     * property.** This docblock claimed `Lineup` had already refused any edit that
+     * could produce one, which held only for callers that pass a revision. The two
+     * that did not — the refill job and the break planner — raced each other over
+     * this guard, and the loser's whole batch was discarded while it logged success.
+     *
+     * They no longer write: both hand their work to `DirectorService`, which holds
+     * the one instance. So the guard now protects a single writer from a stale copy
+     * of itself rather than arbitrating two, and the silence is safe because there
+     * is nothing left to lose a race to. Anything that grows a SECOND writer of this
+     * table brings the old bug back with it, and should go through the director
+     * instead.
      */
     async saveItems(lineupId: string, items: readonly LineupItem[], revision: number): Promise<void> {
         await this.db

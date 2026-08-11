@@ -13,7 +13,7 @@ mount ran seconds behind the daemon, and a skip had to wait out whatever was alr
 
 Measured on a live account:
 
-- session up (accesspoint keyexchange + spclient resolve) in **292 ms**
+- session up (accesspoint keyexchange + login5 + spclient resolve) in **292 ms**
 - an 8.9 MB, ~3½ minute Ogg Vorbis 320 track fetched and decrypted in **664 ms**, about **320×
   faster than it plays**. This is the number the whole design rests on: Liquidsoap has to download
   each item ahead of air, the way it already does a Subsonic stream.
@@ -138,17 +138,6 @@ the HMAC.
   so even an in-tree `cmd/` cannot reach them. `connect()` mirrors the parts of that constructor a
   fetch needs and skips the dealer, mercury and the event manager. Nothing here registers a Connect
   device.
-- It does **not** exchange the accesspoint's stored credentials through **login5**, which upstream's
-  constructor does and this once did. login5 validates those credentials against the client its
-  CLIENT TOKEN belongs to — go-librespot's own hard-coded id — while the accesspoint here is
-  authenticated with a token minted by the operator's Spotify app. Spotify tolerated that pairing
-  until 2026-08-09 and then began answering `INVALID_CREDENTIALS`, which takes the station off the
-  air entirely: every track fails to open and the running order never advances.
-
-  The exchange bought exactly one thing, a bearer for `spclient`, and the app already holds one for
-  the same account, refreshes it, and pushes it here on every resolve. So `spclient` is given that
-  instead and both halves of the login belong to the same client. Audio keys ride the accesspoint
-  and never went through login5, so decryption is untouched.
 - It does **not** import `player` or `vorbis`, which pull in libvorbis/libogg through
   `xlab/vorbis-go`. We never decode: Spotify's file is already Ogg Vorbis once decrypted. That is
   what keeps the build CGO-free.

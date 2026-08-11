@@ -202,6 +202,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: ROTATION_KEYS.breaks,
         help: 'Four is about a quarter of an hour, which is around as long as a station can go without saying its own name before it sounds like a playlist. Records are counted, not items, so a second kind of break does not push the next ident back.',
     },
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.crossfade,
+        label: 'Blend one record into the next',
+        type: 'boolean',
+        default: DEFAULT_RULES.crossfade,
+        help: 'How long each blend lasts is measured from both records rather than set here, so a record that ends cold is barely ridden and one that fades is ridden as far as the next record can absorb it. An album or a sequenced setlist ignores this and stays cold by default, because its gaps are somebody else\'s decision.',
+    },
 
     // ── playout ────────────────────────────────────────────────────────────────
     {

@@ -134,6 +134,15 @@ export interface StationLineupRules {
     breaks?: boolean;
     /** Records between one segment and the next. `0` is the same as `breaks: false`. */
     breakEveryItems?: number;
+    /**
+     * Whether one record may be blended into the next.
+     *
+     * Off for a `setlist` and a `feature` without anybody setting it, by the same
+     * baseline that turns breaks off for them: an album's gaps are somebody's
+     * decision and overlapping them overrules it. Set it here to have a
+     * sequenced order blended anyway, or to keep a rotation's boundaries cold.
+     */
+    crossfade?: boolean;
 }
 
 /** Everything about the running order except the items: what the row says it is. */

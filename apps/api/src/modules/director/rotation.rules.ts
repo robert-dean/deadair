@@ -29,6 +29,21 @@ export interface ResolvedRules {
     breaks: boolean;
     /** Records between one segment and the next. `0` is the same as `breaks: false`. */
     breakEveryItems: number;
+    /**
+     * Whether one record may be blended into the next.
+     *
+     * The odd one out here, and worth knowing why it lives in this bag anyway.
+     * Every other field shapes what the generator PICKS; this one shapes how the
+     * transport hands two chosen records over. What they have in common is the
+     * thing that decides them: it is a property of the broadcast rather than of
+     * the station or of a record, and this is the one place a broadcast's
+     * properties are resolved.
+     *
+     * It is also the field {@link breaks} is the precedent for. An album played
+     * in full is a record whose segues are the point, so the same baseline that
+     * keeps the station from talking over one keeps it from blending over one.
+     */
+    crossfade: boolean;
 }
 
 /**
@@ -54,6 +69,12 @@ export const DEFAULT_RULES: ResolvedRules = {
     // without identifying itself before it stops sounding like a station and starts sounding like a
     // playlist. Erring long: a break every other record is a novelty that wears out in an afternoon.
     breakEveryItems: 4,
+    // OFF until the voice cues are corrected for it. A blend delays the bed and not the voice, so
+    // `on_air_elapsed` — which every DJ break is timed against — runs ahead of the audience by the
+    // length of the blend, and a talk-up fires that much early. The transport and the engine can
+    // both do this before the clock can, so the default is what holds the two apart until it can.
+    // See docs/todo/crossfades.md, "Why it is deferred: the cross buffer moves the clock".
+    crossfade: false,
 };
 
 /**
@@ -70,6 +91,7 @@ export const ROTATION_KEYS = {
     autoExtend: 'rotation.autoExtend',
     breaks: 'rotation.breaks',
     breakEveryItems: 'rotation.breakEveryItems',
+    crossfade: 'rotation.crossfade',
 } as const;
 
 /**
@@ -98,6 +120,7 @@ export function stationRules(config: AppConfig): ResolvedRules {
         autoExtend: boolean(ROTATION_KEYS.autoExtend, DEFAULT_RULES.autoExtend),
         breaks: boolean(ROTATION_KEYS.breaks, DEFAULT_RULES.breaks),
         breakEveryItems: number(ROTATION_KEYS.breakEveryItems, DEFAULT_RULES.breakEveryItems),
+        crossfade: boolean(ROTATION_KEYS.crossfade, DEFAULT_RULES.crossfade),
     };
 }
 
@@ -109,6 +132,7 @@ const NO_RULES: ResolvedRules = {
     autoExtend: false,
     breaks: false,
     breakEveryItems: 0,
+    crossfade: false,
 };
 
 /**
@@ -126,6 +150,12 @@ const NO_RULES: ResolvedRules = {
  * "nothing talks over them". A setlist is the same argument one step weaker —
  * somebody sequenced it, and dropping an ident into the middle of their sequence
  * is undoing the work.
+ *
+ * Crossfade rides the same argument the whole way. "Whose segues are the point"
+ * is an argument about the boundaries themselves, so it applies more directly to
+ * blending one record into the next than it does to talking between them: an
+ * album's gap between two tracks is a decision somebody made, and overlapping
+ * them is overruling it.
  *
  * The overrides still apply on top, so an operator who wants a cooldown inside a
  * long setlist can have one. That is why this is a baseline rather than a
@@ -148,6 +178,7 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         autoExtend: overrides?.autoExtend ?? base.autoExtend,
         breaks: overrides?.breaks ?? base.breaks,
         breakEveryItems: overrides?.breakEveryItems ?? base.breakEveryItems,
+        crossfade: overrides?.crossfade ?? base.crossfade,
     };
 };
 

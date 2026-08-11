@@ -80,12 +80,35 @@ describe('resolveRules', () => {
             // feature's segues, one step weaker.
             breaks: false,
             breakEveryItems: 0,
+            // Same argument, one step further: somebody decided where these records stop
+            // and start, and overlapping two of them overrules that decision.
+            crossfade: false,
         });
     });
 
     it('turns everything off for a feature, which is one artist by definition', () => {
         expect(resolveRules('feature').artistCooldownMinutes).toBe(0);
         expect(resolveRules('feature').autoExtend).toBe(false);
+    });
+
+    it('leaves an album cold, which is the case crossfade exists to except', () => {
+        // A feature is an album played in full, and 0007 says why nothing talks over
+        // one. Blending its boundaries is the same intrusion applied to the segues
+        // themselves, so it falls out of the same baseline rather than a branch.
+        expect(resolveRules('feature').crossfade).toBe(false);
+        expect(resolveRules('setlist').crossfade).toBe(false);
+    });
+
+    it('lets a sequenced order ask to be blended anyway', () => {
+        // The baseline is a default, not a rule about what a setlist is allowed to be.
+        expect(resolveRules('setlist', { crossfade: true }).crossfade).toBe(true);
+    });
+
+    it('lets a rotation keep its boundaries cold', () => {
+        const station = { ...DEFAULT_RULES, crossfade: true };
+
+        expect(resolveRules('rotation', undefined, station).crossfade).toBe(true);
+        expect(resolveRules('rotation', { crossfade: false }, station).crossfade).toBe(false);
     });
 
     it('lets a lineup override the baseline field by field', () => {

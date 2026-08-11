@@ -511,6 +511,11 @@ export class DirectorService {
         if (!lineup) return;
 
         const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
+        // The transport cannot resolve this for itself — the module edge runs playout <- director —
+        // so the commit pass, which resolves the rules anyway, is what tells it. Every pass rather
+        // than only on a change of order: it is one assignment, and it is what makes an operator's
+        // change take effect within a track or two instead of at the next broadcast.
+        this.rundown.setCrossfade(rules.crossfade);
 
         // BEFORE committing, so a break planted this pass is in the order before anything is
         // taken from it. The other way round, the tail would be topped up first and the break

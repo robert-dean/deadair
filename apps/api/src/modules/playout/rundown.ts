@@ -101,12 +101,21 @@ export interface RundownItem {
      * lineup is consumed rather than kept, and an untrimmed record is what the
      * station does today anyway.
      *
-     * Both are absent together or present together, and absent is ordinary — an
-     * unmeasured track, an incomplete measurement, or one from a schema version
+     * All FOUR are absent together or present together, and absent is ordinary —
+     * an unmeasured track, an incomplete measurement, or one from a schema version
      * this station no longer reads. Nothing downstream may treat their absence
      * as a fault.
+     *
+     * The outer two are where the player is told to start and stop reading; see
+     * `annotate.ts`. The inner two are lengths rather than positions in practice —
+     * `intro = introEndMs - cueInMs` and `outro = cueOutMs - outroStartMs` — and
+     * they are what a blend between two records is sized from; see `crossfade.ts`.
+     * Neither length is stored, here or in the measurement, because a stored
+     * derivation is a second thing that can disagree with the first.
      */
     cueInMs?: number;
+    introEndMs?: number;
+    outroStartMs?: number;
     cueOutMs?: number;
 
     /**
@@ -244,6 +253,8 @@ export class Rundown {
     private handOvers = new Map<string, number>();
     /** Confirmed on air by the player, with the playhead as last measured. */
     private airing?: AiringItem;
+    /** What the director last said about blending this broadcast's boundaries. See {@link crossfade}. */
+    private crossfadeEnabled = false;
     /** The last unexplainable id the player named, so it is reported once rather than every tick. */
     private unknownOnAir?: string;
     /**
@@ -285,6 +296,36 @@ export class Rundown {
         this.servedAt.clear();
         this.handOvers.clear();
         this.airing = undefined;
+        // Back to the safe answer rather than left holding the last broadcast's. The next
+        // order to arrive may be an album, and inheriting a rotation's setting would blend
+        // its first boundary before anything got round to saying otherwise.
+        this.crossfadeEnabled = false;
+    }
+
+    /**
+     * Whether this broadcast wants one record blended into the next.
+     *
+     * Resolved by the DIRECTOR and pushed here, rather than read from a setting
+     * on the hand-over path the way `targetLufs` is. It is not a station-wide
+     * fact: `resolveRules` decides it from the running order's mode and its own
+     * overrides, so a rotation blends and an album does not, and the module edge
+     * runs playout <- director — the transport cannot ask.
+     *
+     * The consequence, which is worth stating rather than pretending it is live:
+     * this is refreshed on the director's commit and refill passes, so an operator
+     * turning it on mid-broadcast is heard within a track or two rather than at
+     * the next boundary.
+     *
+     * Seeded false, which is what a transport with no broadcast attached is. It is
+     * also the answer that sounds like the station always has.
+     */
+    crossfade(): boolean {
+        return this.crossfadeEnabled;
+    }
+
+    /** Tell the transport how this broadcast wants its boundaries handled. */
+    setCrossfade(enabled: boolean): void {
+        this.crossfadeEnabled = enabled;
     }
 
     /**

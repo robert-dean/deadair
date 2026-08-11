@@ -8,6 +8,9 @@ import type { RundownTrack } from '#modules/playout/rundown.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import type { TrackPick } from './set.generator.js';
 
+/** The four cue points as an item carries them: all of them, or none. */
+type CuePointSnapshot = { cueInMs?: number; introEndMs?: number; outroStartMs?: number; cueOutMs?: number };
+
 /**
  * The measured cue points as an item carries them, or nothing.
  *
@@ -19,16 +22,32 @@ import type { TrackPick } from './set.generator.js';
  * The numbers are validated once more here even though the repository filtered
  * the rows, because `data` is a jsonb blob written by a plugin: the host stores
  * it unread on purpose, so this is the first place anything looks inside it.
+ *
+ * **All four or none**, which is stricter than it needs to be for the outer two
+ * and is the right call anyway. The trim only needs `cueIn` and `cueOut`, so a
+ * blob with a bad `introEnd` could still trim — but the four points describe one
+ * shape, and a measurement that contradicts itself about where a record is
+ * underway is not one to trust about where it stops either. An unmeasured track
+ * plays untrimmed, which is an ordinary state and not a fault.
+ *
+ * The ordering check is the whole chain rather than the ends. `measure.py` clamps
+ * its output into this order before it answers, so a violation arriving here is
+ * not a detector being imprecise: it is a blob from something else.
  */
-function cuePoints(analysis: StoredAnalysis | undefined): { cueInMs?: number; cueOutMs?: number } {
+function cuePoints(analysis: StoredAnalysis | undefined): CuePointSnapshot {
     const cueInMs = analysis?.data.cueIn;
+    const introEndMs = analysis?.data.introEnd;
+    const outroStartMs = analysis?.data.outroStart;
     const cueOutMs = analysis?.data.cueOut;
 
-    if (typeof cueInMs !== 'number' || typeof cueOutMs !== 'number') return {};
-    if (!Number.isFinite(cueInMs) || !Number.isFinite(cueOutMs)) return {};
-    if (cueInMs < 0 || cueOutMs <= cueInMs) return {};
+    const points = [cueInMs, introEndMs, outroStartMs, cueOutMs];
+    if (points.some(point => typeof point !== 'number' || !Number.isFinite(point))) return {};
+    if (cueInMs! < 0 || cueOutMs! <= cueInMs!) return {};
+    // Non-strict between the inner points: a record with no intro to speak of, or one
+    // that ends the instant its outro begins, is a real record rather than a bad blob.
+    if (introEndMs! < cueInMs! || outroStartMs! < introEndMs! || cueOutMs! < outroStartMs!) return {};
 
-    return { cueInMs, cueOutMs };
+    return { cueInMs, introEndMs, outroStartMs, cueOutMs };
 }
 
 /**

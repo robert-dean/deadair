@@ -209,16 +209,18 @@ describe('PickResolver', () => {
 });
 
 describe('PickResolver cue points', () => {
-    it('snapshots the measured cue points onto the item', async () => {
+    it('snapshots all four measured cue points onto the item', async () => {
+        // Four rather than two: the outer pair trims the record and the inner pair is
+        // what a blend between two records is sized from. See `crossfade.ts`.
         const { resolver } = build({
             bindings: { 'track-1': binding('track-1') },
             metadata: { 'track-1': { title: 'A', credit: 'One' } },
-            analysis: { 'track-1': { cueIn: 180, cueOut: 213_600 } },
+            analysis: { 'track-1': { cueIn: 180, introEnd: 12_400, outroStart: 198_000, cueOut: 213_600 } },
         });
 
         const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
 
-        expect(resolved).toMatchObject({ cueInMs: 180, cueOutMs: 213_600 });
+        expect(resolved).toMatchObject({ cueInMs: 180, introEndMs: 12_400, outroStartMs: 198_000, cueOutMs: 213_600 });
     });
 
     it('leaves an unmeasured track alone rather than inventing a span', async () => {
@@ -232,6 +234,51 @@ describe('PickResolver cue points', () => {
 
         expect(resolved).not.toHaveProperty('cueInMs');
         expect(resolved).not.toHaveProperty('cueOutMs');
+    });
+
+    it('takes all four or none, so a half-measured blob does not trim', async () => {
+        // Stricter than the trim needs, deliberately. The four points describe one
+        // shape, and a measurement that cannot say where the record is underway is not
+        // one to trust about where it stops either.
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 180, cueOut: 213_600 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).not.toHaveProperty('cueInMs');
+        expect(resolved).not.toHaveProperty('cueOutMs');
+    });
+
+    it('refuses points that are out of order among themselves', async () => {
+        // `measure.py` clamps its output into this order before it answers, so a blob
+        // arriving out of order is not an imprecise detector: it came from something else.
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 180, introEnd: 198_000, outroStart: 12_400, cueOut: 213_600 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).not.toHaveProperty('introEndMs');
+    });
+
+    it('accepts a record with no intro and no outro to speak of', async () => {
+        // The inner comparisons are non-strict on purpose. A record that is underway
+        // from its first sample, or one that ends the instant its outro begins, is a
+        // real record rather than a bad blob — it simply gets no blend.
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 0, introEnd: 0, outroStart: 180_000, cueOut: 180_000 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).toMatchObject({ cueInMs: 0, introEndMs: 0, outroStartMs: 180_000, cueOutMs: 180_000 });
     });
 
     it('asks for measurements once for the whole batch', async () => {
@@ -256,7 +303,7 @@ describe('PickResolver cue points', () => {
         const { resolver } = build({
             bindings: { 'track-1': binding('track-1') },
             metadata: { 'track-1': { title: 'A', credit: 'One' } },
-            analysis: { 'track-1': { cueIn: 9_000, cueOut: 9_000 } },
+            analysis: { 'track-1': { cueIn: 9_000, introEnd: 9_000, outroStart: 9_000, cueOut: 9_000 } },
         });
 
         const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
@@ -268,7 +315,7 @@ describe('PickResolver cue points', () => {
         const { resolver } = build({
             bindings: { 'track-1': binding('track-1') },
             metadata: { 'track-1': { title: 'A', credit: 'One' } },
-            analysis: { 'track-1': { cueIn: 0, cueOut: Number.POSITIVE_INFINITY } },
+            analysis: { 'track-1': { cueIn: 0, introEnd: 5_000, outroStart: 60_000, cueOut: Number.POSITIVE_INFINITY } },
         });
 
         const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);

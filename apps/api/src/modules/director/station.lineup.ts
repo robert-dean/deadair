@@ -324,6 +324,31 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
+     * The next record after this line, as the order stands right now.
+     *
+     * What a break's forward claim is checked against at hand-over: it named a line when it was
+     * written, and this says which line is actually next by the time it comes round. A scan rather
+     * than an index, because the order is short and there is no cursor to keep honest.
+     *
+     * Skips anything that is not a record, and anything already spent. A break promising "coming
+     * up, X" is promising the next RECORD a listener will hear, so a segment between the two does
+     * not falsify it, and neither does a line that has already been skipped.
+     *
+     * `undefined` for a line the order does not hold, and for one with no record after it at all.
+     * Both make a claim uncheckable, which the caller treats the same way it treats a broken one.
+     */
+    nextTrackAfter(itemId: string): StationLineupTrackItem | undefined {
+        const at = this.itemList.findIndex(item => item.id === itemId);
+        if (at < 0) return undefined;
+
+        for (let index = at + 1; index < this.itemList.length; index++) {
+            const item = this.itemList[index]!;
+            if (item.kind === 'track' && item.state !== 'skipped') return item;
+        }
+        return undefined;
+    }
+
+    /**
      * The index everything before which belongs to the player.
      *
      * One past the last item this broadcast has done something with, rather than the

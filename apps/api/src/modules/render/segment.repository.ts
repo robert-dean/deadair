@@ -47,6 +47,13 @@ export interface Segment {
      * written yet.
      */
     writer?: string;
+    /**
+     * Which running-order line these words claim will play next.
+     *
+     * Absent for a break that promised nothing, which is most of them. See the migration for why a
+     * forward claim has to be written down rather than re-derived.
+     */
+    claimsItemId?: string;
 }
 
 /**
@@ -121,6 +128,7 @@ interface SegmentRow {
     error: string | null;
     voice: string | null;
     writer: string | null;
+    claimsItemId: string | null;
 }
 
 const SEGMENT_COLUMNS = [
@@ -137,6 +145,7 @@ const SEGMENT_COLUMNS = [
     'error',
     'voice',
     'writer',
+    'claimsItemId',
 ] as const;
 
 /** What the library scan writes, and what the repository recognises as an import. */
@@ -165,6 +174,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.error == null ? {} : { error: row.error }),
         ...(row.voice == null ? {} : { voice: row.voice }),
         ...(row.writer == null ? {} : { writer: row.writer }),
+        ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),
     };
 }
 
@@ -345,10 +355,19 @@ export class SegmentRepository extends DataRepository {
      *
      * @returns whether this caller still held the claim.
      */
-    async writeScript(id: string, written: { script: string; label: string; writer: string }): Promise<boolean> {
+    async writeScript(id: string, written: { script: string; label: string; writer: string; claimsItemId?: string }): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.segments')
-            .set({ script: written.script, label: written.label, writer: written.writer, state: 'written' })
+            .set({
+                script: written.script,
+                label: written.label,
+                writer: written.writer,
+                state: 'written',
+                // Set together with the words, because it describes them: a claim is a statement
+                // the script makes, and one outliving a rewrite would be a promise about a
+                // sentence that is no longer there. Null clears it for the same reason.
+                claimsItemId: written.claimsItemId ?? null,
+            })
             .where('id', '=', id)
             .where('state', '=', 'writing')
             .executeTakeFirst();
@@ -394,7 +413,8 @@ export class SegmentRepository extends DataRepository {
                and s.state in ('written', 'failed')
          returning prior.state as from_state,
                    s.id, s.kind, s.state, s.label, s.script, s.source, s.source_path,
-                   s.audio_checksum, s.audio_ext, s.duration_ms, s.error, s.voice, s.writer
+                   s.audio_checksum, s.audio_ext, s.duration_ms, s.error, s.voice, s.writer,
+                   s.claims_item_id
         `.execute(this.db);
 
         const row = claimed.rows[0];

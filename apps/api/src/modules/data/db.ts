@@ -326,6 +326,7 @@ export interface DeadairSegmentEvents {
 export interface DeadairSegments {
   audioChecksum: string | null;
   audioExt: string | null;
+  claimsItemId: string | null;
   createdAt: Generated<DateTime>;
   durationMs: number | null;
   error: string | null;

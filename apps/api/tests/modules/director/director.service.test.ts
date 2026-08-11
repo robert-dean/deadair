@@ -736,6 +736,74 @@ describe('DirectorService committing segments', () => {
         expect(rundown.upcoming().every(item => item.pluginId !== RENDER_PLUGIN_ID)).toBe(true);
     });
 
+    // A break saying "coming up, X" made a statement about the future, minutes before it is spoken,
+    // out of audio that cannot be re-cut. These are the two ends of checking it came true.
+    describe('and the forward claim one made', () => {
+        /** A ready break whose words named a particular line as coming up next. */
+        const promising = (claimsItemId: string) => ({
+            id: 'seg-1',
+            kind: 'talkbreak' as const,
+            state: 'ready' as const,
+            label: 'Coming up',
+            source: 'render',
+            claimsItemId,
+        });
+
+        /** The break, its place in the order, and the line its words named. */
+        const withClaim = async (claimed: (nextLineId: string) => string) => {
+            const harness = build({ items: ['a', 'b'], segments: [] });
+            await harness.seed();
+            harness.lineup.insertSegment('seg-1', 1);
+
+            const nextLine = harness.lineup.all()[2]!;
+            const segment = promising(claimed(nextLine.id));
+            harness.segmentStub.findByIds = vi.fn(async (ids: readonly string[]) =>
+                ids.includes('seg-1') ? new Map([['seg-1', segment as never]]) : new Map(),
+            );
+
+            return harness;
+        };
+
+        it('airs a break whose promise the order still keeps', async () => {
+            // The case that must not regress: a guard dropping every break is indistinguishable
+            // from a station that never talks.
+            const { director, rundown } = await withClaim(nextLineId => nextLineId);
+
+            await director.start();
+            await settle();
+
+            expect(rundown.upcoming().some(item => item.externalId === 'seg-1')).toBe(true);
+        });
+
+        it('drops a break the order has moved under', async () => {
+            // It promised a line that is no longer the next record: an operator moved it, a request
+            // went in, the resolver dropped the pick. Silence on one boundary beats a wrong fact.
+            const { director, rundown } = await withClaim(() => 'a-line-that-has-since-moved');
+
+            await director.start();
+            await settle();
+
+            expect(rundown.upcoming().every(item => item.externalId !== 'seg-1')).toBe(true);
+            // And the order does not lose its lead for it, exactly as with a segment that is not
+            // ready: it goes through the same branch.
+            expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a', 'b']);
+        });
+
+        it('leaves a break that promised nothing alone', async () => {
+            const { director, lineup, rundown, seed } = build({
+                items: ['a', 'b'],
+                segments: [{ id: 'seg-1', kind: 'talkbreak', state: 'ready', label: 'Back-announce', source: 'render' }],
+            });
+            await seed();
+            lineup.insertSegment('seg-1', 1);
+
+            await director.start();
+            await settle();
+
+            expect(rundown.upcoming().some(item => item.externalId === 'seg-1')).toBe(true);
+        });
+    });
+
     // Play history steers what plays NEXT: the repeat window and the artist cooldown are both
     // reads of it. A row for an ident would have the station suppressing its own idents.
     it('keeps a segment out of play history when it airs', async () => {

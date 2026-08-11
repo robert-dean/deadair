@@ -91,7 +91,25 @@ create table deadair.segments (
     -- Kept because "the model wrote this one and the stub wrote that one" is the question an operator
     -- asks first when a station starts sounding flat, and it cannot be answered afterwards from a log
     -- line that has scrolled away. Unconstrained text for the same reason as `source`.
-    writer text
+    writer text,
+    -- Which running-order line this break's words CLAIM will play next.
+    --
+    -- A break that says "coming up, X" is making a statement about the future: written when the
+    -- break is planned, spoken minutes later out of audio rendered in between. Everything that can
+    -- happen to a running order in that gap makes it false — an operator moves the item, a request
+    -- is inserted, the resolver drops the pick, the item is skipped for having no ready audio — and
+    -- the station then names a record that is not the one playing, confidently. That sounds worse
+    -- than saying nothing and is the kind of error a listener remembers.
+    --
+    -- The claim cannot be re-resolved nearer to air, because it is baked into WORDS and rendered
+    -- audio cannot be re-cut. So it is written down here instead, and checked at hand-over against
+    -- what is actually next. Null for a break that promised nothing, which is most of them.
+    --
+    -- A lineup ITEM id rather than a track id: the same record can sit in an order twice, and what
+    -- the words named is the one at that position. Not a foreign key, because the running order is
+    -- one jsonb document rather than rows — the check is a comparison in the director, and a stale
+    -- id simply fails it, which is the safe direction.
+    claims_item_id text
 );
 select deadair.add_updated_at_trigger('deadair.segments');
 

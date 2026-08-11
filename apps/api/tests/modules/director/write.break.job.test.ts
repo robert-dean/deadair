@@ -197,6 +197,65 @@ describe('WriteBreakJob', () => {
         expect(jobs.send).not.toHaveBeenCalled();
     });
 
+    describe('the forward claim', () => {
+        it('stamps the line the words actually named', async () => {
+            const lineup = await lineupWithBreak();
+            const nextItem = lineup.all()[2]!;
+            const { job, segments } = harness({
+                lineup,
+                written: {
+                    written: { script: 'Coming up, Pink Moon.', label: 'Talk break', claimsNext: true },
+                    writer: 'deterministic',
+                    attempts: [
+                        { writer: 'deterministic', outcome: 'written', written: { script: 'Coming up, Pink Moon.', label: 'x' }, durationMs: 1 },
+                    ],
+                },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ claimsItemId: nextItem.id }));
+        });
+
+        it('stamps nothing when the words promised nothing', async () => {
+            // A phrasing whose intro was an optional chunk that got dropped made no promise, and a
+            // break that promised nothing must not be thrown away later for one it never made.
+            const { job, segments } = harness({ lineup: await lineupWithBreak() });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.not.objectContaining({ claimsItemId: expect.anything() }));
+        });
+
+        it('does not offer the next record across another segment', async () => {
+            // The least trustworthy promise there is: an intervening segment is the region an
+            // operator is most likely to edit, and it may itself air or be skipped. Withholding the
+            // record is withholding the claim, and the writers already have phrasings for it.
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            lineup.insertSegments([{ segmentId: 'seg-2', atIndex: 2 }]);
+            const { job, writers } = harness({ lineup });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }));
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ next: expect.anything() }));
+        });
+
+        it('still back-announces across another segment, because what played is a fact', async () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+            lineup.insertSegments([{ segmentId: 'seg-2', atIndex: 1 }]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 2 }]);
+            const { job, writers } = harness({ lineup });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }));
+        });
+    });
+
     it('waits rather than writing a break the order does not hold yet', async () => {
         // Measured on the running station: the director writes the order through a throttle, so a
         // break can be planted, offered and picked up here before the row anybody can read holds

@@ -678,6 +678,31 @@ export class DirectorService {
                 continue;
             }
 
+            // The other end of the forward claim. A break saying "coming up, X" named a LINE when it
+            // was written, minutes ago, and the words are now baked into audio that cannot be
+            // re-cut. Everything that can happen to a running order in that gap makes them false: an
+            // operator moves the item, a request goes in, the resolver drops the pick, the record is
+            // skipped for having no audio. The station would then name a record that is not the one
+            // playing, in a confident voice, which is the kind of error a listener remembers.
+            //
+            // So it is checked here, against the order as it stands at the instant of hand-over, and
+            // a claim that no longer holds costs the break. Silence on one boundary beats a wrong
+            // fact — the same trade the station already makes by skipping a segment that is not
+            // ready, taken through the same branch, so the order does not lose its lead either.
+            const promised = segment.claimsItemId;
+            const actuallyNext = promised === undefined ? undefined : this.lineup?.nextTrackAfter(item.id);
+            if (promised !== undefined && actuallyNext?.id !== promised) {
+                this.logger.info('director: dropping a break whose running order has moved under it', {
+                    segment: item.segmentId,
+                    claimed: promised,
+                    // `nothing` for a break at the end of an order that has since lost its tail: the
+                    // promise is equally unkeepable, and equally not worth airing.
+                    next: actuallyNext?.id ?? 'nothing',
+                });
+                skipped.push(item.id);
+                continue;
+            }
+
             // A talk-over is not an item the player is handed and never becomes one: it is heard
             // ALONGSIDE the record that follows it rather than in the gap before it, so it rides
             // on that record and the pusher arms it as the record is handed over.

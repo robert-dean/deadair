@@ -2,7 +2,15 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { BreakWriter, type BreakTrack, type BreakWriteRequest, type WrittenBreak } from './break.writer.js';
-import { parseTemplates, TEMPLATE_KEYS, TEMPLATE_VOCABULARY, unknownPlaceholders, usable, wasHeard, type RenderedTemplate } from './break.templates.js';
+import {
+    parseTemplates,
+    TEMPLATE_KEYS,
+    TEMPLATE_VOCABULARY,
+    unknownPlaceholders,
+    usable,
+    wasHeard,
+    type RenderedTemplate,
+} from './break.templates.js';
 
 /**
  * The station's words for a talk break, written from the two records either side of it.
@@ -79,7 +87,10 @@ export class TalkBreakWriter extends BreakWriter {
         if (fits.length === 0) return undefined;
 
         const chosen = choose(fits, request.recent ?? []);
-        return { script: chosen.script, label: labelFor(inputs) };
+        // `saysNext` rather than "there was a next record": a phrasing whose intro was an optional
+        // chunk that got dropped promised nothing, and a break that promised nothing must not be
+        // dropped later for a promise it never made.
+        return { script: chosen.script, label: labelFor(inputs), claimsNext: chosen.saysNext };
     }
 
     /**

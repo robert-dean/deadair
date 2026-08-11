@@ -100,19 +100,22 @@ describe('TalkBreakWriter', () => {
     });
 });
 
-describe('TalkBreakWriter against the operator\'s own phrasings', () => {
+describe("TalkBreakWriter against the operator's own phrasings", () => {
     const KEY = 'rotation.breakTemplates';
     const DJ = 'station.djName';
 
     it('says what the operator wrote', async () => {
-        const own = build({ [KEY]: "Hi, this is {{dj.name}}. We're getting ready to rock out to {{next.name}} by {{next.artist.name}}!", [DJ]: 'Sam' });
+        const own = build({
+            [KEY]: "Hi, this is {{dj.name}}. We're getting ready to rock out to {{next.name}} by {{next.artist.name}}!",
+            [DJ]: 'Sam',
+        });
 
         const written = await own.write({ kind: TALK_BREAK_KIND, next });
 
         expect(written?.script).toBe("Hi, this is Sam. We're getting ready to rock out to Pink Moon by Nick Drake!");
     });
 
-    it('falls back to the station\'s own when the setting is empty', async () => {
+    it("falls back to the station's own when the setting is empty", async () => {
         // Clearing the box must not leave a silent DJ. The way to stop the station talking is to
         // turn breaks off, which already means exactly that.
         const own = build({ [KEY]: '   \n\n  ' });
@@ -171,7 +174,7 @@ describe('TalkBreakWriter against the operator\'s own phrasings', () => {
         expect(written?.script).toBe('This is Deadair. Solid Air there. Coming up, Pink Moon.');
     });
 
-    it('reads a title rather than the catalogue entry, in an operator\'s phrasing too', async () => {
+    it("reads a title rather than the catalogue entry, in an operator's phrasing too", async () => {
         const own = build({ [KEY]: 'That was {{previous.title}}.' });
 
         const written = await own.write({ kind: TALK_BREAK_KIND, previous: { title: 'Solid Air (2005 Remaster)', artist: 'John Martyn' } });

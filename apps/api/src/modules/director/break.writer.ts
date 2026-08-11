@@ -27,11 +27,24 @@
  * implementation's imports, exactly like {@link SetGenerator}.
  */
 
-/** A record, as a writer sees one. Just the two things worth saying out loud. */
+/** A record, as a writer sees one. */
 export interface BreakTrack {
     title: string;
     /** The credit as it should be READ, which is why it is one string and not the artists array. */
     artist: string;
+    /**
+     * The catalog track this is, when the catalog holds it.
+     *
+     * Nothing reads it yet, and it is here so that something can. Everything a writer might one day
+     * want to be interesting ABOUT — `track_enrichment`, the album, the artist, what the analyzer
+     * measured — hangs off this one id, and a binding written against two bare strings is one that
+     * has to be reshaped the day any of it arrives. Absent for a record the catalog does not hold.
+     *
+     * When those facts do arrive they belong IN this request, fetched by the caller, never by a
+     * writer reaching into a repository: that is what keeps a writer a pure function of what it was
+     * told, which is what makes it testable and what lets every binding see the same substrate.
+     */
+    trackId?: string;
 }
 
 /** What a writer is told before it writes. */
@@ -65,6 +78,18 @@ export interface WrittenBreak {
     script: string;
     /** What the console and the mount call it. Never the script: a listener's player wants a name. */
     label: string;
+    /**
+     * Whether these words NAME the record coming up.
+     *
+     * A statement about the future, made minutes before it is spoken, out of audio rendered in
+     * between. The caller stamps the line it named onto the row so the director can check at
+     * hand-over that the order has not moved under it; see `segments.claims_item_id`.
+     *
+     * Answered by the writer because only the writer knows what it actually said: a template with
+     * an optional intro that got dropped promised nothing, and a break that promised nothing must
+     * not be thrown away later for a promise it never made.
+     */
+    claimsNext?: boolean;
 }
 
 export abstract class BreakWriter {

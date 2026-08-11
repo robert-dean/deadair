@@ -118,7 +118,8 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
 
         const result = await this.writers.write({
             kind: segment.kind,
-            ...neighbours,
+            ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
+            ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             recent: await this.segments.recentScripts(segment.kind, RECENT_WINDOW),
         });
@@ -136,7 +137,18 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
 
         // `result.writer` rather than a constant: which writer produced this is the registry's
         // answer, and once a kind has more than one of them the job cannot know which one spoke.
-        if (!(await this.segments.writeScript(segmentId, { ...result.written, writer: result.writer }))) {
+        //
+        // The claim is stamped only when the words actually named the next record, and it names the
+        // LINE rather than the track: the same record can sit in an order twice, and what was
+        // promised is the one at that position. See `segments.claims_item_id`.
+        const claimsItemId = result.written.claimsNext === true ? neighbours.next?.itemId : undefined;
+        if (
+            !(await this.segments.writeScript(segmentId, {
+                ...result.written,
+                writer: result.writer,
+                ...(claimsItemId === undefined ? {} : { claimsItemId }),
+            }))
+        ) {
             // The row moved out of `planned` while this was being written. Whoever moved it owns it.
             this.logger.info('director: a break was written after something else had claimed it', { job: this.context.id, segment: segmentId });
             return;
@@ -168,12 +180,7 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
      * Every attempt, not only the winner. A model that declined and a floor that covered for it are
      * two facts, and the second on its own reads as a station that never had a model configured.
      */
-    private async remember(
-        segmentId: string,
-        kind: string,
-        neighbours: { previous?: BreakTrack; next?: BreakTrack },
-        result: BreakWriteResult,
-    ): Promise<void> {
+    private async remember(segmentId: string, kind: string, neighbours: Neighbours, result: BreakWriteResult): Promise<void> {
         if (result.attempts.length === 0) return;
 
         try {
@@ -184,8 +191,8 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
                     writer: attempt.writer,
                     outcome: attempt.outcome,
                     durationMs: attempt.durationMs,
-                    ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous }),
-                    ...(neighbours.next === undefined ? {} : { next: neighbours.next }),
+                    ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
+                    ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
                     ...(attempt.written === undefined ? {} : { script: attempt.written.script, label: attempt.written.label }),
                     ...(attempt.reason === undefined ? {} : { reason: attempt.reason }),
                 })),
@@ -230,23 +237,56 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
  * of an order, and a break the order has never heard of is one this job is too early for. Answering
  * the same thing for both is how every talk break ends up saying only the station's name.
  */
-function neighboursOf(lineup: StationLineup, segmentId: string): { previous?: BreakTrack; next?: BreakTrack } | undefined {
+function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | undefined {
     const items = lineup.all();
     const at = items.findIndex(item => item.kind === 'segment' && item.segmentId === segmentId);
     if (at < 0) return undefined;
 
-    const nearest = (from: number, step: number): BreakTrack | undefined => {
+    const nearest = (from: number, step: number, adjacentOnly = false): Neighbour | undefined => {
         for (let index = from; index >= 0 && index < items.length; index += step) {
             const item = items[index]!;
-            if (isTrackItem(item)) return { title: item.track.title, artist: item.track.artists[0] ?? 'an unknown artist' };
+            // Something else between the break and the record: for a back-announce that is fine,
+            // because what already played is a fact and stays one whatever sits in between. For the
+            // record COMING UP it is not, and the caller asks for the adjacent line only.
+            if (!isTrackItem(item)) {
+                if (adjacentOnly) return undefined;
+                continue;
+            }
+
+            return {
+                itemId: item.id,
+                track: {
+                    title: item.track.title,
+                    artist: item.track.artists[0] ?? 'an unknown artist',
+                    // Carried for what comes later rather than for anything today. See `BreakTrack`.
+                    ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
+                },
+            };
         }
         return undefined;
     };
 
     const previous = nearest(at - 1, -1);
-    const next = nearest(at + 1, 1);
+    // The next record only when it is the very next LINE. An intervening segment is exactly the
+    // region an operator is most likely to edit, and it may itself air or be skipped, so a promise
+    // made across it is the least trustworthy kind there is. The cost is real and small: a break
+    // planted beside another segment back-announces and promises nothing, which the writers already
+    // have phrasings for and already choose when the next record is unknown. Withholding the record
+    // IS withholding the claim, so nothing is invented and no writer has to change shape.
+    const next = nearest(at + 1, 1, true);
     return {
         ...(previous === undefined ? {} : { previous }),
         ...(next === undefined ? {} : { next }),
     };
+}
+
+/** A record beside a break, and WHICH LINE of the order it is. */
+interface Neighbour {
+    itemId: string;
+    track: BreakTrack;
+}
+
+interface Neighbours {
+    previous?: Neighbour;
+    next?: Neighbour;
 }

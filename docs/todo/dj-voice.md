@@ -310,6 +310,36 @@ activity feed above into a transport over existing rows.
 See [station-moment.md](station-moment.md) for the request those writers take, and
 [tool-plugins.md](tool-plugins.md) for what a writer can ask mid-sentence.
 
+## The talk-up limit, which is a measurement rather than a setting
+
+**Added 2026-08-11.** A DJ talks over the front of a record and stops when the singing starts. The
+station cannot do that, and the reason is not the audio path (the duck and the voice cue both
+already work) but that nothing knows how long the intro is. Every break today is timed against a
+number the planner chose, and over a record with a four-second intro that number is wrong in a way a
+listener hears immediately.
+
+[station-intelligence.md](station-intelligence.md) §3 already calls `intro_end` "the talk-up limit"
+and measures it as where the record is fully underway. The sharper version, and the one worth asking
+for while the measurement is being built anyway, is **the first sustained vocal**. A per-instant
+vocal-presence signal falls out of source separation cheaply, and the first sustained crossing of it
+after `cue_in` is exactly the instant a DJ stops talking. It is a different number from "the beat has
+arrived", it is later on most records, and the gap between the two is free talk-up time the station
+would otherwise leave on the table.
+
+Three things this unlocks, in the order they are worth building:
+
+- **A cue that arms itself against the record** instead of being handed a time, which is the thing
+  §3 says `intro_end` is worth measuring for even if no crossfade is ever built.
+- **A hard limit the writer must respect**, which changes the writing job rather than only the
+  timing: a talk-up that has to land in 4.2 seconds is a length constraint on the text, and it is
+  cheaper to constrain the request than to trim rendered speech.
+- **The same trick on the outro**, where a break over a long fade is the other half of what makes a
+  station sound like a station rather than a playlist with announcements.
+
+The measurement itself is [track-analysis.md](track-analysis.md), including the fact that an
+unanalysed track has to keep working: no vocal onset means no talk-up, falling back to the current
+behaviour rather than to a guess.
+
 ## The smaller things this leaves behind
 
 - **Outro cues.** "Finish two seconds before the record ends" needs the segment's duration, and

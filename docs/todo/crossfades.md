@@ -20,7 +20,9 @@ timed against, so it wants those breaks landing reliably first.
 **It has one genuine prerequisite**, added 2026-08-10: the per-track measurement in
 [station-intelligence.md](station-intelligence.md) §3, because without it there is no honest number
 to blend for. A fixed duration is not a smaller version of this feature, it is the thing that makes
-transitions sound wrong on most pairs, which is the problem being solved.
+transitions sound wrong on most pairs, which is the problem being solved. Where that measurement
+comes from is [track-analysis.md](track-analysis.md), added 2026-08-11, along with the beat layer
+that "What the blend does inside the buffer" below needs on top of the four cue points.
 
 ---
 
@@ -68,6 +70,74 @@ Two consequences for this file specifically:
 and trimming the dead air off the head and tail of each record needs no `cross`, no pair logic, and
 none of the clock work below. If the measurement pass lands before this one does, that trim is worth
 shipping on its own.
+
+## What the blend does inside the buffer
+
+**Added 2026-08-11.** Everything above decides how LONG the overlap is. This decides what happens
+during it, and it is a separate question with a separate answer. It needs the beat layer in
+[track-analysis.md](track-analysis.md) rather than only the four cue points, so it sits behind that
+file, and it is worth reading before building the simple version because the simple version is the
+bottom rung of the ladder below rather than a different design.
+
+### A ladder gated on evidence, not on preference
+
+The station should attempt the most ambitious transition the measurement supports and no more.
+Three rungs, checked most-disqualifying first:
+
+| Rung | What it does | Gate |
+| --- | --- | --- |
+| Plain fade | equal-power blend over the buffer | anything below, or no analysis at all |
+| Filtered handover | quantised anchors, filter sweep, bass handover | tempo ratio within about 4% after octave normalisation, and at least one side confident |
+| Beat-matched | the above, plus a tempo nudge to lock the grids | both sides confidently measured |
+
+The numbers that work, from an implementation running against real libraries: a tempo outside
+40–220 BPM disqualifies outright, beat confidence below about 0.2 on both sides drops to a plain
+fade, and below about 0.55 on either side blocks beat-matching while still permitting the filtered
+handover. Treat them as starting points rather than as findings, but keep the shape, because the
+shape is the part that matters: **missing evidence degrades to a defined behaviour instead of being
+guessed at**, and a tempo from metadata alone can never authorise beat-matching. That last rule is
+why [track-analysis.md](track-analysis.md) stores provenance beside the value.
+
+Two mechanics that are not obvious and are cheap once known:
+
+- **Normalise tempo into one octave before comparing.** A 63 BPM record against a 126 BPM one is a
+  match, counted the way a DJ counts it, and a naive ratio calls it a mismatch and drops a rung for
+  no reason.
+- **The tempo nudge is a time-stretch, not a resample.** Stretching without shifting pitch, inside
+  the overlap only, is a beat-match. Changing playback rate is a detune, and it is audible on
+  anything with a sustained note.
+
+### Quantise the anchor, do not just fade at a time
+
+A blend that starts at an arbitrary instant sounds like a blend. One that starts on a bar line
+sounds intentional. Snap the transition point to the nearest phrase boundary within about four
+beats, failing that to the nearest downbeat within about two, failing both use the raw time. The
+tolerances are what stop quantisation from dragging the anchor somewhere musically worse than where
+it started.
+
+### Three moves on the outgoing track, and one of them is not a fade
+
+For the filtered handover, the useful part is spectral rather than level:
+
+- **A low-pass sweep on the outgoing track**, exponential in frequency, ending near the bass
+  crossover. The record thins out and recedes rather than merely getting quieter.
+- **A mid-band duck**, up to about 6 dB, scaled by the incoming track's own power, so the two do not
+  compete where voices and guitars live.
+- **A bass handover that switches once**, roughly 40% through the overlap, rather than crossfading.
+  Two basslines summing is the classic mud, and this is the single cheapest fix for it. It is also
+  the one move here that a level-only crossfade cannot approximate at all.
+
+All three are engine work in `radio.liq`, not app work, and they need the filter chain to be per
+transition rather than on the bus.
+
+### What this does to the length rule
+
+`buffer = min(outgoing.outro, incoming.intro)` stays the rule for the plain rung. The other two
+rungs want a length in BEATS rather than seconds, because the whole point is that the overlap lines
+up with the music: roughly 8 beats for a compatible pair, 16 when the keys are distant or both sides
+are singing, converted to seconds at the matched tempo and then clamped into the same 4–12 second
+window the measurement produces. The clamp is what keeps the two rules from disagreeing, and the
+`min()` above remains the ceiling in every case, so a blend still cannot eat a cold opening.
 
 ## Why it is deferred: the cross buffer moves the clock
 

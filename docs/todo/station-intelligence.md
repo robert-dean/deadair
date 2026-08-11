@@ -182,7 +182,42 @@ ever cut for time, cut it down to those two rather than dropping it.
   already per pair, so this is satisfied by construction rather than by care.
 
 `intro_end` is worth measuring even if no crossfade is ever built: it is the talk-up limit, which is
-what would let a talk-over cue itself against the record instead of being handed a time.
+what would let a talk-over cue itself against the record instead of being handed a time. Sharpened
+2026-08-11 in [dj-voice.md](dj-voice.md): the limit a DJ actually respects is the first sustained
+vocal, which is later than "fully underway" on most records and is worth measuring as its own field.
+
+**Added 2026-08-11: this section is no longer the only consumer of the measurement**, and where the
+numbers come from has moved to [track-analysis.md](track-analysis.md). The four points above stand
+unchanged; what that file adds is the beat layer underneath them (tempo, a confidence to go with it,
+a downbeat grid, a vocal curve) which the transition work in [crossfades.md](crossfades.md) needs and
+these four do not provide, plus the two constraints that decide where analysis runs. The second of
+those constraints is the licence note above, promoted: it bears on the architecture rather than only
+on the code, because a sidecar speaking HTTP is a different position from linking the same toolkit
+into the API process.
+
+### Ordering the set so the transitions are easy
+
+The cheapest transition is the one between two records that already fit. Once tempo and key are
+measured, the running order itself becomes a place to spend that, and the algorithm is small:
+
+Score each candidate boundary as a weighted cost, then walk it greedily, taking the lowest-cost next
+track from what remains. Weights that work: tempo distance as a log ratio, weighted heaviest;
+harmonic distance next, at roughly half, computed around the circle of fifths with relative
+major/minor treated as near; and a small penalty for putting two vocal-heavy records together. The
+greedy walk is not optimal and does not need to be, because the thing being avoided is the jarring
+pair rather than the imperfect one.
+
+**The part worth copying exactly is the handling of unmeasured tracks.** They break the sequence into
+segments and keep their original positions, rather than being sorted on defaults. A single confident
+number cannot be allowed to drag an unmeasured record across the hour, and a low-confidence
+measurement has to score as "no opinion" rather than as a value near zero.
+
+Two cautions specific to us. This is a rotation-ordering concern and therefore belongs behind
+`SetGenerator` (§1) rather than in the pusher, since the director owns the running order and nothing
+else may reorder it. And it competes with the rules already there: repeat windows and artist
+cooldowns are correctness, harmonic flow is taste, and taste must not be allowed to win. Applying it
+within the freedom the rules leave, rather than as a sort over the whole pool, is the version that
+cannot break anything.
 
 ## 4. Per-track gain, alongside the live normalizer
 

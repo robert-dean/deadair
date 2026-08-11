@@ -73,6 +73,24 @@ function verifierKey(state: string): string {
     return `${PKCE_STORAGE_PREFIX}${state}`;
 }
 
+/**
+ * The OAuth `error` code out of a failed token response, and nothing else from it.
+ *
+ * One field, by name, rather than the body: a token endpoint's body carries
+ * tokens on the success path, and a rule of "never echo it" is easier to keep
+ * than a rule of "never echo it except when the status was bad". The code is a
+ * fixed vocabulary (`invalid_grant`, `invalid_client`, `invalid_request`), so
+ * there is nothing in it that is not safe to log.
+ *
+ * `undefined` for a body that is not JSON or carries no code, which is an
+ * ordinary answer: a proxy's HTML error page reaches here too.
+ */
+async function tokenErrorReason(response: Response): Promise<string | undefined> {
+    const payload = await tryJsonBody<{ error?: unknown }>(response);
+    const reason = payload?.error;
+    return typeof reason === 'string' && reason.length > 0 ? reason : undefined;
+}
+
 function toAccessToken(tokens: StoredTokens): AccessToken {
     return {
         access_token: tokens.accessToken,
@@ -300,9 +318,26 @@ export class HostVaultAuthStrategy implements IAuthStrategy {
         // A token endpoint that says 4xx is saying the grant is dead (revoked
         // refresh token, wrong client id), which the operator has to fix by
         // reconnecting; 5xx is Spotify having a bad day and worth a retry.
+        //
+        // The one machine-readable field IS read, because since 20 July 2026 a
+        // refresh token expires six months after the authorization that minted
+        // it, and `invalid_grant` is how that arrives: a 400 like any other,
+        // for a station that was working yesterday and needs one click to fix.
+        // Reporting it as "HTTP 400" sends an operator looking for a fault
+        // instead. Refreshing does not extend the six months — the clock runs
+        // from the original authorization — so this is a state every connected
+        // station reaches on a schedule, not an error some of them hit.
         if (!response.ok) {
             const code = response.status >= 500 ? 'unavailable' : 'auth';
-            throw new PluginError(`Spotify token request failed (HTTP ${response.status})`).withCode(code).withUpstreamStatus(response.status);
+            const reason = await tokenErrorReason(response);
+            const detail =
+                reason === 'invalid_grant'
+                    ? 'the Spotify authorization has expired or been revoked (Spotify expires one six months after it was granted); reconnect Spotify to grant a fresh one'
+                    : reason;
+            const message = detail
+                ? `Spotify token request failed (HTTP ${response.status}): ${detail}`
+                : `Spotify token request failed (HTTP ${response.status})`;
+            throw new PluginError(message).withCode(code).withUpstreamStatus(response.status);
         }
 
         const payload = await tryJsonBody<SpotifyTokenResponse>(response);

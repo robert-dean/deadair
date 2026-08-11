@@ -145,6 +145,35 @@ describe('HostVaultAuthStrategy', () => {
             await expect(strategy.handleCallback({ code: 'auth-code', state: 'state-5' })).rejects.toThrow('Spotify token request failed (HTTP 400)');
         });
 
+        it('names an expired authorization rather than reporting it as a bare 400', async () => {
+            // Since 20 July 2026 a refresh token expires six months after the authorization that
+            // minted it, and this is how that arrives. A station that worked yesterday needs one
+            // reconnect, so "HTTP 400" alone sends an operator looking for a fault instead.
+            const host = createFakePluginHost();
+            host.queueResponse(
+                tokenResponse({
+                    status: 400,
+                    statusText: 'Bad Request',
+                    body: '{"error":"invalid_grant","error_description":"Refresh token revoked"}',
+                }),
+            );
+            host.seedTokens({ accessToken: 'old-access', refreshToken: 'six-months-old', expiresAt: String(Date.now() - 1000) });
+            const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);
+
+            await expect(strategy.getBearer()).rejects.toThrow(/six months|reconnect Spotify/);
+        });
+
+        it('passes an unfamiliar token-endpoint error code through without inventing a cause for it', async () => {
+            const host = createFakePluginHost();
+            host.queueResponse(tokenResponse({ status: 400, statusText: 'Bad Request', body: '{"error":"invalid_client"}' }));
+            const strategy = new HostVaultAuthStrategy(host, CLIENT_ID, REDIRECT_URI);
+            await strategy.getAuthorizeUrl('state-5c');
+
+            await expect(strategy.handleCallback({ code: 'auth-code', state: 'state-5c' })).rejects.toThrow(
+                'Spotify token request failed (HTTP 400): invalid_client',
+            );
+        });
+
         it('throws when the token response carries no access token', async () => {
             const host = createFakePluginHost();
             host.queueResponse(tokenResponse({ body: '{"token_type":"Bearer"}' }));

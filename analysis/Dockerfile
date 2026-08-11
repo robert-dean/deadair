@@ -26,7 +26,13 @@ WORKDIR /srv
 COPY analysis/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY analysis/measure.py analysis/loudness.py analysis/app.py ./
+# Named individually rather than `COPY analysis/*.py`, so the tests do not ride into the
+# image. The cost is that this list is a second place a new module has to be added, and it
+# has already been missed once: `tags.py` arrived with the ReplayGain read and was not added
+# here, so the image built clean and then died on `from tags import gain_tags` every time it
+# started. Nothing upstream noticed, because a sidecar that will not start looks exactly like
+# a sidecar nobody called.
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/app.py ./
 
 # Non-root: this service fetches URLs it was handed and runs a decoder over what
 # comes back, which is the one process here that touches bytes from outside.

@@ -4,6 +4,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { BreakPlanner } from './break.planner.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
+import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
@@ -46,10 +47,20 @@ export const DirectorModule: ServerKitModule = {
         // is the preference order — a model binding goes in front of `TalkBreakWriter` rather than
         // instead of it, and the registry falls through to whatever is last when the ones above it
         // decline. So the station's own words stay the floor by being the final entry.
+        registry.register(ModelTalkBreakWriter).useClass(ModelTalkBreakWriter).asScoped();
         registry.register(TalkBreakWriter).useClass(TalkBreakWriter).asScoped();
         registry
             .register(BreakWriterRegistry)
-            .useFactory((container: Container) => new BreakWriterRegistry([container.get(TalkBreakWriter)], container.get(Logger)))
+            .useFactory(
+                (container: Container) =>
+                    new BreakWriterRegistry(
+                        // The model first and the station's own words last, which is the whole of
+                        // how they are ranked. Everything the model can do wrong falls through to
+                        // the line below it, and the line below it cannot fail.
+                        [container.get(ModelTalkBreakWriter), container.get(TalkBreakWriter)],
+                        container.get(Logger),
+                    ),
+            )
             .asScoped();
 
         // Scoped with the repository it reads. Called from the director's own pass, which is the

@@ -92,6 +92,26 @@ export interface WrittenBreak {
     claimsNext?: boolean;
 }
 
+/**
+ * What a writer wants kept about HOW it produced (or failed to produce) some words.
+ *
+ * For the record only. Nothing here reaches the listener, nothing downstream branches on it, and a
+ * writer that has none of it is the ordinary case — the station's own phrasings cost nothing and
+ * are their own explanation.
+ */
+export interface WriteDetail {
+    /** Which model said it, for a writer that used one. */
+    model?: string;
+    /** What the line was rendered FROM, for a writer working from something an operator can edit. */
+    source?: string;
+    /** The provider's own token counts, when it reported any. */
+    usage?: Record<string, number>;
+    /** The messages as sent. Only when the operator asked for them to be kept. */
+    prompt?: unknown;
+    /** The answer before the station tidied it. Only when the operator asked for it to be kept. */
+    raw?: string;
+}
+
 export abstract class BreakWriter {
     /** Which `segments.kind` this writes. Several writers may claim one kind; see the registry. */
     abstract readonly kind: string;
@@ -116,4 +136,18 @@ export abstract class BreakWriter {
      * to, and a floor that throws is not one.
      */
     abstract write(request: BreakWriteRequest): Promise<WrittenBreak | undefined>;
+
+    /**
+     * Anything worth keeping about the write that just happened.
+     *
+     * Read by the registry immediately after {@link write}, and by nothing else ever. It exists
+     * because the interesting detail is needed on BOTH branches — a model that produced a script and
+     * a model that produced forty seconds of nothing are equally worth the token count and the
+     * prompt — and `write` answering `undefined` has nowhere to put it.
+     *
+     * Optional, and most writers have none. A writer that implements it may assume it is called
+     * once, immediately, on the same instance: writers are resolved per job, and the registry does
+     * not interleave.
+     */
+    detailOfLastWrite?(): WriteDetail | undefined;
 }

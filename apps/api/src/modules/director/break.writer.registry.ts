@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import type { BreakWriteRequest, BreakWriter, WrittenBreak } from './break.writer.js';
+import type { BreakWriteRequest, BreakWriter, WriteDetail, WrittenBreak } from './break.writer.js';
 
 /**
  * Which writers write which kind of break, in the order they are asked.
@@ -56,6 +56,8 @@ export interface WriteAttempt {
      * can only be asked of numbers gathered before anybody suspected it.
      */
     durationMs: number;
+    /** Whatever the writer wanted kept about how it got here. Absent for most writers. */
+    detail?: WriteDetail;
 }
 
 /** What the registry answers: the words if there are any, and everything it tried either way. */
@@ -141,6 +143,7 @@ export class BreakWriterRegistry {
         const took = (): number => Date.now() - started;
 
         let written: WrittenBreak | undefined;
+        let failure: string | undefined;
         try {
             written = await writer.write(request);
         } catch (error) {
@@ -148,21 +151,47 @@ export class BreakWriterRegistry {
             // Warned rather than noted quietly, because a writer THROWING is a bug in that writer
             // even though the station absorbs it. A writer declining is not.
             this.logger.warn(`director: a break writer failed (${request.kind}/${writer.name}: ${message})`);
-            return { writer: writer.name, outcome: 'failed', reason: `the ${writer.name} writer failed: ${message}`, durationMs: took() };
+            failure = `the ${writer.name} writer failed: ${message}`;
         }
 
+        // Asked on every branch, because a model that produced a script and a model that spent forty
+        // seconds producing nothing are equally worth the token count and the prompt. Guarded,
+        // because a writer whose own bookkeeping throws must not turn a written break into a lost
+        // one — this is the record, and the record is never worth the broadcast.
+        let detail: WriteDetail | undefined;
+        try {
+            detail = writer.detailOfLastWrite?.();
+        } catch {
+            detail = undefined;
+        }
+        const kept = detail === undefined ? {} : { detail };
+
+        if (failure !== undefined) return { writer: writer.name, outcome: 'failed', reason: failure, durationMs: took(), ...kept };
+
         if (written === undefined) {
-            return { writer: writer.name, outcome: 'declined', reason: `the ${writer.name} writer had nothing to say here`, durationMs: took() };
+            return {
+                writer: writer.name,
+                outcome: 'declined',
+                reason: `the ${writer.name} writer had nothing to say here`,
+                durationMs: took(),
+                ...kept,
+            };
         }
 
         if (written.script.trim().length === 0) {
             // Whitespace is the one failure the render job cannot use: it reaches the engine as a
             // request to speak nothing and comes back as audio nobody can hear. A fault in that
             // writer rather than a decision it made, so it counts as `failed`.
-            return { writer: writer.name, outcome: 'failed', reason: `the ${writer.name} writer produced an empty script`, durationMs: took() };
+            return {
+                writer: writer.name,
+                outcome: 'failed',
+                reason: `the ${writer.name} writer produced an empty script`,
+                durationMs: took(),
+                ...kept,
+            };
         }
 
-        return { writer: writer.name, outcome: 'written', written, durationMs: took() };
+        return { writer: writer.name, outcome: 'written', written, durationMs: took(), ...kept };
     }
 }
 

@@ -171,9 +171,7 @@ describe('SettingsPage', () => {
         // line tall.
         getSettings.mockResolvedValue(
             settingsOf({
-                descriptors: [
-                    { group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' },
-                ],
+                descriptors: [{ group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' }],
                 values: { 'rotation.breakTemplates': 'That was {{previous.title}}.\nYou just heard {{previous.title}}.' },
             }),
         );
@@ -188,9 +186,7 @@ describe('SettingsPage', () => {
     it('sends a multi-line setting back as the plain string it is', async () => {
         getSettings.mockResolvedValue(
             settingsOf({
-                descriptors: [
-                    { group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' },
-                ],
+                descriptors: [{ group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' }],
                 values: { 'rotation.breakTemplates': 'That was {{previous.title}}.' },
             }),
         );

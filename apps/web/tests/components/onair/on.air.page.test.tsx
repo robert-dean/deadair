@@ -140,6 +140,35 @@ describe('OnAirPage', () => {
         expect(screen.getByText('will skip')).toBeInTheDocument();
     });
 
+    it('says which writer produced a break', async () => {
+        // A model that degrades to the station's own phrasings on every single break looks exactly
+        // like a model that is working, unless the row says which one spoke.
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'seg-1', kind: 'segment', title: 'Talk break', artists: [], segmentWriter: 'model' }),
+                    orderItem({ id: 'seg-2', kind: 'segment', title: 'Another break', artists: [], segmentWriter: 'deterministic' }),
+                ],
+            }),
+        );
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+
+        expect(await screen.findByText('model')).toBeInTheDocument();
+        expect(screen.getByText('deterministic')).toBeInTheDocument();
+    });
+
+    it('says nothing about a writer for a recording somebody made', async () => {
+        getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'seg-1', kind: 'segment', title: 'Top of the hour', artists: [] })] }));
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+
+        expect(await screen.findByText('Top of the hour')).toBeInTheDocument();
+        expect(screen.queryByText('deterministic')).not.toBeInTheDocument();
+    });
+
     it('will not offer to shuffle a tail with nothing left in it', async () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ state: 'airing' })] }));
         getStationAir.mockResolvedValue(stationAir());

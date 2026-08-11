@@ -3,6 +3,7 @@ import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.
 import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
+import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ANALYSIS_CONCURRENCY_KEY, ANALYSIS_PLUGIN_KEY, DEFAULT_ANALYSIS_CONCURRENCY } from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
@@ -284,6 +285,32 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         help: 'The plugin id the station asks for words. Leave empty when only one plugin can, and set it when several can. With none available the station still writes its own breaks, deterministically.',
+    },
+    {
+        group: 'llm',
+        key: MODEL_WRITER_KEYS.enabled,
+        label: 'Let a model write the talk breaks',
+        type: 'boolean',
+        default: false,
+        help: 'With this off the station writes its own breaks from the phrasings above, which it does instantly and cannot fail at. With it on the model writes them and those phrasings become the floor underneath: a model that is slow, missing or rambling costs a better sentence rather than a silent station.',
+    },
+    {
+        group: 'llm',
+        key: MODEL_WRITER_KEYS.model,
+        label: 'Model for a talk break',
+        type: 'string',
+        default: '',
+        dependsOn: MODEL_WRITER_KEYS.enabled,
+        help: "Per call rather than plugin config, so a big model for a show and a small one for a link is expressible. Leave empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: MODEL_WRITER_KEYS.persona,
+        label: 'Who the station sounds like',
+        type: 'text',
+        default: '',
+        dependsOn: MODEL_WRITER_KEYS.enabled,
+        help: 'A line or two in your own words, handed to the model as the voice to write in. It cannot loosen the rules the station always sends: never name a record it was not given, and be certain or say nothing.',
     },
     {
         group: 'llm',

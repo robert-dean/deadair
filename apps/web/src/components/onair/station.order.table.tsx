@@ -23,6 +23,19 @@ function formatArtists(artists: string[]): string {
 const isSpent = (state: StationItemState): boolean => state !== 'planned';
 
 /**
+ * What decided a break's words, in a sentence.
+ *
+ * Free text on the row rather than a fixed set, because a station can install a writer this console
+ * has never heard of. The two it does know are named; anything else is shown as it comes.
+ */
+function writerHint(writer: string): string {
+    if (writer === 'model') return 'A model wrote these words.';
+    if (writer === 'deterministic')
+        return 'The station wrote these words itself, from its own phrasings. That is the floor: it is also what you hear when a model is off, missing, or too slow.';
+    return `Written by ${writer}.`;
+}
+
+/**
  * How each state reads to somebody at the desk.
  *
  * The words matter more than they look. "Handed over" is deliberately not "playing": the pusher
@@ -108,6 +121,17 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove }: S
                                         <Badge size="xs" variant="light" color="grape">
                                             over the next record
                                         </Badge>
+                                    )}
+                                    {/* Which writer produced the words. Without it a model that
+                                        degrades to the station's own phrasings on every single
+                                        break looks exactly like a model that is working, and the
+                                        answer has been on the row since it was written. */}
+                                    {item.segmentWriter === undefined ? undefined : (
+                                        <Tooltip label={writerHint(item.segmentWriter)} multiline maw={360}>
+                                            <Badge size="xs" variant="light" color={item.segmentWriter === 'model' ? 'grape' : 'gray'}>
+                                                {item.segmentWriter}
+                                            </Badge>
+                                        </Tooltip>
                                     )}
                                     {/* The station SKIPS a segment that has no audio when it comes
                                         round, rather than waiting for one. An operator reading the

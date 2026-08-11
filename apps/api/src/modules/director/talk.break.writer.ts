@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { BreakWriter, type BreakTrack, type BreakWriteRequest, type WrittenBreak } from './break.writer.js';
+import { BreakWriter, type BreakTrack, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import {
     parseTemplates,
     TEMPLATE_KEYS,
@@ -58,6 +58,9 @@ export class TalkBreakWriter extends BreakWriter {
     readonly kind = TALK_BREAK_KIND;
     readonly name = DETERMINISTIC_WRITER;
 
+    /** Which template produced the last line, for the record. See {@link detailOfLastWrite}. */
+    private lastTemplate?: string;
+
     constructor(
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -65,7 +68,19 @@ export class TalkBreakWriter extends BreakWriter {
         super();
     }
 
+    /**
+     * Which phrasing this was, so a set of them can be tuned rather than guessed at.
+     *
+     * The one thing about a deterministic line that is not obvious from the line: with several
+     * templates that fit, which one was picked is the difference between "that phrasing reads badly"
+     * and "the station is repeating itself".
+     */
+    detailOfLastWrite(): WriteDetail | undefined {
+        return this.lastTemplate === undefined ? undefined : { source: this.lastTemplate };
+    }
+
     async write(request: BreakWriteRequest): Promise<WrittenBreak | undefined> {
+        this.lastTemplate = undefined;
         const dj = this.config.get(TEMPLATE_KEYS.djName, '').trim();
         const inputs: PhrasingInputs = {
             ...(request.previous === undefined ? {} : { previous: request.previous }),
@@ -87,6 +102,7 @@ export class TalkBreakWriter extends BreakWriter {
         if (fits.length === 0) return undefined;
 
         const chosen = choose(fits, request.recent ?? []);
+        this.lastTemplate = chosen.template;
         // `saysNext` rather than "there was a next record": a phrasing whose intro was an optional
         // chunk that got dropped promised nothing, and a break that promised nothing must not be
         // dropped later for a promise it never made.
@@ -139,8 +155,13 @@ function choose(fits: readonly RenderedTemplate[], recent: readonly string[]): R
  */
 const sample = <T>(pool: readonly T[]): T => pool[Math.floor(Math.random() * pool.length)]!;
 
-/** What the console and the mount call this break. Never the script. */
-function labelFor({ previous, next }: PhrasingInputs): string {
+/**
+ * What the console and the mount call this break. Never the script.
+ *
+ * Exported because every writer wants it, including a model one: a label is for a console and a
+ * player's display, so asking a model to generate one is paying for something no listener hears.
+ */
+export function labelFor({ previous, next }: PhrasingInputs): string {
     if (previous !== undefined && next !== undefined) return `Talk break: ${previous.title} into ${next.title}`;
     if (previous !== undefined) return `Back-announce: ${previous.title}`;
     if (next !== undefined) return `Intro: ${next.title}`;

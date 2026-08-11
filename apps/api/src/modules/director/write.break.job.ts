@@ -195,6 +195,14 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
                     ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
                     ...(attempt.written === undefined ? {} : { script: attempt.written.script, label: attempt.written.label }),
                     ...(attempt.reason === undefined ? {} : { reason: attempt.reason }),
+                    // Whatever the writer wanted kept about how it got there: the model, the token
+                    // counts, and — only while the operator has asked for them — the prompt and the
+                    // answer before the station tidied it.
+                    ...(attempt.detail?.model === undefined ? {} : { model: attempt.detail.model }),
+                    ...(attempt.detail?.source === undefined ? {} : { source: attempt.detail.source }),
+                    ...(attempt.detail?.usage === undefined ? {} : { usage: attempt.detail.usage }),
+                    ...(attempt.detail?.prompt === undefined ? {} : { prompt: attempt.detail.prompt }),
+                    ...(attempt.detail?.raw === undefined ? {} : { raw: attempt.detail.raw }),
                 })),
             );
         } catch (error) {

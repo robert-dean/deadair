@@ -17,10 +17,8 @@ import (
 	"github.com/devgianlu/go-librespot/ap"
 	"github.com/devgianlu/go-librespot/apresolve"
 	"github.com/devgianlu/go-librespot/audio"
-	"github.com/devgianlu/go-librespot/login5"
 	pbdata "github.com/devgianlu/go-librespot/proto/spotify/clienttoken/data/v0"
 	pbhttp "github.com/devgianlu/go-librespot/proto/spotify/clienttoken/http/v0"
-	credentialspb "github.com/devgianlu/go-librespot/proto/spotify/login5/v3/credentials"
 	"github.com/devgianlu/go-librespot/spclient"
 	"google.golang.org/protobuf/proto"
 )
@@ -108,7 +106,7 @@ func (h *sessionHolder) get(ctx context.Context) (*session, error) {
 		h.noteFailure(err)
 		return nil, err
 	}
-	sess, err := connect(ctx, h.log, h.client, username, token)
+	sess, err := connect(ctx, h.log, h.client, username, token, h.bearer())
 	if err != nil {
 		h.noteFailure(err)
 		return nil, err
@@ -139,6 +137,23 @@ func (h *sessionHolder) warm(timeout time.Duration) {
 			return
 		}
 		h.log.WithError(err).Warnf("could not log in to Spotify; the station cannot fetch tracks until this succeeds")
+	}
+}
+
+// The bearer spclient should present, read fresh on every call.
+//
+// It is the app's own access token for this account: the one the console holds, refreshes, and
+// pushes here on every resolve. Reading it per call rather than closing over the one that opened
+// the session is what keeps a long-lived session usable — the token that authenticated the
+// accesspoint expires in an hour, and the accesspoint does not.
+//
+// `force` is ignored because there is nothing here to force: refreshing belongs to the app, which
+// does it on its own clock and pushes the result. An expired push is reported by the source rather
+// than papered over, so spclient fails with a reason instead of a 401.
+func (h *sessionHolder) bearer() librespot.GetLogin5TokenFunc {
+	return func(ctx context.Context, _ bool) (string, error) {
+		_, token, err := h.creds.fetch(ctx, h.client)
+		return token, err
 	}
 }
 
@@ -215,10 +230,11 @@ func (h *sessionHolder) noteFailure(err error) {
 }
 
 // Log in as the station's account and stand up the two clients a fetch needs. This mirrors
-// session.NewSessionFromOptions, minus the dealer, mercury and the event manager: nothing here
-// registers a Connect device or announces a player, which is the point. The account is the same
-// one the console is linked to: the app pushes its login (see pushedCredentials).
-func connect(ctx context.Context, log librespot.Logger, client *http.Client, username, token string) (*session, error) {
+// session.NewSessionFromOptions, minus the dealer, mercury, the event manager AND the login5
+// exchange: nothing here registers a Connect device or announces a player, which is the point. The
+// account is the same one the console is linked to: the app pushes its login (see
+// pushedCredentials).
+func connect(ctx context.Context, log librespot.Logger, client *http.Client, username, token string, bearer librespot.GetLogin5TokenFunc) (*session, error) {
 	deviceId, err := randomDeviceId()
 	if err != nil {
 		return nil, err
@@ -240,21 +256,28 @@ func connect(ctx context.Context, log librespot.Logger, client *http.Client, use
 		return nil, fmt.Errorf("failed authenticating accesspoint: %w", err)
 	}
 
-	l5 := login5.NewLogin5(log, client, deviceId, clientToken)
-	if err := l5.Login(ctx, &credentialspb.StoredCredential{
-		Username: accesspoint.Username(),
-		Data:     accesspoint.StoredCredentials(),
-	}); err != nil {
-		accesspoint.Close()
-		return nil, fmt.Errorf("failed authenticating with login5: %w", err)
-	}
-
 	spAddr, err := resolver.GetSpclient(ctx)
 	if err != nil {
 		accesspoint.Close()
 		return nil, fmt.Errorf("failed resolving spclient: %w", err)
 	}
-	sp, err := spclient.NewSpclient(ctx, log, client, spAddr, l5.AccessToken(), deviceId, clientToken)
+
+	// **No login5 exchange, and that is a deliberate departure from upstream.**
+	//
+	// The session assembly this is transcribed from exchanges the accesspoint's stored credentials
+	// through login5 for a bearer, and this did too. But login5 validates those credentials against
+	// the client the CLIENT TOKEN belongs to — go-librespot's own hard-coded id — while the
+	// accesspoint here was authenticated with a token minted by the OPERATOR's Spotify app. Spotify
+	// tolerated that pairing until 2026-08-09 and then began answering INVALID_CREDENTIALS, which
+	// takes the station off the air completely: every track fails to open and the running order
+	// never advances.
+	//
+	// That exchange bought exactly one thing — a bearer for spclient — and the app already holds
+	// one for the same account, refreshes it, and pushes it here on every resolve. So spclient is
+	// given that instead, and the two halves of the login stop belonging to different clients. The
+	// audio key rides the accesspoint connection and never went through login5 at all, so nothing
+	// about decryption changes.
+	sp, err := spclient.NewSpclient(ctx, log, client, spAddr, bearer, deviceId, clientToken)
 	if err != nil {
 		accesspoint.Close()
 		return nil, fmt.Errorf("failed initializing spclient: %w", err)

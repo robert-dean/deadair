@@ -243,6 +243,114 @@ describe('Rundown.reconcile', () => {
         }
     });
 
+    it('gives up on an item the player never takes, rather than offering it forever', async () => {
+        // The loop that turned a Spotify outage into a station that cycled silently for
+        // a day. An item whose URL resolves fine and then fails when the player pulls it
+        // never reaches `next`'s skip check, so without a ceiling it is lost, reclaimed,
+        // offered again, and lost again, and the running order never advances past it.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b']);
+            const order = orderOf(rundown, ['a', 'b']);
+
+            for (let attempt = 0; attempt < 3; attempt++) {
+                const pulled = await rundown.next();
+                expect(pulled?.item.externalId).toBe('a');
+                vi.advanceTimersByTime(30_000);
+                rundown.reconcile({ queued: 0, ready: false });
+            }
+
+            expect(order.all().find(item => item.id === order.all()[0].id)?.state).toBe('skipped');
+            // And the order has moved on, which is the point: the next thing offered is
+            // the item behind it rather than the same one a fourth time.
+            expect((await rundown.next())?.item.externalId).toBe('b');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('still retries twice first, because a lost push is the common recoverable case', async () => {
+        // A player that restarted drops everything it was holding at once, and those
+        // items genuinely should be given back. A ceiling of one would skip real
+        // programming over a single dropped push.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a', 'b']);
+            const order = orderOf(rundown, ['a', 'b']);
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+                await rundown.next();
+                vi.advanceTimersByTime(30_000);
+                rundown.reconcile({ queued: 0, ready: false });
+            }
+
+            expect(order.all().every(item => item.state === 'planned')).toBe(true);
+            expect((await rundown.next())?.item.externalId).toBe('a');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('carries attempts across a change of programming', async () => {
+        // A retract is not evidence that a track which could not be fetched a minute ago
+        // can be fetched now, so the count has to survive one — otherwise a station that
+        // replans often never reaches the ceiling at all.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a']);
+            const order = orderOf(rundown, ['a']);
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+                await rundown.next();
+                vi.advanceTimersByTime(30_000);
+                rundown.reconcile({ queued: 0, ready: false });
+            }
+
+            rundown.retract();
+            // The director's half after a retraction: the order is unchanged, and it
+            // hands the playable forms back.
+            prepareAll(rundown, order);
+
+            await rundown.next();
+            vi.advanceTimersByTime(30_000);
+            rundown.reconcile({ queued: 0, ready: false });
+
+            expect(order.all()[0].state).toBe('skipped');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('gives an item fresh attempts after a stand-down', async () => {
+        // A stand-down is an operator intervening, and the usual thing they intervene by
+        // doing is fixing whatever was refusing. The SAME order is re-prepared here, so
+        // the ids are the ones that already spent attempts — a fresh order would mint
+        // new ids and prove nothing.
+        vi.useFakeTimers();
+        try {
+            const rundown = rundownWith(['a']);
+            const order = orderOf(rundown, ['a']);
+
+            for (let attempt = 0; attempt < 2; attempt++) {
+                await rundown.next();
+                vi.advanceTimersByTime(30_000);
+                rundown.reconcile({ queued: 0, ready: false });
+            }
+
+            rundown.reset();
+            prepareAll(rundown, order);
+
+            await rundown.next();
+            vi.advanceTimersByTime(30_000);
+            rundown.reconcile({ queued: 0, ready: false });
+
+            // Reclaimed rather than skipped: this is attempt one of three again.
+            expect(order.all()[0].state).toBe('planned');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('leaves a just-handed-over item alone, because the player is still fetching it', async () => {
         // The bug this exists for: Liquidsoap takes a pushed request OFF the queue to
         // resolve it, so for the seconds it spends downloading a track the item is in

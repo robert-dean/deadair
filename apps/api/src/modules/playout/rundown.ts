@@ -112,6 +112,27 @@ export interface PulledItem {
  */
 const RESOLVE_GRACE_MS = 15_000;
 
+/**
+ * How many times an item may be handed to the player and come back unheard before
+ * the station gives up on it.
+ *
+ * Without a ceiling this is an infinite loop, and it is the loop that turned a
+ * Spotify outage into a station that cycled silently for a day instead of failing.
+ * An item the player cannot fetch — a refusing upstream, a 502 from the track
+ * fetcher, audio that has gone from the provider — is lost, reclaimed, offered
+ * again, and lost again, forever, because nothing here counts. Meanwhile
+ * {@link next} only skips what IT could not resolve, and a URL that resolves fine
+ * and then fails when the player pulls it never reaches that check.
+ *
+ * Three, because the two failures this has to tell apart look identical from here.
+ * A player that restarted drops everything it was holding at once and genuinely
+ * should be given those items again; an item that cannot be fetched fails the same
+ * way every time. Retrying twice costs a few seconds and recovers the first;
+ * refusing to retry forever is what stops the second becoming silence. It is
+ * deliberately not 1: a single lost push is the common, recoverable case.
+ */
+const MAX_HAND_OVERS = 3;
+
 /** What is on air, as far as the player has told us. */
 export interface NowPlaying {
     item: RundownItem;
@@ -171,6 +192,20 @@ export class Rundown {
      * listener would hear the track twice. See {@link RESOLVE_GRACE_MS}.
      */
     private servedAt = new Map<string, number>();
+    /**
+     * How many times each item has been handed over and come back unheard.
+     *
+     * The counter {@link MAX_HAND_OVERS} is spent against. Keyed by the order's own
+     * id, so it survives an item being reclaimed and offered again — which is the
+     * whole point, since that cycle is exactly what it is counting.
+     *
+     * Deliberately NOT cleared by {@link retract}: a change of programming is not
+     * evidence that a track which could not be fetched three minutes ago can be
+     * fetched now. {@link reset} does clear it, because a stand-down is an operator
+     * intervening, and the thing they most often intervene by doing is fixing
+     * whatever was refusing.
+     */
+    private handOvers = new Map<string, number>();
     /** Confirmed on air by the player, with the playhead as last measured. */
     private airing?: AiringItem;
     /** The last unexplainable id the player named, so it is reported once rather than every tick. */
@@ -212,6 +247,7 @@ export class Rundown {
         this.order = undefined;
         this.prepared.clear();
         this.servedAt.clear();
+        this.handOvers.clear();
         this.airing = undefined;
     }
 
@@ -282,6 +318,10 @@ export class Rundown {
         this.order?.reclaimAll();
         this.servedAt.clear();
         this.prepared.clear();
+        // Cleared here and NOT in retract: a stand-down is an operator intervening,
+        // and fixing whatever was refusing is the usual thing they intervene by
+        // doing, so a track that had run out of attempts deserves fresh ones.
+        this.handOvers.clear();
         this.airing = undefined;
         this.unknownOnAir = undefined;
         this.announceReset(true);
@@ -569,9 +609,36 @@ export class Rundown {
         // is the overwhelmingly common reason for a reading to be short at all.
         if (lost.length === 0) return;
 
-        this.order?.reclaim(lost);
-        for (const id of lost) this.servedAt.delete(id);
-        this.logger.warn(`rundown: the player never took ${lost.length} of ${handed.length} handed over; offering them again`);
+        // Split by how many times each has already been through this. An item the
+        // player keeps failing to take is given up on rather than offered forever:
+        // see MAX_HAND_OVERS. The alternative is not "we eventually play it", it is
+        // a running order that never advances past it.
+        const exhausted: string[] = [];
+        const retry: string[] = [];
+        for (const id of lost) {
+            const attempts = (this.handOvers.get(id) ?? 0) + 1;
+            this.handOvers.set(id, attempts);
+            (attempts >= MAX_HAND_OVERS ? exhausted : retry).push(id);
+            this.servedAt.delete(id);
+        }
+
+        if (retry.length > 0) {
+            this.order?.reclaim(retry);
+            this.logger.warn(`rundown: the player never took ${retry.length} of ${handed.length} handed over; offering them again`);
+        }
+
+        for (const id of exhausted) {
+            this.order?.markSkipped(id);
+            // Named individually, and at warn. This is the station dropping
+            // programming it committed to, which an operator has to be able to see:
+            // a run of these is an upstream that has stopped serving audio, and the
+            // whole reason for the ceiling is that the alternative is a silence with
+            // nothing in the log to explain it.
+            const item = this.prepared.get(id);
+            const label = item ? `'${item.title}' (${item.pluginId}:${item.externalId})` : id;
+            this.logger.warn(`rundown: the player never took ${label} after ${MAX_HAND_OVERS} attempts — skipping it`);
+        }
+
         this.emit();
     }
 
@@ -666,7 +733,10 @@ export class Rundown {
     /** Forget the playable form of everything the station is done with. */
     private forgetSpentPrepared(): void {
         for (const item of this.order?.all() ?? []) {
-            if (item.state === 'played' || item.state === 'skipped') this.prepared.delete(item.id);
+            if (item.state === 'played' || item.state === 'skipped') {
+                this.prepared.delete(item.id);
+                this.handOvers.delete(item.id);
+            }
         }
     }
 

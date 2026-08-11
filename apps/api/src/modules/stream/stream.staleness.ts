@@ -36,6 +36,14 @@ import type { StreamConfigRender } from './stream.config.js';
  * changed, or the container is failing to come back. That is exactly when a
  * person is needed, and it is what the command in the warning is for.
  *
+ * The warning names the elapsed FACT rather than an expectation, and that is
+ * worth keeping. An earlier draft said the container's own watch "should have
+ * restarted it and has not", and it was measured firing against containers that
+ * had no watch at all — sending the reader hunting for a broken watcher that did
+ * not exist. It reads the same way to anyone who set `CONFIG_WATCH_INTERVAL_S=0`
+ * deliberately. This is only worth anything while it has never misdescribed what
+ * it found.
+ *
  * **How each half is known.** They are different problems and get different
  * evidence:
  *
@@ -277,8 +285,8 @@ export class StreamConfigWatch {
             detail:
                 `icecast started at ${iso(server.startedAt)} and ${this.render?.icecast.path} last changed at ${iso(changedAt)}, ` +
                 'so it is running the passwords that were current before then, and every listener is being refused on the ' +
-                'listener_add hook. It reads its config once, at startup. Its own config watch should have restarted it ' +
-                'within seconds and has not, so it needs restarting by hand.',
+                'listener_add hook. It reads its config once, at startup, and it has now been behind for longer than a ' +
+                'container watching its own config takes to restart, so that watch is off or it is not working here.',
             restart: restartCommand('icecast'),
         };
     }
@@ -308,8 +316,8 @@ export class StreamConfigWatch {
                 detail:
                     `liquidsoap booted with config generation ${reading.stamp} and ${radio.path} is now generation ${radio.stamp}, ` +
                     'so it is holding the source password, the bridge secret and the shim secret as they stood before that render. ' +
-                    'It sources that file once, at startup, and its own config watch should have restarted it within seconds ' +
-                    'and has not, so it needs restarting by hand.',
+                    'It sources that file once, at startup, and it has now been behind for longer than a container watching its ' +
+                    'own config takes to restart, so that watch is off or it is not working here.',
                 restart: restartCommand('liquidsoap'),
             };
         }

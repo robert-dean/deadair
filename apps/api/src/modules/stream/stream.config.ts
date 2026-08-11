@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { StreamSettings } from './stream.settings.js';
 
@@ -172,13 +172,31 @@ export function stampOf(content: string): string {
 }
 
 /**
- * Write a file only when its content differs from what is already there.
+ * Write a file only when its content differs, and never leave a partial one
+ * behind.
  *
- * The skip is the point, not an optimization. `writeFileSync` moves the mtime
- * whether or not anything changed, and the mtime is the evidence that
+ * **The skip is the point, not an optimization.** `writeFileSync` moves the
+ * mtime whether or not anything changed, and the mtime is the evidence that
  * `stream.staleness.ts` compares a container's start time against — so a render
  * that always wrote would make every boot look like a config change nobody had
  * adopted, and there would be no way left to see a real one.
+ *
+ * **The rename is the point too.** A plain write truncates and then fills, so
+ * there is a window in which the file on the volume is short. Nothing in this
+ * process reads it, but both containers do — and `set -a; . radio.env` on a
+ * truncated file is silent: the shell takes the variables that made it and
+ * simply does not define the rest, so Liquidsoap comes up with a source password
+ * and no bridge secret and nothing anywhere says why. That window is reachable
+ * at boot by a container starting into a render, and reachable on purpose by
+ * anything watching this file for changes. Writing beside the file and renaming
+ * over it closes it: a rename within one directory is atomic, so a reader sees
+ * either the whole old file or the whole new one.
+ *
+ * The temporary carries the pid rather than a counter, because a second render
+ * cannot interleave with this one inside a process — there is no `await` here,
+ * and the runtime is single-threaded — while two app instances rendering onto
+ * the same volume genuinely can. Reusing one name per process also means a crash
+ * mid-write leaves one stale file rather than one per attempt.
  */
 function writeIfChanged(path: string, content: string, stamp = stampOf(content)): RenderedFile {
     let existing: string | undefined;
@@ -189,9 +207,14 @@ function writeIfChanged(path: string, content: string, stamp = stampOf(content))
     }
 
     if (existing !== content) {
+        // Beside the target, so the rename stays within one filesystem. A temporary in
+        // the OS temp dir would be a cross-device rename, which fails outright on some
+        // hosts and degrades to a copy on others — putting back the window this closes.
+        const temporary = `${path}.${process.pid}.tmp`;
         // 0644: these hold secrets, but they live on a private volume shared with trusted
         // containers whose uids differ, so they have to be readable by them.
-        writeFileSync(path, content, { mode: 0o644 });
+        writeFileSync(temporary, content, { mode: 0o644 });
+        renameSync(temporary, path);
     }
 
     return { path, stamp, changedAt: statSync(path).mtimeMs };

@@ -6,7 +6,7 @@
 // far from its cause — a password broken by quoting, a mount name mangled by XML
 // escaping, a skipped render leaving the station on last week's config.
 
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -253,6 +253,18 @@ describe('writeStreamConfig', () => {
         expect(after?.radio.stamp).not.toBe(before?.radio.stamp);
         expect(after?.radio.changedAt).toBeGreaterThan(before?.radio.changedAt ?? 0);
         expect(after?.icecast.changedAt).toBeGreaterThan(before?.icecast.changedAt ?? 0);
+    });
+
+    it('leaves no partial file behind for a container to source', () => {
+        // Both files are written beside themselves and renamed over, so a reader only
+        // ever sees a whole one. `set -a; . radio.env` on a truncated file is SILENT —
+        // it defines the variables that made it and skips the rest — so a half-written
+        // radio.env is a Liquidsoap with a source password and no bridge secret, and
+        // nothing anywhere saying why.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        expect(readdirSync(configDir).sort()).toEqual(['icecast.xml', 'radio.env']);
     });
 
     it('writes the stamp into radio.env as the generation the script reports back', () => {

@@ -18,13 +18,16 @@ packages/plugin-sdk   the plugin contract and host capabilities
 packages/sdk          typed client for the API
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
-plugins/*             bundled plugins: spotify, navidrome, musicbrainz, kokoro (the station's voice)
+plugins/*             bundled plugins: spotify, navidrome, musicbrainz, kokoro (the station's
+                      voice), llm, analyzer (the adapter over the measurement sidecar)
+analysis/             the measurement sidecar: a Python service that decodes a record and answers
+                      with its cue points and its loudness. No decoding happens in Node
 stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends
 ```
 
 Current `apps/api` modules: `data`, `crypto`, `authentication`, `permissions`, `policy`, `jobs`,
 `art`, `catalog`, `onboarding`, `settings`, `stream`, `plugins`, `playlists`, `llm`, `render`,
-`playout`, `nowplaying`, `director`, `enrichment`, plus process-level `logging`.
+`playout`, `nowplaying`, `analysis`, `director`, `enrichment`, plus process-level `logging`.
 `src/modules/modules.ts` is the source of truth, in that order; check it before assuming a subsystem
 exists.
 

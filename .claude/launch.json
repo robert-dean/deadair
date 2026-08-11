@@ -11,7 +11,7 @@
             "name": "web",
             "runtimeExecutable": "pnpm",
             "runtimeArgs": ["--filter", "@app/web", "dev"],
-            "port": 5173
+            "port": 3002
         }
     ]
 }

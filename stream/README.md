@@ -67,6 +67,37 @@ without the operator, plus three of its own, all measured against 2.4.5:
 Whether a broadcast blends at all is the running order's, not the station's: a rotation does, an
 album played in full does not, because its segues are the point. See `resolveRules`.
 
+**Two things about it are counter-intuitive and were both found by measuring a render, not by
+reading.** Neither failed loudly; the station simply cut between records as though nothing had been
+built.
+
+- **A boundary is stamped on BOTH records that form it**, as the outgoing one's `liq_cross_end_duration`
+  and the incoming one's `liq_cross_start_duration`. The combined `liq_cross_duration` key looks like
+  the obvious choice and is a trap: it sets both ends of ONE record, so two adjacent items hand the
+  operator two different numbers for the same boundary and the shorter wins. Since a hard join is
+  stamped on everything that does not blend, and something that does not blend follows most things
+  that do, that collapsed every blend on the station.
+- **`type="sin"` is not equal-power.** Liquidsoap's `sin` shape is `(1 + sin((x - 0.5) * pi)) / 2`, a
+  raised cosine passing through 0.5 amplitude at the midpoint. Like `lin` it is complementary — the
+  fade out is one minus the fade in — and any complementary pair sums to half power in the middle,
+  measured as a 3.08 dB hole in the centre of every blend. `log` and `exp` are not complementary;
+  sweeping the curve puts `log` at 6.4 with a worst deviation of 0.12 dB.
+
+### Checking it
+
+`crossfade.check.liq` renders the transition over synthetic tracks whose frequencies are not
+harmonics of one another, so each record's amplitude envelope can be recovered independently and the
+overlap length, the combined power and the hard join become numbers. `crossfade.check.py` reads the
+result and says which checks passed.
+
+```
+docker compose exec -T liquidsoap sh -c 'cat > /tmp/x.liq; timeout 90 liquidsoap /tmp/x.liq >/dev/null 2>&1; cat /tmp/crossfade.check.wav' < stream/crossfade.check.liq > stream/crossfade.check.wav
+python3 stream/crossfade.check.py
+```
+
+**The transition in it is COPIED from `radio.liq` between two marker comments, and nothing enforces
+that.** Re-copy it when the real one changes, or the check quietly stops testing the station.
+
 One thing it costs: `playout_queue.remaining()` is read below the `cross`, so the `remainingMs` in a
 reading runs ahead of the listener by whatever is buffered. It is display-only and nothing schedules
 against it, so it is left alone rather than corrected into a second number that could disagree.

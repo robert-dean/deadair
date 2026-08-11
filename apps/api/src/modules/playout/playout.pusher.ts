@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { annotateUri, itemAnnotations } from './annotate.js';
+import { annotateUri, blendOutOf, itemAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
 import { TARGET_LUFS_KEY, resolveTargetLufs } from './gain.js';
 import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
@@ -88,6 +88,16 @@ export class PlayoutPusher {
     private readonly unsubscribes: (() => void)[] = [];
     /** One reconcile at a time: `next()` emits a change, which would otherwise re-enter here. */
     private busy = false;
+    /**
+     * The blend stamped on the LAST boundary handed over, so the next item can carry
+     * the same number as its start buffer.
+     *
+     * Held here rather than derived, because by the time the incoming item is handed
+     * over the running order may have moved and a second computation would not agree
+     * with the first. Zero after a reset: whatever the player was holding is gone, so
+     * the next item begins a boundary with nothing on the other side of it.
+     */
+    private previousBlendMs = 0;
 
     constructor(
         private readonly rundown: Rundown,
@@ -126,6 +136,10 @@ export class PlayoutPusher {
             this.rundown.onReset(standingDown => {
                 const handed = standingDown ? this.control.releaseOnAir() : this.control.flush();
                 void handed.catch(() => undefined);
+                // Whatever the player was holding is going away, so the next item handed over
+                // is not the far side of any boundary. Left alone it would stamp a start
+                // buffer against a record that no longer precedes it.
+                this.previousBlendMs = 0;
                 // An armed cue belongs to a record that is no longer going to air, either way.
                 // `/control/offair` clears it too, but a replacement does not go through that, and
                 // a cue left armed would fire over the first record of the NEW running order.
@@ -280,12 +294,22 @@ export class PlayoutPusher {
                 // rundown is the thing that knows the order, and a blend is sized from the
                 // pair rather than from either record. It is absent at the tail of what has
                 // been planned, which `blendFor` answers as a hard join.
-                const annotations = itemAnnotations(pulled.item, {
+                //
+                // `previousBlendMs` is the other half of the same fact. A boundary has to be
+                // stamped on BOTH records that form it — the outgoing one's end buffer and the
+                // incoming one's start buffer — or `cross` takes the shorter of two numbers
+                // that were never about the same boundary. See `crossAnnotations`.
+                const context = {
                     targetLufs: this.targetLufs(),
                     crossfade: this.rundown.crossfade(),
+                    previousBlendMs: this.previousBlendMs,
                     ...(pulled.next === undefined ? {} : { next: pulled.next }),
-                });
-                const landed = await this.control.push(annotateUri(annotations, pulled.url));
+                };
+                const landed = await this.control.push(annotateUri(itemAnnotations(pulled.item, context), pulled.url));
+
+                // Remembered AFTER the push, so a push that did not land does not leave the
+                // next item claiming to blend into a record the player never got.
+                this.previousBlendMs = landed ? blendOutOf(pulled.item, context) : 0;
 
                 // Armed as the record is handed over, which is the earliest honest moment: the id
                 // exists, the item is committed, and the script waits for that record to actually

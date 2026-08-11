@@ -52,6 +52,14 @@ export interface AnnotationContext {
      * decided from either record alone.
      */
     next?: RundownItem;
+    /**
+     * The blend the PREVIOUS boundary was stamped with, in milliseconds.
+     *
+     * Carried forward by the pusher rather than recomputed, so the two ends of one
+     * boundary cannot disagree. See {@link crossAnnotations} for why a boundary has
+     * to be stamped twice at all.
+     */
+    previousBlendMs?: number;
 }
 
 /**
@@ -162,14 +170,26 @@ function gainAnnotations(item: RundownItem, { targetLufs }: AnnotationContext): 
 }
 
 /**
- * `liq_cross_duration`: how long this record overlaps the one after it.
+ * How long this record overlaps its neighbours, in seconds, on both sides.
  *
- * Liquidsoap's own name, in seconds, and like the keys above **it does nothing
- * without the operator in the graph to read it**, meaning a `cross` in
- * `radio.liq`. Stamped on the OUTGOING item because that is where `cross` reads it: the
- * override sizes the ending track's own end-of-track buffer. Its VALUE is
- * decided by the pair, which is why {@link AnnotationContext} has to carry the
- * successor.
+ * Liquidsoap's own names, and like the keys above **they do nothing without the
+ * operator in the graph to read them**, meaning a `cross` in `radio.liq`.
+ *
+ * **TWO keys, not the combined `liq_cross_duration`.** That was the first
+ * attempt and it produced no blend at all, on every boundary, measured on a
+ * rendered transition. A boundary is made of two records; the combined key sets
+ * both ends of ONE record. So the outgoing item said "blend four seconds" about
+ * the boundary after it, the incoming item said "blend a tenth" about the
+ * boundary after IT, `cross` applied both to the same transition, and the
+ * shorter one won. Since a hard join is stamped on everything that does not
+ * blend, and something that does not blend follows most things that do, that
+ * collapsed essentially every boundary.
+ *
+ * Split, the same number is stamped twice and the two ends agree: as the
+ * outgoing record's END buffer, and as the incoming record's START buffer.
+ * Which is why {@link AnnotationContext} carries both the successor (to compute
+ * the boundary after this item) and {@link AnnotationContext.previousBlendMs}
+ * (the boundary before it, already computed one hand-over ago).
  *
  * **Always stamped**, which is the one line here that looks defensive and is
  * load-bearing. `cross` needs `persist_override=true` on 2.4 or the override is
@@ -188,9 +208,25 @@ function gainAnnotations(item: RundownItem, { targetLufs }: AnnotationContext): 
  * the same number. See {@link HARD_JOIN_MS} for what a zero actually does.
  */
 function crossAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
-    const blendMs = blendFor(item, context.next, context);
+    const out = blendFor(item, context.next, context);
+    const into = context.previousBlendMs ?? 0;
 
-    return { liq_cross_duration: seconds(blendMs === 0 ? HARD_JOIN_MS : blendMs) };
+    return {
+        liq_cross_end_duration: seconds(out === 0 ? HARD_JOIN_MS : out),
+        liq_cross_start_duration: seconds(into === 0 ? HARD_JOIN_MS : into),
+    };
+}
+
+/**
+ * The blend out of this item, for a caller that has to carry it to the next one.
+ *
+ * Exported so the pusher stamps ONE number on both ends of a boundary rather
+ * than computing it twice from two different vantage points and hoping they
+ * agree. They would not: by the time the incoming item is handed over, the
+ * running order may have moved.
+ */
+export function blendOutOf(item: RundownItem, context: AnnotationContext): number {
+    return blendFor(item, context.next, context);
 }
 
 /**

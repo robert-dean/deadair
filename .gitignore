@@ -58,3 +58,6 @@ docs/decisions/
 # The container installs from requirements.txt and never sees either.
 __pycache__/
 .pytest_cache/
+
+# Rendered by stream/crossfade.check.liq; regenerate rather than commit.
+stream/crossfade.check.wav

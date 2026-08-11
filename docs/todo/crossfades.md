@@ -44,7 +44,26 @@ bed = fallback(track_sensitive=false, [playout_bed, music, station_id])
 
 Per-item durations ride the `annotate:` metadata that already exists: `itemAnnotations` in
 [apps/api/src/modules/playout/annotate.ts](../../apps/api/src/modules/playout/annotate.ts) builds the
-map, and adding a `liq_cross_duration` key there is the whole app-side change.
+map. ~~Adding a `liq_cross_duration` key there is the whole app-side change.~~
+
+**Wrong, and it produced no blend at all on any boundary. Corrected 2026-08-11 by rendering a
+transition and measuring it.** `liq_cross_duration` does not mean "the boundary after this item"; it
+sets BOTH of one track's buffers. A boundary is made of two records, so two adjacent items hand the
+operator two different numbers for the same transition and the shorter one wins. Because a hard join
+is stamped on everything that does not blend, and something that does not blend follows most things
+that do, essentially every blend collapsed to a cut. Nothing failed: the station played on, sounding
+exactly as it had before crossfades were built.
+
+The two keys that DO express it are `liq_cross_end_duration` on the outgoing record and
+`liq_cross_start_duration` on the incoming one, so each boundary's length is stamped twice and the
+two ends agree. The app-side cost is that the pusher has to carry a boundary's length forward to the
+item after it, which is the mechanism "The last item handed over has no successor yet" below is
+really about.
+
+**And `type="sin"` is not an equal-power fade**, which rung 1 of the ladder below asks for.
+Liquidsoap's `sin` shape is a raised cosine through 0.5 amplitude at the midpoint, and like `lin` it
+is complementary, so a pair of them sums to half power in the middle: measured, a 3.08 dB hole in the
+centre of every blend. `log` at `curve=6.4` holds power flat to 0.12 dB and is what the tree uses.
 
 ## Where the length comes from
 

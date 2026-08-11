@@ -654,7 +654,10 @@ describe('PlayoutPusher: the blend', () => {
     });
 
     /** The blend the pusher stamped on a pushed uri, in seconds as Liquidsoap takes it. */
-    const blend = (uri: string): string => /liq_cross_duration="([^"]+)"/.exec(uri)?.[1] ?? '';
+    const blend = (uri: string): string => /liq_cross_end_duration="([^"]+)"/.exec(uri)?.[1] ?? '';
+
+    /** The blend the pusher stamped as an item's START buffer: the boundary BEFORE it. */
+    const blendIn = (uri: string): string => /liq_cross_start_duration="([^"]+)"/.exec(uri)?.[1] ?? '';
 
     /** What a boundary the station does not blend carries. Never zero; see `annotate.ts`. */
     const HARD_JOIN = String(HARD_JOIN_MS / 1000);
@@ -677,6 +680,33 @@ describe('PlayoutPusher: the blend', () => {
 
         expect(blend(pushed[0]!)).toBe('6');
         expect(blend(pushed[1]!)).toBe('9');
+    });
+
+    it('stamps the same number on both records that form a boundary', async () => {
+        // The bug this exists for, found by rendering a transition and measuring it: a
+        // boundary is made of TWO records, and `cross` sizes it from the outgoing one's
+        // end buffer and the incoming one's start buffer. Give it two different numbers
+        // and it takes the shorter. The first version stamped one combined key per item
+        // meaning "the boundary after me", so every blend was overruled by whatever the
+        // next record said about ITS boundary -- which, for anything followed by a hard
+        // join, was a hard join. Every blend on the station collapsed and nothing failed.
+        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)]);
+
+        await pusher.reconcile();
+
+        expect(blend(pushed[0]!)).toBe('6');
+        expect(blendIn(pushed[1]!)).toBe('6');
+        expect(blend(pushed[1]!)).toBe('9');
+        expect(blendIn(pushed[2]!)).toBe('9');
+    });
+
+    it('opens the first item of a broadcast with a hard join', async () => {
+        // Nothing precedes it, so there is no boundary on that side to size.
+        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000)]);
+
+        await pusher.reconcile();
+
+        expect(blendIn(pushed[0]!)).toBe(HARD_JOIN);
     });
 
     it('stamps a hard join at the tail of what has been planned', async () => {

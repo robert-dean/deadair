@@ -286,8 +286,9 @@ describe('itemAnnotations', () => {
             title: 'Windowlicker',
             artist: 'Aphex Twin, Someone Else',
             album: 'Windowlicker',
-            // Always present, even at zero. See the blend block below for why.
-            liq_cross_duration: HARD_JOIN,
+            // Both ends always present. See the blend block below for why there are two.
+            liq_cross_end_duration: HARD_JOIN,
+            liq_cross_start_duration: HARD_JOIN,
         });
     });
 
@@ -301,7 +302,8 @@ describe('itemAnnotations', () => {
         expect(itemAnnotations({ ...item, artists: [] }, CONTEXT)).toEqual({
             deadair_item: 'item-1',
             title: 'Windowlicker',
-            liq_cross_duration: HARD_JOIN,
+            liq_cross_end_duration: HARD_JOIN,
+            liq_cross_start_duration: HARD_JOIN,
         });
     });
 });
@@ -420,13 +422,13 @@ describe('itemAnnotations: the blend', () => {
         }) as never;
 
     it('stamps the overlap in seconds, on the record that is ending', () => {
-        // `cross` reads the override off the track whose end it is buffering, so the
+        // `cross` reads the end override off the track whose end it is buffering, so the
         // duration for a boundary lives on the OUTGOING item -- even though its value
         // came from measuring both.
         const stamped = itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true, next: measured('item-2') });
 
         // min(outro 10s, intro 8s).
-        expect(stamped.liq_cross_duration).toBe('8');
+        expect(stamped.liq_cross_end_duration).toBe('8');
     });
 
     it('always stamps, because the override persists', () => {
@@ -434,8 +436,8 @@ describe('itemAnnotations: the blend', () => {
         // `persist_override=true` on 2.4, and the flip side is that a stamp lingers over
         // every later unstamped track -- so an item without one would not be a hard join,
         // it would be a blend by whatever the last measured record left behind.
-        expect(itemAnnotations(measured('item-1'), CONTEXT).liq_cross_duration).toBe(HARD_JOIN);
-        expect(itemAnnotations(measured('item-1', { cueInMs: undefined }), CONTEXT).liq_cross_duration).toBe(HARD_JOIN);
+        expect(itemAnnotations(measured('item-1'), CONTEXT).liq_cross_end_duration).toBe(HARD_JOIN);
+        expect(itemAnnotations(measured('item-1', { cueInMs: undefined }), CONTEXT).liq_cross_end_duration).toBe(HARD_JOIN);
     });
 
     it('never stamps a zero, which would stop the operator rather than skip the blend', () => {
@@ -453,19 +455,19 @@ describe('itemAnnotations: the blend', () => {
             }),
         ];
 
-        for (const stamped of every) expect(Number(stamped.liq_cross_duration)).toBeGreaterThan(0);
+        for (const stamped of every) expect(Number(stamped.liq_cross_end_duration)).toBeGreaterThan(0);
     });
 
     it('does not blend when the broadcast does not', () => {
         // An album, or a sequenced setlist. Its gaps are somebody's decision.
         const context = { targetLufs: DEFAULT_TARGET_LUFS, crossfade: false, next: measured('item-2') };
 
-        expect(itemAnnotations(measured('item-1'), context).liq_cross_duration).toBe(HARD_JOIN);
+        expect(itemAnnotations(measured('item-1'), context).liq_cross_end_duration).toBe(HARD_JOIN);
     });
 
     it('does not blend into nothing', () => {
         // The tail of what has been planned. Nothing follows, so there is no boundary.
-        expect(itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true }).liq_cross_duration).toBe(HARD_JOIN);
+        expect(itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true }).liq_cross_end_duration).toBe(HARD_JOIN);
     });
 
     it('rides the annotate uri alongside everything else', () => {
@@ -478,7 +480,7 @@ describe('itemAnnotations: the blend', () => {
             'http://shim/track',
         );
 
-        expect(uri).toContain('liq_cross_duration="8"');
+        expect(uri).toContain('liq_cross_end_duration="8"');
         expect(uri).toContain('liq_cue_out="200"');
         expect(uri).toContain('liq_amplify="3 dB"');
     });

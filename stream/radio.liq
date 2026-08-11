@@ -255,10 +255,21 @@ on_air_item = ref("")
 on_air_elapsed = ref(0.)
 voice_tick = 0.1
 
-# The metadata key the app stamps a blend length on, which is also `cross`'s own default for
-# `override_duration`. Declared up here rather than beside the operator for the same reason
-# `on_air_elapsed` is: `playout_note_on_air` below reads it.
-playout_cross_key = "liq_cross_duration"
+# The two metadata keys the app stamps a blend length on. Liquidsoap's own names, and both are
+# `cross`'s own defaults. Declared up here rather than beside the operator for the same reason
+# `on_air_elapsed` is: `playout_note_on_air` below reads one of them.
+#
+# TWO keys and not the combined `liq_cross_duration`, which was the first attempt and is a trap.
+# **A boundary is made of two tracks, and the combined key sets BOTH ends of ONE track.** So the
+# outgoing record says "blend 4 seconds" about the boundary after it while the incoming record says
+# "blend 0.1" about the boundary after IT, the operator applies both to the same transition, and the
+# shorter one wins. Measured: every boundary collapsed to a hard join because whichever record came
+# next was not itself blending.
+#
+# Split, each boundary's length is stamped twice and the two agree: on the outgoing record as its
+# END buffer, on the incoming record as its START buffer.
+playout_cross_out_key = "liq_cross_end_duration"
+playout_cross_in_key = "liq_cross_start_duration"
 
 # What a boundary the station does not blend is stamped with, and it is deliberately NOT zero.
 #
@@ -271,12 +282,12 @@ playout_cross_key = "liq_cross_duration"
 # Must match HARD_JOIN_MS in apps/api/src/modules/playout/annotate.ts.
 playout_cross_hard_join = 0.1
 
-# How long a record asked to be blended for, off its own metadata.
+# How long the boundary OUT of a record is, off its own metadata.
 #
 # Same `float_of_string(default=null, …) ?? fallback` shape as `env_float` at the top, and for the
 # same reason: the key is absent on anything the app did not stamp.
 def playout_cross_duration(m) =
-  float_of_string(default=null, string.trim(m[playout_cross_key])) ?? playout_cross_hard_join
+  float_of_string(default=null, string.trim(m[playout_cross_out_key])) ?? playout_cross_hard_join
 end
 
 # How far AHEAD of the listener `on_air_elapsed` is running, in seconds.
@@ -465,10 +476,21 @@ playout_bed = normalize(target=-16., threshold=-25., up=30., gain_max=6., playou
 
 # What happens during the overlap.
 #
-# Equal-power (`type="sin"`), which is the plain rung and the whole of it. The louder-sounding
-# alternatives (a filter sweep on the outgoing record, a bass handover that switches once rather
-# than crossfading) need a per-transition filter chain rather than one on the bus, and they are
-# not built. See docs/todo/crossfades.md.
+# Equal-power, which is the plain rung and the whole of it. The louder-sounding alternatives (a
+# filter sweep on the outgoing record, a bass handover that switches once rather than crossfading)
+# need a per-transition filter chain rather than one on the bus, and they are not built. See
+# docs/todo/crossfades.md.
+#
+# **`type="log", curve=6.4` and NOT `type="sin"`, which is not what its name suggests.** Liquidsoap's
+# `sin` shape is `(1 + sin((x - 0.5) * pi)) / 2`, a raised cosine that passes through 0.5 amplitude
+# at the midpoint. Like `lin`, it is COMPLEMENTARY — the fade out is one minus the fade in — and any
+# complementary pair sums to half power in the middle, which is a 3 dB hole in the centre of every
+# blend. Measured on a rendered transition, not inferred: -3.08 dB.
+#
+# `log` and `exp` are not complementary, so they can do better. Sweeping the curve for the flattest
+# combined power puts `log` at 6.4, worst deviation 0.12 dB across the whole overlap, which is equal
+# power for any purpose a listener has. The default curve of 10 would give 0.48 dB and is also fine;
+# 6.4 is here because it was free once the sweep was written. `exp` cannot do it at any curve.
 #
 # `sequence` rather than a fade when there is nothing to blend, which is the ordinary case for an
 # unmeasured record, for an album, and for either side of one of the station's own segments. It
@@ -484,8 +506,8 @@ def playout_transition(a, b) =
     add(
       normalize=false,
       [
-        fade.in(type="sin", duration=blend, b.source),
-        fade.out(type="sin", duration=blend, a.source)
+        fade.in(type="log", curve=6.4, duration=blend, b.source),
+        fade.out(type="log", curve=6.4, duration=blend, a.source)
       ]
     )
   end
@@ -497,7 +519,8 @@ end
 playout_bed =
   cross(
     duration=playout_cross_hard_join,
-    override_duration=playout_cross_key,
+    override_end_duration=playout_cross_out_key,
+    override_start_duration=playout_cross_in_key,
     persist_override=true,
     playout_transition,
     playout_bed

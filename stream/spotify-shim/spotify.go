@@ -103,17 +103,39 @@ func (h *sessionHolder) get(ctx context.Context) (*session, error) {
 		return nil, holdingOff{wait: wait}
 	}
 
-	username, token, err := h.creds.fetch(ctx, h.client)
+	creds, err := h.creds.fetch(ctx, h.client)
 	if err != nil {
 		h.noteFailure(err)
 		return nil, err
 	}
-	sess, err := connect(ctx, h.log, h.client, username, token)
+	sess, err := connect(ctx, h.log, h.client, creds)
 	if err != nil {
 		h.noteFailure(err)
 		return nil, err
 	}
 	h.current, h.backoff, h.lastError = sess, 0, ""
+	return sess, nil
+}
+
+// Build a session on a login given directly, and install it as the live one.
+//
+// For the authorization flow, which has a token in hand and needs the accesspoint's own reusable
+// credentials out the other side. It bypasses `creds` deliberately: the point of the exchange is to
+// produce what `creds` will read NEXT time, so asking it first would authenticate on whatever is
+// already stored and learn nothing.
+//
+// Installed rather than discarded because the connection it just paid for is a good one, and a
+// station that has this moment been authorized should be able to play immediately.
+func (h *sessionHolder) establish(ctx context.Context, creds login) (*session, error) {
+	sess, err := connect(ctx, h.log, h.client, creds)
+	if err != nil {
+		return nil, err
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.current.close()
+	h.current, h.lastFailure, h.backoff, h.lastError = sess, time.Time{}, 0, ""
 	return sess, nil
 }
 
@@ -216,9 +238,16 @@ func (h *sessionHolder) noteFailure(err error) {
 
 // Log in as the station's account and stand up the two clients a fetch needs. This mirrors
 // session.NewSessionFromOptions, minus the dealer, mercury and the event manager: nothing here
-// registers a Connect device or announces a player, which is the point. The account is the same
-// one the console is linked to: the app pushes its login (see pushedCredentials).
-func connect(ctx context.Context, log librespot.Logger, client *http.Client, username, token string) (*session, error) {
+// registers a Connect device or announces a player, which is the point.
+//
+// **The two halves have to belong to the same client.** The client token below is minted for the
+// streaming client id, and login5 validates whatever the accesspoint stored against the client its
+// client token belongs to. A stored login satisfies that, because it was produced by an
+// authorization against that same id (see authorize.go). A pushed access token does not: it is
+// minted by the operator's own Spotify app, the accesspoint accepts it, and login5 then refuses the
+// pairing — measured as INVALID_CREDENTIALS on every track from 2026-08-09. That is the whole
+// reason `login` has two forms rather than being a username and a token.
+func connect(ctx context.Context, log librespot.Logger, client *http.Client, creds login) (*session, error) {
 	deviceId, err := randomDeviceId()
 	if err != nil {
 		return nil, err
@@ -236,7 +265,12 @@ func connect(ctx context.Context, log librespot.Logger, client *http.Client, use
 	}
 
 	accesspoint := ap.NewAccesspoint(log, apAddr, deviceId)
-	if err := accesspoint.ConnectSpotifyToken(ctx, username, token); err != nil {
+	if creds.isStored() {
+		err = accesspoint.ConnectStored(ctx, creds.username, creds.stored)
+	} else {
+		err = accesspoint.ConnectSpotifyToken(ctx, creds.username, creds.token)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("failed authenticating accesspoint: %w", err)
 	}
 
@@ -268,10 +302,12 @@ func connect(ctx context.Context, log librespot.Logger, client *http.Client, use
 
 // ── credentials ──────────────────────────────────────────────────────────────
 
-// Where a login comes from. Two implementations: whatever the app last pushed (how the container
-// runs) and a fixed pair passed on the command line (how an operator debugs one track).
+// Where a login comes from. Three implementations, chained in preference order: this shim's own
+// stored authorization (how a working container runs), whatever the app last pushed (the fallback,
+// and what a station that has never been authorized has), and a fixed pair passed on the command
+// line (how an operator debugs one track).
 type credentialSource interface {
-	fetch(ctx context.Context, client *http.Client) (username, token string, err error)
+	fetch(ctx context.Context, client *http.Client) (login, error)
 }
 
 // The last login the app pushed to POST /session.
@@ -290,7 +326,7 @@ type pushedCredentials struct {
 	fallback  credentialSource
 }
 
-func (c *pushedCredentials) fetch(ctx context.Context, client *http.Client) (string, string, error) {
+func (c *pushedCredentials) fetch(ctx context.Context, client *http.Client) (login, error) {
 	c.mu.Lock()
 	username, token, expiresAt := c.username, c.token, c.expiresAt
 	c.mu.Unlock()
@@ -302,9 +338,9 @@ func (c *pushedCredentials) fetch(ctx context.Context, client *http.Client) (str
 	// down, or the station has been off air for longer than a token lives), and saying so names the
 	// cause; the next resolve pushes a fresh one on its own.
 	if !expiresAt.IsZero() && time.Now().After(expiresAt) {
-		return "", "", fmt.Errorf("the pushed login expired at %s; the app pushes a fresh one when it next resolves a track", expiresAt.UTC().Format(time.RFC3339))
+		return login{}, fmt.Errorf("the pushed login expired at %s; the app pushes a fresh one when it next resolves a track", expiresAt.UTC().Format(time.RFC3339))
 	}
-	return username, token, nil
+	return login{username: username, token: token}, nil
 }
 
 // Record a pushed login, reporting what about it changed: whether it names a different account, and
@@ -322,11 +358,11 @@ func (c *pushedCredentials) store(username, token string, expiresAt time.Time) (
 
 type staticCredentials struct{ username, token string }
 
-func (c staticCredentials) fetch(context.Context, *http.Client) (string, string, error) {
+func (c staticCredentials) fetch(context.Context, *http.Client) (login, error) {
 	if c.username == "" || c.token == "" {
-		return "", "", fmt.Errorf("no credentials: wait for the app to push a login, or pass -username and -token")
+		return login{}, fmt.Errorf("no credentials: authorize this shim (POST /authorize), wait for the app to push a login, or pass -username and -token")
 	}
-	return c.username, c.token, nil
+	return login{username: c.username, token: c.token}, nil
 }
 
 // A client token for the spclient calls. Copied from session.retrieveClientToken, which is

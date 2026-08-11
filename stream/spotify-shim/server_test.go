@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -112,12 +115,12 @@ func TestSessionPushIsWhatTheNextFetchUses(t *testing.T) {
 	if rec.Result().StatusCode != http.StatusAccepted {
 		t.Fatalf("push answered %d, want 202", rec.Result().StatusCode)
 	}
-	username, token, err := pushed.fetch(context.Background(), nil)
+	creds, err := pushed.fetch(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("fetch after a push failed: %v", err)
 	}
-	if username != "station" || token != "tok" {
-		t.Fatalf("fetch returned %q/%q, want station/tok", username, token)
+	if creds.username != "station" || creds.token != "tok" {
+		t.Fatalf("fetch returned %q/%q, want station/tok", creds.username, creds.token)
 	}
 }
 
@@ -131,7 +134,7 @@ func TestSessionPushRequiresTheSecret(t *testing.T) {
 	if rec.Result().StatusCode != http.StatusUnauthorized {
 		t.Fatalf("push with a bad secret answered %d, want 401", rec.Result().StatusCode)
 	}
-	if _, _, err := pushed.fetch(context.Background(), nil); err == nil {
+	if _, err := pushed.fetch(context.Background(), nil); err == nil {
 		t.Fatal("a rejected push was stored anyway")
 	}
 }
@@ -165,7 +168,7 @@ func TestSessionPushRejectsAnUnusableBody(t *testing.T) {
 		if rec.Result().StatusCode != http.StatusBadRequest {
 			t.Fatalf("%s: answered %d, want 400", name, rec.Result().StatusCode)
 		}
-		if _, _, err := pushed.fetch(context.Background(), nil); err == nil {
+		if _, err := pushed.fetch(context.Background(), nil); err == nil {
 			t.Fatalf("%s: was stored anyway", name)
 		}
 	}
@@ -177,7 +180,7 @@ func TestAnExpiredPushIsReportedRatherThanUsed(t *testing.T) {
 	pushed := &pushedCredentials{fallback: staticCredentials{}}
 	pushed.store("station", "tok", time.Now().Add(-time.Minute))
 
-	_, _, err := pushed.fetch(context.Background(), nil)
+	_, err := pushed.fetch(context.Background(), nil)
 	if err == nil || !strings.Contains(err.Error(), "expired") {
 		t.Fatalf("fetch on an expired push returned %v, want an expiry error", err)
 	}
@@ -188,14 +191,14 @@ func TestAnExpiredPushIsReportedRatherThanUsed(t *testing.T) {
 func TestTheConfiguredSourceAnswersUntilTheFirstPush(t *testing.T) {
 	pushed := &pushedCredentials{fallback: staticCredentials{username: "flag-user", token: "flag-token"}}
 
-	username, token, err := pushed.fetch(context.Background(), nil)
-	if err != nil || username != "flag-user" || token != "flag-token" {
-		t.Fatalf("fetch before any push returned %q/%q/%v, want the configured pair", username, token, err)
+	creds, err := pushed.fetch(context.Background(), nil)
+	if err != nil || creds.username != "flag-user" || creds.token != "flag-token" {
+		t.Fatalf("fetch before any push returned %q/%q/%v, want the configured pair", creds.username, creds.token, err)
 	}
 
 	pushed.store("station", "tok", time.Time{})
-	if username, _, _ := pushed.fetch(context.Background(), nil); username != "station" {
-		t.Fatalf("fetch after a push returned %q, want the pushed account", username)
+	if creds, _ := pushed.fetch(context.Background(), nil); creds.username != "station" {
+		t.Fatalf("fetch after a push returned %q, want the pushed account", creds.username)
 	}
 }
 
@@ -229,7 +232,85 @@ func TestHealthReportsTheSessionWithoutOpeningOne(t *testing.T) {
 	if rec.Result().StatusCode != http.StatusOK {
 		t.Fatalf("health answered %d, want 200", rec.Result().StatusCode)
 	}
-	if body := rec.Body.String(); body != `{"ok":true,"session":false}`+"\n" {
+	if body := rec.Body.String(); body != `{"ok":true,"session":false,"storedLogin":false}`+"\n" {
+		t.Fatalf("health said %q", body)
+	}
+}
+
+// The authorize URL is copied into a browser BY HAND, so it has to survive being JSON-encoded.
+//
+// Go escapes `&` to `&` by default, which turns every query separator into part of the
+// preceding value: Spotify then sees one enormous parameter and answers "response_type must be
+// code". This is the whole reason writeJSON exists, and it is worth a test because the default is
+// what any later handler will get by reaching for json.NewEncoder directly.
+//
+// Measured, not theorised: it is what the first real authorization against this code did.
+func TestTheAuthorizeURLIsNotHTMLEscapedIntoUselessness(t *testing.T) {
+	srv := &server{
+		log:        &librespot.NullLogger{},
+		secret:     secret,
+		shimSecret: shimSecret,
+		auth:       &authorizer{redirectURL: "http://127.0.0.1:3679/login", log: &librespot.NullLogger{}},
+	}
+
+	req := httptest.NewRequest("POST", "/authorize", nil)
+	req.Header.Set("X-Spotify-Login-Secret", shimSecret)
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, req)
+
+	if rec.Result().StatusCode != http.StatusOK {
+		t.Fatalf("authorize answered %d, want 200", rec.Result().StatusCode)
+	}
+
+	body := rec.Body.String()
+	var answer struct {
+		AuthorizeURL string `json:"authorizeUrl"`
+	}
+	if err := json.Unmarshal([]byte(body), &answer); err != nil {
+		t.Fatalf("authorize answered unparseable JSON: %v", err)
+	}
+
+	// The decoded URL has to appear VERBATIM in the raw body, which is the whole property: an
+	// operator reads this out of curl by eye, not through a JSON decoder. Asserted this way round
+	// rather than by searching for the escape sequence, because a test that has to spell the
+	// escaped form is one edit away from spelling the plain ampersand instead — which every
+	// correct URL contains, so it fails on exactly the output it is meant to accept.
+	if !strings.Contains(body, answer.AuthorizeURL) {
+		t.Fatalf("the authorize url is escaped in the response body, so copying it out loses every query parameter: %s", body)
+	}
+	parsed, err := url.Parse(answer.AuthorizeURL)
+	if err != nil {
+		t.Fatalf("authorize answered an unparseable url: %v", err)
+	}
+	if got := parsed.Query().Get("response_type"); got != "code" {
+		t.Fatalf("response_type is %q, want code (query was %q)", got, parsed.RawQuery)
+	}
+	for _, param := range []string{"client_id", "code_challenge", "code_challenge_method", "state", "redirect_uri"} {
+		if parsed.Query().Get(param) == "" {
+			t.Fatalf("%s is missing from the authorize url (query was %q)", param, parsed.RawQuery)
+		}
+	}
+}
+
+// `storedLogin` is the field to read first when nothing plays, so it has to answer for the file
+// rather than for whatever the last login attempt happened to do. Reported WITHOUT opening a
+// session, for the same reason as the line above.
+func TestHealthReportsAStoredLoginWithoutOpeningOne(t *testing.T) {
+	store := &storedLogin{path: filepath.Join(t.TempDir(), "spotify-credentials.json"), next: staticCredentials{}, log: &librespot.NullLogger{}}
+	if err := store.save("station", []byte("credential-blob")); err != nil {
+		t.Fatalf("save failed: %v", err)
+	}
+
+	srv := &server{
+		log:      &librespot.NullLogger{},
+		secret:   secret,
+		store:    store,
+		sessions: newSessionHolder(store, &librespot.NullLogger{}, nil),
+	}
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, httptest.NewRequest("GET", "/health", nil))
+
+	if body := rec.Body.String(); body != `{"ok":true,"session":false,"storedLogin":true}`+"\n" {
 		t.Fatalf("health said %q", body)
 	}
 }

@@ -36,8 +36,10 @@ Its config comes from the process env, which the entrypoint sources from `radio.
 | | |
 | --- | --- |
 | `PLAYOUT_BRIDGE_SECRET` | signs track URLs; the same secret gating `/control/*` |
-| `SPOTIFY_SHIM_SECRET` | gates `POST /session`, where the app hands over a Spotify login |
+| `SPOTIFY_SHIM_SECRET` | gates `POST /session` and `POST /authorize`, which both decide whose account this shim fetches as |
 | `SHIM_ADDR` | listen address, default `:3679` |
+| `SHIM_CREDENTIALS` | where the shim keeps its own authorization, default `/streamstate/spotify-credentials.json` |
+| `SHIM_CALLBACK_URL` | override the redirect Spotify returns the browser to; defaults to `http://127.0.0.1:<port>/login` |
 
 Note that `docker compose exec` does NOT inherit the entrypoint shell's sourced `radio.env`, so an
 exec'd `-sign` has no secret and the server rejects what it mints. Source it in the exec:
@@ -48,13 +50,19 @@ docker compose exec -T liquidsoap sh -c 'set -a; . /streamconfig/radio.env; dead
 
 (And in zsh, do not capture that into a variable called `path` — it is bound to `$PATH`.)
 
-Three endpoints:
+Five endpoints:
 
 ```
-GET  /health         → {"ok":true,"session":false,"loginError":"…"}
-POST /session        ← the app hands over a Spotify login
+GET  /health         → {"ok":true,"session":false,"storedLogin":true,"loginError":"…"}
+POST /authorize      ← start this shim's own one-time Spotify authorization
+GET  /login?code=    ← where Spotify returns the operator's browser
+POST /session        ← the app hands over a Spotify login (the fallback)
 GET  /track/{id}?t=  → the track as audio/ogg
 ```
+
+`storedLogin` is the one to read first. `false` means this shim has never been authorized and is
+running on whatever the app pushed, which is a login Spotify refuses — see *The login is the shim's
+own* below.
 
 `loginError` is the reason the last login attempt was refused, absent once one succeeds. It is the
 first thing to read when the station queues tracks and never plays one: a refused login shows up
@@ -85,6 +93,51 @@ credentials are exactly what a rejected login might have been waiting for.
 
 Until the first push arrives the shim falls back to a `-username`/`-token` pair given on the
 command line, which is what makes one-shot mode work with no app in the picture at all.
+
+## The login is the shim's own
+
+**Authorize once, in a browser, and the station never needs a pushed token again.**
+
+```bash
+curl -sX POST -H "X-Spotify-Login-Secret: $SPOTIFY_SHIM_SECRET" http://127.0.0.1:3679/authorize
+```
+
+That answers `{"authorizeUrl":"https://accounts.spotify.com/…"}`. Open it, approve, and the browser
+lands back on this shim, which finishes the exchange, logs in, and writes the result to
+`SHIM_CREDENTIALS`. The same URL is logged at info, so it can be read out of
+`.docvol/streamlogs/spotify-shim.log` instead. From then on every login uses that file: it survives
+restarts, rebuilds and schema resets, because it is the one piece of stream state the app does not
+own.
+
+**Why this exists rather than the app's token.** An access token is minted *for* a client. The
+client token this shim presents is minted for the streaming client id, and login5 validates the
+accesspoint's stored credentials against the client its client token belongs to. A token from the
+operator's own Spotify app is a different client, so the pairing is refused however valid each half
+is on its own — the accesspoint authenticates, and login5 answers `INVALID_CREDENTIALS` on every
+track after it. Measured on 2026-08-10: 208 successful accesspoint authentications, every login5
+exchange refused, and the same token answering the Web API throughout. Handing the app's bearer
+straight to spclient instead was tried and answers `403`, so both borrowed forms are closed.
+
+What the authorization produces is not an OAuth token to refresh. It is the reusable credential blob
+the *accesspoint* hands back, which belongs to the client that asked for it — so the two halves
+finally agree, and there is nothing here to renew on an hourly cadence the way an access token is.
+
+**How long that blob lasts is not known, and should not be assumed to be forever.** Spotify began
+expiring OAuth refresh tokens six months after the authorization that minted them (new apps from
+18 June 2026, existing ones from 20 July 2026), and refreshing does not extend that clock. The blob
+is a different credential in a different system, so that rule does not obviously apply to it — but
+it is the same company applying the same idea, and nothing published says otherwise either way. Treat
+re-authorizing as something an operator may have to do occasionally rather than once. `storedLogin`
+stays `true` when the file is merely stale, so `loginError` is what actually reports it.
+
+The pushed login stays as the fallback for a shim nobody has authorized yet, and it is what
+`-username`/`-token` feeds in one-shot mode. It is not a working path on its own; it is what the
+station had before, kept so that authorizing is a step forward rather than a cutover.
+
+**If the authorization fails.** `POST /authorize` again — starting a second one replaces the first,
+which is what an operator who lost the URL wants. A URL goes stale after 15 minutes. The callback
+carries a `state` this shim generated and checks, so a stray hit on the published port cannot
+complete somebody else's authorization.
 
 ## Build (standalone)
 

@@ -126,11 +126,14 @@ services:
         image: deadair-liquidsoap
         container_name: deadair-liquidsoap
         restart: unless-stopped
-        # Nothing to configure for the Spotify login: the app PUSHES one to the shim's
-        # POST /session as it resolves each track, gated on SPOTIFY_SHIM_SECRET, which the
-        # app seeds in the DB and materializes into radio.env for the entrypoint to source
-        # (`set -a`). So the shim needs no host export, no compose env, and no route back
-        # to the app at all.
+        # The Spotify login is the shim's OWN, authorized once through a browser and kept on the
+        # streamstate volume below. The app also pushes a login to POST /session as it resolves
+        # each track (gated on SPOTIFY_SHIM_SECRET, which the app seeds in the DB and materializes
+        # into radio.env for the entrypoint to source with `set -a`), and that push is the fallback
+        # for a shim nobody has authorized yet — it authenticates the accesspoint and is then
+        # refused by login5, because the token belongs to the operator's own Spotify app rather
+        # than to the client the shim presents. Either way the shim needs no host export, no
+        # compose env, and no route back to the app.
         # 8005 is the harbor voice input: the host-run app (pnpm dev) pushes rendered DJ
         # audio to http://127.0.0.1:8005/dj; the in-container app reaches it as liquidsoap:8005.
         # Must match HARBOR_PORT in radio.env. The playout control endpoints (/control/status,
@@ -174,6 +177,12 @@ services:
             # Liquidsoap needs no access to apps/api/public/feeds.
             # The track shim's log. Writable. See stream/README.md.
             - ./.docvol/streamlogs:/streamlogs
+            # The track shim's own Spotify authorization, which is the one login5 accepts. Writable,
+            # and deliberately NOT /streamconfig: that volume is rendered by the app from the
+            # database and mounted read-only, while this file is the one piece of stream state the
+            # app does not own and cannot reproduce. Losing it costs an operator one browser visit
+            # (POST /authorize); see stream/spotify-shim/README.md.
+            - ./.docvol/streamstate:/streamstate
         depends_on:
             # service_started (not _healthy): icecast has no healthcheck (see above),
             # and liquidsoap's output.icecast retries the source connection on its own.

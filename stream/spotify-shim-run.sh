@@ -12,8 +12,14 @@
 #
 # Its config comes from the process env, which the entrypoint sources from radio.env (`set -a`):
 #   PLAYOUT_BRIDGE_SECRET   signs the track URLs; the same secret gating /control/*
-#   SPOTIFY_SHIM_SECRET     gates POST /session, where the app hands over a Spotify login
+#   SPOTIFY_SHIM_SECRET     gates POST /session and POST /authorize, which both decide whose
+#                           Spotify account this shim fetches as
 #   SHIM_ADDR               listen address (default :3679)
+#   SHIM_CREDENTIALS        where the shim keeps its own authorization (default
+#                           /streamstate/spotify-credentials.json, a writable compose volume)
+#   SHIM_CALLBACK_URL       override the redirect Spotify returns the operator's browser to;
+#                           defaults to http://127.0.0.1:<SHIM_ADDR port>/login, which is the
+#                           address compose publishes on the host
 #
 # Diagnostics go to a log on the mounted volume: nothing here is attached to a terminal, and the
 # entrypoint's stdout belongs to Liquidsoap.

@@ -16,8 +16,10 @@ import (
 // The HTTP half: one track per request, so Liquidsoap's request.queue can fetch a Spotify track
 // the same way it fetches a pre-signed Subsonic URL.
 //
-//	GET  /health        → {"ok":true,"session":false,"loginError":"..."}
-//	POST /session       ← the app hands over a Spotify login
+//	GET  /health        → {"ok":true,"session":false,"storedLogin":true,"loginError":"..."}
+//	POST /authorize     ← start this shim's own one-time Spotify authorization
+//	GET  /login?code=   ← where Spotify sends the operator's browser back (see authorize.go)
+//	POST /session       ← the app hands over a Spotify login (the fallback path)
 //	GET  /track/{id}?t= → the track as audio/ogg
 //
 // Liquidsoap curl-downloads a queued item with NO headers from us, which is why the authorization
@@ -35,8 +37,11 @@ type server struct {
 	// track ids around, while this one decides whose Spotify account this shim fetches as. Shared
 	// with the app as SPOTIFY_SHIM_SECRET.
 	shimSecret string
-	// Where a pushed login lands. The session holder reads through it.
-	pushed  *pushedCredentials
+	// Where a pushed login lands. The session holder reads through it, after the stored one.
+	pushed *pushedCredentials
+	// This shim's own authorization: the store it writes to, and the flow that fills it.
+	store   *storedLogin
+	auth    *authorizer
 	bitrate int
 	// How long a fetch may take before it is abandoned. Generous: a track arrives in about a
 	// second, but a cold session has a login in front of it.
@@ -46,6 +51,11 @@ type server struct {
 func (s *server) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("POST /authorize", s.handleAuthorize)
+	// The callback is a GET from the operator's BROWSER, so it cannot carry the login secret the
+	// other control routes are gated on: a redirect from Spotify sends no headers of ours. What
+	// stands in for it is the `state` this shim generated, checked in authorizer.complete.
+	mux.HandleFunc("GET "+authorizeCallbackPath, s.handleAuthorizeCallback)
 	mux.HandleFunc("POST /session", s.handleSession)
 	mux.HandleFunc("GET /track/{id}", s.handleTrack)
 	// HEAD needs its OWN pattern. Go's router matches HEAD against a "GET" pattern, so without
@@ -66,11 +76,88 @@ func (s *server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	// this while nothing plays: without it a station that cannot fetch a single track looks
 	// identical to one nobody has asked for anything yet, and the reason is buried under a wall of
 	// identical backoff lines.
-	body := map[string]any{"ok": true, "session": s.sessions.live()}
+	//
+	// `storedLogin` is the question underneath that one. A shim with no stored authorization is
+	// running on the pushed token, which login5 refuses, so `false` here IS the diagnosis rather
+	// than a detail — and `authorizeUrl` then says what to do about it.
+	body := map[string]any{"ok": true, "session": s.sessions.live(), "storedLogin": s.store.present()}
 	if failure := s.sessions.failure(); failure != "" {
 		body["loginError"] = failure
 	}
-	_ = json.NewEncoder(w).Encode(body)
+	if url := s.auth.pendingURL(); url != "" {
+		body["authorizeUrl"] = url
+	}
+	writeJSON(w, body)
+}
+
+// Encode a response body WITHOUT Go's default HTML escaping.
+//
+// `json.Marshal` rewrites `&`, `<` and `>` as `&` and friends, on the theory that the result
+// might be interpolated into a page. Nothing here is, and one of these bodies carries an
+// authorization URL an operator copies into a browser by hand — where `&` between every query
+// parameter means Spotify sees one enormous parameter and answers "response_type must be code".
+// Measured, not theorised: it is what the first real authorization did.
+func writeJSON(w http.ResponseWriter, body any) {
+	encoder := json.NewEncoder(w)
+	encoder.SetEscapeHTML(false)
+	_ = encoder.Encode(body)
+}
+
+// Start this shim's own authorization and hand back the URL to open.
+//
+// Gated on the same secret as POST /session, and for the same reason: both decide whose Spotify
+// account this shim fetches as. It answers with the URL rather than redirecting, because the caller
+// is an operator with curl or the app relaying to a console, neither of which is a browser
+// following a 302.
+func (s *server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
+	if s.shimSecret == "" {
+		http.Error(w, "no login secret configured", http.StatusNotFound)
+		return
+	}
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Spotify-Login-Secret")), []byte(s.shimSecret)) != 1 {
+		s.log.Warnf("rejected an authorization request: the login secret did not match")
+		http.Error(w, "denied", http.StatusUnauthorized)
+		return
+	}
+
+	url, err := s.auth.begin()
+	if err != nil {
+		s.log.WithError(err).Errorf("could not start an authorization")
+		http.Error(w, "could not start an authorization", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSON(w, map[string]any{"authorizeUrl": url, "expiresInMs": authorizePendingTTL.Milliseconds()})
+}
+
+// Where Spotify sends the operator's browser once they have approved.
+//
+// Answers in plain text because a person is reading it, and says which account landed: an operator
+// with two Spotify accounts in two browser profiles wants to know which one this station now is,
+// and finding that out later means reading a log.
+func (s *server) handleAuthorizeCallback(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	if refusal := query.Get("error"); refusal != "" {
+		s.log.Warnf("the operator's Spotify authorization was refused: %s", refusal)
+		http.Error(w, fmt.Sprintf("Spotify refused the authorization: %s", refusal), http.StatusBadRequest)
+		return
+	}
+
+	// Its own timeout rather than the request's: the exchange is followed by a full login, which is
+	// several round trips, and a browser that gives up must not take the authorization with it.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), s.fetchTimeout)
+	defer cancel()
+
+	username, err := s.auth.complete(ctx, query.Get("code"), query.Get("state"))
+	if err != nil {
+		s.log.WithError(err).Errorf("failed completing the Spotify authorization")
+		http.Error(w, fmt.Sprintf("The authorization did not complete: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = fmt.Fprintf(w, "Authorized as %s. This station can fetch its own tracks now; you can close this tab.\n", username)
 }
 
 // The body of POST /session: the login the app lends this shim.

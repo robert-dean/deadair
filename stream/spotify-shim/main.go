@@ -29,6 +29,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -48,6 +49,8 @@ func main() {
 	shimSecret := flag.String("shim-secret", os.Getenv("SPOTIFY_SHIM_SECRET"), "X-Spotify-Login-Secret gating POST /session (SPOTIFY_SHIM_SECRET)")
 	username := flag.String("username", "", "Spotify username, instead of waiting for the app to push one")
 	token := flag.String("token", "", "Spotify access token, instead of waiting for the app to push one")
+	credentials := flag.String("credentials", envOr("SHIM_CREDENTIALS", defaultCredentialsPath), "where this shim keeps its own Spotify authorization (SHIM_CREDENTIALS)")
+	callbackURL := flag.String("callback-url", envOr("SHIM_CALLBACK_URL", ""), "where Spotify returns the operator's browser; defaults to http://127.0.0.1<addr>"+authorizeCallbackPath+" (SHIM_CALLBACK_URL)")
 	bitrate := flag.Int("bitrate", envIntOr("SHIM_BITRATE", 320), "preferred bitrate; the nearest available Ogg file is used")
 	fetchTimeout := flag.Duration("fetch-timeout", 90*time.Second, "how long one track fetch may take")
 	uri := flag.String("uri", "", "one-shot mode: fetch this track and exit")
@@ -56,51 +59,112 @@ func main() {
 	verbose := flag.Bool("v", false, "log go-librespot's own chatter")
 	flag.Parse()
 
-	if err := run(*addr, *secret, *shimSecret, *username, *token, *uri, *out, *sign, *bitrate, *fetchTimeout, *verbose); err != nil {
+	cfg := options{
+		addr: *addr, secret: *secret, shimSecret: *shimSecret,
+		username: *username, token: *token,
+		credentials: *credentials, callbackURL: *callbackURL,
+		uri: *uri, out: *out, sign: *sign,
+		bitrate: *bitrate, fetchTimeout: *fetchTimeout, verbose: *verbose,
+	}
+	if err := run(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "shim: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(addr, secret, shimSecret, username, token, uri, out, sign string, bitrate int, fetchTimeout time.Duration, verbose bool) error {
+// Everything the two modes are configured with. A struct rather than a parameter list because the
+// list was already eleven long and a positional call of that width is one transposition away from
+// signing tokens with the login secret.
+type options struct {
+	addr, secret, shimSecret string
+	username, token          string
+	credentials, callbackURL string
+	uri, out, sign           string
+	bitrate                  int
+	fetchTimeout             time.Duration
+	verbose                  bool
+}
+
+func run(cfg options) error {
 	// One-shot mode writes audio to stdout, so every diagnostic goes to stderr either way.
-	var log librespot.Logger = &stderrLogger{quiet: !verbose}
+	var log librespot.Logger = &stderrLogger{quiet: !cfg.verbose}
 	client := &http.Client{Timeout: httpClientTimeout}
 
-	// The app pushes a login to POST /session as it resolves each track. A `-username`/`-token`
-	// pair given on the command line answers until one lands, which is what makes one-shot mode
-	// independent of whether an app is running at all.
-	pushed := &pushedCredentials{fallback: staticCredentials{username: username, token: token}}
+	// The credential chain, in preference order. The stored authorization is this shim's own and is
+	// the one login5 accepts; the pushed token is the fallback for a station nobody has authorized
+	// yet; the command-line pair answers under both, which is what makes one-shot mode independent
+	// of whether an app is running at all.
+	pushed := &pushedCredentials{fallback: staticCredentials{username: cfg.username, token: cfg.token}}
+	store := &storedLogin{path: cfg.credentials, next: pushed, log: log}
+	sessions := newSessionHolder(store, log, client)
 
 	srv := &server{
-		sessions:     newSessionHolder(pushed, log, client),
-		client:       client,
-		log:          log,
-		secret:       secret,
-		shimSecret:   shimSecret,
-		pushed:       pushed,
-		bitrate:      bitrate,
-		fetchTimeout: fetchTimeout,
+		sessions:   sessions,
+		client:     client,
+		log:        log,
+		secret:     cfg.secret,
+		shimSecret: cfg.shimSecret,
+		pushed:     pushed,
+		store:      store,
+		auth: &authorizer{
+			redirectURL: callbackURLFor(cfg.callbackURL, cfg.addr),
+			store:       store,
+			sessions:    sessions,
+			log:         log,
+			client:      client,
+		},
+		bitrate:      cfg.bitrate,
+		fetchTimeout: cfg.fetchTimeout,
 	}
 	defer srv.sessions.shutdown()
 
 	switch {
-	case sign != "":
+	case cfg.sign != "":
 		// So an operator can curl a track by hand without recomputing the HMAC.
-		if secret == "" {
+		if cfg.secret == "" {
 			// Signing with an empty key succeeds and produces a token the running server rejects,
 			// which reads as a bug in the auth rather than a missing variable. The trap is that
 			// `docker compose exec` does NOT inherit the entrypoint shell's sourced radio.env.
 			return fmt.Errorf("no signing secret in this process's environment; in the container run:\n" +
 				"  sh -c 'set -a; . /streamconfig/radio.env; deadair-shim -sign <track-id>'")
 		}
-		fmt.Printf("/track/%s?t=%s\n", sign, signToken(secret, sign, time.Now().Add(tokenTTL)))
+		fmt.Printf("/track/%s?t=%s\n", cfg.sign, signToken(cfg.secret, cfg.sign, time.Now().Add(tokenTTL)))
 		return nil
-	case uri != "":
-		return fetchOnce(srv, uri, out)
+	case cfg.uri != "":
+		return fetchOnce(srv, cfg.uri, cfg.out)
 	default:
-		return serve(srv, addr, log)
+		return serve(srv, cfg.addr, log)
 	}
+}
+
+// Where this shim keeps its own authorization when nothing says otherwise.
+//
+// A writable volume of its own rather than /streamconfig, which is mounted read-only: that one is
+// rendered BY the app from the database, and this file is the one piece of the stream container's
+// state the app does not own and cannot reproduce.
+const defaultCredentialsPath = "/streamstate/spotify-credentials.json"
+
+// The redirect Spotify returns the operator's browser to.
+//
+// Derived from the listen address by default, because the two are the same door: compose publishes
+// the shim's port on the host's loopback, so the address this process listens on is the address the
+// operator's browser reaches it at. An explicit `-callback-url` covers the arrangements where that
+// is not true — a shim behind a proxy, or one moved off the stream container.
+//
+// It has to match on BOTH legs of the exchange, so it is computed once here rather than at each
+// use: a redirect that differs by so much as a trailing slash is refused, and the message Spotify
+// answers with does not say which end was wrong.
+func callbackURLFor(explicit, addr string) string {
+	if explicit != "" {
+		return explicit
+	}
+	// `addr` is a listen address, so the host half is empty (":3679") or a bind address that is not
+	// necessarily reachable. Loopback is what compose publishes and what the browser can reach.
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil || port == "" {
+		return "http://127.0.0.1:3679" + authorizeCallbackPath
+	}
+	return "http://127.0.0.1:" + port + authorizeCallbackPath
 }
 
 func serve(srv *server, addr string, log librespot.Logger) error {

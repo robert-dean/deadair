@@ -464,6 +464,17 @@ socket and nothing can restart anything but itself. Two things about it are deli
 - **It polls the mtime; it does not use inotify.** inotify events do not cross Docker Desktop for
   Mac's host bind mount, and `/streamconfig` is one. This repo has been bitten twice (see the
   `reload_mode` note in `radio.liq`), and an inotify watcher here would look right and do nothing.
+
+  **A third way the same mount lies, measured 2026-08-11.** `radio.liq` is bind-mounted as a single
+  FILE, and a single-file mount binds an inode rather than a path. Every editor and every `perl -i`
+  writes a new file and renames it over the old one, which replaces the inode, so the container goes
+  on serving whatever it was started with. It presented a 1011-line copy of a 1157-line file,
+  truncated mid-line, and `liquidsoap --check /radio/radio.liq` reported that as a parse error at
+  the last character it had — which reads exactly like a syntax error in the new code and is not
+  one. Two rules fall out of it. **Check the script by piping it in, never through the mount:**
+  `docker compose exec -T liquidsoap sh -c 'cat > /tmp/c.liq; liquidsoap --check /tmp/c.liq' < stream/radio.liq`.
+  And **`docker compose restart` does not pick up an edit** — mounts are resolved when a container
+  is created, so it takes `up -d --force-recreate liquidsoap`.
 - **It does not coordinate with the app.** The running order lives in the app's memory, so
   `PlayoutPusher` re-pushes and re-asserts the mount lease on its next two-second reconcile. What a
   restart costs is the audio on air at that instant, and waiting for a track boundary would mean

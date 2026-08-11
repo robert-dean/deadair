@@ -110,18 +110,17 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // same precaution rather than three separate ones.
     //
     // **Measuring a track is a full audio download through the provider credential
-    // the station plays on.** At */30 with a batch of 50 this took the station off
-    // the air within one run: fifty back-to-back fetches exhausted Spotify's
-    // audio-key quota, after which the shim could not serve playout either. Zero
-    // key failures before that run, ninety after it. The station could not play
-    // music because a background job had spent its ability to.
+    // the station plays on.** At */30 with a batch of 50 that is a hundred full
+    // tracks an hour of background traffic against a station playing about fifteen,
+    // which is six times the foreground load for work nobody is waiting on.
     //
     // So the schedule is not tuned for throughput here, unlike every other walk in
     // this file. It is tuned to stay underneath whatever headroom the station is
     // not using. A library gets measured over days, which is the right trade: an
     // unmeasured track plays perfectly well, and a station that cannot fetch audio
     // plays nothing at all. Raising any of the three without knowing the provider's
-    // limits is how this regresses.
+    // limits is how this regresses. See `BATCH_SIZE` in `analysis.job.ts` for what
+    // this was mistakenly blamed for, so nobody re-investigates it.
     //
     // Deliberately NOT sent by the catalog sync the way enrichment is. A newly
     // arrived track wants describing within minutes because the station may talk

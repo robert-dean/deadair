@@ -8,19 +8,25 @@ import { AnalysisService } from './analysis.service.js';
  * Tracks examined per run — a ceiling, not a target, and a deliberately tiny one.
  *
  * **This number is small because measuring a track costs a FULL AUDIO DOWNLOAD
- * through the same provider credential the station plays on.** It was 50 for one
- * afternoon and that was enough to take the station off the air: fifty
- * back-to-back track fetches exhausted Spotify's audio-key quota, after which the
- * shim could not serve playout either. Zero key failures before that run, ninety
- * after it. The station could not play music because a background job had spent
- * its ability to.
+ * through the same provider credential the station plays on.** At 50 per run on a
+ * half-hourly cron that is a hundred full tracks an hour of background traffic,
+ * against a station that plays about fifteen — six times the station's own load,
+ * for work nobody is waiting on.
  *
- * So the constraint here is not CPU, and it is not the analyzer. It is that
- * analysis and playout share one upstream and one credential, and **playout wins
- * every time**. Five per run, paced by `TRACK_PACE_MS` in `analysis.service.ts`,
- * is roughly a track an hour of provider traffic on top of whatever the station
- * is actually playing. The pace lives over there rather than beside this constant
- * because the job imports the service, so the reverse would be a cycle.
+ * That ratio is the argument on its own, and it is worth stating what it is NOT:
+ * a first run at 50 was followed by the shim failing to retrieve audio keys, and
+ * that looked like cause and effect until the log turned out to go back six days
+ * with the same errors in it. The burst may have made a bad patch worse; it did
+ * not invent the problem. Do not go looking for a fix to a bug this constant was
+ * blamed for.
+ *
+ * So the constraint is not CPU and it is not the analyzer. It is that analysis
+ * and playout share one upstream and one credential, and **playout wins every
+ * time** — an unmeasured track plays perfectly well, and a station that cannot
+ * fetch audio plays nothing at all. Five per run, paced by `TRACK_PACE_MS` in
+ * `analysis.service.ts`, keeps the background work well under the foreground's
+ * share. The pace lives over there rather than beside this constant because the
+ * job imports the service, so the reverse would be a cycle.
  *
  * A library is measured over days rather than in an afternoon, which is the right
  * trade: an unmeasured track plays perfectly well, and a station that cannot

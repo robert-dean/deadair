@@ -100,21 +100,53 @@ config_stamp = environment.get("CONFIG_STAMP", default="")
 #    doesn't feel like a tape loop. Normalize here (a leaf source) so user tracks
 #    sit at a consistent level under the voice. Unavailable while the dir is empty
 #    (handled below).
-#    NOTE: reload on a timer, NOT reload_mode="watch". Watch uses inotify, and inotify
-#    events do not cross Docker Desktop for Mac's host bind mount — a watched playlist
-#    only ever reflects what was in the dir at container start and never sees files the
-#    host drops in later. reload_mode="seconds" re-scans on a wall-timer regardless
-#    (and a scan that finds nothing keeps the previous list), so newly dropped tracks
-#    are picked up within the interval.
-music =
-  playlist(
-    id="music",
-    mode="randomize",
-    reload=15,
-    reload_mode="seconds",
-    music_dir
-  )
-music = normalize(target=-16., music)
+
+# What counts as a track in the bed directory. Everything else in there is somebody's
+# housekeeping, not programme material: `.gitkeep` (which is why `stream/music/` survives a fresh
+# checkout at all), `.DS_Store`, a half-copied `.part`, an `AlbumArt.jpg`.
+#
+# The point of listing what a track IS rather than muting the decoder is that a real track the
+# decoder cannot read stays an error worth reading. A dotfile is never a track, so it is not a
+# decode failure to report — it is a file that was never offered. Handing one to `playlist`
+# instead costs three decoder errors per scan, forever, on the default state of a fresh checkout.
+music_extensions = ["mp3", "flac", "ogg", "oga", "opus", "m4a", "mp4", "aac", "wav", "aiff", "aif", "wma", "wv", "ape"]
+
+def is_bed_track(f) =
+  # A leading dot means hidden, not "no extension": OCaml's extension rule already answers "" for
+  # `.gitkeep`, and the basename check says the same thing out loud for `.hidden.mp3`.
+  not (string.contains(prefix=".", path.basename(f)))
+  and list.mem(string.case(lower=true, file.extension(leading_dot=false, f)), music_extensions)
+end
+
+# One scan of the bed directory. Empty (or absent) is an ordinary state, not a fault: the station
+# then falls through to the bundled ident, which is what a fresh checkout does.
+def bed_tracks() =
+  if
+    file.is_directory(music_dir)
+  then
+    list.filter(is_bed_track, file.ls(absolute=true, recursive=true, sorted=true, music_dir))
+  else
+    []
+  end
+end
+
+# NOTE: reload on a timer, NOT reload_mode="watch". Watch uses inotify, and inotify events do not
+# cross Docker Desktop for Mac's host bind mount — a watched playlist only ever reflects what was
+# in the dir at container start and never sees files the host drops in later. A wall-timer re-scans
+# regardless, so newly dropped tracks are picked up within the interval.
+#
+# This is `playlist.list` over our own scan rather than `playlist(music_dir)` because the filter has
+# to happen when the LIST is built. `playlist`'s own `check_next` hook rejects a candidate after the
+# list is built, and its documented failure mode is exactly ours: reject every entry and the source
+# spins in a consuming loop instead of going unavailable. Filtering the scan means a bed holding
+# nothing but a `.gitkeep` is simply an empty playlist, which is already the state everything below
+# is written against. The timer below is the same `thread.run(delay, every, reload)` that `playlist`
+# schedules internally for `reload_mode="seconds"`, down to `reload` emptying the prefetch queue;
+# only the file list differs.
+music_bed = playlist.list(id="music", mode="randomize", bed_tracks())
+thread.run(delay=15., every=15., fun () -> music_bed.reload(bed_tracks()))
+
+music = normalize(target=-16., music_bed)
 
 # The station's own name, hoisted because two things need it: the mount's advertised name (step 6)
 # and the label the mount carries whenever what is playing is NOT a programme item.

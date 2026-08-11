@@ -160,6 +160,12 @@ By default the music bed is the local, rights-cleared `stream/music/` library
 (`MUSIC_DIR=/music`). A configured source plays through the running order above; the local library
 is what the mount falls through to when the queue is empty **and deadair is still driving**.
 
+The bed is scanned every 15s, and only files with a known audio extension and no leading dot are
+offered to it (`music_extensions` in `radio.liq`). That is why `.gitkeep`, which is what keeps
+`stream/music/` in a fresh checkout, does not produce a decoder error on every scan. It is a filter
+on intent, not a muted log: a real track the decoder cannot read still says so. An empty bed is an
+ordinary state, and the mount falls through to the bundled `station-id.mp3`.
+
 ## The dead-man switch: deadair drives, or nothing airs
 
 deadair is the station, so nothing else is allowed to be. The local library and the bundled ident

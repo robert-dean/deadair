@@ -239,15 +239,62 @@ on_air_item = ref("")
 # audio, so a cue timed against it carries no error from the app's clock, from an HTTP round trip,
 # or from the encoder and client buffers.
 #
-# That last one is the part v1 could never reach. The voice and the bed are mixed BEFORE the
+# That last one is most of what v1 could never reach. The voice and the bed are mixed BEFORE the
 # encoder, so whatever buffering separates the decoder from the listener applies to both equally
 # and cancels. Timing the voice against the music in here is exact; timing it against the
 # listener's clock from outside has all of that error in it.
+#
+# ONE thing does not cancel, and it is the `cross` further down. Everything else between the
+# decoder and the listener delays the voice and the bed together; a cross delays only the bed,
+# because it holds a buffer of the music and the voice queue is mixed in above it. So this counter
+# counts source time and the listener is behind it by whatever the cross is holding. See
+# `on_air_cross_lag` below, which is the whole of the correction.
 #
 # Declared above `playout_note_on_air`, which resets it: Liquidsoap resolves names where they are
 # written, so a ref used inside a `def` has to exist before the `def` does.
 on_air_elapsed = ref(0.)
 voice_tick = 0.1
+
+# The metadata key the app stamps a blend length on, which is also `cross`'s own default for
+# `override_duration`. Declared up here rather than beside the operator for the same reason
+# `on_air_elapsed` is: `playout_note_on_air` below reads it.
+playout_cross_key = "liq_cross_duration"
+
+# What a boundary the station does not blend is stamped with, and it is deliberately NOT zero.
+#
+# Read against 2.4.5's cross.ml: with a duration of zero, `buffer_before` never appends a frame, so
+# it never sees the end of the track, so it never advances to `analyze_after`, and the buffered
+# source it hands out is never ready. The operator stops producing entirely and the station falls
+# through to the local music bed for good. A tenth of a second is several frames, which is enough to
+# keep the state machine moving, and it is a hard join in every way a listener can tell.
+#
+# Must match HARD_JOIN_MS in apps/api/src/modules/playout/annotate.ts.
+playout_cross_hard_join = 0.1
+
+# How long a record asked to be blended for, off its own metadata.
+#
+# Same `float_of_string(default=null, …) ?? fallback` shape as `env_float` at the top, and for the
+# same reason: the key is absent on anything the app did not stamp.
+def playout_cross_duration(m) =
+  float_of_string(default=null, string.trim(m[playout_cross_key])) ?? playout_cross_hard_join
+end
+
+# How far AHEAD of the listener `on_air_elapsed` is running, in seconds.
+#
+# `cross` keeps a rolling buffer of the music and outputs from behind it, so the decoder is that far
+# in front of the mount. The buffer is sized by the override on the track being buffered, and once a
+# transition is over the operator refills against the record that is NOW playing — so during a
+# record the lag is that record's OWN stamp, which is the boundary out of it rather than the one
+# into it. That is why this is read here, from the metadata of the item that just started, and why
+# it needs no second annotation to carry it.
+#
+# Zero at a hard join, because a tenth of a second is not a lag worth correcting and pretending it
+# is would make every unblended break fire a tenth of a second late instead.
+#
+# The one number in this file that could not be verified by reading: the reasoning above comes from
+# 2.4.5's cross.ml, and only listening settles it. What a wrong sign sounds like: too LARGE and the
+# DJ comes in late, over the vocal; too small and it talks over the tail of the record before.
+on_air_cross_lag = ref(0.)
 
 def voice_countup() =
   on_air_elapsed := on_air_elapsed() + voice_tick
@@ -260,6 +307,11 @@ def playout_note_on_air(m) =
   # counter below is what a voice cue is timed against, and starting it anywhere else would start
   # it late by however long an HTTP notify took to arrive.
   on_air_elapsed := 0.
+  # Taken from the same metadata and at the same instant, so the counter and the correction that
+  # reads it can never be describing two different records.
+  blend = playout_cross_duration(m)
+  lag = if blend <= playout_cross_hard_join then 0. else blend end
+  on_air_cross_lag := lag
 end
 
 # What the app has asked for and has not had yet: the uri to play, the running-order item it is
@@ -406,28 +458,10 @@ playout_bed = normalize(target=-16., threshold=-25., up=30., gain_max=6., playou
 # which is measured BELOW this and so runs ahead of the listener by whatever is buffered. It is a
 # display figure that nothing schedules against (see NowPlaying.remainingMs), so it is left alone
 # rather than corrected into a second number that could disagree with the first.
-playout_cross_key = "liq_cross_duration"
-
-# What a boundary the station does not blend is stamped with, and it is deliberately NOT zero.
 #
-# Read against 2.4.5's cross.ml: with a duration of zero, `buffer_before` never appends a frame, so
-# it never sees the end of the track, so it never advances to `analyze_after`, and the buffered
-# source it hands out is never ready. The operator stops producing entirely and the station falls
-# through to the local music bed for good. A tenth of a second is several frames, which is enough to
-# keep the state machine moving, and it is a hard join in every way a listener can tell.
-#
-# Must match HARD_JOIN_MS in apps/api/src/modules/playout/annotate.ts.
-playout_cross_hard_join = 0.1
-
-# How long the record that is ENDING asked to be blended for.
-#
-# Off the ending track's own metadata, because that is where `cross` reads the override and where
-# the app stamps it: the length was decided from BOTH records, but it belongs to the boundary, and
-# the boundary is the outgoing record's end. Same `float_of_string(default=null, …) ?? fallback`
-# shape as `env_float` at the top, and for the same reason.
-def playout_cross_duration(m) =
-  float_of_string(default=null, string.trim(m[playout_cross_key])) ?? playout_cross_hard_join
-end
+# `playout_cross_key`, `playout_cross_hard_join` and `playout_cross_duration` are declared much
+# further up, beside `on_air_elapsed`, because the voice cue's correction reads them and Liquidsoap
+# resolves names where they are written.
 
 # What happens during the overlap.
 #
@@ -880,7 +914,11 @@ voice = request.queue(id="voice", prefetch=1)
 def voice_cue_check() =
   if voice_state() == "armed" then
     playing = playout_queue.is_ready() and on_air_item() == voice_item()
-    due = on_air_elapsed() >= max(0., voice_at_s() - duck_fade_ms / 1000.)
+    # Two corrections, and they pull opposite ways. The duck's own ramp is SUBTRACTED, so the bed
+    # is down before the first word rather than during it. The cross buffer is ADDED, because
+    # `on_air_elapsed` counts source time and the listener is that far behind it: asking to speak
+    # eight seconds in and firing at eight would land the break over the tail of the record before.
+    due = on_air_elapsed() >= max(0., voice_at_s() + on_air_cross_lag() - duck_fade_ms / 1000.)
     if playing then
       voice_seen := true
       if due then

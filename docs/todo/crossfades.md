@@ -4,7 +4,13 @@
 **Revised:** 2026-08-09, when the near-term goal became a station the operator listens to all day.
 **Revised:** 2026-08-10, with where the blend length comes from, which is a measurement of both
 records rather than a setting.
-**State of the tree:** items butt up against each other. There is no `cross` anywhere in the graph.
+**Revised:** 2026-08-11, when the plain rung was BUILT. Three claims below turned out to be wrong and
+are corrected in place, each marked where it stands.
+**State of the tree, 2026-08-11:** built, for the plain rung. `crossfade.ts` sizes each boundary from
+the pair, `annotate.ts` stamps `liq_cross_duration`, `radio.liq` holds the `cross` and corrects the
+voice-cue clock for it, and whether a broadcast blends at all is a `resolveRules` field, so an album
+stays cold. What is still deferred is everything under "What the blend does inside the buffer", and
+less of that needs the beat layer than this file used to claim.
 
 This is the largest single audio-quality gap the station has. It is deferred not because it is hard
 to write — the operator is four lines — but because of what it does to the one measurement the
@@ -66,6 +72,17 @@ Two consequences for this file specifically:
   ceiling and restamp is not possible, so either accept the ceiling or hold the stamp until the next
   item is chosen. Neither is hard; deciding which before writing it saves a rewrite.
 
+  **Settled, and neither option was taken.** The successor is peeked from the running ORDER rather
+  than from the player's queue, so it is known for every item except the tail of what the director
+  has prepared — which is rare, and gets a hard join. Holding the stamp is not available at all: by
+  the time the successor is certain, this item has been pushed.
+
+  **And a boundary with no blend is not stamped zero.** Measured against 2.4.5's `cross.ml`: a
+  duration of zero means the operator never appends a frame, so it never sees the end of the track,
+  so it never advances past buffering, and the source it hands out is never ready. That is not a
+  hard join, it is the station falling through to the local bed permanently. A tenth of a second is
+  the hard join, and the transition plays a plain `sequence` at or below it.
+
 **A cheaper thing lives at the same seam.** `liq_cue_in` and `liq_cue_out` are already annotate keys,
 and trimming the dead air off the head and tail of each record needs no `cross`, no pair logic, and
 none of the clock work below. If the measurement pass lands before this one does, that trim is worth
@@ -97,6 +114,22 @@ handover. Treat them as starting points rather than as findings, but keep the sh
 shape is the part that matters: **missing evidence degrades to a defined behaviour instead of being
 guessed at**, and a tempo from metadata alone can never authorise beat-matching. That last rule is
 why [track-analysis.md](track-analysis.md) stores provenance beside the value.
+
+**Corrected 2026-08-11: the middle rung does not need the beat layer, and the table above is wrong
+to gate it on tempo.** Read the three moves in "Three moves on the outgoing track" below and ask what
+each one reads. The low-pass sweep is driven by position within the buffer. The mid-band duck is
+driven by a level follower on the incoming track. The bass handover switches once at a fixed
+fraction through the overlap. **None of them reads a beat, a downbeat or a tempo.** The tempo gate is
+inherited from beat-matching, which is the rung above, and applying it here refuses a spectral
+handover on precisely the pairs that most need one: two records at incompatible tempos, where a
+level-only crossfade sounds worst.
+
+So there is a rung between 1 and 2 that is available today, with no beat layer and no licence
+question: everything in "Three moves" below, gated on nothing. It is not built because it is engine
+work needing the filter chain per transition rather than on the bus, and because whether Liquidsoap
+2.4 will modulate a filter cutoff inside a transition function is unverified. That wants a spike
+before it wants a design. The bass handover is the part worth having: two basslines summing through a
+six-second overlap is the one audible defect the plain rung cannot fix.
 
 Two mechanics that are not obvious and are cheap once known:
 
@@ -152,16 +185,31 @@ nothing between the boundary and the encoder delays one source relative to the o
 the bed are mixed pre-encoder, so whatever buffering separates the decoder from the listener applies
 to both and cancels. A cross breaks that symmetry, because it delays the bed and not the voice.
 
-Landing crossfades therefore means:
+Landing crossfades therefore meant:
 
-1. Subtracting the cross duration from the cue's due time, per boundary, since by the section above
-   the duration is decided per pair rather than per item and is not a constant anywhere.
+1. ~~Subtracting the cross duration from the cue's due time~~ **ADDING it. Corrected 2026-08-11: the
+   remedy contradicted the diagnosis two paragraphs above it.** The counter runs AHEAD of the
+   audience, so to have the DJ speak at a given point in the music the counter has to read further
+   in, not less far. Subtracting would have doubled the error rather than removed it.
+
+   **And it is the record's OWN stamp, not the boundary into it**, which is the part that saved a
+   second annotation. `cross` keeps a rolling buffer sized by the override on the track being
+   buffered, and once a transition is over it refills against the record now playing — so during a
+   record the lag is that record's own `liq_cross_duration`, which is the boundary OUT of it. The
+   metadata already on the item carries it. An earlier plan for this work had the app stamp a
+   separate `deadair_cross_in` key with the previous boundary's length; it is not needed and was not
+   built.
 2. Deciding what happens to a cue armed against a record whose blend is still running — the outgoing
-   and incoming tracks are both audible, and `on_air_item()` has already moved on.
-3. Re-verifying break placement on air by ear, because there is no test that can hear it.
+   and incoming tracks are both audible, and `on_air_item()` has already moved on. **Settled by
+   leaving it alone:** the cue expires, which is correct. A cue belongs to a record, and one whose
+   record is being blended out of is a back-announce that would land over the next record.
+3. Re-verifying break placement on air by ear, because there is no test that can hear it. **Still
+   outstanding.** The lag reasoning in item 1 comes from reading `cross.ml` rather than from
+   listening, and only listening settles it. Too large and the DJ comes in late over the vocal; too
+   small and it talks over the tail of the record before.
 
-None of that is unreasonable. It is simply a change to the part of the system that currently has no
-error in it, and it should be its own pass rather than a rider on somebody else's.
+None of that was unreasonable. It was simply a change to the part of the system that had no error in
+it, and it was its own commit rather than a rider on somebody else's.
 
 ## Engine constraints, so they are not rediscovered
 

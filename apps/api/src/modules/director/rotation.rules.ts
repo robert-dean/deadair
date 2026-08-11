@@ -69,12 +69,14 @@ export const DEFAULT_RULES: ResolvedRules = {
     // without identifying itself before it stops sounding like a station and starts sounding like a
     // playlist. Erring long: a break every other record is a novelty that wears out in an afternoon.
     breakEveryItems: 4,
-    // OFF until the voice cues are corrected for it. A blend delays the bed and not the voice, so
-    // `on_air_elapsed` — which every DJ break is timed against — runs ahead of the audience by the
-    // length of the blend, and a talk-up fires that much early. The transport and the engine can
-    // both do this before the clock can, so the default is what holds the two apart until it can.
-    // See docs/todo/crossfades.md, "Why it is deferred: the cross buffer moves the clock".
-    crossfade: false,
+    // ON. It was off while the transport and the engine could blend and the voice cues could not:
+    // a blend delays the bed and not the voice, so `on_air_elapsed`, which every DJ break is timed
+    // against, runs ahead of the audience by the length of the blend. `radio.liq` corrects for that
+    // now, in `on_air_cross_lag`, and this is the commit where the two came back into step.
+    //
+    // A rotation only. A setlist and a feature start from everything off and stay cold, which is
+    // the point of them; see `resolveRules`.
+    crossfade: true,
 };
 
 /**

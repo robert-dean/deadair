@@ -16,6 +16,7 @@ import { PlayoutModule } from './playout/playout.module.js';
 import { DirectorModule } from './director/director.module.js';
 import { NowPlayingModule } from './nowplaying/nowplaying.module.js';
 import { EnrichmentModule } from './enrichment/enrichment.module.js';
+import { AnalysisModule } from './analysis/analysis.module.js';
 import { ArtModule } from './art/art.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
@@ -73,6 +74,12 @@ export const modules: ServerKitModule[] = [
     // invoker. It also writes catalog rows, but through its own repository, so
     // it does not need CatalogModule.
     EnrichmentModule,
+    // After PluginsModule for the same reason as EnrichmentModule, and after
+    // PlayoutModule as well: it measures a track by fetching the same audio the
+    // transport would play, through that module's `PluginTrackResolver`. A plugin
+    // cannot ask another plugin for a stream URL, so resolving one is the host's
+    // job and this borrows the resolver that already does it.
+    AnalysisModule,
     // Must stay last: its shutdown hook closes the process-level RotatingLogStore,
     // and every other module's shutdown logging has to be flushed through
     // FileTeeLogger before that happens.

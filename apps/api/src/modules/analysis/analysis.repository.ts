@@ -24,6 +24,20 @@ export interface AnalysableTrack {
     trackId: string;
     title: string;
     artistName: string;
+    /**
+     * The binding to fetch the audio from: the key of `deadair.track_sources`.
+     *
+     * A track can have several, and this picks the most recently seen. **The
+     * measurement is then treated as a property of the WORK rather than of that
+     * copy**, which is an assumption worth stating: two providers serving the
+     * same recording are assumed to be serving the same master. Where that fails
+     * — a remaster with a different fade, a radio edit bound as if it were the
+     * album cut — the cue points describe one copy and get used for another. The
+     * catalog's own identity rules are what keep those apart, so this inherits
+     * whatever they decide rather than second-guessing them here.
+     */
+    pluginId: string;
+    externalId: string;
     /** The catalog's claim about the length, for the truncation cross-check. */
     durationMs?: number;
 }
@@ -47,11 +61,20 @@ export class AnalysisRepository extends DataRepository {
      * migration — bump the version, and every stale row rejoins the queue on its
      * own.
      *
-     * **A binding is required, not merely preferred.** A canonical track no
-     * provider still serves has no audio to measure, so including it would mean
-     * resolving a URL that cannot exist and recording a failure that says nothing
-     * about the track. Same reasoning as `CandidatesRepository.sample`, and the
-     * same `missing_at is null` test.
+     * **A binding is required, not merely preferred**, and it is returned rather
+     * than merely tested for. A canonical track no provider still serves has no
+     * audio to measure, so including it would mean resolving a URL that cannot
+     * exist and recording a failure that says nothing about the track. The
+     * `missing_at is null` test is `CandidatesRepository.sample`'s, for the same
+     * reason it has it.
+     *
+     * The binding is chosen by `last_seen_at` rather than by the operator's
+     * provider order, which is what the director's `bindingsFor` takes. Nothing
+     * supplies that order yet — its only caller passes nothing — so honouring it
+     * here would be honouring an empty list, and the most recently seen copy is
+     * at least deterministic. Worth revisiting together if a preference setting
+     * ever lands: measuring one copy and airing another is the failure it would
+     * prevent.
      *
      * Ordered oldest-catalogued first so a run makes predictable progress through
      * a library rather than revisiting whatever Postgres felt like returning.
@@ -61,23 +84,33 @@ export class AnalysisRepository extends DataRepository {
             trackId: string;
             title: string;
             artistName: string;
+            pluginId: string;
+            externalId: string;
             durationMs: number | null;
         }>`
             select t.id as track_id,
                    t.title,
                    ar.name as artist_name,
-                   t.duration_ms
+                   src.plugin_id,
+                   src.external_id,
+                   coalesce(src.duration_ms, t.duration_ms) as duration_ms
               from deadair.tracks t
               join deadair.artists ar on ar.id = t.artist_id
               left join deadair.track_analysis a on a.track_id = t.id
+              -- The one binding to measure, rather than a row per binding: a lateral
+              -- so the choice is made in the same pass as the filter, and so a track
+              -- with three copies is one row here rather than three units of work
+              -- measuring the same recording.
+              join lateral (
+                  select s.plugin_id, s.external_id, s.duration_ms
+                    from deadair.track_sources s
+                   where s.track_id = t.id
+                     and s.playable
+                     and s.missing_at is null
+                   order by s.last_seen_at desc nulls last, s.created_at desc
+                   limit 1
+              ) src on true
              where t.merged_into_id is null
-               and exists (
-                   select 1
-                     from deadair.track_sources src
-                    where src.track_id = t.id
-                      and src.playable
-                      and src.missing_at is null
-               )
                and (
                    a.track_id is null
                    or (a.analyzed_at is not null and a.schema_version < ${schemaVersion})
@@ -91,6 +124,8 @@ export class AnalysisRepository extends DataRepository {
             trackId: row.trackId,
             title: row.title,
             artistName: row.artistName,
+            pluginId: row.pluginId,
+            externalId: row.externalId,
             ...(row.durationMs == null ? {} : { durationMs: row.durationMs }),
         }));
     }

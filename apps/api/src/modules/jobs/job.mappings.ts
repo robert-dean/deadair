@@ -7,6 +7,7 @@ import { CatalogPlaceholderJob } from '#modules/catalog/ingest/catalog.placehold
 import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
+import { AnalysisJob } from '#modules/analysis/analysis.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
@@ -103,6 +104,32 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: ArtCacheJob,
         cron: '*/10 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 5 }) },
+    },
+
+    // Every half hour, which is far less often than the enrichment walk beside it,
+    // and the difference is the point. Enrichment is paced by an upstream that
+    // answers in about a second and cannot be hurried, so running often is how it
+    // gets through a library. This is paced by a decode, and running it more often
+    // would not measure more tracks — it would put a second walk on the same
+    // analyzer, where the first is already using whatever `analysis.concurrency`
+    // allows. Throughput here comes from that setting and the analyzer's own worker
+    // count, never from the schedule.
+    //
+    // Deliberately NOT sent by the catalog sync the way enrichment is. A newly
+    // arrived track wants describing within minutes because the station may talk
+    // about it tonight; it does not want measuring within minutes, because an
+    // unmeasured track plays perfectly well and a sync that added two thousand
+    // tracks would otherwise queue two thousand decodes at once.
+    //
+    // One retry, no dead-letter queue, for the reason the enrichment pass gives: a
+    // track that failed carries its own `failed_at`, so it is excluded for a day
+    // and then rejoins the queue on its own. The work is its own record.
+    // `expiresIn` sits above a full run and below the interval, so a wedged run is
+    // reclaimed before the next one starts.
+    'catalog.analyze': {
+        job: AnalysisJob,
+        cron: '*/30 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 28 }) },
     },
 
     // No cron: the director sends this when a lineup it is airing runs short, which

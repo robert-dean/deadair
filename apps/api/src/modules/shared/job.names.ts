@@ -4,6 +4,7 @@ export type JobNames =
     | 'catalog.resolve_placeholders'
     | 'catalog.enrich'
     | 'catalog.cache_art'
+    | 'catalog.analyze'
     | 'director.extend_lineup'
     | 'director.write_break'
     | 'render.segment';

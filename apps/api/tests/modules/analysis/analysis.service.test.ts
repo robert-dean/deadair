@@ -1,0 +1,291 @@
+// What one pass does to one track, and what it does when it cannot.
+//
+// The through-line is that almost nothing here is an error. A station with no analyzer, a track
+// whose provider is between reloads, a file that will not decode -- all of them are states the walk
+// carries on through, because an unmeasured track still plays. The two things it must NOT do are
+// take a track out of the queue for a day over a transient problem, and pay for the same failed
+// decode on every pass forever. Those pull in opposite directions and the split between them is the
+// substance of the file.
+
+import { describe, expect, it, vi } from 'vitest';
+import type { Logger } from '@maroonedsoftware/logger';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { ANALYSIS_SCHEMA_VERSION, PluginError, type TrackAnalysis } from '@deadair/plugin-sdk';
+
+import { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
+import type { AnalysableTrack } from '../../../src/modules/analysis/analysis.repository.js';
+
+const stubLogger = () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() }) as unknown as Logger;
+
+const track = (n: number): AnalysableTrack => ({
+    trackId: `track-${n}`,
+    title: `Track ${n}`,
+    artistName: 'An Artist',
+    pluginId: 'deadair.spotify',
+    externalId: `spotify-${n}`,
+    durationMs: 214_000,
+});
+
+const measurement = (overrides: Partial<TrackAnalysis> = {}): TrackAnalysis => ({
+    schemaVersion: ANALYSIS_SCHEMA_VERSION,
+    complete: true,
+    data: { cueIn: 180, introEnd: 12_400, outroStart: 198_200, cueOut: 213_600 },
+    analyzer: 'deadair-analysis/0.1.0',
+    ...overrides,
+});
+
+interface HarnessOptions {
+    /** Plugins the registry reports as analysis-capable. */
+    analyzers?: string[];
+    /** `analysis.pluginId`. */
+    configured?: string;
+    /** `analysis.concurrency`. */
+    concurrency?: number;
+    pending?: AnalysableTrack[];
+    /** What `analyzeTrack` does. Default: a good measurement. */
+    analyze?: (ref: { trackId: string }) => Promise<TrackAnalysis>;
+    /** What the resolver answers. Default: a URL for everything. */
+    resolveUrl?: (pluginId: string, externalId: string) => Promise<string | undefined>;
+}
+
+function build(options: HarnessOptions = {}) {
+    const analyzerIds = options.analyzers ?? ['deadair.analyzer'];
+
+    const analyzeTrack = vi.fn(options.analyze ?? (async () => measurement()));
+    const recordAnalysis = vi.fn(async () => {});
+    const recordFailure = vi.fn(async () => {});
+
+    // Every id gets an instance; `asAnalysisPlugin` checks status, manifest and method.
+    const records = analyzerIds.map(id => ({
+        id,
+        status: 'active',
+        manifest: { id, capabilities: ['analysis'] },
+        instance: { analyzeTrack },
+    }));
+
+    const repository = {
+        listTracksNeedingAnalysis: vi.fn(async () => options.pending ?? [track(1)]),
+        recordAnalysis,
+        recordFailure,
+    };
+
+    const registry = { list: () => records };
+
+    const invoker = {
+        // The real invoker wraps in a deadline and flattens errors; what matters here is
+        // that the service goes through it at all and that a rejection reaches the catch.
+        invoke: vi.fn(async (_id: string, _op: string, fn: () => Promise<unknown>) => fn()),
+    };
+
+    const trackResolver = {
+        resolveBinding: vi.fn(options.resolveUrl ?? (async () => 'http://shim.test/audio.mp3')),
+    };
+
+    const config = {
+        get: vi.fn((key: string, fallback: unknown) => {
+            if (key === 'analysis.pluginId') return options.configured ?? '';
+            if (key === 'analysis.concurrency') return options.concurrency ?? 1;
+            return fallback;
+        }),
+    } as unknown as AppConfig;
+
+    const logger = stubLogger();
+
+    const service = new AnalysisService(
+        repository as never,
+        registry as never,
+        invoker as never,
+        trackResolver as never,
+        config,
+        logger,
+    );
+
+    return { service, repository, registry, invoker, trackResolver, logger, analyzeTrack, recordAnalysis, recordFailure };
+}
+
+describe('choosing an analyzer', () => {
+    it('does nothing, quietly, when no plugin can measure', async () => {
+        // An ordinary state, not a fault: every track still plays, unmeasured.
+        const { service, repository, logger } = build({ analyzers: [] });
+
+        expect(await service.analysePending(50)).toEqual({ scanned: 0, measured: 0, failed: 0, incomplete: 0 });
+        expect(repository.listTracksNeedingAnalysis).not.toHaveBeenCalled();
+        expect(logger.error).not.toHaveBeenCalled();
+        expect(vi.mocked(logger.info).mock.calls[0]?.[1]).toMatchObject({ reason: expect.stringContaining('install and enable') });
+    });
+
+    it('refuses to guess between several and says which they are', async () => {
+        const { service, logger } = build({ analyzers: ['deadair.analyzer', 'other.analyzer'] });
+
+        expect((await service.analysePending(50)).scanned).toBe(0);
+        expect(vi.mocked(logger.info).mock.calls[0]?.[1]).toMatchObject({
+            reason: expect.stringContaining('deadair.analyzer, other.analyzer'),
+        });
+    });
+
+    it('does not fall back when the named analyzer is not running', async () => {
+        const { service, logger } = build({ analyzers: ['deadair.analyzer'], configured: 'gone.analyzer' });
+
+        expect((await service.analysePending(50)).scanned).toBe(0);
+        expect(vi.mocked(logger.info).mock.calls[0]?.[1]).toMatchObject({ reason: expect.stringContaining('gone.analyzer') });
+    });
+});
+
+describe('measuring a track', () => {
+    it('asks for the current schema version, so a stale row is picked up', async () => {
+        const { service, repository } = build();
+        await service.analysePending(50);
+
+        expect(repository.listTracksNeedingAnalysis).toHaveBeenCalledWith(ANALYSIS_SCHEMA_VERSION, 50);
+    });
+
+    it('resolves the audio itself and hands the analyzer a url', async () => {
+        // A plugin cannot ask another plugin for a stream URL, so this is the host's job.
+        const { service, trackResolver, analyzeTrack } = build();
+        await service.analysePending(50);
+
+        expect(trackResolver.resolveBinding).toHaveBeenCalledWith('deadair.spotify', 'spotify-1');
+        expect(analyzeTrack).toHaveBeenCalledWith({
+            trackId: 'track-1',
+            audioUrl: 'http://shim.test/audio.mp3',
+            durationMs: 214_000,
+        });
+    });
+
+    it('stores the measurement against the analyzer that made it', async () => {
+        const { service, recordAnalysis } = build();
+        const summary = await service.analysePending(50);
+
+        expect(recordAnalysis).toHaveBeenCalledWith('track-1', 'deadair.analyzer', measurement());
+        expect(summary).toEqual({ scanned: 1, measured: 1, failed: 0, incomplete: 0 });
+    });
+
+    it('stores an incomplete measurement but counts and logs it', async () => {
+        // Stored and then ignored by every reader, so a station where this is common is doing
+        // the work and getting nothing, with nothing else to say so.
+        const { service, recordAnalysis, logger } = build({ analyze: async () => measurement({ complete: false }) });
+        const summary = await service.analysePending(50);
+
+        expect(recordAnalysis).toHaveBeenCalled();
+        expect(summary).toMatchObject({ measured: 1, incomplete: 1 });
+        expect(logger.warn).toHaveBeenCalledWith('analysis: measured only part of a file', expect.anything());
+    });
+});
+
+describe('when a track cannot be measured', () => {
+    it('records a failure so the next pass does not pay for the same decode', async () => {
+        const { service, recordFailure, recordAnalysis } = build({
+            analyze: async () => {
+                throw new PluginError('moov atom not found').withCode('upstream');
+            },
+        });
+
+        const summary = await service.analysePending(50);
+
+        expect(recordAnalysis).not.toHaveBeenCalled();
+        expect(recordFailure).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.stringContaining('moov atom'));
+        expect(summary).toMatchObject({ scanned: 1, failed: 1, measured: 0 });
+    });
+
+    it('does NOT record a failure when there is simply no audio url', async () => {
+        // Nothing about the track is wrong -- its provider is disabled, unconfigured or between
+        // reloads. Writing a failure would take it out of the queue for a day over something
+        // that may be fixed in a minute.
+        const { service, recordFailure, analyzeTrack } = build({ resolveUrl: async () => undefined });
+        const summary = await service.analysePending(50);
+
+        expect(recordFailure).not.toHaveBeenCalled();
+        expect(analyzeTrack).not.toHaveBeenCalled();
+        expect(summary).toMatchObject({ scanned: 1, measured: 0, failed: 0 });
+    });
+
+    it('carries on through a failure rather than abandoning the batch', async () => {
+        const analyze = vi.fn(async (ref: { trackId: string }) => {
+            if (ref.trackId === 'track-2') throw new PluginError('nope').withCode('upstream');
+            return measurement();
+        });
+        const { service } = build({ pending: [track(1), track(2), track(3)], analyze });
+
+        expect(await service.analysePending(50)).toEqual({ scanned: 3, measured: 2, failed: 1, incomplete: 0 });
+    });
+
+    it('survives a failure-write that itself fails, leaving the track outstanding', async () => {
+        const { service, recordFailure, logger } = build({
+            analyze: async () => {
+                throw new Error('boom');
+            },
+        });
+        recordFailure.mockRejectedValueOnce(new Error('database is gone'));
+
+        // The same state it was in a moment ago, rather than an exception out of the pass.
+        await expect(service.analysePending(50)).resolves.toMatchObject({ failed: 1 });
+        expect(logger.error).toHaveBeenCalledWith('analysis: could not record a failure', expect.anything());
+    });
+});
+
+describe('the walk itself', () => {
+    it('measures one at a time by default', async () => {
+        let inFlight = 0;
+        let peak = 0;
+        const analyze = vi.fn(async () => {
+            peak = Math.max(peak, ++inFlight);
+            await new Promise(resolve => setTimeout(resolve, 1));
+            inFlight -= 1;
+            return measurement();
+        });
+
+        const { service } = build({ pending: [track(1), track(2), track(3), track(4)], analyze });
+        await service.analysePending(50);
+
+        expect(peak).toBe(1);
+    });
+
+    it('runs up to `analysis.concurrency` at once', async () => {
+        let inFlight = 0;
+        let peak = 0;
+        const analyze = vi.fn(async () => {
+            peak = Math.max(peak, ++inFlight);
+            await new Promise(resolve => setTimeout(resolve, 5));
+            inFlight -= 1;
+            return measurement();
+        });
+
+        const pending = Array.from({ length: 8 }, (_, index) => track(index));
+        const { service } = build({ pending, concurrency: 3, analyze });
+        const summary = await service.analysePending(50);
+
+        expect(peak).toBe(3);
+        expect(summary.measured).toBe(8);
+    });
+
+    it('never opens more workers than there is work', async () => {
+        const { service, analyzeTrack } = build({ pending: [track(1)], concurrency: 8 });
+        await service.analysePending(50);
+
+        expect(analyzeTrack).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops between tracks when the budget expires, rather than mid-decode', async () => {
+        const controller = new AbortController();
+        const analyze = vi.fn(async () => {
+            // Abort during the first measurement. The one in flight still completes --
+            // it is paid for either way -- and nothing after it starts.
+            controller.abort();
+            return measurement();
+        });
+
+        const { service } = build({ pending: [track(1), track(2), track(3)], analyze });
+        const summary = await service.analysePending(50, controller.signal);
+
+        expect(summary.scanned).toBe(1);
+        expect(summary.measured).toBe(1);
+    });
+
+    it('does no work at all when the signal is already aborted', async () => {
+        const { service, analyzeTrack } = build({ pending: [track(1), track(2)] });
+        const summary = await service.analysePending(50, AbortSignal.abort());
+
+        expect(analyzeTrack).not.toHaveBeenCalled();
+        expect(summary.scanned).toBe(0);
+    });
+});

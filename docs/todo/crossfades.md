@@ -4,24 +4,26 @@
 **Revised:** 2026-08-09, when the near-term goal became a station the operator listens to all day.
 **Revised:** 2026-08-10, with where the blend length comes from, which is a measurement of both
 records rather than a setting.
-**Revised:** 2026-08-11, when the plain rung was BUILT. Three claims below turned out to be wrong and
-are corrected in place, each marked where it stands.
-**State of the tree, 2026-08-11:** built, for the plain rung. `crossfade.ts` sizes each boundary from
-the pair, `annotate.ts` stamps `liq_cross_duration`, `radio.liq` holds the `cross` and corrects the
-voice-cue clock for it, and whether a broadcast blends at all is a `resolveRules` field, so an album
-stays cold. What is still deferred is everything under "What the blend does inside the buffer", and
-less of that needs the beat layer than this file used to claim.
+**Revised:** 2026-08-11, when the plain rung was BUILT and then measured. FIVE claims below turned
+out to be wrong, including the one this file was deferred on, and each is corrected where it stands.
+Every one of them was wrong silently: the station kept playing and sounded exactly as it had before.
+**State of the tree, 2026-08-11:** built and verified for the plain rung. `crossfade.ts` sizes each
+boundary from the pair, `annotate.ts` stamps it on both records that form it, `radio.liq` holds the
+`cross`, and whether a broadcast blends at all is a `resolveRules` field, so an album stays cold. Two
+harnesses in `stream/` render a transition and measure it, because nothing here was settled by
+reading. What is still deferred is everything under "What the blend does inside the buffer", and less
+of that needs the beat layer than this file used to claim.
 
-This is the largest single audio-quality gap the station has. It is deferred not because it is hard
-to write — the operator is four lines — but because of what it does to the one measurement the
-station's timing is built on.
+This was the largest single audio-quality gap the station had. It was deferred not because it is hard
+to write — the operator is four lines — but because of what it was believed to do to the one
+measurement the station's timing is built on. It does not do that; see "Why it was deferred" below.
 
 **It is no longer a someday.** Measured against a full working day of listening rather than against
 a feature list, this is second only to the station being able to talk: a gap between records is heard
 every three minutes for eight hours, where most of what is deferred elsewhere is heard once. See
-[dj-voice.md](dj-voice.md), "The order, restated against daily listening". It stays second rather
-than first for the reason immediately below, which is unchanged: it moves the clock the DJ breaks are
-timed against, so it wants those breaks landing reliably first.
+[dj-voice.md](dj-voice.md), "The order, restated against daily listening". ~~It stays second rather
+than first because it moves the clock the DJ breaks are timed against.~~ It does not move that clock,
+so that ordering constraint never existed.
 
 **It has one genuine prerequisite**, added 2026-08-10: the per-track measurement in
 [station-intelligence.md](station-intelligence.md) §3, because without it there is no honest number
@@ -191,7 +193,27 @@ are singing, converted to seconds at the matched tempo and then clamped into the
 window the measurement produces. The clamp is what keeps the two rules from disagreeing, and the
 `min()` above remains the ceiling in every case, so a blend still cannot eat a cold opening.
 
-## Why it is deferred: the cross buffer moves the clock
+## Why it was deferred: the cross buffer moves the clock. It does not.
+
+**This whole section was wrong, and it is the reason the feature sat deferred. Corrected
+2026-08-11 by measuring it: `stream/voicecue.check.liq` arms a cue six seconds into a record with a
+four second blend in and an eight second blend out, and the break lands at six seconds with no
+correction anywhere.** The argument below is kept because it is convincing, it was believed for
+months, and two commits were built on it before anything measured it.
+
+The flaw is in the first sentence: `on_air_elapsed` is a WALL CLOCK incremented by a thread, not a
+source position. It is zeroed when the `on_track` fires, so the only thing that matters is whether
+that instant is when the listener starts hearing the record. It is. With a buffer of L seconds the
+operator pulls its source L ahead, so the source crosses into the next track at output time
+`(its start - L)` — and the overlap is L long, so it BEGINS at that same instant. The counter starts
+exactly as the record becomes audible, and both then advance in real time. The buffer re-sizing for
+the following boundary moves the source pointer, not the clock.
+
+A correction built on the argument below therefore does not fix an error, it introduces one. Measured:
+adding the blend to the due time put a six second talk-up at 14.5 seconds, halfway through the next
+verse, and the error was exactly the blend length being added.
+
+~~The argument as it stood:~~
 
 `cross` holds `duration` seconds of audio to blend across the boundary. The boundary itself — the
 `on_track` hook on `playout_queue`, which sits *below* the cross — fires when the decoder crosses
@@ -206,26 +228,19 @@ to both and cancels. A cross breaks that symmetry, because it delays the bed and
 
 Landing crossfades therefore meant:
 
-1. ~~Subtracting the cross duration from the cue's due time~~ **ADDING it. Corrected 2026-08-11: the
-   remedy contradicted the diagnosis two paragraphs above it.** The counter runs AHEAD of the
-   audience, so to have the DJ speak at a given point in the music the counter has to read further
-   in, not less far. Subtracting would have doubled the error rather than removed it.
-
-   **And it is the record's OWN stamp, not the boundary into it**, which is the part that saved a
-   second annotation. `cross` keeps a rolling buffer sized by the override on the track being
-   buffered, and once a transition is over it refills against the record now playing — so during a
-   record the lag is that record's own `liq_cross_duration`, which is the boundary OUT of it. The
-   metadata already on the item carries it. An earlier plan for this work had the app stamp a
-   separate `deadair_cross_in` key with the previous boundary's length; it is not needed and was not
-   built.
+1. ~~Subtracting the cross duration from the cue's due time.~~ ~~ADDING it.~~ **NEITHER. Corrected
+   twice on 2026-08-11, the second time by measurement.** The first correction was about the sign,
+   which was arguing about the direction of a quantity that is zero. There is no lag: see the
+   section heading above. Nothing is added to or subtracted from the due time for a crossfade, and
+   the version that added the blend put a six second talk-up at 14.5 seconds.
 2. Deciding what happens to a cue armed against a record whose blend is still running — the outgoing
    and incoming tracks are both audible, and `on_air_item()` has already moved on. **Settled by
    leaving it alone:** the cue expires, which is correct. A cue belongs to a record, and one whose
    record is being blended out of is a back-announce that would land over the next record.
-3. Re-verifying break placement on air by ear, because there is no test that can hear it. **Still
-   outstanding.** The lag reasoning in item 1 comes from reading `cross.ml` rather than from
-   listening, and only listening settles it. Too large and the DJ comes in late over the vocal; too
-   small and it talks over the tail of the record before.
+3. ~~Re-verifying break placement on air by ear, because there is no test that can hear it.~~
+   **There is now: `stream/voicecue.check.liq` renders a break over a blended boundary and measures
+   where it landed, to a tenth of a second.** Ears were never going to settle an eight second error
+   against a six second target either, but the point is that nothing had to.
 
 None of that was unreasonable. It was simply a change to the part of the system that had no error in
 it, and it was its own commit rather than a rider on somebody else's.

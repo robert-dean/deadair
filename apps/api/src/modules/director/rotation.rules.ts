@@ -69,10 +69,10 @@ export const DEFAULT_RULES: ResolvedRules = {
     // without identifying itself before it stops sounding like a station and starts sounding like a
     // playlist. Erring long: a break every other record is a novelty that wears out in an afternoon.
     breakEveryItems: 4,
-    // ON. It was off while the transport and the engine could blend and the voice cues could not:
-    // a blend delays the bed and not the voice, so `on_air_elapsed`, which every DJ break is timed
-    // against, runs ahead of the audience by the length of the blend. `radio.liq` corrects for that
-    // now, in `on_air_cross_lag`, and this is the commit where the two came back into step.
+    // ON. It was held off on the belief that a blend puts `on_air_elapsed` -- which every DJ break
+    // is timed against -- ahead of the audience. Measured, it does not: the counter is a wall clock
+    // zeroed at the instant the record becomes audible, and a cross moves the source pointer rather
+    // than that clock. See the note on `on_air_elapsed` in radio.liq and stream/voicecue.check.liq.
     //
     // A rotation only. A setlist and a feature start from everything off and stay cold, which is
     // the point of them; see `resolveRules`.

@@ -95,8 +95,25 @@ docker compose exec -T liquidsoap sh -c 'cat > /tmp/x.liq; timeout 90 liquidsoap
 python3 stream/crossfade.check.py
 ```
 
-**The transition in it is COPIED from `radio.liq` between two marker comments, and nothing enforces
-that.** Re-copy it when the real one changes, or the check quietly stops testing the station.
+`voicecue.check.liq` answers the other half: where a DJ break lands once a crossfade is in the graph.
+It arms a cue six seconds into a record with a four second blend in and an eight second blend out, so
+a timing correction reading either blend is distinguishable from no correction at all, and reports
+where the break actually landed.
+
+```
+docker compose exec -T liquidsoap sh -c 'cat > /tmp/v.liq; timeout 120 liquidsoap /tmp/v.liq >/dev/null 2>&1; cat /tmp/voicecue.check.wav' < stream/voicecue.check.liq > stream/voicecue.check.wav
+python3 stream/voicecue.check.py
+```
+
+**A cross needs no correction there, which is the opposite of what it looks like.** `on_air_elapsed`
+is a wall clock zeroed by an `on_track` below the cross, so it looks like it must run ahead of the
+audience by the buffer. It does not: with a buffer of L the operator pulls its source L ahead, so the
+source crosses into the next track at output time `(its start - L)`, and the overlap is L long, so it
+begins at that same instant. The counter starts exactly as the record becomes audible. A version that
+added the blend to the due time put a six second talk-up at 14.5 seconds.
+
+**The transition in both is COPIED from `radio.liq` between two marker comments, and nothing enforces
+that.** Re-copy it when the real one changes, or the checks quietly stop testing the station.
 
 One thing it costs: `playout_queue.remaining()` is read below the `cross`, so the `remainingMs` in a
 reading runs ahead of the listener by whatever is buffered. It is display-only and nothing schedules

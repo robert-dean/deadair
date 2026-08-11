@@ -60,4 +60,4 @@ __pycache__/
 .pytest_cache/
 
 # Rendered by stream/crossfade.check.liq; regenerate rather than commit.
-stream/crossfade.check.wav
+stream/*.check.wav

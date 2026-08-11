@@ -7,12 +7,28 @@ records rather than a setting.
 **Revised:** 2026-08-11, when the plain rung was BUILT and then measured. FIVE claims below turned
 out to be wrong, including the one this file was deferred on, and each is corrected where it stands.
 Every one of them was wrong silently: the station kept playing and sounded exactly as it had before.
+**Revised:** 2026-08-11 again, after trying to verify it on the live station and finding the records
+would not fetch. See [provider-audio-failures.md](provider-audio-failures.md).
 **State of the tree, 2026-08-11:** built and verified for the plain rung. `crossfade.ts` sizes each
 boundary from the pair, `annotate.ts` stamps it on both records that form it, `radio.liq` holds the
 `cross`, and whether a broadcast blends at all is a `resolveRules` field, so an album stays cold. Two
 harnesses in `stream/` render a transition and measure it, because nothing here was settled by
 reading. What is still deferred is everything under "What the blend does inside the buffer", and less
 of that needs the beat layer than this file used to claim.
+
+**The one thing NOT verified is a blend between two real records**, and it is blocked rather than
+failing: a blend needs BOTH records measured and adjacent, 13 of 581 tracks are measured, and a
+running order hand-built from eight of them had four skipped because the provider would not serve
+the audio. `stream/liveboundary.check.py` is the loop that closes this the day that is fixed. What it
+is worth when it is: across all ordered pairs of the 13 measured tracks, 64% blend at all, the median
+blend is 2.31s, and 10% run five seconds or longer. Real, constant polish; not the transformation the
+opening of this file claims. **The trim is the bigger prize from the same measurement** and pays off
+per track rather than per adjacent pair.
+
+**Also outstanding, and small:** `on_air_elapsed` in `radio.liq` counts fixed ticks rather than
+measuring elapsed time and runs about 3% slow, so a talk-up drifts later the further into a record it
+sits — a fifth of a second at 6s, two thirds at 20s. Measured twice by `voicecue.check.liq`. Fixing it
+trades away the clock-step immunity that construct exists for, so it is a decision rather than a bug.
 
 This was the largest single audio-quality gap the station had. It was deferred not because it is hard
 to write — the operator is four lines — but because of what it was believed to do to the one

@@ -6,7 +6,7 @@
 import { Logger } from '@maroonedsoftware/logger';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BreakPlanner, PLANT_AHEAD } from '../../../src/modules/director/break.planner.js';
+import { BreakPlanner, PLANT_AHEAD, WRITE_AHEAD } from '../../../src/modules/director/break.planner.js';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
@@ -30,16 +30,16 @@ const ident = (id: string): Segment => ({ id, kind: 'ident', state: 'ready', lab
 const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: boolean } = {}) => {
     const listReady = vi.fn(async () => options.idents ?? [ident('seg-1')]);
     let planned = 0;
-    const plan = vi.fn(async (input: { kind: string; label: string }) => ({
-        id: `planned-${++planned}`,
-        state: 'planned',
-        source: 'render',
-        ...input,
-    }));
-    const markFailed = vi.fn(async () => {});
-    // What the alternation reads: the lineup item names a segment by id, so the kind of the last
-    // one already in the order has to be looked up rather than remembered.
+    // What the alternation and the write window both read: a lineup item names a segment by id, so
+    // anything about it — its kind, whether anybody has written it — is a lookup rather than a
+    // memory. Planted rows go in here too, which is what lets `ripen` see them.
     const known = new Map<string, Segment>((options.idents ?? [ident('seg-1')]).map(segment => [segment.id, segment]));
+    const plan = vi.fn(async (input: { kind: string; label: string }) => {
+        const segment = { id: `planned-${++planned}`, state: 'planned', source: 'render', ...input } as Segment;
+        known.set(segment.id, segment);
+        return segment;
+    });
+    const markFailed = vi.fn(async () => {});
     const findByIds = vi.fn(async (ids: readonly string[]) => new Map([...known].filter(([id]) => ids.includes(id))));
 
     const writers = { canWrite: vi.fn(() => options.canWrite ?? false) };
@@ -58,6 +58,7 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
         plan,
         markFailed,
         send,
+        known,
     };
 };
 
@@ -224,25 +225,17 @@ describe('BreakPlanner', () => {
 // no words in it: the row and its place in the order go down here, synchronously, and a job writes
 // the script behind them.
 describe('BreakPlanner writing its own breaks', () => {
-    it('plants an empty talk break and sends a job to write it', async () => {
+    it('plants an empty talk break, and asks nobody to write it yet', async () => {
         const { planner, plan, send } = build({ canWrite: true });
         const lineup = await lineupOf(12);
 
         await planner.plant(lineup, rules({ breakEveryItems: 4 }));
 
         expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak' }));
-        // Planted with no words in it: the job fills them in behind the placement.
+        // Planted with no words in it: `ripen` asks for them once the slot is near, and the job
+        // fills them in behind the placement.
         expect(plan.mock.calls.every(([input]) => input.script === undefined)).toBe(true);
-        expect(send).toHaveBeenCalledWith('director.write_break', { segmentId: 'planned-1' });
-    });
-
-    it('sends a write job only for the breaks it actually planted', async () => {
-        const { planner, plan, send } = build({ canWrite: true });
-        const lineup = await lineupOf(20);
-
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
-
-        expect(send).toHaveBeenCalledTimes(plan.mock.calls.length);
+        expect(send).not.toHaveBeenCalled();
     });
 
     it('plants one row per written slot, because two breaks sit between different records', async () => {
@@ -348,5 +341,119 @@ describe('BreakPlanner alternating what a break is', () => {
         await planner.plant(lineup, rules({ breakEveryItems: 4 }));
 
         expect(new Set(kindsPlanted(lineup))).toEqual(new Set(['ident']));
+    });
+});
+
+// The write window. Planting lays a break's POSITION down as far ahead as the order runs; this is
+// what decides when the station pays for its WORDS. The whole point is that the two are different
+// distances: an hour of forward planning must not mean an hour of model and speech work that an
+// operator edit can throw away.
+describe('BreakPlanner.ripen', () => {
+    /** Every segment id a write was asked for. */
+    const asked = (send: { mock: { calls: unknown[][] } }): string[] =>
+        send.mock.calls.filter(([name]) => name === 'director.write_break').map(([, payload]) => (payload as { segmentId: string }).segmentId);
+
+    it('asks for the words of a break inside the window', async () => {
+        const { planner, send } = build({ canWrite: true });
+        const lineup = await lineupOf(12);
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        await planner.ripen(lineup);
+
+        expect(asked(send)).toContain('planned-1');
+    });
+
+    it('leaves a break further out than the window alone', async () => {
+        // The one this phase exists for. A long order gets its breaks laid out to the end of it and
+        // pays for the words of the near ones only.
+        const { planner, send } = build({ canWrite: true, idents: [] });
+        const lineup = await lineupOf(40);
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        await planner.ripen(lineup);
+
+        const planted = lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentId] : []));
+        expect(planted.length).toBeGreaterThan(asked(send).length);
+        expect(asked(send).length).toBeLessThanOrEqual(Math.ceil(WRITE_AHEAD / 2));
+    });
+
+    it('asks again on the next pass for a break still unwritten', async () => {
+        // Sending is free, because the job claims the row before it does anything. That is what lets
+        // this re-offer rather than keep a list of what it has already asked for — a list which,
+        // being in memory, would be wrong after every restart in the direction that loses breaks.
+        const { planner, send } = build({ canWrite: true });
+        const lineup = await lineupOf(12);
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+
+        await planner.ripen(lineup);
+        await planner.ripen(lineup);
+
+        expect(asked(send).filter(id => id === 'planned-1')).toHaveLength(2);
+    });
+
+    it('does not ask again for a break somebody is already writing', async () => {
+        const { planner, send, known } = build({ canWrite: true });
+        const lineup = await lineupOf(12);
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.ripen(lineup);
+        known.set('planned-1', { ...known.get('planned-1')!, state: 'writing' });
+
+        await planner.ripen(lineup);
+
+        expect(asked(send).filter(id => id === 'planned-1')).toHaveLength(1);
+    });
+
+    it.each(['writing', 'written', 'rendering', 'ready', 'failed'] as const)('asks for nothing when the break is already %s', async state => {
+        const { planner, send, known } = build({ canWrite: true });
+        const lineup = await lineupOf(12);
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        for (const [id, segment] of known) if (id.startsWith('planned-')) known.set(id, { ...segment, state });
+
+        expect(await planner.ripen(lineup)).toBe(0);
+        expect(asked(send)).toEqual([]);
+    });
+
+    it('costs no query on an order whose window holds no segments', async () => {
+        // Which is most boundaries. The window is a slice of an array in memory, and the database is
+        // only reached when that slice actually holds a break.
+        const { planner, send } = build({ canWrite: true });
+        const lineup = await lineupOf(12);
+
+        expect(await planner.ripen(lineup)).toBe(0);
+        expect(send).not.toHaveBeenCalled();
+    });
+
+    it('measures the window from the cursor, so it moves with the broadcast', async () => {
+        const { planner, send } = build({ canWrite: true, idents: [] });
+        const lineup = await lineupOf(40);
+        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.ripen(lineup);
+        const before = new Set(asked(send));
+
+        hand(lineup, 20);
+        await planner.ripen(lineup);
+
+        // Breaks that were out of reach the first time are asked for once the station has played its
+        // way toward them, which is the whole behaviour: the window travels with the cursor.
+        expect(asked(send).some(id => !before.has(id))).toBe(true);
+    });
+
+    it('scales with the break interval rather than against it', async () => {
+        // A station told to talk after every record is asking for a window with more breaks in it,
+        // and should get them. Deliberately not capped: a claim makes a duplicate send free, renders
+        // queue like any other job, and a model is serialised however many are asked for. Which is
+        // also what makes a low interval the cheapest way to exercise this whole path by hand.
+        const often = build({ canWrite: true, idents: [] });
+        const rarely = build({ canWrite: true, idents: [] });
+        const busy = await lineupOf(40);
+        const quiet = await lineupOf(40);
+        await often.planner.plant(busy, rules({ breakEveryItems: 1 }));
+        await rarely.planner.plant(quiet, rules({ breakEveryItems: 4 }));
+
+        await often.planner.ripen(busy);
+        await rarely.planner.ripen(quiet);
+
+        expect(asked(often.send).length).toBeGreaterThan(asked(rarely.send).length);
+        expect(asked(often.send).length).toBeLessThanOrEqual(WRITE_AHEAD);
     });
 });

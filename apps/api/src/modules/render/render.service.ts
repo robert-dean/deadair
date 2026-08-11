@@ -63,12 +63,13 @@ export class RenderService {
      * Write down something for the station to say, and set it going.
      *
      * Answers as soon as the row exists rather than waiting on a synthesis, so the segment always
-     * comes back `planned`. That is not an approximation of the result — it is the result. Rendering
-     * is a job precisely because nobody is waiting on it, and a caller that wants to know when the
-     * audio arrived polls the list.
+     * comes back `written`: this route hands over the words, and what is missing is the audio. That
+     * is not an approximation of the result — it is the result. Rendering is a job precisely because
+     * nobody is waiting on it, and a caller that wants to know when the audio arrived polls the
+     * list.
      *
      * The send is last, and deliberately: a job that ran before the row was committed would find
-     * nothing to claim. If the send fails, the row survives as a `planned` segment an operator can
+     * nothing to claim. If the send fails, the row survives as a `written` segment an operator can
      * ask for again, which is a better failure than a segment that exists only in a queue.
      */
     async createSegment(create: SegmentCreate): Promise<SegmentView> {

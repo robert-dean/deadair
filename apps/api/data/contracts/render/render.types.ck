@@ -7,7 +7,7 @@ options {
 contract Segment: { # One thing the station can play that is not a record
     id: string(min=1, max=100)
     kind: string(min=1, max=50) # What sort of element it is: `ident`, `stinger`, `talkbreak`, `news`
-    state: enum(planned, rendering, ready, failed) # Only `ready` can go on air. The station skips anything else rather than waiting for it
+    state: enum(planned, writing, written, rendering, ready, failed) # One state per stage of making it. Only `ready` can go on air; the station skips anything else rather than waiting for it
     label: string(min=1, max=400) # What the console calls it, and what the mount is labelled with while it airs
     source: string(min=1, max=50) # Who made it: `library` for a file dropped into the inbox
     playable: boolean # Whether there is audio behind it yet

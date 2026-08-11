@@ -68,8 +68,20 @@ export interface WrittenBreak {
 }
 
 export abstract class BreakWriter {
-    /** Which `segments.kind` this writes. One writer per kind; see the registry. */
+    /** Which `segments.kind` this writes. Several writers may claim one kind; see the registry. */
     abstract readonly kind: string;
+
+    /**
+     * Which binding this is, for `segments.writer` and for the record of what was tried.
+     *
+     * On the writer rather than on what it returns, because a writer that DECLINES has to be
+     * nameable too: "the model was slow" and "there was nothing true to say" are the same silence
+     * to a listener and completely different problems to an operator. It is also the reason the
+     * caller does not name it — once a kind has more than one writer, a script arriving from the
+     * registry has been through however many declined before it, and "whichever one the caller
+     * assumed" is the answer that goes quietly wrong the day a model stops answering.
+     */
+    abstract readonly name: string;
 
     /**
      * Write one break, or answer `undefined` when there is nothing worth saying.

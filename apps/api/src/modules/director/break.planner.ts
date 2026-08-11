@@ -34,6 +34,32 @@ const IDENT_KIND = 'ident';
 export const PLANT_AHEAD = 4;
 
 /**
+ * How near its slot a break gets before anything is written for it.
+ *
+ * Planting is cheap and happens all the way down the order, because the POSITION is what keeps the
+ * spacing stable and what lets an operator see the shape of the hour. Writing is the expensive half
+ * and waits here.
+ *
+ * It used to not wait at all. `plant` sent a write for every slot the moment it put one down, and
+ * with a tail of eight to twenty-three items that meant up to five breaks written and rendered at
+ * once, the furthest about an HOUR of airtime ahead. That hour is paid for three ways: it is an hour
+ * for a forward claim to go stale under an operator edit, it is model and speech work thrown away
+ * whenever the order changes, and on a slow model it is spent when the station can least afford it.
+ *
+ * Eight, against a `COMMIT_LEAD` of 3. A break must be `ready` before the pass that hands it over
+ * reaches it, so the window leaves roughly five records of airtime — call it a quarter of an hour —
+ * for a write and a render to finish, which is generous against a model answering at a couple of
+ * tokens a second and still cuts the horizon from about an hour to about fifteen minutes.
+ *
+ * Measured in ITEMS, so it scales with the break interval rather than against it: at the default
+ * four records between breaks the window holds two, and at one it holds up to eight. That is
+ * correct — a station told to talk after every record is asking for that much — and it is
+ * deliberately not capped per pass, because a claim makes a duplicate send free, renders queue like
+ * any other job, and a model is serialised by `LlmGate` however many are asked for.
+ */
+export const WRITE_AHEAD = 8;
+
+/**
  * The station putting its own segments into a lineup.
  *
  * The rule is one break every `breakEveryItems` RECORDS. Segments do not count
@@ -113,16 +139,59 @@ export class BreakPlanner {
             return 0;
         }
 
-        // After the order is committed, and only for what actually went into it. A write job that
-        // ran against a segment not yet in any running order would find no neighbours and write a
-        // break about nothing.
-        for (const placement of placements) {
-            if (!placement.written) continue;
-            await this.jobs.send('director.write_break', { segmentId: placement.segmentId });
-        }
-
+        // Nothing is sent for writing here. A break is written when its slot comes near rather than
+        // when it is planted, which is {@link ripen}'s job on the same pass. What that preserves is
+        // this method's whole shape: planting stays one cheap write per slot with no model and no
+        // speech engine anywhere near it, so an order gets its breaks laid out an hour ahead and
+        // pays for the words fifteen minutes ahead.
         this.logger.info('director: planted breaks into the running order', { count: placements.length, written: canWrite });
         return placements.length;
+    }
+
+    /**
+     * Ask for the words of any break whose slot is coming up. Answers how many were asked for.
+     *
+     * Called from the same commit pass as {@link plant}, on every track boundary, and costs nothing
+     * on the overwhelming majority of them: the window is a slice of an array in memory, and the one
+     * query happens only when that slice actually holds a segment nobody has written yet.
+     *
+     * ## Sending is free, so this does not have to remember
+     *
+     * `WriteBreakJob` claims the row (`planned → writing`) before it does anything, so a second send
+     * for the same break finds nothing to claim and stops. That is what lets this re-offer whatever
+     * is still `planned` every single boundary instead of keeping a list of what it already asked
+     * for — a list which, being in memory, would be wrong after every restart in exactly the
+     * direction that loses breaks.
+     *
+     * It also means a lost job heals itself. A send that never arrived, a worker that died
+     * mid-write: the row is still `planned` at the next boundary and gets offered again, right up
+     * until its slot is close enough that the director hands it over unwritten and skips it.
+     *
+     * ## An off-air station writes nothing
+     *
+     * Because the pass that calls this only runs while the director is driving. That is the right
+     * answer rather than an accident: a station nobody is listening to should not be paying a model
+     * to write breaks nobody will hear.
+     */
+    async ripen(lineup: StationLineup): Promise<number> {
+        const items = lineup.all();
+        const from = lineup.committedThrough();
+        const window = items.slice(Math.max(0, from), Math.max(0, from) + WRITE_AHEAD);
+
+        const ids = window.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : []));
+        if (ids.length === 0) return 0;
+
+        const segments = await this.segments.findByIds(ids);
+        // `planned` and nothing else. A break already being written belongs to whoever claimed it,
+        // one already written needs no words, and a failed one is not retried by asking again — the
+        // usual reason it failed is that there was nothing true to say, and that does not change.
+        const unwritten = ids.filter(id => segments.get(id)?.state === 'planned');
+        if (unwritten.length === 0) return 0;
+
+        for (const segmentId of unwritten) await this.jobs.send('director.write_break', { segmentId });
+
+        this.logger.info('director: asked for the words of breaks coming up', { count: unwritten.length });
+        return unwritten.length;
     }
 
     /**

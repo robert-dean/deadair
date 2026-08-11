@@ -7,4 +7,5 @@ export type JobNames =
     | 'catalog.analyze'
     | 'director.extend_lineup'
     | 'director.write_break'
-    | 'render.segment';
+    | 'render.segment'
+    | 'render.prune_script_history';

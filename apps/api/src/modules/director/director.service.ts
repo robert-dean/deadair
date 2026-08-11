@@ -597,8 +597,19 @@ export class DirectorService {
      */
     private async plantBreaks(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
         try {
-            const planted = await this.inScope(async scope => scope.get(BreakPlanner).plant(lineup, rules));
-            if (planted > 0) this.persistSoon();
+            await this.inScope(async scope => {
+                const planner = scope.get(BreakPlanner);
+
+                const planted = await planner.plant(lineup, rules);
+                if (planted > 0) this.persistSoon();
+
+                // Second, and on every pass rather than only one that planted something. Planting
+                // lays a break's POSITION down as far ahead as the order runs; this asks for its
+                // WORDS only once its slot is near, which is what keeps an hour of forward planning
+                // from costing an hour of model and speech work that an operator edit can throw
+                // away. It touches no running order, so it needs no persist.
+                await planner.ripen(lineup);
+            });
         } catch (error) {
             this.logger.warn(`director: could not plan breaks for the running order (${message(error)})`);
         }

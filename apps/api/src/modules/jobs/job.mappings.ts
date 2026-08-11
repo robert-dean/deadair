@@ -11,6 +11,7 @@ import { AnalysisJob } from '#modules/analysis/analysis.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
+import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
 
 /**
  * What a job name maps to. The bare constructor is the short form for an
@@ -179,5 +180,19 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'render.segment': {
         job: RenderSegmentJob,
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // Nightly, in the small hours, because it is housekeeping over a table nothing reads to make a
+    // decision. It is one delete against an indexed timestamp, so the hour is chosen to stay out of
+    // the way rather than because the work is heavy.
+    //
+    // NO retry, unlike everything else here, and the reason is which way the failure falls: a sweep
+    // that did not run leaves rows that will be swept tomorrow, and the only thing a retry can buy
+    // is a second chance to delete something. Nothing is waiting on it and nothing degrades without
+    // it, so the cron IS the retry.
+    'render.prune_script_history': {
+        job: PruneScriptHistoryJob,
+        cron: '23 4 * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 };

@@ -42,8 +42,10 @@ export const DirectorModule: ServerKitModule = {
 
         // The writer seam, keyed by `segments.kind`. The list is explicit rather than discovered,
         // following `ToolRegistry`: what the station can say is one readable line here instead of
-        // the sum of whatever registered itself. A model binding is a second entry, and the choice
-        // between it and the deterministic one is a setting rather than a search.
+        // the sum of whatever registered itself. Several writers may claim one kind and THIS ORDER
+        // is the preference order — a model binding goes in front of `TalkBreakWriter` rather than
+        // instead of it, and the registry falls through to whatever is last when the ones above it
+        // decline. So the station's own words stay the floor by being the final entry.
         registry.register(TalkBreakWriter).useClass(TalkBreakWriter).asScoped();
         registry
             .register(BreakWriterRegistry)

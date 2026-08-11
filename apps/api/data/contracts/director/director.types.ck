@@ -42,7 +42,7 @@ contract StationOrderItem: { # One item of the live running order, and where it 
     year?: int(min=0)
     trackId?: string(max=100) # The canonical catalog track, when this is one the catalog holds
     segmentId?: string(min=1, max=100) # Which segment this plays. Present only on a segment
-    segmentState?: enum(planned, rendering, ready, failed, gone)
+    segmentState?: enum(planned, writing, written, rendering, ready, failed, gone)
     playable?: boolean # Whether the station can actually air this segment. One that cannot is SKIPPED when it comes round, rather than held open
     segmentError?: string(max=2000) # Why this segment will not air, in a sentence. Present only on a failed one
     segmentWriter?: string(max=200) # What decided the words: the station's own templates, or the model that wrote them. Absent on a recording somebody made

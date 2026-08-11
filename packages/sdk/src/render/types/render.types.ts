@@ -6,8 +6,8 @@ export interface Segment {
     id: string;
     /** What sort of element it is: `ident`, `stinger`, `talkbreak`, `news` */
     kind: string;
-    /** Only `ready` can go on air. The station skips anything else rather than waiting for it */
-    state: 'planned' | 'rendering' | 'ready' | 'failed';
+    /** One state per stage of making it. Only `ready` can go on air; the station skips anything else rather than waiting for it */
+    state: 'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed';
     /** What the console calls it, and what the mount is labelled with while it airs */
     label: string;
     /** Who made it: `library` for a file dropped into the inbox */

@@ -90,6 +90,7 @@ const PHRASINGS: readonly Phrasing[] = [
 @Injectable()
 export class TalkBreakWriter extends BreakWriter {
     readonly kind = TALK_BREAK_KIND;
+    readonly name = DETERMINISTIC_WRITER;
 
     async write(request: BreakWriteRequest): Promise<WrittenBreak | undefined> {
         const inputs: PhrasingInputs = {

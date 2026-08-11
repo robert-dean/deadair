@@ -146,7 +146,7 @@ export const StationOrderItem = z.strictObject({
     year: z.coerce.number().int().min(0).optional(),
     trackId: z.string().max(100).optional().describe('The canonical catalog track, when this is one the catalog holds'),
     segmentId: z.string().min(1).max(100).optional().describe('Which segment this plays. Present only on a segment'),
-    segmentState: z.enum(['planned', 'rendering', 'ready', 'failed', 'gone']).optional(),
+    segmentState: z.enum(['planned', 'writing', 'written', 'rendering', 'ready', 'failed', 'gone']).optional(),
     playable: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()

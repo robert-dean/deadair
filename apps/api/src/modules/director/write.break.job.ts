@@ -4,13 +4,13 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { overrideJobActor } from '#modules/jobs/job.authorization.js';
+import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import type { BreakTrack } from './break.writer.js';
-import { BreakWriterRegistry, isWritten } from './break.writer.registry.js';
+import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
-import { DETERMINISTIC_WRITER } from './talk.break.writer.js';
 
 /** How many recent scripts a writer is shown, so it can avoid repeating itself. */
 const RECENT_WINDOW = 6;
@@ -57,6 +57,7 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
     constructor(
         private readonly order: StationLineupRepository,
         private readonly segments: SegmentRepository,
+        private readonly history: ScriptHistoryRepository,
         private readonly writers: BreakWriterRegistry,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
@@ -78,10 +79,15 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
         }
         const { segmentId } = payload;
 
-        const segment = await this.segments.findById(segmentId);
-        if (segment === undefined || segment.state !== 'planned') {
-            // Deleted, already written, already rendering. All ordinary races, and all the same
-            // answer: not ours to write.
+        // Claimed rather than read, so two runs cannot both write the same break: only one
+        // `planned → writing` wins and the loser stops here. That is what makes a duplicate send
+        // free, which is what lets the director offer every `planned` break in its window on every
+        // boundary without having to remember which ones it has already asked for.
+        //
+        // Deleted, already claimed, already written, already rendering: all ordinary races, and all
+        // the same answer to this job, which is that it is not ours to write.
+        const segment = await this.segments.claimForWrite(segmentId);
+        if (segment === undefined) {
             this.logger.info('director: nothing to write for this break', { job: this.context.id, segment: segmentId });
             return;
         }
@@ -92,21 +98,28 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
             return;
         }
 
-        const written = await this.writers.write({
+        const neighbours = neighboursOf(lineup, segmentId);
+        const result = await this.writers.write({
             kind: segment.kind,
-            ...neighboursOf(lineup, segmentId),
+            ...neighbours,
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             recent: await this.segments.recentScripts(segment.kind, RECENT_WINDOW),
         });
 
-        if (!isWritten(written)) {
+        // Before the row is touched, and before any early return below, so an attempt is recorded
+        // whichever way this goes. What the station TRIED is as much of the record as what it said.
+        await this.remember(segmentId, segment.kind, neighbours, result);
+
+        if (!isWritten(result)) {
             // Not an error and not logged as one: a break nothing had anything to say for is a break
             // the station does not take, and the reason is on the row for whoever asks why.
-            await this.fail(segmentId, written.reason);
+            await this.fail(segmentId, result.reason ?? `nothing wrote this ${segment.kind}`);
             return;
         }
 
-        if (!(await this.segments.writeScript(segmentId, { ...written, writer: DETERMINISTIC_WRITER }))) {
+        // `result.writer` rather than a constant: which writer produced this is the registry's
+        // answer, and once a kind has more than one of them the job cannot know which one spoke.
+        if (!(await this.segments.writeScript(segmentId, { ...result.written, writer: result.writer }))) {
             // The row moved out of `planned` while this was being written. Whoever moved it owns it.
             this.logger.info('director: a break was written after something else had claimed it', { job: this.context.id, segment: segmentId });
             return;
@@ -116,12 +129,64 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
         // segment with nothing to say and fail it. If this send fails the row survives as a written
         // `planned` segment, which an operator can ask for again.
         await this.jobs.send('render.segment', { segmentId });
-        this.logger.info('director: wrote a break', { job: this.context.id, segment: segmentId, label: written.label });
+        this.logger.info('director: wrote a break', {
+            job: this.context.id,
+            segment: segmentId,
+            label: result.written.label,
+            writer: result.writer,
+            // Only when something DID decline, so the ordinary line stays short. A break that took
+            // two writers is the interesting one, and it is invisible from the row alone: the row
+            // records who won and says nothing about who was asked first.
+            ...(result.attempts.length > 1 ? { declined: result.attempts.slice(0, -1).map(attempt => attempt.reason) } : {}),
+        });
     }
 
-    /** Leave the reason where an operator will look for it, rather than in a log line that scrolls. */
+    /**
+     * Write down every writer that was asked and what it said.
+     *
+     * Best-effort, and the `catch` is the whole point: nothing reads this table to decide anything,
+     * so a history write that fails must cost a row and never the break it was describing. The same
+     * trade `segment_events` makes, for the same reason.
+     *
+     * Every attempt, not only the winner. A model that declined and a floor that covered for it are
+     * two facts, and the second on its own reads as a station that never had a model configured.
+     */
+    private async remember(
+        segmentId: string,
+        kind: string,
+        neighbours: { previous?: BreakTrack; next?: BreakTrack },
+        result: BreakWriteResult,
+    ): Promise<void> {
+        if (result.attempts.length === 0) return;
+
+        try {
+            await this.history.recordAll(
+                result.attempts.map(attempt => ({
+                    segmentId,
+                    kind,
+                    writer: attempt.writer,
+                    outcome: attempt.outcome,
+                    durationMs: attempt.durationMs,
+                    ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous }),
+                    ...(neighbours.next === undefined ? {} : { next: neighbours.next }),
+                    ...(attempt.written === undefined ? {} : { script: attempt.written.script, label: attempt.written.label }),
+                    ...(attempt.reason === undefined ? {} : { reason: attempt.reason }),
+                })),
+            );
+        } catch (error) {
+            this.logger.warn(`director: could not record what was written (${error instanceof Error ? error.message : String(error)})`);
+        }
+    }
+
+    /**
+     * Leave the reason where an operator will look for it, rather than in a log line that scrolls.
+     *
+     * From `writing`, because this job only ever fails a break it has already claimed. The one
+     * exception is the running order having gone, which is checked after the claim for exactly that
+     * reason: a break whose order vanished is still this job's to give up on.
+     */
     private async fail(segmentId: string, reason: string): Promise<void> {
-        await this.segments.markFailed(segmentId, reason, 'planned');
+        await this.segments.markFailed(segmentId, reason, 'writing');
         this.logger.info('director: a break went unwritten', { job: this.context.id, segment: segmentId, reason });
     }
 }

@@ -19,7 +19,7 @@ const track = (title: string, artist: string): RundownTrack => ({
 });
 
 const planned = (overrides: Partial<Segment> = {}): Segment =>
-    ({ id: 'seg-1', kind: 'talkbreak', state: 'planned', label: 'Talk break', source: 'render', ...overrides }) as Segment;
+    ({ id: 'seg-1', kind: 'talkbreak', state: 'writing', label: 'Talk break', source: 'render', ...overrides }) as Segment;
 
 /** A rotation with a break planted between the second and third record. */
 const lineupWithBreak = async (segmentId = 'seg-1'): Promise<StationLineup> => {
@@ -29,15 +29,21 @@ const lineupWithBreak = async (segmentId = 'seg-1'): Promise<StationLineup> => {
     return lineup;
 };
 
-function harness(options: { segment?: Segment; lineup?: StationLineup; written?: unknown; wrote?: boolean } = {}) {
+function harness(options: { segment?: Segment; lineup?: StationLineup; written?: unknown; wrote?: boolean; historyThrows?: boolean } = {}) {
     const segments = {
-        findById: vi.fn(async () => ('segment' in options ? options.segment : planned())),
+        claimForWrite: vi.fn(async () => ('segment' in options ? options.segment : planned())),
         recentScripts: vi.fn(async () => []),
         writeScript: vi.fn(async () => options.wrote ?? true),
         markFailed: vi.fn(async () => {}),
     };
     const lineups = { load: vi.fn(async () => options.lineup) };
-    const writers = { write: vi.fn(async () => options.written ?? { script: 'talking', label: 'Talk break: one into two' }) };
+    const history = { recordAll: vi.fn(async () => options.historyThrows && Promise.reject(new Error('the history table is gone'))) };
+    const wrote = (script: string, label: string, writer: string) => ({
+        written: { script, label },
+        writer,
+        attempts: [{ writer, outcome: 'written', written: { script, label }, durationMs: 1 }],
+    });
+    const writers = { write: vi.fn(async () => options.written ?? wrote('talking', 'Talk break: one into two', 'deterministic')) };
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((_: string, fallback: string) => fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -45,6 +51,7 @@ function harness(options: { segment?: Segment; lineup?: StationLineup; written?:
     const job = new WriteBreakJob(
         lineups as never,
         segments as never,
+        history as never,
         writers as never,
         jobs as never,
         config as never,
@@ -53,7 +60,7 @@ function harness(options: { segment?: Segment; lineup?: StationLineup; written?:
         logger as never,
     );
 
-    return { job, segments, lineups, writers, jobs, logger };
+    return { job, segments, lineups, history, writers, jobs, logger };
 }
 
 describe('WriteBreakJob', () => {
@@ -68,6 +75,94 @@ describe('WriteBreakJob', () => {
             writer: 'deterministic',
         });
         expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
+    });
+
+    it('records whichever writer actually spoke, rather than assuming', async () => {
+        // The job cannot know: once a kind has more than one writer, the answer that came back has
+        // been through however many declined before it. A constant here is the bug where every
+        // break claims to be deterministic and a model quietly stops being visible.
+        const { job, segments } = harness({
+            lineup: await lineupWithBreak(),
+            written: {
+                written: { script: 'talking', label: 'Talk break: one into two' },
+                writer: 'a-model',
+                attempts: [
+                    { writer: 'a-model', outcome: 'written', written: { script: 'talking', label: 'Talk break: one into two' }, durationMs: 1 },
+                ],
+            },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ writer: 'a-model' }));
+    });
+
+    describe('the record of what it wrote', () => {
+        /** A model that threw, and the floor that covered for it. */
+        const degraded = {
+            written: { script: 'That was Solid Air.', label: 'Back-announce' },
+            writer: 'deterministic',
+            attempts: [
+                { writer: 'a-model', outcome: 'failed', reason: 'out of budget', durationMs: 41 },
+                { writer: 'deterministic', outcome: 'written', written: { script: 'That was Solid Air.', label: 'Back-announce' }, durationMs: 1 },
+            ],
+        };
+
+        it('keeps every attempt, not only the one that produced words', async () => {
+            // The floor's row on its own reads as a station that never had a model configured, which
+            // is the wrong thing for an operator to conclude at the exact moment their model broke.
+            const { job, history } = harness({ lineup: await lineupWithBreak(), written: degraded });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            const written = history.recordAll.mock.calls[0]?.[0] as ReadonlyArray<Record<string, unknown>>;
+            expect(written).toHaveLength(2);
+            expect(written[0]).toMatchObject({ writer: 'a-model', outcome: 'failed', reason: 'out of budget', durationMs: 41 });
+            expect(written[1]).toMatchObject({ writer: 'deterministic', outcome: 'written', script: 'That was Solid Air.' });
+        });
+
+        it('keeps the records the break was written against', async () => {
+            // A script that names the wrong record is only diagnosable next to what it was told.
+            const { job, history } = harness({ lineup: await lineupWithBreak() });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.recordAll.mock.calls[0]?.[0]).toEqual([
+                expect.objectContaining({
+                    segmentId: 'seg-1',
+                    kind: 'talkbreak',
+                    previous: { title: 'Solid Air', artist: 'John Martyn' },
+                    next: { title: 'Pink Moon', artist: 'Nick Drake' },
+                }),
+            ]);
+        });
+
+        it('keeps the attempt even when nothing could be written', async () => {
+            const { job, history } = harness({
+                lineup: await lineupWithBreak(),
+                written: {
+                    attempts: [{ writer: 'deterministic', outcome: 'declined', reason: 'nothing to say', durationMs: 1 }],
+                    reason: 'nothing to say',
+                },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.recordAll.mock.calls[0]?.[0]).toEqual([
+                expect.objectContaining({ writer: 'deterministic', outcome: 'declined', reason: 'nothing to say' }),
+            ]);
+        });
+
+        it('still writes the break when the record of it cannot be kept', async () => {
+            // The whole point of it being best-effort: nothing reads this table to decide anything,
+            // so losing a row must cost a row and never the break it was describing.
+            const { job, segments, jobs } = harness({ lineup: await lineupWithBreak(), historyThrows: true });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.writeScript).toHaveBeenCalled();
+            expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
+        });
     });
 
     it('derives the neighbours from the order as it stands now', async () => {
@@ -88,11 +183,17 @@ describe('WriteBreakJob', () => {
     });
 
     it('records the reason on the row when the writer has nothing to say', async () => {
-        const { job, segments, jobs } = harness({ lineup: await lineupWithBreak(), written: { reason: 'nothing to say' } });
+        const { job, segments, jobs } = harness({
+            lineup: await lineupWithBreak(),
+            written: {
+                attempts: [{ writer: 'deterministic', outcome: 'declined', reason: 'nothing to say', durationMs: 1 }],
+                reason: 'nothing to say',
+            },
+        });
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', 'nothing to say', 'planned');
+        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', 'nothing to say', 'writing');
         expect(jobs.send).not.toHaveBeenCalled();
     });
 
@@ -101,12 +202,13 @@ describe('WriteBreakJob', () => {
 
         await job.run({ segmentId: 'seg-1' });
 
-        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', expect.stringContaining('gone'), 'planned');
+        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', expect.stringContaining('gone'), 'writing');
     });
 
-    it('does nothing when the segment has already moved on', async () => {
-        // Already rendering, already written, or deleted. All ordinary races, all the same answer.
-        const { job, segments, jobs } = harness({ segment: planned({ state: 'rendering' }) });
+    it('does nothing when the claim was lost', async () => {
+        // Another run got there first, or the segment was deleted, or it has already been written.
+        // All ordinary races, and all the same answer: the claim is what says whose it is.
+        const { job, segments, jobs } = harness({ segment: undefined });
 
         await job.run({ segmentId: 'seg-1' });
 
@@ -130,7 +232,7 @@ describe('WriteBreakJob', () => {
         await job.run();
         await job.run({ lineupId: 'lineup-1' });
 
-        expect(segments.findById).not.toHaveBeenCalled();
+        expect(segments.claimForWrite).not.toHaveBeenCalled();
         expect(logger.warn).toHaveBeenCalledTimes(3);
     });
 });

@@ -5,6 +5,7 @@ import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.j
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ANALYSIS_CONCURRENCY_KEY, ANALYSIS_PLUGIN_KEY, DEFAULT_ANALYSIS_CONCURRENCY } from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
+import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 
 /**
@@ -242,6 +243,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         help: 'The plugin id the station talks with. Leave empty when only one plugin can speak; set it when several can, because the station declines to guess rather than airing the wrong voice.',
     },
+    {
+        group: 'render',
+        key: SCRIPT_HISTORY_KEYS.retentionDays,
+        label: 'Keep what the station wrote for (days)',
+        type: 'number',
+        default: SCRIPT_HISTORY_DEFAULTS.retentionDays,
+        help: 'Every break the station wrote, including the attempts that came to nothing, kept for this long and then swept nightly. Zero keeps all of it. This is the only record of what was said once a segment has been rewritten or deleted, so it is worth more than it costs.',
+    },
 
     // ── llm ────────────────────────────────────────────────────────────────────
     // Which plugin, and nothing else. The base URL, the model and the credentials
@@ -253,6 +262,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         help: 'The plugin id the station asks for words. Leave empty when only one plugin can, and set it when several can. With none available the station still writes its own breaks, deterministically.',
+    },
+    {
+        group: 'llm',
+        key: SCRIPT_HISTORY_KEYS.capture,
+        label: 'Keep the prompt and the raw answer',
+        type: 'boolean',
+        default: SCRIPT_HISTORY_DEFAULTS.capture,
+        help: 'Stores what was sent to the model and what came back before the station tidied it, alongside every break it writes. Turn it on for an evening of tuning a prompt and off again afterwards: it is most of what the history costs, and the words themselves are kept either way.',
     },
 
     // ── analysis ───────────────────────────────────────────────────────────────

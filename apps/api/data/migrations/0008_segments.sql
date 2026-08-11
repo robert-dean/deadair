@@ -26,7 +26,9 @@ create table deadair.segments (
     kind text not null default 'ident',
     -- How far along producing it is.
     --
-    --   planned    the station means to say this; there is no audio yet
+    --   planned    the station means to say this; nothing has been written and there is no audio
+    --   writing    a writer has claimed it and is deciding what it says
+    --   written    the words are committed; the audio is what is missing
     --   rendering  something is producing it right now
     --   ready      there is audio, and it can be committed to a running order
     --   failed     producing it did not work, and `error` says what happened
@@ -34,10 +36,17 @@ create table deadair.segments (
     -- Every row the library scan writes is born 'ready', because the audio is what it was made
     -- from. The column still earns its place now: it is what the director reads to decide whether
     -- a segment can air, and a segment that is not ready is SKIPPED rather than waited for, so
-    -- the station never falls silent holding a slot open for a renderer. That rule is the seam
-    -- the TTS work drops into later, and it is cheaper to honour from the start than to retrofit
-    -- into the director once something depends on the old behaviour.
-    state text not null default 'planned' constraint segments_state_check check (state in ('planned', 'rendering', 'ready', 'failed')),
+    -- the station never falls silent holding a slot open for a renderer.
+    --
+    -- Making a break is TWO pieces of work with different failure modes — deciding what it says,
+    -- then producing the audio — and each is its own job. There is a state per stage so the column
+    -- says which one a row is in and, more usefully, which one it came out of: a retry after a
+    -- failed render starts from 'written' and re-renders the words that already exist, rather than
+    -- from 'planned', which would pay a model to invent different words for a break that was
+    -- already correct. Two states rather than one for the same reason: 'writing' is work in flight
+    -- and 'written' is work finished, and a claim that could not tell them apart could not stop a
+    -- second writer starting on a break the first one was halfway through.
+    state text not null default 'planned' constraint segments_state_check check (state in ('planned', 'writing', 'written', 'rendering', 'ready', 'failed')),
     -- What the console calls it, and what the mount is labelled with while it airs. Not the
     -- script: a listener's player should read "Station ident" rather than a paragraph of speech.
     label text not null,
@@ -122,8 +131,10 @@ create table deadair.segment_events (
     -- describes a segment's own life and means nothing once the segment is gone.
     segment_id uuid not null references deadair.segments (id) on delete cascade,
     -- Where it came from. Null for the first event of a row, which came from nowhere.
-    from_state text constraint segment_events_from_check check (from_state is null or from_state in ('planned', 'rendering', 'ready', 'failed')),
-    to_state text not null constraint segment_events_to_check check (to_state in ('planned', 'rendering', 'ready', 'failed')),
+    from_state text constraint segment_events_from_check check (
+        from_state is null or from_state in ('planned', 'writing', 'written', 'rendering', 'ready', 'failed')
+    ),
+    to_state text not null constraint segment_events_to_check check (to_state in ('planned', 'writing', 'written', 'rendering', 'ready', 'failed')),
     -- Why, in a sentence, when there is one worth keeping: the error that failed a render, or the
     -- note that a break degraded to the deterministic writer because the model declined. Null for
     -- an ordinary transition that speaks for itself.
@@ -134,9 +145,73 @@ create table deadair.segment_events (
 create index segment_events_segment_idx on deadair.segment_events (segment_id, created_at);
 create index segment_events_recent_idx on deadair.segment_events (created_at desc);
 
+-- Everything the station ever wrote, including the attempts that came to nothing.
+--
+-- `segments.script` holds the CURRENT words of a segment that still exists, and that is all it can
+-- do: a rewritten row loses what it said before, a writer that declined leaves only a reason on a
+-- row that has since moved on, and a deleted segment takes its words with it. None of that can be
+-- reconstructed afterwards, and all of it is what somebody wants the first time a break sounds
+-- wrong. It is also the raw material for anything transcript-shaped later.
+--
+-- One row per write ATTEMPT rather than per segment. A break where the model declined and the floor
+-- covered for it is TWO rows, and that is the point: the second on its own reads as a station that
+-- never had a model configured, which is the wrong thing for an operator to conclude.
+--
+-- Append-only, and shaped like `segment_events` and `play_history` above it: `created_at`, an id,
+-- and deliberately NO `updated_at` and no trigger. A row is a fact about a moment and is never
+-- edited, so a column saying when it last changed could only ever repeat `created_at` — and having
+-- one invites somebody to make it lie. A correction is another attempt, which is another row.
+create table deadair.script_history (
+    created_at timestamptz not null default now(),
+    id uuid not null default gen_random_uuid() primary key,
+    -- Set null rather than cascade, unlike `segment_events.segment_id`. That table describes a
+    -- segment's own life and means nothing once the segment is gone; this one exists PRECISELY to
+    -- outlive it, which is why everything below is denormalised enough to stand on its own.
+    segment_id uuid references deadair.segments (id) on delete set null,
+    kind text not null,
+    -- Both null for an attempt that produced nothing. The label is kept beside the script for the
+    -- same reason they are written together: it names the break these particular words are for.
+    label text,
+    script text,
+    -- Which binding produced or declined this. `BreakWriter.name`: 'deterministic' today, a model
+    -- and an operator's templates later. Unconstrained text, like `segments.writer`.
+    writer text not null,
+    -- Which model said it, for a writer that used one. Null otherwise, which is most rows.
+    model text,
+    -- What the line was rendered FROM, for a writer that works from something an operator can edit:
+    -- the template, once there are templates. Null for a model, whose input is `prompt` below.
+    -- Without it, tuning a set of phrasings is guesswork about which one produced which line.
+    source text,
+    -- The two records this was written against, as the writer saw them. A script that names the
+    -- wrong record is only diagnosable next to what it was actually told.
+    previous jsonb,
+    next jsonb,
+    -- Whether there are words: 'written', 'declined' (the writer had nothing to say), or 'failed'
+    -- (it threw). The last two are different problems wearing the same silence.
+    outcome text not null constraint script_history_outcome_check check (outcome in ('written', 'declined', 'failed')),
+    -- Why, for anything that is not 'written'.
+    reason text,
+    -- What it cost: the provider's own token counts, and how long the attempt took. Kept for every
+    -- attempt rather than only a slow one, because "the model got slower" is a question that can
+    -- only be asked of numbers gathered before anybody suspected it.
+    usage jsonb,
+    duration_ms integer constraint script_history_duration_check check (duration_ms is null or duration_ms >= 0),
+    -- The two expensive ones, filled only while `llm.captureWrites` is on. They are most of the
+    -- volume of this table and they are exactly what an evening of prompt tuning needs, so they are
+    -- a switch an operator turns on and off rather than a default.
+    prompt jsonb,
+    raw text
+);
+
+-- The two reads: the station's recent writing, and one segment's. The first is also what the
+-- retention sweep deletes by, which is why `created_at` leads it.
+create index script_history_recent_idx on deadair.script_history (created_at desc);
+create index script_history_segment_idx on deadair.script_history (segment_id, created_at) where segment_id is not null;
+
 -- migrate:down
 
 -- Dropped explicitly and first, rather than left to the cascade, so the down migration says what it
 -- removes instead of relying on a foreign key to imply it.
+drop table if exists deadair.script_history;
 drop table if exists deadair.segment_events;
 drop table if exists deadair.segments;

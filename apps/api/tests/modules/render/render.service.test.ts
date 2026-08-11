@@ -22,10 +22,12 @@ const READY: Segment = {
     audioExt: 'mp3',
 };
 
+// A segment created through `POST /segments`, which hands over the words: what is missing is the
+// audio, so it is born `written` rather than `planned`.
 const PLANNED: Segment = {
     id: ID,
     kind: 'talkbreak',
-    state: 'planned',
+    state: 'written',
     label: 'back-announce',
     source: 'render',
     script: 'That was Boards of Canada.',
@@ -169,9 +171,10 @@ describe('RenderService.createSegment', () => {
 
         expect(plan).toHaveBeenCalledWith({ kind: 'talkbreak', label: 'back-announce', script: 'That was Boards of Canada.' });
         expect(send).toHaveBeenCalledWith('render.segment', { segmentId: ID });
-        // `planned` is the answer, not an approximation of one: rendering is a job precisely
-        // because nobody is waiting on it.
-        expect(created.state).toBe('planned');
+        // `written` is the answer, not an approximation of one: this route hands over the words, so
+        // what is missing is the audio, and producing it is a job precisely because nobody is
+        // waiting on it.
+        expect(created.state).toBe('written');
         expect(created.playable).toBe(false);
     });
 

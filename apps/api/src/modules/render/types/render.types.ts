@@ -8,8 +8,8 @@ export const Segment = z.strictObject({
     id: z.string().min(1).max(100),
     kind: z.string().min(1).max(50).describe('What sort of element it is: `ident`, `stinger`, `talkbreak`, `news`'),
     state: z
-        .enum(['planned', 'rendering', 'ready', 'failed'])
-        .describe('Only `ready` can go on air. The station skips anything else rather than waiting for it'),
+        .enum(['planned', 'writing', 'written', 'rendering', 'ready', 'failed'])
+        .describe('One state per stage of making it. Only `ready` can go on air; the station skips anything else rather than waiting for it'),
     label: z.string().min(1).max(400).describe('What the console calls it, and what the mount is labelled with while it airs'),
     source: z.string().min(1).max(50).describe('Who made it: `library` for a file dropped into the inbox'),
     playable: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('Whether there is audio behind it yet'),

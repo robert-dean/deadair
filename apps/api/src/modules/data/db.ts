@@ -294,13 +294,33 @@ export interface DeadairPluginStorage {
   value: Json | null;
 }
 
+export interface DeadairScriptHistory {
+  createdAt: Generated<DateTime>;
+  durationMs: number | null;
+  id: Generated<string>;
+  kind: string;
+  label: string | null;
+  model: string | null;
+  next: Json | null;
+  outcome: "written" | "declined" | "failed";
+  previous: Json | null;
+  prompt: Json | null;
+  raw: string | null;
+  reason: string | null;
+  script: string | null;
+  segmentId: string | null;
+  source: string | null;
+  usage: Json | null;
+  writer: string;
+}
+
 export interface DeadairSegmentEvents {
   createdAt: Generated<DateTime>;
   fromState: string | null;
   id: Generated<string>;
   reason: string | null;
   segmentId: string;
-  toState: "planned" | "rendering" | "ready" | "failed";
+  toState: "planned" | "writing" | "written" | "rendering" | "ready" | "failed";
 }
 
 export interface DeadairSegments {
@@ -315,7 +335,7 @@ export interface DeadairSegments {
   script: string | null;
   source: Generated<string>;
   sourcePath: string | null;
-  state: Generated<"planned" | "rendering" | "ready" | "failed">;
+  state: Generated<"planned" | "writing" | "written" | "rendering" | "ready" | "failed">;
   updatedAt: Generated<DateTime>;
   voice: string | null;
   writer: string | null;
@@ -440,6 +460,7 @@ export interface DB {
   "deadair.playlistTracks": DeadairPlaylistTracks;
   "deadair.pluginConfigs": DeadairPluginConfigs;
   "deadair.pluginStorage": DeadairPluginStorage;
+  "deadair.scriptHistory": DeadairScriptHistory;
   "deadair.segmentEvents": DeadairSegmentEvents;
   "deadair.segments": DeadairSegments;
   "deadair.settings": DeadairSettings;

@@ -17,11 +17,16 @@ export interface RenderSegmentPayload {
 }
 
 /**
- * Say a planned segment out loud, and keep the audio.
+ * Say a written segment out loud, and keep the audio.
  *
- * `planned → rendering → ready`, or `failed` with the reason. This is the piece
- * `docs/todo/dj-voice.md` calls the whole of the missing infrastructure, and the only thing that
- * ever writes the three states the schema has carried unused since segments landed.
+ * `written → rendering → ready`, or `failed` with the reason. This is the piece
+ * `docs/todo/dj-voice.md` calls the whole of the missing infrastructure, and the second half of
+ * making a break: deciding what it says is `WriteBreakJob`'s, one stage earlier.
+ *
+ * It starts at `written` rather than at `planned` deliberately. A break whose words have not been
+ * decided is not this job's to render, and a retry after a failed synthesis re-speaks the words
+ * already on the row rather than sending the break back to be rewritten — which on a model would be
+ * a bill as well as a change nobody asked for.
  *
  * A plain `Job` and not a `TransactionalJob`, following `ExtendLineupJob` and `EnrichmentJob`:
  * wrapping it would pin a runtime-pool connection for the length of a synthesis, which is seconds

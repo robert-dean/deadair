@@ -5,6 +5,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { RenderService } from './render.service.js';
 import { SegmentLibrary } from './segment.library.js';
+import { ScriptHistoryRepository } from './script.history.repository.js';
 import { SegmentRepository } from './segment.repository.js';
 import { SegmentStore } from './segment.store.js';
 import { SpeechService } from './speech.service.js';
@@ -70,6 +71,11 @@ export const RenderModule: ServerKitModule = {
         // Scoped, like every other repository: per-request on the request path, per-run inside the
         // scope the boot scan opens.
         registry.register(SegmentRepository).useClass(SegmentRepository).asScoped();
+
+        // The record of what the station wrote, as opposed to what it currently says. Scoped with
+        // the repository beside it, and registered here rather than in the director because the
+        // rows describe segments: the director writes it, the way it writes segments themselves.
+        registry.register(ScriptHistoryRepository).useClass(ScriptHistoryRepository).asScoped();
 
         // Scoped with the repository it writes through. The inbox path is a constructor argument
         // rather than a config lookup of its own, so the class stays testable against a temp

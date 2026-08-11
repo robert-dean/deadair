@@ -9,8 +9,13 @@ import { isSegmentExtension, type SegmentExtension } from './segment.store.js';
  *
  * Only `ready` may go on air. Everything else is a segment the director SKIPS when the cursor
  * reaches it, which is what keeps a slow renderer from ever costing the station silence.
+ *
+ * There is a state per STAGE, because making a break is two pieces of work with different failure
+ * modes and each is its own job: `planned → writing → written → rendering → ready`, with `failed`
+ * off the side. What that buys, beyond a console that can tell "waiting on the renderer" from
+ * "being written", is a retry that starts where the work stopped — see {@link claimForRender}.
  */
-export type SegmentState = 'planned' | 'rendering' | 'ready' | 'failed';
+export type SegmentState = 'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed';
 
 /**
  * One thing the station can play that is not a record.
@@ -264,11 +269,19 @@ export class SegmentRepository extends DataRepository {
     /**
      * Write down something the station means to say, before anything has said it.
      *
-     * Born `planned` with no audio, which is the state the whole render path hangs off: the
+     * Born with no audio either way, which is the state the whole render path hangs off: the
      * director skips it, so a row created here costs the station nothing until a renderer finishes
      * with it, and a renderer that never runs costs it nothing either.
+     *
+     * Born `written` when the words came WITH it and `planned` when they did not, because those are
+     * two different requests. `POST /segments` with a script is handing over the words and asking
+     * only for audio; the break planner puts down a place in the running order and leaves the words
+     * to a job. Starting the first at `planned` would mean the renderer could not claim it, and
+     * starting the second anywhere else would mean nothing ever wrote it.
      */
     async plan(planned: PlannedSegment): Promise<Segment> {
+        const state: SegmentState = planned.script === undefined ? 'planned' : 'written';
+
         const row = await this.db
             .insertInto('deadair.segments')
             .values({
@@ -278,36 +291,72 @@ export class SegmentRepository extends DataRepository {
                 voice: planned.voice ?? null,
                 writer: planned.writer ?? null,
                 source: RENDER_SOURCE,
-                state: 'planned',
+                state,
             })
             .returning(SEGMENT_COLUMNS)
             .executeTakeFirstOrThrow();
 
         // No `from`: a row that has just been created came from nowhere, which is what distinguishes
         // the first event of a segment's life from every one after it.
-        await this.record(row.id, undefined, 'planned', planned.reason);
+        await this.record(row.id, undefined, state, planned.reason);
         return toSegment(row);
     }
 
     /**
-     * Put the words on a segment that was planted without them.
+     * Take a segment for writing, if it is still there to be taken.
      *
-     * Guarded on `planned`, so a break whose slot has already been rendered, or failed, or aired is
-     * never rewritten underneath itself. The label goes with the script because the two are written
-     * together and by the same writer: a break titled for the record it introduces is only correct
+     * The same conditional update as {@link claimForRender} and for the same reason, one stage
+     * earlier: only one `planned → writing` can win, so a second send of the write job — a duplicate
+     * from the director's pass, a retry, a restart — finds nothing to claim and stops. That is what
+     * makes sending one free, which in turn is what lets the caller re-offer a break every time it
+     * looks rather than having to remember what it already asked for.
+     *
+     * `planned` only. A break already being written belongs to whoever claimed it; one already
+     * written does not need writing again; and a `failed` one is deliberately NOT re-claimable here,
+     * unlike a failed render, because the reason it failed is usually that there was nothing true to
+     * say about these two records, and that does not change by asking again.
+     */
+    async claimForWrite(id: string): Promise<Segment | undefined> {
+        const claimed = await this.db
+            .updateTable('deadair.segments')
+            .set({ state: 'writing' })
+            .where('id', '=', id)
+            .where('state', '=', 'planned')
+            .returning(SEGMENT_COLUMNS)
+            .executeTakeFirst();
+
+        if (claimed === undefined) return undefined;
+
+        await this.record(id, 'planned', 'writing');
+        return toSegment(claimed);
+    }
+
+    /**
+     * Put the words on a segment that was claimed for writing, and move it on.
+     *
+     * Guarded on `writing`, which is to say on the claim this caller took: a break whose slot has
+     * since been rendered, failed or aired is never rewritten underneath itself, and neither is one
+     * some other run claimed in between. The label goes with the script because the two are written
+     * together and by the same writer — a break titled for the record it introduces is only correct
      * for the words that introduce it.
      *
-     * @returns whether the row was still waiting to be written.
+     * The state moves in the SAME statement as the words, so there is no instant where a script
+     * exists under a state saying it does not.
+     *
+     * @returns whether this caller still held the claim.
      */
     async writeScript(id: string, written: { script: string; label: string; writer: string }): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.segments')
-            .set({ script: written.script, label: written.label, writer: written.writer })
+            .set({ script: written.script, label: written.label, writer: written.writer, state: 'written' })
             .where('id', '=', id)
-            .where('state', '=', 'planned')
+            .where('state', '=', 'writing')
             .executeTakeFirst();
 
-        return (result.numUpdatedRows ?? 0n) > 0n;
+        const wrote = (result.numUpdatedRows ?? 0n) > 0n;
+        if (wrote) await this.record(id, 'writing', 'written');
+
+        return wrote;
     }
 
     /**
@@ -319,8 +368,16 @@ export class SegmentRepository extends DataRepository {
      * while the first attempt is still speaking would otherwise pay a second time for the same
      * audio and race to write the same row.
      *
-     * `failed` is deliberately re-claimable: an operator asking again for a segment whose engine
-     * was down is asking for exactly that. `ready` is not, because the audio already exists.
+     * `written` is where an ordinary render starts, and `failed` is deliberately re-claimable: an
+     * operator asking again for a segment whose engine was down is asking for exactly that. Note
+     * which words a retry then speaks — the ones already on the row. That is the whole point of
+     * `written` being its own state: a retry that started at `planned` would pay a writer to invent
+     * different words for a break that was already correct, and on a model that is a bill as well as
+     * a change nobody asked for.
+     *
+     * `ready` is not re-claimable, because the audio already exists. Neither are `planned` and
+     * `writing`: there is nothing to say yet, and a render that beat the writer to the row is
+     * exactly the race this ordering exists to make impossible.
      */
     async claimForRender(id: string): Promise<Segment | undefined> {
         // Raw, and joined against the table's own pre-update snapshot, for one reason: `returning`
@@ -334,7 +391,7 @@ export class SegmentRepository extends DataRepository {
               from deadair.segments as prior
              where s.id = prior.id
                and s.id = ${id}::uuid
-               and s.state in ('planned', 'failed')
+               and s.state in ('written', 'failed')
          returning prior.state as from_state,
                    s.id, s.kind, s.state, s.label, s.script, s.source, s.source_path,
                    s.audio_checksum, s.audio_ext, s.duration_ms, s.error, s.voice, s.writer

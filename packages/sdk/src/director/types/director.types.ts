@@ -116,7 +116,7 @@ export interface StationOrderItem {
     trackId?: string;
     /** Which segment this plays. Present only on a segment */
     segmentId?: string;
-    segmentState?: 'planned' | 'rendering' | 'ready' | 'failed' | 'gone';
+    segmentState?: 'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed' | 'gone';
     /** Whether the station can actually air this segment. One that cannot is SKIPPED when it comes round, rather than held open */
     playable?: boolean;
     /** Why this segment will not air, in a sentence. Present only on a failed one */

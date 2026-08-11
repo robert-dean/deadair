@@ -75,6 +75,43 @@ function upstreamReason(body: string | undefined): string | undefined {
 }
 
 /**
+ * Spotify's machine-readable cause, out of `{"error":{"reason":...}}`.
+ *
+ * A sibling of {@link upstreamReason} and not a replacement for it: `message` is
+ * a sentence for a human, `reason` is a token to branch on, and Spotify sends
+ * them independently. Defensive in the same way, because the body is whatever
+ * the edge happened to send — an HTML page from a proxy, an empty 429 — and a
+ * failed parse must read as "said nothing" rather than throw inside a validator.
+ */
+function upstreamCause(body: string | undefined): string | undefined {
+    if (!body) return undefined;
+
+    let reason: unknown;
+    try {
+        reason = (JSON.parse(body) as { error?: { reason?: unknown } }).error?.reason;
+    } catch {
+        return undefined;
+    }
+
+    return typeof reason === 'string' && reason.length > 0 ? reason : undefined;
+}
+
+/** The `error.reason` Spotify sends on a 429 when the app's allowance is spent rather than its burst. */
+export const QUOTA_EXCEEDED_REASON = 'QUOTA_EXCEEDED';
+
+/**
+ * How long a quota 429 asks the host to wait, instead of its `Retry-After`.
+ *
+ * Deliberately not derived from the header. A drained quota is not a burst to
+ * ride out in seconds: Spotify sends that 429 with a short `Retry-After` or none
+ * at all, so honouring it spends the next window's calls on the same refusal and
+ * the station walks straight back into it on its next tick. A long fixed hold
+ * says the true thing instead — this one needs the window to reset, or an
+ * operator to look at the app's allowance.
+ */
+export const QUOTA_BACKOFF_MS = 30 * 60_000;
+
+/**
  * Spotify sends `Retry-After` in whole seconds on a 429.
  *
  * Only the seconds form is read: the HTTP-date form is legal but Spotify does
@@ -103,15 +140,34 @@ function retryAfterMs(header: string | null): number | undefined {
 export class SpotifyRequestError extends PluginError {
     readonly status: number;
     readonly body?: string;
+    /** Spotify's own machine-readable cause, when it sent one. {@link QUOTA_EXCEEDED_REASON} is the one that changes behaviour. */
+    readonly reason?: string;
 
     constructor(status: number, message: string, body?: string, retryAfterMs?: number) {
         super(message);
         this.name = 'SpotifyRequestError';
         this.status = status;
         this.body = body;
+        this.reason = upstreamCause(body);
 
         this.withCode(pluginCodeForStatus(status)).withUpstreamStatus(status);
-        if (retryAfterMs !== undefined) this.withRetry(retryAfterMs);
+
+        // The quota hold wins over whatever `Retry-After` advised, including a
+        // header that advised nothing: see {@link QUOTA_BACKOFF_MS}.
+        const wait = this.quotaExhausted ? QUOTA_BACKOFF_MS : retryAfterMs;
+        if (wait !== undefined) this.withRetry(wait);
+    }
+
+    /**
+     * Whether this is the app's allowance being gone rather than a burst limit.
+     *
+     * Two different jobs for whoever reads it: a burst clears itself in seconds
+     * and needs nothing from anybody, an exhausted quota needs someone to look at
+     * the app's allowance in Spotify's dashboard. They arrive as the same status,
+     * so the status alone cannot tell an operator which one they have.
+     */
+    get quotaExhausted(): boolean {
+        return this.status === 429 && this.reason === QUOTA_EXCEEDED_REASON;
     }
 }
 
@@ -192,11 +248,21 @@ export class SpotifyResponseValidator implements IValidateResponses {
         // `statusText` is empty over HTTP/2, which is every real call to
         // Spotify, so it is joined rather than interpolated: otherwise the
         // message ends in a dangling space where the status word should be.
-        const status = [`HTTP ${response.status}`, response.statusText, upstreamReason(body)].filter(part => part).join(' ');
+        //
+        // A quota 429 says so in words, because its `message` is the same
+        // "API rate limit exceeded" a burst limit sends and the two need
+        // different things done about them.
+        const quota = response.status === 429 && upstreamCause(body) === QUOTA_EXCEEDED_REASON;
+        const parts = [
+            `HTTP ${response.status}`,
+            response.statusText,
+            upstreamReason(body),
+            quota ? "(quota exhausted: the app's allowance is spent, not a burst limit)" : undefined,
+        ];
 
         throw new SpotifyRequestError(
             response.status,
-            `Spotify API request failed: ${status}`,
+            `Spotify API request failed: ${parts.filter(part => part).join(' ')}`,
             body,
             retryAfterMs(response.headers.get('retry-after')),
         );

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { HostFetchInit } from '@deadair/plugin-sdk';
 
 import { REQUEST_TIMEOUT_MS } from '../src/spotify.manifest.js';
-import { createHostFetch, SpotifyRequestError, SpotifyResponseValidator } from '../src/spotify.fetch.js';
+import { createHostFetch, QUOTA_BACKOFF_MS, QUOTA_EXCEEDED_REASON, SpotifyRequestError, SpotifyResponseValidator } from '../src/spotify.fetch.js';
 import { createFakePluginHost, fakeHostFetchResponse } from './fake.plugin.host.js';
 
 describe('createHostFetch', () => {
@@ -269,6 +269,76 @@ describe('SpotifyResponseValidator', () => {
         const response = new Response('rate limited', { status: 429, headers: { 'retry-after': '30' } });
 
         await expect(validator.validateResponse(response)).rejects.toMatchObject({ code: 'rate_limited', retryAfterMs: 30_000 });
+    });
+
+    it('holds a quota 429 for the long fixed window instead of its Retry-After', async () => {
+        const validator = new SpotifyResponseValidator();
+        const body = JSON.stringify({ error: { status: 429, message: 'API rate limit exceeded', reason: 'QUOTA_EXCEEDED' } });
+        // A short header alongside an exhausted allowance is exactly the case
+        // this exists for: honouring it spends the next window on the same refusal.
+        const response = new Response(body, { status: 429, headers: { 'retry-after': '1' } });
+
+        await expect(validator.validateResponse(response)).rejects.toMatchObject({
+            code: 'rate_limited',
+            reason: QUOTA_EXCEEDED_REASON,
+            quotaExhausted: true,
+            retryAfterMs: QUOTA_BACKOFF_MS,
+        });
+    });
+
+    it('holds a quota 429 that came with no Retry-After at all', async () => {
+        const validator = new SpotifyResponseValidator();
+        const body = JSON.stringify({ error: { status: 429, reason: 'QUOTA_EXCEEDED' } });
+
+        await expect(validator.validateResponse(new Response(body, { status: 429 }))).rejects.toMatchObject({
+            quotaExhausted: true,
+            retryAfterMs: QUOTA_BACKOFF_MS,
+        });
+    });
+
+    it('says in words that a quota 429 is not a burst limit, since both arrive as the same status', async () => {
+        const validator = new SpotifyResponseValidator();
+        const body = JSON.stringify({ error: { status: 429, message: 'API rate limit exceeded', reason: 'QUOTA_EXCEEDED' } });
+
+        await expect(validator.validateResponse(new Response(body, { status: 429 }))).rejects.toMatchObject({
+            message:
+                "Spotify API request failed: HTTP 429 API rate limit exceeded (quota exhausted: the app's allowance is spent, not a burst limit)",
+        });
+    });
+
+    it('leaves a burst 429 on its own Retry-After, and does not call it a quota failure', async () => {
+        const validator = new SpotifyResponseValidator();
+        const body = JSON.stringify({ error: { status: 429, message: 'API rate limit exceeded' } });
+        const response = new Response(body, { status: 429, headers: { 'retry-after': '30' } });
+
+        await expect(validator.validateResponse(response)).rejects.toMatchObject({
+            reason: undefined,
+            quotaExhausted: false,
+            retryAfterMs: 30_000,
+            message: 'Spotify API request failed: HTTP 429 API rate limit exceeded',
+        });
+    });
+
+    it('reads a reason off any status, and only lets it change the wait on a 429', async () => {
+        const validator = new SpotifyResponseValidator();
+        // Spotify's reasons are not 429-only (PREMIUM_REQUIRED, NO_ACTIVE_DEVICE),
+        // so the field is populated wherever it appears; the quota branch is not.
+        const body = JSON.stringify({ error: { status: 403, message: 'Player command failed', reason: 'PREMIUM_REQUIRED' } });
+
+        await expect(validator.validateResponse(new Response(body, { status: 403 }))).rejects.toMatchObject({
+            reason: 'PREMIUM_REQUIRED',
+            quotaExhausted: false,
+            retryAfterMs: undefined,
+        });
+    });
+
+    it('ignores a reason on a body that is not a Spotify error envelope', async () => {
+        const validator = new SpotifyResponseValidator();
+
+        await expect(validator.validateResponse(new Response('<html>gateway</html>', { status: 429 }))).rejects.toMatchObject({
+            reason: undefined,
+            quotaExhausted: false,
+        });
     });
 
     it('ignores a Retry-After it cannot read rather than inventing a wait', async () => {

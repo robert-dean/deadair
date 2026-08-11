@@ -3,6 +3,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { StreamService } from '#modules/stream/stream.service.js';
+import { StreamConfigWatch } from '#modules/stream/stream.staleness.js';
 import { AudienceWatch } from './audience.watch.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
@@ -59,6 +60,11 @@ export class PlayoutService {
         private readonly control: PlayoutControlClient,
         private readonly audience: AudienceWatch,
         private readonly stream: StreamService,
+        // Whether the containers are running the config that was rendered for them.
+        // It rides the transport status because that is the reading the console already
+        // polls and the card it draws is where an operator looks when nothing is being
+        // heard — which is the exact symptom this warning explains.
+        private readonly staleness: StreamConfigWatch,
         private readonly logger: Logger,
     ) {}
 
@@ -109,6 +115,12 @@ export class PlayoutService {
             // console draws and the gate the station is held on can never disagree.
             listeners: this.audience.listenerCount(),
             audience: this.audience.hasAudience(),
+            // Almost always empty, and worth a field on every poll anyway: when it is not
+            // empty the station is failing in a way that nothing else in this reading can
+            // account for — `streamUp` is true, the running order is full, and every
+            // listener is being refused by a container holding secrets from before the
+            // last render.
+            staleStreamConfig: this.staleness.warnings(),
         };
     }
 

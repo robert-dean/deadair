@@ -37,6 +37,9 @@ export function playoutStatus(overrides: Partial<PlayoutStatus> = {}): PlayoutSt
         // unless a test is deliberately staging one.
         listeners: 1,
         audience: true,
+        // Both containers running the config that was rendered for them, which is the
+        // ordinary state. A test staging drift passes its own.
+        staleStreamConfig: [],
         ...overrides,
     };
 }

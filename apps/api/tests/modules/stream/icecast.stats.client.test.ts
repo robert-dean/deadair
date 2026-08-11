@@ -13,6 +13,7 @@ import {
     listenersForMount,
     overrideEndpoints,
     resolvedFirst,
+    serverReadingFrom,
     statsCandidates,
     statsEndpoints,
 } from '../../../src/modules/stream/icecast.stats.client.js';
@@ -124,6 +125,43 @@ describe('listenersForMount, on 2.5 publicstats', () => {
     });
 });
 
+describe('serverReadingFrom', () => {
+    // The two facts `stream.staleness.ts` rests on, and both are things the listener
+    // count cannot answer: when Icecast started (so whether it predates the config it
+    // was meant to read) and whether anything is connected as a source at all.
+
+    it('reads the start time off the 2.4 document', () => {
+        const body = { icestats: { server_start_iso8601: '2026-08-11T12:17:00Z', source: source('/live.mp3', 0) } };
+
+        expect(serverReadingFrom(body, '/live.mp3').startedAt).toBe(Date.UTC(2026, 7, 11, 12, 17, 0));
+    });
+
+    it('reads it off the 2.5 array envelope too', () => {
+        const body = [
+            { name: 'icestats', ns: 'x' },
+            { server_id: 'Icecast 2.5.0', server_start_iso8601: '2026-08-11T12:17:00Z', source: {} },
+        ];
+
+        expect(serverReadingFrom(body, '/live.mp3').startedAt).toBe(Date.UTC(2026, 7, 11, 12, 17, 0));
+    });
+
+    it('says nothing rather than guessing when the start time is missing or unreadable', () => {
+        expect(serverReadingFrom({ icestats: { source: {} } }, '/live.mp3').startedAt).toBeUndefined();
+        expect(serverReadingFrom({ icestats: { server_start_iso8601: 'whenever' } }, '/live.mp3').startedAt).toBeUndefined();
+    });
+
+    it('tells a mount with no source apart from a mount nobody is listening to', () => {
+        // The whole reason this is not `listeners > 0`. A refused source password reads
+        // as zero listeners, and so does a healthy station at four in the morning.
+        const silent = { icestats: { source: source('/live.mp3', 0) } };
+        const absent = { icestats: {} };
+
+        expect(serverReadingFrom(silent, '/live.mp3').sourceConnected).toBe(true);
+        expect(serverReadingFrom(absent, '/live.mp3').sourceConnected).toBe(false);
+        expect(serverReadingFrom(silent, '/other.mp3').sourceConnected).toBe(false);
+    });
+});
+
 describe('statsCandidates', () => {
     it('offers the compose service and the host-published port', () => {
         expect(statsCandidates('icecast', '8000')).toEqual(['http://icecast:8000', 'http://127.0.0.1:8000']);
@@ -179,9 +217,7 @@ describe('overrideEndpoints', () => {
     });
 
     it('takes a whole endpoint at its word rather than probing its sibling', () => {
-        expect(overrideEndpoints('http://stream.example/status-json.xsl')).toEqual([
-            { base: 'http://stream.example', path: '/status-json.xsl' },
-        ]);
+        expect(overrideEndpoints('http://stream.example/status-json.xsl')).toEqual([{ base: 'http://stream.example', path: '/status-json.xsl' }]);
         expect(overrideEndpoints('http://stream.example/admin/publicstats.json')).toEqual([
             { base: 'http://stream.example', path: '/admin/publicstats.json' },
         ]);

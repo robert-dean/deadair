@@ -85,6 +85,17 @@ playout_aired_url  = environment.get("PLAYOUT_AIRED_URL", default="")
 playout_starve_url = environment.get("PLAYOUT_STARVE_URL", default="")
 playout_secret     = environment.get("PLAYOUT_BRIDGE_SECRET", default="")
 
+# Which generation of radio.env this process booted with: a short hash the app writes over the
+# file's own content. Reported on every reading and used for nothing else here.
+#
+# It exists because this file is sourced ONCE, by the entrypoint, and nothing re-reads it — so a
+# re-render (a settings change, or a schema rebuild that reseeds every stream secret) leaves this
+# process holding a source password and a bridge secret that no longer match anything, and the
+# symptoms name something else: the mount simply never connects, and Icecast answers 404. The app
+# compares this against what it last wrote and says so in one sentence. Empty from a station whose
+# app is too old to write it, which the app reads as "cannot say" rather than as a mismatch.
+config_stamp = environment.get("CONFIG_STAMP", default="")
+
 # 1) Music bed: the local, rights-cleared library. randomize so a small library
 #    doesn't feel like a tape loop. Normalize here (a leaf source) so user tracks
 #    sit at a consistent level under the voice. Unavailable while the dir is empty
@@ -448,7 +459,10 @@ def playout_reading() =
   # otherwise have to infer it, and the one state worth seeing — a cue that expired because its
   # record ended first — is invisible from outside by construction. Every /control/* handler
   # answers with this reading, so it costs no extra call.
-  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}"'
+  # Which radio.env this process booted with. Constant for the life of the container, which is the
+  # entire point: the app compares it against the file as it stands now, and a difference means
+  # everything below is being done with credentials that have been replaced.
+  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}", "configStamp": "#{config_stamp}"'
 end
 
 def control_status(req) =

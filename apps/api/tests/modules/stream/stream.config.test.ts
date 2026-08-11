@@ -90,7 +90,7 @@ describe('writeStreamConfig', () => {
     it('renders both files and reports success', () => {
         const { assetsDir, configDir } = dirs();
 
-        expect(writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir })).toBe(true);
+        expect(writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir })).toBeDefined();
 
         expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).toContain('<source-password>source-pw</source-password>');
         expect(parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8')).get('ICECAST_SOURCE_PASSWORD')).toBe('source-pw');
@@ -222,6 +222,50 @@ describe('writeStreamConfig', () => {
         expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).toContain('<hostname>localhost</hostname>');
     });
 
+    it('leaves the file untouched when a re-render produces identical content', async () => {
+        // The mtime is the evidence a container's start time is compared against, so a
+        // render that always wrote would make every app restart look like a config change
+        // nobody had adopted — and there would be no way left to see a real one.
+        const { assetsDir, configDir } = dirs();
+        const first = writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        // Long enough for a filesystem with a coarse mtime to record a second write.
+        await new Promise(resolve => setTimeout(resolve, 20));
+        const second = writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        expect(second?.radio.changedAt).toBe(first?.radio.changedAt);
+        expect(second?.icecast.changedAt).toBe(first?.icecast.changedAt);
+        expect(second?.radio.stamp).toBe(first?.radio.stamp);
+    });
+
+    it('moves the stamp and the mtime when a secret changes', async () => {
+        const { assetsDir, configDir } = dirs();
+        const before = writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        await new Promise(resolve => setTimeout(resolve, 20));
+        const after = writeStreamConfig({
+            settings: settings({ sourcePassword: 'reseeded' }),
+            playout: playout(),
+            assetsDir,
+            configDir,
+        });
+
+        expect(after?.radio.stamp).not.toBe(before?.radio.stamp);
+        expect(after?.radio.changedAt).toBeGreaterThan(before?.radio.changedAt ?? 0);
+        expect(after?.icecast.changedAt).toBeGreaterThan(before?.icecast.changedAt ?? 0);
+    });
+
+    it('writes the stamp into radio.env as the generation the script reports back', () => {
+        // The whole liquidsoap half of the drift reading: radio.liq echoes this on every
+        // /control/* answer, so the app compares proof rather than two clocks.
+        const { assetsDir, configDir } = dirs();
+        const render = writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        const env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
+        expect(env.get('CONFIG_STAMP')).toBe(render?.radio.stamp);
+        expect(env.get('CONFIG_STAMP')).toMatch(/^[0-9a-f]{12}$/);
+    });
+
     it('skips, without throwing, when the Icecast passwords are unset', () => {
         const { assetsDir, configDir } = dirs();
         const log: string[] = [];
@@ -234,7 +278,7 @@ describe('writeStreamConfig', () => {
             log: message => log.push(message),
         });
 
-        expect(wrote).toBe(false);
+        expect(wrote).toBeUndefined();
         expect(log.join(' ')).toContain('not configured');
     });
 
@@ -252,7 +296,7 @@ describe('writeStreamConfig', () => {
             log: message => log.push(message),
         });
 
-        expect(wrote).toBe(false);
+        expect(wrote).toBeUndefined();
         expect(log.join(' ')).toContain('icecast template missing');
     });
 });

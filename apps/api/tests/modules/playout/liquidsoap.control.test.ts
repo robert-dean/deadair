@@ -9,6 +9,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import { parseReading, PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
 import { annotateUri, itemAnnotations, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
+import type { StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.js';
 
 describe('parseReading', () => {
     it('reads a full reading', () => {
@@ -80,13 +81,16 @@ describe('PlayoutControlClient.isUp', () => {
         invalidate: vi.fn(),
     } as unknown as LiquidsoapEndpoint;
 
+    /** The drift watch is fed by every reading and consulted by none of them; see stream.staleness.ts. */
+    const staleness = { noteLiquidsoap: vi.fn() } as unknown as StreamConfigWatch;
+
     const clientWith = (fetchImpl: typeof fetch) => {
         vi.stubGlobal('fetch', fetchImpl);
-        return new PlayoutControlClient(pinnedEndpoint, logger);
+        return new PlayoutControlClient(pinnedEndpoint, staleness, logger);
     };
 
     it('is false before anything has been heard from', () => {
-        const client = new PlayoutControlClient(pinnedEndpoint, logger);
+        const client = new PlayoutControlClient(pinnedEndpoint, staleness, logger);
 
         expect(client.isUp()).toBe(false);
     });
@@ -157,9 +161,12 @@ describe('PlayoutControlClient mutations', () => {
         invalidate: vi.fn(),
     } as unknown as LiquidsoapEndpoint;
 
+    /** The drift watch is fed by every reading and consulted by none of them; see stream.staleness.ts. */
+    const staleness = { noteLiquidsoap: vi.fn() } as unknown as StreamConfigWatch;
+
     const clientWith = (fetchImpl: typeof fetch) => {
         vi.stubGlobal('fetch', fetchImpl);
-        return new PlayoutControlClient(pinnedEndpoint, logger);
+        return new PlayoutControlClient(pinnedEndpoint, staleness, logger);
     };
 
     it('answers a skip with the reading the command produced', async () => {

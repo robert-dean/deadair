@@ -6,6 +6,7 @@ import { IcecastEventFeed } from './icecast.eventfeed.client.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SpotifyShimClient } from './spotify.shim.client.js';
 import { StreamService } from './stream.service.js';
+import { StreamConfigWatch } from './stream.staleness.js';
 
 /**
  * The stream's configuration, materialized for containers that cannot read the
@@ -44,6 +45,11 @@ export const StreamModule: ServerKitModule = {
         // reads the address and credentials off the stats client rather than the
         // settings, so the two can never disagree about which Icecast is being asked.
         registry.register(IcecastEventFeed).useClass(IcecastEventFeed).asSingleton();
+
+        // Singleton, and it has to be: what it holds is the last render, which is a
+        // fact about the volume rather than about a request, and the reading it is
+        // compared against is pushed in from the reconcile loop.
+        registry.register(StreamConfigWatch).useClass(StreamConfigWatch).asSingleton();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {
@@ -85,8 +91,19 @@ export const StreamModule: ServerKitModule = {
                 mount: settings.mount,
                 adminPassword: settings.adminPassword,
             });
+
+            // After the render, which is what gave it something to compare against.
+            // Started here rather than lazily because the state it looks for is at its
+            // most likely right now: a station whose secrets were reseeded a moment ago
+            // has two containers holding the old ones, and nobody has to open a console
+            // for that to be worth saying.
+            container.get(StreamConfigWatch).start();
         } finally {
             await scope.disposeAsync();
         }
+    },
+
+    shutdown: async (container: Container) => {
+        container.get(StreamConfigWatch).stop();
     },
 };

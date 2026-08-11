@@ -48,6 +48,22 @@ export interface StatsEndpoint {
 }
 
 /**
+ * What the last stats document said, beyond the listener count.
+ *
+ * Both fields exist for `stream.staleness.ts` and are readings of the SERVER
+ * rather than of the audience, which is why they are separate from
+ * {@link listenersForMount}: a mount with no source and a mount with a source
+ * nobody is listening to are both zero listeners, and telling them apart is the
+ * whole of the second failure this reading was added for.
+ */
+export interface IcecastServerReading {
+    /** When Icecast started, in unix epoch millis, or `undefined` when it did not say. */
+    startedAt?: number;
+    /** Whether anything is connected as a source on the watched mount. */
+    sourceConnected: boolean;
+}
+
+/**
  * Whether an endpoint is Icecast's admin namespace, and so has to be asked as
  * the admin user.
  *
@@ -144,6 +160,8 @@ export class IcecastStatsClient {
     private mount = '/live.mp3';
     /** Icecast's admin password, for the admin endpoint only. Unset until a station has one. */
     private adminPassword?: string;
+    /** What the last document said about the server itself. Cleared when nothing answers. */
+    private server?: IcecastServerReading;
     /** Whether "nothing answered" has already been said, so a poll loop cannot fill the log. */
     private reportedMissing = false;
     /** The same discipline for "the admin endpoint refused us". See {@link noteRefusal}. */
@@ -178,10 +196,22 @@ export class IcecastStatsClient {
         this.reportedDenied = false;
     }
 
-
     /** The mount being watched, for a caller that has to name it in a log line. */
     mountPath(): string {
         return this.mount;
+    }
+
+    /**
+     * What the last answered poll said about the server, or `undefined` when the
+     * last one was not answered.
+     *
+     * `undefined` is not a neutral default here and callers must treat it as
+     * "no evidence": every reading built on this concludes something is WRONG,
+     * and an Icecast that is merely down would otherwise be reported as one
+     * running stale config.
+     */
+    serverReading(): IcecastServerReading | undefined {
+        return this.server;
     }
 
     /**
@@ -229,10 +259,15 @@ export class IcecastStatsClient {
             if (body === undefined) continue;
 
             this.remember(endpoint);
+            this.server = serverReadingFrom(body, this.mount);
             return listenersForMount(body, this.mount);
         }
 
         this.resolved = undefined;
+        // Nothing answered, so there is nothing to say about the server either. Dropped
+        // rather than kept, because a stale "it started at 12:17" outlives the Icecast it
+        // described and would go on accusing a container that has since been restarted.
+        this.server = undefined;
         if (!this.reportedMissing) {
             this.reportedMissing = true;
             const asked = this.endpoints().map(endpoint => endpoint.base + endpoint.path);
@@ -399,6 +434,47 @@ export function listenersForMount(body: unknown, mount: string): number {
         if (Number.isFinite(listeners) && listeners > 0) total += listeners;
     }
     return total;
+}
+
+/**
+ * When Icecast started, and whether the station's mount has a source on it.
+ *
+ * The start time is the whole of the icecast half of `stream.staleness.ts`:
+ * Icecast reads `icecast.xml` once and never again, so a server that started
+ * before the file last changed is running credentials the app has replaced, and
+ * nothing else it says will ever mention that. `server_start_iso8601` is
+ * present on both documents; `server_start` is the human-readable sibling, read
+ * only as a fallback because its format is the server's locale rather than a
+ * standard.
+ *
+ * `sourceConnected` is deliberately not `listeners > 0`. A refused source
+ * password and a mount nobody is listening to are both zero listeners, and the
+ * first is a station that cannot broadcast at all.
+ *
+ * Exported for tests: this lives on the same compatibility boundary as
+ * {@link listenersForMount} and is measured, not inferred.
+ */
+export function serverReadingFrom(body: unknown, mount: string): IcecastServerReading {
+    const stats = statsOf(body) ?? {};
+    const started = parseServerStart(stats.server_start_iso8601) ?? parseServerStart(stats.server_start);
+
+    return {
+        ...(started === undefined ? {} : { startedAt: started }),
+        sourceConnected: sourceEntries(stats.source).some(([key, source]) => {
+            if (!source || typeof source !== 'object') return false;
+
+            const listenUrl = (source as { listenurl?: unknown }).listenurl;
+            return matchesMount(key ?? (typeof listenUrl === 'string' ? listenUrl : ''), mount);
+        }),
+    };
+}
+
+/** One date field of the stats document as epoch millis, or `undefined` for anything unreadable. */
+function parseServerStart(value: unknown): number | undefined {
+    if (typeof value !== 'string' || !value.trim()) return undefined;
+
+    const millis = Date.parse(value);
+    return Number.isFinite(millis) ? millis : undefined;
 }
 
 /**

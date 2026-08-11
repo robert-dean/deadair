@@ -14,6 +14,7 @@ import type { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.
 import type { Rundown } from '../../../src/modules/playout/rundown.js';
 import type { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
 import type { StreamService } from '../../../src/modules/stream/stream.service.js';
+import type { StreamConfigWarning, StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -32,6 +33,8 @@ interface Options {
     onAir?: boolean;
     /** How many clients Icecast has on the mount. */
     listeners?: number;
+    /** Stream containers holding config the app has replaced. Empty is the ordinary state. */
+    staleStreamConfig?: StreamConfigWarning[];
 }
 
 const item = { id: 'item-1', pluginId: 'deadair.spotify', externalId: 'trk_1', title: 'A Track', artists: ['An Artist'], durationMs: 200_000 };
@@ -73,6 +76,10 @@ function build(options: Options = {}) {
 
     const stream = { settings: async () => ({}) } as unknown as StreamService;
 
+    // No drift by default: the containers running the config that was rendered for them
+    // is the ordinary state, and the warning is tested where it is decided.
+    const staleness = { warnings: () => options.staleStreamConfig ?? [] } as unknown as StreamConfigWatch;
+
     // The audience only decorates the reading here: what it does to the mount is
     // PlayoutPusher's, and is tested there.
     const audience = {
@@ -82,7 +89,7 @@ function build(options: Options = {}) {
     } as unknown as AudienceWatch;
 
     return {
-        service: new PlayoutService(rundown, pusher, director, endpoint, control, audience, stream, logger),
+        service: new PlayoutService(rundown, pusher, director, endpoint, control, audience, stream, staleness, logger),
         audience,
         rundown,
         pusher,

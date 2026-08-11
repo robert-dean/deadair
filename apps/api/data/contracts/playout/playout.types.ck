@@ -28,6 +28,17 @@ contract PlayoutNowPlaying: { # What the PLAYER says is airing, which is not the
     remainingMs?: int(min=0) # The decoder's own countdown, absent when it cannot say. It leads the listener by the encoder and client buffers
 }
 
+# A stream container still running config the app has replaced. Icecast and Liquidsoap read
+# their rendered config ONCE, at startup, and nothing restarts or signals them when it is
+# re-rendered — so a reseeded secret leaves a process holding credentials that match nothing,
+# and the symptom names something else entirely (every listener refused, or no mount at all).
+# The app cannot restart a sibling container and should not be able to, so it reports.
+contract StreamConfigWarning: {
+    container: enum(icecast, liquidsoap) # Which one is behind
+    detail: string(min=1, max=1000) # What is wrong and how it is known, in a sentence
+    restart: string(min=1, max=200) # The exact command that adopts the new config, which is the only thing that does
+}
+
 contract PlayoutStatus: { # The station's transport, as one reading
     streamUp: boolean # Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds
     onAir: boolean # Whether the station is actually broadcasting. deadair holds the mount on a lease it renews only while it has a programme, so a reachable stream with nothing to play is up and NOT on air: it is connected, and airing silence
@@ -37,6 +48,7 @@ contract PlayoutStatus: { # The station's transport, as one reading
     queuedCount: int(min=0) # How many items are waiting in total, of which `upNext` is the head
     listeners: int(min=0) # How many clients Icecast has attached to the mount. Zero both for "nobody is listening" and for an Icecast that is not answering, which `audience` is where to tell apart
     audience: boolean # Whether the station counts as having an audience, which lingers for a minute past the last listener so a reconnecting player does not cut the broadcast
+    staleStreamConfig: array(StreamConfigWarning) # Containers running config the app has since replaced. Empty is the ordinary state, and so is empty for anything the app has no evidence about: a warning here has never been a guess
 }
 
 contract PlayoutAiredQuery: { # Which rundown item Liquidsoap has just started playing

@@ -38,8 +38,23 @@ export const PlayoutItem = z.strictObject({
 export type PlayoutItem = z.infer<typeof PlayoutItem>;
 
 /**
+ * A stream container still running config the app has replaced. Icecast and Liquidsoap read
+ * their rendered config ONCE, at startup, and nothing restarts or signals them when it is
+ * re-rendered — so a reseeded secret leaves a process holding credentials that match nothing,
+ * and the symptom names something else entirely (every listener refused, or no mount at all).
+ * The app cannot restart a sibling container and should not be able to, so it reports.
+ * generated from [StreamConfigWarning](file://./../../../../data/contracts/playout/playout.types.ck#L36)
+ */
+export const StreamConfigWarning = z.strictObject({
+    container: z.enum(['icecast', 'liquidsoap']).describe('Which one is behind'),
+    detail: z.string().min(1).max(1000).describe('What is wrong and how it is known, in a sentence'),
+    restart: z.string().min(1).max(200).describe('The exact command that adopts the new config, which is the only thing that does'),
+});
+export type StreamConfigWarning = z.infer<typeof StreamConfigWarning>;
+
+/**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L42)
+ * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L54)
  */
 export const PlayoutAiredQuery = z.strictObject({
     item: z.string().min(1).max(100).describe("The id the app put on the pushed uri's `annotate:` metadata"),
@@ -48,7 +63,7 @@ export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
  * Which way a listener went
- * generated from [PlayoutListenerQuery](file://./../../../../data/contracts/playout/playout.types.ck#L46)
+ * generated from [PlayoutListenerQuery](file://./../../../../data/contracts/playout/playout.types.ck#L58)
  */
 export const PlayoutListenerQuery = z.strictObject({
     event: z.enum(['add', 'remove']),
@@ -57,7 +72,7 @@ export type PlayoutListenerQuery = z.infer<typeof PlayoutListenerQuery>;
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L50)
+ * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L62)
  */
 export const PlayoutStarveQuery = z.strictObject({
     state: z
@@ -93,7 +108,7 @@ export type PlayoutNowPlaying = z.infer<typeof PlayoutNowPlaying>;
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../data/contracts/playout/playout.types.ck#L31)
+ * generated from [PlayoutStatus](file://./../../../../data/contracts/playout/playout.types.ck#L42)
  */
 export const PlayoutStatus = z.strictObject({
     streamUp: z
@@ -125,6 +140,11 @@ export const PlayoutStatus = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .describe(
             'Whether the station counts as having an audience, which lingers for a minute past the last listener so a reconnecting player does not cut the broadcast',
+        ),
+    staleStreamConfig: z
+        .array(StreamConfigWarning)
+        .describe(
+            'Containers running config the app has since replaced. Empty is the ordinary state, and so is empty for anything the app has no evidence about: a warning here has never been a guess',
         ),
 });
 export type PlayoutStatus = z.infer<typeof PlayoutStatus>;

@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { StreamConfigWatch } from '#modules/stream/stream.staleness.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 
 /**
@@ -104,6 +105,14 @@ export interface QueueStatus {
      * DJ that talks less than it should.
      */
     voice?: VoiceCueState;
+    /**
+     * The generation of `radio.env` the running Liquidsoap booted with, as the
+     * app's materializer stamped it.
+     *
+     * Absent from a script too old to report one, which is not a mismatch: see
+     * `StreamConfigWatch`, which is the only thing that reads this.
+     */
+    configStamp?: string;
 }
 
 /** See {@link QueueStatus.voice}. */
@@ -120,6 +129,11 @@ export class PlayoutControlClient {
 
     constructor(
         private readonly endpoint: LiquidsoapEndpoint,
+        // Fed, not consulted. Every reading carries the config generation the running
+        // Liquidsoap booted with, and this loop is already asking twice a second — a
+        // second client asking the same question would be a second answer to disagree
+        // with. See `stream.staleness.ts`.
+        private readonly staleness: StreamConfigWatch,
         private readonly logger: Logger,
     ) {}
 
@@ -280,6 +294,14 @@ export class PlayoutControlClient {
     private read(body: unknown): QueueStatus | undefined {
         const reading = parseReading(body);
         this.onAir = reading?.driving ?? false;
+        // A call that produced no reading hands over `undefined` rather than a default:
+        // a stream nobody could reach has not told us anything about its config, and the
+        // watch must not accuse it on the strength of a failed request.
+        this.staleness.noteLiquidsoap(
+            reading === undefined
+                ? undefined
+                : { ...(reading.configStamp === undefined ? {} : { stamp: reading.configStamp }), driving: reading.driving ?? false },
+        );
         return reading;
     }
 
@@ -357,6 +379,9 @@ export function parseReading(body: unknown): QueueStatus | undefined {
     // Absent from a Liquidsoap on an older script, which is not an error: everything else in the
     // reading is still true, and the app simply cannot see the cue.
     if (typeof raw.voice === 'string' && VOICE_STATES.includes(raw.voice)) status.voice = raw.voice as VoiceCueState;
+    // "" is radio.liq's "the app that rendered my config did not stamp it", which is
+    // the same answer as an older script: no evidence, rather than a generation of "".
+    if (typeof raw.configStamp === 'string' && raw.configStamp !== '') status.configStamp = raw.configStamp;
     return status;
 }
 

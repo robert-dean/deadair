@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import type { StreamConfigWarning } from '@deadair/sdk';
 
 import { hasTransportToShow, TransportBar } from '../../../src/components/playout/transport.bar';
 import { playoutItem, playoutStatus } from '../../utils/playout.fixture';
@@ -40,6 +41,22 @@ describe('hasTransportToShow', () => {
     it('is false before the first reading has arrived', () => {
         expect(hasTransportToShow(undefined)).toBe(false);
     });
+
+    it('speaks up for a container running replaced config, even on an idle station', () => {
+        // The next attempt to go on air will fail, and the strip is the only place that
+        // says why. An idle station is exactly when an operator is about to try.
+        const idle = { nowPlaying: undefined, upNext: [], queuedCount: 0, staleStreamConfig: [staleWarning()] };
+
+        expect(hasTransportToShow(playoutStatus(idle))).toBe(true);
+    });
+});
+
+/** One container behind, as the status reports it. */
+const staleWarning = (overrides: Partial<StreamConfigWarning> = {}): StreamConfigWarning => ({
+    container: 'icecast',
+    detail: 'icecast started at 2026-08-11T12:17:00.000Z and its config last changed at 2026-08-11T12:33:00.000Z.',
+    restart: 'docker compose restart icecast',
+    ...overrides,
 });
 
 describe('TransportBar', () => {
@@ -133,6 +150,33 @@ describe('TransportBar', () => {
         expect(screen.queryByLabelText('Take the station out of service')).not.toBeInTheDocument();
         await userEvent.click(screen.getByRole('button', { name: 'Take out of service' }));
         expect(stop).toHaveBeenCalledOnce();
+    });
+
+    it('flags a container running replaced config, and gives the command in full once expanded', () => {
+        // The fault with no other symptom: the stream is up, the order is full, the
+        // station says it is on air, and every listener is being refused at the door.
+        // Nothing else on this bar would be anything but green.
+        const status = playoutStatus({
+            staleStreamConfig: [staleWarning({ container: 'liquidsoap', restart: 'docker compose restart liquidsoap' })],
+        });
+        const { rerender } = renderBar(status);
+
+        expect(screen.getByText('config not adopted')).toBeInTheDocument();
+        // Collapsed, the command is not on screen: the strip has no room for it, and the
+        // badge says where to look.
+        expect(screen.queryByText('docker compose restart liquidsoap')).not.toBeInTheDocument();
+
+        rerender(<TransportBar status={status} expanded onToggleExpanded={vi.fn()} />);
+
+        expect(screen.getByText('A stream container is running config that has been replaced')).toBeInTheDocument();
+        expect(screen.getByText('docker compose restart liquidsoap')).toBeInTheDocument();
+    });
+
+    it('says nothing about config while both containers are current', () => {
+        renderBar(playoutStatus(), true);
+
+        expect(screen.queryByText('config not adopted')).not.toBeInTheDocument();
+        expect(screen.queryByText(/^docker compose restart/)).not.toBeInTheDocument();
     });
 
     it('says how many people are listening', () => {

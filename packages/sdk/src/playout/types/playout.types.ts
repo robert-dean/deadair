@@ -31,8 +31,25 @@ export interface PlayoutItem {
 }
 
 /**
+ * A stream container still running config the app has replaced. Icecast and Liquidsoap read
+ * their rendered config ONCE, at startup, and nothing restarts or signals them when it is
+ * re-rendered — so a reseeded secret leaves a process holding credentials that match nothing,
+ * and the symptom names something else entirely (every listener refused, or no mount at all).
+ * The app cannot restart a sibling container and should not be able to, so it reports.
+ * generated from [StreamConfigWarning](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L36)
+ */
+export interface StreamConfigWarning {
+    /** Which one is behind */
+    container: 'icecast' | 'liquidsoap';
+    /** What is wrong and how it is known, in a sentence */
+    detail: string;
+    /** The exact command that adopts the new config, which is the only thing that does */
+    restart: string;
+}
+
+/**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L42)
+ * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L54)
  */
 export interface PlayoutAiredQuery {
     /** The id the app put on the pushed uri's `annotate:` metadata */
@@ -41,7 +58,7 @@ export interface PlayoutAiredQuery {
 
 /**
  * Which way a listener went
- * generated from [PlayoutListenerQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L46)
+ * generated from [PlayoutListenerQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L58)
  */
 export interface PlayoutListenerQuery {
     event: 'add' | 'remove';
@@ -49,7 +66,7 @@ export interface PlayoutListenerQuery {
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L50)
+ * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L62)
  */
 export interface PlayoutStarveQuery {
     /** `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again */
@@ -72,7 +89,7 @@ export interface PlayoutNowPlaying {
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L31)
+ * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L42)
  */
 export interface PlayoutStatus {
     /** Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds */
@@ -90,4 +107,6 @@ export interface PlayoutStatus {
     listeners: number;
     /** Whether the station counts as having an audience, which lingers for a minute past the last listener so a reconnecting player does not cut the broadcast */
     audience: boolean;
+    /** Containers running config the app has since replaced. Empty is the ordinary state, and so is empty for anything the app has no evidence about: a warning here has never been a guess */
+    staleStreamConfig: StreamConfigWarning[];
 }

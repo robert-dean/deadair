@@ -7,6 +7,7 @@ import { Artwork } from '../shared/artwork';
 import { formatDuration } from '../shared/format.duration';
 import { listenerLabel, OnAirBadge } from './on.air.badge';
 import { usePlayhead } from './playhead';
+import { StaleConfigAlert, StaleConfigBadge } from './stale.config.alert';
 import { TransportQueue } from './transport.queue';
 
 export interface TransportBarProps {
@@ -37,6 +38,11 @@ export const TRANSPORT_HEIGHT_EXPANDED = 280;
  */
 export function hasTransportToShow(status: PlayoutStatus | undefined): status is PlayoutStatus {
     if (!status) return false;
+    // A container holding replaced config shows even on an idle station, and has to:
+    // it is the reason an operator's next attempt to go on air will fail, and the bar
+    // is the only place that says so.
+    if (status.staleStreamConfig.length > 0) return true;
+
     const idle = !status.nowPlaying && status.queuedCount === 0;
     return !idle || !status.streamUp;
 }
@@ -128,6 +134,11 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                     </Stack>
 
                     <Group gap="sm" wrap="nowrap">
+                        {/* Before the audience and the transport controls, because it outranks
+                            both: while it is showing, the count is refusals rather than
+                            listeners and the controls are driving a station nobody can reach. */}
+                        <StaleConfigBadge warnings={status.staleStreamConfig} />
+
                         {/* The audience, in both states of the bar. It is what decides whether
                             any of this is audible, so it is not a statistic to bury in a panel
                             an operator has to open. */}
@@ -194,6 +205,9 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                     <>
                         <Divider />
                         <Stack gap="xs" style={{ minHeight: 0, flex: 1 }}>
+                            {/* Above the running order: what is queued does not matter until
+                                the container holding the mount is running the right secrets. */}
+                            <StaleConfigAlert warnings={status.staleStreamConfig} />
                             <TransportQueue upNext={upNext} queuedCount={queuedCount} />
                             <Group gap="xs" mt="auto">
                                 <OnAirBadge status={status} />

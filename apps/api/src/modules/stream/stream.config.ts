@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { StreamSettings } from './stream.settings.js';
 
@@ -15,6 +16,13 @@ import type { StreamSettings } from './stream.settings.js';
  * Best-effort throughout: an unconfigured stream or an unwritable config dir
  * logs and skips rather than failing boot. Both containers fall back to their
  * committed static defaults in that case, so the mount still comes up.
+ *
+ * A render says what is ON DISK, not what was written, and that distinction is
+ * load-bearing rather than tidy: both containers read their file once at
+ * startup, so the only question anybody downstream asks is "is the process
+ * older than the file it was configured from", and a render that rewrote
+ * identical bytes on every boot would answer yes forever. See
+ * {@link writeIfChanged} and `stream.staleness.ts`.
  */
 
 /** Repo root's `stream/` assets. `process.cwd()` is `apps/api` at runtime. */
@@ -122,6 +130,73 @@ export interface StreamPlayoutConfig {
     playoutPrefetch: number;
 }
 
+/**
+ * One rendered file, as it stands on the volume after a render.
+ *
+ * `changedAt` is the moment its CONTENT last changed, which is what a container's
+ * start time has to be compared against. `stamp` identifies that content, and is
+ * the thing Liquidsoap reports back so the comparison does not have to rest on
+ * two clocks agreeing.
+ */
+export interface RenderedFile {
+    path: string;
+    /** Short content hash. See {@link stampOf}. */
+    stamp: string;
+    /** Unix epoch millis of the file's mtime, which is when the content last changed. */
+    changedAt: number;
+}
+
+/** What a render put on the volume: one entry per file the containers read. */
+export interface StreamConfigRender {
+    icecast: RenderedFile;
+    radio: RenderedFile;
+}
+
+/**
+ * A short content hash, used as the config generation both halves are compared
+ * on.
+ *
+ * Content rather than a timestamp or a counter, because the question it answers
+ * is "is the running process configured from these bytes" and an app that
+ * restarts twice an hour re-renders byte-identical files every time. A stamp
+ * that moved on each render would report every app restart as container drift,
+ * which is a warning an operator learns to ignore — and the one warning that
+ * matters here is the one they have never seen before.
+ *
+ * Twelve hex characters. It is compared for equality by machines and read aloud
+ * in log lines by people, and it is not defending against anyone choosing a
+ * collision.
+ */
+export function stampOf(content: string): string {
+    return createHash('sha256').update(content).digest('hex').slice(0, 12);
+}
+
+/**
+ * Write a file only when its content differs from what is already there.
+ *
+ * The skip is the point, not an optimization. `writeFileSync` moves the mtime
+ * whether or not anything changed, and the mtime is the evidence that
+ * `stream.staleness.ts` compares a container's start time against — so a render
+ * that always wrote would make every boot look like a config change nobody had
+ * adopted, and there would be no way left to see a real one.
+ */
+function writeIfChanged(path: string, content: string, stamp = stampOf(content)): RenderedFile {
+    let existing: string | undefined;
+    try {
+        existing = readFileSync(path, 'utf8');
+    } catch {
+        // Not there yet, or unreadable. Either way: write it.
+    }
+
+    if (existing !== content) {
+        // 0644: these hold secrets, but they live on a private volume shared with trusted
+        // containers whose uids differ, so they have to be readable by them.
+        writeFileSync(path, content, { mode: 0o644 });
+    }
+
+    return { path, stamp, changedAt: statSync(path).mtimeMs };
+}
+
 export interface WriteStreamConfigArgs {
     settings: StreamSettings;
     playout: StreamPlayoutConfig;
@@ -138,7 +213,8 @@ export interface WriteStreamConfigArgs {
 /**
  * Render `icecast.xml` and `radio.env` from the resolved settings.
  *
- * @returns true when both files were written.
+ * @returns what stands on the volume afterwards, or `undefined` when the render
+ * was skipped and whatever was there before still stands.
  */
 export function writeStreamConfig({
     settings,
@@ -149,13 +225,13 @@ export function writeStreamConfig({
     harborPort = '8005',
     adminEmail = 'admin@localhost',
     log = () => {},
-}: WriteStreamConfigArgs): boolean {
+}: WriteStreamConfigArgs): StreamConfigRender | undefined {
     const { sourcePassword, adminPassword } = settings;
     if (!sourcePassword || !adminPassword) {
         // Only reachable when the secrets were deliberately cleared: `ensureStreamSecrets`
         // seeds both on first boot.
         log('not configured (set stream.sourcePassword + stream.adminPassword); skipping config');
-        return false;
+        return undefined;
     }
 
     const templatePath = join(assetsDir, 'icecast.xml.tmpl');
@@ -164,7 +240,7 @@ export function writeStreamConfig({
         template = readFileSync(templatePath, 'utf8');
     } catch (error) {
         log(`icecast template missing at ${templatePath} (${errorText(error)}); skipping`);
-        return false;
+        return undefined;
     }
 
     const tokens: Record<string, string> = {
@@ -185,7 +261,7 @@ export function writeStreamConfig({
     // should be visible in the rendered file, not silently become an empty password.
     const icecastXml = template.replace(/\{\{(\w+)\}\}/g, (whole, key: string) => tokens[key] ?? whole);
 
-    const radioEnv =
+    const radioBody =
         [
             `ICECAST_HOST=${shell(settings.icecastHost)}`,
             `ICECAST_PORT=${shell(settings.icecastPort)}`,
@@ -237,19 +313,33 @@ export function writeStreamConfig({
             `VOICE_GAIN_DB=${shell(String(playout.voiceGainDb))}`,
         ].join('\n') + '\n';
 
+    // The generation of the file, carried IN the file, so the process that sourced it
+    // can say which one it booted with. Appended after the hash rather than folded into
+    // it for the obvious reason: a stamp over content that includes the stamp has no
+    // fixed point. `radio.liq` reports it back on every `/control/*` reading and the
+    // Spotify shim inherits it from the same `set -a`, so one value covers both
+    // processes the entrypoint starts.
+    const radioStamp = stampOf(radioBody);
+    const radioEnv = `${radioBody}CONFIG_STAMP=${shell(radioStamp)}\n`;
+
+    let render: StreamConfigRender;
     try {
         mkdirSync(configDir, { recursive: true });
-        // 0644: these hold secrets, but they live on a private volume shared with trusted
-        // containers whose uids differ, so they have to be readable by them.
-        writeFileSync(join(configDir, 'icecast.xml'), icecastXml, { mode: 0o644 });
-        writeFileSync(join(configDir, 'radio.env'), radioEnv, { mode: 0o644 });
+        render = {
+            icecast: writeIfChanged(join(configDir, 'icecast.xml'), icecastXml),
+            // The body's stamp, not the file's: this is the value the file CARRIES and the
+            // value Liquidsoap reports back, and the comparison is between those two. A
+            // render whose recorded stamp was the hash of the whole file would never match
+            // the running container, however fresh it was.
+            radio: writeIfChanged(join(configDir, 'radio.env'), radioEnv, radioStamp),
+        };
     } catch (error) {
         log(`could not write to ${configDir} (${errorText(error)}); skipping`);
-        return false;
+        return undefined;
     }
 
-    log(`wrote icecast.xml + radio.env to ${configDir} (mount ${settings.mount}, ${settings.bitrate}k)`);
-    return true;
+    log(`rendered icecast.xml + radio.env to ${configDir} (mount ${settings.mount}, ${settings.bitrate}k, generation ${render.radio.stamp})`);
+    return render;
 }
 
 /**

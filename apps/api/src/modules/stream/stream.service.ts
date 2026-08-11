@@ -7,6 +7,7 @@ import { CONTROL_TTL_S, PLAYOUT_LEAD } from '#modules/playout/liquidsoap.control
 import { playoutAiredUrl, playoutListenerUrl, playoutStarveUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
 import { defaultStreamAssetsDir, defaultStreamConfigDir, writeStreamConfig, type StreamPlayoutConfig } from './stream.config.js';
 import { ensureStreamSecrets, resolveStreamSettings, type StreamSettings } from './stream.settings.js';
+import { StreamConfigWatch } from './stream.staleness.js';
 
 /**
  * How a break sounds: whether the DJ talks over the music or between tracks, how
@@ -55,6 +56,11 @@ export class StreamService {
         private readonly settingsRepository: SettingsRepository,
         private readonly encryption: EncryptionProvider,
         private readonly config: AppConfig,
+        // Told what a render put on the volume, because a render is the only moment
+        // the app learns what the containers OUGHT to be running. Nothing here reads
+        // it back: this service writes files, and judging who has adopted them is a
+        // singleton's job that outlives the request scope this one lives in.
+        private readonly staleness: StreamConfigWatch,
         private readonly logger: Logger,
     ) {}
 
@@ -77,11 +83,17 @@ export class StreamService {
      *
      * Never throws: a stream that cannot be configured must not stop the app
      * from serving, and both containers have a committed static fallback.
+     *
+     * A render that changed something is also the moment the running containers
+     * became stale, so the result is handed to {@link StreamConfigWatch} before
+     * the boolean is returned. Neither container is restarted or signalled here,
+     * and deliberately: see that class for why the app reports this rather than
+     * fixing it.
      */
     async materialize(): Promise<boolean> {
         try {
             const settings = await this.settings();
-            return writeStreamConfig({
+            const render = writeStreamConfig({
                 settings,
                 playout: this.playoutConfig(settings),
                 assetsDir: this.config.get('STREAM_ASSETS_DIR', defaultStreamAssetsDir()),
@@ -90,6 +102,9 @@ export class StreamService {
                 harborPort: this.config.get('STREAM_HARBOR_PORT', DEFAULT_HARBOR_PORT),
                 log: message => this.logger.info(`stream: ${message}`),
             });
+
+            this.staleness.noteRender(render);
+            return render !== undefined;
         } catch (error) {
             this.logger.error(error instanceof Error ? error : new Error(String(error)));
             return false;

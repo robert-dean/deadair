@@ -379,6 +379,31 @@ the rendered `.docvol/streamconfig/icecast.xml`:
 curl -N -u admin:<admin-password> http://127.0.0.1:8000/admin/eventfeed
 ```
 
+## Neither container re-reads its config, and the app now says so
+
+`icecast.xml` and `radio.env` are read ONCE, at container startup. Nothing restarts or signals
+either container when the app re-renders them, so a change to a `stream.*` setting — and above all
+a schema rebuild, which reseeds all five stream secrets in one query — leaves two live processes
+holding credentials that match nothing. The symptoms name something else entirely:
+
+- Icecast presents the old `playoutBridgeSecret` on the blocking `listener_add` hook, so **every**
+  listener is refused with Icecast's own "You need to authenticate" page. The app logs a bare
+  `Unauthorized` from `bridge.secret.middleware`.
+- Liquidsoap presents the old `ICECAST_SOURCE_PASSWORD`, the source connection is refused, no mount
+  exists, and Icecast answers 404. `/status-json.xsl` shows `source: null`.
+
+The app detects both and reports them, in the log and on the console's transport bar, naming the
+exact restart command. It does not run the command: it has no Docker socket, and both restarts are
+audible to whoever is connected, so the decision is the operator's. See
+`apps/api/src/modules/stream/stream.staleness.ts` for how each half is known — Liquidsoap reports
+the `CONFIG_STAMP` it booted with, Icecast's `server_start_iso8601` is compared against the file's
+mtime — and for why a render that produces identical bytes deliberately does not touch the file.
+
+```bash
+docker compose restart icecast
+docker compose restart liquidsoap
+```
+
 ## Liquidsoap version (and what to check after a bump)
 
 `stream/Dockerfile` pins the base image; it is currently `savonet/liquidsoap:v2.4.5`, up from

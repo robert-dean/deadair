@@ -4,8 +4,13 @@
 // SILENCE — no render yet, no answer from Icecast, no answer from Liquidsoap, a
 // script too old to report its generation. Every one of those is "unknown", and
 // unknown must never be reported as stale.
+//
+// Since the containers now restart themselves on a config change, the grace window
+// is part of that same discipline: a fault that fixes itself in ten seconds is not
+// a fault anybody should be shown. Hence `settle()` around almost every case here —
+// what is being tested is what survives the self-restart not happening.
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import type { IcecastServerReading, IcecastStatsClient } from '../../../src/modules/stream/icecast.stats.client.js';
@@ -15,6 +20,11 @@ import { StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.
 const RENDERED_AT = Date.UTC(2026, 7, 11, 12, 33, 0);
 /** Icecast started a quarter of an hour before the render, which is the observed failure. */
 const STARTED_BEFORE = Date.UTC(2026, 7, 11, 12, 17, 0);
+
+/** Past the grace window, so what is left is a self-restart that demonstrably did not happen. */
+const settle = () => {
+    vi.advanceTimersByTime(60_000);
+};
 
 const render = (overrides: Partial<StreamConfigRender> = {}): StreamConfigRender => ({
     icecast: { path: '/vol/icecast.xml', stamp: 'aaaaaaaaaaaa', changedAt: RENDERED_AT },
@@ -34,9 +44,18 @@ function build(server?: IcecastServerReading) {
 }
 
 describe('StreamConfigWatch', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it('says nothing before anything has been rendered', () => {
         const { watch } = build({ startedAt: STARTED_BEFORE, sourceConnected: true });
         watch.noteLiquidsoap({ stamp: 'something-else', driving: true });
+        settle();
 
         expect(watch.warnings()).toEqual([]);
     });
@@ -44,6 +63,7 @@ describe('StreamConfigWatch', () => {
     it('reports icecast when it started before its config last changed', () => {
         const { watch } = build({ startedAt: STARTED_BEFORE, sourceConnected: true });
         watch.noteRender(render());
+        settle();
 
         const [warning, ...rest] = watch.warnings();
         expect(rest).toEqual([]);
@@ -58,6 +78,7 @@ describe('StreamConfigWatch', () => {
     it('leaves icecast alone when it started after the render', () => {
         const { watch } = build({ startedAt: RENDERED_AT + 60_000, sourceConnected: true });
         watch.noteRender(render());
+        settle();
 
         expect(watch.warnings()).toEqual([]);
     });
@@ -67,6 +88,7 @@ describe('StreamConfigWatch', () => {
         // before the render that configured it is an ordinary cold boot, not drift.
         const { watch } = build({ startedAt: RENDERED_AT - 1_000, sourceConnected: true });
         watch.noteRender(render());
+        settle();
 
         expect(watch.warnings()).toEqual([]);
     });
@@ -76,6 +98,7 @@ describe('StreamConfigWatch', () => {
         // would send an operator to restart the one container that is not the problem.
         const { watch } = build(undefined);
         watch.noteRender(render());
+        settle();
 
         expect(watch.warnings()).toEqual([]);
     });
@@ -83,6 +106,7 @@ describe('StreamConfigWatch', () => {
     it('says nothing when icecast answered but would not say when it started', () => {
         const { watch } = build({ sourceConnected: true });
         watch.noteRender(render());
+        settle();
 
         expect(watch.warnings()).toEqual([]);
     });
@@ -91,6 +115,7 @@ describe('StreamConfigWatch', () => {
         const { watch } = build({ startedAt: RENDERED_AT + 60_000, sourceConnected: true });
         watch.noteRender(render());
         watch.noteLiquidsoap({ stamp: 'cccccccccccc', driving: true });
+        settle();
 
         const [warning] = watch.warnings();
         expect(warning?.container).toBe('liquidsoap');
@@ -103,6 +128,7 @@ describe('StreamConfigWatch', () => {
         const { watch } = build({ startedAt: RENDERED_AT + 60_000, sourceConnected: true });
         watch.noteRender(render());
         watch.noteLiquidsoap({ stamp: 'bbbbbbbbbbbb', driving: true });
+        settle();
 
         expect(watch.warnings()).toEqual([]);
     });
@@ -112,6 +138,7 @@ describe('StreamConfigWatch', () => {
         watch.noteRender(render());
         watch.noteLiquidsoap({ stamp: 'cccccccccccc', driving: true });
         watch.noteLiquidsoap(undefined);
+        settle();
 
         expect(watch.warnings()).toEqual([]);
     });
@@ -122,6 +149,7 @@ describe('StreamConfigWatch', () => {
         const { watch } = build({ startedAt: RENDERED_AT + 60_000, sourceConnected: false });
         watch.noteRender(render());
         watch.noteLiquidsoap({ driving: true });
+        settle();
 
         const [warning] = watch.warnings();
         expect(warning?.container).toBe('liquidsoap');
@@ -135,6 +163,7 @@ describe('StreamConfigWatch', () => {
         const { watch } = build({ startedAt: RENDERED_AT + 60_000, sourceConnected: false });
         watch.noteRender(render());
         watch.noteLiquidsoap({ driving: false });
+        settle();
 
         expect(watch.warnings()).toEqual([]);
     });
@@ -145,6 +174,7 @@ describe('StreamConfigWatch', () => {
         const { watch } = build({ startedAt: RENDERED_AT + 60_000, sourceConnected: false });
         watch.noteRender(render());
         watch.noteLiquidsoap({ stamp: 'cccccccccccc', driving: true });
+        settle();
 
         const warnings = watch.warnings();
         expect(warnings).toHaveLength(1);
@@ -157,12 +187,46 @@ describe('StreamConfigWatch', () => {
         const { watch } = build({ startedAt: STARTED_BEFORE, sourceConnected: false });
         watch.noteRender(render());
         watch.noteLiquidsoap({ stamp: 'cccccccccccc', driving: true });
+        settle();
 
         expect(watch.warnings().map(warning => warning.container)).toEqual(['icecast', 'liquidsoap']);
     });
 
+    it('holds its tongue while the container still has time to restart itself', () => {
+        // The whole point of the grace. The ordinary path is a file changing, the
+        // container noticing within seconds and coming back adopted — and an operator
+        // shown a red warning for that ten seconds learns to ignore the real one.
+        const { watch, logger } = build({ startedAt: STARTED_BEFORE, sourceConnected: true });
+        watch.noteRender(render());
+
+        vi.advanceTimersByTime(20_000);
+
+        expect(watch.warnings()).toEqual([]);
+        expect(vi.mocked(logger.warn)).not.toHaveBeenCalled();
+    });
+
+    it('gives the full grace again to a fault that comes back', () => {
+        // The clock is forgotten when a container drops off the list, so a second
+        // occurrence is judged on its own age rather than firing at once off a mark
+        // left by the first.
+        const { watch, reading } = build({ startedAt: STARTED_BEFORE, sourceConnected: true });
+        watch.noteRender(render());
+        settle();
+        expect(watch.warnings()).toHaveLength(1);
+
+        reading.current = { startedAt: RENDERED_AT + 60_000, sourceConnected: true };
+        expect(watch.warnings()).toEqual([]);
+
+        reading.current = { startedAt: STARTED_BEFORE, sourceConnected: true };
+        expect(watch.warnings()).toEqual([]);
+        settle();
+        expect(watch.warnings()).toHaveLength(1);
+    });
+
     it('names the restart command in the log, once, on the edge', () => {
         const { watch, logger } = build({ startedAt: STARTED_BEFORE, sourceConnected: true });
+        watch.noteRender(render());
+        settle();
         watch.noteRender(render());
         watch.noteRender(render());
 
@@ -175,6 +239,8 @@ describe('StreamConfigWatch', () => {
         // The operator who ran the command deserves to hear it from the thing that told
         // them to run it, rather than by watching a warning stop appearing.
         const { watch, logger, reading } = build({ startedAt: STARTED_BEFORE, sourceConnected: true });
+        watch.noteRender(render());
+        settle();
         watch.noteRender(render());
 
         reading.current = { startedAt: RENDERED_AT + 60_000, sourceConnected: true };

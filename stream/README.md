@@ -19,8 +19,9 @@ default 8005, published on localhost) over the Icecast source protocol, and the 
 while a push is connected. This replaced an earlier file-drop playlist that relied on inotify,
 which doesn't fire across Docker Desktop for Mac's bind mount, so no segment ever aired.
 `HARBOR_PASSWORD` is a DB-seeded secret shared between the app (push) and Liquidsoap
-(auth); like the Icecast passwords, restart Liquidsoap once to adopt it if the container
-first started on the committed `radio.default.env` dev default.
+(auth); like the Icecast passwords, a container that first started on the committed
+`radio.default.env` dev default adopts it on the restart `config-watch.sh` triggers when the
+app renders one (see below).
 
 The **duck** is ours, not `smooth_add`'s: `radio.liq` ramps a gain ref on the bed while the
 harbor source is ready, and `add`s the voice on top. `smooth_add` fades the bed down but never
@@ -51,14 +52,14 @@ over one item at a time. `radio.liq` registers four endpoints **on the harbor po
 dispatches by path, so they sit beside the `dj` mount), all gated on `PLAYOUT_BRIDGE_SECRET` in
 an `X-Playout-Secret` header:
 
-| Endpoint | What it does |
-| --- | --- |
-| `GET /control/status` | the reading (below) — also the app's reachability probe |
-| `POST /control/push` | body is an `annotate:` uri; queues it, returns `{"rid": n, …reading}` |
-| `POST /control/flush` | drops everything queued; what is on air finishes |
-| `POST /control/skip` | ends what is on air; the queue advances to the next item at once |
-| `POST /control/onair` | renews deadair's lease on the mount for `CONTROL_TTL_S` |
-| `POST /control/offair` | hands the lease back now: off air at once, queue dropped |
+| Endpoint                 | What it does                                                                     |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| `GET /control/status`    | the reading (below) — also the app's reachability probe                          |
+| `POST /control/push`     | body is an `annotate:` uri; queues it, returns `{"rid": n, …reading}`            |
+| `POST /control/flush`    | drops everything queued; what is on air finishes                                 |
+| `POST /control/skip`     | ends what is on air; the queue advances to the next item at once                 |
+| `POST /control/onair`    | renews deadair's lease on the mount for `CONTROL_TTL_S`                          |
+| `POST /control/offair`   | hands the lease back now: off air at once, queue dropped                         |
 | `POST /control/metadata` | body is one finished label line; puts it into the stream at the current position |
 
 Every one of them answers with the same **reading** of the queue, so a mutation's own response is
@@ -68,13 +69,13 @@ already the state it produced:
 { "queued": 1, "ready": true, "onAir": "b3f1…", "remainingMs": 92500, "driving": true }
 ```
 
-| Field | Meaning |
-| --- | --- |
-| `queued` | requests waiting, excluding the one on air (pending **and** prefetch-resolved). Note it also excludes the one currently being *resolved*, so it dips for the length of a download — the app counts its own hand-overs alongside it rather than trusting it alone |
-| `ready` | whether the queue can produce audio at all; `false` means the mount has fallen through to another bed |
-| `onAir` | rundown item id of the request playing, `""` when not producing |
-| `driving` | whether deadair's lease is unexpired, i.e. whether any of this is reaching the mount. Every other field describes the **queue**; this one describes the **station** |
-| `remainingMs` | how much of it is left; `-1` when nothing is on air or the decoder can't say (never `0` — `remaining()` uses `0` for "no item", which the app would otherwise read as a real measurement) |
+| Field         | Meaning                                                                                                                                                                                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `queued`      | requests waiting, excluding the one on air (pending **and** prefetch-resolved). Note it also excludes the one currently being _resolved_, so it dips for the length of a download — the app counts its own hand-overs alongside it rather than trusting it alone |
+| `ready`       | whether the queue can produce audio at all; `false` means the mount has fallen through to another bed                                                                                                                                                            |
+| `onAir`       | rundown item id of the request playing, `""` when not producing                                                                                                                                                                                                  |
+| `driving`     | whether deadair's lease is unexpired, i.e. whether any of this is reaching the mount. Every other field describes the **queue**; this one describes the **station**                                                                                              |
+| `remainingMs` | how much of it is left; `-1` when nothing is on air or the decoder can't say (never `0` — `remaining()` uses `0` for "no item", which the app would otherwise read as a real measurement)                                                                        |
 
 Only `queued` used to be reported, and the app paid for that: it had to deduce whether an item had
 started from the depth dropping, guess when one ended (nothing announces that), and extrapolate the
@@ -123,11 +124,11 @@ handler — which is what it used to be, and what made a forgotten call a silent
 still compiled. None of these can be gated by a policy instead: ContractKit's policies evaluate
 against an actor resolved from a session, and a container has neither.
 
-| Endpoint | Called by | What it says |
-| --- | --- | --- |
-| `POST /playout/bridge/aired` | Liquidsoap | which rundown item actually started |
-| `POST /playout/bridge/listener` | Icecast | a listener arrived or left |
-| `POST /playout/bridge/starve` | Liquidsoap | the running order stopped producing while the lease was held, or started again |
+| Endpoint                        | Called by  | What it says                                                                   |
+| ------------------------------- | ---------- | ------------------------------------------------------------------------------ |
+| `POST /playout/bridge/aired`    | Liquidsoap | which rundown item actually started                                            |
+| `POST /playout/bridge/listener` | Icecast    | a listener arrived or left                                                     |
+| `POST /playout/bridge/starve`   | Liquidsoap | the running order stopped producing while the lease was held, or started again |
 
 `starve` is pushed rather than polled because the app's reconcile runs every two seconds, so a gap
 shorter than that never appears in any reading it takes, and one starting just after a tick is seen
@@ -139,7 +140,7 @@ to that app's own polling.
 
 `POST /playout/bridge/aired` is Liquidsoap's `on_track` notify: an item is pushed
 (and downloaded) an item before it airs, so that notify is the only thing that knows what the
-listener is actually hearing *the moment it changes*. It is still worth having alongside the
+listener is actually hearing _the moment it changes_. It is still worth having alongside the
 reading — a push beats a two-second poll to the boundary — but it is no longer the only thing
 that knows, which is what makes a dropped one recoverable. (In the previous incarnation, rendered
 break audio was fetched from `GET /playout/segment/:id` with a one-time token, because Liquidsoap
@@ -170,7 +171,7 @@ So control is a **lease**, not a state. `radio.liq` airs the programme only whil
 assertion exists; the app renews it with `POST /control/onair` on the same two-second reconcile
 that was already polling `/control/status` (the endpoint answers with the reading, so the lease
 costs no extra request). The app asserts only while it actually **has** a programme — something on
-air, handed over, or queued — so an app that is merely *running* does not hold a mount it has
+air, handed over, or queued — so an app that is merely _running_ does not hold a mount it has
 nothing to put on.
 
 ### The second condition: somebody has to be listening
@@ -201,7 +202,7 @@ hands each `source-listener-count` for the mount straight to `AudienceWatch.repo
 lands in milliseconds. It attaches **only** when the poll resolved the admin endpoint, so against a
 2.4 server it never opens a socket, and it reconnects with backoff because a dropped feed is an
 ordinary state. Whole counts, never deltas, which is what makes a lost message cost the edge rather
-than the number. Icecast also *pushes*, through `<authentication type="url">` on the mount:
+than the number. Icecast also _pushes_, through `<authentication type="url">` on the mount:
 `listener_add` and `listener_remove` call `POST /playout/bridge/listener`, gated on the same bridge secret,
 so an arrival opens the gate in milliseconds instead of up to five seconds. Icecast presents that
 secret as HTTP **basic**, because its URL authenticator can send no header of its own; ServerKit's
@@ -338,8 +339,11 @@ reliable signal that a session has gone is a fetch failing on it.
 In the console: **Playlists**, then play one of the Spotify plugin's playlists. That fills the
 running order and the pusher hands it to Liquidsoap an item ahead of air.
 
-The first time you do this after building the image, restart Liquidsoap once so it adopts the
-app-rendered `radio.env` (which holds the bridge secret):
+The first time you do this after building the image, Liquidsoap has to adopt the app-rendered
+`radio.env` (which holds the bridge secret) rather than the committed default it booted on.
+`config-watch.sh` does that within seconds of the app's first render, so wait rather than acting;
+if the console still shows `config not adopted` after a minute, the watch is not running and this
+is the fallback:
 
 ```
 docker compose up -d --build liquidsoap
@@ -379,12 +383,13 @@ the rendered `.docvol/streamconfig/icecast.xml`:
 curl -N -u admin:<admin-password> http://127.0.0.1:8000/admin/eventfeed
 ```
 
-## Neither container re-reads its config, and the app now says so
+## Neither container re-reads its config, so each one watches its own
 
-`icecast.xml` and `radio.env` are read ONCE, at container startup. Nothing restarts or signals
-either container when the app re-renders them, so a change to a `stream.*` setting — and above all
-a schema rebuild, which reseeds all five stream secrets in one query — leaves two live processes
-holding credentials that match nothing. The symptoms name something else entirely:
+`icecast.xml` and `radio.env` are read ONCE, at container startup — Icecast parses its config and
+the Liquidsoap entrypoint sources the env file. Nothing re-reads either. So a change to a `stream.*`
+setting, and above all a schema rebuild (which reseeds all five stream secrets in one query), used
+to leave two live processes holding credentials that match nothing, with symptoms that name
+something else entirely:
 
 - Icecast presents the old `playoutBridgeSecret` on the blocking `listener_add` hook, so **every**
   listener is refused with Icecast's own "You need to authenticate" page. The app logs a bare
@@ -392,12 +397,31 @@ holding credentials that match nothing. The symptoms name something else entirel
 - Liquidsoap presents the old `ICECAST_SOURCE_PASSWORD`, the source connection is refused, no mount
   exists, and Icecast answers 404. `/status-json.xsl` shows `source: null`.
 
-The app detects both and reports them, in the log and on the console's transport bar, naming the
-exact restart command. It does not run the command: it has no Docker socket, and both restarts are
-audible to whoever is connected, so the decision is the operator's. See
-`apps/api/src/modules/stream/stream.staleness.ts` for how each half is known — Liquidsoap reports
-the `CONFIG_STAMP` it booted with, Icecast's `server_start_iso8601` is compared against the file's
-mtime — and for why a render that produces identical bytes deliberately does not touch the file.
+**Each container now watches its own rendered file** (`stream/config-watch.sh`, backgrounded by both
+entrypoints) and stops itself when it changes; `restart: unless-stopped` brings it back on the new
+config. The restart authority is inside the container that needs it, so nothing needs a Docker
+socket and nothing can restart anything but itself. Two things about it are deliberate:
+
+- **It polls the mtime; it does not use inotify.** inotify events do not cross Docker Desktop for
+  Mac's host bind mount, and `/streamconfig` is one. This repo has been bitten twice (see the
+  `reload_mode` note in `radio.liq`), and an inotify watcher here would look right and do nothing.
+- **It does not coordinate with the app.** The running order lives in the app's memory, so
+  `PlayoutPusher` re-pushes and re-asserts the mount lease on its next two-second reconcile. What a
+  restart costs is the audio on air at that instant, and waiting for a track boundary would mean
+  running replaced credentials for minutes — in the reseed case, minutes of a station already off
+  the air. The one thing lost is an armed talk-over cue.
+
+Set `CONFIG_WATCH_INTERVAL_S=0` on either service to turn the watch off and choose the moment
+yourself. The app's own drift warning still stands either way.
+
+That warning is the second line, and it now means the self-restart did not happen: the app holds it
+back for 45s, comfortably past the watch's worst case, so a change that heals itself is never
+reported. What survives that is a watch that is off, an image that predates it, or a container
+failing to come back — and then it says so in the log and on the console's transport bar with the
+command to run. See `apps/api/src/modules/stream/stream.staleness.ts` for how each half is known:
+Liquidsoap reports the `CONFIG_STAMP` it booted with, Icecast's `server_start_iso8601` is compared
+against the file's mtime, and a render producing identical bytes deliberately does not touch the
+file at all.
 
 ```bash
 docker compose restart icecast

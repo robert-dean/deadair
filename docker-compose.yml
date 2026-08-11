@@ -97,13 +97,21 @@ services:
         # Use the app-rendered config from the volume if it exists; otherwise fall
         # back to the committed static default (read-only from /defaults). This lets
         # the stream start on its own with no write to the volume and no dependency
-        # on `app`; once the app renders /streamconfig/icecast.xml it's used on the
-        # next restart.
+        # on `app`.
+        #
+        # config-watch backgrounded before the exec: icecast reads its config ONCE, so
+        # a re-render (a stream setting changed, or a schema rebuild reseeding the
+        # secrets) otherwise leaves this server refusing every listener on the
+        # listener_add hook with credentials the app has replaced. It watches the
+        # RENDERED path whichever file was actually booted from, so a container that
+        # came up on the default also adopts the app's config the first time one
+        # appears. On a change it stops this container and `restart: unless-stopped`
+        # brings it back. See stream/config-watch.sh.
         entrypoint:
             - sh
             - -c
             # $$ escapes compose interpolation so the shell (not compose) expands $cfg.
-            - 'cfg=/streamconfig/icecast.xml; [ -f "$$cfg" ] || cfg=/defaults/icecast.xml; exec icecast -c "$$cfg"'
+            - 'cfg=/streamconfig/icecast.xml; [ -f "$$cfg" ] || cfg=/defaults/icecast.xml; sh /usr/local/bin/config-watch.sh /streamconfig/icecast.xml "$${CONFIG_WATCH_INTERVAL_S:-5}" & exec icecast -c "$$cfg"'
         ports:
             # localhost only; the edge/tunnel fronts it (HTTPS terminates at the edge).
             - '127.0.0.1:8000:8000'
@@ -111,6 +119,8 @@ services:
             - ./.docvol/streamconfig:/streamconfig:ro
             # Committed static boot default, read directly when the volume is empty.
             - ./stream/icecast.default.xml:/defaults/icecast.xml:ro
+            # Mounted rather than baked: this is a stock upstream image.
+            - ./stream/config-watch.sh:/usr/local/bin/config-watch.sh:ro
         # No healthcheck: this image ships no HTTP client (no wget/curl/busybox, only
         # libcurl4), so an in-container HTTP probe can't run. Verify from the host
         # instead (curl http://127.0.0.1:8000/status-json.xsl on this 2.4 image, or
@@ -148,21 +158,29 @@ services:
             - '127.0.0.1:8005:8005'
         # Use the app-rendered env from the volume if it exists; otherwise fall back
         # to the committed static default (read-only from /defaults). Source it, then
-        # run. Lets the stream start on its own; the app overwrites radio.env once it
-        # boots (effective on the next restart).
+        # run. Lets the stream start on its own.
         entrypoint: ['sh', '-lc']
         # $$ escapes compose interpolation so the shell (not compose) expands $cfg.
         # The track shim is backgrounded before the exec: it inherits the sourced radio.env (its
         # signing secret and the credential bridge live there), and it is not an audio source, so
         # nothing in radio.liq spawns it. Liquidsoap stays PID 1's child so signals still reach it.
+        # config-watch is backgrounded beside it: radio.env is sourced ONCE, here, so a re-render
+        # otherwise leaves this container holding a source password Icecast has stopped accepting —
+        # no mount, and a 404 where the station should be. It watches the RENDERED path whichever
+        # file was booted from, stops the container on a change, and `restart: unless-stopped`
+        # brings it back with the shim restarted alongside it (which it must be: the shim inherits
+        # this same sourced environment). The restart is safe unattended because the running order
+        # lives in the APP's memory — PlayoutPusher re-pushes and re-asserts the lease on its next
+        # reconcile. See stream/config-watch.sh.
         command:
             [
-                'cfg=/streamconfig/radio.env; [ -f "$$cfg" ] || cfg=/defaults/radio.env; set -a; . "$$cfg"; sh /usr/local/bin/spotify-shim-run.sh & exec liquidsoap /radio/radio.liq',
+                'cfg=/streamconfig/radio.env; [ -f "$$cfg" ] || cfg=/defaults/radio.env; set -a; . "$$cfg"; sh /usr/local/bin/spotify-shim-run.sh & sh /usr/local/bin/config-watch.sh /streamconfig/radio.env "$${CONFIG_WATCH_INTERVAL_S:-5}" & exec liquidsoap /radio/radio.liq',
             ]
         volumes:
             - ./stream/radio.liq:/radio/radio.liq:ro
             # Mounted (not just baked) so the launchers can be tuned without a rebuild.
             - ./stream/spotify-shim-run.sh:/usr/local/bin/spotify-shim-run.sh:ro
+            - ./stream/config-watch.sh:/usr/local/bin/config-watch.sh:ro
             - ./stream/station-id.mp3:/radio/station-id.mp3:ro
             # Rights-cleared music bed: liquidsoap loops these under the voice
             # (MUSIC_DIR=/music). Empty until you drop tracks in; falls back to the

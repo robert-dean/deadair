@@ -19,14 +19,22 @@ import type { StreamConfigRender } from './stream.config.js';
  * both into one sentence that does.
  *
  * **Why it reports rather than fixes.** The app runs as a sibling container with
- * no Docker socket and no business having one: a process that can restart the
- * thing broadcasting it can also take the station off air on the strength of a
- * misread, and the misread here would be a clock. Restarting Icecast drops every
- * connected listener, and restarting Liquidsoap cuts what is on air mid-track —
- * both are decisions with an audience on the other end, so they belong to the
- * operator. What the app owes them is the diagnosis and the exact command, at
- * the moment the state begins, which is what this does. Mounting the socket to
- * automate it is not deferred work; it is the wrong trade.
+ * no Docker socket and no business having one: that is root on the host, traded
+ * for a process being able to restart the thing broadcasting it. The restart
+ * authority belongs inside the container that needs restarting, which is where
+ * it now is — `stream/config-watch.sh` polls each rendered file's mtime and stops
+ * its own container when it moves, and the compose restart policy brings it back
+ * on the new config. No socket anywhere, and nothing can restart anything but
+ * itself.
+ *
+ * That makes this the SECOND line, and it changes what a warning means. The
+ * ordinary path is now silent: the file changes, the container notices within a
+ * few seconds and comes back adopted, and nobody is told about a fault that
+ * lasted ten seconds and fixed itself. So nothing is reported until the state has
+ * survived {@link DRIFT_GRACE_MS}, by which point the self-restart has demonstrably
+ * not happened — the watch is off, the image predates it, the restart policy was
+ * changed, or the container is failing to come back. That is exactly when a
+ * person is needed, and it is what the command in the warning is for.
  *
  * **How each half is known.** They are different problems and get different
  * evidence:
@@ -56,8 +64,20 @@ import type { StreamConfigRender } from './stream.config.js';
  */
 const START_GRACE_MS = 10_000;
 
+/**
+ * How long a container has to stay behind before anybody is told.
+ *
+ * The containers watch their own config and restart themselves, so the ordinary
+ * case is over in about ten seconds and warning about it would train an operator
+ * to ignore this. Forty-five seconds is comfortably past `config-watch.sh`'s
+ * worst case (one poll interval to see the change, one more to confirm it
+ * settled, then a container start), so anything still standing here is a
+ * self-restart that did not happen rather than one still in progress.
+ */
+const DRIFT_GRACE_MS = 45_000;
+
 /** How often the verdict is re-evaluated for the LOG. The console reads it fresh; see {@link warnings}. */
-const CHECK_MS = 30_000;
+const CHECK_MS = 10_000;
 
 /** Which container is holding config the app has moved on from. */
 export type StaleContainer = 'icecast' | 'liquidsoap';
@@ -107,6 +127,8 @@ export class StreamConfigWatch {
     private render?: StreamConfigRender;
     /** The last reading Liquidsoap answered. `undefined` means it has not answered, not that it is fine. */
     private liquidsoap?: LiquidsoapReading;
+    /** When each container was first seen to be behind, so {@link DRIFT_GRACE_MS} can be applied. */
+    private readonly firstSeen = new Map<StaleContainer, number>();
     /** The warnings already said out loud, keyed as one string, so a 30s loop cannot fill the log. */
     private announced = '';
     private timer?: NodeJS.Timeout;
@@ -148,9 +170,9 @@ export class StreamConfigWatch {
         if (!render) return;
 
         this.render = render;
-        // Said at once rather than at the next tick. A render is the moment the drift
-        // BEGINS, and the operator who just changed a stream setting is the one person
-        // guaranteed to be reading the log.
+        // Evaluated at once rather than at the next tick, which now starts the grace clock
+        // rather than saying anything: a render is the moment the drift begins, and the
+        // container's own watch is about to end it.
         this.report();
     }
 
@@ -163,23 +185,54 @@ export class StreamConfigWatch {
      */
     noteLiquidsoap(reading: LiquidsoapReading | undefined): void {
         this.liquidsoap = reading;
+        // Start the grace clock from the reading rather than from whenever something
+        // next thinks to look, so the window measures how long the container has
+        // actually been behind and not how long ago anybody asked. The reconcile loop
+        // calls this twice a second and the work is a map lookup.
+        this.settled();
     }
 
     /**
-     * The containers running config the app has replaced, or an empty list.
+     * The containers running config the app has replaced for long enough that
+     * they were not going to fix it themselves, or an empty list.
      *
      * Evaluated on the spot rather than served from the timer's last pass: it is
      * a comparison of cached numbers, the console polls this every couple of
-     * seconds, and a verdict up to 30 seconds behind the restart that fixed it
-     * would leave a red banner over a station that is working.
+     * seconds, and a verdict ten seconds behind the restart that fixed it would
+     * leave a red banner over a station that is working.
      */
     warnings(): StreamConfigWarning[] {
-        return this.evaluate();
+        return this.settled();
+    }
+
+    /**
+     * {@link evaluate}, with anything too young to have outlived the container's
+     * own restart held back.
+     *
+     * Bookkeeping inside what is otherwise a read, which is worth the smell: the
+     * observation is idempotent, and the alternative is a verdict whose age
+     * depends on which caller happened to look. A container that drops off the
+     * list has its clock forgotten, so a fault that recurs is a fresh one and
+     * gets the full grace again rather than firing instantly on a stale mark.
+     */
+    private settled(): StreamConfigWarning[] {
+        const now = Date.now();
+        const candidates = this.evaluate();
+
+        for (const container of this.firstSeen.keys()) {
+            if (!candidates.some(candidate => candidate.container === container)) this.firstSeen.delete(container);
+        }
+
+        return candidates.filter(candidate => {
+            const since = this.firstSeen.get(candidate.container) ?? now;
+            this.firstSeen.set(candidate.container, since);
+            return now - since >= DRIFT_GRACE_MS;
+        });
     }
 
     /** One pass, plus the log line when the verdict has changed. */
     private report(): void {
-        const warnings = this.evaluate();
+        const warnings = this.settled();
         const key = warnings.map(warning => `${warning.container}:${warning.detail}`).join('|');
         if (key === this.announced) return;
 
@@ -223,8 +276,9 @@ export class StreamConfigWatch {
             container: 'icecast',
             detail:
                 `icecast started at ${iso(server.startedAt)} and ${this.render?.icecast.path} last changed at ${iso(changedAt)}, ` +
-                'so it is running the passwords that were current before then. It reads its config once, at startup, ' +
-                'and until it is restarted every listener is refused on the listener_add hook and the admin stats read may be too.',
+                'so it is running the passwords that were current before then, and every listener is being refused on the ' +
+                'listener_add hook. It reads its config once, at startup. Its own config watch should have restarted it ' +
+                'within seconds and has not, so it needs restarting by hand.',
             restart: restartCommand('icecast'),
         };
     }
@@ -254,7 +308,8 @@ export class StreamConfigWatch {
                 detail:
                     `liquidsoap booted with config generation ${reading.stamp} and ${radio.path} is now generation ${radio.stamp}, ` +
                     'so it is holding the source password, the bridge secret and the shim secret as they stood before that render. ' +
-                    'It sources that file once, at startup, so nothing it does will pick the new ones up.',
+                    'It sources that file once, at startup, and its own config watch should have restarted it within seconds ' +
+                    'and has not, so it needs restarting by hand.',
                 restart: restartCommand('liquidsoap'),
             };
         }

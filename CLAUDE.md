@@ -43,6 +43,12 @@ exists.
   the rate limiting, redirect chasing and breaker all exist.
 - `docs/decisions/plugin-streaming.md` (superseded) for the bounds on a body read outside the call
   that fetched it, which survived the protocol they were written for.
+- `docs/decisions/analysis-licensing.md` for the rule that every dependency in the analysis path is
+  permissive (MIT/BSD/ISC/Apache), weights included, and for the fact that the `analysis/` sidecar is
+  NOT a licence workaround: it exists because decoding does not happen in Node, and folding it back
+  into the app would cost that and nothing licence-shaped. Read it before pinning anything in
+  `analysis/requirements.txt`, and note that the licence to check is the model WEIGHTS' licence,
+  which is not in the package metadata.
 - `docs/decisions/on-air-ownership.md` (stage 1 built; stage 2 built except its rundown merge) for
   why the director is the sole writer of the running order, and the four bugs that were all the same
   bug. Read it before touching `director/`, `Rundown`, or anything that writes

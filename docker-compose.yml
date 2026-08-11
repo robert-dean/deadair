@@ -81,12 +81,14 @@ services:
     # answering /health and /analyze is a valid analyzer, and swapping to one is a
     # baseUrl change in the plugin's config.
     #
-    # A SEPARATE PROGRAM FOR TWO REASONS, and the second is the one that gets lost.
-    # Decoding does not happen in Node, so the decoder lives out here. And the toolkits
-    # the deferred beat layer needs are mostly copyleft, several AGPL, which is a
-    # materially different position for a separate program speaking HTTP than for a
-    # library linked into the API server. Folding this back into app code gives that
-    # up, and it will not be visible in the diff.
+    # A SEPARATE PROGRAM FOR ONE REASON. Decoding does not happen in Node, so the
+    # decoder lives out here. Folding this back into app code gives that up, and it
+    # will not be visible in the diff.
+    #
+    # This comment used to give a second reason, that the boundary held a copyleft
+    # toolkit at arm's length from the API process. Retired: the analysis path is
+    # permissive outright, weights included, so there is nothing for the boundary to
+    # hold. See docs/decisions/analysis-licensing.md.
     analysis:
         build:
             context: .

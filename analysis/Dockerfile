@@ -1,12 +1,14 @@
 # The analysis sidecar. See analysis/README.md for the contract this serves and
 # for why it is a separate program rather than app code.
 #
-# Two reasons live in this file specifically. Decoding does not happen in Node,
-# so the decoder is here. And the toolkits the deferred beat layer will need are
-# mostly copyleft, several AGPL, which is a materially different position for a
-# separate program speaking HTTP than for a library linked into the API server.
-# If this container is ever folded back into the app, that is what is being given
-# up, and it will not be visible in the diff.
+# One reason lives in this file specifically: decoding does not happen in Node,
+# so the decoder is here. If this container is ever folded back into the app,
+# that is what is being given up, and it will not be visible in the diff.
+#
+# Not a licence boundary, though an earlier version of this comment said it was.
+# docs/decisions/analysis-licensing.md keeps the analysis path permissive outright
+# rather than relying on the process boundary to hold a copyleft dependency at
+# arm's length, so there is nothing here for the boundary to carry.
 FROM python:3.13-slim
 
 # ffmpeg decodes; the service itself fetches. Keeping the fetch in Python is what

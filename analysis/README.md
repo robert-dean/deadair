@@ -11,22 +11,22 @@ plugin's config. That is the whole reason the boundary is HTTP.
 
 ## Why it is a separate program
 
-Two reasons, and the second is the one that gets forgotten.
+One reason, and it is worth knowing which one, because an earlier draft of this section gave two.
 
 **Decoding does not happen in Node.** Every field here comes from PCM samples rather than from a
 container, and the API server is the one place the station's architecture says audio does not go. A
-CPU-bound decode loop inside the request path would be a decision nobody made.
+CPU-bound decode loop inside the request path would be a decision nobody made. If this container is
+ever "simplified" back into app code, that is the thing being given up, and it will not be visible in
+the diff.
 
-**The licence position is materially different.** The toolkits that compute beat grids and separate
-vocals — which the deferred beat layer needs — are mostly copyleft, several of them AGPL. A separate
-program communicating over HTTP is not the same as linking one of those into the API process. If this
-container is ever "simplified" back into app code, that is the thing being given up, and it will not
-be visible in the diff.
-
-Today's implementation needs neither: cue points come from a band-limited RMS envelope and loudness
-from a published filter, so the dependencies are a decoder and two permissively licensed array
-libraries. The copyleft question arrives with the beat layer, which is precisely when this boundary
-starts paying for itself.
+**It is not here for licence reasons**, which is the half that was wrong. The second reason used to
+be that a separate program speaking HTTP is a materially different position from linking a copyleft
+toolkit into the API process. True, and irrelevant:
+[`docs/decisions/analysis-licensing.md`](../docs/decisions/analysis-licensing.md) decided that
+nothing copyleft or non-commercial enters the analysis path at all, weights included, so the boundary
+never has to carry that weight and must not be spent as if it could. Today's dependencies are a
+decoder invoked as a binary and two permissively licensed array libraries; the beat layer's will be
+permissive too, or it will not be pinned.
 
 ## The contract
 

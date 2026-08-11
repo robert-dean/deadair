@@ -18,9 +18,13 @@
  * tree does not do in Node. So the expected implementation is a thin adapter over
  * a separate program: take {@link AnalysisRef.audioUrl}, hand it to whatever
  * actually decodes, return what comes back. That is the same relationship the
- * bundled speech plugin has with its engine, and it is also a materially
- * different licence position from linking a beat-detection toolkit into the API
- * process, which matters because the usual licence in this space is copyleft.
+ * bundled speech plugin has with its engine.
+ *
+ * The reason is decoding and only decoding. An earlier version of this note also
+ * claimed the boundary bought a licence position, which
+ * `docs/decisions/analysis-licensing.md` retired: nothing copyleft or
+ * non-commercial enters the analysis path in the first place, so there is no
+ * position for the boundary to buy.
  *
  * Nothing here requires that shape. A plugin that can measure audio some other
  * way is a valid implementation; this note exists so the first one is not

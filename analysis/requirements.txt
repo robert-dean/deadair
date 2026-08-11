@@ -10,10 +10,12 @@
 # two-stage biquad and pure numpy has no IIR, so the alternative was a Python
 # loop over fourteen million samples per track.
 #
-# The licence check that README.md describes arrives with the beat layer, when
-# something has to compute a downbeat grid. Whatever gets pinned for that is
-# where the AGPL question actually lands, and it lands HERE rather than in the
-# API process, which is the point of this service existing.
+# "Every entry permissive" is now a rule rather than a description of a state
+# that happened to hold: docs/decisions/analysis-licensing.md decided that
+# nothing copyleft and nothing non-commercial enters this file, and that the rule
+# covers MODEL WEIGHTS as well as code. That is the one a scanner misses, because
+# a BSD package can ship non-commercial weights and the package metadata will not
+# say so. Check the weights' licence by hand, or do not add the line.
 fastapi==0.120.4
 uvicorn==0.41.0
 numpy==2.4.1

@@ -174,13 +174,18 @@ ever cut for time, cut it down to those two rather than dropping it.
   submissions in 2022 and is a fixed dump, so it is a cold-start layer for back catalogue keyed by
   recording id and nothing for anything released since. The open toolkits that would compute these
   values are worth a look for the two hard points, with a licence check first, because the usual one
-  in this space is AGPL and this would run inside the API process.
+  in this space is AGPL and this would run inside the API process. **That check has since been done**
+  in [../decisions/analysis-licensing.md](../decisions/analysis-licensing.md), and it came out as a
+  standing rule rather than a per-toolkit judgement: nothing copyleft or non-commercial enters the
+  analysis path, weights included. It also does not run inside the API process, per the corrected
+  bullet below.
 - ~~**Analysis is an enrichment plugin, not app code.**~~ **Wrong, and corrected by building it.**
   The fan-out shape was the right instinct and the capability was not: enrichment merges what
   several upstreams claim about a recording, and a measurement has one source and nothing to merge.
   It is `analysis`, its own capability, and the plugin is an adapter over a sidecar rather than the
-  thing that measures — which is also what keeps a decoder out of the API process and a copyleft
-  toolkit out of the host realm. The plugin never touches the bytes: the host resolves the audio URL
+  thing that measures — which is what keeps a decoder out of the API process. Not a copyleft toolkit
+  out of the host realm: there is no copyleft toolkit anywhere in the analysis path, by the decision
+  linked above. The plugin never touches the bytes: the host resolves the audio URL
   because one plugin may not ask another for a stream.
 - **A byte-capped or partial download cannot produce an outro.** Whatever fetches the audio has to
   say whether it got the whole file, or the analysis will confidently describe a truncation as a

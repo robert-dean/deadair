@@ -12,8 +12,13 @@ walks the catalog and measures what it finds. The four cue points come from an R
 ffmpeg-decoded samples, and the loudness layer at the end is built and checked against `ebur128`.
 
 **What is still deferred is the beat layer alone** — `bpm`, `beat_confidence`, `downbeats`,
-`vocal_onset`, `vocal_curve` — and so is the licence question it carries, which is the reason the
-sidecar exists and is worth re-reading before anything links a toolkit anywhere.
+`vocal_onset`, `vocal_curve`. **Its licence question is now answered** in
+[../decisions/analysis-licensing.md](../decisions/analysis-licensing.md), and the answer changes two
+things this file says below. Every dependency in the analysis path is permissive, weights included,
+so no copyleft toolkit is a candidate at all. And the sidecar was NOT chosen for licence reasons: it
+was chosen because decoding does not happen in Node, which is the whole of it. Read that file before
+pinning anything, and read it instead of "The licence check comes before the design" below, which it
+supersedes.
 
 Three deferred features now depend on measured audio, and each of them was scoped assuming its own
 answer to where the numbers come from. They should share one:
@@ -76,13 +81,16 @@ station's architecture says audio does not go. Three ways out, in order of prefe
    loop inside the request path of the API server, so it is only defensible if analysis is strictly
    a background job with a concurrency of one.
 
-**The licence check comes before the design, not after.** The toolkits that compute beat grids and
-vocal separation are mostly copyleft, several AGPL, and §3 already flags this. It bears on the
-choice above rather than merely on the code: a sidecar is a separate program communicating over
-HTTP, which is a materially different licence position from linking the same library into the API
-process. If option 1 is chosen for licence reasons rather than architectural ones, write that down,
-because it is the kind of decision that gets "simplified" later by someone who only sees the
-container.
+**The licence check comes before the design, not after.** ~~The toolkits that compute beat grids and
+vocal separation are mostly copyleft, several AGPL, and §3 already flags this. It bears on the choice
+above rather than merely on the code: a sidecar is a separate program communicating over HTTP, which
+is a materially different licence position from linking the same library into the API process.~~
+**Superseded 2026-08-11 by [../decisions/analysis-licensing.md](../decisions/analysis-licensing.md),
+which took this file up on its own request to write the answer down.** It came out the other way
+round: the rule is that nothing copyleft or non-commercial enters the analysis path in the first
+place, weights included, so the boundary never carries any licence weight and option 1 stands on
+keeping the decoder out of Node alone. The paragraph above is kept because it is the reasoning the
+decision had to answer, not because it holds.
 
 ## The storage shape
 

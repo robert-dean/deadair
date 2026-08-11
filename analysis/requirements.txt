@@ -1,0 +1,15 @@
+# Deliberately four lines.
+#
+# v1 measures cue points from an RMS envelope, which needs a decoder and an
+# array library and nothing else. No DSP toolkit, and so no copyleft question
+# yet -- ffmpeg is invoked as a separate binary rather than linked, and numpy,
+# fastapi, uvicorn and pydantic are all permissive.
+#
+# The licence check that README.md describes arrives with the beat layer, when
+# something has to compute a downbeat grid. Whatever gets pinned for that is
+# where the AGPL question actually lands, and it lands HERE rather than in the
+# API process, which is the point of this service existing.
+fastapi==0.120.4
+uvicorn==0.41.0
+numpy==2.4.1
+pydantic==2.13.1

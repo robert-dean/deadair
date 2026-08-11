@@ -28,6 +28,11 @@ const GROUPS: { key: StationSettingDescriptor['group']; title: string; blurb: st
         title: 'Words',
         blurb: 'Which plugin the station asks for words. With none set up it still writes its own breaks, from what is either side of them in the running order.',
     },
+    {
+        key: 'analysis',
+        title: 'Measurement',
+        blurb: 'Which plugin measures records, so the station can trim the dead air off each one and know how long it may talk over an intro. With none set up every track still plays, unmeasured.',
+    },
 ];
 
 /**

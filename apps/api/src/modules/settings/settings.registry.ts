@@ -2,6 +2,7 @@ import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
+import { ANALYSIS_CONCURRENCY_KEY, ANALYSIS_PLUGIN_KEY, DEFAULT_ANALYSIS_CONCURRENCY } from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 
@@ -41,7 +42,7 @@ export interface SettingDescriptor extends ConfigField {
 }
 
 /** The sections the console draws, in the order it draws them. */
-export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render', 'llm'] as const;
+export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render', 'llm', 'analysis'] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 
@@ -235,6 +236,26 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         help: 'The plugin id the station asks for words. Leave empty when only one plugin can, and set it when several can. With none available the station still writes its own breaks, deterministically.',
+    },
+
+    // ── analysis ───────────────────────────────────────────────────────────────
+    // Which plugin, and how wide the walk runs. The analyzer's own address is
+    // that plugin's config, the same call the speech engine's knobs got.
+    {
+        group: 'analysis',
+        key: ANALYSIS_PLUGIN_KEY,
+        label: 'Measure with',
+        type: 'string',
+        default: '',
+        help: 'The plugin id that measures records, so the station can trim dead air and time what it says over an intro. Leave empty when only one plugin can. With none available every track still plays, unmeasured.',
+    },
+    {
+        group: 'analysis',
+        key: ANALYSIS_CONCURRENCY_KEY,
+        label: 'Tracks measured at once',
+        type: 'number',
+        default: DEFAULT_ANALYSIS_CONCURRENCY,
+        help: 'Raise this only alongside the analyzer\'s own worker count: above it the extra requests just queue there, below it its cores sit idle. Neither side can work the other out, because the analyzer may not be on this machine.',
     },
 
     // ── secrets ────────────────────────────────────────────────────────────────

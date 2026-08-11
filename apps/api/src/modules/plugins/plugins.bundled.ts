@@ -38,4 +38,5 @@ export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/musicbrainz'),
     resolveBundledPluginDir('plugins/kokoro'),
     resolveBundledPluginDir('plugins/llm'),
+    resolveBundledPluginDir('plugins/analyzer'),
 ];

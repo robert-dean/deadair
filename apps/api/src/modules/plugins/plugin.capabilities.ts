@@ -1,9 +1,11 @@
 import {
+    PLUGIN_CAPABILITY_ANALYSIS,
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_STREAM,
+    type AnalysisProvider,
     type EnrichmentPluginInstance,
     type LlmPluginInstance,
     type MusicProviderPluginInstance,
@@ -308,4 +310,45 @@ export const asLlmPlugin = (record: PluginRecord): LlmPlugin | undefined => {
 
     const instance = record.instance as LlmPluginInstance;
     return { record, manifest: record.manifest, instance, listsModels: implementsModelListing(instance) };
+};
+
+/**
+ * The one method that earns the `analysis` capability.
+ *
+ * One, with no optional siblings, because there is nothing a measurement can
+ * partially support: a plugin either answers about a track's audio or it is not
+ * an analyzer. Where speech and llm have a `listVoices` / `listModels` that a
+ * plugin may skip, an analyzer has nothing to enumerate — the shape of what it
+ * produces is the schema version it reports, not a list it offers.
+ */
+export const ANALYSIS_METHODS = ['analyzeTrack'] as const satisfies ReadonlyArray<keyof AnalysisProvider>;
+
+/** A plugin narrowed to "can measure a track's audio, right now". */
+export interface AnalysisPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: AnalysisProvider;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `analysis` capability. */
+export const implementsAnalysis = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_ANALYSIS)) return false;
+    return ANALYSIS_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The analysis-capable view of a record, or `undefined` when it is not one.
+ *
+ * No priority, for the reason `asSpeechPlugin` and `asLlmPlugin` have none, and
+ * here the reason is the strongest of the three: two analyzers measuring the
+ * same record do not produce something to merge, they produce two claims about
+ * one physical fact, and the right response to a disagreement is to pick an
+ * analyzer rather than to average them. So choosing between several installed
+ * plugins is a setting — see `analysis.pluginId`.
+ */
+export const asAnalysisPlugin = (record: PluginRecord): AnalysisPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsAnalysis(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as AnalysisProvider };
 };

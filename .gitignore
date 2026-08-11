@@ -54,3 +54,7 @@ stream/music/*
 !stream/music/.gitkeep
 .claude/handoffs/
 docs/decisions/
+# The analysis sidecar is the first Python in the tree; these are its build droppings.
+# The container installs from requirements.txt and never sees either.
+__pycache__/
+.pytest_cache/

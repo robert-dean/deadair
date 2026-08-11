@@ -75,6 +75,48 @@ services:
                 rm -rf "$$SRC" && ln -s "$$DEST" "$$SRC";
                 exec uv run --extra cpu --no-sync python -m uvicorn api.src.main:app --host 0.0.0.0 --port 8880 --log-level debug
 
+    # Per-track audio measurement: cue points now, a beat grid later. The app hands
+    # it a URL, it fetches and decodes and answers with offsets. See analysis/README.md,
+    # which is the HTTP contract rather than a description of this image — anything
+    # answering /health and /analyze is a valid analyzer, and swapping to one is a
+    # baseUrl change in the plugin's config.
+    #
+    # A SEPARATE PROGRAM FOR TWO REASONS, and the second is the one that gets lost.
+    # Decoding does not happen in Node, so the decoder lives out here. And the toolkits
+    # the deferred beat layer needs are mostly copyleft, several AGPL, which is a
+    # materially different position for a separate program speaking HTTP than for a
+    # library linked into the API server. Folding this back into app code gives that
+    # up, and it will not be visible in the diff.
+    analysis:
+        build:
+            context: .
+            dockerfile: analysis/Dockerfile
+        image: deadair-analysis
+        container_name: deadair-analysis
+        restart: unless-stopped
+        environment:
+            # How many tracks decode at once. Its counterpart is the station's
+            # `analysis.concurrency` setting, and NEITHER CAN COMPUTE THE OTHER: this
+            # container owns the CPU so it sizes the pool, the station owns the walk so
+            # it decides how many requests are in flight. Deriving one from the other
+            # would need the app to know this machine's hardware, which it cannot —
+            # baseUrl may point somewhere else entirely. Raising one without the other
+            # does nothing: in-flight above the pool only queues here, below it leaves
+            # cores idle.
+            ANALYSIS_WORKERS: '1'
+        ports:
+            # localhost only. Nothing outside needs it, and it will fetch any URL it is
+            # handed, so it is not something to expose.
+            - '127.0.0.1:9321:9321'
+        healthcheck:
+            # python rather than curl: the slim image ships no HTTP client, and this
+            # endpoint is deliberately cheap enough to poll.
+            test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://localhost:9321/health')"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
+
         # ── Self-hosted stream (Milestone 1: voice-only) ────────────────────────────
     # Icecast is the public MP3 mount; Liquidsoap loops the pre-rendered podcast
     # voice MP3s into it. The app and factory-worker run on the host (pnpm dev /

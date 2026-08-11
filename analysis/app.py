@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from loudness import integrated_lufs, sample_peak_db, true_peak_db
+from loudness import integrated_lufs, sample_peak_db, to_mono, true_peak_db
 from measure import SAMPLE_RATE, SCHEMA_VERSION, measure
 
 ANALYZER = "deadair-analysis/0.1.0"
@@ -79,8 +79,25 @@ class AnalysisError(Exception):
 
 @dataclass(frozen=True)
 class Decoded:
+    """`(frames, channels)` float32, at REFERENCE_RATE."""
+
     samples: np.ndarray
     duration_ms: int
+
+
+# Channels are kept up to stereo and folded down above that.
+#
+# Keeping them is not a nicety: BS.1770 sums the weighted power of each channel,
+# so measuring a downmix reads about 3 dB low on uncorrelated material and
+# nothing at all on anti-phase material. Both were measured against ffmpeg's own
+# implementation before this was written.
+#
+# Anything wider than stereo is folded to stereo rather than measured with the
+# surround weights the standard defines (1.41 for the rear pair). A music
+# station's catalog is stereo, the fold is what a listener on this mount would
+# hear anyway, and implementing weights against material nobody here can test
+# would be worse than the documented compromise.
+MAX_CHANNELS = 2
 
 
 # ffmpeg says why it failed in prose, so the classification is a prose match.
@@ -94,14 +111,44 @@ _UNFETCHABLE = re.compile(
 )
 
 
+def _channel_count(url: str) -> int:
+    """How many channels the source has, so the decode can be reshaped.
+
+    A separate ffprobe rather than parsing ffmpeg's own prose, and it costs a
+    header read rather than a second download: ffprobe stops as soon as it has
+    the stream metadata. Worth that, because the alternative is asking ffmpeg for
+    a fixed channel count and thereby destroying the very thing the loudness
+    measurement needs.
+
+    Falls back to mono on anything unexpected. A wrong low guess measures one
+    channel of a stereo file, which is a plausible figure; a wrong high guess
+    reshapes the buffer incorrectly and produces nonsense.
+    """
+    command = [
+        "ffprobe",
+        "-v", "error",
+        "-select_streams", "a:0",
+        "-show_entries", "stream=channels",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        url,
+    ]
+    try:
+        finished = subprocess.run(command, capture_output=True, check=False, timeout=60)
+        return max(1, min(MAX_CHANNELS, int(finished.stdout.decode().strip() or 1)))
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return 1
+
+
 def _decode(url: str) -> Decoded:
-    """Fetch and decode to mono float32 at SAMPLE_RATE.
+    """Fetch and decode to float32 at SAMPLE_RATE, keeping up to MAX_CHANNELS.
 
     ffmpeg does the fetching as well as the decoding, which is why `complete` can
     be answered at all: one process either delivered the whole stream or did not,
     and its exit status says which. Splitting the two would mean holding the
     encoded file somewhere to hand over, for no gain.
     """
+    channels = _channel_count(url)
+
     command = [
         "ffmpeg",
         "-nostdin",
@@ -112,7 +159,7 @@ def _decode(url: str) -> Decoded:
         "-t", str(MAX_SECONDS),
         "-i", url,
         "-vn",
-        "-ac", "1",
+        "-ac", str(channels),
         "-ar", str(SAMPLE_RATE),
         "-f", "f32le",
         "-",
@@ -129,19 +176,28 @@ def _decode(url: str) -> Decoded:
         code = "unfetchable" if _UNFETCHABLE.search(stderr) else "undecodable"
         raise AnalysisError(code, stderr[:500] or f"ffmpeg exited {finished.returncode}")
 
-    samples = np.frombuffer(finished.stdout, dtype=np.float32)
-    if samples.size == 0:
+    flat = np.frombuffer(finished.stdout, dtype=np.float32)
+    if flat.size == 0:
         # A clean exit with no samples is a URL that served something ffmpeg was
         # willing to open and that contained no audio -- an HTML error page with
         # a 200, most often.
         raise AnalysisError("undecodable", "the URL served no audio")
 
-    return Decoded(samples=samples, duration_ms=int(samples.size * 1000 / SAMPLE_RATE))
+    # Interleaved, so a partial final frame would shear every channel. Trimming
+    # it is a fraction of a millisecond; not trimming it is silent corruption.
+    frames = flat.size // channels
+    samples = flat[: frames * channels].reshape(frames, channels)
+
+    return Decoded(samples=samples, duration_ms=int(frames * 1000 / SAMPLE_RATE))
 
 
 def _analyze(url: str, claimed_ms: int | None) -> dict:
     decoded = _decode(url)
-    points = measure(decoded.samples, SAMPLE_RATE)
+
+    # The cue points want one signal and the loudness wants the channels. Folded
+    # here rather than at the decode, because folding for BOTH is the mistake
+    # that reads 3 dB low on real stereo -- see `integrated_lufs`.
+    points = measure(to_mono(decoded.samples), SAMPLE_RATE)
 
     # Measured over the WHOLE file rather than between the cue points. Loudness
     # is a property of the record as delivered, and the gate already discards the

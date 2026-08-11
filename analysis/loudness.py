@@ -76,36 +76,62 @@ def k_weight(samples: np.ndarray, sample_rate: int = REFERENCE_RATE) -> np.ndarr
     return signal.lfilter(_RLB_B, _RLB_A, shelved)
 
 
+def _as_channels(samples: np.ndarray) -> np.ndarray:
+    """`(frames, channels)`, accepting a 1-D mono array as one channel."""
+    return samples.reshape(-1, 1) if samples.ndim == 1 else samples
+
+
 def integrated_lufs(samples: np.ndarray, sample_rate: int = REFERENCE_RATE) -> float | None:
     """Gated programme loudness, or `None` when nothing survives the gate.
 
-    `None` rather than a very negative number, and the distinction matters: a
-    track that is silent has no loudness, and a caller computing a gain from a
-    figure like -80 would boost it by seventy decibels. Absent means "no
-    opinion", which every consumer of these measurements already has to handle.
+    Takes `(frames, channels)`. **It must be given the real channels rather than
+    a downmix**, and this is the single easiest thing to get wrong here, because
+    a downmix produces a number that looks entirely plausible:
+
+    BS.1770 SUMS the K-weighted power of each channel. A stereo→mono downmix
+    averages them instead, so two uncorrelated channels read about 3 dB low, and
+    anti-phase material cancels to nothing at all. Measured against ffmpeg's own
+    implementation, uncorrelated noise came back at -18.8 LUFS downmixed against
+    a true -15.8, and an anti-phase pair produced no reading whatsoever.
+
+    Real music sits somewhere between: correlated in the middle, decorrelated at
+    the sides, so the error is material-dependent and unpredictable, which is
+    worse than a constant one would be.
+
+    `None` rather than a very negative number for silence, and the distinction
+    matters: a caller computing a gain from a figure like -80 would boost it by
+    seventy decibels. Absent means "no opinion", which every consumer of these
+    measurements already has to handle.
     """
     if samples.size == 0:
         return None
 
-    weighted = k_weight(samples.astype(np.float64), sample_rate)
+    channels = _as_channels(samples)
 
     block = int(sample_rate * BLOCK_MS / 1000)
     step = int(sample_rate * BLOCK_STEP_MS / 1000)
-    if weighted.size < block:
+    if channels.shape[0] < block:
         # Shorter than one gating block. Not measurable to the standard, and
         # guessing from a partial block would report a number that looks real.
         return None
 
-    # Mean square per overlapping block, via a strided view so a five-minute
-    # track does not become a copy per block.
-    count = 1 + (weighted.size - block) // step
-    blocks = np.lib.stride_tricks.as_strided(
-        weighted,
-        shape=(count, block),
-        strides=(weighted.strides[0] * step, weighted.strides[0]),
-        writeable=False,
-    )
-    mean_square = np.mean(np.square(blocks), axis=1)
+    count = 1 + (channels.shape[0] - block) // step
+
+    # Σ G_i · z_i, per block. G is 1.0 for left, right and centre; a surround
+    # channel would be 1.41, which nothing here produces because anything wider
+    # than stereo is folded down before it arrives. See `app.py`.
+    mean_square = np.zeros(count, dtype=np.float64)
+    for index in range(channels.shape[1]):
+        weighted = k_weight(np.ascontiguousarray(channels[:, index], dtype=np.float64), sample_rate)
+
+        # A strided view so a five-minute track does not become a copy per block.
+        blocks = np.lib.stride_tricks.as_strided(
+            weighted,
+            shape=(count, block),
+            strides=(weighted.strides[0] * step, weighted.strides[0]),
+            writeable=False,
+        )
+        mean_square += np.mean(np.square(blocks), axis=1)
 
     # log10(0) for a wholly silent block; floored so it gates out rather than
     # poisoning the comparison.
@@ -140,18 +166,41 @@ def true_peak_db(samples: np.ndarray, oversample: int = TRUE_PEAK_OVERSAMPLE) ->
     if samples.size == 0:
         return None
 
+    channels = _as_channels(samples)
     peak = 0.0
-    # A second of audio at a time, with enough overlap that the resampler's own
-    # filter has settled before the part being measured.
-    chunk = REFERENCE_RATE
-    overlap = 256
 
-    for start in range(0, samples.size, chunk):
-        piece = samples[max(0, start - overlap) : start + chunk + overlap]
-        if piece.size == 0:
-            continue
-        upsampled = signal.resample_poly(piece.astype(np.float64), oversample, 1)
-        peak = max(peak, float(np.max(np.abs(upsampled))))
+    # Per channel, because a peak is a property of what one converter has to
+    # reproduce. A downmix would hide a channel that clips on its own.
+    for index in range(channels.shape[1]):
+        column = np.ascontiguousarray(channels[:, index], dtype=np.float64)
+
+        # A second of audio at a time, with context either side so the
+        # resampler's own filter has settled before the part being measured.
+        chunk = REFERENCE_RATE
+        overlap = 256
+
+        for start in range(0, column.size, chunk):
+            lead = min(start, overlap)
+            piece = column[start - lead : start + chunk + overlap]
+            if piece.size == 0:
+                continue
+
+            upsampled = signal.resample_poly(piece, oversample, 1)
+
+            # **Only the middle counts.** `resample_poly` zero-pads what it is
+            # given, so each piece ends in a step discontinuity that rings --
+            # and the ringing overshoots by up to a decibel, which is a whole
+            # decibel of headroom the station would then decline to use. Trimming
+            # back to the samples this chunk is actually responsible for is what
+            # makes the context either side worth having; without it the overlap
+            # merely moves the artifact.
+            begin = lead * oversample
+            end = begin + chunk * oversample
+            middle = upsampled[begin:end]
+            if middle.size == 0:
+                continue
+
+            peak = max(peak, float(np.max(np.abs(middle))))
 
     if peak <= 0.0:
         return None
@@ -173,3 +222,21 @@ def sample_peak_db(samples: np.ndarray) -> float | None:
     if peak <= 0.0:
         return None
     return float(20.0 * np.log10(peak))
+
+
+def to_mono(samples: np.ndarray) -> np.ndarray:
+    """The channels folded down for the measurements that want one signal.
+
+    Energy-preserving rather than an average of the samples: `sqrt(mean(x_i^2))`
+    keeps anti-phase content instead of cancelling it. The cue points are asking
+    "is the record sounding here", and two channels that sum to nothing are still
+    a record sounding.
+
+    Not usable for loudness, which needs the channels themselves -- see
+    {@link integrated_lufs}.
+    """
+    channels = _as_channels(samples)
+    if channels.shape[1] == 1:
+        return np.ascontiguousarray(channels[:, 0])
+
+    return np.sqrt(np.mean(np.square(channels.astype(np.float64)), axis=1)).astype(np.float32)

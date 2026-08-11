@@ -125,40 +125,47 @@ so it does not inherit the copyleft question in the section above: it is a measu
 implements. And it is the only field here with a consumer that is already designed, so it can ship
 with the cue points rather than behind them.
 
-### The trap: it cannot be measured from the samples the sidecar already has
+### The trap: it cannot be measured from a mono downmix
 
-`analysis/app.py`'s decode asks ffmpeg for `-ac 1 -ar 22050`, because nothing the cue points measure
-looks above 4 kHz or cares about stereo. Running a Python BS.1770 implementation over those samples
-is the obvious move, needs no second decode, and produces a number that looks like LUFS and is not:
+**This section was written as a warning and then proved by breaking it.** Loudness was first measured
+over the samples the cue points use, which at the time were mono. Both predicted failures happened,
+measured against ffmpeg's own `ebur128`:
 
-- **The downmix breaks the standard.** BS.1770 sums K-weighted power per channel with defined
-  weights. A mono downmix averages instead, which reads roughly 3 dB low on correlated material and
-  cancels out-of-phase material outright.
-- **True peak needs the native rate.** Inter-sample peak detection is 4x oversampling of the real
-  signal. At 22.05 kHz everything above 11 kHz is already gone, so the figure describes a file
-  nobody will hear.
+- **The downmix breaks the standard.** BS.1770 sums K-weighted power per channel; a mono downmix
+  averages instead. Uncorrelated stereo read **−18.8 LUFS against a true −15.8**, and an anti-phase
+  pair cancelled outright and produced **no reading at all**. Real music is partly correlated, so the
+  error varies by record — worse than a constant one, because nothing about the number looks wrong.
+- **True peak needs the native rate**, which is why the decode moved to 48 kHz. That also removed the
+  second half of the problem: the rate BS.1770 publishes its coefficients at is the rate the decode
+  now runs at, so nothing has to be re-derived.
 
-It would also cost a scipy-class dependency, against a `requirements.txt` that is four lines by
-deliberate choice.
+### Where it actually went
 
-### Where it actually goes
+**Built 2026-08-11.** `analysis/loudness.py`, a BS.1770 implementation over `scipy.signal`, on a
+decode that keeps up to two channels at 48 kHz. `analysis/app.py` folds to mono for the cue points
+alone, and that fold is energy-preserving (`sqrt(mean(x²))`) rather than an average, so anti-phase
+content survives it.
 
-ffmpeg's `ebur128` filter sits in the filtergraph **before** the resampler that ffmpeg auto-inserts
-to satisfy the output format. So `-af ebur128=peak=true` sees the file at its native rate and channel
-layout while `-f f32le -ar 22050 -ac 1` still delivers the analysis stream unchanged. One fetch, one
-decode, one process, no new dependency. That is the whole reason this is cheap, and it is a property
-of the existing invocation rather than of the filter.
+Not ffmpeg's `ebur128` filter, which an earlier draft of this section proposed. Two reasons the
+in-process implementation won, and the first is the one that decided it:
 
-One wrinkle to settle empirically before writing it: `ebur128` reports at INFO and the decode runs
-`-loglevel error`. Raising the level globally feeds a great deal more prose to the `_UNFETCHABLE`
-prose match on the failure path, where a stream title containing `404` would newly misclassify an
-undecodable file as an unreachable one. Two ways out, in order of preference:
+1. **The `-loglevel` wrinkle that draft identified is real and has no clean answer.** `ebur128`
+   reports at INFO while the decode runs at `error`, and raising the level globally feeds a great
+   deal more prose to the `_UNFETCHABLE` prose match — where a stream title containing `404` would
+   newly misclassify an undecodable file as an unreachable one. Both escape routes (an `ametadata`
+   sink, or a second `-f null -` pass that doubles decode time) cost more than the code does.
+2. It made the measurement testable. The compliance sines, the gating cases and the channel-summing
+   regression are all unit tests against arrays; a filtergraph would only have been testable end to
+   end.
 
-1. Keep `-loglevel error` and take the values out through `metadata=1` into an `ametadata` print
-   sink, so they arrive structured instead of as log text.
-2. A second `-f null -` pass at INFO, which leaves the decode invocation alone and **doubles fetch
-   and decode time per track**. Against a background walk at `analysis.concurrency` of 1, that is the
-   whole walk taking twice as long, so it is a fallback rather than the plan.
+`ebur128` is still what the implementation is CHECKED against, which is the better use of it — see
+`analysis/README.md`. The two agree to two decimal places on mono, correlated stereo, uncorrelated
+stereo and anti-phase signals.
+
+It cost scipy, against a `requirements.txt` that was four lines by deliberate choice. Worth it:
+K-weighting is a two-stage biquad and pure numpy has no IIR, so the alternative was a Python loop
+over fourteen million samples per track. scipy is BSD, so it changes nothing about the licence
+position that puts this in a container.
 
 The fields go in the opaque `data` blob under the existing `schemaVersion`, which is exactly the
 extension that blob exists for: no change to the plugin, the host, or the database.

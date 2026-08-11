@@ -18,7 +18,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from loudness import REFERENCE_RATE, integrated_lufs, sample_peak_db, true_peak_db
+from loudness import REFERENCE_RATE, integrated_lufs, sample_peak_db, to_mono, true_peak_db
 
 # EBU Tech 3341 states its compliance tolerance as ±0.1 LU.
 TOLERANCE_LU = 0.1
@@ -89,6 +89,77 @@ class TestAgainstTheStandard:
         # The curve reads -1.133 dB at 100 Hz and +4.042 at 10 kHz, against +0.691 here.
         assert low - reference == pytest.approx(-1.133 - 0.691, abs=0.15)
         assert high - reference == pytest.approx(4.042 - 0.691, abs=0.15)
+
+
+class TestChannels:
+    """The measurement must see the real channels, not a downmix.
+
+    This is the easiest thing in the file to get wrong, because a downmix
+    produces a number that looks entirely plausible. It shipped wrong once. The
+    figures below were taken from ffmpeg's own `ebur128` on the same signals.
+    """
+
+    def stereo(self, left: np.ndarray, right: np.ndarray) -> np.ndarray:
+        return np.stack([left, right], axis=1)
+
+    def test_two_identical_channels_are_three_lu_louder_than_one(self):
+        """BS.1770 sums channel power; it does not average it.
+
+        Two correlated channels really are louder than one, and a measurement
+        that says otherwise is averaging somewhere.
+        """
+        one = sine(20.0, CALIBRATION_HZ, 0.1)
+
+        mono = integrated_lufs(one)
+        both = integrated_lufs(self.stereo(one, one))
+
+        assert mono is not None and both is not None
+        assert both - mono == pytest.approx(3.01, abs=0.05)
+
+    def test_uncorrelated_channels_are_not_read_three_db_low(self):
+        """The failure that shipped: uncorrelated noise measured -18.8 against a true -15.8."""
+        rng = np.random.default_rng(7)
+        length = int(20.0 * REFERENCE_RATE)
+        left = (0.08 * rng.standard_normal(length)).astype(np.float32)
+        right = (0.08 * rng.standard_normal(length)).astype(np.float32)
+
+        measured = integrated_lufs(self.stereo(left, right))
+        assert measured is not None
+        # ffmpeg's ebur128 reports -15.8 LUFS for this signal.
+        assert measured == pytest.approx(-15.8, abs=0.3)
+
+    def test_anti_phase_material_still_has_a_loudness(self):
+        """The other failure: a downmix cancels it to nothing and reports no reading at all."""
+        one = sine(20.0, CALIBRATION_HZ, 0.1)
+
+        measured = integrated_lufs(self.stereo(one, -one))
+        assert measured is not None, "anti-phase channels cancelled, so this is measuring a downmix"
+        # ffmpeg reports -20.0: the same as two correlated channels, since power sums either way.
+        assert measured == pytest.approx(-20.0, abs=0.2)
+
+    def test_a_peak_in_one_channel_alone_is_still_the_peak(self):
+        quiet = sine(2.0, CALIBRATION_HZ, 0.01)
+        loud = sine(2.0, CALIBRATION_HZ, 0.9)
+
+        peak = true_peak_db(self.stereo(quiet, loud))
+        assert peak is not None
+        assert peak == pytest.approx(-0.9, abs=0.3)
+
+
+class TestToMono:
+    """The fold used for the cue points, which is a different question again."""
+
+    def test_it_keeps_anti_phase_content_instead_of_cancelling_it(self):
+        # A plain (L+R)/2 would produce silence here, and the cue points would
+        # then report a record that never sounds.
+        one = sine(2.0, CALIBRATION_HZ, 0.5)
+        folded = to_mono(np.stack([one, -one], axis=1))
+
+        assert float(np.max(np.abs(folded))) > 0.4
+
+    def test_mono_passes_through_unchanged(self):
+        one = sine(1.0, CALIBRATION_HZ, 0.3)
+        assert np.allclose(to_mono(one), one)
 
 
 class TestGating:

@@ -234,9 +234,15 @@ look:
 
 **Where the measured figure comes from** is [track-analysis.md](track-analysis.md), "Loudness", added
 2026-08-11. Both numbers this section needs (integrated loudness and a true peak, without which the
-headroom cap is a guess) fall out of the analysis sidecar's existing decode. Read that section before
-measuring anything here: the samples the sidecar keeps are mono at 22.05 kHz and are the wrong input
-for both.
+headroom cap is a guess) fall out of the analysis sidecar's existing decode.
+
+**Built 2026-08-11**, and the trap that section warned about was real. The sidecar now decodes at
+48 kHz keeping up to two channels, and reports `integratedLufs`, `truePeakDb` and `samplePeakDb` in
+the `data` blob. Measuring a mono downmix was tried first and was wrong twice over — 3 dB low on
+uncorrelated material, no reading at all on anti-phase — so if anything here ever reads suspiciously
+quiet, that is the first thing to check. What is left for this section is unchanged: preferring a
+ReplayGain tag where the source carries one, capping the boost against the peak, and gaining rendered
+audio by the same function.
 
 - It is one number per item, so it rides the annotation the pusher already builds
   (`playout/annotate.ts`), and costs nothing at air time.

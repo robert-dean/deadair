@@ -150,7 +150,19 @@ The decode happens at **48 kHz** because that is the rate BS.1770 publishes its 
 at. Nothing else here needs it, but re-deriving those coefficients for a lower rate is the step most
 likely to be quietly wrong, and decoding twice would cost more than the extra samples do.
 
-Two facts worth keeping, because both look like bugs when you meet them:
+**The channels are kept, and that is not a nicety.** BS.1770 SUMS the weighted power of each
+channel; a stereo→mono downmix averages them. Measuring the downmix shipped once and was wrong in two
+ways at once, both confirmed against ffmpeg: uncorrelated material read 3.0 dB low (−18.8 against a
+true −15.8), and anti-phase material cancelled to nothing and produced no reading at all. Real music
+sits between the two, so the error was material-dependent and unpredictable, which is worse than a
+constant one. The cue points still want a single signal, so the fold happens for them alone and is
+energy-preserving (`sqrt(mean(x²))`) rather than an average, so anti-phase content survives it.
+
+Anything wider than stereo is folded to stereo rather than measured with the surround weights the
+standard defines. A music catalog is stereo, the fold is what a listener on this mount hears anyway,
+and implementing weights against material nobody here can test would be worse than saying so.
+
+Three facts worth keeping, because all of them look like bugs when you meet them:
 
 - **The calibration frequency is 997 Hz, not 1000.** The K-weighting curve's gain at 997 Hz is
   +0.691 dB, which cancels the −0.691 offset in the loudness equation exactly — so at that one
@@ -158,9 +170,16 @@ Two facts worth keeping, because both look like bugs when you meet them:
   there reads 0.7 LU high and looks like a broken implementation.
 - **A true peak above 0 dBTP is real, not a clamping failure.** It means the master overshoots on
   playback, which is the thing worth knowing before adding gain to it.
+- **True peak is measured in chunks, and only each chunk's middle counts.** The resampler zero-pads
+  what it is handed, so every chunk ends in a step that rings, and the ringing overshoots by up to a
+  decibel — a whole decibel of headroom the station would then decline to use. The context either
+  side is only worth having because the output is trimmed back to it; without the trim, the overlap
+  just moves the artifact.
 
-Both numbers agree with ffmpeg's own independent `ebur128` filter to within 0.03 LU on a test signal,
-which is the cheapest available cross-check and worth repeating after any change here:
+Both numbers agree with ffmpeg's own independent `ebur128` filter to two decimal places on mono,
+correlated stereo, uncorrelated stereo and anti-phase signals. That is the cheapest available
+cross-check and it is worth repeating after any change here, because every failure this code has had
+so far produced a number that looked entirely plausible:
 
 ```bash
 ffmpeg -nostdin -hide_banner -i track.mp3 -filter_complex ebur128=peak=true -f null -

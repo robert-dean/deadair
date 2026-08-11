@@ -1,8 +1,13 @@
 # Deadair todo/idea list
 
+The raw list: unscoped, undesigned, and deliberately not held to the rules the rest of `docs/todo/`
+follows. An entry earns a file of its own by being scoped against real code, and the line here then
+points at that file. Checked against the tree on 2026-08-11.
+
 - [ ] shows should use personas
 - [ ] more voices, add phonetics
-- [ ] inject news/weather breaks
+- [ ] inject news/weather breaks — the seam is a `tool` capability (`tool-plugins.md`); what the
+      station knows about the hour and the season is `station-moment.md`
 - [ ] traffic breaks?
 - [ ] breaking news instant breaks
 - [ ] persona memory
@@ -12,18 +17,31 @@
 - [ ] improve playlist generation, use similar artists to get related artists ect to help
     - similarity comes from Last.fm (`artist.getSimilar` / `artist.getTopTracks`), not MusicBrainz — MB has no artist-similarity endpoint
     - plus: durable play history (repeat window + artist cooldown), per-artist caps, palette from what aired instead of the pool
+    - the repeat window, the artist cooldown and the per-artist cap are BUILT (`rotation.rules.ts`).
+      What is left is scoped in `station-intelligence.md`: similar-artist expansion, palette
+      steering, and "The bubble, which the rules above cannot fix"
 - [ ] schedule builder (9-9:30 news, 9:30-12 music, 12-1 ?, etc)
 - [ ] generate fake ads and sponsors
 - [ ] more music sources (pandora, ?): youtube music and apple music appear to be hard to impossible
+    - scoped since: `youtube-music.md` splits it into a catalog half that is ordinary plugin code
+      and an audio half that is a second track fetcher and a sidecar
 - [ ] add foley, sounds, etc (especially useful for "callers" so you hear background noise like a dog barking)
-- [ ] console/logs/activity feed
-- [ ] offer multiple LLM options (chatgtp, claude, ect) along with models
-    - [ ] Enable the breaks, shows, etc to be configured to use a specific one
-- [ ] plugin system for sources, renderers, streamers, enrichment, discovery, breaks?
+- [ ] console/logs/activity feed — scoped in `station-intelligence.md` §8, which pairs it with the
+      thing it is actually for: one page that names why the station is silent
+- [~] offer multiple LLM options (chatgtp, claude, ect) along with models — half done: `llm` is a
+      capability and `plugins/llm` speaks the OpenAI-compatible protocol, so one plugin covers a
+      local server and a hosted one. The MODEL is a per-call parameter, deliberately
+    - [ ] Enable the breaks, shows, etc to be configured to use a specific one — the per-call
+      parameter is the seam this needs; nothing chooses per break yet
+- [x] plugin system for sources, renderers, streamers, enrichment, discovery, breaks? — built, as
+      capabilities: `catalog`, `stream`, `enrichment`, `speech`, `llm`, `analysis`. See
+      `packages/plugin-sdk/README.md`. Breaks are host-side and stay that way
 - [ ] integrate with HA, similar?
 - [ ] daily snapshot from calendar integration?
 - [ ] have the talk shows (like conspiracy) keep a history so it can grow organically
 - [ ] view saved track metadata
-- [ ] like/dislike artist/song/album maybe genre
+- [ ] like/dislike artist/song/album maybe genre — operator dislikes and never-play predicates are
+      `station-intelligence.md` §5, the accountless listener version is §7
 - [ ] integrate with genuis for enrichment
-- [ ] drop the plugin kind and only use capabilities
+- [x] drop the plugin kind and only use capabilities — done; a manifest has one axis and
+      `plugin.manifest.ts` records why

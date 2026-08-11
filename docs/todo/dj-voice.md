@@ -307,6 +307,29 @@ can follow without seeing the last few scripts. Still its own table rather than 
 costs nothing; doing it later is a migration plus a backfill nobody can do. It is what turns the
 activity feed above into a transport over existing rows.
 
+**5. A break's forward claim is a FORECAST, and nothing currently checks it came true.** Added
+2026-08-11, and it applies to the deterministic writer that is already built rather than only to the
+model. `talk.break.writer.ts` says "Coming up next, X, from Y" — a statement about the future,
+written when the break is planned, spoken minutes later out of audio that was rendered in between.
+Everything that can happen to a running order in that gap makes it false: an operator drops or moves
+the item, a request is inserted, a resolver drops the pick, the item is skipped for having no ready
+audio. The station then names a record that is not the one playing, in a confident voice, which
+sounds worse than saying nothing at all and is the kind of error a listener remembers.
+
+The guard cannot be "re-resolve nearer to air", because the claim is baked into WORDS and rendered
+audio cannot be re-cut. So it is two cheap checks at the two ends:
+
+- **Withhold the claim when the forecast cannot be trusted at write time** — the writer already has
+  a phrasing with no `next` in it and picks it when the next track is unknown, so this is choosing
+  that phrasing rather than inventing anything.
+- **Drop the line at hand-over when the order has drifted**, by stamping the item id the break named
+  and comparing it against what is actually next when the segment is handed over. Silence on one
+  boundary beats a wrong fact, which is the same trade the station already makes by skipping a
+  segment that is not `ready`.
+
+The same reasoning covers anything else time-bound a writer might say — the hour, "in the next half
+hour", the weather — none of which is stateable until this stamp exists.
+
 See [station-moment.md](station-moment.md) for the request those writers take, and
 [tool-plugins.md](tool-plugins.md) for what a writer can ask mid-sentence.
 

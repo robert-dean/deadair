@@ -10,7 +10,8 @@ Cut from the director plan to keep the first pass on one thing: getting a lineup
 ## Segments in a lineup — BUILT
 
 A lineup line is a track or a segment, and the arm landed without a migration exactly as predicted,
-because `lineups.items` is jsonb. The rule landed with it: the director SKIPS a segment that is not
+because the items are jsonb (in `deadair.station_lineup` now; the `lineups` table this entry was
+written against no longer exists). The rule landed with it: the director SKIPS a segment that is not
 `ready` when the cursor reaches it, so the station never stalls waiting on a renderer.
 
 Two things this entry did not anticipate, both of which turned out to matter. The line holds the
@@ -64,8 +65,14 @@ A `programme` manifest capability and a `host.station` surface (`nowPlaying`, `u
 The breaking-news case: a plugin declares `stream` too and its bulletin is fetched through the
 existing `resolveStreamUrl`, so no bytes cross the plugin boundary. `position: 'now'` is the only
 part needing new transport, namely `Rundown.insertNext`, which retracts the served-but-not-airing
-tail so the bulletin airs next rather than five tracks later. `station_air.resume_lineup_id` and
-`resume_cursor` already exist for handing the station back afterwards.
+tail so the bulletin airs next rather than five tracks later.
+
+**Corrected 2026-08-11:** this entry used to say `station_air.resume_lineup_id` and `resume_cursor`
+"already exist for handing the station back afterwards". They do not, and cannot: `station_air` is
+down to one column of substance (`active`), because a second opinion about programming living next
+door to the running order was the bug that on-air ownership closed. Handing the station back after a
+bulletin is now what it always should have been — the bulletin is an item in the one running order,
+and the records after it are still sitting behind it.
 
 ## Push destinations
 

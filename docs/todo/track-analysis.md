@@ -2,12 +2,18 @@
 
 **Written:** 2026-08-11, after reading how working desktop players do beat-aware transitions and
 finding that the interesting half of it is not the transition.
-**State of the tree:** nothing measures a track. No table, no job, no plugin.
-**Updated 2026-08-11:** option 1 below is being built. `analysis/` is a Python sidecar answering
-`GET /health` and `POST /analyze` over HTTP, `plugins/analyzer/` is the adapter, and the four cue
-points come from an RMS envelope over ffmpeg-decoded samples. The beat layer is untouched, and so is
-the licence question it carries. The loudness section at the end was added against that sidecar and
-names its files; verify them before building.
+**State of the tree, 2026-08-11:** option 1 below is BUILT, and this file is now half a record of
+what landed. `analysis/` is a Python sidecar answering `GET /health` and `POST /analyze` over HTTP,
+`plugins/analyzer/` is the adapter, `analysis` is a capability of its own in the plugin SDK rather
+than a kind of enrichment (`packages/plugin-sdk/src/capabilities/analysis.ts` says why), and
+`deadair.track_analysis` in migration `0005_music.sql` is the row, carrying a schema version and a
+completeness flag exactly as "The storage shape" below asks for. `AnalysisModule` in `apps/api`
+walks the catalog and measures what it finds. The four cue points come from an RMS envelope over
+ffmpeg-decoded samples, and the loudness layer at the end is built and checked against `ebur128`.
+
+**What is still deferred is the beat layer alone** — `bpm`, `beat_confidence`, `downbeats`,
+`vocal_onset`, `vocal_curve` — and so is the licence question it carries, which is the reason the
+sidecar exists and is worth re-reading before anything links a toolkit anywhere.
 
 Three deferred features now depend on measured audio, and each of them was scoped assuming its own
 answer to where the numbers come from. They should share one:

@@ -1,6 +1,8 @@
 # The mixer knobs that are still constants
 
 **Written:** 2026-08-09, when `VOICE_GAIN_DB` became the fourth of them.
+**Updated:** 2026-08-11, when the containers learned to restart themselves onto a re-rendered config,
+which removes the reason this was deferred.
 **State of the tree:** four values that decide how a break sounds are hardcoded in
 `apps/api/src/modules/stream/stream.service.ts`, materialized into `radio.env`, and changed only by
 editing code and deploying.
@@ -36,19 +38,32 @@ running would re-render `radio.env` (the app already does that on a settings wri
 nothing anyone can hear until the container restarts. A console knob that silently does nothing is
 worse than no knob.
 
-Which makes the real work the restart trigger, and that has a genuine design question in it: the
-station holds the mount on a lease it renews, so restarting Liquidsoap takes it off air for as long
-as the container takes to come back. On a station with listeners that is audible. Options, none of
-them decided:
+Which made the real work the restart trigger — and **that trigger was built on 2026-08-11, for a
+different reason, and this file is smaller because of it.** `stream/config-watch.sh` runs inside each
+stream container, polls the mtime of the file it was started from, and stops its own container when
+it moves; the compose restart policy brings it back on the new config. No Docker socket anywhere,
+and nothing can restart anything but itself, which is why the authority could live there and not
+here. `stream.staleness.ts` is the second line behind it: it warns only once the drift has outlived
+`DRIFT_GRACE_MS`, by which point the self-restart demonstrably did not happen.
 
-- Restart on the operator's say-so, with the console stating plainly that it will interrupt the
-  broadcast. Honest, and puts the cost where the person choosing it can see it.
-- Defer the restart to the next time the audience gate closes, so it is spent on an empty mount.
-  Free, and means a change can sit unapplied for hours with no obvious reason why.
-- Make the values live in `radio.liq` — read them per use from a ref, refreshed by a `/control/*`
-  call — so no restart is needed at all. The most work, and the only option with no downside for
-  the listener. Worth checking against how `duck_gain_db` is used before assuming it is possible:
-  `lin_of_dB` is evaluated once when the ramp closure is built.
+So the remaining work is the small half after all: four `STREAM_KEYS` entries, four fields on
+`StreamSettings`, four defaults, and passing them through `playoutConfig`. Writing the setting
+re-renders `radio.env`, the watch sees the mtime move, and Liquidsoap comes back on the new value
+without anybody being asked to restart anything.
+
+**One decision is left, and it is about cost rather than mechanism.** A restart takes the station off
+air for as long as the container takes to come back, which is audible to anyone listening. Three
+answers, still undecided:
+
+- Let it restart immediately, and have the console say plainly that saving these four interrupts the
+  broadcast. Honest, and puts the cost in front of the person choosing it.
+- Hold the re-render until the audience gate closes, so the restart is spent on an empty mount. Free
+  when nobody is listening, and means a saved change can sit unapplied for hours with no visible
+  reason why.
+- Make the values live in `radio.liq` — read per use from a ref, refreshed by a `/control/*` call —
+  so no restart is needed at all. The most work, and the only answer with no cost to a listener.
+  Check how `duck_gain_db` is used before assuming it is possible: `lin_of_dB` is evaluated once,
+  when the ramp closure is built.
 
 ## What must NOT move
 

@@ -1,16 +1,17 @@
 # docs/todo
 
 Work that has been designed and deliberately deferred, plus the seam each piece drops into when it
-lands. This is not a backlog of ideas: everything here was scoped against the real tree during some
-piece of work, then cut to keep that pass on one thing. The point of writing it down is that none of
-it needs re-deciding, only building.
+lands. With one named exception (`todo.md`, at the bottom of the table), this is not a backlog of
+ideas: everything here was scoped against the real tree during some piece of work, then cut to keep
+that pass on one thing. The point of writing it down is that none of it needs re-deciding, only
+building.
 
 Two rules for this directory:
 
-- **A file here describes the current tree**, with one exception: `from-v1.md`, which is explicitly a
-  map of the pre-re-scaffold station and says so on every claim. See `docs/decisions/` for calls that
-  were made and closed, and the run directories under `.claude/handoffs/` for work that was
-  decomposed and built.
+- **A file here describes the current tree**, with two exceptions: `from-v1.md`, which is explicitly
+  a map of the pre-re-scaffold station and says so on every claim, and `todo.md`, which is the raw
+  idea list and is scoped against nothing. See `docs/decisions/` for calls that were made and
+  closed, and the run directories under `.claude/handoffs/` for work that was decomposed and built.
 - **Verify before building.** These notes name tables, columns and modules as they stood on the date
   in each file's header. Check `apps/api/src/modules/modules.ts` and the migrations before relying
   on any of it.
@@ -36,6 +37,7 @@ Two rules for this directory:
 | [icecast-2.5.md](icecast-2.5.md) | **Mostly done** (2026-08-10): the container runs 2.5.0, the poll reads `/admin/publicstats` and the audience follows `/admin/eventfeed`. Kept for the two document shapes measured off a live 2.5, which match neither the old endpoint nor upstream's source, and for the four small leftovers |
 | [service-actors.md](service-actors.md) | Giving Liquidsoap and Icecast their own credentials, actor kind and permission tuples instead of one shared bridge secret |
 | [from-v1.md](from-v1.md) | Things the previous station did that this tree will eventually want back: the render pipeline, breaks, shows, the monitoring feed, extra sources, now-playing sinks |
+| [todo.md](todo.md) | The station's raw idea list, and **the one file here that is exempt from the two rules above**: unscoped, undesigned, and not checked against the tree. An entry graduates out of it by being designed against real code, at which point it becomes a file above and the line here points at it |
 
 ## What is next, and against what test
 
@@ -49,10 +51,12 @@ no pass. What is left, in order:
    visibility did NOT ride with it, because breaks are planted between records rather than over them;
    see [dj-voice.md](dj-voice.md) for what shipped and what that leaves.
 2. **[Crossfades](crossfades.md)**, once breaks are landing reliably, because the cross buffer moves
-   the clock those breaks are timed against. Note it grew a prerequisite on 2026-08-10: the
-   per-track measurement in [station-intelligence.md](station-intelligence.md) §3, which is what
-   decides how long a blend should be. Nothing can be bought that answers that, so the measurement
-   is part of the crossfade work rather than an alternative to it.
+   the clock those breaks are timed against. It grew a prerequisite on 2026-08-10 — the per-track
+   measurement in [station-intelligence.md](station-intelligence.md) §3 — and **that prerequisite
+   was met on 2026-08-11**: the sidecar measures the four cue points, so `outro` and `intro` are
+   real numbers and `buffer = min(outgoing.outro, incoming.intro)` can be computed today. The blend
+   POLICY inside the buffer still wants the beat layer, which is not built and carries the licence
+   question; a plain per-pair blend does not, and is what this item now means.
 3. **A model as the writer's second binding**, with the deterministic one kept underneath as the
    floor rather than as scaffolding.
 4. **The activity feed** over the segment transitions the two writers produce, which is why those
@@ -60,6 +64,14 @@ no pass. What is left, in order:
 
 Everything else in the table is deferred behind those four unless something specific pulls it
 forward.
+
+**Landed since, 2026-08-11**, and none of it was on this list: the measurement layer under item 2.
+`analysis/` is a sidecar, `plugins/analyzer` the adapter, `analysis` a capability of its own rather
+than a kind of enrichment, and `deadair.track_analysis` the row. Two things an operator can hear
+came with it and were not deferred behind the crossfade — the dead air trimmed off the head and tail
+of every record (`liq_cue_in` / `liq_cue_out`), and a per-record level decided before air rather than
+chased by a follower ([station-intelligence.md](station-intelligence.md) §4). The beat layer under
+the same sidecar is untouched.
 
 **One thing does pull itself forward**, added the same day: the four above assume listening at the
 desk, which is where the station is audible and nowhere else. Replacing a streaming service means

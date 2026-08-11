@@ -1,6 +1,6 @@
 -- migrate:up
 
--- The music catalog is split on two axes.
+-- The music catalog is split on three axes.
 --
 --   artists / albums / tracks       the work. One row per real-world thing, regardless of
 --                                   how many providers happen to carry it. Ratings,
@@ -12,6 +12,10 @@
 --   *_enrichment                    what an external metadata provider knows about the
 --                                   work. Different axis from *_sources: Spotify appears
 --                                   in both, with different rows.
+--   track_analysis                  what the AUDIO measures, as opposed to what the work
+--                                   is or who will serve it. Computed from samples rather
+--                                   than fetched, so unlike *_enrichment there is one
+--                                   answer and nothing to merge.
 --
 -- Ingest resolves an incoming item to a canonical row (mbid, then for tracks the isrc
 -- claimed by any existing binding, then the fuzzy *_key columns) and writes a binding.
@@ -210,6 +214,67 @@ create table deadair.track_enrichment (
 );
 select deadair.add_updated_at_trigger('deadair.track_enrichment');
 
+-- What the audio itself measures: where the record actually starts, where it is underway,
+-- where the ending begins, where it stops. The third axis in the header comment.
+--
+-- ONE row per track, where the *_enrichment tables beside it are one per provider. That is
+-- the whole structural difference and it comes from the same fact: nobody sells these
+-- numbers. Every catalog upstream returns tempo, key and energy; none returns an ending, a
+-- downbeat grid or a beat confidence. So this is computed locally from samples, there is
+-- one answer, and there is nothing to merge or to order by priority.
+--
+-- `data` rather than typed columns, following track_enrichment. Analysis output changes
+-- shape as detectors improve, and `schema_version` is what lets a row written by an older
+-- one read as STALE rather than as missing or -- worse -- as current: the queue query picks
+-- up anything below the version the host currently knows, so reanalysis is an ordinary pass
+-- instead of a migration. That is also what lets the deferred beat layer (bpm, downbeats,
+-- a vocal curve; docs/todo/track-analysis.md) land with no schema change at all.
+--
+-- `complete` is load-bearing and cannot be checked here or by the app. Whatever decodes the
+-- audio fetches it itself, so a byte-capped or interrupted download produces perfectly
+-- confident measurements of a file that was never the track, and the specific lie it tells
+-- is that a record which fades ended cold. The analyzer reports it; a false answer here
+-- silently disables the check, which is why reads filter on it rather than trusting the row.
+--
+-- `failed_at` / `failure_reason` have no equivalent on the enrichment tables because the
+-- cost is not the same. A missing enrichment row is retried cheaply against a rate-limited
+-- upstream; a missing analysis row is a full decode, so a track that cannot be measured has
+-- to record that fact or every pass pays for it again forever.
+create table deadair.track_analysis (
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now() check (updated_at >= created_at),
+    id uuid not null default gen_random_uuid() primary key,
+    -- Unique, unlike the *_enrichment tables: one analyzer, one answer.
+    track_id uuid not null unique references deadair.tracks (id) on delete cascade,
+    -- The measurements, in the shape schema_version names. Absolute offsets into the file in
+    -- integer milliseconds, cue_out included -- everything downstream seeks in file time, so
+    -- a figure stored relative to cue_in would have to be re-based at every read, and one
+    -- read eventually would not.
+    data jsonb not null default '{}'::jsonb,
+    schema_version integer not null,
+    complete boolean not null default false,
+    -- Which plugin's analyzer produced this, for attribution when a detector turns out to
+    -- have been wrong about a class of records. Soft reference, as everywhere. See
+    -- artist_sources.plugin_id.
+    analyzer_plugin_id text,
+    -- Free-text name and version of the analyzer itself, which is not the plugin: the plugin
+    -- is an adapter and the thing doing the measuring sits behind it and versions separately.
+    analyzer text,
+    analyzed_at timestamptz,
+    failed_at timestamptz,
+    failure_reason text,
+    -- A row records a measurement or a failure, never both and never neither. Without this a
+    -- retried track that succeeds can keep its old failure and read as broken forever.
+    constraint track_analysis_outcome_check check (
+        (analyzed_at is not null and failed_at is null) or (failed_at is not null and analyzed_at is null)
+    )
+);
+select deadair.add_updated_at_trigger('deadair.track_analysis');
+-- The queue query's index: everything not measured at the current schema version. Partial on
+-- the failure column because a track that failed is retried on its own much slower schedule,
+-- not on the every-pass walk this serves.
+create index track_analysis_stale_idx on deadair.track_analysis (schema_version) where failed_at is null;
+
 -- A playlist deadair owns: canonical track ids plus the station intent in `prompt`. A
 -- provider's own playlists are never rows here. They are read live and pass through as
 -- CatalogPlaylist (PlaylistsService), so every row in this table is local and
@@ -273,6 +338,7 @@ create index playlist_tracks_unresolved_idx on deadair.playlist_tracks (playlist
 
 drop table deadair.playlist_tracks;
 drop table deadair.playlists;
+drop table deadair.track_analysis;
 drop table deadair.track_enrichment;
 drop table deadair.album_enrichment;
 drop table deadair.artist_enrichment;

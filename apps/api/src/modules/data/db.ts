@@ -349,6 +349,21 @@ export interface DeadairStationLineup {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairTrackAnalysis {
+  analyzedAt: DateTime | null;
+  analyzer: string | null;
+  analyzerPluginId: string | null;
+  complete: Generated<boolean>;
+  createdAt: Generated<DateTime>;
+  data: Generated<Json>;
+  failedAt: DateTime | null;
+  failureReason: string | null;
+  id: Generated<string>;
+  schemaVersion: number;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairTrackEnrichment {
   createdAt: Generated<DateTime>;
   data: Json;
@@ -430,6 +445,7 @@ export interface DB {
   "deadair.settings": DeadairSettings;
   "deadair.stationAir": DeadairStationAir;
   "deadair.stationLineup": DeadairStationLineup;
+  "deadair.trackAnalysis": DeadairTrackAnalysis;
   "deadair.trackEnrichment": DeadairTrackEnrichment;
   "deadair.tracks": DeadairTracks;
   "deadair.trackSources": DeadairTrackSources;

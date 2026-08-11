@@ -5,18 +5,41 @@ import { overrideJobActor } from '#modules/jobs/job.authorization.js';
 import { AnalysisService } from './analysis.service.js';
 
 /**
- * Tracks examined per run — a ceiling, not a target.
+ * Tracks examined per run — a ceiling, not a target, and a deliberately tiny one.
  *
- * Much smaller than the enrichment walk's, and for the opposite reason. That one
- * is generous because its cost is a rate-limited request whose duration nobody
- * can predict, so the clock has to be what stops it. This one's cost is a
- * download and a decode, which is slow but *knowable*: seconds per track,
- * multiplied by however many run at once.
+ * **This number is small because measuring a track costs a FULL AUDIO DOWNLOAD
+ * through the same provider credential the station plays on.** It was 50 for one
+ * afternoon and that was enough to take the station off the air: fifty
+ * back-to-back track fetches exhausted Spotify's audio-key quota, after which the
+ * shim could not serve playout either. Zero key failures before that run, ninety
+ * after it. The station could not play music because a background job had spent
+ * its ability to.
  *
- * So the number is modest and the clock is a backstop rather than the mechanism.
- * Whatever is left is picked up by the next run, and there is always a next run.
+ * So the constraint here is not CPU, and it is not the analyzer. It is that
+ * analysis and playout share one upstream and one credential, and **playout wins
+ * every time**. Five per run, paced by {@link TRACK_PACE_MS}, is roughly a track
+ * an hour of provider traffic on top of whatever the station is actually playing.
+ *
+ * A library is measured over days rather than in an afternoon, which is the right
+ * trade: an unmeasured track plays perfectly well, and a station that cannot
+ * fetch audio plays nothing at all.
+ *
+ * A local library has no such limit, and this will be worth revisiting per
+ * provider once one exists. Until then the cautious number governs.
  */
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 5;
+
+/**
+ * How long to wait between tracks, so a run is a trickle rather than a burst.
+ *
+ * The batch size bounds one run; this bounds the RATE inside it, and the two are
+ * different protections. A provider's limiter cares about requests per interval,
+ * so five fetches in five seconds can trip what five fetches in five minutes does
+ * not — and the download itself is the expensive part, not the gap after it.
+ *
+ * Charged after each track rather than before, so an empty queue costs nothing.
+ */
+export const TRACK_PACE_MS = 60_000;
 
 /**
  * How long a run may keep starting new measurements.

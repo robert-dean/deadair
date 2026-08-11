@@ -6,6 +6,7 @@ import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.c
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { PluginTrackResolver } from '#modules/playout/providers/plugin.resolver.js';
+import { TRACK_PACE_MS } from './analysis.job.js';
 import { AnalysisRepository, type AnalysableTrack } from './analysis.repository.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
@@ -106,7 +107,7 @@ export class AnalysisService {
      * nothing reached is simply still outstanding, and there is always another
      * pass.
      */
-    async analysePending(limit: number, signal?: AbortSignal): Promise<AnalysisPassSummary> {
+    async analysePending(limit: number, signal?: AbortSignal, paceMs = TRACK_PACE_MS): Promise<AnalysisPassSummary> {
         const summary: AnalysisPassSummary = { scanned: 0, measured: 0, failed: 0, incomplete: 0 };
 
         const analyzer = this.analyzer();
@@ -129,11 +130,39 @@ export class AnalysisService {
 
                     summary.scanned += 1;
                     await this.measureOne(analyzer, track, summary);
+
+                    // Paced, because measuring a track is a FULL AUDIO DOWNLOAD
+                    // through the same credential the station plays on, and a
+                    // burst of them exhausted a provider's audio-key quota once
+                    // and took the station off air. Charged only when there is
+                    // more to do, so a short queue is not padded for nothing.
+                    if (queue.length > 0) await this.pause(paceMs, signal);
                 }
             }),
         );
 
         return summary;
+    }
+
+    /**
+     * Wait, unless the run is being stopped.
+     *
+     * Resolves on abort rather than rejecting: the caller's next move is to check
+     * the signal and return, and a rejection here would turn an ordinary
+     * end-of-run into an error path.
+     */
+    private pause(ms: number, signal?: AbortSignal): Promise<void> {
+        if (ms <= 0 || signal?.aborted) return Promise.resolve();
+
+        return new Promise<void>(resolve => {
+            const done = (): void => {
+                clearTimeout(timer);
+                signal?.removeEventListener('abort', done);
+                resolve();
+            };
+            const timer = setTimeout(done, ms);
+            signal?.addEventListener('abort', done, { once: true });
+        });
     }
 
     /**

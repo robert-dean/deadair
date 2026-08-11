@@ -106,14 +106,22 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 
-    // Every half hour, which is far less often than the enrichment walk beside it,
-    // and the difference is the point. Enrichment is paced by an upstream that
-    // answers in about a second and cannot be hurried, so running often is how it
-    // gets through a library. This is paced by a decode, and running it more often
-    // would not measure more tracks — it would put a second walk on the same
-    // analyzer, where the first is already using whatever `analysis.concurrency`
-    // allows. Throughput here comes from that setting and the analyzer's own worker
-    // count, never from the schedule.
+    // Hourly, and a batch of five, and a minute between tracks. All three are the
+    // same precaution rather than three separate ones.
+    //
+    // **Measuring a track is a full audio download through the provider credential
+    // the station plays on.** At */30 with a batch of 50 this took the station off
+    // the air within one run: fifty back-to-back fetches exhausted Spotify's
+    // audio-key quota, after which the shim could not serve playout either. Zero
+    // key failures before that run, ninety after it. The station could not play
+    // music because a background job had spent its ability to.
+    //
+    // So the schedule is not tuned for throughput here, unlike every other walk in
+    // this file. It is tuned to stay underneath whatever headroom the station is
+    // not using. A library gets measured over days, which is the right trade: an
+    // unmeasured track plays perfectly well, and a station that cannot fetch audio
+    // plays nothing at all. Raising any of the three without knowing the provider's
+    // limits is how this regresses.
     //
     // Deliberately NOT sent by the catalog sync the way enrichment is. A newly
     // arrived track wants describing within minutes because the station may talk
@@ -128,8 +136,8 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // reclaimed before the next one starts.
     'catalog.analyze': {
         job: AnalysisJob,
-        cron: '*/30 * * * *',
-        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 28 }) },
+        cron: '7 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 50 }) },
     },
 
     // No cron: the director sends this when a lineup it is airing runs short, which

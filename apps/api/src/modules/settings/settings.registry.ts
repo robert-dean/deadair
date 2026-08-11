@@ -1,5 +1,6 @@
 import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
+import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ANALYSIS_CONCURRENCY_KEY, ANALYSIS_PLUGIN_KEY, DEFAULT_ANALYSIS_CONCURRENCY } from '#modules/analysis/analysis.settings.js';
@@ -215,6 +216,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         ],
         help: 'Producing audio costs a fetch and a download per track, and an empty mount is the one case where nobody benefits from that. On "audience" a loaded station with no listeners is silent on purpose.',
     },
+    {
+        group: 'playout',
+        key: TARGET_LUFS_KEY,
+        label: 'Target loudness (LUFS)',
+        type: 'number',
+        default: DEFAULT_TARGET_LUFS,
+        help: 'Where measured records are set before they air, so a quiet master and a loud one arrive at the same level. A record the station has not measured is left to the live leveller instead. Changing this needs the same number set in the stream config, which the player levels everything else against.',
+    },
 
     // ── render ─────────────────────────────────────────────────────────────────
     {
@@ -255,7 +264,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Tracks measured at once',
         type: 'number',
         default: DEFAULT_ANALYSIS_CONCURRENCY,
-        help: 'Raise this only alongside the analyzer\'s own worker count: above it the extra requests just queue there, below it its cores sit idle. Neither side can work the other out, because the analyzer may not be on this machine.',
+        help: "Raise this only alongside the analyzer's own worker count: above it the extra requests just queue there, below it its cores sit idle. Neither side can work the other out, because the analyzer may not be on this machine.",
     },
 
     // ── secrets ────────────────────────────────────────────────────────────────

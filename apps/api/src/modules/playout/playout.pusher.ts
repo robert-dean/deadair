@@ -1,7 +1,9 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { annotateUri, itemAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
+import { TARGET_LUFS_KEY, resolveTargetLufs } from './gain.js';
 import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
 
@@ -91,8 +93,21 @@ export class PlayoutPusher {
         private readonly rundown: Rundown,
         private readonly control: PlayoutControlClient,
         private readonly audience: AudienceWatch,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * The station's target level, as the setting currently stands.
+     *
+     * Read per hand-over rather than held, exactly as {@link AudienceWatch} reads
+     * the air mode: `AppConfig` is a live view over `deadair.settings`, so a
+     * target an operator changes takes effect on the next record handed to the
+     * player without anything having to be told about it.
+     */
+    private targetLufs(): number {
+        return resolveTargetLufs(this.config.get(TARGET_LUFS_KEY, ''));
+    }
 
     /** Begin draining the running order. Idempotent. */
     start(): void {
@@ -261,7 +276,7 @@ export class PlayoutPusher {
                 // a new order will wake us through onChange.
                 if (!pulled) return;
 
-                const landed = await this.control.push(annotateUri(itemAnnotations(pulled.item), pulled.url));
+                const landed = await this.control.push(annotateUri(itemAnnotations(pulled.item, { targetLufs: this.targetLufs() }), pulled.url));
 
                 // Armed as the record is handed over, which is the earliest honest moment: the id
                 // exists, the item is committed, and the script waits for that record to actually

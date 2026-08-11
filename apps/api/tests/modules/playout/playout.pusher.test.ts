@@ -12,9 +12,14 @@ import { StationLineup, isTrackItem } from '../../../src/modules/director/statio
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
 import { PLAYOUT_LEAD, type PlayoutControlClient, type QueueStatus } from '../../../src/modules/playout/liquidsoap.control.js';
 import type { Logger } from '@maroonedsoftware/logger';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+
+// Nothing stored, so the pusher levels to the default target. The gain arithmetic is
+// `gain.test.ts`; what matters here is that a hand-over reads the setting at all.
+const config = { get: vi.fn(() => '') } as unknown as AppConfig;
 
 class StubResolver extends TrackResolver {
     async resolve(item: { externalId: string }): Promise<string | undefined> {
@@ -147,7 +152,7 @@ async function onAirStation(ids: string[]) {
     const rundown = new Rundown(new StubResolver(), logger);
     seed(rundown, ids.map(track));
     const { control, pushed } = scriptedControl();
-    const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience().audience, logger);
+    const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience().audience, config, logger);
 
     // Hand the first item over…
     await pusher.reconcile();
@@ -166,7 +171,7 @@ function setup(ids: string[], reading: QueueStatus | undefined, options: { pushL
     seed(rundown, ids.map(track));
     const { control, pushed, spy } = stubControl(reading, options);
     const gate = stubAudience(options.audience ?? true);
-    return { rundown, pusher: new PlayoutPusher(rundown, control, gate.audience, logger), pushed, spy, gate };
+    return { rundown, pusher: new PlayoutPusher(rundown, control, gate.audience, config, logger), pushed, spy, gate };
 }
 
 describe('PlayoutPusher.reconcile', () => {
@@ -541,7 +546,7 @@ describe('PlayoutPusher pushing across a change underneath it', () => {
         } as unknown as PlayoutControlClient;
 
         const audience = { gateOpen: () => open, onChange: () => () => {} } as unknown as AudienceWatch;
-        const pusher = new PlayoutPusher(rundown, control, audience, logger);
+        const pusher = new PlayoutPusher(rundown, control, audience, config, logger);
 
         return { pusher, pushed, rundown, close: () => (open = false) };
     };
@@ -598,7 +603,7 @@ describe('PlayoutPusher arming a talk-over', () => {
         };
         const audience = { gateOpen: () => true, onChange: () => () => {} } as unknown as AudienceWatch;
 
-        return { pusher: new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, audience, logger), control, rundown };
+        return { pusher: new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, audience, config, logger), control, rundown };
     };
 
     it('arms the cue against the item it rides on', async () => {

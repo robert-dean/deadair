@@ -170,6 +170,12 @@ position that puts this in a container.
 The fields go in the opaque `data` blob under the existing `schemaVersion`, which is exactly the
 extension that blob exists for: no change to the plugin, the host, or the database.
 
+**Consumed 2026-08-11**, which is the half that was missing for a day: `playout/gain.ts` turns the
+figures into one number per item, `annotate.ts` stamps it, `radio.liq` acts on it. See
+[station-intelligence.md](station-intelligence.md) §4 for what that took, including the follower that
+had to be demoted alongside it. The consumer being designed already is what let this ship ahead of
+the beat layer, exactly as this section claimed.
+
 ### What it does not change
 
 `radio.liq` keeps `normalize(target=-16.)` on its leaf sources, and `stream/README.md`'s rule that no

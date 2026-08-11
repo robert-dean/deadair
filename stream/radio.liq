@@ -331,7 +331,44 @@ playout_queue.on_track(synchronous=false, playout_aired)
 # change, and it is the sort that can only be judged by listening.
 playout_bed = cue_cut(playout_queue)
 
-playout_bed = normalize(target=-16., playout_bed)
+# Set each record to the station's level, decided before it aired.
+#
+# The app stamps `liq_amplify` on the `annotate:` uri from the loudness in
+# `deadair.track_analysis` (see apps/api/src/modules/playout/gain.ts, and `annotate.ts` for the
+# format). `liq_amplify` is `amplify`'s own default override field, so naming it here is for the
+# reader rather than for Liquidsoap; what is NOT decoration is the `dB` suffix on the value, since
+# the value is parsed as `sscanf " %f dB"` falling back to `float_of_string` and a bare `-3` would
+# be a linear factor of minus three.
+#
+# It sits between `cue_cut` and `normalize` on purpose: after the trim, so the gain is not decided
+# against silence, and before the follower, so the follower is handed audio that is already at the
+# target and has nothing left to do.
+#
+# An unmeasured track passes through at 1.0, which is the ordinary case.
+playout_bed = amplify(1., override="liq_amplify", playout_bed)
+
+# The follower, which is now the fallback for what the station has not measured rather than how the
+# station is levelled.
+#
+# Every argument past `target` is here because the default follower is audibly wrong on records
+# that end quietly. Measured on air: the closing fade of a track is a level falling for tens of
+# seconds, and a follower reads that as a record that needs lifting, so it rides the gain UP as the
+# music leaves and the fade gets LOUDER the quieter it was meant to become.
+#
+#   threshold  -25 rather than -40: below this the gain is held rather than chased. A fade, a
+#              quiet intro and a long outro all live between the two numbers, and none of them is
+#              a record that needs turning up.
+#   up         30 rather than 10 seconds, so nothing it does can happen inside one passage of a
+#              record. It is there to correct a track, not to follow one.
+#   gain_max   6 rather than 12, because a static gain has already done the real work and anything
+#              this still wants to add is a guess. Bounding it bounds how wrong the guess gets.
+#
+# `gain_min` is left alone: pulling a loud unmeasured record down is the half of this that was
+# never audible as a fault.
+#
+# These three numbers can only be judged by listening, and they are a first answer rather than a
+# tuned one.
+playout_bed = normalize(target=-16., threshold=-25., up=30., gain_max=6., playout_bed)
 
 # ── Playout control endpoints ────────────────────────────────────────────────────────────────
 # Registered on the harbor port, which carries nothing else, and gated on
@@ -942,9 +979,10 @@ harbor.http.register.simple(port=harbor_port, method="POST", "/control/metadata"
 #
 # What must NOT be added alongside it: a loudness normaliser, a stereo widener, a bus compressor.
 # Every one of them reshapes masters that are already mastered, and the station has no editorial
-# claim on how a record sounds. Per-track levelling belongs on the LEAF sources, where `normalize`
-# already sits on both the local bed and the playout queue, so tracks arrive at a consistent level
-# and this stage only has to catch the peaks.
+# claim on how a record sounds. Per-track levelling belongs on the LEAF sources, where the static
+# `amplify` and the `normalize` behind it already sit, so tracks arrive at a consistent level and
+# this stage only has to catch the peaks. The static gain makes that more true rather than less:
+# a limiter fed material that is already at the target reduces less often.
 #
 # A NEW name, deliberately. `radio` is the handle `control_metadata` and `label_when_off_air` call
 # `insert_metadata` on; rebinding it here would move that method onto the compressor's output and

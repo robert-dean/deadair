@@ -15,10 +15,17 @@
  * kept pure and unit-tested.
  */
 
+import { gainFor } from './gain.js';
 import type { RundownItem } from './rundown.js';
 
 /** The metadata key carrying the rundown item id. Must match `radio.liq`. */
 export const ITEM_KEY = 'deadair_item';
+
+/** What an item's annotations depend on beyond the item itself. */
+export interface AnnotationLevels {
+    /** Where the station wants its records to sit, in LUFS. See `gain.ts`. */
+    targetLufs: number;
+}
 
 /**
  * The annotations one item goes to the player with.
@@ -53,7 +60,7 @@ export const ITEM_KEY = 'deadair_item';
  * own history of what it was told. It is not the station's: the rundown knows what
  * aired, in order, with ids, and this is a lossy echo of the same thing.
  */
-export function itemAnnotations(item: RundownItem): Record<string, string> {
+export function itemAnnotations(item: RundownItem, levels: AnnotationLevels): Record<string, string> {
     const artist = item.artists.join(', ');
     return {
         [ITEM_KEY]: item.id,
@@ -61,6 +68,7 @@ export function itemAnnotations(item: RundownItem): Record<string, string> {
         ...(artist ? { artist } : {}),
         ...(item.album ? { album: item.album } : {}),
         ...cueAnnotations(item),
+        ...gainAnnotations(item, levels),
     };
 }
 
@@ -100,6 +108,30 @@ function cueAnnotations(item: RundownItem): Record<string, string> {
 
 /** Milliseconds as the seconds Liquidsoap expects, without a trailing `.000`. */
 const seconds = (ms: number): string => String(Math.round(ms) / 1000);
+
+/**
+ * `liq_amplify`: how much to lift or drop this record, decided before it airs.
+ *
+ * Liquidsoap's own name and its own default — `amplify`'s `override` parameter is
+ * already `"liq_amplify"` — and, like the cue keys above, **it does nothing
+ * without the operator in the graph to read it**. `radio.liq` puts an `amplify`
+ * between `cue_cut` and `normalize` for exactly this.
+ *
+ * **The `dB` suffix is load-bearing.** The value is parsed as
+ * `Scanf.sscanf s " %f dB"` with a fall back to `float_of_string`, so a bare
+ * `-3.2` is not a quiet record, it is a LINEAR factor of minus three: the audio
+ * inverted and amplified tenfold. The suffix is the whole difference between a
+ * correction and a catastrophe, which is why the number is never formatted
+ * anywhere but here.
+ *
+ * Absent for an unmeasured track, for a boost with no headroom to spend, and for
+ * a correction too small to hear. See `gainFor`, which decides all three.
+ */
+function gainAnnotations(item: RundownItem, { targetLufs }: AnnotationLevels): Record<string, string> {
+    const gainDb = gainFor(item, targetLufs);
+
+    return gainDb === undefined ? {} : { liq_amplify: `${gainDb} dB` };
+}
 
 /**
  * Wrap a uri in `annotate:key="value",...:uri`.

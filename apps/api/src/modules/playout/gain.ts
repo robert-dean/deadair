@@ -19,6 +19,49 @@
  * the wrong level.
  */
 
+/** The `deadair.settings` key. Dot-keyed, like every other setting. */
+export const TARGET_LUFS_KEY = 'playout.targetLufs';
+
+/**
+ * Where the station wants its records to sit, in LUFS.
+ *
+ * **-16 because that is what `normalize(target=-16.)` in `radio.liq` already
+ * aims at**, and the two must agree or they spend every record arguing: a static
+ * gain to one level followed by a follower chasing another means the follower has
+ * something to do on every track, which is the behaviour this exists to stop.
+ * Change one and change the other.
+ *
+ * It is also roughly where streaming services normalise, so a station left on all
+ * day sits at the level everything else the operator listens to does.
+ */
+export const DEFAULT_TARGET_LUFS = -16;
+
+/**
+ * The range an operator may ask for.
+ *
+ * Wide enough for the real spread of opinion about how loud a station should be,
+ * narrow enough that a typo cannot ask for a target no record can reach. Both
+ * ends are clamped rather than rejected: this is read on the hand-over path, and
+ * a station that refused to air over a settings row is a worse failure than one
+ * airing a few decibels off.
+ */
+export const MIN_TARGET_LUFS = -30;
+export const MAX_TARGET_LUFS = -8;
+
+/**
+ * Read the stored target, or the default.
+ *
+ * Same shape as `resolveAnalysisConcurrency`, and for the same reason: an
+ * unreadable value falls back rather than throwing, because nothing here is worth
+ * silence.
+ */
+export function resolveTargetLufs(value: unknown): number {
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+    if (!Number.isFinite(parsed)) return DEFAULT_TARGET_LUFS;
+
+    return Math.min(MAX_TARGET_LUFS, Math.max(MIN_TARGET_LUFS, parsed));
+}
+
 /**
  * What the analyzer measured about how loud a record is, as an item carries it.
  *

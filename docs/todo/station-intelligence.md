@@ -240,9 +240,27 @@ headroom cap is a guess) fall out of the analysis sidecar's existing decode.
 48 kHz keeping up to two channels, and reports `integratedLufs`, `truePeakDb` and `samplePeakDb` in
 the `data` blob. Measuring a mono downmix was tried first and was wrong twice over — 3 dB low on
 uncorrelated material, no reading at all on anti-phase — so if anything here ever reads suspiciously
-quiet, that is the first thing to check. What is left for this section is unchanged: preferring a
-ReplayGain tag where the source carries one, capping the boost against the peak, and gaining rendered
-audio by the same function.
+quiet, that is the first thing to check.
+
+**The gain itself was built 2026-08-11**, on `playout/gain.ts`: `gainFor` resolves one number per
+item, `annotate.ts` stamps it as `liq_amplify`, and `radio.liq` acts on it with an `amplify` between
+`cue_cut` and `normalize`. The target is `playout.targetLufs`, read per hand-over so an operator
+moving it is heard on the next record rather than the next running order. Two rules ended up carrying
+the file, and neither was obvious when this section was written:
+
+- **A cut is never capped by the peak and a boost always is.** Turning a record down cannot clip it,
+  so the headroom check has no business in that direction, and a boost with no peak to check against
+  is refused rather than guessed at.
+- **The follower had to be demoted in the same pass, not left alone.** A fade is a level falling for
+  tens of seconds, which a follower reads as a record needing a lift, so `normalize` was riding the
+  gain up as records ended — audible on air before anything was built. It now holds below -25 dB,
+  reacts over 30 seconds, and may add at most 6 dB. Left as it was, it would have spent every record
+  undoing the static gain.
+
+What is left of this section: preferring a ReplayGain tag where the source carries one, and gaining
+rendered audio by the same function. **The rendered half is deliberately still open** — nothing
+measures a segment, so segments still ride the follower, and the level difference against a gained
+record is worth hearing before it is designed for.
 
 - It is one number per item, so it rides the annotation the pusher already builds
   (`playout/annotate.ts`), and costs nothing at air time.

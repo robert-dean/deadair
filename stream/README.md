@@ -31,6 +31,26 @@ measured yet passes through untouched, which is the ordinary case. It sits below
 level follower never sees the leading silence, and below where a future `cross` would go, since
 `cross` presents its output as one never-ending track.
 
+Then it is **set to the station's level**, from the same measurement: `amplify(override="liq_amplify")`
+sits between the trim and `normalize`, acting on a gain the app resolved before the record was handed
+over (`apps/api/src/modules/playout/gain.ts`, stamped by `annotate.ts`). Same silent failure as the
+cue keys — the annotation is accepted and ignored without the operator — plus one of its own: the
+value carries a `dB` suffix, and without it Liquidsoap reads the number as a linear factor, so `-3 dB`
+and `-3` differ by the audio being inverted and amplified tenfold.
+
+`normalize` stays, demoted. It is now what catches records the station has not measured, and its
+arguments are set against the one thing a follower reliably gets wrong: a fade is a level falling for
+tens of seconds, which reads as a record that needs lifting, so the default follower rides the gain up
+as the music leaves and makes an ending get louder. `threshold=-25.` holds the gain through anything
+that quiet, `up=30.` puts its reaction time outside the length of a passage, and `gain_max=6.` bounds
+what it can add now that it is no longer the thing doing the levelling. Those three are a first answer
+and can only be judged by ear.
+
+The target is in two places and they have to agree: `playout.targetLufs` in `deadair.settings`, which
+is what the app gains each record to, and `normalize(target=…)` here, which is what everything
+unmeasured is pulled toward. Change one and change the other, or the follower spends every record
+undoing the static gain.
+
 The **duck** is ours, not `smooth_add`'s: `radio.liq` ramps a gain ref on the bed while the
 harbor source is ready, and `add`s the voice on top. `smooth_add` fades the bed down but never
 back up ([#3714](https://github.com/savonet/liquidsoap/issues/3714)). Depth and ramp are

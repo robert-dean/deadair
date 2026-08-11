@@ -317,9 +317,11 @@ playout_queue.on_track(synchronous=false, playout_aired)
 #   - ABOVE the two `on_track` handlers, which stay attached to `playout_queue` itself. They report
 #     which item started, and that is a fact about the queue rather than about where the audio was
 #     cut, so they must not move.
-#   - BELOW anything a crossfade would later add. `cross` presents its output as one never-ending
-#     track, so a `track_sensitive` operator above it never sees another boundary — see
-#     docs/todo/crossfades.md. This is the right side of that line.
+#   - BELOW the `cross` further down. That operator presents its output as one never-ending track,
+#     so a `track_sensitive` operator above it never sees another boundary. This is the right side
+#     of that line, and it is also why the blend is sized against a TRIMMED record: `cross` reads
+#     `remaining()` from above here, so the outro it buffers is measured to `cue_out` rather than to
+#     the end of the file, which is the same number the app sized it from.
 #
 # An unstamped track passes through untouched, which is the ordinary case: a track the station has
 # not measured yet plays exactly as it did before.
@@ -369,6 +371,103 @@ playout_bed = amplify(1., override="liq_amplify", playout_bed)
 # These three numbers can only be judged by listening, and they are a first answer rather than a
 # tuned one.
 playout_bed = normalize(target=-16., threshold=-25., up=30., gain_max=6., playout_bed)
+
+# Blend one record into the next.
+#
+# The app stamps `liq_cross_duration` on the `annotate:` uri from the cue points in
+# `deadair.track_analysis` (see apps/api/src/modules/playout/crossfade.ts for how the length is
+# decided, and annotate.ts for the format). The length is `min(outgoing.outro, incoming.intro)`, so
+# a record that ends cold is barely ridden and one that fades is ridden only as far as the next
+# record's intro can absorb it. Nothing here decides how long a blend is; this decides what happens
+# during one.
+#
+# Placement: ABOVE `normalize`, so the two records being blended are each already at the station's
+# level and the follower is never chasing a mixture. Below the `on_track` handlers, which stay on
+# `playout_queue` and report what the queue did rather than what the listener heard.
+#
+# Four things about `cross` on 2.4.5, each of which is silently wrong rather than loud if missed.
+#
+#   1. The low-level `cross`, NOT the `crossfade` wrapper. `crossfade` routes through its own
+#      internal transition and a custom one passed to it appears to do nothing, with no error.
+#   2. `persist_override=true`. Without it the override is reset before it sizes the stamped track's
+#      own end-of-track buffer, so a per-item duration is accepted and then not used. The flip side
+#      is that a stamp LINGERS over later unstamped tracks, which is why the app stamps every item
+#      including the ones it does not blend.
+#   3. The fade must span the ENTIRE buffer. A fade shorter than what `cross` buffered leaves the
+#      outgoing track at full level while the incoming ramps in, which sums to about +6 dB and is
+#      audible as a lurch on every transition. So the fades below are the buffer, both of them, and
+#      to vary a blend you vary the buffer.
+#   4. `cross` presents its output as ONE never-ending track. Anything `track_sensitive` placed
+#      above it never sees another boundary. The bed fallback and the lease gate are both
+#      `track_sensitive=false` already, so this changes nothing today, and it is the trap for
+#      anything added above here later.
+#
+# One thing it costs, deliberately unfixed: `playout_reading()` reports `playout_queue.remaining()`,
+# which is measured BELOW this and so runs ahead of the listener by whatever is buffered. It is a
+# display figure that nothing schedules against (see NowPlaying.remainingMs), so it is left alone
+# rather than corrected into a second number that could disagree with the first.
+playout_cross_key = "liq_cross_duration"
+
+# What a boundary the station does not blend is stamped with, and it is deliberately NOT zero.
+#
+# Read against 2.4.5's cross.ml: with a duration of zero, `buffer_before` never appends a frame, so
+# it never sees the end of the track, so it never advances to `analyze_after`, and the buffered
+# source it hands out is never ready. The operator stops producing entirely and the station falls
+# through to the local music bed for good. A tenth of a second is several frames, which is enough to
+# keep the state machine moving, and it is a hard join in every way a listener can tell.
+#
+# Must match HARD_JOIN_MS in apps/api/src/modules/playout/annotate.ts.
+playout_cross_hard_join = 0.1
+
+# How long the record that is ENDING asked to be blended for.
+#
+# Off the ending track's own metadata, because that is where `cross` reads the override and where
+# the app stamps it: the length was decided from BOTH records, but it belongs to the boundary, and
+# the boundary is the outgoing record's end. Same `float_of_string(default=null, …) ?? fallback`
+# shape as `env_float` at the top, and for the same reason.
+def playout_cross_duration(m) =
+  float_of_string(default=null, string.trim(m[playout_cross_key])) ?? playout_cross_hard_join
+end
+
+# What happens during the overlap.
+#
+# Equal-power (`type="sin"`), which is the plain rung and the whole of it. The louder-sounding
+# alternatives (a filter sweep on the outgoing record, a bass handover that switches once rather
+# than crossfading) need a per-transition filter chain rather than one on the bus, and they are
+# not built. See docs/todo/crossfades.md.
+#
+# `sequence` rather than a fade when there is nothing to blend, which is the ordinary case for an
+# unmeasured record, for an album, and for either side of one of the station's own segments. It
+# plays the buffered tail and then the next record, which is exactly what the station did before
+# any of this existed.
+def playout_transition(a, b) =
+  blend = playout_cross_duration(a.metadata)
+  if
+    blend <= playout_cross_hard_join
+  then
+    sequence([a.source, b.source])
+  else
+    add(
+      normalize=false,
+      [
+        fade.in(type="sin", duration=blend, b.source),
+        fade.out(type="sin", duration=blend, a.source)
+      ]
+    )
+  end
+end
+
+# `duration` here is only the buffer before the FIRST stamp is read, so it is the hard join rather
+# than the operator's own five-second default: the whole stream runs this far behind the decoder,
+# and five seconds of that at startup is five seconds of nothing on the mount.
+playout_bed =
+  cross(
+    duration=playout_cross_hard_join,
+    override_duration=playout_cross_key,
+    persist_override=true,
+    playout_transition,
+    playout_bed
+  )
 
 # ── Playout control endpoints ────────────────────────────────────────────────────────────────
 # Registered on the harbor port, which carries nothing else, and gated on

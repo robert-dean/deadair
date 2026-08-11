@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import { parseReading, PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
-import { annotateUri, itemAnnotations, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
+import { annotateUri, itemAnnotations, HARD_JOIN_MS, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
 import { DEFAULT_TARGET_LUFS } from '../../../src/modules/playout/gain.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 import type { StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.js';
@@ -265,6 +265,9 @@ describe('annotateUri', () => {
 // test below about the thing it is named for. The blend has its own block at the end.
 const CONTEXT = { targetLufs: DEFAULT_TARGET_LUFS, crossfade: false };
 
+/** What a boundary the station does not blend is stamped with, as it reaches the player. */
+const HARD_JOIN = String(HARD_JOIN_MS / 1000);
+
 describe('itemAnnotations', () => {
     const item = {
         id: 'item-1',
@@ -284,7 +287,7 @@ describe('itemAnnotations', () => {
             artist: 'Aphex Twin, Someone Else',
             album: 'Windowlicker',
             // Always present, even at zero. See the blend block below for why.
-            liq_cross_duration: '0',
+            liq_cross_duration: HARD_JOIN,
         });
     });
 
@@ -298,7 +301,7 @@ describe('itemAnnotations', () => {
         expect(itemAnnotations({ ...item, artists: [] }, CONTEXT)).toEqual({
             deadair_item: 'item-1',
             title: 'Windowlicker',
-            liq_cross_duration: '0',
+            liq_cross_duration: HARD_JOIN,
         });
     });
 });
@@ -426,25 +429,43 @@ describe('itemAnnotations: the blend', () => {
         expect(stamped.liq_cross_duration).toBe('8');
     });
 
-    it('always stamps, even at zero, because the override persists', () => {
+    it('always stamps, because the override persists', () => {
         // The one line in `annotate.ts` that looks defensive and is not. `cross` needs
         // `persist_override=true` on 2.4, and the flip side is that a stamp lingers over
         // every later unstamped track -- so an item without one would not be a hard join,
         // it would be a blend by whatever the last measured record left behind.
-        expect(itemAnnotations(measured('item-1'), CONTEXT).liq_cross_duration).toBe('0');
-        expect(itemAnnotations(measured('item-1', { cueInMs: undefined }), CONTEXT).liq_cross_duration).toBe('0');
+        expect(itemAnnotations(measured('item-1'), CONTEXT).liq_cross_duration).toBe(HARD_JOIN);
+        expect(itemAnnotations(measured('item-1', { cueInMs: undefined }), CONTEXT).liq_cross_duration).toBe(HARD_JOIN);
+    });
+
+    it('never stamps a zero, which would stop the operator rather than skip the blend', () => {
+        // A `cross` sized at zero never appends a frame, so it never sees the end of the
+        // track and never advances past buffering: the source it hands out is never
+        // ready and the station falls to the local bed for good. The station's own word
+        // for no blend is zero; the engine's is a tenth of a second.
+        const every = [
+            itemAnnotations(measured('item-1'), CONTEXT),
+            itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true }),
+            itemAnnotations(measured('item-1', { introEndMs: undefined }), {
+                targetLufs: DEFAULT_TARGET_LUFS,
+                crossfade: true,
+                next: measured('item-2'),
+            }),
+        ];
+
+        for (const stamped of every) expect(Number(stamped.liq_cross_duration)).toBeGreaterThan(0);
     });
 
     it('does not blend when the broadcast does not', () => {
         // An album, or a sequenced setlist. Its gaps are somebody's decision.
         const context = { targetLufs: DEFAULT_TARGET_LUFS, crossfade: false, next: measured('item-2') };
 
-        expect(itemAnnotations(measured('item-1'), context).liq_cross_duration).toBe('0');
+        expect(itemAnnotations(measured('item-1'), context).liq_cross_duration).toBe(HARD_JOIN);
     });
 
     it('does not blend into nothing', () => {
         // The tail of what has been planned. Nothing follows, so there is no boundary.
-        expect(itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true }).liq_cross_duration).toBe('0');
+        expect(itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true }).liq_cross_duration).toBe(HARD_JOIN);
     });
 
     it('rides the annotate uri alongside everything else', () => {

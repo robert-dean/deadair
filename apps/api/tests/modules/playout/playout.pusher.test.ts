@@ -6,6 +6,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import { Rundown, type RundownItem, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { StationLineup, isTrackItem } from '../../../src/modules/director/station.lineup.js';
@@ -655,6 +656,9 @@ describe('PlayoutPusher: the blend', () => {
     /** The blend the pusher stamped on a pushed uri, in seconds as Liquidsoap takes it. */
     const blend = (uri: string): string => /liq_cross_duration="([^"]+)"/.exec(uri)?.[1] ?? '';
 
+    /** What a boundary the station does not blend carries. Never zero; see `annotate.ts`. */
+    const HARD_JOIN = String(HARD_JOIN_MS / 1000);
+
     function setupMeasured(tracks: readonly RundownTrack[], crossfade = true) {
         const rundown = new Rundown(new StubResolver(), logger);
         seed(rundown, tracks);
@@ -675,7 +679,7 @@ describe('PlayoutPusher: the blend', () => {
         expect(blend(pushed[1]!)).toBe('9');
     });
 
-    it('stamps zero at the tail of what has been planned', async () => {
+    it('stamps a hard join at the tail of what has been planned', async () => {
         // Nothing follows the last item, so there is no boundary to size. It has to be
         // stamped anyway: `persist_override` means an unstamped track inherits.
         const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000)]);
@@ -683,27 +687,27 @@ describe('PlayoutPusher: the blend', () => {
         await pusher.reconcile();
 
         expect(pushed).toHaveLength(2);
-        expect(blend(pushed[1]!)).toBe('0');
+        expect(blend(pushed[1]!)).toBe(HARD_JOIN);
     });
 
-    it('stamps zero on every boundary of a broadcast that does not blend', async () => {
+    it('stamps a hard join on every boundary of a broadcast that does not blend', async () => {
         // An album. Its gaps are somebody's decision, and the transport is told so by
         // the director rather than working it out.
         const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)], false);
 
         await pusher.reconcile();
 
-        expect(pushed.map(blend)).toEqual(['0', '0', '0']);
+        expect(pushed.map(blend)).toEqual([HARD_JOIN, HARD_JOIN, HARD_JOIN]);
     });
 
-    it('stamps zero next to an unmeasured record without disturbing its neighbours', async () => {
+    it('stamps a hard join next to an unmeasured record without disturbing its neighbours', async () => {
         // The ordinary state of a station part way through measuring its library: the
         // boundary either side of an unmeasured record is cold and the rest still blend.
         const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), track('b'), measured('c', 9_000, 30_000)]);
 
         await pusher.reconcile();
 
-        expect(blend(pushed[0]!)).toBe('0');
-        expect(blend(pushed[1]!)).toBe('0');
+        expect(blend(pushed[0]!)).toBe(HARD_JOIN);
+        expect(blend(pushed[1]!)).toBe(HARD_JOIN);
     });
 });

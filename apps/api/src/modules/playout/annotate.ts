@@ -22,6 +22,22 @@ import type { RundownItem } from './rundown.js';
 /** The metadata key carrying the rundown item id. Must match `radio.liq`. */
 export const ITEM_KEY = 'deadair_item';
 
+/**
+ * What a boundary the station does not blend is stamped with, and it is
+ * deliberately not zero. Must match `playout_cross_hard_join` in `radio.liq`.
+ *
+ * A `cross` sized at zero does not produce a hard join, it stops producing.
+ * Read against Liquidsoap 2.4.5: with a zero duration the operator never
+ * appends a frame to its buffer, so it never observes the end of the track, so
+ * it never advances past buffering, and the source it hands out is never ready.
+ * The station would fall through to the local music bed permanently on the
+ * first item stamped this way, which is every item until something is measured.
+ *
+ * A tenth of a second is several frames, which keeps the state machine moving,
+ * and is a hard join in every way a listener can tell.
+ */
+export const HARD_JOIN_MS = 100;
+
 /** What an item's annotations depend on beyond the item itself. */
 export interface AnnotationContext {
     /** Where the station wants its records to sit, in LUFS. See `gain.ts`. */
@@ -155,19 +171,26 @@ function gainAnnotations(item: RundownItem, { targetLufs }: AnnotationContext): 
  * decided by the pair, which is why {@link AnnotationContext} has to carry the
  * successor.
  *
- * **Always stamped, including a zero**, which is the one line here that looks
- * defensive and is load-bearing. `cross` needs `persist_override=true` on 2.4 or
- * the override is reset before it sizes anything, and the flip side of persist
- * is that a stamp LINGERS over every later unstamped track. So an item without
- * one would not be a hard join, it would be a blend by whatever number the last
- * measured record happened to leave behind.
+ * **Always stamped**, which is the one line here that looks defensive and is
+ * load-bearing. `cross` needs `persist_override=true` on 2.4 or the override is
+ * reset before it sizes anything, and the flip side of persist is that a stamp
+ * LINGERS over every later unstamped track. So an item without one would not be
+ * a hard join, it would be a blend by whatever number the last measured record
+ * happened to leave behind.
  *
  * That makes this the opposite call from `liq_cue_in` above, which is omitted at
  * zero. There the default is the same as the value and silence says it; here
  * silence says "keep the last one".
+ *
+ * **And a boundary with no blend is stamped {@link HARD_JOIN_MS}, never zero.**
+ * `blendFor` answers in the station's terms, where zero means no overlap; this
+ * is where that becomes something the engine can be told, and the two are not
+ * the same number. See {@link HARD_JOIN_MS} for what a zero actually does.
  */
 function crossAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
-    return { liq_cross_duration: seconds(blendFor(item, context.next, context)) };
+    const blendMs = blendFor(item, context.next, context);
+
+    return { liq_cross_duration: seconds(blendMs === 0 ? HARD_JOIN_MS : blendMs) };
 }
 
 /**

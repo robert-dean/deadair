@@ -28,8 +28,8 @@ Each record is **trimmed** before it is levelled: `cue_cut` sits between `playou
 `deadair.track_analysis`. Those keys do nothing without that operator, which is worth knowing because
 the failure is silent — the annotations are accepted and ignored. A track the station has not
 measured yet passes through untouched, which is the ordinary case. It sits below `normalize` so the
-level follower never sees the leading silence, and below where a future `cross` would go, since
-`cross` presents its output as one never-ending track.
+level follower never sees the leading silence, and below the `cross`, since `cross` presents its
+output as one never-ending track.
 
 Then it is **set to the station's level**, from the same measurement: `amplify(override="liq_amplify")`
 sits between the trim and `normalize`, acting on a gain the app resolved before the record was handed
@@ -45,6 +45,31 @@ as the music leaves and makes an ending get louder. `threshold=-25.` holds the g
 that quiet, `up=30.` puts its reaction time outside the length of a passage, and `gain_max=6.` bounds
 what it can add now that it is no longer the thing doing the levelling. Those three are a first answer
 and can only be judged by ear.
+
+Then one record is **blended into the next**, from the same measurement again: `cross` sits above
+`normalize`, so the two records overlapping are each already at the station's level and the follower
+is never chasing a mixture. The length is `min(outgoing.outro, incoming.intro)`, decided by the app
+per boundary (`apps/api/src/modules/playout/crossfade.ts`) and stamped as `liq_cross_duration`. So a
+record that ends cold is barely ridden and one that fades is ridden only as far as the next record's
+intro can absorb it, and a blend can never eat a cold opening. Same silent failure as the keys above
+without the operator, plus three of its own, all measured against 2.4.5:
+
+- **A duration of zero does not mean no blend, it means no output.** `cross` never appends a frame,
+  so it never sees the end of the track, never advances past buffering, and the source it hands out
+  is never ready. A boundary the station does not blend is stamped a tenth of a second instead, and
+  the transition plays a plain `sequence` at or below that.
+- **`persist_override=true` is required**, or the override is reset before it sizes the stamped
+  track's own buffer. The flip side is that a stamp lingers over later unstamped tracks, which is why
+  the app stamps every item including the ones it does not blend.
+- **The fade must span the whole buffer.** A shorter fade leaves the outgoing record at full level
+  while the incoming ramps in, which sums to about +6 dB. To vary a blend, vary the buffer.
+
+Whether a broadcast blends at all is the running order's, not the station's: a rotation does, an
+album played in full does not, because its segues are the point. See `resolveRules`.
+
+One thing it costs: `playout_queue.remaining()` is read below the `cross`, so the `remainingMs` in a
+reading runs ahead of the listener by whatever is buffered. It is display-only and nothing schedules
+against it, so it is left alone rather than corrected into a second number that could disagree.
 
 The target is in two places and they have to agree: `playout.targetLufs` in `deadair.settings`, which
 is what the app gains each record to, and `normalize(target=…)` here, which is what everything

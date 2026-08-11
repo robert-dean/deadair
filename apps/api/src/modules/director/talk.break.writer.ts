@@ -1,8 +1,11 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
+import { Logger } from '@maroonedsoftware/logger';
 import { BreakWriter, type BreakTrack, type BreakWriteRequest, type WrittenBreak } from './break.writer.js';
+import { parseTemplates, TEMPLATE_KEYS, TEMPLATE_VOCABULARY, unknownPlaceholders, usable, wasHeard, type RenderedTemplate } from './break.templates.js';
 
 /**
- * The station's own words for a talk break, written from the two records either side of it.
+ * The station's words for a talk break, written from the two records either side of it.
  *
  * Deterministic in the sense that matters: no network, no model, no clock, and no way to fail that
  * costs the station a break it could have had. It is the FLOOR under the writer seam rather than a
@@ -12,7 +15,14 @@ import { BreakWriter, type BreakTrack, type BreakWriteRequest, type WrittenBreak
  *
  * What it is not is clever. It says what was playing and what is playing next, in one of a handful
  * of phrasings, and that is the whole of it. A DJ with an opinion is the model's job.
- */
+ *
+ * ## The phrasings are the OPERATOR'S
+ *
+ * They ship as the station's own five and are edited in `rotation.breakTemplates`, which is what
+ * makes a station sound like itself with no model anywhere near it. The words being a setting
+ * changes nothing else here: the repetition rule, the reading of a title and the refusal to invent
+ * are all where they were. See `break.templates.ts` for the syntax and the two rules that decide
+ * which phrasings fit a given break.
 
 /** The kind of segment this writes. The same string as `segments.kind`. */
 export const TALK_BREAK_KIND = 'talkbreak';
@@ -20,92 +30,76 @@ export const TALK_BREAK_KIND = 'talkbreak';
 /** What `segments.writer` records for anything written here. */
 export const DETERMINISTIC_WRITER = 'deterministic';
 
-/**
- * One phrasing.
- *
- * `opening` is the literal the script always begins with, and it is how a past script is recognised
- * as having used this phrasing. Matching on the opening rather than storing a template id is the
- * cheap answer that happens to be the right one: the opening is the part a listener actually hears
- * repeating, so two phrasings that differ only in their middle are correctly treated as the same
- * one, and nothing has to be written down anywhere to make it work.
- */
-interface Phrasing {
-    opening: string;
-    /** Whether this phrasing can be used at all for the request. */
-    applies(request: PhrasingInputs): boolean;
-    say(request: PhrasingInputs): string;
-}
-
 interface PhrasingInputs {
     previous?: BreakTrack;
     next?: BreakTrack;
     station?: string;
 }
 
-const PHRASINGS: readonly Phrasing[] = [
-    {
-        opening: 'That was',
-        applies: ({ previous }) => previous !== undefined,
-        say: ({ previous, next }) =>
-            next === undefined
-                ? `That was ${spoken(previous!.title)}, from ${spoken(previous!.artist)}.`
-                : `That was ${spoken(previous!.title)}, from ${spoken(previous!.artist)}. Now, here's ${spoken(next.artist)} with ${spoken(next.title)}.`,
-    },
-    {
-        opening: 'You just heard',
-        applies: ({ previous }) => previous !== undefined,
-        say: ({ previous, next }) =>
-            next === undefined
-                ? `You just heard ${spoken(previous!.artist)}, with ${spoken(previous!.title)}.`
-                : `You just heard ${spoken(previous!.artist)}, with ${spoken(previous!.title)}. Up next, ${spoken(next.title)} by ${spoken(next.artist)}.`,
-    },
-    {
-        // The one that says the station's name, which is the reason a listener knows what they are
-        // listening to. Only offered when the operator has actually set one.
-        opening: 'This is',
-        applies: ({ station }) => station !== undefined,
-        say: ({ station, previous, next }) => {
-            const parts = [`This is ${station}.`];
-            if (previous !== undefined) parts.push(`${spoken(previous.title)} there, from ${spoken(previous.artist)}.`);
-            if (next !== undefined) parts.push(`Coming up, ${spoken(next.artist)}, ${spoken(next.title)}.`);
-            return parts.join(' ');
-        },
-    },
-    // The two intro-only phrasings, and both are barred whenever there is a record BEHIND the break
-    // as well. A break that leads into the next record while saying nothing about the one that just
-    // finished has thrown away the half a listener was actually waiting for: knowing what that was
-    // is the whole reason anybody wants a DJ over a shuffle.
-    {
-        opening: 'Coming up',
-        applies: ({ previous, next }) => previous === undefined && next !== undefined,
-        say: ({ next }) => `Coming up next, ${spoken(next!.title)}, from ${spoken(next!.artist)}.`,
-    },
-    {
-        opening: "Here's",
-        applies: ({ previous, next }) => previous === undefined && next !== undefined,
-        say: ({ next }) => `Here's ${spoken(next!.artist)} with ${spoken(next!.title)}.`,
-    },
-];
+/**
+ * Templates an operator has typo'd, so the log says so once rather than once a break.
+ *
+ * Module-level on purpose, and bounded by the number of distinct broken lines somebody has typed.
+ * The writer is scoped per job, so a set on the instance would warn on every break the station
+ * takes — which is how a log stops being read, and this is a line worth reading.
+ */
+const complainedAbout = new Set<string>();
 
 @Injectable()
 export class TalkBreakWriter extends BreakWriter {
     readonly kind = TALK_BREAK_KIND;
     readonly name = DETERMINISTIC_WRITER;
 
+    constructor(
+        private readonly config: AppConfig,
+        private readonly logger: Logger,
+    ) {
+        super();
+    }
+
     async write(request: BreakWriteRequest): Promise<WrittenBreak | undefined> {
+        const dj = this.config.get(TEMPLATE_KEYS.djName, '').trim();
         const inputs: PhrasingInputs = {
             ...(request.previous === undefined ? {} : { previous: request.previous }),
             ...(request.next === undefined ? {} : { next: request.next }),
             ...(request.station === undefined ? {} : { station: request.station }),
+            ...(dj.length === 0 ? {} : { dj }),
         };
 
-        const usable = PHRASINGS.filter(phrasing => phrasing.applies(inputs));
-        // Nothing either side and no station name: there is no true sentence to be made out of
-        // that, and inventing one is how a station ends up announcing a record it did not play.
-        if (usable.length === 0) return undefined;
+        // Read per break rather than held: `deadair.settings` is a layer of the config, so an
+        // operator editing their phrasings hears the change on the next break rather than after a
+        // restart, which is the whole point of them being a setting.
+        const templates = parseTemplates(this.config.get(TEMPLATE_KEYS.templates, ''));
+        this.complainAboutTypos(templates);
 
-        const phrasing = choose(usable, request.recent ?? []);
-        return { script: phrasing.say(inputs), label: labelFor(inputs) };
+        const fits = usable(templates, inputs, spoken);
+        // Nothing either side and no station name, or an operator whose every template needs
+        // something this break has not got: there is no true sentence to be made out of that, and
+        // inventing one is how a station ends up announcing a record it did not play.
+        if (fits.length === 0) return undefined;
+
+        const chosen = choose(fits, request.recent ?? []);
+        return { script: chosen.script, label: labelFor(inputs) };
+    }
+
+    /**
+     * Say once, per broken template, that it names something nothing can fill.
+     *
+     * A typo silently drops a phrasing out of rotation, and from the console that looks exactly like
+     * a phrasing the station has simply never happened to pick. It is the one failure here an
+     * operator cannot see for themselves.
+     */
+    private complainAboutTypos(templates: readonly string[]): void {
+        for (const template of templates) {
+            const unknown = unknownPlaceholders(template);
+            if (unknown.length === 0 || complainedAbout.has(template)) continue;
+
+            complainedAbout.add(template);
+            this.logger.warn(
+                `director: a break template names something the station cannot fill (${unknown.join(', ')}), so it will never be used: "${template}". ` +
+                    `What it can fill: ${TEMPLATE_VOCABULARY.join(', ')}`,
+            );
+        }
     }
 }
 
@@ -118,16 +112,14 @@ export class TalkBreakWriter extends BreakWriter {
  * ordinary case for a break with only a `next` — it falls back to avoiding just the last thing said,
  * because saying the same sentence TWICE RUNNING is the one repetition anybody actually notices.
  */
-function choose(usable: readonly Phrasing[], recent: readonly string[]): Phrasing {
-    const unheard = usable.filter(phrasing => !recent.some(script => opens(script, phrasing.opening)));
+function choose(fits: readonly RenderedTemplate[], recent: readonly string[]): RenderedTemplate {
+    const unheard = fits.filter(one => !wasHeard(one, recent));
     if (unheard.length > 0) return sample(unheard);
 
     const last = recent[0];
-    const notLast = last === undefined ? usable : usable.filter(phrasing => !opens(last, phrasing.opening));
-    return sample(notLast.length > 0 ? notLast : usable);
+    const notLast = last === undefined ? fits : fits.filter(one => !wasHeard(one, [last]));
+    return sample(notLast.length > 0 ? notLast : fits);
 }
-
-const opens = (script: string, opening: string): boolean => script.trim().toLowerCase().startsWith(opening.toLowerCase());
 
 /**
  * Random rather than round-robin, for the reason `BreakPlanner.choose` is: the order a list happens

@@ -6,7 +6,7 @@ options {
 
 contract PluginStatus: enum(discovered, disabled, misconfigured, active, failed) # Lifecycle state of a plugin the host knows about
 
-contract ConfigFieldType: enum(string, url, secret, number, boolean, select, multiselect, note)
+contract ConfigFieldType: enum(string, text, url, secret, number, boolean, select, multiselect, note)
 
 # One choice of a `select` config field
 contract ConfigFieldOption: {

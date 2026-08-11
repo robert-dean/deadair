@@ -13,6 +13,7 @@ import {
     Stack,
     Switch,
     Text,
+    Textarea,
     TextInput,
     type ComboboxItem,
     type ComboboxParsedItem,
@@ -358,6 +359,12 @@ export function ConfigFieldsForm({
                 return <Switch key={field.key} {...common} description={undefined} {...form.getInputProps(name, { type: 'checkbox' })} />;
             case 'number':
                 return <NumberInput key={field.key} {...common} placeholder={field.placeholder} {...form.getInputProps(name)} />;
+            // Stored and submitted exactly like a `string`, so nothing outside this line knows it
+            // is different. What it buys is that a setting somebody WRITES — a list of phrasings, a
+            // persona, a prompt — is editable here rather than in psql, which is where a paragraph
+            // in a one-line box always ends up being edited.
+            case 'text':
+                return <Textarea key={field.key} {...common} placeholder={field.placeholder} rows={8} {...form.getInputProps(name)} />;
             case 'select':
                 return <Select key={field.key} {...common} placeholder={field.placeholder} data={optionsFor(field)} {...form.getInputProps(name)} />;
             case 'multiselect': {

@@ -2,14 +2,22 @@
 // wrong from inside the app — a station saying the same sentence every fourth record sounds exactly
 // like a station with one phrasing — so they are table-tested rather than trusted.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import type { AppConfig } from '@maroonedsoftware/appconfig';
+import type { Logger } from '@maroonedsoftware/logger';
 import { spoken, TalkBreakWriter, TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
 
-const writer = new TalkBreakWriter();
+const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) as unknown as Logger;
+
+/** A writer against whatever the operator has set, or against the station's own phrasings. */
+const build = (values: Record<string, string> = {}, log = logger()) =>
+    new TalkBreakWriter({ get: (key: string, fallback: string) => values[key] ?? fallback } as unknown as AppConfig, log);
+
+const writer = build();
 
 describe('TalkBreakWriter', () => {
     it('writes the kind it claims', () => {
@@ -89,6 +97,117 @@ describe('TalkBreakWriter', () => {
 
         expect(written?.script).toContain('Solid Air');
         expect(written?.script).not.toContain('Remaster');
+    });
+});
+
+describe('TalkBreakWriter against the operator\'s own phrasings', () => {
+    const KEY = 'rotation.breakTemplates';
+    const DJ = 'station.djName';
+
+    it('says what the operator wrote', async () => {
+        const own = build({ [KEY]: "Hi, this is {{dj.name}}. We're getting ready to rock out to {{next.name}} by {{next.artist.name}}!", [DJ]: 'Sam' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, next });
+
+        expect(written?.script).toBe("Hi, this is Sam. We're getting ready to rock out to Pink Moon by Nick Drake!");
+    });
+
+    it('falls back to the station\'s own when the setting is empty', async () => {
+        // Clearing the box must not leave a silent DJ. The way to stop the station talking is to
+        // turn breaks off, which already means exactly that.
+        const own = build({ [KEY]: '   \n\n  ' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, previous, next });
+
+        expect(written?.script).toContain('Solid Air');
+    });
+
+    it('ignores a commented line', async () => {
+        const own = build({ [KEY]: '# That was {{previous.title}}.\nYou just heard {{previous.title}}.' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, previous });
+
+        expect(written?.script).toBe('You just heard Solid Air.');
+    });
+
+    it('drops an optional chunk it cannot fill, rather than leaving a hole', async () => {
+        const own = build({ [KEY]: 'That was {{previous.title}}.[[ Coming up, {{next.title}}.]]' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, previous });
+
+        expect(written?.script).toBe('That was Solid Air.');
+    });
+
+    it('keeps an optional chunk it can fill', async () => {
+        const own = build({ [KEY]: 'That was {{previous.title}}.[[ Coming up, {{next.title}}.]]' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, previous, next });
+
+        expect(written?.script).toBe('That was Solid Air. Coming up, Pink Moon.');
+    });
+
+    it('does not use a phrasing whose required placeholder is missing', async () => {
+        // Never filled with a blank: "That was , from ." is worse than saying nothing, and saying
+        // nothing is a thing the station is built to absorb.
+        const own = build({ [KEY]: 'That was {{previous.title}}, from {{previous.artist}}.' });
+
+        await expect(own.write({ kind: TALK_BREAK_KIND, next })).resolves.toBeUndefined();
+    });
+
+    it('will not lead into the next record while ignoring the one that just ended', async () => {
+        // The rule an operator never has to know about. A break that throws away the back-announce
+        // throws away the half a listener was waiting for.
+        const own = build({ [KEY]: "Here's {{next.artist}} with {{next.title}}." });
+
+        await expect(own.write({ kind: TALK_BREAK_KIND, previous, next })).resolves.toBeUndefined();
+        await expect(own.write({ kind: TALK_BREAK_KIND, next })).resolves.toBeDefined();
+    });
+
+    it('counts an optional back-announce as saying something about the last record', async () => {
+        const own = build({ [KEY]: 'This is {{station.name}}.[[ {{previous.title}} there.]][[ Coming up, {{next.title}}.]]' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair' });
+
+        expect(written?.script).toBe('This is Deadair. Solid Air there. Coming up, Pink Moon.');
+    });
+
+    it('reads a title rather than the catalogue entry, in an operator\'s phrasing too', async () => {
+        const own = build({ [KEY]: 'That was {{previous.title}}.' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, previous: { title: 'Solid Air (2005 Remaster)', artist: 'John Martyn' } });
+
+        expect(written?.script).toBe('That was Solid Air.');
+    });
+
+    it('leaves the station name alone, because an operator meant what they typed', async () => {
+        const own = build({ [KEY]: 'This is {{station.name}}.' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, station: 'Deadair (Deluxe Edition)' });
+
+        expect(written?.script).toBe('This is Deadair (Deluxe Edition).');
+    });
+
+    it('skips a phrasing with a typo in it, and says so once', async () => {
+        // A typo silently drops a phrasing out of rotation, which from the console looks exactly
+        // like one the station has never happened to pick. The one failure here nobody can see.
+        const log = logger();
+        const own = build({ [KEY]: 'That was {{previous.titel}}.\nYou just heard {{previous.title}}.' }, log);
+
+        const first = await own.write({ kind: TALK_BREAK_KIND, previous });
+        await own.write({ kind: TALK_BREAK_KIND, previous });
+
+        expect(first?.script).toBe('You just heard Solid Air.');
+        expect(log.warn).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(log.warn).mock.calls[0]?.[0]).toContain('previous.titel');
+    });
+
+    it('avoids repeating a phrasing an operator wrote', async () => {
+        const own = build({ [KEY]: 'That was {{previous.title}}.\nYou just heard {{previous.title}}.' });
+
+        const first = await own.write({ kind: TALK_BREAK_KIND, previous });
+        const second = await own.write({ kind: TALK_BREAK_KIND, previous, recent: [first!.script] });
+
+        expect(second?.script).not.toBe(first?.script);
     });
 });
 

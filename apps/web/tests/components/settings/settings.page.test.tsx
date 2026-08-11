@@ -164,6 +164,45 @@ describe('SettingsPage', () => {
         expect(await screen.findByText('That name is taken')).toBeInTheDocument();
     });
 
+    it('gives a multi-line setting a box worth typing into', async () => {
+        // A `text` field is stored and submitted exactly like a `string`; the only difference is the
+        // box. That difference is the whole point: a setting somebody WRITES rather than pastes — a
+        // list of phrasings, a persona, a prompt — is edited in psql the moment its input is one
+        // line tall.
+        getSettings.mockResolvedValue(
+            settingsOf({
+                descriptors: [
+                    { group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' },
+                ],
+                values: { 'rotation.breakTemplates': 'That was {{previous.title}}.\nYou just heard {{previous.title}}.' },
+            }),
+        );
+
+        render(<SettingsPage />);
+
+        const box = await screen.findByLabelText('What the station says');
+        expect(box.tagName).toBe('TEXTAREA');
+        expect(box).toHaveValue('That was {{previous.title}}.\nYou just heard {{previous.title}}.');
+    });
+
+    it('sends a multi-line setting back as the plain string it is', async () => {
+        getSettings.mockResolvedValue(
+            settingsOf({
+                descriptors: [
+                    { group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' },
+                ],
+                values: { 'rotation.breakTemplates': 'That was {{previous.title}}.' },
+            }),
+        );
+        updateSettings.mockResolvedValue({});
+        render(<SettingsPage />);
+        await screen.findByLabelText('What the station says');
+
+        await userEvent.setup().click(screen.getByRole('button', { name: 'Save rotation' }));
+
+        expect(updateSettings).toHaveBeenCalledWith({ values: { 'rotation.breakTemplates': 'That was {{previous.title}}.' } });
+    });
+
     it('says so when the settings cannot be read', async () => {
         getSettings.mockRejectedValue(new Error('nope'));
 

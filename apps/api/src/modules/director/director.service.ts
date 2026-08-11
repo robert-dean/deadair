@@ -601,13 +601,21 @@ export class DirectorService {
                 const planner = scope.get(BreakPlanner);
 
                 const planted = await planner.plant(lineup, rules);
-                if (planted > 0) this.persistSoon();
+
+                // Written THROUGH rather than soon, and only on a pass that planted something.
+                // What is about to be asked for is the words of breaks in this order, and the job
+                // that writes them reads the order from the row: with the ordinary throttle it can
+                // pick up a break the row does not hold yet, find no neighbours, and write a break
+                // about nothing. The job guards against that itself and defers, so this is the
+                // difference between the ordinary case working and the ordinary case needing a
+                // retry — and a planting pass is rare, so the cost is a write nobody is waiting on.
+                if (planted > 0) await this.flushPersist();
 
                 // Second, and on every pass rather than only one that planted something. Planting
                 // lays a break's POSITION down as far ahead as the order runs; this asks for its
                 // WORDS only once its slot is near, which is what keeps an hour of forward planning
                 // from costing an hour of model and speech work that an operator edit can throw
-                // away. It touches no running order, so it needs no persist.
+                // away. It touches no running order, so it needs no persist of its own.
                 await planner.ripen(lineup);
             });
         } catch (error) {

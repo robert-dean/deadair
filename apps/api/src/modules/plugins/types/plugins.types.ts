@@ -10,7 +10,7 @@ export type PluginStatus = z.infer<typeof PluginStatus>;
 /**
  * generated from [ConfigFieldType](file://./../../../../data/contracts/plugins/plugins.types.ck#L9)
  */
-export const ConfigFieldType = z.enum(['string', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'note']);
+export const ConfigFieldType = z.enum(['string', 'text', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'note']);
 export type ConfigFieldType = z.infer<typeof ConfigFieldType>;
 
 /**

@@ -7,7 +7,7 @@ export type PluginStatus = 'discovered' | 'disabled' | 'misconfigured' | 'active
 /**
  * generated from [ConfigFieldType](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L9)
  */
-export type ConfigFieldType = 'string' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'note';
+export type ConfigFieldType = 'string' | 'text' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'note';
 
 /**
  * One choice of a `select` config field

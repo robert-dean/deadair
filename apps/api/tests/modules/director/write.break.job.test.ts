@@ -197,6 +197,22 @@ describe('WriteBreakJob', () => {
         expect(jobs.send).not.toHaveBeenCalled();
     });
 
+    it('waits rather than writing a break the order does not hold yet', async () => {
+        // Measured on the running station: the director writes the order through a throttle, so a
+        // break can be planted, offered and picked up here before the row anybody can read holds
+        // it. Claiming and writing anyway produced a break that knew neither of its neighbours and,
+        // having consumed the claim, was never offered again — which is a station whose every talk
+        // break is reduced to saying its own name.
+        const { job, segments, writers, jobs } = harness({ lineup: await lineupWithBreak('some-other-break') });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.claimForWrite).not.toHaveBeenCalled();
+        expect(writers.write).not.toHaveBeenCalled();
+        expect(segments.markFailed).not.toHaveBeenCalled();
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
+
     it('fails the segment when its running order has gone', async () => {
         const { job, segments } = harness({ lineup: undefined });
 

@@ -2,6 +2,7 @@ import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
 import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
+import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ANALYSIS_CONCURRENCY_KEY, ANALYSIS_PLUGIN_KEY, DEFAULT_ANALYSIS_CONCURRENCY } from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
@@ -64,6 +65,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: STREAM_DEFAULTS.title,
         help: 'What players and directories show. Icecast advertises it on the mount.',
+    },
+    {
+        group: 'station',
+        key: TEMPLATE_KEYS.djName,
+        label: 'Presenter name',
+        type: 'string',
+        default: '',
+        help: 'Who the station says it is when a phrasing asks for a name. Leave empty and the phrasings that use one simply are not used; every other one still is.',
     },
     {
         group: 'station',
@@ -210,6 +219,19 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: DEFAULT_RULES.crossfade,
         help: "How long each blend lasts is measured from both records rather than set here, so a record that ends cold is barely ridden and one that fades is ridden as far as the next record can absorb it. An album or a sequenced setlist ignores this and stays cold by default, because its gaps are somebody else's decision.",
+    },
+    {
+        group: 'rotation',
+        key: TEMPLATE_KEYS.templates,
+        label: 'What the station says',
+        type: 'text',
+        default: DEFAULT_TEMPLATES.join('\n'),
+        dependsOn: ROTATION_KEYS.breaks,
+        help:
+            'One phrasing per line, picked between so the station does not repeat itself. ' +
+            `Fill in a record with ${TEMPLATE_VOCABULARY.map(name => `{{${name}}}`).join(', ')}, ` +
+            'and wrap a part in [[double brackets]] to have it dropped when there is nothing to put in it. ' +
+            "A line starting with # is off without being lost. Empty restores the station's own; to stop it talking, turn breaks off above.",
     },
 
     // ── playout ────────────────────────────────────────────────────────────────

@@ -79,6 +79,30 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
         }
         const { segmentId } = payload;
 
+        const lineup = await this.order.load();
+        if (lineup === undefined) {
+            await this.claimAndFail(segmentId, 'the running order this break was planted into is gone');
+            return;
+        }
+
+        // BEFORE the claim, and this order matters more than it looks. The director writes the
+        // running order through a throttle, so a break can be planted, offered and picked up here
+        // within the same second — before the row anybody can read holds it. Claiming first would
+        // then write a break that knows about neither of its neighbours and, having consumed the
+        // claim, would never be offered again. That is a station whose every talk break is reduced
+        // to saying its own name, which is exactly what it looked like when it happened.
+        //
+        // So: not being in the order yet is not a failure, it is being early. The row stays
+        // `planned` and the next pass offers it again, by which time the write-through has landed.
+        const neighbours = neighboursOf(lineup, segmentId);
+        if (neighbours === undefined) {
+            this.logger.info('director: this break is not in the running order yet, so it will be written on a later pass', {
+                job: this.context.id,
+                segment: segmentId,
+            });
+            return;
+        }
+
         // Claimed rather than read, so two runs cannot both write the same break: only one
         // `planned → writing` wins and the loser stops here. That is what makes a duplicate send
         // free, which is what lets the director offer every `planned` break in its window on every
@@ -92,13 +116,6 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
             return;
         }
 
-        const lineup = await this.order.load();
-        if (lineup === undefined) {
-            await this.fail(segmentId, 'the running order this break was planted into is gone');
-            return;
-        }
-
-        const neighbours = neighboursOf(lineup, segmentId);
         const result = await this.writers.write({
             kind: segment.kind,
             ...neighbours,
@@ -181,13 +198,23 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
     /**
      * Leave the reason where an operator will look for it, rather than in a log line that scrolls.
      *
-     * From `writing`, because this job only ever fails a break it has already claimed. The one
-     * exception is the running order having gone, which is checked after the claim for exactly that
-     * reason: a break whose order vanished is still this job's to give up on.
+     * From `writing`, because this is only ever reached for a break this job has claimed.
      */
     private async fail(segmentId: string, reason: string): Promise<void> {
         await this.segments.markFailed(segmentId, reason, 'writing');
         this.logger.info('director: a break went unwritten', { job: this.context.id, segment: segmentId, reason });
+    }
+
+    /**
+     * Give up on a break that has no running order to be written into.
+     *
+     * The one failure that happens BEFORE the claim, so it takes the claim on its way past. A row
+     * left `planned` here would be offered again on every pass by a director whose order is gone,
+     * which is a loop; failing it says why, once, where an operator will find it.
+     */
+    private async claimAndFail(segmentId: string, reason: string): Promise<void> {
+        if ((await this.segments.claimForWrite(segmentId)) === undefined) return;
+        await this.fail(segmentId, reason);
     }
 }
 
@@ -197,11 +224,16 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
  * Nearest record in each direction rather than strictly adjacent lines, so a break planted next to
  * another segment still knows what music it sits between. Either side may be absent, at the head or
  * the tail of an order, and that is a shape the writers already answer for.
+ *
+ * `undefined` for a break the order does not hold AT ALL, which is a different answer entirely and
+ * the reason this does not just return an empty pair: a break with no neighbours is one at the edge
+ * of an order, and a break the order has never heard of is one this job is too early for. Answering
+ * the same thing for both is how every talk break ends up saying only the station's name.
  */
-function neighboursOf(lineup: StationLineup, segmentId: string): { previous?: BreakTrack; next?: BreakTrack } {
+function neighboursOf(lineup: StationLineup, segmentId: string): { previous?: BreakTrack; next?: BreakTrack } | undefined {
     const items = lineup.all();
     const at = items.findIndex(item => item.kind === 'segment' && item.segmentId === segmentId);
-    if (at < 0) return {};
+    if (at < 0) return undefined;
 
     const nearest = (from: number, step: number): BreakTrack | undefined => {
         for (let index = from; index >= 0 && index < items.length; index += step) {

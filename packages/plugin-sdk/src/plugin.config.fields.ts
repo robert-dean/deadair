@@ -3,7 +3,13 @@ import { z } from 'zod';
 /**
  * The kinds of input a plugin can ask the operator for.
  *
- * - `string`      free text
+ * - `string`      free text, one line
+ * - `text`        free text over several lines, for anything a person writes
+ *                 rather than pastes: a prompt, a persona, a list of phrasings.
+ *                 Stored exactly like a `string`, so nothing downstream has to
+ *                 know it exists; the difference is the box the operator types
+ *                 into, and a one-line box for a paragraph is the reason a
+ *                 setting like that ends up being edited by hand in psql
  * - `url`         free text validated/normalised as a URL
  * - `secret`      write-only: the host encrypts it, the settings UI never reads
  *                 it back, and only `host.secrets.get()` sees the plaintext
@@ -14,7 +20,7 @@ import { z } from 'zod';
  *                 values. Read it back with {@link parseMultiSelect}
  * - `note`        not an input at all: static help text rendered in the form
  */
-export type ConfigFieldType = 'string' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'note';
+export type ConfigFieldType = 'string' | 'text' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'note';
 
 /** One choice in a `select`, a `multiselect`, or a suggestion list. */
 export interface ConfigFieldOption {
@@ -90,7 +96,7 @@ export const configFieldOptionSchema = z.object({
     label: z.string(),
 });
 
-export const configFieldTypeSchema = z.enum(['string', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'note']);
+export const configFieldTypeSchema = z.enum(['string', 'text', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'note']);
 
 export const configFieldSchema = z.object({
     key: z.string().min(1),

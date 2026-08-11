@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { AnalysisRepository, type StoredAnalysis } from '#modules/analysis/analysis.repository.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
+import type { MeasuredLoudness } from '#modules/playout/gain.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import type { TrackPick } from './set.generator.js';
@@ -29,6 +30,36 @@ function cuePoints(analysis: StoredAnalysis | undefined): { cueInMs?: number; cu
 
     return { cueInMs, cueOutMs };
 }
+
+/**
+ * The measured loudness as an item carries it, field by field.
+ *
+ * Unlike {@link cuePoints}, which are all-or-nothing because a cue span that is
+ * half measured describes nothing, these are independent: an analyzer may report
+ * a loudness and no peak, and `gainFor` has a defined answer for every
+ * combination including none of them. So each field is taken on its own and a
+ * bad one costs only itself.
+ *
+ * Validated here for the same reason the cue points are: `data` is a jsonb blob
+ * a plugin wrote and the host stored without reading, so this is the first place
+ * anything looks inside it.
+ */
+function loudness(analysis: StoredAnalysis | undefined): MeasuredLoudness {
+    const data = analysis?.data;
+    // `integratedLufs` is the analyzer's name for it and `loudnessLufs` is the
+    // item's; this line is the whole of that translation.
+    const loudnessLufs = measurement(data?.integratedLufs);
+    const truePeakDb = measurement(data?.truePeakDb);
+    const samplePeakDb = measurement(data?.samplePeakDb);
+
+    return {
+        ...(loudnessLufs === undefined ? {} : { loudnessLufs }),
+        ...(truePeakDb === undefined ? {} : { truePeakDb }),
+        ...(samplePeakDb === undefined ? {} : { samplePeakDb }),
+    };
+}
+
+const measurement = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
 
 /**
  * Turning a chosen track into something the station can actually air.
@@ -112,6 +143,7 @@ export class PickResolver {
                 ...(row?.artworkUrl == null ? {} : { artworkUrl: row.artworkUrl }),
                 ...(row?.year == null ? {} : { year: row.year }),
                 ...cuePoints(measured.get(trackId)),
+                ...loudness(measured.get(trackId)),
                 trackId,
             });
         }

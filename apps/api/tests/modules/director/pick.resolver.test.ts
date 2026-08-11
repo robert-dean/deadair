@@ -18,8 +18,15 @@ interface Options {
     bindings?: Record<string, TrackBinding>;
     metadata?: Record<string, { title: string; credit: string; album?: string; year?: number; artworkUrl?: string }>;
     byName?: Record<string, string>;
-    /** Trusted cue points per track id. The repository has already dropped anything not worth acting on. */
-    analysis?: Record<string, { cueIn: number; cueOut: number }>;
+    /**
+     * The trusted `data` blob per track id. The repository has already dropped anything
+     * not worth acting on, so what arrives here is a measurement the station believes.
+     *
+     * Typed loosely on purpose: it is jsonb a plugin wrote, and the resolver is the first
+     * thing that looks inside it, so the tests below have to be able to put the wrong
+     * shape in it.
+     */
+    analysis?: Record<string, Record<string, unknown>>;
 }
 
 const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: number): TrackBinding => ({
@@ -267,5 +274,77 @@ describe('PickResolver cue points', () => {
         const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
 
         expect(resolved).not.toHaveProperty('cueOutMs');
+    });
+});
+
+describe('PickResolver loudness', () => {
+    it('snapshots the measured loudness onto the item', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 0, cueOut: 1_000, integratedLufs: -19.4, truePeakDb: -0.8, samplePeakDb: -1.2 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        // `integratedLufs` on the way in, `loudnessLufs` on the item.
+        expect(resolved).toMatchObject({ loudnessLufs: -19.4, truePeakDb: -0.8, samplePeakDb: -1.2 });
+    });
+
+    it('takes each field on its own, unlike the cue points', async () => {
+        // An analyzer that reports a loudness and no peak is a valid analyzer, and
+        // `gainFor` has a defined answer for it: cuts yes, boosts no.
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 0, cueOut: 1_000, integratedLufs: -11 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).toMatchObject({ loudnessLufs: -11 });
+        expect(resolved).not.toHaveProperty('truePeakDb');
+        expect(resolved).not.toHaveProperty('samplePeakDb');
+    });
+
+    it('carries loudness for a track whose cue points were rejected', async () => {
+        // The two are measured together and validated apart. A backwards span says
+        // nothing about how loud the record is.
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 9_000, cueOut: 9_000, integratedLufs: -14, truePeakDb: -0.3 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).not.toHaveProperty('cueInMs');
+        expect(resolved).toMatchObject({ loudnessLufs: -14, truePeakDb: -0.3 });
+    });
+
+    it('leaves an unmeasured track alone', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).not.toHaveProperty('loudnessLufs');
+        expect(resolved).not.toHaveProperty('truePeakDb');
+    });
+
+    it('refuses anything in the blob that is not a finite number', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 0, cueOut: 1_000, integratedLufs: '-14', truePeakDb: null, samplePeakDb: Number.NaN } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).not.toHaveProperty('loudnessLufs');
+        expect(resolved).not.toHaveProperty('truePeakDb');
+        expect(resolved).not.toHaveProperty('samplePeakDb');
     });
 });

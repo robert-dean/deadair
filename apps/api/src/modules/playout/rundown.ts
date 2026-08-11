@@ -108,6 +108,23 @@ export interface RundownItem {
      */
     cueInMs?: number;
     cueOutMs?: number;
+
+    /**
+     * How loud the record is, and how close it already runs to its ceiling.
+     *
+     * The same snapshot the cue points above are, taken from the same
+     * measurement, and absent on the same terms. What it is FOR is one number on
+     * the annotation: see `gain.ts`, which turns these into a static gain, and
+     * `annotate.ts`, which stamps it.
+     *
+     * The measurements are carried rather than the gain computed from them,
+     * because the station's target is a live setting and the gain is not a fact
+     * about the record. An operator who moves the target hears it on the next
+     * item handed over rather than on the next running order built.
+     */
+    loudnessLufs?: number;
+    truePeakDb?: number;
+    samplePeakDb?: number;
 }
 
 /** An item handed over, with the URL the player was told to fetch. */

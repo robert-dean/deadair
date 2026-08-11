@@ -41,6 +41,16 @@ export const PLUGIN_CAPABILITY_SPEECH = 'speech';
  */
 export const PLUGIN_CAPABILITY_LLM = 'llm';
 
+/**
+ * The plugin can measure a track's audio: bytes in, offsets out.
+ *
+ * Separate from {@link PLUGIN_CAPABILITY_ENRICHMENT} because the two answer
+ * different kinds of question. Enrichment asks an upstream what it knows and
+ * merges several answers; this computes one answer from the samples, and no
+ * upstream sells it.
+ */
+export const PLUGIN_CAPABILITY_ANALYSIS = 'analysis';
+
 export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_STREAM,
@@ -49,6 +59,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_LLM,
+    PLUGIN_CAPABILITY_ANALYSIS,
 ] as const;
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];

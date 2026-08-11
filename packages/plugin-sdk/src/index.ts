@@ -1,4 +1,5 @@
 export * from './boundary.json.safe.js';
+export * from './capabilities/analysis.js';
 export * from './capabilities/enrichment.js';
 export * from './capabilities/llm.js';
 export * from './capabilities/music.provider.js';

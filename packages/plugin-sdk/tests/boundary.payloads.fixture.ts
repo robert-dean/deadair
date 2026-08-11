@@ -17,6 +17,7 @@ import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
 import type { SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
 import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/llm.js';
+import type { AnalysisRef, TrackAnalysis, TrackCuePoints } from '../src/capabilities/analysis.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -214,6 +215,43 @@ export const llmModelInfoFixture: LlmModelInfo = {
     id: 'gpt-oss:20b',
     label: 'GPT-OSS 20B',
     tools: true,
+};
+
+export const analysisRefFixture: AnalysisRef = {
+    trackId: '6d3f2b1a-0c4e-4f8a-9b7d-2e5a1c8f3b60',
+    audioUrl: 'https://shim.example.com/track/abc123?exp=1767225600&sig=deadbeef',
+    durationMs: 214_000,
+};
+
+export const trackCuePointsFixture: TrackCuePoints = {
+    cueIn: 180,
+    introEnd: 12_400,
+    outroStart: 198_200,
+    cueOut: 213_600,
+};
+
+/**
+ * A v2-shaped payload rather than a v1 one, deliberately.
+ *
+ * `data` is `TrackCuePoints & Record<string, unknown>` precisely so a later
+ * schema version can add fields the host never learns about, and a fixture that
+ * only carried the four points would round-trip without ever exercising that.
+ * The extra keys here are the beat layer as `docs/todo/track-analysis.md`
+ * describes it, including an array, which is the shape most likely to be got
+ * wrong.
+ */
+export const trackAnalysisFixture: TrackAnalysis = {
+    schemaVersion: 2,
+    complete: true,
+    durationMs: 213_880,
+    analyzer: 'deadair-analysis/0.2.1',
+    data: {
+        ...trackCuePointsFixture,
+        bpm: 126.02,
+        beatConfidence: 0.71,
+        downbeats: [1840, 3744, 5648, 7552],
+        vocalOnset: 21_300,
+    },
 };
 
 /** The `meta` argument accepted by every `PluginLogger` method. */

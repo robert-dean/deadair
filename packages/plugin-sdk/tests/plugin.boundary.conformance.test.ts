@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
     albumEnrichmentFixture,
     albumRefFixture,
+    analysisRefFixture,
+    trackAnalysisFixture,
+    trackCuePointsFixture,
     artistEnrichmentFixture,
     artistRefFixture,
     assertCrossesBoundary,
@@ -66,6 +69,9 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['Partial<AlbumEnrichment>', albumEnrichmentFixture],
         ['PluginConnectionResult', pluginConnectionResultFixture],
         ['PluginManifest (minus configSchema)', pluginManifestFixtureWithoutConfigSchema],
+        ['AnalysisRef', analysisRefFixture],
+        ['TrackCuePoints', trackCuePointsFixture],
+        ['TrackAnalysis', trackAnalysisFixture],
     ] as const)('%s crosses the boundary', (label, value) => {
         expect(() => assertCrossesBoundary(value, label)).not.toThrow();
     });

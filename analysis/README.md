@@ -68,7 +68,11 @@ reason to write rows nothing can read.
 
     "integratedLufs": -8.4,   // gated programme loudness, BS.1770
     "truePeakDb": 1.2,        // oversampled; legitimately above 0
-    "samplePeakDb": -0.1
+    "samplePeakDb": -0.1,
+
+    "tagGainDb": -9.6,        // what the FILE's own tags ask for
+    "tagReferenceLufs": -18,  // and what that gain is relative to
+    "tagPeakDb": -0.1         // a SAMPLE peak, by ReplayGain's definition
   }
 }
 ```
@@ -81,9 +85,21 @@ The three loudness fields are **optional and omitted rather than floored**. A si
 track has no loudness, and the alternative to leaving it out is a value like −80 that a caller would
 then "correct" by fifty decibels. Absent means no opinion, which every consumer already handles.
 
+The three `tag*` fields are **what the file claims, not what this service measured**, read off the
+container's own ReplayGain or R128 tags in the same ffprobe that reports the channel count. Most
+files carry none of them. `tagGainDb` is meaningless on its own, which is why `tagReferenceLufs` is
+always reported beside it: a gain is a correction relative to some level, R128 fixes that level at
+−23 LUFS and ReplayGain is assumed to mean −18, and the two are five decibels apart. Subtracting the
+pair gives the loudness the tagger believed the record has. Album gain is deliberately not read — the
+station plays records in an order nobody sequenced — and `tagPeakDb` is a sample peak, so nothing
+should cap a boost with it when `truePeakDb` is right there.
+
 `data` is stored by the host as an opaque blob under `schemaVersion`. That is what lets a later
 version add a tempo, a downbeat grid or a vocal curve without touching the plugin, the host or the
-database.
+database. Adding an OPTIONAL field does not bump that version: every consumer already has a defined
+answer for one being absent, so a row written before the field existed is a correct row of this
+version rather than a stale one. The `tag*` fields arrived exactly that way. A row measured before
+them keeps its measured loudness, and re-measuring the catalog is how it picks them up.
 
 Synchronous, deliberately. The caller is a background walk with its own time budget and its own
 concurrency setting, so nothing is waiting on the response and a job-id-plus-polling protocol would

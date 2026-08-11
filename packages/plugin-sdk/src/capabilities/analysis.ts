@@ -44,10 +44,18 @@ import type { PluginLifecycle } from '../plugin.lifecycle.js';
 /**
  * The current shape of {@link TrackAnalysis.data}.
  *
- * Bumped whenever a detector's output changes shape or a field is added, which
- * is what lets a stored row be recognised as STALE rather than read as missing
- * or, worse, as current. Reanalysis then falls out of an ordinary "needs work"
- * query instead of needing a migration.
+ * Bumped whenever a detector's output changes shape, which is what lets a stored
+ * row be recognised as STALE rather than read as missing or, worse, as current.
+ * Reanalysis then falls out of an ordinary "needs work" query instead of needing
+ * a migration.
+ *
+ * **An OPTIONAL field being added is not that**, and does not bump this. Every
+ * consumer of `data` already has a defined answer for a field that is absent —
+ * it has to, since an analyzer may not compute one — so a row written before the
+ * field existed is still a correct row of this version rather than a stale one.
+ * Bumping for it would mark the whole catalog for re-measurement to gain
+ * something the station degrades over anyway. `tagGainDb` and friends arrived
+ * exactly this way.
  *
  * The host compares this against what it stored, so a plugin must report the
  * version it actually produced rather than this constant, in case the two have
@@ -185,6 +193,54 @@ export interface TrackLoudness {
 }
 
 /**
+ * What the FILE says about its own loudness, as opposed to what was measured.
+ *
+ * A different kind of claim from {@link TrackLoudness}, which is why it is a
+ * different interface: those fields are this analyzer's opinion, and these are
+ * whoever mastered or scanned the record telling the station what they decided.
+ * A consumer that prefers one over the other has to be able to tell them apart,
+ * which it cannot do if they arrive in the same field.
+ *
+ * All optional, and most files carry none of them.
+ */
+export interface TrackTaggedLoudness {
+    /**
+     * The gain the file's own tags ask for, in dB.
+     *
+     * **Meaningless without {@link tagReferenceLufs}**, and that is the whole
+     * reason both are reported. A gain is a correction relative to some level,
+     * and the two conventions in the wild are five decibels apart, so a station
+     * that stored only this would be storing the answer to a question it can no
+     * longer ask.
+     */
+    tagGainDb?: number;
+
+    /**
+     * The loudness {@link tagGainDb} is relative to, in LUFS.
+     *
+     * -23 for an R128 tag, where the specification fixes it. -18 for a
+     * ReplayGain tag, where it is an ASSUMPTION: ReplayGain 2.0 targets -18 and
+     * every current scanner writes it, but the older convention used the same
+     * tag names with no version field, so a file carrying it is
+     * indistinguishable from the outside.
+     *
+     * Subtracting this pair gives the loudness the tagger believed the record
+     * has, which is the figure a station's own target applies to.
+     */
+    tagReferenceLufs?: number;
+
+    /**
+     * The peak the file's tags declare, in dBFS.
+     *
+     * A SAMPLE peak, always, because that is what ReplayGain defines. It is not
+     * a substitute for {@link TrackLoudness.truePeakDb} and nothing should cap a
+     * boost with it; it is stored because the gap between the two says how hard
+     * the master is already running.
+     */
+    tagPeakDb?: number;
+}
+
+/**
  * What one analysis produced.
  *
  * `data` is deliberately the only place measurements live, and the host stores
@@ -234,7 +290,7 @@ export interface TrackAnalysis {
      * happened, where loudness needs a filter chain an analyzer may reasonably
      * not implement.
      */
-    data: TrackCuePoints & TrackLoudness & Record<string, unknown>;
+    data: TrackCuePoints & TrackLoudness & TrackTaggedLoudness & Record<string, unknown>;
 
     /**
      * How long the audio turned out to be once decoded.

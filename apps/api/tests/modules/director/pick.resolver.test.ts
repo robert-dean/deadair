@@ -334,6 +334,60 @@ describe('PickResolver loudness', () => {
         expect(resolved).not.toHaveProperty('truePeakDb');
     });
 
+    it('prefers what the file says over what the analyzer measured', async () => {
+        // A -18 LUFS reference asking for -6 dB describes a record at -12, whatever
+        // this station's own decode thought. The tag is what the mastering engineer
+        // decided; the measurement is a guess.
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 0, cueOut: 1_000, integratedLufs: -9.5, tagGainDb: -6, tagReferenceLufs: -18, truePeakDb: -0.4 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).toMatchObject({ loudnessLufs: -12, truePeakDb: -0.4 });
+    });
+
+    it('reads an R128 tag against its own reference', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 0, cueOut: 1_000, tagGainDb: -6, tagReferenceLufs: -23 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).toMatchObject({ loudnessLufs: -17 });
+    });
+
+    it('falls back to the measurement when the tag is half a claim', async () => {
+        // A gain with no reference is not a weaker claim, it is none: the two
+        // conventions in the wild are five decibels apart.
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 0, cueOut: 1_000, integratedLufs: -9.5, tagGainDb: -6 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).toMatchObject({ loudnessLufs: -9.5 });
+    });
+
+    it('never prefers the tagged peak, which is a sample peak by definition', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 0, cueOut: 1_000, integratedLufs: -14, truePeakDb: 0.6, tagPeakDb: -0.2 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).toMatchObject({ truePeakDb: 0.6 });
+        expect(resolved).not.toHaveProperty('tagPeakDb');
+    });
+
     it('refuses anything in the blob that is not a finite number', async () => {
         const { resolver } = build({
             bindings: { 'track-1': binding('track-1') },

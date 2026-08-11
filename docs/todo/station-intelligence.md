@@ -105,8 +105,16 @@ deterministic generator and a queue, and both work with every network dependency
 
 ## 3. Ending-aware transitions
 
-**Lands at:** an `enrichment`-capability plugin writing measured columns, plus a `cross` in
-`radio.liq` whose length is per item rather than constant.
+**Landed at**, 2026-08-11, and not where this line said it would: an `analysis` capability of its
+own, a Python sidecar behind it, and `deadair.track_analysis` for the row. **Not an enrichment
+plugin** — enrichment asks upstreams what they KNOW and merges the answers in priority order, and
+there is nothing to merge when the number is computed from the samples and there is exactly one
+source of it. See [track-analysis.md](track-analysis.md) and the capability's own header.
+
+The four points below are measured and the two cheap ones are audible: `liq_cue_in` / `liq_cue_out`
+ride the annotation, so the dead air is trimmed off the head and tail of every record. What has NOT
+landed is the second half of this line, the `cross` in `radio.liq` whose length is per item rather
+than constant — see [crossfades.md](crossfades.md), which is now unblocked.
 
 Today a track ends and the next one starts. The reason that sounds like a playlist rather than a
 station is not the absence of a crossfade, it is that a single fixed crossfade is wrong for most
@@ -167,9 +175,13 @@ ever cut for time, cut it down to those two rather than dropping it.
   recording id and nothing for anything released since. The open toolkits that would compute these
   values are worth a look for the two hard points, with a licence check first, because the usual one
   in this space is AGPL and this would run inside the API process.
-- **Analysis is an enrichment plugin, not app code.** It is a per-track fan-out over an upstream
-  that may be slow or absent, which is what `EnrichmentModule` already does, and it needs bytes,
-  which is `response.body` off `host.fetch`.
+- ~~**Analysis is an enrichment plugin, not app code.**~~ **Wrong, and corrected by building it.**
+  The fan-out shape was the right instinct and the capability was not: enrichment merges what
+  several upstreams claim about a recording, and a measurement has one source and nothing to merge.
+  It is `analysis`, its own capability, and the plugin is an adapter over a sidecar rather than the
+  thing that measures — which is also what keeps a decoder out of the API process and a copyleft
+  toolkit out of the host realm. The plugin never touches the bytes: the host resolves the audio URL
+  because one plugin may not ask another for a stream.
 - **A byte-capped or partial download cannot produce an outro.** Whatever fetches the audio has to
   say whether it got the whole file, or the analysis will confidently describe a truncation as a
   cold ending. A body is bounded separately from the fetch that returned it, by
@@ -257,10 +269,17 @@ the file, and neither was obvious when this section was written:
   reacts over 30 seconds, and may add at most 6 dB. Left as it was, it would have spent every record
   undoing the static gain.
 
-What is left of this section: preferring a ReplayGain tag where the source carries one, and gaining
-rendered audio by the same function. **The rendered half is deliberately still open** — nothing
-measures a segment, so segments still ride the follower, and the level difference against a gained
-record is worth hearing before it is designed for.
+**The ReplayGain tag is preferred where a file carries one**, also 2026-08-11: the sidecar reads the
+container's tags in the ffprobe it was already running and reports `tagGainDb` with the
+`tagReferenceLufs` that gain is relative to, because a correction without the level it corrects to is
+not a weaker claim but no claim at all — R128 fixes -23, ReplayGain is assumed to mean -18, and the
+two are five decibels apart. `pick.resolver.ts` turns the pair back into a loudness and prefers it,
+which is the ONLY place the preference is expressed. The tagged PEAK is never preferred: it is a
+sample peak by definition and the sidecar measured a true one.
+
+What is left of this section is gaining rendered audio by the same function. **That half is
+deliberately still open** — nothing measures a segment, so segments still ride the follower, and the
+level difference against a gained record is worth hearing before it is designed for.
 
 - It is one number per item, so it rides the annotation the pusher already builds
   (`playout/annotate.ts`), and costs nothing at air time.
@@ -294,6 +313,33 @@ Two design rules, both learned the expensive way elsewhere:
 
 Offer no one-click undo on a row that a *rule* excluded: one rule can cover hundreds of rows, and
 the edit belongs where the rule is, not where a symptom of it showed up.
+
+### The bubble, which the rules above cannot fix
+
+**Added 2026-08-11.** The rules are all FILTERS, and a filter has nothing to say about the far side
+of itself. `sampleCandidates` draws `order by random()` and the rules reject what is inside the
+repeat window, inside the artist cooldown, or over the per-artist cap. So a record aired four days
+ago and one that has never aired at all are drawn with identical probability, and on a library of
+any size that is a structural cause of a station that sounds like it owns two hundred songs. Nobody
+notices it as a bug, because every individual choice is legal.
+
+The fix is a **bias, never a filter**, and the distinction is the whole of it: a filter that
+preferred unaired tracks would starve a small library and would fight the rules for authority over
+what may air. A soft rank term does neither. The shape that works:
+
+- A freshness score ramping 0 to 1 over roughly a fortnight since last airing, weighted at something
+  like 0.4 against a random base, so it *tilts* the draw and never decides it.
+- Keyed on `normalizeKey` from `rotation.keys.ts` rather than on the track id, so two copies of the
+  same recording share one history. That is already the rule `play_history` is written under, which
+  is why this is a join rather than a schema change.
+- Never aired at all sorts first, and is worth a marker on the candidate: it is a fact a writer can
+  use ("first time on the station") and it costs nothing to carry.
+
+**One trap worth writing down before anything is built.** Do not rank a source by the station's own
+play counts. Anything ranked that way is a positive feedback loop — what aired is what is offered,
+so what is offered is what airs — and it produces exactly the bubble this entry exists to break,
+while looking like a popularity feature. If a "most played" source is ever wanted, its window has to
+rotate or it will pin the same shelf forever.
 
 ## 6. Catalog correctness: genres and era
 

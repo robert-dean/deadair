@@ -11,6 +11,7 @@ nor a subprocess so it can be exercised against a synthetic signal.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import subprocess
@@ -27,6 +28,7 @@ from pydantic import BaseModel
 
 from loudness import integrated_lufs, sample_peak_db, to_mono, true_peak_db
 from measure import SAMPLE_RATE, SCHEMA_VERSION, measure
+from tags import gain_tags
 
 ANALYZER = "deadair-analysis/0.1.0"
 
@@ -184,38 +186,82 @@ def _download(url: str) -> tuple[str, bool]:
     return handle.name, whole
 
 
-def _channel_count(path: str) -> int:
-    """How many channels the file has, so the decode can be reshaped.
+@dataclass(frozen=True)
+class Probed:
+    """What the container says about itself, before a sample is decoded."""
 
-    A local read now, so it costs a stat and a header parse rather than a network
-    round trip. Falls back to mono on anything unexpected: a wrong low guess
-    measures one channel of a stereo file, which is a plausible figure, where a
-    wrong high guess reshapes the buffer and produces nonsense.
+    channels: int
+    tags: dict[str, str]
+
+
+def _probe(path: str) -> Probed:
+    """The channel count and the file's tags, in one ffprobe.
+
+    ONE probe, deliberately. The channel count is what the decode is reshaped
+    against and the tags are what the file already claims about its own loudness,
+    and they arrive from the same header read -- so asking twice would double the
+    cost of the cheapest step here for no reason. See `_download` for what
+    happened the last time this file opened the same audio more than once.
+
+    A local read, so it costs a stat and a header parse rather than a network
+    round trip. Falls back to mono with no tags on anything unexpected: a wrong
+    low guess measures one channel of a stereo file, which is a plausible figure,
+    where a wrong high guess reshapes the buffer and produces nonsense.
+
+    Format tags and stream tags are merged with the stream winning, because which
+    of the two carries ReplayGain depends on the container -- Vorbis comments in
+    a FLAC surface as format tags, an Opus `R128_TRACK_GAIN` as stream tags -- and
+    a file that somehow carries both is describing its audio stream more
+    specifically in the latter.
     """
     command = [
         "ffprobe",
         "-v", "error",
         "-select_streams", "a:0",
-        "-show_entries", "stream=channels",
-        "-of", "default=noprint_wrappers=1:nokey=1",
+        "-show_entries", "stream=channels:stream_tags:format_tags",
+        "-of", "json",
         path,
     ]
     try:
         finished = subprocess.run(command, capture_output=True, check=False, timeout=60)
-        return max(1, min(MAX_CHANNELS, int(finished.stdout.decode().strip() or 1)))
+        parsed = json.loads(finished.stdout.decode() or "{}")
     except (ValueError, OSError, subprocess.SubprocessError):
-        return 1
+        return Probed(channels=1, tags={})
+
+    streams = parsed.get("streams") or [{}]
+    stream = streams[0] if isinstance(streams[0], dict) else {}
+
+    try:
+        channels = max(1, min(MAX_CHANNELS, int(stream.get("channels") or 1)))
+    except (TypeError, ValueError):
+        channels = 1
+
+    tags = {**_tag_section(parsed.get("format")), **_tag_section(stream)}
+
+    return Probed(channels=channels, tags=tags)
 
 
-def _decode(path: str) -> Decoded:
+def _tag_section(section: object) -> dict[str, str]:
+    """One `tags` object as a flat string dictionary, or nothing."""
+    if not isinstance(section, dict):
+        return {}
+
+    tags = section.get("tags")
+    if not isinstance(tags, dict):
+        return {}
+
+    return {str(key): value for key, value in tags.items() if isinstance(value, str)}
+
+
+def _decode(path: str, channels: int) -> Decoded:
     """Decode a LOCAL file to float32 at SAMPLE_RATE, keeping up to MAX_CHANNELS.
 
     Takes a path rather than a url so the fetch happens once, in `_download`. See
     the note there: letting ffprobe and ffmpeg each open the url cost eight HTTP
-    requests per track against the station's own provider credential.
+    requests per track against the station's own provider credential. It takes the
+    channel count rather than probing for it for the same reason at smaller scale:
+    `_probe` runs once, in `_analyze`, and its other half is the file's tags.
     """
-    channels = _channel_count(path)
-
     command = [
         "ffmpeg",
         "-nostdin",
@@ -262,7 +308,8 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     path, whole_transfer = _download(url)
 
     try:
-        decoded = _decode(path)
+        probed = _probe(path)
+        decoded = _decode(path, probed.channels)
     finally:
         # Always, including on a decode failure: a worker that leaves its
         # downloads behind fills the container's disk over a library-sized walk.
@@ -281,9 +328,14 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     # silence at either end -- trimming first would gate it twice and, on a track
     # that fades to nothing, would move the figure by a fraction of a decibel for
     # no reason anyone could reconstruct later.
+    # The tags go in beside the measurement rather than instead of it, and both
+    # are reported whatever they say. Deciding between them is the station's job:
+    # it holds the target, so it is the only place that can turn a tagged
+    # correction back into a level. See `tags.py`.
     data = {
         **points.as_data(),
         **_loudness_of(decoded.samples),
+        **gain_tags(probed.tags),
     }
 
     # Two independent truths, and the answer is complete only if BOTH hold.

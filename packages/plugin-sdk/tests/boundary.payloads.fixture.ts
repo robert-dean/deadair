@@ -17,7 +17,7 @@ import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
 import type { SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
 import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/llm.js';
-import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness } from '../src/capabilities/analysis.js';
+import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from '../src/capabilities/analysis.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -237,6 +237,13 @@ export const trackLoudnessFixture: TrackLoudness = {
     samplePeakDb: -0.1,
 };
 
+/** The same master as tagged by whoever mastered it, which is a claim rather than a measurement. */
+export const trackTaggedLoudnessFixture: TrackTaggedLoudness = {
+    tagGainDb: -9.6,
+    tagReferenceLufs: -18,
+    tagPeakDb: -0.1,
+};
+
 /**
  * A v2-shaped payload rather than a v1 one, deliberately.
  *
@@ -255,6 +262,7 @@ export const trackAnalysisFixture: TrackAnalysis = {
     data: {
         ...trackCuePointsFixture,
         ...trackLoudnessFixture,
+        ...trackTaggedLoudnessFixture,
         bpm: 126.02,
         beatConfidence: 0.71,
         downbeats: [1840, 3744, 5648, 7552],

@@ -7,6 +7,7 @@ import {
     trackAnalysisFixture,
     trackCuePointsFixture,
     trackLoudnessFixture,
+    trackTaggedLoudnessFixture,
     artistEnrichmentFixture,
     artistRefFixture,
     assertCrossesBoundary,
@@ -73,6 +74,7 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['AnalysisRef', analysisRefFixture],
         ['TrackCuePoints', trackCuePointsFixture],
         ['TrackLoudness', trackLoudnessFixture],
+        ['TrackTaggedLoudness', trackTaggedLoudnessFixture],
         ['TrackAnalysis', trackAnalysisFixture],
     ] as const)('%s crosses the boundary', (label, value) => {
         expect(() => assertCrossesBoundary(value, label)).not.toThrow();

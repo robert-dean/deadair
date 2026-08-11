@@ -36,7 +36,7 @@
  * plus three name arrays, so the runtime cost is the arrays alone.
  */
 
-import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness } from './capabilities/analysis.js';
+import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
 import type {
     AlbumEnrichment,
     AlbumRef,
@@ -166,6 +166,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     AnalysisRef: IsJsonSafe<AnalysisRef>;
     TrackCuePoints: IsJsonSafe<TrackCuePoints>;
     TrackLoudness: IsJsonSafe<TrackLoudness>;
+    TrackTaggedLoudness: IsJsonSafe<TrackTaggedLoudness>;
     TrackAnalysis: IsJsonSafe<TrackAnalysis>;
 }>;
 
@@ -211,6 +212,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'AnalysisRef',
     'TrackCuePoints',
     'TrackLoudness',
+    'TrackTaggedLoudness',
     'TrackAnalysis',
 ] as const;
 

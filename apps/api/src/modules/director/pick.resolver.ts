@@ -48,7 +48,7 @@ function loudness(analysis: StoredAnalysis | undefined): MeasuredLoudness {
     const data = analysis?.data;
     // `integratedLufs` is the analyzer's name for it and `loudnessLufs` is the
     // item's; this line is the whole of that translation.
-    const loudnessLufs = measurement(data?.integratedLufs);
+    const loudnessLufs = taggedLoudness(data) ?? measurement(data?.integratedLufs);
     const truePeakDb = measurement(data?.truePeakDb);
     const samplePeakDb = measurement(data?.samplePeakDb);
 
@@ -57,6 +57,35 @@ function loudness(analysis: StoredAnalysis | undefined): MeasuredLoudness {
         ...(truePeakDb === undefined ? {} : { truePeakDb }),
         ...(samplePeakDb === undefined ? {} : { samplePeakDb }),
     };
+}
+
+/**
+ * How loud the FILE says it is, from its own ReplayGain or R128 tags.
+ *
+ * Preferred over the measurement where a file carries it, which is the rule
+ * `docs/todo/station-intelligence.md` §4 states and the reason for it is not
+ * accuracy: a tag is what the mastering engineer or the label decided, and the
+ * measurement is what this station guessed. Where they disagree the station is
+ * not the authority.
+ *
+ * **This is the only place the preference is expressed**, so an item carries one
+ * loudness and everything downstream is spared knowing where it came from. The
+ * blob keeps both.
+ *
+ * The tagged PEAK is deliberately not preferred anywhere: it is a sample peak by
+ * definition, and the measurement has a true one, which is the number a boost is
+ * actually capped against.
+ */
+function taggedLoudness(data: StoredAnalysis['data'] | undefined): number | undefined {
+    const gainDb = measurement(data?.tagGainDb);
+    const referenceLufs = measurement(data?.tagReferenceLufs);
+    // Both or neither. A gain with no reference is not a weaker claim about the
+    // record's level, it is no claim at all -- the two conventions in the wild
+    // are five decibels apart -- so an incomplete pair falls through to the
+    // measurement rather than being read against an assumed reference here.
+    if (gainDb === undefined || referenceLufs === undefined) return undefined;
+
+    return referenceLufs - gainDb;
 }
 
 const measurement = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);

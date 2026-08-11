@@ -6,7 +6,6 @@ import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.c
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { PluginTrackResolver } from '#modules/playout/providers/plugin.resolver.js';
-import { TRACK_PACE_MS } from './analysis.job.js';
 import { AnalysisRepository, type AnalysableTrack } from './analysis.repository.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
@@ -30,6 +29,25 @@ import {
  * timeout is the one that fires and the error says what actually happened.
  */
 export const ANALYZE_INVOKE_TIMEOUT_MS = 6 * 60_000;
+
+/**
+ * How long to wait between tracks, so a run is a trickle rather than a burst.
+ *
+ * `BATCH_SIZE` in `analysis.job.ts` bounds one run; this bounds the RATE inside
+ * it, and the two are different protections. A provider's limiter counts requests
+ * per interval, so five fetches in five seconds can trip what five in five
+ * minutes does not — and the download itself is the expensive part, not the gap
+ * after it.
+ *
+ * Charged after each track rather than before, so an empty queue costs nothing.
+ *
+ * It lives HERE rather than beside the batch size it partners, which reads
+ * backwards and is deliberate: the job imports the service, so a constant the
+ * service reads cannot live in the job. That cycle loads fine under vitest and
+ * throws `Cannot access 'AnalysisService' before initialization` under Node's ESM
+ * loader, which is a failure no unit test in this repo would have caught.
+ */
+export const TRACK_PACE_MS = 60_000;
 
 /** What one pass did, for the job's log line. */
 export interface AnalysisPassSummary {

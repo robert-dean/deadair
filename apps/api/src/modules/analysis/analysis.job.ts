@@ -17,8 +17,10 @@ import { AnalysisService } from './analysis.service.js';
  *
  * So the constraint here is not CPU, and it is not the analyzer. It is that
  * analysis and playout share one upstream and one credential, and **playout wins
- * every time**. Five per run, paced by {@link TRACK_PACE_MS}, is roughly a track
- * an hour of provider traffic on top of whatever the station is actually playing.
+ * every time**. Five per run, paced by `TRACK_PACE_MS` in `analysis.service.ts`,
+ * is roughly a track an hour of provider traffic on top of whatever the station
+ * is actually playing. The pace lives over there rather than beside this constant
+ * because the job imports the service, so the reverse would be a cycle.
  *
  * A library is measured over days rather than in an afternoon, which is the right
  * trade: an unmeasured track plays perfectly well, and a station that cannot
@@ -28,18 +30,6 @@ import { AnalysisService } from './analysis.service.js';
  * provider once one exists. Until then the cautious number governs.
  */
 const BATCH_SIZE = 5;
-
-/**
- * How long to wait between tracks, so a run is a trickle rather than a burst.
- *
- * The batch size bounds one run; this bounds the RATE inside it, and the two are
- * different protections. A provider's limiter cares about requests per interval,
- * so five fetches in five seconds can trip what five fetches in five minutes does
- * not — and the download itself is the expensive part, not the gap after it.
- *
- * Charged after each track rather than before, so an empty queue costs nothing.
- */
-export const TRACK_PACE_MS = 60_000;
 
 /**
  * How long a run may keep starting new measurements.

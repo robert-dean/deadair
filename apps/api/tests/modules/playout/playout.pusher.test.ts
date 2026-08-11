@@ -638,3 +638,72 @@ describe('PlayoutPusher arming a talk-over', () => {
         pusher.stop();
     });
 });
+
+// A blend is a property of the BOUNDARY, so the hand-over cannot decide it from the item
+// in front of it. What these cases pin down is where the successor comes from: the running
+// ORDER, not the player's queue, which is holding items handed over a pass ago.
+describe('PlayoutPusher: the blend', () => {
+    /** A measured record whose intro and outro are named by its id, so a stamp is readable. */
+    const measured = (externalId: string, introMs: number, outroMs: number): RundownTrack => ({
+        ...track(externalId),
+        cueInMs: 0,
+        introEndMs: introMs,
+        outroStartMs: 200_000,
+        cueOutMs: 200_000 + outroMs,
+    });
+
+    /** The blend the pusher stamped on a pushed uri, in seconds as Liquidsoap takes it. */
+    const blend = (uri: string): string => /liq_cross_duration="([^"]+)"/.exec(uri)?.[1] ?? '';
+
+    function setupMeasured(tracks: readonly RundownTrack[], crossfade = true) {
+        const rundown = new Rundown(new StubResolver(), logger);
+        seed(rundown, tracks);
+        rundown.setCrossfade(crossfade);
+        const { control, pushed } = stubControl({ queued: 0, ready: false });
+        return { rundown, pusher: new PlayoutPusher(rundown, control, stubAudience().audience, config, logger), pushed };
+    }
+
+    it('sizes each stamp from the record that actually follows', async () => {
+        // Three records handed over in one pass, so every stamp but the last has a
+        // successor the order already knows about. The first blends against the second's
+        // intro, the second against the third's.
+        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)]);
+
+        await pusher.reconcile();
+
+        expect(blend(pushed[0]!)).toBe('6');
+        expect(blend(pushed[1]!)).toBe('9');
+    });
+
+    it('stamps zero at the tail of what has been planned', async () => {
+        // Nothing follows the last item, so there is no boundary to size. It has to be
+        // stamped anyway: `persist_override` means an unstamped track inherits.
+        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000)]);
+
+        await pusher.reconcile();
+
+        expect(pushed).toHaveLength(2);
+        expect(blend(pushed[1]!)).toBe('0');
+    });
+
+    it('stamps zero on every boundary of a broadcast that does not blend', async () => {
+        // An album. Its gaps are somebody's decision, and the transport is told so by
+        // the director rather than working it out.
+        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)], false);
+
+        await pusher.reconcile();
+
+        expect(pushed.map(blend)).toEqual(['0', '0', '0']);
+    });
+
+    it('stamps zero next to an unmeasured record without disturbing its neighbours', async () => {
+        // The ordinary state of a station part way through measuring its library: the
+        // boundary either side of an unmeasured record is cold and the rest still blend.
+        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), track('b'), measured('c', 9_000, 30_000)]);
+
+        await pusher.reconcile();
+
+        expect(blend(pushed[0]!)).toBe('0');
+        expect(blend(pushed[1]!)).toBe('0');
+    });
+});

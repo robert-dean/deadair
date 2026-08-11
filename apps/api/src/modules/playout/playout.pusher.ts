@@ -276,7 +276,16 @@ export class PlayoutPusher {
                 // a new order will wake us through onChange.
                 if (!pulled) return;
 
-                const landed = await this.control.push(annotateUri(itemAnnotations(pulled.item, { targetLufs: this.targetLufs() }), pulled.url));
+                // The successor comes off the pull rather than being looked up here: the
+                // rundown is the thing that knows the order, and a blend is sized from the
+                // pair rather than from either record. It is absent at the tail of what has
+                // been planned, which `blendFor` answers as a hard join.
+                const annotations = itemAnnotations(pulled.item, {
+                    targetLufs: this.targetLufs(),
+                    crossfade: this.rundown.crossfade(),
+                    ...(pulled.next === undefined ? {} : { next: pulled.next }),
+                });
+                const landed = await this.control.push(annotateUri(annotations, pulled.url));
 
                 // Armed as the record is handed over, which is the earliest honest moment: the id
                 // exists, the item is committed, and the script waits for that record to actually

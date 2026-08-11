@@ -15,6 +15,7 @@
  * kept pure and unit-tested.
  */
 
+import { blendFor } from './crossfade.js';
 import { gainFor } from './gain.js';
 import type { RundownItem } from './rundown.js';
 
@@ -22,9 +23,19 @@ import type { RundownItem } from './rundown.js';
 export const ITEM_KEY = 'deadair_item';
 
 /** What an item's annotations depend on beyond the item itself. */
-export interface AnnotationLevels {
+export interface AnnotationContext {
     /** Where the station wants its records to sit, in LUFS. See `gain.ts`. */
     targetLufs: number;
+    /** Whether this broadcast blends one record into the next. See `crossfade.ts`. */
+    crossfade: boolean;
+    /**
+     * What the running order says follows this item, if anything does.
+     *
+     * The one thing here that is not a fact about the item being stamped, and it
+     * has to be: a blend is a property of the boundary, so the length cannot be
+     * decided from either record alone.
+     */
+    next?: RundownItem;
 }
 
 /**
@@ -60,7 +71,7 @@ export interface AnnotationLevels {
  * own history of what it was told. It is not the station's: the rundown knows what
  * aired, in order, with ids, and this is a lossy echo of the same thing.
  */
-export function itemAnnotations(item: RundownItem, levels: AnnotationLevels): Record<string, string> {
+export function itemAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
     const artist = item.artists.join(', ');
     return {
         [ITEM_KEY]: item.id,
@@ -68,7 +79,8 @@ export function itemAnnotations(item: RundownItem, levels: AnnotationLevels): Re
         ...(artist ? { artist } : {}),
         ...(item.album ? { album: item.album } : {}),
         ...cueAnnotations(item),
-        ...gainAnnotations(item, levels),
+        ...gainAnnotations(item, context),
+        ...crossAnnotations(item, context),
     };
 }
 
@@ -127,10 +139,35 @@ const seconds = (ms: number): string => String(Math.round(ms) / 1000);
  * Absent for an unmeasured track, for a boost with no headroom to spend, and for
  * a correction too small to hear. See `gainFor`, which decides all three.
  */
-function gainAnnotations(item: RundownItem, { targetLufs }: AnnotationLevels): Record<string, string> {
+function gainAnnotations(item: RundownItem, { targetLufs }: AnnotationContext): Record<string, string> {
     const gainDb = gainFor(item, targetLufs);
 
     return gainDb === undefined ? {} : { liq_amplify: `${gainDb} dB` };
+}
+
+/**
+ * `liq_cross_duration`: how long this record overlaps the one after it.
+ *
+ * Liquidsoap's own name, in seconds, and like the keys above **it does nothing
+ * without the operator in the graph to read it**, meaning a `cross` in
+ * `radio.liq`. Stamped on the OUTGOING item because that is where `cross` reads it: the
+ * override sizes the ending track's own end-of-track buffer. Its VALUE is
+ * decided by the pair, which is why {@link AnnotationContext} has to carry the
+ * successor.
+ *
+ * **Always stamped, including a zero**, which is the one line here that looks
+ * defensive and is load-bearing. `cross` needs `persist_override=true` on 2.4 or
+ * the override is reset before it sizes anything, and the flip side of persist
+ * is that a stamp LINGERS over every later unstamped track. So an item without
+ * one would not be a hard join, it would be a blend by whatever number the last
+ * measured record happened to leave behind.
+ *
+ * That makes this the opposite call from `liq_cue_in` above, which is omitted at
+ * zero. There the default is the same as the value and silence says it; here
+ * silence says "keep the last one".
+ */
+function crossAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
+    return { liq_cross_duration: seconds(blendFor(item, context.next, context)) };
 }
 
 /**

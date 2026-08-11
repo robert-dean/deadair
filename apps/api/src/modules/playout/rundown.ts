@@ -142,6 +142,24 @@ export interface PulledItem {
     url: string;
     /** The cue to arm alongside it, resolved to something the player can fetch. */
     voice?: { url: string; atMs: number };
+    /**
+     * What the running order says comes after it, when anything does.
+     *
+     * Peeked here rather than looked up by the caller because this is the thing
+     * that knows the order, and peeked from the ORDER rather than from the
+     * player's queue: the player is holding items that were handed over earlier,
+     * so asking it what comes next answers a question about the past. The order
+     * knows the successor for every item except the tail of what has been
+     * planned.
+     *
+     * A promise rather than a fact, and the two ways it comes apart are both
+     * ordinary. The successor can be skipped after this (nothing could resolve
+     * its audio), and it can be one the director has not prepared yet, in which
+     * case this is absent even though the order has more to come. Everything
+     * reading it has to have a defined answer for absent; see `crossfade.ts`,
+     * which is the only reader today and treats it as a hard join.
+     */
+    next?: RundownItem;
 }
 
 /**
@@ -490,7 +508,7 @@ export class Rundown {
             // the pusher giving it to the player, and the listener hearing one more record out of
             // a programme the operator has already ended.
             const token = this.epoch.current();
-            const item = this.upcoming().find(candidate => this.stateOf(candidate.id) === 'planned');
+            const item = this.nextPlanned();
             if (!item) break;
 
             // Marked BEFORE the resolve, so nothing offers the same item twice while this one is
@@ -520,8 +538,14 @@ export class Rundown {
             const voice = item.voice === undefined ? undefined : await this.resolveVoice(item.voice);
 
             this.servedAt.set(item.id, Date.now());
+            // Read AFTER `markHanded` above, so this item is no longer the first planned one
+            // and the same question answers with the one behind it. Read after the resolve
+            // too, which is the point: the order can have changed while it was in flight and
+            // the successor that matters is the one it has now.
+            const next = this.nextPlanned();
+
             this.emit();
-            return { item, url, ...(voice === undefined ? {} : { voice }) };
+            return { item, url, ...(voice === undefined ? {} : { voice }), ...(next === undefined ? {} : { next }) };
         }
         this.emit();
         return undefined;
@@ -796,6 +820,20 @@ export class Rundown {
                 const prepared = this.prepared.get(item.id);
                 return prepared === undefined ? [] : [prepared];
             });
+    }
+
+    /**
+     * The next item nobody has been given yet: the one {@link next} hands over,
+     * and, once it has, the one behind it.
+     *
+     * Prepared items only, because `upcoming` is. An item the director has planned
+     * but not resolved yet is invisible here. For the hand-over that is correct,
+     * since there is nothing to give the player. For the successor peek it means a
+     * boundary occasionally reads as the end of the order when it is not, which
+     * costs one cold join and nothing else.
+     */
+    private nextPlanned(): RundownItem | undefined {
+        return this.upcoming().find(candidate => this.stateOf(candidate.id) === 'planned');
     }
 
     /** The ids the player is believed to be holding, in hand-over order. */

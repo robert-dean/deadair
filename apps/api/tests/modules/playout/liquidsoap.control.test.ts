@@ -261,7 +261,9 @@ describe('annotateUri', () => {
 });
 
 /** The station's target, for the cases that are not about levels at all. */
-const LEVELS = { targetLufs: DEFAULT_TARGET_LUFS };
+// No successor and no blending: the boundary annotations are inert, which keeps every
+// test below about the thing it is named for. The blend has its own block at the end.
+const CONTEXT = { targetLufs: DEFAULT_TARGET_LUFS, crossfade: false };
 
 describe('itemAnnotations', () => {
     const item = {
@@ -276,22 +278,28 @@ describe('itemAnnotations', () => {
         // Liquidsoap plays a file it fetched from a URL we handed it, and a Spotify
         // item carries no usable tags. These names are Liquidsoap's own, and
         // output.icecast builds the ICY stream title out of them.
-        expect(itemAnnotations({ ...item, album: 'Windowlicker' }, LEVELS)).toEqual({
+        expect(itemAnnotations({ ...item, album: 'Windowlicker' }, CONTEXT)).toEqual({
             deadair_item: 'item-1',
             title: 'Windowlicker',
             artist: 'Aphex Twin, Someone Else',
             album: 'Windowlicker',
+            // Always present, even at zero. See the blend block below for why.
+            liq_cross_duration: '0',
         });
     });
 
     it('still carries the id, which is the half the app reads back', () => {
-        expect(itemAnnotations(item, LEVELS)[ITEM_KEY]).toBe('item-1');
+        expect(itemAnnotations(item, CONTEXT)[ITEM_KEY]).toBe('item-1');
     });
 
     it('omits what it does not know rather than sending it blank', () => {
         // An `artist=""` overwrites the file's own tags with nothing, and for a local
         // library those tags are better than silence on the mount.
-        expect(itemAnnotations({ ...item, artists: [] }, LEVELS)).toEqual({ deadair_item: 'item-1', title: 'Windowlicker' });
+        expect(itemAnnotations({ ...item, artists: [] }, CONTEXT)).toEqual({
+            deadair_item: 'item-1',
+            title: 'Windowlicker',
+            liq_cross_duration: '0',
+        });
     });
 });
 
@@ -302,7 +310,7 @@ describe('itemAnnotations: cue points', () => {
     it('stamps the span the player should read, in seconds', () => {
         // Milliseconds everywhere in the app; Liquidsoap takes a float in seconds, and
         // this is the only place that conversion happens.
-        const stamped = itemAnnotations(item({ cueInMs: 180, cueOutMs: 213_600 }), LEVELS);
+        const stamped = itemAnnotations(item({ cueInMs: 180, cueOutMs: 213_600 }), CONTEXT);
 
         expect(stamped.liq_cue_in).toBe('0.18');
         expect(stamped.liq_cue_out).toBe('213.6');
@@ -311,7 +319,7 @@ describe('itemAnnotations: cue points', () => {
     it('leaves cue_in out when the record starts at zero', () => {
         // It is the default, so sending it says nothing -- and leaving it out keeps a
         // legitimately untrimmed record from looking measured in a queue reading.
-        const stamped = itemAnnotations(item({ cueInMs: 0, cueOutMs: 213_600 }), LEVELS);
+        const stamped = itemAnnotations(item({ cueInMs: 0, cueOutMs: 213_600 }), CONTEXT);
 
         expect(stamped).not.toHaveProperty('liq_cue_in');
         expect(stamped.liq_cue_out).toBe('213.6');
@@ -319,27 +327,27 @@ describe('itemAnnotations: cue points', () => {
 
     it('stamps nothing for an unmeasured track', () => {
         // The ordinary state. An unmeasured track has to play.
-        const stamped = itemAnnotations(item({}), LEVELS);
+        const stamped = itemAnnotations(item({}), CONTEXT);
 
         expect(stamped).not.toHaveProperty('liq_cue_in');
         expect(stamped).not.toHaveProperty('liq_cue_out');
     });
 
     it('stamps nothing when only one of the pair is present', () => {
-        expect(itemAnnotations(item({ cueInMs: 180 }), LEVELS)).not.toHaveProperty('liq_cue_in');
-        expect(itemAnnotations(item({ cueOutMs: 213_600 }), LEVELS)).not.toHaveProperty('liq_cue_out');
+        expect(itemAnnotations(item({ cueInMs: 180 }), CONTEXT)).not.toHaveProperty('liq_cue_in');
+        expect(itemAnnotations(item({ cueOutMs: 213_600 }), CONTEXT)).not.toHaveProperty('liq_cue_out');
     });
 
     it('stamps nothing for a span that does not run forwards', () => {
         // The player would produce nothing for it, which is silence on air rather than
         // an error anybody sees.
-        expect(itemAnnotations(item({ cueInMs: 9_000, cueOutMs: 9_000 }), LEVELS)).not.toHaveProperty('liq_cue_out');
-        expect(itemAnnotations(item({ cueInMs: 9_000, cueOutMs: 8_000 }), LEVELS)).not.toHaveProperty('liq_cue_out');
-        expect(itemAnnotations(item({ cueInMs: -1, cueOutMs: 8_000 }), LEVELS)).not.toHaveProperty('liq_cue_out');
+        expect(itemAnnotations(item({ cueInMs: 9_000, cueOutMs: 9_000 }), CONTEXT)).not.toHaveProperty('liq_cue_out');
+        expect(itemAnnotations(item({ cueInMs: 9_000, cueOutMs: 8_000 }), CONTEXT)).not.toHaveProperty('liq_cue_out');
+        expect(itemAnnotations(item({ cueInMs: -1, cueOutMs: 8_000 }), CONTEXT)).not.toHaveProperty('liq_cue_out');
     });
 
     it('survives the whole annotate round trip', () => {
-        const uri = annotateUri(itemAnnotations(item({ cueInMs: 180, cueOutMs: 213_600 }), LEVELS), 'http://shim/track');
+        const uri = annotateUri(itemAnnotations(item({ cueInMs: 180, cueOutMs: 213_600 }), CONTEXT), 'http://shim/track');
 
         expect(uri).toContain('liq_cue_in="0.18"');
         expect(uri).toContain('liq_cue_out="213.6"');
@@ -356,39 +364,101 @@ describe('itemAnnotations: gain', () => {
         // the value as `sscanf " %f dB"` and falls back to `float_of_string`, so a bare
         // "-3" is not a quiet record: it is a linear factor of minus three, which is the
         // audio inverted and amplified tenfold.
-        const stamped = itemAnnotations(item({ loudnessLufs: -19, truePeakDb: -6 }), LEVELS);
+        const stamped = itemAnnotations(item({ loudnessLufs: -19, truePeakDb: -6 }), CONTEXT);
 
         expect(stamped.liq_amplify).toBe('3 dB');
-        expect(itemAnnotations(item({ loudnessLufs: -11, truePeakDb: -0.5 }), LEVELS).liq_amplify).toBe('-5 dB');
+        expect(itemAnnotations(item({ loudnessLufs: -11, truePeakDb: -0.5 }), CONTEXT).liq_amplify).toBe('-5 dB');
     });
 
     it('stamps a tenth of a decibel readably', () => {
-        expect(itemAnnotations(item({ loudnessLufs: -18.4, truePeakDb: -6 }), LEVELS).liq_amplify).toBe('2.4 dB');
+        expect(itemAnnotations(item({ loudnessLufs: -18.4, truePeakDb: -6 }), CONTEXT).liq_amplify).toBe('2.4 dB');
     });
 
     it('stamps nothing for an unmeasured track', () => {
         // The ordinary state, and the one that must never look like a fault.
-        expect(itemAnnotations(item({}), LEVELS)).not.toHaveProperty('liq_amplify');
+        expect(itemAnnotations(item({}), CONTEXT)).not.toHaveProperty('liq_amplify');
     });
 
     it('stamps nothing for a record already at the target', () => {
-        expect(itemAnnotations(item({ loudnessLufs: -16.2, truePeakDb: -3 }), LEVELS)).not.toHaveProperty('liq_amplify');
+        expect(itemAnnotations(item({ loudnessLufs: -16.2, truePeakDb: -3 }), CONTEXT)).not.toHaveProperty('liq_amplify');
     });
 
     it('follows the station target rather than a constant', () => {
         // Read per hand-over from `deadair.settings`, so this is what an operator moving
         // it actually changes.
-        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -14 }).liq_amplify).toBe('6 dB');
-        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -23 }).liq_amplify).toBe('-3 dB');
+        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -14, crossfade: false }).liq_amplify).toBe('6 dB');
+        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -23, crossfade: false }).liq_amplify).toBe('-3 dB');
     });
 
     it('rides the annotate uri alongside the cue points', () => {
         const uri = annotateUri(
-            itemAnnotations(item({ cueInMs: 180, cueOutMs: 213_600, loudnessLufs: -19, truePeakDb: -6 }), LEVELS),
+            itemAnnotations(item({ cueInMs: 180, cueOutMs: 213_600, loudnessLufs: -19, truePeakDb: -6 }), CONTEXT),
             'http://shim/track',
         );
 
         expect(uri).toContain('liq_amplify="3 dB"');
         expect(uri).toContain('liq_cue_out="213.6"');
+    });
+});
+
+describe('itemAnnotations: the blend', () => {
+    const measured = (id: string, extra: Record<string, unknown> = {}) =>
+        ({
+            id,
+            pluginId: 'deadair.spotify',
+            externalId: 'trk_1',
+            title: 'A',
+            artists: ['One'],
+            cueInMs: 0,
+            introEndMs: 8_000,
+            outroStartMs: 190_000,
+            cueOutMs: 200_000,
+            ...extra,
+        }) as never;
+
+    it('stamps the overlap in seconds, on the record that is ending', () => {
+        // `cross` reads the override off the track whose end it is buffering, so the
+        // duration for a boundary lives on the OUTGOING item -- even though its value
+        // came from measuring both.
+        const stamped = itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true, next: measured('item-2') });
+
+        // min(outro 10s, intro 8s).
+        expect(stamped.liq_cross_duration).toBe('8');
+    });
+
+    it('always stamps, even at zero, because the override persists', () => {
+        // The one line in `annotate.ts` that looks defensive and is not. `cross` needs
+        // `persist_override=true` on 2.4, and the flip side is that a stamp lingers over
+        // every later unstamped track -- so an item without one would not be a hard join,
+        // it would be a blend by whatever the last measured record left behind.
+        expect(itemAnnotations(measured('item-1'), CONTEXT).liq_cross_duration).toBe('0');
+        expect(itemAnnotations(measured('item-1', { cueInMs: undefined }), CONTEXT).liq_cross_duration).toBe('0');
+    });
+
+    it('does not blend when the broadcast does not', () => {
+        // An album, or a sequenced setlist. Its gaps are somebody's decision.
+        const context = { targetLufs: DEFAULT_TARGET_LUFS, crossfade: false, next: measured('item-2') };
+
+        expect(itemAnnotations(measured('item-1'), context).liq_cross_duration).toBe('0');
+    });
+
+    it('does not blend into nothing', () => {
+        // The tail of what has been planned. Nothing follows, so there is no boundary.
+        expect(itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true }).liq_cross_duration).toBe('0');
+    });
+
+    it('rides the annotate uri alongside everything else', () => {
+        const uri = annotateUri(
+            itemAnnotations(measured('item-1', { loudnessLufs: -19, truePeakDb: -6 }), {
+                targetLufs: DEFAULT_TARGET_LUFS,
+                crossfade: true,
+                next: measured('item-2'),
+            }),
+            'http://shim/track',
+        );
+
+        expect(uri).toContain('liq_cross_duration="8"');
+        expect(uri).toContain('liq_cue_out="200"');
+        expect(uri).toContain('liq_amplify="3 dB"');
     });
 });

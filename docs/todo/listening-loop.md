@@ -67,6 +67,11 @@ Related and already written down: `from-v1.md` covers the previous station's pus
 `stream-formats.md` covers the mounts this tree does not serve. A phone on a mobile connection is
 the first real argument for an Opus mount that file makes theoretically.
 
+A hardware player on the home network is the same piece arriving from the other direction: it needs
+no edge and no TLS, and it is listenable today by adding the mount as a custom stream URL. What it
+does not get is a display worth looking at, which is its own problem with its own file —
+[now-playing-displays.md](now-playing-displays.md).
+
 ## 2. Signal in
 
 Fully scoped already in [spotify-listening-profile.md](spotify-listening-profile.md): the two ways

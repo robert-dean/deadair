@@ -112,8 +112,30 @@ source crosses into the next track at output time `(its start - L)`, and the ove
 begins at that same instant. The counter starts exactly as the record becomes audible. A version that
 added the blend to the due time put a six second talk-up at 14.5 seconds.
 
-**The transition in both is COPIED from `radio.liq` between two marker comments, and nothing enforces
-that.** Re-copy it when the real one changes, or the checks quietly stop testing the station.
+`liveboundary.check.py` is the third, and it measures the real mount rather than a render: capture
+the stream with a listener connected (the connection is what holds the audience gate open), log
+`GET /nowplaying` alongside it, and it reports the level across each join and how abruptly the
+spectrum changed there. Its own docstring carries the capture commands.
+
+It answers less than the synthetic checks and answers it about real records, so the two are
+complements rather than alternatives. What it can settle: whether a join has dead air in it, and
+whether the change from one record to the next happened in a single instant. What it cannot: how long
+a blend was. **Two records do not separate the way two tones do** — an earlier version tried to unmix
+each frame against spectral templates from either side, and reported a 23 second "transition" between
+two records that had cut straight from one to the other, because two broadband rock records resemble
+each other's templates about as much as their own.
+
+**A hard cut with a quiet tail before it is the signature of an unmeasured track**, not of a broken
+crossfade. No analysis row means no `liq_cue_out` to trim the fade-out and no blend to ride over it,
+which is correct on both counts. Check that before suspecting the code:
+
+```
+docker compose exec -T db psql -U postgres -d deadair -c "select count(*) filter (where complete and schema_version >= 1) trusted, count(*) total from deadair.track_analysis"
+```
+
+**The transition in both liq harnesses is COPIED from `radio.liq` between two marker comments, and
+nothing enforces that.** Re-copy it when the real one changes, or the checks quietly stop testing the
+station.
 
 One thing it costs: `playout_queue.remaining()` is read below the `cross`, so the `remainingMs` in a
 reading runs ahead of the listener by whatever is buffered. It is display-only and nothing schedules

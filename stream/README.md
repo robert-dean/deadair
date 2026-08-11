@@ -23,6 +23,14 @@ which doesn't fire across Docker Desktop for Mac's bind mount, so no segment eve
 `radio.default.env` dev default adopts it on the restart `config-watch.sh` triggers when the
 app renders one (see below).
 
+Each record is **trimmed** before it is levelled: `cue_cut` sits between `playout_queue` and
+`normalize`, acting on the `liq_cue_in` / `liq_cue_out` the app stamps on the `annotate:` uri from
+`deadair.track_analysis`. Those keys do nothing without that operator, which is worth knowing because
+the failure is silent — the annotations are accepted and ignored. A track the station has not
+measured yet passes through untouched, which is the ordinary case. It sits below `normalize` so the
+level follower never sees the leading silence, and below where a future `cross` would go, since
+`cross` presents its output as one never-ending track.
+
 The **duck** is ours, not `smooth_add`'s: `radio.liq` ramps a gain ref on the bed while the
 harbor source is ready, and `add`s the voice on top. `smooth_add` fades the bed down but never
 back up ([#3714](https://github.com/savonet/liquidsoap/issues/3714)). Depth and ramp are

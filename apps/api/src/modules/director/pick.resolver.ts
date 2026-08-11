@@ -1,9 +1,34 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { AnalysisRepository, type StoredAnalysis } from '#modules/analysis/analysis.repository.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import type { TrackPick } from './set.generator.js';
+
+/**
+ * The measured cue points as an item carries them, or nothing.
+ *
+ * Snapshotted onto the item rather than read at hand-over, which is the same
+ * call `durationMs` and `artworkUrl` already make. The consequence is stated on
+ * `RundownItem`: a track measured after it enters a running order airs untrimmed
+ * until that order is rebuilt, which is what the station does today anyway.
+ *
+ * The numbers are validated once more here even though the repository filtered
+ * the rows, because `data` is a jsonb blob written by a plugin: the host stores
+ * it unread on purpose, so this is the first place anything looks inside it.
+ */
+function cuePoints(analysis: StoredAnalysis | undefined): { cueInMs?: number; cueOutMs?: number } {
+    const cueInMs = analysis?.data.cueIn;
+    const cueOutMs = analysis?.data.cueOut;
+
+    if (typeof cueInMs !== 'number' || typeof cueOutMs !== 'number') return {};
+    if (!Number.isFinite(cueInMs) || !Number.isFinite(cueOutMs)) return {};
+    if (cueInMs < 0 || cueOutMs <= cueInMs) return {};
+
+    return { cueInMs, cueOutMs };
+}
 
 /**
  * Turning a chosen track into something the station can actually air.
@@ -30,6 +55,7 @@ export class PickResolver {
     constructor(
         private readonly candidates: CandidatesRepository,
         private readonly tracks: TracksRepository,
+        private readonly analysis: AnalysisRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -50,7 +76,16 @@ export class PickResolver {
         if (identified.length === 0) return [];
 
         const trackIds = identified.map(entry => entry.trackId);
-        const [bindings, metadata] = await Promise.all([this.candidates.bindingsFor(trackIds, preference), this.tracks.findByIds(trackIds)]);
+        // A third batch query alongside the two that were already here, so a refill of
+        // fifteen tracks still costs three round trips rather than three per track.
+        // `trustedAnalysisFor` has already dropped anything not worth acting on -- a
+        // failure, a partial file, an older schema version -- so a miss here and an
+        // unmeasured track are the same thing to the code below, which is the point.
+        const [bindings, metadata, measured] = await Promise.all([
+            this.candidates.bindingsFor(trackIds, preference),
+            this.tracks.findByIds(trackIds),
+            this.analysis.trustedAnalysisFor(trackIds, ANALYSIS_SCHEMA_VERSION),
+        ]);
 
         const resolved: RundownTrack[] = [];
         for (const { pick, trackId } of identified) {
@@ -76,6 +111,7 @@ export class PickResolver {
                 ...(row?.album == null ? {} : { album: row.album }),
                 ...(row?.artworkUrl == null ? {} : { artworkUrl: row.artworkUrl }),
                 ...(row?.year == null ? {} : { year: row.year }),
+                ...cuePoints(measured.get(trackId)),
                 trackId,
             });
         }

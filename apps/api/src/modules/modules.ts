@@ -65,21 +65,26 @@ export const modules: ServerKitModule[] = [
     // After PlayoutModule: the public now-playing answer reads the same singleton
     // rundown the transport does. It owns nothing and starts nothing.
     NowPlayingModule,
+    // After PluginsModule for the same reason as EnrichmentModule, and after
+    // PlayoutModule as well: it measures a track by fetching the same audio the
+    // transport would play, through that module's `PluginTrackResolver`. A plugin
+    // cannot ask another plugin for a stream URL, so resolving one is the host's
+    // job and this borrows the resolver that already does it.
+    //
+    // Before DirectorModule, which reads the measurements back the other way:
+    // `PickResolver` stamps a track's cue points onto the item it builds, so the
+    // silence at the head and tail of a record is trimmed before the player ever
+    // sees it.
+    AnalysisModule,
     // After PlayoutModule, CatalogModule and PlaylistsModule: it drives the
     // singleton rundown, and its lineups are built from catalog tracks and from
-    // playlists read through the plugin host.
+    // playlists read through the plugin host. Also after AnalysisModule, above.
     DirectorModule,
     // After PluginsModule for the same reason as PlaylistsModule: it fans a
     // track out across every enrichment plugin through the registry and the
     // invoker. It also writes catalog rows, but through its own repository, so
     // it does not need CatalogModule.
     EnrichmentModule,
-    // After PluginsModule for the same reason as EnrichmentModule, and after
-    // PlayoutModule as well: it measures a track by fetching the same audio the
-    // transport would play, through that module's `PluginTrackResolver`. A plugin
-    // cannot ask another plugin for a stream URL, so resolving one is the host's
-    // job and this borrows the resolver that already does it.
-    AnalysisModule,
     // Must stay last: its shutdown hook closes the process-level RotatingLogStore,
     // and every other module's shutdown logging has to be flushed through
     // FileTeeLogger before that happens.

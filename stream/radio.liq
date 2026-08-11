@@ -303,7 +303,35 @@ def playout_aired(m) =
 end
 playout_queue.on_track(synchronous=false, playout_aired)
 
-playout_bed = normalize(target=-16., playout_queue)
+# Trim the dead air off the head and tail of each record.
+#
+# The app stamps `liq_cue_in` / `liq_cue_out` on the `annotate:` uri from the measurements in
+# `deadair.track_analysis` (see apps/api/src/modules/playout/annotate.ts). **Those keys do nothing on
+# their own** — Liquidsoap only acts on them where `cue_cut` sits in the graph, so stamping without
+# this operator is a silent no-op, which is exactly how it shipped the first time.
+#
+# Placement matters in three ways:
+#
+#   - BELOW `normalize`, so the level follower never sees the leading silence and does not spend the
+#     first second of every record recovering from it.
+#   - ABOVE the two `on_track` handlers, which stay attached to `playout_queue` itself. They report
+#     which item started, and that is a fact about the queue rather than about where the audio was
+#     cut, so they must not move.
+#   - BELOW anything a crossfade would later add. `cross` presents its output as one never-ending
+#     track, so a `track_sensitive` operator above it never sees another boundary — see
+#     docs/todo/crossfades.md. This is the right side of that line.
+#
+# An unstamped track passes through untouched, which is the ordinary case: a track the station has
+# not measured yet plays exactly as it did before.
+#
+# One consequence worth knowing, because it moves a clock that DJ breaks are timed against:
+# `on_air_elapsed` counts from the track boundary, and with the leading silence gone the boundary and
+# the first audible sound now coincide. A voice cue against a record with a long lead-in therefore
+# fires closer to where it was meant to. That is a correction rather than a regression, but it IS a
+# change, and it is the sort that can only be judged by listening.
+playout_bed = cue_cut(playout_queue)
+
+playout_bed = normalize(target=-16., playout_bed)
 
 # ── Playout control endpoints ────────────────────────────────────────────────────────────────
 # Registered on the harbor port, which carries nothing else, and gated on

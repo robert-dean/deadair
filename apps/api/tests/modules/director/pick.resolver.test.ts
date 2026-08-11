@@ -10,6 +10,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import { PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import type { CandidatesRepository, TrackBinding } from '../../../src/modules/director/candidates.repository.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
+import type { AnalysisRepository, StoredAnalysis } from '../../../src/modules/analysis/analysis.repository.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -17,6 +18,8 @@ interface Options {
     bindings?: Record<string, TrackBinding>;
     metadata?: Record<string, { title: string; credit: string; album?: string; year?: number; artworkUrl?: string }>;
     byName?: Record<string, string>;
+    /** Trusted cue points per track id. The repository has already dropped anything not worth acting on. */
+    analysis?: Record<string, { cueIn: number; cueOut: number }>;
 }
 
 const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: number): TrackBinding => ({
@@ -50,7 +53,18 @@ function build(options: Options = {}) {
         }),
     } as unknown as TracksRepository;
 
-    return { resolver: new PickResolver(candidates, tracks, logger), candidates, tracks };
+    const analysis = {
+        trustedAnalysisFor: vi.fn(async (ids: readonly string[]) => {
+            const found = new Map<string, StoredAnalysis>();
+            for (const id of ids) {
+                const measured = options.analysis?.[id];
+                if (measured) found.set(id, { trackId: id, schemaVersion: 1, data: measured } as StoredAnalysis);
+            }
+            return found;
+        }),
+    } as unknown as AnalysisRepository;
+
+    return { resolver: new PickResolver(candidates, tracks, analysis, logger), candidates, tracks, analysis };
 }
 
 describe('PickResolver', () => {
@@ -184,5 +198,74 @@ describe('PickResolver', () => {
 
         expect(await resolver.resolve([])).toEqual([]);
         expect(candidates.bindingsFor).not.toHaveBeenCalled();
+    });
+});
+
+describe('PickResolver cue points', () => {
+    it('snapshots the measured cue points onto the item', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 180, cueOut: 213_600 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).toMatchObject({ cueInMs: 180, cueOutMs: 213_600 });
+    });
+
+    it('leaves an unmeasured track alone rather than inventing a span', async () => {
+        // The ordinary state, and it has to stay ordinary: an unmeasured track plays.
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).not.toHaveProperty('cueInMs');
+        expect(resolved).not.toHaveProperty('cueOutMs');
+    });
+
+    it('asks for measurements once for the whole batch', async () => {
+        // Three round trips for a refill of fifteen, not three per track.
+        const { resolver, analysis } = build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' }, 'track-2': { title: 'B', credit: 'Two' } },
+        });
+
+        await resolver.resolve([
+            { title: 'A', artist: 'One', trackId: 'track-1' },
+            { title: 'B', artist: 'Two', trackId: 'track-2' },
+        ]);
+
+        expect(analysis.trustedAnalysisFor).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses a span that runs backwards, which would air as silence', async () => {
+        // `data` is a jsonb blob a plugin wrote and the host stores unread, so this is
+        // the first place anything looks inside it. A cue_out at or before cue_in makes
+        // the player produce nothing at all.
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 9_000, cueOut: 9_000 } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).not.toHaveProperty('cueInMs');
+    });
+
+    it('refuses values that are not finite numbers', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            analysis: { 'track-1': { cueIn: 0, cueOut: Number.POSITIVE_INFINITY } },
+        });
+
+        const [resolved] = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).not.toHaveProperty('cueOutMs');
     });
 });

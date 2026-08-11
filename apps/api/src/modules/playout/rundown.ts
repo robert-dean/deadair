@@ -89,6 +89,25 @@ export interface RundownItem {
      * one at a time.
      */
     voice?: { segmentId: string; atMs: number };
+
+    /**
+     * Where the audio actually starts and stops in the file, in milliseconds.
+     *
+     * A SNAPSHOT taken when the item was resolved, exactly like `durationMs` and
+     * `artworkUrl` beside it, rather than something read at hand-over. The
+     * measurement lives in `deadair.track_analysis` and this is a copy of it, so
+     * a track measured after it entered the running order airs untrimmed until
+     * the order is rebuilt. That is the ordinary case and not worth solving: a
+     * lineup is consumed rather than kept, and an untrimmed record is what the
+     * station does today anyway.
+     *
+     * Both are absent together or present together, and absent is ordinary — an
+     * unmeasured track, an incomplete measurement, or one from a schema version
+     * this station no longer reads. Nothing downstream may treat their absence
+     * as a fault.
+     */
+    cueInMs?: number;
+    cueOutMs?: number;
 }
 
 /** An item handed over, with the URL the player was told to fetch. */

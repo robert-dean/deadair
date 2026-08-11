@@ -290,3 +290,55 @@ describe('itemAnnotations', () => {
         expect(itemAnnotations({ ...item, artists: [] })).toEqual({ deadair_item: 'item-1', title: 'Windowlicker' });
     });
 });
+
+describe('itemAnnotations: cue points', () => {
+    const item = (extra: Record<string, unknown>) =>
+        ({ id: 'item-1', pluginId: 'deadair.spotify', externalId: 'trk_1', title: 'A', artists: ['One'], ...extra }) as never;
+
+    it('stamps the span the player should read, in seconds', () => {
+        // Milliseconds everywhere in the app; Liquidsoap takes a float in seconds, and
+        // this is the only place that conversion happens.
+        const stamped = itemAnnotations(item({ cueInMs: 180, cueOutMs: 213_600 }));
+
+        expect(stamped.liq_cue_in).toBe('0.18');
+        expect(stamped.liq_cue_out).toBe('213.6');
+    });
+
+    it('leaves cue_in out when the record starts at zero', () => {
+        // It is the default, so sending it says nothing -- and leaving it out keeps a
+        // legitimately untrimmed record from looking measured in a queue reading.
+        const stamped = itemAnnotations(item({ cueInMs: 0, cueOutMs: 213_600 }));
+
+        expect(stamped).not.toHaveProperty('liq_cue_in');
+        expect(stamped.liq_cue_out).toBe('213.6');
+    });
+
+    it('stamps nothing for an unmeasured track', () => {
+        // The ordinary state. An unmeasured track has to play.
+        const stamped = itemAnnotations(item({}));
+
+        expect(stamped).not.toHaveProperty('liq_cue_in');
+        expect(stamped).not.toHaveProperty('liq_cue_out');
+    });
+
+    it('stamps nothing when only one of the pair is present', () => {
+        expect(itemAnnotations(item({ cueInMs: 180 }))).not.toHaveProperty('liq_cue_in');
+        expect(itemAnnotations(item({ cueOutMs: 213_600 }))).not.toHaveProperty('liq_cue_out');
+    });
+
+    it('stamps nothing for a span that does not run forwards', () => {
+        // The player would produce nothing for it, which is silence on air rather than
+        // an error anybody sees.
+        expect(itemAnnotations(item({ cueInMs: 9_000, cueOutMs: 9_000 }))).not.toHaveProperty('liq_cue_out');
+        expect(itemAnnotations(item({ cueInMs: 9_000, cueOutMs: 8_000 }))).not.toHaveProperty('liq_cue_out');
+        expect(itemAnnotations(item({ cueInMs: -1, cueOutMs: 8_000 }))).not.toHaveProperty('liq_cue_out');
+    });
+
+    it('survives the whole annotate round trip', () => {
+        const uri = annotateUri(itemAnnotations(item({ cueInMs: 180, cueOutMs: 213_600 })), 'http://shim/track');
+
+        expect(uri).toContain('liq_cue_in="0.18"');
+        expect(uri).toContain('liq_cue_out="213.6"');
+        expect(uri.endsWith(':http://shim/track')).toBe(true);
+    });
+});

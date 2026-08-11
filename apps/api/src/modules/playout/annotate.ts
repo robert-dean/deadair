@@ -60,8 +60,46 @@ export function itemAnnotations(item: RundownItem): Record<string, string> {
         ...(item.title ? { title: item.title } : {}),
         ...(artist ? { artist } : {}),
         ...(item.album ? { album: item.album } : {}),
+        ...cueAnnotations(item),
     };
 }
+
+/**
+ * `liq_cue_in` / `liq_cue_out`: where the player should start and stop reading
+ * the file.
+ *
+ * Liquidsoap's own annotation names, in SECONDS, which is the one conversion in
+ * this file — everything the app holds is integer milliseconds and the player
+ * takes a float. They trim the silence off the head and tail of a record, which
+ * is the first audible thing the measurement in `deadair.track_analysis` buys and
+ * needs no crossfade to be worth having: it changes where one item starts and
+ * stops rather than how two of them overlap.
+ *
+ * **Stamped only when both are present and sane, and silently not otherwise.**
+ * An unmeasured track has to play, so every rejection here is an ordinary state
+ * rather than a fault: no measurement, one without the other, or a pair that
+ * does not describe a forward span. That last check is the one worth keeping —
+ * a `cue_out` at or before `cue_in` is a track the player would produce nothing
+ * for, which is silence on air rather than an error anybody sees.
+ *
+ * `cue_in` at zero is deliberately omitted rather than sent as `0`. It is the
+ * default, so sending it says nothing, and leaving it out keeps a legitimately
+ * untrimmed record from looking like a measured one in a queue reading.
+ */
+function cueAnnotations(item: RundownItem): Record<string, string> {
+    const { cueInMs, cueOutMs } = item;
+    if (cueInMs === undefined || cueOutMs === undefined) return {};
+    if (!Number.isFinite(cueInMs) || !Number.isFinite(cueOutMs)) return {};
+    if (cueInMs < 0 || cueOutMs <= cueInMs) return {};
+
+    return {
+        ...(cueInMs > 0 ? { liq_cue_in: seconds(cueInMs) } : {}),
+        liq_cue_out: seconds(cueOutMs),
+    };
+}
+
+/** Milliseconds as the seconds Liquidsoap expects, without a trailing `.000`. */
+const seconds = (ms: number): string => String(Math.round(ms) / 1000);
 
 /**
  * Wrap a uri in `annotate:key="value",...:uri`.

@@ -23,9 +23,10 @@ program communicating over HTTP is not the same as linking one of those into the
 container is ever "simplified" back into app code, that is the thing being given up, and it will not
 be visible in the diff.
 
-Today's implementation needs neither: cue points come from an RMS envelope over decoded samples, so
-the only dependencies are a decoder and an array library. The copyleft question arrives with the beat
-layer, which is precisely when this boundary starts paying for itself.
+Today's implementation needs neither: cue points come from a band-limited RMS envelope and loudness
+from a published filter, so the dependencies are a decoder and two permissively licensed array
+libraries. The copyleft question arrives with the beat layer, which is precisely when this boundary
+starts paying for itself.
 
 ## The contract
 
@@ -63,7 +64,11 @@ reason to write rows nothing can read.
     "cueIn": 180,
     "introEnd": 12400,
     "outroStart": 198200,
-    "cueOut": 213600
+    "cueOut": 213600,
+
+    "integratedLufs": -8.4,   // gated programme loudness, BS.1770
+    "truePeakDb": 1.2,        // oversampled; legitimately above 0
+    "samplePeakDb": -0.1
   }
 }
 ```
@@ -71,6 +76,10 @@ reason to write rows nothing can read.
 Every offset in `data` is absolute, into the file, in integer milliseconds — `cueOut` included.
 Storing it relative to `cueIn` is the obvious-looking choice and is wrong: everything downstream seeks
 in file time, so a relative figure has to be re-based at every read and eventually one read is not.
+
+The three loudness fields are **optional and omitted rather than floored**. A silent or near-silent
+track has no loudness, and the alternative to leaving it out is a value like −80 that a caller would
+then "correct" by fifty decibels. Absent means no opinion, which every consumer already handles.
 
 `data` is stored by the host as an opaque blob under `schemaVersion`. That is what lets a later
 version add a tempo, a downbeat grid or a vocal curve without touching the plugin, the host or the
@@ -129,6 +138,33 @@ From that envelope: a reference level is taken as a high percentile inside the s
 the last moment it was still there. A record that ends cold has its last full moment near the end and
 so a short outro; one that fades has it early and a long one. No constant to tune per record, and no
 classifier.
+
+## How loudness is measured
+
+To ITU-R BS.1770-4 / EBU R128: K-weighting, 400 ms blocks at 75 % overlap, an absolute gate at
+−70 LUFS and a relative gate 10 LU below the ungated mean. `truePeakDb` is 4× oversampled, because
+the reconstructed waveform between two samples routinely exceeds both of them by around a decibel —
+which is exactly the margin a boost has to respect, and the reason sample peak alone is not enough.
+
+The decode happens at **48 kHz** because that is the rate BS.1770 publishes its filter coefficients
+at. Nothing else here needs it, but re-deriving those coefficients for a lower rate is the step most
+likely to be quietly wrong, and decoding twice would cost more than the extra samples do.
+
+Two facts worth keeping, because both look like bugs when you meet them:
+
+- **The calibration frequency is 997 Hz, not 1000.** The K-weighting curve's gain at 997 Hz is
+  +0.691 dB, which cancels the −0.691 offset in the loudness equation exactly — so at that one
+  frequency, LUFS is simply RMS in dBFS. At 1000 Hz the curve is already +0.698 dB, so a test written
+  there reads 0.7 LU high and looks like a broken implementation.
+- **A true peak above 0 dBTP is real, not a clamping failure.** It means the master overshoots on
+  playback, which is the thing worth knowing before adding gain to it.
+
+Both numbers agree with ffmpeg's own independent `ebur128` filter to within 0.03 LU on a test signal,
+which is the cheapest available cross-check and worth repeating after any change here:
+
+```bash
+ffmpeg -nostdin -hide_banner -i track.mp3 -filter_complex ebur128=peak=true -f null -
+```
 
 ## Configuration
 

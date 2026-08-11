@@ -22,7 +22,7 @@ WORKDIR /srv
 COPY analysis/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY analysis/measure.py analysis/app.py ./
+COPY analysis/measure.py analysis/loudness.py analysis/app.py ./
 
 # Non-root: this service fetches URLs it was handed and runs a decoder over what
 # comes back, which is the one process here that touches bytes from outside.

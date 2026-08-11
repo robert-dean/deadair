@@ -17,7 +17,7 @@ import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
 import type { SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
 import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/llm.js';
-import type { AnalysisRef, TrackAnalysis, TrackCuePoints } from '../src/capabilities/analysis.js';
+import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness } from '../src/capabilities/analysis.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -230,6 +230,13 @@ export const trackCuePointsFixture: TrackCuePoints = {
     cueOut: 213_600,
 };
 
+/** A loud modern master: already near its ceiling, and overshooting between samples. */
+export const trackLoudnessFixture: TrackLoudness = {
+    integratedLufs: -8.4,
+    truePeakDb: 1.2,
+    samplePeakDb: -0.1,
+};
+
 /**
  * A v2-shaped payload rather than a v1 one, deliberately.
  *
@@ -247,6 +254,7 @@ export const trackAnalysisFixture: TrackAnalysis = {
     analyzer: 'deadair-analysis/0.2.1',
     data: {
         ...trackCuePointsFixture,
+        ...trackLoudnessFixture,
         bpm: 126.02,
         beatConfidence: 0.71,
         downbeats: [1840, 3744, 5648, 7552],

@@ -3,6 +3,11 @@
 **Written:** 2026-08-11, after reading how working desktop players do beat-aware transitions and
 finding that the interesting half of it is not the transition.
 **State of the tree:** nothing measures a track. No table, no job, no plugin.
+**Updated 2026-08-11:** option 1 below is being built. `analysis/` is a Python sidecar answering
+`GET /health` and `POST /analyze` over HTTP, `plugins/analyzer/` is the adapter, and the four cue
+points come from an RMS envelope over ffmpeg-decoded samples. The beat layer is untouched, and so is
+the licence question it carries. The loudness section at the end was added against that sidecar and
+names its files; verify them before building.
 
 Three deferred features now depend on measured audio, and each of them was scoped assuming its own
 answer to where the numbers come from. They should share one:
@@ -91,6 +96,81 @@ are the difference between a cache that can be trusted and one that cannot:
 
 Measurement is expensive and permanent, so it is written once and read forever, which makes the
 staleness rules matter more than the write path.
+
+## Loudness, which is the cheapest layer here and is not part of the beat one
+
+**Added 2026-08-11**, after checking whether a commercial audio SDK was worth licensing for any of
+this. It was not, for reasons that are not worth a file: it is a native library to link into a
+process, and every place it could go is already occupied by Liquidsoap or by ffmpeg. The one thing
+the survey turned up is that the loudness measurement the station has already specified is a few
+lines away and nobody had noticed.
+
+[station-intelligence.md](station-intelligence.md) §4 decides per-track gain and says to prefer the
+file's own ReplayGain tags, then "fall back to a measured figure". **Nothing measures that figure.**
+This is it, and it belongs here rather than in §4 because it comes off the same decode as everything
+above:
+
+| Field | What it is | Who needs it |
+| --- | --- | --- |
+| `lufs_integrated` | BS.1770 integrated loudness over the whole track | §4's gain, wherever no ReplayGain tag exists |
+| `true_peak_dbtp` | true peak in dBTP, oversampled | §4's "respect peak headroom", which is otherwise a guess |
+| `loudness_range_lu` | LRA, optional | nothing yet; it is free once the other two are measured |
+
+`true_peak_dbtp` is the one that turns §4 from a policy into something enforceable. Capping a boost
+so a quiet master is not lifted into clipping needs a number for how much headroom that master has,
+and a sample peak is not that number.
+
+This layer is worth calling out separately for two reasons. It **does not wait on the beat layer**,
+so it does not inherit the copyleft question in the section above: it is a measurement ffmpeg already
+implements. And it is the only field here with a consumer that is already designed, so it can ship
+with the cue points rather than behind them.
+
+### The trap: it cannot be measured from the samples the sidecar already has
+
+`analysis/app.py`'s decode asks ffmpeg for `-ac 1 -ar 22050`, because nothing the cue points measure
+looks above 4 kHz or cares about stereo. Running a Python BS.1770 implementation over those samples
+is the obvious move, needs no second decode, and produces a number that looks like LUFS and is not:
+
+- **The downmix breaks the standard.** BS.1770 sums K-weighted power per channel with defined
+  weights. A mono downmix averages instead, which reads roughly 3 dB low on correlated material and
+  cancels out-of-phase material outright.
+- **True peak needs the native rate.** Inter-sample peak detection is 4x oversampling of the real
+  signal. At 22.05 kHz everything above 11 kHz is already gone, so the figure describes a file
+  nobody will hear.
+
+It would also cost a scipy-class dependency, against a `requirements.txt` that is four lines by
+deliberate choice.
+
+### Where it actually goes
+
+ffmpeg's `ebur128` filter sits in the filtergraph **before** the resampler that ffmpeg auto-inserts
+to satisfy the output format. So `-af ebur128=peak=true` sees the file at its native rate and channel
+layout while `-f f32le -ar 22050 -ac 1` still delivers the analysis stream unchanged. One fetch, one
+decode, one process, no new dependency. That is the whole reason this is cheap, and it is a property
+of the existing invocation rather than of the filter.
+
+One wrinkle to settle empirically before writing it: `ebur128` reports at INFO and the decode runs
+`-loglevel error`. Raising the level globally feeds a great deal more prose to the `_UNFETCHABLE`
+prose match on the failure path, where a stream title containing `404` would newly misclassify an
+undecodable file as an unreachable one. Two ways out, in order of preference:
+
+1. Keep `-loglevel error` and take the values out through `metadata=1` into an `ametadata` print
+   sink, so they arrive structured instead of as log text.
+2. A second `-f null -` pass at INFO, which leaves the decode invocation alone and **doubles fetch
+   and decode time per track**. Against a background walk at `analysis.concurrency` of 1, that is the
+   whole walk taking twice as long, so it is a fallback rather than the plan.
+
+The fields go in the opaque `data` blob under the existing `schemaVersion`, which is exactly the
+extension that blob exists for: no change to the plugin, the host, or the database.
+
+### What it does not change
+
+`radio.liq` keeps `normalize(target=-16.)` on its leaf sources, and `stream/README.md`'s rule that no
+loudness normaliser, widener or bus compressor goes on the mix bus still stands. This is a static
+number per item riding the `annotate:` uri the pusher already builds, decided before air, which is
+§4's design and not a new one. It also does not remove the ReplayGain tag path: a tag the source
+carries is still preferred, because it is what the mastering engineer or the label decided and a
+measurement is what this station guessed.
 
 ## What this does not solve
 

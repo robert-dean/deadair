@@ -14,13 +14,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from scipy import signal
+
+from loudness import REFERENCE_RATE
 
 SCHEMA_VERSION = 1
 
-# Analysis sample rate. Well above twice the top of BAND_HZ, and low enough that
-# a five-minute track is a few million floats rather than tens of millions.
-# Nothing here needs the top octave: no measurement below looks above 4 kHz.
-SAMPLE_RATE = 22050
+# One decode serves both this file and `loudness.py`, so the rate is the one
+# BS.1770 specifies its filters at. Nothing here needs 48 kHz -- no measurement
+# below looks above 4 kHz -- but re-deriving the K-weighting coefficients for a
+# lower rate is the step most likely to be quietly wrong, and decoding twice to
+# avoid it would cost far more than the extra samples do.
+SAMPLE_RATE = REFERENCE_RATE
 
 # Envelope resolution. 10 ms is finer than any decision made from it -- the
 # sustain windows below are measured in hundreds of milliseconds -- but it costs
@@ -109,24 +114,35 @@ def _rms_db(frames: np.ndarray) -> np.ndarray:
 def _band_envelope(samples: np.ndarray, hop: int) -> np.ndarray:
     """Per-frame energy inside BAND_HZ.
 
-    An FFT per frame rather than filtering the whole signal, because the frames
-    are short, numpy's rfft over a 2-D array is one vectorised call, and it
-    avoids taking a filter-design dependency for a band this crude.
+    One band-pass over the whole signal, then RMS per frame. An earlier version
+    ran an FFT per frame instead, which was fine at a low analysis rate and is
+    not at 48 kHz: the spectrum of a five-minute track framed at 10 ms is a
+    complex array several times the size of the audio, per worker.
+
+    `sosfiltfilt` rather than `sosfilt`, and that is not a detail. A causal IIR
+    delays what it passes, and the delay is frequency-dependent -- so the
+    envelope would lag the audio by a few milliseconds that vary across the
+    band, which is exactly the kind of smearing that moves an onset. Filtering
+    forwards and backwards cancels it, and the price (double the effective
+    order, and no ability to stream) costs nothing here because the whole track
+    is already in memory.
     """
-    frames = _frame(samples, hop)
+    if samples.size == 0:
+        return np.zeros(0, dtype=np.float32)
+
+    sos = signal.butter(4, BAND_HZ, btype="bandpass", fs=SAMPLE_RATE, output="sos")
+
+    # filtfilt needs a few times the filter order to work with; a very short clip
+    # is left unfiltered rather than raising, since the caller's own degenerate
+    # cases already cover what to do with the answer.
+    padlen = 3 * (2 * 4 + 1)
+    banded = signal.sosfiltfilt(sos, samples.astype(np.float64)) if samples.size > padlen else samples.astype(np.float64)
+
+    frames = _frame(banded, hop)
     if frames.shape[0] == 0:
         return np.zeros(0, dtype=np.float32)
 
-    spectrum = np.abs(np.fft.rfft(frames, axis=1))
-    freqs = np.fft.rfftfreq(hop, d=1.0 / SAMPLE_RATE)
-    band = (freqs >= BAND_HZ[0]) & (freqs <= BAND_HZ[1])
-
-    # A band narrower than one FFT bin means `hop` is too short for this rate.
-    # Falling back to the whole spectrum is wrong quietly; better to be loud.
-    if not band.any():
-        raise ValueError(f"hop of {hop} samples cannot resolve {BAND_HZ} Hz at {SAMPLE_RATE} Hz")
-
-    return np.sqrt(np.mean(np.square(spectrum[:, band]), axis=1)).astype(np.float32)
+    return np.sqrt(np.mean(np.square(frames), axis=1)).astype(np.float32)
 
 
 def _smooth(values: np.ndarray, window: int) -> np.ndarray:

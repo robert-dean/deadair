@@ -136,6 +136,55 @@ export interface TrackCuePoints {
 }
 
 /**
+ * How loud the record is, and how close it already runs to its ceiling.
+ *
+ * Every field is OPTIONAL, and absent is a real answer rather than a gap: a
+ * silent or near-silent track has no loudness, and the alternative to omitting
+ * it is a floor value like -80 that a caller would then "correct" by fifty
+ * decibels. Absent means no opinion, which is what every consumer of these
+ * measurements already has to handle.
+ *
+ * They are also optional in the weaker sense that an analyzer may not compute
+ * them at all. A plugin that only finds cue points is a valid analyzer; a
+ * station reading these has to degrade to its live normalizer, which is what it
+ * does today anyway.
+ */
+export interface TrackLoudness {
+    /**
+     * Gated programme loudness in LUFS, to ITU-R BS.1770.
+     *
+     * Gated, which is the whole difference between this and an average level: a
+     * record with a long quiet outro is as loud as its body, not as loud as its
+     * mean. The station's per-track gain is the distance from this to whatever
+     * target it holds.
+     */
+    integratedLufs?: number;
+
+    /**
+     * The highest inter-sample peak in dBTP, which is what caps a boost.
+     *
+     * Distinct from {@link samplePeakDb} and the distinction is the point: the
+     * reconstructed waveform between two samples can exceed both of them,
+     * routinely by around a decibel. A gain computed against sample peak alone
+     * is how a quiet master gets lifted into clipping, so this is the number a
+     * boost has to respect.
+     *
+     * Legitimately positive. A value above 0 dBTP means the master already
+     * overshoots on playback, which is worth knowing before adding anything.
+     */
+    truePeakDb?: number;
+
+    /**
+     * The highest actual sample, in dBFS.
+     *
+     * Carried alongside the true peak rather than instead of it, because the gap
+     * between them is diagnostic: a wide one means the master is already fighting
+     * its own ceiling.
+     */
+    samplePeakDb?: number;
+}
+
+/**
  * What one analysis produced.
  *
  * `data` is deliberately the only place measurements live, and the host stores
@@ -175,12 +224,17 @@ export interface TrackAnalysis {
     /**
      * The measurements, in the shape {@link schemaVersion} names.
      *
-     * Typed as the v1 points plus room to grow rather than as a closed
+     * Typed as the v1 fields plus room to grow rather than as a closed
      * interface, because the host passes it through unread. A v2 payload with a
      * tempo and a downbeat grid is the same call, the same plugin method, and a
      * different number above.
+     *
+     * The cue points are required and the loudness is not, which reflects what
+     * each costs to produce: the points come from the decode that has already
+     * happened, where loudness needs a filter chain an analyzer may reasonably
+     * not implement.
      */
-    data: TrackCuePoints & Record<string, unknown>;
+    data: TrackCuePoints & TrackLoudness & Record<string, unknown>;
 
     /**
      * How long the audio turned out to be once decoded.

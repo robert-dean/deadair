@@ -232,6 +232,12 @@ source carries them, fall back to a measured figure, then **cap the boost and re
 headroom** so a quiet master is not lifted into clipping. Three details that matter more than they
 look:
 
+**Where the measured figure comes from** is [track-analysis.md](track-analysis.md), "Loudness", added
+2026-08-11. Both numbers this section needs (integrated loudness and a true peak, without which the
+headroom cap is a guess) fall out of the analysis sidecar's existing decode. Read that section before
+measuring anything here: the samples the sidecar keeps are mono at 22.05 kHz and are the wrong input
+for both.
+
 - It is one number per item, so it rides the annotation the pusher already builds
   (`playout/annotate.ts`), and costs nothing at air time.
 - Anything the station **renders** has to be gained by the same function, or produced audio sits at a

@@ -1,9 +1,14 @@
-# Deliberately four lines.
+# Deliberately short, and every entry permissive.
 #
-# v1 measures cue points from an RMS envelope, which needs a decoder and an
-# array library and nothing else. No DSP toolkit, and so no copyleft question
-# yet -- ffmpeg is invoked as a separate binary rather than linked, and numpy,
-# fastapi, uvicorn and pydantic are all permissive.
+# v1 measures cue points from a band-limited RMS envelope and loudness to
+# BS.1770, which needs a decoder, an array library and an IIR filter. No DSP
+# toolkit, and so no copyleft question yet: ffmpeg is invoked as a separate
+# binary rather than linked, and numpy (BSD), scipy (BSD), fastapi, uvicorn and
+# pydantic (all MIT/BSD) are permissive.
+#
+# scipy is here for `lfilter` and `resample_poly` specifically. K-weighting is a
+# two-stage biquad and pure numpy has no IIR, so the alternative was a Python
+# loop over fourteen million samples per track.
 #
 # The licence check that README.md describes arrives with the beat layer, when
 # something has to compute a downbeat grid. Whatever gets pinned for that is
@@ -12,4 +17,5 @@
 fastapi==0.120.4
 uvicorn==0.41.0
 numpy==2.4.1
+scipy==1.16.2
 pydantic==2.13.1

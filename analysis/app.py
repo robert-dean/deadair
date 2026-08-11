@@ -22,6 +22,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from loudness import integrated_lufs, sample_peak_db, true_peak_db
 from measure import SAMPLE_RATE, SCHEMA_VERSION, measure
 
 ANALYZER = "deadair-analysis/0.1.0"
@@ -142,6 +143,16 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     decoded = _decode(url)
     points = measure(decoded.samples, SAMPLE_RATE)
 
+    # Measured over the WHOLE file rather than between the cue points. Loudness
+    # is a property of the record as delivered, and the gate already discards the
+    # silence at either end -- trimming first would gate it twice and, on a track
+    # that fades to nothing, would move the figure by a fraction of a decibel for
+    # no reason anyone could reconstruct later.
+    data = {
+        **points.as_data(),
+        **_loudness_of(decoded.samples),
+    }
+
     # Truncation is a judgement about the DOWNLOAD, so it is made here rather
     # than in `measure`, which is handed samples and has no way to know whether
     # more were meant to follow.
@@ -154,8 +165,24 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
         "analyzer": ANALYZER,
         "complete": complete,
         "durationMs": decoded.duration_ms,
-        "data": points.as_data(),
+        "data": data,
     }
+
+
+def _loudness_of(samples: np.ndarray) -> dict:
+    """The loudness fields, omitting any the signal cannot support.
+
+    Omitted rather than sent as a floor value, because these feed a gain
+    calculation: a silent track reported at -80 LUFS would be "corrected" by
+    fifty-odd decibels, where an absent figure is the no-opinion every consumer
+    of these measurements already knows how to handle.
+    """
+    fields = {
+        "integratedLufs": integrated_lufs(samples),
+        "truePeakDb": true_peak_db(samples),
+        "samplePeakDb": sample_peak_db(samples),
+    }
+    return {key: round(value, 2) for key, value in fields.items() if value is not None}
 
 
 @app.get("/health")

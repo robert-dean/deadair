@@ -9,9 +9,11 @@
 # up, and it will not be visible in the diff.
 FROM python:3.13-slim
 
-# ffmpeg is the decoder AND the fetcher: one process either delivered the whole
-# stream or did not, which is what lets `complete` be answered at all. Installed
-# as a binary and invoked as a subprocess, never linked.
+# ffmpeg decodes; the service itself fetches. Keeping the fetch in Python is what
+# holds it to ONE request per track: handing a URL to ffprobe and then to ffmpeg
+# had each of them open and seek over HTTP, which measured at eight requests for
+# one nine-megabyte track against the station's own provider credential.
+# Installed as a binary and invoked as a subprocess, never linked.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*

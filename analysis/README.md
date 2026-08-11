@@ -89,6 +89,19 @@ Synchronous, deliberately. The caller is a background walk with its own time bud
 concurrency setting, so nothing is waiting on the response and a job-id-plus-polling protocol would
 buy state in this service for no gain. Expect a request to take on the order of seconds per track.
 
+#### One fetch per track, and it is deliberate
+
+The audio is downloaded once, to a temp file, and ffprobe and ffmpeg then read that file locally.
+The obvious alternative — hand the URL to both and let them stream it — was what shipped first, and
+it cost **eight HTTP requests for one nine-megabyte track**, measured against the real track fetcher.
+A container format wants its header and its trailer, so each tool opens and seeks, and every one of
+those requests crosses the provider's rate limits on the same credential the station plays on.
+
+That also makes `complete` answerable directly: bytes received against `Content-Length` catches a cut
+transfer exactly, where a duration comparison only catches one big enough to shorten the decode. Both
+checks are applied, because neither subsumes the other — a preview clip arrives complete and is still
+not the track.
+
 #### `complete` is load-bearing and only this service can answer it
 
 The host hands over a URL and never sees the bytes, so it cannot tell a whole download from a
@@ -192,6 +205,8 @@ ffmpeg -nostdin -hide_banner -i track.mp3 -filter_complex ebur128=peak=true -f n
 | `ANALYSIS_WORKERS` | `1` | how many tracks decode at once |
 | `ANALYSIS_PORT` | `9321` | listen port |
 | `ANALYSIS_MAX_SECONDS` | `1800` | refuse audio longer than this |
+| `ANALYSIS_MAX_BYTES` | `512M` | refuse a download larger than this |
+| `ANALYSIS_FETCH_TIMEOUT_S` | `180` | how long to wait on the audio fetch |
 
 `ANALYSIS_WORKERS` and the station's own `analysis.concurrency` setting are two knobs that have to be
 tuned together and **neither can compute the other**. This service owns the CPU, so it sizes the pool;

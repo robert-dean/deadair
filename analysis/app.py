@@ -14,6 +14,9 @@ import asyncio
 import os
 import re
 import subprocess
+import tempfile
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -52,6 +55,15 @@ MAX_SECONDS = int(os.environ.get("ANALYSIS_MAX_SECONDS", "1800"))
 # whose header rounds, and a provider that reports the tagged length rather than
 # the decoded one all produce small honest discrepancies.
 COMPLETE_RATIO = 0.98
+
+# How long to wait on the audio fetch. Generous: this is a whole track over
+# whatever the provider's fetcher manages, not an API call.
+FETCH_TIMEOUT_S = int(os.environ.get("ANALYSIS_FETCH_TIMEOUT_S", "180"))
+
+# Refuse anything larger rather than fill the container's disk. A lossless
+# half-hour master is comfortably inside this; a redirect to something that is
+# not a track is not.
+MAX_BYTES = int(os.environ.get("ANALYSIS_MAX_BYTES", str(512 * 1024 * 1024)))
 
 app = FastAPI(title="deadair analysis")
 
@@ -111,18 +123,74 @@ _UNFETCHABLE = re.compile(
 )
 
 
-def _channel_count(url: str) -> int:
-    """How many channels the source has, so the decode can be reshaped.
+def _download(url: str) -> tuple[str, bool]:
+    """Fetch the audio ONCE to a temp file. Returns the path and whether it is whole.
 
-    A separate ffprobe rather than parsing ffmpeg's own prose, and it costs a
-    header read rather than a second download: ffprobe stops as soon as it has
-    the stream metadata. Worth that, because the alternative is asking ffmpeg for
-    a fixed channel count and thereby destroying the very thing the loudness
-    measurement needs.
+    **The one fetch is the point.** Handing a URL to ffprobe and then to ffmpeg
+    made each of them open it over HTTP and seek within it, and a container format
+    wants the header and the trailer — measured against the real track fetcher,
+    that came to EIGHT requests for a nine-megabyte file, per track. Every one of
+    those crosses the provider's rate limits on the same credential the station
+    plays on, which is exactly the traffic the caller's pacing exists to bound.
+    One download and two local reads is the same measurement for an eighth of the
+    cost.
 
-    Falls back to mono on anything unexpected. A wrong low guess measures one
-    channel of a stereo file, which is a plausible figure; a wrong high guess
-    reshapes the buffer incorrectly and produces nonsense.
+    It also makes `complete` something this service can answer honestly rather
+    than infer. Comparing what arrived against `Content-Length` catches a
+    truncated transfer directly, where a duration comparison can only catch one
+    big enough to shorten the decode.
+    """
+    handle = tempfile.NamedTemporaryFile(suffix=".audio", delete=False)
+    received = 0
+    declared: int | None = None
+
+    try:
+        request = urllib.request.Request(url, headers={"user-agent": ANALYZER})
+        with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT_S) as response:
+            length = response.headers.get("content-length")
+            declared = int(length) if length and length.isdigit() else None
+
+            while True:
+                chunk = response.read(1 << 20)
+                if not chunk:
+                    break
+                received += len(chunk)
+                if received > MAX_BYTES:
+                    raise AnalysisError("undecodable", f"audio is over the {MAX_BYTES} byte limit")
+                handle.write(chunk)
+    except AnalysisError:
+        handle.close()
+        os.unlink(handle.name)
+        raise
+    except urllib.error.HTTPError as error:
+        handle.close()
+        os.unlink(handle.name)
+        raise AnalysisError("unfetchable", f"HTTP {error.code} from the audio url") from error
+    except Exception as error:  # noqa: BLE001 - urllib raises a wide family here
+        handle.close()
+        os.unlink(handle.name)
+        raise AnalysisError("unfetchable", str(error)[:300]) from error
+    finally:
+        if not handle.closed:
+            handle.close()
+
+    if received == 0:
+        os.unlink(handle.name)
+        raise AnalysisError("unfetchable", "the audio url served no bytes")
+
+    # A short read against a declared length is a truncation, full stop. Absent a
+    # Content-Length the caller's duration check is still the backstop.
+    whole = declared is None or received >= declared
+    return handle.name, whole
+
+
+def _channel_count(path: str) -> int:
+    """How many channels the file has, so the decode can be reshaped.
+
+    A local read now, so it costs a stat and a header parse rather than a network
+    round trip. Falls back to mono on anything unexpected: a wrong low guess
+    measures one channel of a stereo file, which is a plausible figure, where a
+    wrong high guess reshapes the buffer and produces nonsense.
     """
     command = [
         "ffprobe",
@@ -130,7 +198,7 @@ def _channel_count(url: str) -> int:
         "-select_streams", "a:0",
         "-show_entries", "stream=channels",
         "-of", "default=noprint_wrappers=1:nokey=1",
-        url,
+        path,
     ]
     try:
         finished = subprocess.run(command, capture_output=True, check=False, timeout=60)
@@ -139,15 +207,14 @@ def _channel_count(url: str) -> int:
         return 1
 
 
-def _decode(url: str) -> Decoded:
-    """Fetch and decode to float32 at SAMPLE_RATE, keeping up to MAX_CHANNELS.
+def _decode(path: str) -> Decoded:
+    """Decode a LOCAL file to float32 at SAMPLE_RATE, keeping up to MAX_CHANNELS.
 
-    ffmpeg does the fetching as well as the decoding, which is why `complete` can
-    be answered at all: one process either delivered the whole stream or did not,
-    and its exit status says which. Splitting the two would mean holding the
-    encoded file somewhere to hand over, for no gain.
+    Takes a path rather than a url so the fetch happens once, in `_download`. See
+    the note there: letting ffprobe and ffmpeg each open the url cost eight HTTP
+    requests per track against the station's own provider credential.
     """
-    channels = _channel_count(url)
+    channels = _channel_count(path)
 
     command = [
         "ffmpeg",
@@ -157,7 +224,7 @@ def _decode(url: str) -> Decoded:
         # Bound the read at the source. Without this a stream URL never ends and
         # the worker never comes back.
         "-t", str(MAX_SECONDS),
-        "-i", url,
+        "-i", path,
         "-vn",
         "-ac", str(channels),
         "-ar", str(SAMPLE_RATE),
@@ -192,7 +259,17 @@ def _decode(url: str) -> Decoded:
 
 
 def _analyze(url: str, claimed_ms: int | None) -> dict:
-    decoded = _decode(url)
+    path, whole_transfer = _download(url)
+
+    try:
+        decoded = _decode(path)
+    finally:
+        # Always, including on a decode failure: a worker that leaves its
+        # downloads behind fills the container's disk over a library-sized walk.
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
 
     # The cue points want one signal and the loudness wants the channels. Folded
     # here rather than at the decode, because folding for BOTH is the mistake
@@ -209,12 +286,18 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
         **_loudness_of(decoded.samples),
     }
 
-    # Truncation is a judgement about the DOWNLOAD, so it is made here rather
-    # than in `measure`, which is handed samples and has no way to know whether
-    # more were meant to follow.
-    complete = True
+    # Two independent truths, and the answer is complete only if BOTH hold.
+    #
+    # `whole_transfer` is what the download saw: bytes received against the
+    # declared length, which catches a cut connection exactly. The duration check
+    # is what the DECODE saw, which catches a file that arrived whole and is
+    # short anyway -- a provider serving a preview clip, say, where the transfer
+    # is perfectly complete and the audio is not the track.
+    #
+    # Neither subsumes the other, so neither is dropped.
+    complete = whole_transfer
     if claimed_ms is not None and claimed_ms > 0:
-        complete = decoded.duration_ms >= claimed_ms * COMPLETE_RATIO
+        complete = complete and decoded.duration_ms >= claimed_ms * COMPLETE_RATIO
 
     return {
         "schemaVersion": SCHEMA_VERSION,

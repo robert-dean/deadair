@@ -113,16 +113,36 @@ interface Harness {
     service: PlaylistsService;
     registry: PluginRegistry;
     listVisibleIdsSpy: ReturnType<typeof vi.fn>;
+    logger: Logger;
 }
 
 function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePermissionsFixture()): Harness {
     const registry = new PluginRegistry();
     const accessControl = new AccessControlService(new AuthorizationContext(actor), fixture.asPermissionsService());
     const listVisibleIdsSpy = vi.spyOn(accessControl, 'listVisibleIds');
+    const logger = stubLogger();
 
-    const service = new PlaylistsService(registry, new PluginInvoker(registry, stubPluginLog().log), accessControl, stubLogger());
+    const service = new PlaylistsService(registry, new PluginInvoker(registry, stubPluginLog().log), accessControl, logger);
 
-    return { service, registry, listVisibleIdsSpy };
+    return { service, registry, listVisibleIdsSpy, logger };
+}
+
+/** The service's own page size. A test that disagreed with it would prove nothing. */
+const PAGE_SIZE = 50;
+
+/**
+ * A plugin method that serves `total` items in pages, honouring `offset`.
+ *
+ * `make` builds the item at an index, so the assertions can check ORDER across
+ * pages rather than only the count: a walk that dropped or repeated a page
+ * would still total correctly.
+ */
+function pagedBy<T>(total: number, make: (index: number) => T) {
+    return vi.fn(async (options?: { limit?: number; offset?: number }) => {
+        const offset = options?.offset ?? 0;
+        const limit = options?.limit ?? total;
+        return Array.from({ length: Math.max(0, Math.min(limit, total - offset)) }, (_, i) => make(offset + i));
+    });
 }
 
 /** Asserts the rejection is an `HttpError` with the given status code. */
@@ -287,6 +307,18 @@ describe('PlaylistsService.listPlaylists', () => {
         expect(page.errors).toEqual([]);
     });
 
+    it('pages each plugin to the end rather than taking its default page', async () => {
+        const listPlaylists = pagedBy(75, index => ({ id: `p${index}`, name: `Playlist ${index}` }));
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { instance: catalogInstance({ listPlaylists }) as never }));
+
+        const page = await service.listPlaylists();
+
+        expect(page.playlists).toHaveLength(75);
+        expect(page.playlists[74]!.id).toBe('p74');
+        expect(listPlaylists.mock.calls.map(([options]) => options?.offset)).toEqual([0, PAGE_SIZE]);
+    });
+
     it('never calls AccessControlService.require, matching the route floor of policy: false', async () => {
         const { service, registry, listVisibleIdsSpy } = makeService(httpSystemActor);
         registry.upsert(record(SPOTIFY_ID));
@@ -321,7 +353,52 @@ describe('PlaylistsService.getPlaylistTracks', () => {
 
         await service.getPlaylistTracks(SPOTIFY_ID, 'the-playlist-id');
 
-        expect(instance.getPlaylistTracks).toHaveBeenCalledWith('the-playlist-id');
+        expect(instance.getPlaylistTracks).toHaveBeenCalledWith('the-playlist-id', { limit: PAGE_SIZE, offset: 0 });
+    });
+
+    // A provider asked for no `limit` answers with its own default page — 20 items
+    // on Spotify's playlist reads — so a single call is the top of a playlist and
+    // not the playlist. The director sources a running order through here, where
+    // that reads as a short playlist rather than as a truncated one.
+    it('pages to the end of the playlist rather than taking the provider default page', async () => {
+        const pager = pagedBy(120, index => track(`t${index}`));
+        const instance = catalogInstance({ getPlaylistTracks: vi.fn(async (_id: string, options?: { limit?: number; offset?: number }) => pager(options)) });
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { instance: instance as never }));
+
+        const result = await service.getPlaylistTracks(SPOTIFY_ID, 'p1');
+
+        expect(result.tracks).toHaveLength(120);
+        expect(result.tracks[0]!.id).toBe('t0');
+        expect(result.tracks[119]!.id).toBe('t119');
+        expect(pager.mock.calls.map(([options]) => options?.offset)).toEqual([0, PAGE_SIZE, PAGE_SIZE * 2]);
+    });
+
+    it('stops at the first short page, so a playlist smaller than one page costs one call', async () => {
+        const instance = catalogInstance();
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { instance: instance as never }));
+
+        await service.getPlaylistTracks(SPOTIFY_ID, 'p1');
+
+        expect(instance.getPlaylistTracks).toHaveBeenCalledTimes(1);
+    });
+
+    // A provider that ignores `offset` serves a full page forever. The walk has to
+    // end anyway, and it has to say so: a silently truncated playlist looks exactly
+    // like a complete one.
+    it('gives up at the page cap and warns, when the provider ignores offset', async () => {
+        const instance = catalogInstance({
+            getPlaylistTracks: vi.fn(async () => Array.from({ length: PAGE_SIZE }, (_, i) => track(`t${i}`))),
+        });
+        const { service, registry, logger } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { instance: instance as never }));
+
+        const result = await service.getPlaylistTracks(SPOTIFY_ID, 'p1');
+
+        expect(instance.getPlaylistTracks).toHaveBeenCalledTimes(200);
+        expect(result.tracks).toHaveLength(200 * PAGE_SIZE);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('page cap'), expect.objectContaining({ plugin: SPOTIFY_ID, cap: 200 }));
     });
 
     it('throws 404 when the plugin is not installed', async () => {

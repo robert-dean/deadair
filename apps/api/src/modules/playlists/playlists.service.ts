@@ -11,6 +11,22 @@ import type { PluginRecord } from '#modules/plugins/types/plugin.record.js';
 import type { CatalogPlaylist, CatalogPlaylistPage, CatalogPlaylistTracks, CatalogSourceError, CatalogTrack } from './types/playlists.types.js';
 
 /**
+ * Items per page. Spotify caps playlist reads at 50 and clamps anything larger,
+ * so asking for more buys nothing and makes the offsets lie. Same value as the
+ * catalog sync's walk, for the same reason.
+ */
+const PAGE_SIZE = 50;
+
+/**
+ * Pages one plugin may serve before a read gives up on it.
+ *
+ * Termination depends on the provider honouring `offset`, which is a promise
+ * made by code the host does not own: one that ignores it returns page one
+ * forever. 200 pages is 10,000 items, far past any real playlist, and finite.
+ */
+const MAX_PAGES = 200;
+
+/**
  * A `ServerkitError`'s `message` is the bare status text ("Forbidden") and the
  * useful sentence lives in `details.message`.
  */
@@ -71,16 +87,16 @@ export class PlaylistsService {
      * Plugins are called concurrently and settled independently: one plugin
      * throwing (a dead upstream, an expired token) must not take the whole
      * aggregated list down with it, so its failure is reported alongside the
-     * others' successes rather than propagated.
+     * others' successes rather than propagated. Each one is paged to the end by
+     * {@link collect}, because a provider's own default page is not the library.
      */
     async listPlaylists(): Promise<CatalogPlaylistPage> {
         const { usable: candidates, unavailable } = await this.catalogCapablePlugins();
 
         const settled = await Promise.allSettled(
             candidates.map(async ({ record, manifest }) => {
-                const playlists = await this.pluginInvoker.invoke(record.id, 'catalog.listPlaylists', async () =>
-                    (record.instance as MusicProviderPluginInstance).listPlaylists!(),
-                );
+                const instance = record.instance as MusicProviderPluginInstance;
+                const playlists = await this.collect(record.id, 'catalog.listPlaylists', offset => instance.listPlaylists!({ limit: PAGE_SIZE, offset }));
                 return { manifest, playlists };
             }),
         );
@@ -119,6 +135,13 @@ export class PlaylistsService {
     }
 
     /**
+     * Every track in one playlist, not the first page of them.
+     *
+     * The whole list is the answer here rather than a page of it, because the
+     * caller that matters is the director sourcing a running order: a truncated
+     * read there is a station that airs the top of a playlist and reports
+     * success, which is indistinguishable from a short playlist.
+     *
      * @throws 403 when the actor may not view this plugin, 404 when the plugin
      *   is not installed, 501 when it does not declare/implement `catalog`,
      *   503 when it is installed but not currently active. Otherwise whatever
@@ -140,7 +163,7 @@ export class PlaylistsService {
             artworkUrl?: string;
         }[];
         try {
-            tracks = await this.pluginInvoker.invoke(pluginId, 'catalog.getPlaylistTracks', async () => instance.getPlaylistTracks!(playlistId));
+            tracks = await this.collect(pluginId, 'catalog.getPlaylistTracks', offset => instance.getPlaylistTracks!(playlistId, { limit: PAGE_SIZE, offset }));
         } catch (error) {
             throw pluginHttpError(pluginId, error);
         }
@@ -158,6 +181,36 @@ export class PlaylistsService {
                 artworkUrl: track.artworkUrl,
             })),
         };
+    }
+
+    /**
+     * Offset pagination over a plugin call, stopping at the first short page.
+     *
+     * A provider answers with its own default page when asked for no `limit`,
+     * and that default is small (20 items on Spotify's playlist reads), so a
+     * single call is not "the playlist" — it is the top of it. Nothing upstream
+     * could tell the difference, which is what makes this the quiet kind of bug.
+     *
+     * Every page goes through {@link PluginInvoker} separately, so the deadline
+     * and the failure breaker apply per page rather than to the whole walk, and
+     * a page that throws propagates to the caller: a half-read playlist is worse
+     * than a refused one.
+     *
+     * A short page means the end. A provider that ignores `offset` returns full
+     * pages forever, which {@link MAX_PAGES} bounds — loudly, because silently
+     * truncating a playlist is the failure this method exists to stop.
+     */
+    private async collect<T>(pluginId: string, op: string, fetch: (offset: number) => Promise<T[]>): Promise<T[]> {
+        const items: T[] = [];
+
+        for (let page = 0; page < MAX_PAGES; page++) {
+            const batch = await this.pluginInvoker.invoke(pluginId, op, async () => fetch(page * PAGE_SIZE));
+            items.push(...batch);
+            if (batch.length < PAGE_SIZE) return items;
+        }
+
+        this.logger.warn('stopped paging a plugin at the page cap; this list may be incomplete', { plugin: pluginId, op, cap: MAX_PAGES });
+        return items;
     }
 
     /**

@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { CatalogSearchTool } from './catalog.search.tool.js';
+import { LibrarySearchTool } from './library.search.tool.js';
 import { LlmGate } from './llm.gate.js';
 import { LlmService } from './llm.service.js';
 import { ToolRegistry } from './llm.tools.js';
@@ -46,13 +47,24 @@ export const LlmModule: ServerKitModule = {
         // Scoped with the plugin registry and invoker it reads, like every other capability
         // consumer here.
         registry.register(CatalogSearchTool).useClass(CatalogSearchTool).asScoped();
+        // Scoped with the catalog repository it reads. Not a plugin consumer at all, which is the
+        // difference between the two search tools: this one asks what the station HAS.
+        registry.register(LibrarySearchTool).useClass(LibrarySearchTool).asScoped();
 
         // The source list is explicit rather than discovered, so what the model can reach is one
         // readable line rather than the sum of whatever registered itself. A `tool` plugin
-        // capability becomes a second entry here and nothing else changes.
+        // capability becomes another entry here and nothing else changes.
+        //
+        // The library first. Order here is only a tie-break on duplicate NAMES, which these two do
+        // not have, but it is also the order the declarations reach the model — and the tool a DJ
+        // should reach for when choosing what to play is the one that answers with records it can
+        // actually schedule.
         registry
             .register(ToolRegistry)
-            .useFactory((container: Container) => new ToolRegistry([container.get(CatalogSearchTool)], container.get(Logger)))
+            .useFactory(
+                (container: Container) =>
+                    new ToolRegistry([container.get(LibrarySearchTool), container.get(CatalogSearchTool)], container.get(Logger)),
+            )
             .asScoped();
 
         // Scoped, like `SpeechService` which it is shaped on: it holds no state between calls, and

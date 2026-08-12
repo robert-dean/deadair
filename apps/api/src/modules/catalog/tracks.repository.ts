@@ -60,6 +60,63 @@ export class TracksRepository extends DataRepository {
     }
 
     /**
+     * Records the station could actually put on air, matching a title or an artist.
+     *
+     * Written for the model's discovery tool rather than for the console, which is why it is not
+     * {@link listTracks} with another flag: that one browses a library, counts it and pages through
+     * it, and this one answers "what could you play me" in one shot.
+     *
+     * **Bans narrow it; rotation rules do not**, and the line between them is the whole design.
+     * Anything with no live binding, anything merged away and anything DISLIKED is excluded, because
+     * offering those is offering a record that cannot air or that the operator forbade outright. A
+     * record inside the repeat window or an artist inside the cooldown is deliberately still
+     * offered: those are enforced at the point of choice, and pre-filtering them returns a worse
+     * pool on a small library while making the model's own variety logic invisible. See
+     * `LibrarySearchTool`.
+     *
+     * The three exclusions are the same ones `CandidatesRepository.sample` applies, for the same
+     * reasons, and they are stated in both places rather than shared: a sample and a search are
+     * different questions, and a helper spanning them would have to grow a flag per caller.
+     */
+    async searchPlayable(search: string, limit: number) {
+        const pattern = likeContains(search);
+
+        return await this.db
+            .selectFrom('deadair.tracks')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .select([
+                'deadair.tracks.title',
+                'deadair.tracks.year',
+                'deadair.tracks.genre',
+                'deadair.artists.name as artistName',
+                'deadair.albums.name as albumName',
+            ])
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            // Title OR artist, because a DJ looking for a record knows one or the other and a
+            // search that only matched titles would answer nothing for "play me some Aphex Twin".
+            .where(eb => eb.or([eb('deadair.tracks.title', 'ilike', pattern), eb('deadair.artists.name', 'ilike', pattern)]))
+            .where(eb =>
+                eb.exists(
+                    eb
+                        .selectFrom('deadair.trackSources')
+                        .select('deadair.trackSources.id')
+                        .whereRef('deadair.trackSources.trackId', '=', 'deadair.tracks.id')
+                        .where('deadair.trackSources.missingAt', 'is', null),
+                ),
+            )
+            .where('deadair.tracks.rating', '<>', -1)
+            .where('deadair.artists.rating', '<>', -1)
+            .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
+            // Stable, so asking twice in one conversation does not shuffle the answer under the
+            // model and make it think the library changed.
+            .orderBy('deadair.tracks.title', 'asc')
+            .orderBy('deadair.tracks.id', 'asc')
+            .limit(limit)
+            .execute();
+    }
+
+    /**
      * What the catalog can say about a batch of canonical tracks, for display.
      *
      * The other direction from {@link findByBindings}: that one starts from a

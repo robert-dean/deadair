@@ -222,7 +222,14 @@ failure is a row with a doubling backoff rather than a throw; `attempts` counts 
 which is why `recordSuccess` resets it (with the cache off there is no checksum to tell a healthy
 binding from a failing one, so without the reset a working catalogue would look progressively dead); and
 de-duplication is an in-process map covering the LOOKUP as well as the download, because the read that
-decides whether to fetch is itself a round trip. Nothing evicts yet.
+decides whether to fetch is itself a round trip. `TrackCachePlanner.ripen` warms `CACHE_AHEAD` items past
+the cursor off the director's commit pass — **after** the commit rather than before it, unlike
+`plantBreaks`, because the items handed over this pass are past the cursor by then — one fetch per pass,
+and it is the only place the backoff is read (a request for bytes something is waiting on ignores it).
+`CACHE_AHEAD` lives in `track.audio.service.ts` rather than in the planner that owns the window, for the
+reason `TRACK_PACE_MS` lives in `AnalysisService`: the planner imports the service, and the cycle the
+other way throws `Cannot access 'CACHE_AHEAD' before initialization` under Node's ESM loader while
+loading fine under vitest. Nothing evicts yet.
 
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on

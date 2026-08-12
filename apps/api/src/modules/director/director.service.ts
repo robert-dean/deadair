@@ -4,6 +4,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
+import { TrackCachePlanner } from '#modules/playout/audio/track.cache.planner.js';
 import { Epoch } from '#modules/shared/epoch.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
@@ -573,12 +574,37 @@ export class DirectorService {
             }
         }
 
+        // AFTER the hand-over, deliberately the opposite way round from `plantBreaks`. The items taken
+        // above are past the cursor by now, so the window this reads holds the records that have NOT
+        // been handed over — which are the only ones a fetch made now can still be in time for.
+        await this.ripenTrackCache(lineup);
+
         if (lineup.isExhausted()) {
             await this.finish(lineup, rules);
             return;
         }
 
         await this.topUpIfShort(lineup, rules);
+    }
+
+    /**
+     * Get the audio of the next few records in hand before their slots arrive.
+     *
+     * An optimisation and nothing more, which is what makes it safe here: every record is playable
+     * without it, because the route the player fetches records through pulls from the provider itself
+     * when the station has not got the bytes yet. What this buys is that the pull happens while the
+     * records ahead of it are playing rather than inside the request Liquidsoap is waiting on.
+     *
+     * Failures are swallowed exactly as {@link plantBreaks}'s are, and for a stronger version of the
+     * same reason: the records either side play regardless, so a planner that cannot read its rows must
+     * not take down the pass that keeps the running order full.
+     */
+    private async ripenTrackCache(lineup: StationLineup): Promise<void> {
+        try {
+            await this.inScope(scope => scope.get(TrackCachePlanner).ripen(lineup));
+        } catch (error) {
+            this.logger.warn(`director: could not fetch a record ahead of its slot (${message(error)})`);
+        }
     }
 
     /**

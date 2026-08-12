@@ -5,6 +5,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { TrackAudioRepository } from './audio/track.audio.repository.js';
 import { TrackAudioService } from './audio/track.audio.service.js';
+import { TrackCachePlanner } from './audio/track.cache.planner.js';
 import { TrackStore } from './audio/track.store.js';
 import { AudienceWatch } from './audience.watch.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
@@ -74,6 +75,9 @@ export const PlayoutModule: ServerKitModule = {
                     new TrackAudioService(container, container.get(TrackStore), container.get(PluginTrackResolver), config, container.get(Logger)),
             )
             .asSingleton();
+
+        // Scoped like the repository it reads through, and resolved per pass by the director's commit.
+        registry.register(TrackCachePlanner).useClass(TrackCachePlanner).asScoped();
 
         // The resolver chain, which is now two links and no longer a fallback ladder.
         //

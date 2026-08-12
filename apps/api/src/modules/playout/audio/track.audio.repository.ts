@@ -147,27 +147,52 @@ export class TrackAudioRepository extends DataRepository {
     /**
      * The fetch state of several bindings at once, for the ripener.
      *
+     * Keyed by the BINDING rather than by source id, because that is what a running order carries: an
+     * item holds `pluginId` + `externalId`, which is deliberately the key of `track_sources`, and the
+     * source id it maps to is one of the things this answers.
+     *
      * Batched for the reason `SegmentRepository.findByIds` is: this runs on the commit pass, and one
      * query for a window of records beats one per item on a path that already does a read per
-     * boundary.
+     * boundary. Written as `unnest` over two arrays rather than an `in` over pairs, because the key is
+     * two columns and Postgres has no tidy `in ((a, b), (c, d))` through Kysely.
      *
-     * Keyed by `sourceId` on the way out, because that is what the caller holds and what the job
-     * payload carries.
+     * Filtered to bindings the catalog still offers, the same predicate the resolver reads: a copy
+     * written off with `missing_at` is not worth a provider's quota, and the transport will not hand it
+     * over either.
+     *
+     * A binding with no `track_audio` row at all still comes back, with `attempts: 0` and no checksum.
+     * That is the state of everything on a fresh station and it is exactly what the ripener is looking
+     * for.
      */
-    async findForSources(sourceIds: readonly string[]): Promise<Map<string, TrackAudio>> {
-        const found = new Map<string, TrackAudio>();
-        if (sourceIds.length === 0) return found;
+    async findForBindings(bindings: readonly { pluginId: string; externalId: string }[]): Promise<SourceAudio[]> {
+        if (bindings.length === 0) return [];
 
-        const rows = await this.db
-            .selectFrom('deadair.trackSources as source')
-            .leftJoin('deadair.trackAudio as audio', 'audio.sourceId', 'source.id')
-            .select(['source.id as sourceId', ...AUDIO_SELECTION])
-            .where('source.id', 'in', [...sourceIds])
-            .execute();
+        // Keys are camelCase even here: `CamelCasePlugin` is in `KyselyDefaultPlugins` and rewrites
+        // result keys for raw SQL too — the same note `EnrichmentRepository` carries.
+        const rows = await sql<{ sourceId: string; pluginId: string; externalId: string } & TrackAudioRow>`
+            select source.id as source_id,
+                   source.plugin_id,
+                   source.external_id,
+                   audio.checksum,
+                   audio.ext,
+                   audio.content_type,
+                   audio.byte_size,
+                   audio.attempts,
+                   audio.next_attempt_at,
+                   audio.last_error
+              from unnest(${sql.val(bindings.map(binding => binding.pluginId))}::text[],
+                          ${sql.val(bindings.map(binding => binding.externalId))}::text[])
+                     as wanted (plugin_id, external_id)
+              join deadair.track_sources source
+                on source.plugin_id = wanted.plugin_id
+               and source.external_id = wanted.external_id
+              left join deadair.track_audio audio
+                on audio.source_id = source.id
+             where source.playable
+               and source.missing_at is null
+        `.execute(this.db);
 
-        for (const row of rows) found.set(row.sourceId, toTrackAudio(row.sourceId, row));
-
-        return found;
+        return rows.rows.map(row => ({ ...toTrackAudio(row.sourceId, row), pluginId: row.pluginId, externalId: row.externalId }));
     }
 
     /**

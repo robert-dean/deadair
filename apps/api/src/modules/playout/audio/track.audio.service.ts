@@ -41,16 +41,41 @@ const BASE_RETRY_MS = 5 * 60 * 1000;
 const MAX_RETRY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * How far past the cursor a record is fetched before its slot, in ITEMS.
+ *
+ * Small on purpose, and the constraint is a provider's quota rather than disk. Every fetch is a whole
+ * record off a rate-limited credential, and `docs/todo/provider-audio-failures.md` records a burst of
+ * them exhausting Spotify's audio-key quota and taking the station off air — so the window is a few
+ * records of lead, not an hour of it.
+ *
+ * Three, against a `COMMIT_LEAD` of 3: the window reaches exactly as far as the items the director has
+ * not handed over yet, so a record is fetched while the ones ahead of it play and never while it is
+ * being handed over. A record whose fetch does not finish in time is not lost — the request the player
+ * makes fetches it — which is what keeps warming an optimisation rather than a dependency.
+ *
+ * A constant like `PLANT_AHEAD` and `WRITE_AHEAD` beside it, for the same reason those are:
+ * `playout.trackCache` is the decision an operator has, and this is a number tied to the commit lead.
+ *
+ * It lives HERE rather than in `TrackCachePlanner`, which owns the window and reads backwards — and is
+ * deliberate, exactly as `TRACK_PACE_MS` living in `AnalysisService` rather than in its job is. The
+ * planner imports this service, so a constant the service reads cannot live in the planner: that cycle
+ * loads fine under vitest and throws `Cannot access 'CACHE_AHEAD' before initialization` under Node's
+ * ESM loader. Which it did, on the first boot after it was written.
+ */
+export const CACHE_AHEAD = 3;
+
+/**
  * How much just-fetched audio to keep in memory for a station that is keeping nothing on disk.
  *
  * Bounded two ways on purpose. The entry count is what makes it a hold rather than a cache — it is
- * meant to carry a record from the ripener's fetch to the request a minute later, nothing longer. The
- * BYTE cap is the one that actually protects the process: at {@link MAX_TRACK_BYTES} a handful of
- * entries is hundreds of megabytes resident, which a lossless catalogue would reach immediately.
+ * meant to carry a record from the ripener's fetch to the request a minute later, nothing longer. It is
+ * derived from {@link CACHE_AHEAD} plus room for the record currently airing, so the window the ripener
+ * fills and the hold that has to survive until those slots arrive cannot drift apart.
  *
- * Phase 3 ties the entry count to `CACHE_AHEAD`, so the window and the hold cannot drift apart.
+ * The BYTE cap is the one that actually protects the process: at {@link MAX_TRACK_BYTES} even a handful
+ * of entries is hundreds of megabytes resident, which a lossless catalogue would reach immediately.
  */
-const HOLD_MAX_ENTRIES = 5;
+const HOLD_MAX_ENTRIES = CACHE_AHEAD + 2;
 const HOLD_MAX_BYTES = 96 * 1024 * 1024;
 
 /** Audio ready to hand to a caller, however it was come by. */

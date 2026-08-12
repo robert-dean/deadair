@@ -8,11 +8,63 @@ something to decide what it says.
 **Revised:** 2026-08-09, when the first two of those three landed and the goal was restated as a
 station the operator listens to all day instead of a streaming service. That restatement reorders
 what is left; see "The order, restated against daily listening".
+**Revised:** 2026-08-12, when piece two landed in full. **Both pieces are now built.** Read "What
+piece two actually shipped" below before anything else in this file: the sections under it are kept
+for their reasoning and describe a tree that has moved on.
 
-The station can say things, and can now say them in its own voice. What it cannot do is decide what
-to say: every word it speaks is one somebody handed it. This file was the two pieces between here
-and a DJ. **Piece one is built** — see the note under it for what shipped and what came out
-differently. Piece two is the whole of what is left.
+The station can say things, says them in its own voice, and now decides what to say. This file was
+the two pieces between here and a DJ, and both are in. What remains of it is the list of smaller
+things it always said it would leave behind, plus the talk-up limit, which is still blocked on the
+beat layer.
+
+## What piece two actually shipped
+
+**2026-08-12.** Three writers rather than the two this file predicted, and four pieces of plumbing
+underneath them that it did not predict at all.
+
+**The seam is `BreakWriterRegistry`, keyed by `segments.kind`, holding SEVERAL writers per kind in
+registration order** — which is preference order. A writer that declines, returns whitespace or
+throws is one outcome to it: ask the next. So the fall-through lives in one place rather than inside
+each writer, and a fifth kind of break gets it for free. It answers with every ATTEMPT rather than
+only the winner, because a model that declined and a floor that covered for it are two facts.
+
+**The floor stopped being code and became a setting.** `PHRASINGS` is now
+`rotation.breakTemplates`, one phrasing per line, with the station's own five as the DEFAULT — so
+clearing the box restores them rather than producing a silent DJ, and the way to stop the station
+talking stays `rotation.breaks`. `{{next.title}}` resolves through an explicit map, `[[double
+brackets]]` mark a part dropped when it cannot be filled, and `ConfigFieldType` gained `text` for the
+box it is edited in. That is a station sounding like itself with no model anywhere near it, which
+this file never considered and which is probably what most operators actually want.
+
+**The model is the first binding, not the second.** `ModelTalkBreakWriter` sits in front of the
+templates, off until `llm.breakWriter` is turned on, bounded tightly (ten seconds of queue,
+forty-five of generation, no tools) because the write window means its slot is a quarter of an hour
+away. Its prompt is shaped around §9 of
+[station-intelligence.md](station-intelligence.md): ban the CUE framing rather than the noun, and ask
+for certainty separately. Its answer is guarded rather than trusted — quotation marks, stage
+directions, speaker labels and a reasoning model thinking out loud are all stripped, and an answer
+past the word ceiling is declined rather than cut.
+
+Four things came with it that this file did not ask for, each because the writer sat on plumbing that
+was not there:
+
+- **`deadair.script_history`**, one row per write attempt, outliving its segment and swept nightly.
+  This is the "somewhere for what the station SAID to live" that correction 3 asked for, arriving
+  earlier than expected and shaped as a record of what was WRITTEN rather than of what aired.
+- **A state per stage**: `planned → writing → written → rendering → ready`. A retry after a failed
+  render re-speaks the words already on the row rather than paying a writer for new ones.
+- **A break is written when its slot comes near** rather than when it is planted. It used to be sent
+  the instant a break was planted, which meant up to five breaks written and rendered at once, the
+  furthest an hour of airtime ahead.
+- **The forward claim is checked before airing**, which is correction 5 below, and was a live defect
+  in the deterministic writer rather than anything the model introduced.
+
+One bug was found by running it rather than by reading it, and is worth keeping here because the
+shape of it will recur: the running order is written through a THROTTLE, so `WriteBreakJob` could
+pick up a break the persisted row did not hold yet, find no neighbours, write a break that named
+nothing, and — having consumed its claim — never revisit it. Every talk break reduced to saying the
+station's name. The neighbours are now read BEFORE the claim, and absent-from-the-order means early
+rather than has-no-neighbours.
 
 ## What exists, so nothing below has to re-derive it
 
@@ -249,8 +301,9 @@ order.
 Transitions are recorded as facts, per correction 4: `deadair.segment_events`, plus a `writer` column
 saying what decided the words. The activity feed is now a transport over rows that exist.
 
-**What is left, in order:** listen for a week → [crossfades](crossfades.md) → the model as writer two
-→ the activity feed. And separately, [listening-loop.md](listening-loop.md), which is what makes any
+**What was left, in order:** listen for a week → [crossfades](crossfades.md) → the model as writer
+two → the activity feed. **The first three are done as of 2026-08-12**, so what is left of that line
+is the activity feed. And separately, [listening-loop.md](listening-loop.md), which is what makes any
 of it audible away from the desk.
 
 ## Piece two: something decides what to say
@@ -307,7 +360,11 @@ can follow without seeing the last few scripts. Still its own table rather than 
 costs nothing; doing it later is a migration plus a backfill nobody can do. It is what turns the
 activity feed above into a transport over existing rows.
 
-**5. A break's forward claim is a FORECAST, and nothing currently checks it came true.** Added
+**5. A break's forward claim is a FORECAST, and nothing currently checks it came true. BUILT
+2026-08-12**, as both halves described below: the claim is withheld at write time when the next
+record is not the adjacent line, and `segments.claims_item_id` is compared against what is actually
+next at hand-over. What follows is the reasoning, kept because the same stamp is what every other
+time-bound claim will be checked by. Added
 2026-08-11, and it applies to the deterministic writer that is already built rather than only to the
 model. `talk.break.writer.ts` says "Coming up next, X, from Y" — a statement about the future,
 written when the break is planned, spoken minutes later out of audio that was rendered in between.
@@ -374,8 +431,17 @@ behaviour rather than to a guess.
   managing segments.
 - **Play history for what the station SAID.** Segments are deliberately excluded from
   `deadair.play_history`, because the repeat window and artist cooldown are reads of it and an ident
-  has no artist. If the station ever needs to avoid repeating a talk break, that wants its own table
-  rather than a relaxation of this one.
+  has no artist. **Half of this arrived on 2026-08-12** and it is worth being precise about which
+  half: `deadair.script_history` records what was WRITTEN, not what aired, so it answers "what has
+  the station been saying" and cannot answer "what did it say at nine o'clock". An aired-at stamp is
+  still its own decision, and it still wants its own table rather than a relaxation of this one.
+- **Which writer wins is registration order, not a setting.** `director.module.ts` ranks them and
+  `llm.breakWriter` is the only switch. That is right for one model and one floor; an operator who
+  wants the templates ABOVE the model on some shows wants a setting, and the registry would take one
+  without changing shape.
+- **A break still cannot be re-written.** A `failed` segment is not re-claimable for writing, on the
+  grounds that the usual reason nothing could be written is that there was nothing true to say. An
+  operator who edits their phrasings and wants last night's failures retried has no button for it.
 - **The harbor mount.** `input.harbor("dj", …)` was removed when the voice queue replaced it. Bring
   it back as a second arm of the voice source if something genuinely needs to stream live audio in;
   a real microphone is the honest case.

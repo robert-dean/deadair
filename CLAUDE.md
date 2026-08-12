@@ -107,7 +107,42 @@ call comes back, both plain JSON, so nothing executable crosses. **A station wit
 an ordinary state, not a fault** — `canGenerate()` answers it without throwing, so a writer picks its
 deterministic binding.
 
-**The station's voice is a plugin.** `speech` capability, `plugins/kokoro` first, Chatterbox expected. A voice is an opaque station-level id (`host`, `newsreader`) that the PLUGIN maps in its own config; the host never interprets it, and engine-specific knobs stay with the engine. `render.speechPluginId` picks the speaker when several can talk, and declines to guess when none is chosen. `RenderSegmentJob` walks a segment `planned → rendering → ready | failed`, and **a segment that is not `ready` is skipped, never waited for**, which is what keeps a broken renderer from ever costing the station silence.
+**A kind of break has SEVERAL writers, and the last one is its floor.** `BreakWriterRegistry` is
+keyed by `segments.kind` and holds them in registration order, which IS preference order
+(`director.module.ts`): `ModelTalkBreakWriter` in front, `TalkBreakWriter` behind it. A writer that
+declines, answers with whitespace or throws is the same outcome — ask the next — so the fall-through
+lives there rather than inside any one writer, and `llm.breakWriter` being off is just the first one
+declining early. **The floor cannot fail**, which is what makes a slow model cost a better sentence
+rather than a silent station. The registry answers with every ATTEMPT rather than only the winner,
+because a model that declined and a floor that covered for it are two facts and the second alone
+reads as a station that never had a model.
+
+**The station's phrasings are the operator's.** `rotation.breakTemplates`, one per line, with the
+station's own five as the DEFAULT — so clearing the box restores them rather than producing a silent
+DJ, and the way to stop it talking stays `rotation.breaks`. `{{next.title}}` resolves through an
+explicit map in `break.templates.ts` (which is why `{{next.album}}` is one row to add when enrichment
+lands), `[[double brackets]]` mark a part dropped when it cannot be filled, and a template with an
+unknown placeholder is never used and is logged once, quoted. Two rules are the writer's rather than
+the operator's: a placeholder outside an optional chunk that cannot be filled means the phrasing does
+not apply, and a phrasing saying nothing about the record just finished is only offered where there
+is none.
+
+**A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
+baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
+words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next
+record is offered to a writer only when it is the adjacent line, since a promise made across an
+intervening segment is the least trustworthy kind. Silence on one boundary beats a wrong fact.
+
+**Everything the station writes is kept.** `deadair.script_history`, one row per write ATTEMPT,
+append-only and with no `updated_at` — a correction is another attempt, which is another row. It
+outlives its segment (`on delete set null`, denormalised), holds the writer, the model, the template,
+the neighbours, the token counts and the duration, and is swept nightly against
+`render.scriptHistoryDays`. The prompt and the raw answer are kept only while `llm.captureWrites` is
+on, which is a switch for an evening of prompt tuning rather than a default.
+
+**The station's voice is a plugin.** `speech` capability, `plugins/kokoro` first, Chatterbox expected. A voice is an opaque station-level id (`host`, `newsreader`) that the PLUGIN maps in its own config; the host never interprets it, and engine-specific knobs stay with the engine. `render.speechPluginId` picks the speaker when several can talk, and declines to guess when none is chosen. **A segment carries a state per STAGE** — `planned → writing → written → rendering → ready`, with `failed` off the side — because making a break is two jobs with different failure modes: `WriteBreakJob` decides the words and `RenderSegmentJob` produces the audio, each claiming the row with a conditional update so a duplicate send is free. `claimForRender` starts at `written`, which is what makes a retry after a failed render re-speak the words already on the row instead of paying a writer to invent different ones. Throughout, **a segment that is not `ready` is skipped, never waited for**, which is what keeps a broken renderer from ever costing the station silence.
+
+**A break is written when its slot comes near, not when it is planted.** Planting stays eager and runs to the end of the order, because the position is what keeps the spacing stable; `BreakPlanner.ripen` asks for the WORDS only within `WRITE_AHEAD` items of the cursor. That is the difference between an hour of forward planning and an hour of model and speech work an operator edit can throw away. Sending is free because the job claims the row first, so the director re-offers whatever is still `planned` on every boundary and a lost job heals itself — and an off-air station writes nothing at all. Note the ordering trap it was built around: the running order is written through a THROTTLE, so a job can pick up a break the persisted row does not hold yet; the neighbours are therefore read before the claim, and absent-from-the-order means early rather than has-no-neighbours.
 
 **In plugin code, `undefined` means "not set". Never `null`.**
 

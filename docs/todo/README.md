@@ -18,7 +18,7 @@ Two rules for this directory:
 
 | File | What it covers |
 | --- | --- |
-| [dj-voice.md](dj-voice.md) | What stands between a station that plays segments and one with a DJ. The TTS, the settings console and the `llm` capability are all built; the writer that decides what a break says is what is left, and the file's last section orders the remaining work against listening to the station all day |
+| [dj-voice.md](dj-voice.md) | **Both pieces built 2026-08-12.** What stood between a station that plays segments and one with a DJ. The TTS, the `llm` capability, the deterministic writer, the operator's own phrasings and the model binding are all in. Kept for the smaller things it leaves behind: cue visibility, segment duration, a console for segments, and play history for what the station SAID |
 | [director-and-lineups.md](director-and-lineups.md) | Segments, an LLM DJ, live provider search, the daypart schedule, station permissions, plugins that programme the station, push destinations, rotation rules as settings, palette steering, the station console page |
 | [station-intelligence.md](station-intelligence.md) | The layer above the rules: an LLM DJ on the `SetGenerator` seam, model budget and degradation tiers, ending-aware transitions, per-track gain, never-play rules, genre and era correctness, listener signal, and what the console can tell an operator about silence |
 | [station-moment.md](station-moment.md) | The clock, the calendar and the weather as one resolver both the selector and the writers read: an operator-editable mood vocabulary, the day's lean, occasions, and why mood-biased selection is blocked and mood-flavoured talk is not |
@@ -26,7 +26,7 @@ Two rules for this directory:
 | [multi-station.md](multi-station.md) | A `deadair.stations` table so one install runs several stations, and what it subsumes |
 | [break-removal.md](break-removal.md) | **A bug with a design behind it** (2026-08-11): deleting a talk break from the running order does not stick, because the planner runs on every commit pass and a spliced-out break leaves a gap indistinguishable from one never planted into. The removal has to leave a mark the walk can read, plus the timed suppression the operator actually wanted |
 | [rundown.md](rundown.md) | What the rundown deliberately does not do yet: persistence and playhead corroboration, and why neither turned out to be a prerequisite for breaks |
-| [crossfades.md](crossfades.md) | Blending one rundown item into the next, and why the cross buffer has to be paid for in the voice cue timing before it can land. Second on the near-term order below, and no longer blocked: the cue points it needs a number from were measured on 2026-08-11 |
+| [crossfades.md](crossfades.md) | **Built 2026-08-12.** Blending one rundown item into the next, on the measured cue points. Kept for the blend POLICY inside the buffer, which still wants the beat layer and the licence question that carries |
 | [track-analysis.md](track-analysis.md) | **Mostly done** (2026-08-11): the sidecar, the `analysis` capability, the four cue points and the loudness layer are built and measured. What remains is the beat layer (tempo, confidence, downbeats, vocal onset and curve) and the licence question it carries |
 | [provider-audio-failures.md](provider-audio-failures.md) | **The blocker under three other files** (2026-08-11): the shim's session is healthy and individual tracks return 502, so 13 of 581 are measured, a hand-built running order had four of its eight tracks skipped, and the mount put two seconds of digital silence on air. Why that silence is three correct behaviours stacked on one upstream failure, where to look, and why raising the analysis batch size makes it worse |
 | [analysis-queue-ordering.md](analysis-queue-ordering.md) | Which tracks the measurement walk picks and in what order (2026-08-11): why gating it on "already handed over" does not buy the download back, ordering the queue by `play_history` instead, splitting an unfetchable binding from an undecodable file, and the tee off the shim that would make measurement free |
@@ -54,20 +54,26 @@ no pass. What is left, in order:
    only choosing ready idents.~~ **Built 2026-08-09**, alternating with recorded idents. Cue
    visibility did NOT ride with it, because breaks are planted between records rather than over them;
    see [dj-voice.md](dj-voice.md) for what shipped and what that leaves.
-2. **[Crossfades](crossfades.md)**, once breaks are landing reliably, because the cross buffer moves
-   the clock those breaks are timed against. It grew a prerequisite on 2026-08-10 — the per-track
-   measurement in [station-intelligence.md](station-intelligence.md) §3 — and **that prerequisite
-   was met on 2026-08-11**: the sidecar measures the four cue points, so `outro` and `intro` are
-   real numbers and `buffer = min(outgoing.outro, incoming.intro)` can be computed today. The blend
-   POLICY inside the buffer still wants the beat layer, which is not built and carries the licence
-   question; a plain per-pair blend does not, and is what this item now means.
-3. **A model as the writer's second binding**, with the deterministic one kept underneath as the
-   floor rather than as scaffolding.
-4. **The activity feed** over the segment transitions the two writers produce, which is why those
-   transitions are recorded as facts while they are written rather than afterwards.
+2. ~~**[Crossfades](crossfades.md)**, once breaks are landing reliably, because the cross buffer
+   moves the clock those breaks are timed against.~~ **Built 2026-08-12**, on the cue points the
+   sidecar measured the day before, so `buffer = min(outgoing.outro, incoming.intro)` is a real
+   number per pair. The blend POLICY inside the buffer still wants the beat layer, which is not
+   built and carries the licence question.
+3. ~~**A model as the writer's second binding**, with the deterministic one kept underneath as the
+   floor rather than as scaffolding.~~ **Built 2026-08-12**, and it came out with THREE bindings
+   rather than two: the model, the operator's own phrasings, and the station's five underneath both.
+   The floor stopped being code and became a setting. See [dj-voice.md](dj-voice.md) for what
+   shipped and the four things that came with it that were not on this list.
+4. **The activity feed** over the segment transitions the writers produce, which is why those
+   transitions are recorded as facts while they are written rather than afterwards. **Now the whole
+   of what is left on this list**, and in a better position than it assumed: `segment_events` carries
+   a row per stage (`planned → writing → written → rendering → ready`) and `deadair.script_history`
+   one per write attempt, with the writer, the model, the token counts and the duration. It really is
+   a transport over rows that already exist.
 
-Everything else in the table is deferred behind those four unless something specific pulls it
-forward.
+Everything else in the table is deferred behind item 4 unless something specific pulls it forward —
+and [listening-loop.md](listening-loop.md) still competes with it rather than queueing behind it,
+for the reason at the bottom of this file.
 
 **Landed since, 2026-08-11**, and none of it was on this list: the measurement layer under item 2.
 `analysis/` is a sidecar, `plugins/analyzer` the adapter, `analysis` a capability of its own rather
@@ -80,6 +86,22 @@ the same sidecar is untouched.
 **One thing does pull itself forward**, added the same day: the four above assume listening at the
 desk, which is where the station is audible and nowhere else. Replacing a streaming service means
 being audible on a phone and in a car too, and that is infrastructure rather than app code. See
-[listening-loop.md](listening-loop.md). It competes with item 1 rather than slotting behind it: the
+[listening-loop.md](listening-loop.md). It competed with item 1 rather than slotting behind it: the
 writer makes the station worth listening to, reachability makes it possible to, and which comes first
-depends on whether the next week of listening happens at the desk or not.
+depends on whether the next week of listening happens at the desk or not. With items 1 to 3 built,
+that question is now between it and the activity feed.
+
+**Landed with item 3, 2026-08-12, and none of it was on this list.** Four things, because the writer
+turned out to sit on plumbing that was not there:
+
+- **Everything the station writes is kept.** `deadair.script_history`, one row per write ATTEMPT, so
+  a model that declined and the floor that covered for it are two rows rather than one misleading
+  one. It outlives its segment, is swept nightly against `render.scriptHistoryDays`, and keeps the
+  prompt and the raw answer only while `llm.captureWrites` is on.
+- **A state per stage of making a break** (`planned → writing → written → rendering → ready`), so a
+  retry after a failed render re-speaks the words already written rather than paying for new ones,
+  and so a console can tell "being written" from "waiting on the renderer".
+- **A break is written when its slot comes near** rather than when it is planted, cutting the horizon
+  from about an hour of model and speech work to about fifteen minutes of it.
+- **A break's forward claim is checked before it airs**, which is `dj-voice.md` correction 5 and was
+  a live defect in the deterministic writer rather than anything the model introduced.

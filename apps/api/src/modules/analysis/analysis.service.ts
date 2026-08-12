@@ -5,7 +5,7 @@ import { ANALYSIS_SCHEMA_VERSION, type AnalysisRef } from '@deadair/plugin-sdk';
 import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
-import { CachedTrackResolver } from '#modules/playout/providers/cache.resolver.js';
+import { TrackAudioResolver } from '#modules/playout/providers/track.audio.resolver.js';
 import { PluginTrackResolver } from '#modules/playout/providers/plugin.resolver.js';
 import { AnalysisRepository, type AnalysableTrack } from './analysis.repository.js';
 import {
@@ -76,7 +76,7 @@ export class AnalysisService {
         private readonly invoker: PluginInvoker,
         private readonly trackResolver: PluginTrackResolver,
         // Asked before the provider, and never asked to FILL. See resolveAudio below.
-        private readonly cachedTracks: CachedTrackResolver,
+        private readonly cachedTracks: TrackAudioResolver,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}

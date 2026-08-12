@@ -4,15 +4,15 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { TrackAudioRepository } from './audio/track.audio.repository.js';
-import { TrackCacheService } from './audio/track.cache.service.js';
+import { TrackAudioService } from './audio/track.audio.service.js';
 import { TrackStore } from './audio/track.store.js';
 import { AudienceWatch } from './audience.watch.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { CompositeTrackResolver, TrackResolver } from './playout.capability.js';
 import { resolvePlayoutBaseUrl } from './playout.urls.js';
-import { CachedTrackResolver } from './providers/cache.resolver.js';
 import { PluginTrackResolver } from './providers/plugin.resolver.js';
+import { TrackAudioResolver } from './providers/track.audio.resolver.js';
 import { SegmentTrackResolver } from './providers/segment.resolver.js';
 import { PlayoutPusher } from './playout.pusher.js';
 import { PlayoutService } from './playout.service.js';
@@ -45,55 +45,59 @@ export const PlayoutModule: ServerKitModule = {
         registry.register(LiquidsoapEndpoint).useClass(LiquidsoapEndpoint).asSingleton();
         registry.register(PlayoutControlClient).useClass(PlayoutControlClient).asSingleton();
 
-        // The station's own copy of a record: the files, and the rows saying what is in them.
+        // Where a record's audio comes from: the files, the rows saying what is in them, and the one
+        // service that fetches from a provider when neither has it.
         //
         // Singleton for the store, because it is a directory root and nothing else, so a per-request
         // copy would be a per-request re-read of the same string. Scoped for the repository, like
-        // every other one: per-request on the request path, per-run inside the job that fills it.
+        // every other one: per-request on the request path, per-run inside a job.
         registry
             .register(TrackStore)
             .useFactory(() => new TrackStore(config.get('TRACKS_DIR', DEFAULT_TRACKS_DIR)))
             .asSingleton();
         registry.register(TrackAudioRepository).useClass(TrackAudioRepository).asScoped();
 
-        // Scoped like the repository it writes through, and resolved per run by the job that fetches
-        // one record. `CacheTrackJob` itself is registered from `JobMappings`, like every other job.
-        registry.register(TrackCacheService).useClass(TrackCacheService).asScoped();
-
-        // The resolver chain. Every provider answers for its own tracks through
-        // `resolveStreamUrl`, including the ones whose audio reaches the player by
-        // way of a station-side helper; the station answers for its own segments.
-        // Each link guards on the item's `pluginId`, so the ITEM decides who speaks
-        // for it rather than a mode set somewhere — which is what lets one running
-        // order hold a Spotify track and an ident and air both.
-        //
-        // The segment link is exactly the second one the original comment here
-        // anticipated: a source deadair serves itself rather than through a plugin.
-        //
-        // The cache link is FIRST, and its position is the whole of what makes the
-        // station play its own copies: it is the one link that does not guard on a
-        // `pluginId`, because whether the bytes are on disk is a fact about the file
-        // rather than about who served it. A miss declines, so the provider answers
-        // next and the record plays exactly as it did before.
+        // Asking a provider for a stream URL. Registered here rather than as part of the chain below,
+        // because it is no longer IN the chain: since the player is only ever handed the app's own URL,
+        // the only caller left is `TrackAudioService`, which fetches the bytes itself.
         registry.register(PluginTrackResolver).useClass(PluginTrackResolver).asSingleton();
+
+        // SINGLETON, and that is load-bearing rather than incidental: it de-duplicates fetches in an
+        // in-process map and holds a few just-fetched records in memory for a station keeping nothing
+        // on disk. A scoped copy would hold neither, so two requests for one record would download it
+        // twice and every warm would be thrown away the moment its job finished. It takes the root
+        // container and opens its own scope per call for the repository, like the resolvers do.
+        registry
+            .register(TrackAudioService)
+            .useFactory(
+                container =>
+                    new TrackAudioService(container, container.get(TrackStore), container.get(PluginTrackResolver), config, container.get(Logger)),
+            )
+            .asSingleton();
+
+        // The resolver chain, which is now two links and no longer a fallback ladder.
+        //
+        // `TrackAudioResolver` answers for every catalog record with `/playout/audio/{sourceId}` —
+        // this app, this machine — whether or not the bytes are here yet, because the route behind that
+        // URL fetches them if they are not. **The player never sees a provider URL.** That is what
+        // retired the third link: a provider URL is fetchable only from wherever it was minted for, so
+        // a chain that sometimes handed one over and sometimes did not was deciding, silently and per
+        // deployment, whether the URL would work at all.
+        //
+        // `SegmentTrackResolver` still answers for the station's own segments, and still guards on the
+        // item's `pluginId`. It is second because a segment id is no `track_sources` binding, so the
+        // first link declines it on a lookup rather than on a mode set somewhere.
         registry
             .register(SegmentTrackResolver)
             .useFactory(container => new SegmentTrackResolver(container, resolvePlayoutBaseUrl(config), container.get(Logger)))
             .asSingleton();
         registry
-            .register(CachedTrackResolver)
-            .useFactory(container => new CachedTrackResolver(container, config, resolvePlayoutBaseUrl(config), container.get(Logger)))
+            .register(TrackAudioResolver)
+            .useFactory(container => new TrackAudioResolver(container, resolvePlayoutBaseUrl(config), container.get(Logger)))
             .asSingleton();
         registry
             .register(TrackResolver)
-            .useFactory(
-                container =>
-                    new CompositeTrackResolver([
-                        container.get(CachedTrackResolver),
-                        container.get(PluginTrackResolver),
-                        container.get(SegmentTrackResolver),
-                    ]),
-            )
+            .useFactory(container => new CompositeTrackResolver([container.get(TrackAudioResolver), container.get(SegmentTrackResolver)]))
             .asSingleton();
 
         registry.register(Rundown).useClass(Rundown).asSingleton();

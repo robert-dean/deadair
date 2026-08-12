@@ -4,8 +4,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { StreamConfigWatch } from '#modules/stream/stream.staleness.js';
-import { TrackAudioRepository } from './audio/track.audio.repository.js';
-import { TRACK_CONTENT_TYPES, TrackContentType, TrackStore } from './audio/track.store.js';
+import { TrackAudioService } from './audio/track.audio.service.js';
+import type { TrackContentType } from './audio/track.store.js';
 import { AudienceWatch } from './audience.watch.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
@@ -43,7 +43,7 @@ const UP_NEXT_LIMIT = 10;
 const GAP_WARN_MS = RECONCILE_TICK_MS;
 
 /**
- * How long a cached record may be held by whatever fetched it.
+ * How long a record's audio may be held by whatever fetched it.
  *
  * A day, matching the segment audio route, and safe for the same reason: the URL is keyed by the
  * binding and the ETag is the checksum, so a re-fetched copy revalidates rather than being served
@@ -52,7 +52,7 @@ const GAP_WARN_MS = RECONCILE_TICK_MS;
 const TRACK_CACHE_CONTROL = 'public, max-age=86400';
 
 /**
- * What the cached-audio route hands the generated router.
+ * What the track audio route hands the generated router.
  *
  * `contentType` is the answer rather than decoration, exactly as it is for segment audio: the
  * operation declares every format the store holds and the router sets `ctx.type` from whichever
@@ -85,9 +85,9 @@ export class PlayoutService {
         private readonly control: PlayoutControlClient,
         private readonly audience: AudienceWatch,
         private readonly stream: StreamService,
-        // The station's own copies of records, for the one route that serves them back.
-        private readonly trackAudio: TrackAudioRepository,
-        private readonly tracks: TrackStore,
+        // Where a record's audio comes from, disk or provider. The one route below is its only
+        // request-path caller.
+        private readonly trackAudio: TrackAudioService,
         // Whether the containers are running the config that was rendered for them.
         // It rides the transport status because that is the reading the console already
         // polls and the card it draws is where an operator looks when nothing is being
@@ -207,31 +207,29 @@ export class PlayoutService {
     }
 
     /**
-     * The station's own copy of one record, for the player to fetch.
+     * One record's audio, for the player to fetch.
      *
-     * The read the whole cache exists for, and the one place that is on the air
-     * path: a 404 here is an item Liquidsoap cannot play. So it checks the file as
-     * well as the row — a row whose bytes have been removed from disk answers 404
-     * rather than an empty 200, which the player would take as a record of no
-     * length.
+     * **The only way audio for a record reaches anything**, and the reason the transport hands out one
+     * URL per item rather than choosing between the station's and the provider's. Whether the station
+     * already holds these bytes is not this route's question:
+     * {@link TrackAudioService.ensure} reads the file, the in-memory hold or the provider, in that
+     * order, and answers with bytes either way.
      *
-     * Deliberately does not consult `playout.trackCache`. A URL already handed over
-     * for an item about to air has to keep working, and the switch governs which
-     * URL is handed out. See the operation in `playout.ck`.
+     * It does not consult `playout.trackCache` either, because that setting decides whether a fetched
+     * record is KEPT rather than whether it can be served. Off, this route still answers 200 — from a
+     * fetch it makes now.
+     *
+     * A 404 is therefore a real absence: no such binding, or a provider that would not serve it. The
+     * player skips the item, which is the same outcome an unresolvable item has always had.
      */
     async getTrackAudio(sourceId: string): Promise<TrackAudioResponse> {
-        const cached = await this.trackAudio.findBySourceId(sourceId);
-        if (cached?.checksum === undefined || cached.ext === undefined) {
-            throw httpError(404).withDetails({ message: `no cached audio for track source "${sourceId}"` });
-        }
-
-        const bytes = await this.tracks.read(cached.checksum, cached.ext);
-        if (bytes === undefined) throw httpError(404).withDetails({ message: `the cached file for track source "${sourceId}" is gone` });
+        const served = await this.trackAudio.ensure(sourceId);
+        if (served === undefined) throw httpError(404).withDetails({ message: `no audio available for track source "${sourceId}"` });
 
         return {
-            contentType: TRACK_CONTENT_TYPES[cached.ext],
-            body: bytes,
-            headers: { cacheControl: TRACK_CACHE_CONTROL, etag: `"${cached.checksum}"` },
+            contentType: served.contentType,
+            body: served.body,
+            headers: { cacheControl: TRACK_CACHE_CONTROL, etag: `"${served.checksum}"` },
         };
     }
 

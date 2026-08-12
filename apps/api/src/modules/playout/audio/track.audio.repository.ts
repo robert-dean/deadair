@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
+import type { DateTime } from 'luxon';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { TrackExtension, isTrackExtension } from './track.store.js';
 
@@ -15,18 +16,30 @@ import { TrackExtension, isTrackExtension } from './track.store.js';
  * again.
  */
 export interface TrackAudio {
-    id: string;
     sourceId: string;
-    /** Absent while no fetch has produced bytes: a row never tried, or one whose attempts failed. */
+    /** Absent while no fetch has produced bytes: a row never tried, one that failed, or a station keeping nothing. */
     checksum?: string;
     ext?: TrackExtension;
     contentType?: string;
     byteSize?: number;
-    /** How many fetches have been tried and failed. Zero on a row that has never been claimed. */
+    /**
+     * CONSECUTIVE failed fetches. Zero on a row that has never failed and on one whose last fetch
+     * worked, because {@link TrackAudioRepository.recordSuccess} resets it — see the note there.
+     */
     attempts: number;
+    /** When a failed binding is worth trying again. Absent means now. */
+    nextAttemptAt?: DateTime;
+    /** Why the last fetch failed, when one did. */
+    lastError?: string;
 }
 
-/** What the caller hands back after a successful download. */
+/** One binding's audio plus the provider coordinates needed to fetch it. */
+export interface SourceAudio extends TrackAudio {
+    pluginId: string;
+    externalId: string;
+}
+
+/** What the caller hands back after a successful download that is being kept. */
 export interface TrackAudioBytes {
     checksum: string;
     ext: TrackExtension;
@@ -35,170 +48,152 @@ export interface TrackAudioBytes {
 }
 
 interface TrackAudioRow {
-    id: string;
-    sourceId: string;
     checksum: string | null;
     ext: string | null;
     contentType: string | null;
     byteSize: number | null;
-    attempts: number;
+    attempts: number | null;
+    nextAttemptAt: DateTime | null;
+    lastError: string | null;
 }
-
-const AUDIO_COLUMNS = ['id', 'sourceId', 'checksum', 'ext', 'contentType', 'byteSize', 'attempts'] as const;
 
 /**
  * Rows read back as `undefined` rather than `null` (see the note in CLAUDE.md), so every optional
  * column is compared with `== null` and dropped rather than passed through. `ext` is validated
  * rather than cast: it is the second half of a filesystem path, and a row edited by hand should read
  * as "no audio" instead of reaching {@link TrackStore.pathFor} as a surprise.
+ *
+ * Every column may be null here and not only because the table allows it: these all arrive through a
+ * LEFT join from `track_sources`, so a binding nobody has ever fetched reads as a row of nulls rather
+ * than as no row at all. That is the ordinary state of a fresh catalog.
  */
-function toTrackAudio(row: TrackAudioRow): TrackAudio {
+function toTrackAudio(sourceId: string, row: TrackAudioRow): TrackAudio {
     const ext = row.ext == null ? undefined : row.ext;
     const usable = row.checksum != null && isTrackExtension(ext);
 
     return {
-        id: row.id,
-        sourceId: row.sourceId,
+        sourceId,
         ...(usable ? { checksum: row.checksum as string, ext: ext as TrackExtension } : {}),
         ...(row.contentType == null ? {} : { contentType: row.contentType }),
         ...(row.byteSize == null ? {} : { byteSize: row.byteSize }),
-        attempts: row.attempts,
+        attempts: row.attempts ?? 0,
+        ...(row.nextAttemptAt == null ? {} : { nextAttemptAt: row.nextAttemptAt }),
+        ...(row.lastError == null ? {} : { lastError: row.lastError }),
     };
 }
 
-/** What the resolver learns about a binding in one read: which source row it is, and what it holds. */
-export interface BindingAudio extends TrackAudio {
-    /** Whether a fetch is worth queueing now: no bytes, and any backoff has expired. */
-    dueForFetch: boolean;
-}
+const AUDIO_SELECTION = [
+    'audio.checksum as checksum',
+    'audio.ext as ext',
+    'audio.contentType as contentType',
+    'audio.byteSize as byteSize',
+    'audio.attempts as attempts',
+    'audio.nextAttemptAt as nextAttemptAt',
+    'audio.lastError as lastError',
+] as const;
 
 @Injectable()
 export class TrackAudioRepository extends DataRepository {
     /**
-     * The station's copy of a binding, by the plugin and external id the running order carries.
+     * Everything needed to serve one binding, by the id its URL carries.
      *
-     * One statement, because the transport asks this per hand-over: the binding is looked up and its
-     * cache row left-joined in the same query, so a binding with no row yet answers `sourceId` and
-     * `dueForFetch: true` rather than costing a second round trip to find out there is nothing there.
+     * One statement, and it starts from `track_sources` rather than from `track_audio`: the row that
+     * says a binding EXISTS is the source, and the cache row is an optional fact about it. A binding
+     * nobody has fetched therefore answers with `attempts: 0` and no checksum rather than
+     * `undefined` — which is what lets {@link TrackAudioService.ensure} tell "never fetched" from
+     * "not a binding at all" without a second read.
      *
-     * `undefined` means the CATALOG does not know this binding, which is not the same as having no
-     * copy of it — a lineup item whose provider row has since been deleted resolves through the
-     * provider or not at all, and there is nothing here to cache it against.
+     * `undefined` means the catalog has no such source row: a stale URL, or a binding deleted since
+     * the running order was built. The route answers 404 for it.
      */
-    async findByBinding(pluginId: string, externalId: string): Promise<BindingAudio | undefined> {
+    async findForSource(sourceId: string): Promise<SourceAudio | undefined> {
         const row = await this.db
             .selectFrom('deadair.trackSources as source')
             .leftJoin('deadair.trackAudio as audio', 'audio.sourceId', 'source.id')
-            .select([
-                'source.id as sourceId',
-                'audio.id as id',
-                'audio.checksum as checksum',
-                'audio.ext as ext',
-                'audio.contentType as contentType',
-                'audio.byteSize as byteSize',
-                'audio.attempts as attempts',
-                sql<boolean>`audio.checksum is null and (audio.next_attempt_at is null or audio.next_attempt_at <= now())`.as('dueForFetch'),
-            ])
-            .where('source.pluginId', '=', pluginId)
-            .where('source.externalId', '=', externalId)
+            .select(['source.pluginId as pluginId', 'source.externalId as externalId', ...AUDIO_SELECTION])
+            .where('source.id', '=', sourceId)
             .executeTakeFirst();
 
         if (row === undefined) return undefined;
 
-        // `id` and `attempts` are null when the left join found nothing, which is the ordinary state
-        // of a binding nobody has played yet. The id of a row that does not exist is not something a
-        // caller can use, so it reports the source id and an empty attempt count.
-        return {
-            ...toTrackAudio({ ...row, id: row.id ?? '', attempts: row.attempts ?? 0 }),
-            dueForFetch: row.dueForFetch,
-        };
-    }
-
-    /** The copy behind a served URL, by the binding it belongs to. */
-    async findBySourceId(sourceId: string): Promise<TrackAudio | undefined> {
-        const row = await this.db.selectFrom('deadair.trackAudio').select(AUDIO_COLUMNS).where('sourceId', '=', sourceId).executeTakeFirst();
-
-        return row === undefined ? undefined : toTrackAudio(row);
+        return { ...toTrackAudio(sourceId, row), pluginId: row.pluginId, externalId: row.externalId };
     }
 
     /**
-     * Takes the fetch for one binding, or answers `false` because somebody else has it.
+     * The id of a binding the station may serve, or `undefined`.
      *
-     * The same conditional-update trick `SegmentRepository.claimForRender` uses, and here for the
-     * same reason: the resolver fires a job off a boundary without waiting for it, so a record that
-     * comes round twice in the seconds a download takes sends the job twice, and a duplicate send has
-     * to be FREE. The claim is what makes it free — the second job finds the row already claimed and
-     * does nothing.
+     * What the resolver asks on every hand-over, and deliberately the whole of what it asks: whether
+     * the bytes are on disk yet is no longer the resolver's business, because the route it hands back
+     * fetches them if they are not there. So this is an existence check and nothing more.
      *
-     * Claiming means bumping `attempts` and pushing `next_attempt_at` out, so an interrupted job (a
-     * deploy, a kill) leaves a row that is retried later rather than one that is claimed forever.
-     * Which is also why the gate is the same one a failure sets: a claim IS a pessimistic failure
-     * that {@link recordSuccess} clears.
-     *
-     * @param holdMs - How long the claim is good for. Comfortably longer than a download and short
-     *   enough that a lost job is retried the same evening.
+     * `playable and missing_at is null` is the predicate `track_sources_playable_idx` already
+     * encodes, and the same one `CandidatesRepository` picks records by. Reading it here as well is
+     * what stops the transport handing over a URL for a copy the catalog has already written off —
+     * see the note on `missing_at` in `CandidatesRepository.bindingsFor`.
      */
-    async claim(sourceId: string, holdMs: number): Promise<boolean> {
-        const holdSecs = sql<number>`${holdMs / 1000}::double precision`;
-        const held = sql<never>`now() + make_interval(secs => ${holdSecs})`;
-
+    async findPlayableSourceId(pluginId: string, externalId: string): Promise<string | undefined> {
         const row = await this.db
-            .insertInto('deadair.trackAudio')
-            .values({ sourceId, attempts: 1, nextAttemptAt: held })
-            .onConflict(oc =>
-                oc
-                    .column('sourceId')
-                    .doUpdateSet(eb => ({ attempts: eb('deadair.trackAudio.attempts', '+', 1), nextAttemptAt: held }))
-                    // Only a row with no bytes and no live gate is claimable. Kysely puts this on the
-                    // DO UPDATE, so a conflicting row that fails it updates nothing and returns
-                    // nothing, which is exactly "somebody else has this".
-                    //
-                    // The gate is read exactly as `findByBinding` reads it, null included: the two
-                    // have to agree about what is due, or the resolver would queue a fetch the claim
-                    // then refuses and the binding would never be cached while looking like it was
-                    // about to be.
-                    .where(eb =>
-                        eb.and([
-                            eb('deadair.trackAudio.checksum', 'is', null),
-                            eb.or([
-                                eb(sql`deadair.track_audio.next_attempt_at`, 'is', null),
-                                eb(sql`deadair.track_audio.next_attempt_at`, '<=', sql`now()`),
-                            ]),
-                        ]),
-                    ),
-            )
-            .returning('id')
+            .selectFrom('deadair.trackSources')
+            .select('id')
+            .where('pluginId', '=', pluginId)
+            .where('externalId', '=', externalId)
+            .where('playable', '=', true)
+            .where('missingAt', 'is', null)
             .executeTakeFirst();
 
-        return row !== undefined;
+        return row?.id;
     }
 
     /**
-     * Records bytes against a binding.
+     * The fetch state of several bindings at once, for the ripener.
      *
-     * Clears the failure state on the way through: a binding that failed twice and then worked is
-     * simply cached, and leaving `last_error` and a future `next_attempt_at` behind would leave the
-     * table reading as broken and the row un-reclaimable if the file is ever lost.
+     * Batched for the reason `SegmentRepository.findByIds` is: this runs on the commit pass, and one
+     * query for a window of records beats one per item on a path that already does a read per
+     * boundary.
+     *
+     * Keyed by `sourceId` on the way out, because that is what the caller holds and what the job
+     * payload carries.
      */
-    async recordSuccess(sourceId: string, bytes: TrackAudioBytes): Promise<TrackAudio> {
-        const cached = {
-            checksum: bytes.checksum,
-            ext: bytes.ext,
-            contentType: bytes.contentType,
-            byteSize: bytes.byteSize,
-            fetchedAt: sql<never>`now()`,
-            lastError: null,
-            nextAttemptAt: null,
-        };
+    async findForSources(sourceIds: readonly string[]): Promise<Map<string, TrackAudio>> {
+        const found = new Map<string, TrackAudio>();
+        if (sourceIds.length === 0) return found;
 
-        const row = await this.db
+        const rows = await this.db
+            .selectFrom('deadair.trackSources as source')
+            .leftJoin('deadair.trackAudio as audio', 'audio.sourceId', 'source.id')
+            .select(['source.id as sourceId', ...AUDIO_SELECTION])
+            .where('source.id', 'in', [...sourceIds])
+            .execute();
+
+        for (const row of rows) found.set(row.sourceId, toTrackAudio(row.sourceId, row));
+
+        return found;
+    }
+
+    /**
+     * Records that a fetch worked, and what it produced.
+     *
+     * **Resets `attempts` to zero**, which is what makes that column mean CONSECUTIVE failures. It has
+     * to: a station keeping nothing (`playout.trackCache` off) never writes a checksum, so without the
+     * reset a perfectly healthy binding's attempt count would climb on every successful fetch until
+     * whatever reads it decides the binding is dead. Clears `last_error` and the backoff for the same
+     * reason — a binding that failed twice and then worked is simply working, and a table left reading
+     * as broken is one nobody can diagnose from.
+     *
+     * `bytes` absent means the fetch worked and the station is not keeping it: the bookkeeping is
+     * written exactly the same way, and the columns describing a file on disk are left alone rather
+     * than nulled. Nulling them would throw away a copy an operator had before turning the switch off.
+     */
+    async recordSuccess(sourceId: string, bytes?: TrackAudioBytes): Promise<void> {
+        const cleared = { attempts: 0, lastError: null, nextAttemptAt: null, fetchedAt: sql<never>`now()` };
+        const kept =
+            bytes === undefined ? {} : { checksum: bytes.checksum, ext: bytes.ext, contentType: bytes.contentType, byteSize: bytes.byteSize };
+
+        await this.db
             .insertInto('deadair.trackAudio')
-            .values({ sourceId, ...cached })
-            .onConflict(oc => oc.column('sourceId').doUpdateSet(cached))
-            .returning(AUDIO_COLUMNS)
-            .executeTakeFirstOrThrow();
-
-        return toTrackAudio(row);
+            .values({ sourceId, ...cleared, ...kept })
+            .onConflict(oc => oc.column('sourceId').doUpdateSet({ ...cleared, ...kept }))
+            .execute();
     }
 
     /**
@@ -206,13 +201,12 @@ export class TrackAudioRepository extends DataRepository {
      *
      * The row is kept rather than deleted: without it nothing can tell a binding never tried from one
      * the provider refuses every time, and a dead binding would be re-fetched on every boundary it
-     * came round on forever. The station still plays it through the provider in the meantime, so this
-     * costs nothing audible.
+     * came round on forever.
      *
-     * The backoff doubles per attempt up to `maxRetryMs`, computed in SQL off the row's own
-     * `attempts` — the same shape `ArtRepository.recordFailure` uses, and for the same reason: it
-     * needs no read first and two failures cannot both write the same delay from the same stale
-     * count. The claim has already bumped `attempts`, so the first failure is already spaced.
+     * Bumps `attempts` ITSELF and computes the backoff from the bumped value, in one statement, so the
+     * count is a true tally of consecutive failures however many fetches raced. It used to be bumped
+     * by a separate `claim`, which is gone: de-duplication moved in-process, and a counter maintained
+     * by a lock nobody takes any more would only ever be wrong.
      */
     async recordFailure(sourceId: string, error: string, baseRetryMs: number, maxRetryMs: number): Promise<void> {
         // Cast both bounds: `least()` over two untyped bind parameters resolves to text, and
@@ -229,12 +223,16 @@ export class TrackAudioRepository extends DataRepository {
                 nextAttemptAt: sql<never>`now() + make_interval(secs => least(${baseSecs}, ${maxSecs}))`,
             })
             .onConflict(oc =>
-                oc.column('sourceId').doUpdateSet({
+                oc.column('sourceId').doUpdateSet(eb => ({
+                    attempts: eb('deadair.trackAudio.attempts', '+', 1),
                     lastError: error,
+                    // Doubling off the row's own count rather than off a value read a moment ago, so
+                    // two failures racing cannot both write the same delay from the same stale number.
+                    // `attempts` is the PRE-bump value inside this expression, hence no -1.
                     nextAttemptAt: sql<never>`now() + make_interval(
-                        secs => least(${baseSecs} * power(2, greatest(deadair.track_audio.attempts - 1, 0)), ${maxSecs})
+                        secs => least(${baseSecs} * power(2, deadair.track_audio.attempts), ${maxSecs})
                     )`,
-                }),
+                })),
             )
             .execute();
     }

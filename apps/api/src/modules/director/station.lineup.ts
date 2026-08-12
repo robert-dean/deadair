@@ -358,12 +358,29 @@ export class StationLineup implements LiveOrder {
      * head up to editing while the player is still holding part of it.
      *
      * What the old `Lineup.cursor()` answered, derived rather than counted.
+     *
+     * ## Why `skipped` alone does not count
+     *
+     * It is measured from the last item the player was actually GIVEN, and then extended
+     * over whatever run of skipped items sits immediately after it. A skipped item next to
+     * the head is one the player passed over on its way here, and it belongs to the head. A
+     * skipped item further out, with planned items between, is an operator's cut ({@link
+     * remove}) and belongs to the tail — treating that one as the head would make everything
+     * in front of it unmovable and unplantable, so deleting a break in the middle of the hour
+     * would freeze the half of the order in front of it.
      */
     committedThrough(): number {
+        let last = -1;
         for (let index = this.itemList.length - 1; index >= 0; index--) {
-            if (this.itemList[index]!.state !== 'planned') return index + 1;
+            const state = this.itemList[index]!.state;
+            if (state === 'handed' || state === 'airing' || state === 'played') {
+                last = index;
+                break;
+            }
         }
-        return 0;
+
+        while (this.itemList[last + 1]?.state === 'skipped') last += 1;
+        return last + 1;
     }
 
     /** The row as it should be stored. */
@@ -551,13 +568,35 @@ export class StationLineup implements LiveOrder {
         return OK;
     }
 
-    /** Drop an item that has not been committed yet. */
+    /**
+     * Drop an item that has not been committed yet.
+     *
+     * **A record is spliced out and a segment is marked `skipped`**, which reads like an
+     * inconsistency and is the whole fix for a bug: a removed break used to come back a
+     * boundary or two later, between the same two records. `BreakPlanner` is idempotent
+     * positionally and by nothing else — it counts records since the last segment ALREADY in
+     * the order — so a spliced-out break left an order with a full interval of records and no
+     * segment in it, which is indistinguishable from an order that was never planted into. The
+     * planner then did the correct thing for that order and planted a break. The operator's
+     * delete was not being overruled, it was being forgotten.
+     *
+     * `skipped` already means "this was in the order and will not air", and a segment in any
+     * state resets the planner's count, so marking is the record of the removal the walk can
+     * read. The station goes one interval without talking and then talks again, which is what
+     * deleting one break means. Removing a RECORD stays a splice: the two are different
+     * requests and only this one has to leave a mark.
+     *
+     * The mark ages out with the rest of the past, through {@link trimPast}.
+     */
     remove(itemId: string): EditResult {
         const index = this.itemList.findIndex(item => item.id === itemId);
         if (index < 0) return refuse('not-found', 'that item is not in the running order');
-        if (this.itemList[index]!.state !== 'planned') return refuse('already-aired', 'that item has already been handed to the player');
 
-        this.itemList.splice(index, 1);
+        const item = this.itemList[index]!;
+        if (item.state !== 'planned') return refuse('already-aired', 'that item has already been handed to the player');
+
+        if (item.kind === 'segment') item.state = 'skipped';
+        else this.itemList.splice(index, 1);
         return OK;
     }
 

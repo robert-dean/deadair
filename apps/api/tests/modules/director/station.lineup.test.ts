@@ -199,6 +199,58 @@ describe('StationLineup editing', () => {
         expect(lineup.remove(first!.id)).toMatchObject({ ok: false, reason: 'already-aired' });
     });
 
+    it('splices a record out, and leaves a removed break in the order as a skipped item', () => {
+        // The whole of the removed-break bug. `BreakPlanner` counts records since the
+        // last segment ALREADY in the order, so a spliced-out break leaves a gap it
+        // cannot tell from one that was never planted into, and it plants another.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 2);
+
+        // a, b, talk, c
+        expect(lineup.remove(lineup.all()[1]!.id)).toEqual({ ok: true });
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'c']);
+
+        expect(lineup.remove(lineup.all()[1]!.id)).toEqual({ ok: true });
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'c']);
+        expect(statesOf(lineup)).toEqual(['planned', 'skipped', 'planned']);
+    });
+
+    it('never offers a removed break to the player, and ages the mark out with the rest of the past', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('talk', 1);
+        lineup.remove(lineup.all()[1]!.id);
+
+        expect(idsOf(lineup.nextPlanned(3))).toEqual(['a', 'b']);
+        expect(idsOf(lineup.upcoming())).toEqual(['a', 'b']);
+
+        lineup.trimPast(0);
+        expect(idsOf(lineup.all())).toEqual(['a', 'b']);
+    });
+
+    it('keeps a removed break out of the committed head, so the order in front of it stays editable', () => {
+        // Measured from the last item the player was GIVEN. Counting a cut in the middle
+        // of the tail as the head would freeze everything in front of it: no move, no
+        // insert, and nothing planted.
+        const lineup = lineupWith(['a', 'b', 'c', 'd', 'e']);
+        lineup.insertSegment('talk', 3);
+        hand(lineup, 1);
+
+        lineup.remove(lineup.all()[3]!.id);
+
+        expect(lineup.committedThrough()).toBe(1);
+        expect(lineup.move(lineup.all()[4]!.id, 1)).toEqual({ ok: true });
+    });
+
+    it('still counts a skipped item next to the head as part of it', () => {
+        // One the player passed over on its way here, rather than an operator's cut.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        const handed = hand(lineup, 2);
+        lineup.markSkipped(handed[1]!.id);
+
+        expect(lineup.committedThrough()).toBe(2);
+        expect(lineup.insertSegment('ident', 1)).toMatchObject({ ok: false, reason: 'already-aired' });
+    });
+
     it('says which refusal is which, because a console has to tell someone at the desk', () => {
         const lineup = lineupWith(['a']);
 

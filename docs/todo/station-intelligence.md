@@ -48,11 +48,39 @@ all, and `bpm` on a catalog row is whatever a provider declared, not something w
 
 ## 1. An LLM DJ bound to `SetGenerator`
 
-**Lands at:** a second `SetGenerator` binding, chosen by setting, with `CatalogSetGenerator` staying
-bound as the fallback. Nothing else moves.
+**Built 2026-08-12.** `ModelSetGenerator` sits in front of `CatalogSetGenerator` in a
+`SetGeneratorChain`, behind `llm.setGenerator`, off by default. The four failures below were each
+built for and the notes on them stand. Three things came out differently from this section, and the
+first is the one worth reading before anything else lands near selection.
 
-The seam is already the right shape, so this is smaller than it sounds. What is worth building
-deliberately is everything around the call, because each of these is a failure that is inaudible
+**"Nothing else moves" was wrong, and it was wrong in the direction that matters.** The rotation
+rules lived inside `CatalogSetGenerator` — `rejectDisliked`, `filterByHistory`, `capPerArtist`,
+`spaceArtists`, all of them — which was correct exactly as long as that was the only generator. A
+pick is a NAME, so a second binding hands over titles nothing has judged, and `PickResolver` was
+resolving them straight into the running order. A dislike is an INSTRUCTION that no lineup may turn
+off, so this was a correctness hole rather than a matter of taste: a model naming a disliked artist
+would have aired them. §5's "enforcement is inherited, never added" turns out to be a
+**prerequisite** of this entry rather than a sibling of it. The rules now run in `PickResolver`,
+which is the one step every pick from every source passes through; the generator still filters
+before its own draw, and both places say why neither is safe to delete.
+
+**The chain TOPS UP rather than falling through**, which is the one place it could not copy
+`BreakWriterRegistry`. A break is one sentence and is all-or-nothing, so that registry takes the
+first answer and stops. A set is `count` picks, and a model that named six of fifteen has not failed
+— it has done most of the job. Falling through would throw away the good half of the answer, so each
+binding is asked for what is still missing and the floor finishes the rest. Songs already chosen
+thread down as keys to avoid; artists deliberately do not, because excluding every artist already
+queued starves a long rotation of its own library.
+
+**The discovery tool had to be a new one.** `CatalogSearchTool` searches provider PLUGINS, which is
+right for a break writer checking a claim and wrong for a DJ: a pick survives only if it matches
+`deadair.tracks` with a live binding, so a model steered by provider search names records the station
+never ingested and the running order comes up short for reasons nothing in the log connects to the
+search. `LibrarySearchTool` answers from the catalog instead. Bans narrow it and rotation rules
+deliberately do not, per the note below.
+
+The seam was already the right shape, so the call itself was smaller than it sounds. What was worth
+building deliberately is everything around it, because each of these is a failure that is inaudible
 until it has been running for a week.
 
 **Artist variety is enforced at the point of choice, not inside the discovery tools.** A model given
@@ -80,11 +108,36 @@ documents as an ordinary outcome.
 
 ## 2. Budget and degradation tiers, built before the model, not after
 
-**Lands at:** a settings-backed gate in front of every model call, and a `settings` layer that can
-hold it (`deadair.settings` has only a repository today; the DB-backed layer is the prerequisite).
+**Deferred 2026-08-12, against this section's own ordering claim.** Entry 1 was built without it.
+The reasoning is written down rather than the decision, because the day `baseUrl` points at
+somebody's paid API this re-opens and the numbers change:
 
-This is the one entry with an ordering claim: build it **with** entry 1 rather than after it. Once
-there are forty call sites the retrofit is a different job.
+- **The ordering claim assumed a retrofit that no longer exists.** It was written 2026-08-09, before
+  `LlmService` and `LlmGate`. There is now exactly ONE model call site (`ModelTalkBreakWriter`) plus
+  the one entry 1 added, and every call already funnels through `LlmService.generate` /
+  `generateWith` / `converse`. The retrofit surface is one file and stays one file by construction,
+  so the "forty call sites" this was racing to get ahead of cannot arise.
+- **The tokens are not billed.** `plugins/llm` is an OpenAI-compatible client against a self-hosted
+  `baseUrl`. A daily token cap caps nothing that costs money. The other thing a cap would buy —
+  contention — is already handled by `LlmGate` serializing to one generation at a time.
+- **The invariant this exists to protect turned out to be structural rather than policy.** "No tier
+  makes music stop" holds because `BreakWriterRegistry` falls through to `TalkBreakWriter` and
+  because `SetGeneratorChain` tops up from `CatalogSetGenerator`. Both are tested. A tier module
+  does not make either truer, and building one would have implied the guarantee lived in it.
+
+One piece was kept rather than deferred with the rest: `ModelSetGenerator` logs what each run cost —
+tokens, wall time, searches made, picks named — for the reason `WriteAttempt` keeps a duration for
+every writer and not only a slow one. "The model got slower" is a question that can only be asked of
+numbers gathered before anybody suspected it. A log line, not a table.
+
+**The station-wide voice switch this section wanted is already `rotation.breaks`**, which gates
+before generation (the planner plants nothing, so no writer is ever asked). Do not add a second one.
+
+What follows is the design as it stood, unbuilt.
+
+**Lands at:** a settings-backed gate in front of every model call, and a `settings` layer that can
+hold it (`deadair.settings` has only a repository today; the DB-backed layer is the prerequisite —
+**this has since been built**, so that half of the prerequisite is gone).
 
 Three tiers over a per-day token count, and the policy lives in one module, never inline at a call
 site:

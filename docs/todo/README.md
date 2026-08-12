@@ -20,7 +20,7 @@ Two rules for this directory:
 | --- | --- |
 | [dj-voice.md](dj-voice.md) | **Both pieces built 2026-08-12.** What stood between a station that plays segments and one with a DJ. The TTS, the `llm` capability, the deterministic writer, the operator's own phrasings and the model binding are all in. Kept for the smaller things it leaves behind: cue visibility, segment duration, a console for segments, and play history for what the station SAID |
 | [director-and-lineups.md](director-and-lineups.md) | Segments, an LLM DJ, live provider search, the daypart schedule, station permissions, plugins that programme the station, push destinations, rotation rules as settings, palette steering, the station console page |
-| [station-intelligence.md](station-intelligence.md) | The layer above the rules: an LLM DJ on the `SetGenerator` seam, model budget and degradation tiers, ending-aware transitions, per-track gain, never-play rules, genre and era correctness, listener signal, and what the console can tell an operator about silence |
+| [station-intelligence.md](station-intelligence.md) | The layer above the rules. **§1, the LLM DJ, built 2026-08-12**, and §3/§4 before it; **§2 deliberately deferred** against its own ordering claim, with the reasoning kept for the day the model stops being self-hosted. What is left: never-play rules and the freshness bubble, genre and era correctness, listener signal, and what the console can tell an operator about silence |
 | [station-moment.md](station-moment.md) | The clock, the calendar and the weather as one resolver both the selector and the writers read: an operator-editable mood vocabulary, the day's lean, occasions, and why mood-biased selection is blocked and mood-flavoured talk is not |
 | [tool-plugins.md](tool-plugins.md) | A `tool` capability so a plugin can be something the model calls mid-sentence (weather, news, RSS), and which tools are host-side sources instead |
 | [multi-station.md](multi-station.md) | A `deadair.stations` table so one install runs several stations, and what it subsumes |
@@ -106,3 +106,20 @@ turned out to sit on plumbing that was not there:
   from about an hour of model and speech work to about fifteen minutes of it.
 - **A break's forward claim is checked before it airs**, which is `dj-voice.md` correction 5 and was
   a live defect in the deterministic writer rather than anything the model introduced.
+
+**Selection got a pass after all, 2026-08-12.** The premise at the top of this list — "selection is
+already good enough for it and needs no pass" — held right up until a second thing was allowed to
+choose. [station-intelligence.md](station-intelligence.md) §1 is built: a model picks first and the
+weighted catalog draw finishes whatever it did not, behind `llm.setGenerator` and off by default.
+Item 4 is still the whole of what is left on this list; this was not on it and did not displace it.
+
+Two things came with it that are worth knowing before designing anything else near selection:
+
+- **A pick is judged where it becomes a track, not inside the generator that named it.** The rotation
+  rules moved to `PickResolver`, because a NAME arriving from a second binding had been bypassing
+  every one of them including the dislike filter, which is an instruction rather than a preference.
+  Anything that grows a third way to name a record inherits the rules for free and must not add its
+  own.
+- **§2's budget was deliberately deferred**, against that section's own instruction to build it
+  first. One call site behind one chokepoint, a self-hosted model with no bill, and an invariant that
+  turned out structural. The reasoning is in the file so it can be re-opened rather than re-argued.

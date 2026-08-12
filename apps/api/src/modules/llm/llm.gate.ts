@@ -14,8 +14,30 @@ import { PluginError } from '@deadair/plugin-sdk';
  *
  * That reasoning is about a local model, and a hosted provider would happily take both. The gate is
  * still right for now, and the reason is worth writing down rather than rediscovering: the station
- * has one queue of things to say and they are wanted in order. Widening this to a pool is a change
- * to make when something genuinely needs two at once, not before.
+ * has one queue of things to say and they are wanted in order.
+ *
+ * ## Two callers now want it at once, and it is still one slot
+ *
+ * This used to say "widening this to a pool is a change to make when something genuinely needs two
+ * at once, not before". Something does: `ModelSetGenerator` holds the model for minutes programming
+ * a running order while `ModelTalkBreakWriter` wants it for seconds. That is not the argument for a
+ * pool it looks like, so the finding is recorded here rather than left as an invitation.
+ *
+ * Widening is genuinely small — `busy` becomes a counter, {@link acquire} admits while under the
+ * limit, and the waiter queue and all three release paths already work for N. It is still wrong,
+ * for two reasons that both point the same way:
+ *
+ * - **The server serializes anyway.** One process, one set of weights, one GPU. A second app-side
+ *   slot does not create a second worker; it relocates the queue to the model host, where there is
+ *   no {@link LlmGateOptions.maxWaitMs}. And that timeout is the entire mechanism by which a break
+ *   writer gives up and lets the deterministic floor write. Widening the gate would remove the
+ *   thing that keeps a slow model from costing a silent station, while looking like it was helping.
+ * - **Two concurrent generations are slower than two sequential ones**, which is the paragraph
+ *   above and is not theoretical on a host whose context already spills VRAM.
+ *
+ * The real asymmetry between those two callers is PRIORITY, not throughput: one is a background job
+ * nobody waits on and the other has a deadline. That is expressed by bounding the background one —
+ * see `ModelSetGenerator`'s `BUDGET_MS` — and it needs nothing from this class.
  *
  * ## Fix one: the slot is held until the words STOP
  *

@@ -30,13 +30,43 @@ still holds and is why an LLM selector is cheap: `SetGenerator.generate` takes a
 picks (title + artist strings), which is what a model can produce, so it is a second binding rather
 than a reshape.
 
-## Live provider search when resolving a pick
+## Live provider search when resolving a pick — BUILT
 
-The resolver is catalog-only at first. A pick resolves to a canonical track and its best
-`track_sources` binding, or it is dropped. The deferred rung is a `searchTracks` fan-out across
-catalog-capable plugins with a title/artist/duration scorer, for picks the catalog has never seen.
-It matters for an LLM DJ naming songs the library does not hold; it does not matter while picks come
-from the catalog itself.
+**Built 2026-08-12**, as `ProviderTrackLookup` behind `PickResolver.identify`'s third rung, gated by
+`rotation.discover` (on by default) and bounded by `MAX_DISCOVERIES` per resolve. The entry was right
+about when it would matter — a model naming songs the library does not hold — and it landed alongside
+the operator brief, which is what made the library's ceiling audible: a station asked for heavy metal
+whose playlists are ambient has nothing to choose from.
+
+Four things came out differently from this sketch, and the last two were not anticipated at all.
+
+**The scorer is stricter than "title/artist/duration".** Both the title and the LEAD artist must
+match exactly on `normalizeKey`, which is the same normalization `deadair.tracks` is keyed by, so a
+match here means what a catalog match means. Duration only breaks a tie between candidates that
+already matched, taking the longer one so an album version beats a radio edit sharing its name. A
+near-miss is refused, because the failure mode is not an error: it airs the wrong record while the
+console says otherwise, and nobody watching would know.
+
+**The pick is INGESTED rather than resolved to a provider URL.** The player fetches every record from
+the app through `track_sources`, so a copy with no binding has no URL and cannot air — the catalog row
+is the mechanism rather than bookkeeping. It also puts the record in front of the measurement,
+enrichment and art passes, which all walk the catalog, so a discovered record is trimmed and
+illustrated by the existing schedules with nothing new to write.
+
+**The sync's missing sweep had to learn about it, and this is the part that would have been a silent
+bug.** `markMissingTrackSources` marks every binding a clean playlist walk did not see. A discovered
+copy is in no playlist and never will be, so the first hourly sync after a discovery would have
+benched every record the station found for itself — a feature that worked for an hour and then
+quietly stopped. `track_sources.origin` (`sync` | `discovered`) is the fix: the sweep judges only
+`sync` rows, a walk that later sees a discovered copy moves it into the sweep, and a lookup never
+moves a synced one out. What judges a discovered copy instead is fetching it, through the existing
+four-consecutive-failure bench in `TrackAudioService`.
+
+**Ordering against the rules is load-bearing.** Ingest happens inside `identify`, so `judge` runs
+afterwards and a newly ingested record inherits whatever the operator already thinks of its artist.
+Without that ordering, a record by a disliked act would air because nothing had an opinion about it
+yet — which is `rejectDisliked` being routed around by a new path, the exact hole
+[station-intelligence.md](station-intelligence.md) §1 records.
 
 ## The daypart schedule
 

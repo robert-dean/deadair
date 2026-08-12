@@ -157,9 +157,24 @@ no discovery calls at all, which genuinely is the model failing to drive its too
 run that searched honestly and found nothing.
 
 **Resolution is best-effort by design.** A model naming a song the catalog has never seen is the
-case [director-and-lineups.md](director-and-lineups.md) already scoped as live provider search. Until
-that lands, an unresolvable pick is dropped and the count comes up short, which `generate` already
-documents as an ordinary outcome.
+case [director-and-lineups.md](director-and-lineups.md) scoped as live provider search. **That landed
+2026-08-12**, so the rung now exists: `PickResolver` looks the record up across the searchable
+provider plugins, ingests the exact match and airs it. A pick nothing carries is still dropped and
+the count still comes up short, which `generate` documents as an ordinary outcome.
+
+That change also settles the paragraph above about the discovery tool. `search_library` and
+`search_catalog` are both registered and both now answer with records that can air, so the split is
+no longer schedulable versus not — it is what the station HAS versus what it can GET, and the
+descriptions carry a preference rather than a prohibition. The library stays first because those
+records are catalogued, often cached and measured; the providers are what make a brief the library
+cannot fill answerable at all.
+
+**The operator can now say what an hour should be**, which is the other half of this entry that was
+never written down here because it did not exist: `station_lineup.brief`, free text, set when the
+station goes on air and re-read on every refill, in the user turn of `setPrompt` and beating
+`llm.setPersona` where the two disagree. Measured on the station's own `gpt-oss-radio`: asked for
+"heavy metal hits" it named 23 of 24 in four searches and 85 seconds, `finish: 'stop'`, and four of
+those were records the library did not hold and Spotify did.
 
 ## 2. Budget and degradation tiers, built before the model, not after
 

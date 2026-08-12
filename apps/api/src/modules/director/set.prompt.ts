@@ -53,6 +53,14 @@ export interface SetPromptRequest {
     count: number;
     /** Titles already in the running order, as `"Title" by Artist`, which must not be chosen again. */
     avoid: readonly string[];
+    /**
+     * What the operator asked this broadcast to play, in their own words.
+     *
+     * In the USER turn rather than among the standing rules, because it is what this refill is for
+     * and the system turn is the standing job. It is an instruction and not a record, so it carries
+     * none of the {@link NEVER_ECHO} hazard the avoid list does.
+     */
+    brief?: string;
 }
 
 /**
@@ -104,6 +112,19 @@ function systemPrompt(settings: SetPromptSettings): string {
 
 function userPrompt(request: SetPromptRequest): string {
     const lines = [`Choose ${request.count} records for the station to play next.`];
+
+    const brief = request.brief?.trim();
+    if (brief) {
+        lines.push(
+            '',
+            'The operator has asked for this, and it is what these records are for:',
+            brief,
+            // Said explicitly because the two genuinely can disagree — a station whose persona is
+            // ambient and whose operator asked for heavy metal — and the operator is the one in the
+            // room. The persona is a standing description; this is somebody deciding tonight.
+            'Where this and the station description disagree, follow this.',
+        );
+    }
 
     if (request.avoid.length > 0) {
         const shown = request.avoid.slice(0, MAX_AVOID_SHOWN);

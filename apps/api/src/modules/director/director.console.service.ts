@@ -139,6 +139,10 @@ export class DirectorConsoleService {
 
         const binding: StationLineupBinding = {
             name: input.name ?? (input.pluginId === undefined ? 'The station' : `From ${input.pluginId}`),
+            // Kept as the operator wrote it, whitespace aside. It is read by a model rather than
+            // matched against anything, so there is nothing here to normalize and a station briefed
+            // with only spaces asked for nothing.
+            ...(input.brief?.trim() ? { brief: input.brief.trim() } : {}),
             mode: input.mode ?? 'rotation',
             onEnd: input.onEnd ?? 'extend',
             source: input.pluginId === undefined ? 'director' : 'import',
@@ -310,6 +314,7 @@ export class DirectorConsoleService {
 
         return {
             name: order.name,
+            ...(order.brief === undefined ? {} : { brief: order.brief }),
             mode: order.mode,
             onEnd: order.onEnd,
             source: order.source,

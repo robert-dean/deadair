@@ -33,6 +33,15 @@ export interface SetInputs {
     count: number;
     /** The rules in force for the lineup being extended, already resolved from its mode. */
     rules: ResolvedRules;
+    /**
+     * What the operator asked this broadcast to play, in their own words.
+     *
+     * Free text and never parsed here: a generator that can read an instruction acts on it, and
+     * one that cannot ignores it. The deterministic floor is the second kind on purpose — a brief
+     * it could not honour must not change what it draws — so a station whose brief nothing can
+     * satisfy gets an ordinary hour rather than a short one.
+     */
+    brief?: string;
     /** Songs not to choose, beyond whatever history says: what the lineup already holds. */
     avoidSongKeys?: ReadonlySet<string>;
     /** Artists not to choose, for the same reason. */

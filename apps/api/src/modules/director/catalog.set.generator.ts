@@ -20,6 +20,12 @@ import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js
  * flow beyond keeping one artist off its own heels. Everything it does is a rule
  * an operator could state out loud, which is the right amount of judgement for
  * something with no ears.
+ *
+ * **{@link SetInputs.brief} is ignored here, deliberately.** Reading an instruction takes something
+ * that can read, and any attempt to approximate one — matching the words against a genre column,
+ * say — would make the floor's answer depend on how well a guess landed. The floor's whole job is
+ * to be the thing that cannot fail, so a briefed station whose model produced nothing gets an
+ * ordinary hour rather than a bad impression of the hour it asked for.
  */
 @Injectable()
 export class CatalogSetGenerator extends SetGenerator {

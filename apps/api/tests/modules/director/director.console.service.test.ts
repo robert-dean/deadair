@@ -160,6 +160,30 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         });
     });
 
+    it('binds the operator’s brief to the broadcast, trimmed', async () => {
+        const { service, posted } = build();
+
+        await service.putOnAir({ brief: '  heavy metal hits  ' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { brief: 'heavy metal hits' } });
+    });
+
+    it('treats a blank brief as no brief at all', async () => {
+        // Otherwise a console sending an empty box would put an empty instruction in the prompt.
+        const { service, posted } = build();
+
+        await service.putOnAir({ brief: '   ' });
+
+        expect(posted()[0]?.kind === 'putOnAir' ? posted()[0] : undefined).not.toHaveProperty('binding.brief');
+    });
+
+    it('reports the brief on the running order, so a console can show what is still steering it', async () => {
+        const briefed = new StationLineup({ name: 'Tonight', brief: 'heavy metal hits', mode: 'rotation', onEnd: 'extend', source: 'director' });
+        const { service } = build({ order: briefed });
+
+        expect(await service.getOrder()).toMatchObject({ brief: 'heavy metal hits' });
+    });
+
     it('goes on air anyway when the catalog read fails', async () => {
         // Metadata is decoration; airing is the job.
         const { service, posted } = build({ catalogError: new Error('the pool is gone') });

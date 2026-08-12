@@ -27,6 +27,15 @@ import { readPicks, setPrompt } from './set.prompt.js';
  * so does a station with no model plugin, because {@link LlmService.canGenerate} is an ordinary
  * question with an ordinary "no".
  *
+ * ## The brief is this binding's whole reason to exist
+ *
+ * {@link SetInputs.brief} is what the operator asked this broadcast to play, and acting on it is
+ * something only a model can do — the floor draws from a weighted sample and has nowhere to put a
+ * sentence. So a briefed station whose model is off, or slow, or naming records nothing can find,
+ * still gets an hour of programming; it just gets the station's ordinary hour rather than the one
+ * that was asked for. That is the same trade every other model binding here makes, and it is why
+ * the brief is passed rather than enforced.
+ *
  * ## Variety is a re-pick, not a tool filter
  *
  * `docs/todo/station-intelligence.md` §1 is explicit and counter-intuitive here: a model given
@@ -138,7 +147,7 @@ export class ModelSetGenerator extends SetGenerator {
 
         const model = this.config.get(MODEL_GENERATOR_KEYS.model, '').trim();
         const messages = setPrompt(
-            { count: inputs.count, avoid: describeAvoided(inputs) },
+            { count: inputs.count, avoid: describeAvoided(inputs), ...(inputs.brief === undefined ? {} : { brief: inputs.brief }) },
             {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                 persona: this.config.get(MODEL_GENERATOR_KEYS.persona, ''),
@@ -174,6 +183,9 @@ export class ModelSetGenerator extends SetGenerator {
         // gathered before anybody suspected they mattered — the same argument `WriteAttempt`
         // records a duration for every writer rather than only a slow one.
         this.logger.info('director: a model programmed part of the running order', {
+            // What it was told to programme, where the numbers are. "Why did it choose these" is
+            // otherwise a question about a prompt nothing kept.
+            ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
             asked: inputs.count,
             named: picks.length,
             searches: result.toolCallsMade,

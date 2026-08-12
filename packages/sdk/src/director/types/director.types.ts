@@ -24,7 +24,7 @@ export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'ski
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L70)
+ * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L72)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -36,7 +36,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L76)
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L78)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -44,7 +44,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L80)
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L82)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -77,7 +77,7 @@ export interface SetStationAirInput {
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L62)
+ * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L63)
  */
 export interface PutOnAirInput {
     /** The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming */
@@ -86,6 +86,8 @@ export interface PutOnAirInput {
     playlistId?: string;
     /** What to call this broadcast. Absent names it after the plugin, since only the surface that listed the playlist knows its own name for it */
     name?: string;
+    /** What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do */
+    brief?: string;
     mode?: StationMode;
     onEnd?: StationOnEnd;
 }
@@ -134,6 +136,8 @@ export interface StationOrderItem {
 export interface StationOrder {
     /** What is on, for a console to draw. A label for this broadcast rather than the name of a stored object */
     name: string;
+    /** What the operator asked the station to play, in their own words. It keeps steering every refill until the station is put on air again, so a console should show it rather than only accept it */
+    brief?: string;
     mode: StationMode;
     onEnd: StationOnEnd;
     /** Who built it: `import` or `director` */

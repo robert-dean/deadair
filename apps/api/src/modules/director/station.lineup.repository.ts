@@ -42,7 +42,7 @@ export class StationLineupRepository extends DataRepository {
     async load(stationKey = MAIN_STATION): Promise<StationLineup | undefined> {
         const row = await this.db
             .selectFrom('deadair.stationLineup')
-            .select(['name', 'mode', 'onEnd', 'source', 'sourcePluginId', 'sourcePlaylistId', 'items', 'rules'])
+            .select(['name', 'brief', 'mode', 'onEnd', 'source', 'sourcePluginId', 'sourcePlaylistId', 'items', 'rules'])
             .where('stationKey', '=', stationKey)
             .executeTakeFirst();
         if (!row) return undefined;
@@ -50,6 +50,9 @@ export class StationLineupRepository extends DataRepository {
         return new StationLineup(
             {
                 name: row.name,
+                // Empty reads as absent rather than as an empty instruction, so the column's
+                // default and a station that was never briefed are the same thing everywhere above.
+                ...(row.brief ? { brief: row.brief } : {}),
                 mode: row.mode as StationLineupMode,
                 onEnd: row.onEnd as StationLineupOnEnd,
                 source: row.source,
@@ -72,6 +75,7 @@ export class StationLineupRepository extends DataRepository {
     async save(snapshot: StationLineupSnapshot, stationKey = MAIN_STATION): Promise<void> {
         const values = {
             name: snapshot.name,
+            brief: snapshot.brief ?? '',
             mode: snapshot.mode,
             onEnd: snapshot.onEnd,
             source: snapshot.source,

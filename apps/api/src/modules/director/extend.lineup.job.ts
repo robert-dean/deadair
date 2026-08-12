@@ -100,6 +100,10 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         const picks = await this.generator.generate({
             count: Math.ceil(count * OVERSAMPLE),
             rules,
+            // Read off the order on every refill rather than carried in the payload, for the same
+            // reason the rules are: this job runs again in an hour, and what the operator asked for
+            // has to still be steering it then. An empty brief reads as absent.
+            ...(lineup.brief ? { brief: lineup.brief } : {}),
             // The songs the lineup ALREADY holds, which history knows nothing about: a
             // track queued ten minutes ago has not aired, so nothing else would stop the
             // generator choosing it again and putting it in twice.

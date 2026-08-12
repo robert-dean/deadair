@@ -38,6 +38,17 @@ create table deadair.station_lineup (
     -- broadcast rather than the identity of a stored object, which is why nothing looks a
     -- row up by it.
     name text not null default '',
+    -- What the operator asked the station to play: "heavy metal hits". An INSTRUCTION for
+    -- whatever generates more, where `name` above is only a label, which is why the two are
+    -- separate columns rather than one field doing both jobs.
+    --
+    -- It lives on the running order rather than in a refill's payload because a brief has to
+    -- outlive the batch it produced: `on_end = 'extend'` tops the order up for as long as the
+    -- station is on, and a theme that evaporated after the first fifteen records would drift
+    -- back to ordinary rotation within the hour without anything saying so.
+    --
+    -- Empty is the ordinary state and means the station programmes itself as it always has.
+    brief text not null default '',
     -- The ordered list: every item, breaks among them, each carrying its own state.
     --
     --   planned  committed to nothing yet. The only state an operator may edit.

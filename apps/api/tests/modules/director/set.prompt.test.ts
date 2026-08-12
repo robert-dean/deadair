@@ -45,6 +45,28 @@ describe('setPrompt', () => {
         expect(userOf(setPrompt({ count: 12, avoid: [] }))).toMatch(/Choose 12 records/);
     });
 
+    it('carries the operator’s brief in the turn about this refill', () => {
+        // The user turn rather than the system one: the system turn is the standing job and this is
+        // what tonight was asked for.
+        const messages = setPrompt({ count: 5, avoid: [], brief: 'heavy metal hits' });
+
+        expect(userOf(messages)).toMatch(/heavy metal hits/);
+        expect(systemOf(messages)).not.toMatch(/heavy metal hits/);
+    });
+
+    it('says the brief beats the station description where the two disagree', () => {
+        // They genuinely can: a station described as ambient whose operator asked for metal. The
+        // person in the room wins.
+        const user = userOf(setPrompt({ count: 5, avoid: [], brief: 'heavy metal hits' }, { persona: 'Ambient and nothing else.' }));
+
+        expect(user).toMatch(/follow this/i);
+    });
+
+    it('says nothing about a brief that is absent or blank', () => {
+        expect(userOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/operator has asked/i);
+        expect(userOf(setPrompt({ count: 5, avoid: [], brief: '   ' }))).not.toMatch(/operator has asked/i);
+    });
+
     it('states the do-not-echo rule beside the records it governs', () => {
         // The one hazard in this prompt: a real, well-formed record that no tool returned. A rule
         // fifteen lines above the thing it governs is a rule about something else.

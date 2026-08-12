@@ -51,6 +51,7 @@ contract StationOrderItem: { # One item of the live running order, and where it 
 
 contract StationOrder: { # The station's live running order: what is airing, item by item
     name: string(max=200) # What is on, for a console to draw. A label for this broadcast rather than the name of a stored object
+    brief?: string(max=500) # What the operator asked the station to play, in their own words. It keeps steering every refill until the station is put on air again, so a console should show it rather than only accept it
     mode: StationMode
     onEnd: StationOnEnd
     source: string(min=1, max=50) # Who built it: `import` or `director`
@@ -63,6 +64,7 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     pluginId?: string(min=1, max=200) # The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming
     playlistId?: string(min=1, max=400) # Required alongside `pluginId`. The playlist is READ at this moment rather than copied, so it is never edited by having been aired
     name?: string(min=1, max=200) # What to call this broadcast. Absent names it after the plugin, since only the surface that listed the playlist knows its own name for it
+    brief?: string(max=500) # What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do
     mode?: StationMode
     onEnd?: StationOnEnd
 }

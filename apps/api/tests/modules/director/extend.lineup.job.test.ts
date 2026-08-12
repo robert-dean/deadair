@@ -36,6 +36,8 @@ const track = (title: string, artist = 'One'): RundownTrack => ({
 
 interface Options {
     mode?: StationLineupMode;
+    /** What the operator asked this broadcast to play. Absent is a station programming itself. */
+    brief?: string;
     existing?: RundownTrack[];
     /** What the generator names. Defaults to twenty tracks, more than any ask here. */
     picks?: TrackPick[];
@@ -47,7 +49,13 @@ interface Options {
 function build(options: Options & { stationRules?: Record<string, string> } = {}) {
     // The station's own rotation rules, as an operator has them set. Empty means every default.
     const station = settingsConfig(options.stationRules ?? {});
-    const lineup = new StationLineup({ name: 'Afternoons', mode: options.mode ?? 'rotation', onEnd: 'extend', source: 'director' });
+    const lineup = new StationLineup({
+        name: 'Afternoons',
+        mode: options.mode ?? 'rotation',
+        onEnd: 'extend',
+        source: 'director',
+        ...(options.brief === undefined ? {} : { brief: options.brief }),
+    });
 
     const lineups = {
         load: vi.fn(async () => (options.missing ? undefined : lineup)),
@@ -105,6 +113,26 @@ describe('ExtendLineupJob', () => {
         await job.run({ count: 10 });
 
         expect(generate.mock.calls[0]![0]!.count).toBeGreaterThan(10);
+    });
+
+    it('passes the operator’s brief on every refill, not just the first', async () => {
+        // The brief lives on the running order rather than in this job's payload precisely so that
+        // it survives to the next refill an hour later. Two runs, both briefed.
+        const { job, generate } = build({ brief: 'heavy metal hits' });
+
+        await job.run({ count: 5 });
+        await job.run({ count: 5 });
+
+        expect(generate.mock.calls[0]![0]!.brief).toBe('heavy metal hits');
+        expect(generate.mock.calls[1]![0]!.brief).toBe('heavy metal hits');
+    });
+
+    it('says nothing about a brief when the station was never given one', async () => {
+        const { job, generate } = build();
+
+        await job.run({ count: 5 });
+
+        expect(generate.mock.calls[0]![0]!.brief).toBeUndefined();
     });
 
     it('tells the generator what the lineup already holds', async () => {

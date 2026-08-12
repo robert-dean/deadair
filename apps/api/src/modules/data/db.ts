@@ -357,6 +357,7 @@ export interface DeadairStationAir {
 }
 
 export interface DeadairStationLineup {
+  brief: Generated<string>;
   createdAt: Generated<DateTime>;
   items: Generated<Json>;
   mode: Generated<"rotation" | "setlist" | "feature">;

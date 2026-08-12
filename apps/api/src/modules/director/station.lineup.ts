@@ -159,6 +159,17 @@ export interface StationLineupRules {
 export interface StationLineupBinding {
     /** What the operator is told is on. A label for this broadcast, not an identity. */
     name: string;
+    /**
+     * What the operator asked the station to play, in their own words.
+     *
+     * An instruction rather than a label, which is the whole difference from {@link name}: a
+     * generator reads this and programmes against it, and nothing shows it to a listener. It rides
+     * the running order rather than a refill's payload because `onEnd: 'extend'` keeps asking for
+     * more, and a theme that lasted one batch would drift back to ordinary rotation within the hour.
+     *
+     * Absent is ordinary and means the station programmes itself as it always has.
+     */
+    brief?: string;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
     /** Who built it: `import`, or `director` for anything generated. */
@@ -242,6 +253,11 @@ export class StationLineup implements LiveOrder {
 
     get rules(): StationLineupRules {
         return this.binding.rules ?? {};
+    }
+
+    /** What the operator asked for, for whatever generates more. Empty means they asked for nothing. */
+    get brief(): string {
+        return this.binding.brief ?? '';
     }
 
     // ── reading ────────────────────────────────────────────────────────────────

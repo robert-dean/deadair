@@ -1,10 +1,12 @@
 /**
  * Rating, end to end against the real database.
  *
- * The unit tests mock the repositories, so nothing until now has run this SQL: the update narrowed
- * by `merged_into_id`, the single-track read behind the answer, and the batched read the running
- * order draws its controls from. This drives the actual service classes over the actual pool, in
- * the order an operator would: read what is there, rate it, read it back, clear it.
+ * The unit tests mock the repositories, so nothing else runs this SQL: the update narrowed by
+ * `merged_into_id`, the single-track read behind the answer, the batched read the running order
+ * draws its controls from, and — the part that was silently wrong for as long as it existed — the
+ * expression that turns three rating columns into one opinion. This drives the actual service and
+ * repository classes over the actual pool, in the order an operator would: read what is there, rate
+ * it, read it back, clear it.
  *
  * It restores every row it touches. Run from `apps/api` with:
  *   node --import @swc-node/register/esm-register ./scripts/rating.smoke.ts
@@ -29,6 +31,8 @@ import { TracksRepository } from '../src/modules/catalog/tracks.repository.js';
 import { ArtistsService } from '../src/modules/catalog/artists.service.js';
 import { AlbumsService } from '../src/modules/catalog/albums.service.js';
 import { TracksService } from '../src/modules/catalog/tracks.service.js';
+import { CandidatesRepository } from '../src/modules/director/candidates.repository.js';
+import { weightOf } from '../src/modules/director/rotation.rules.js';
 
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
 
@@ -52,6 +56,7 @@ const tracks = new TracksRepository(db);
 const artistsService = new ArtistsService(artists);
 const albumsService = new AlbumsService(albums);
 const tracksService = new TracksService(tracks);
+const candidates = new CandidatesRepository(db);
 
 const say = (line: string) => process.stdout.write(`${line}\n`);
 const check = (label: string, actual: unknown, expected: unknown) => {
@@ -63,16 +68,41 @@ const check = (label: string, actual: unknown, expected: unknown) => {
 const stamp = async (table: 'artists' | 'albums' | 'tracks', id: string) =>
     (await db.selectFrom(`deadair.${table}`).select('updatedAt').where('id', '=', id).executeTakeFirstOrThrow()).updatedAt;
 
-try {
-    const track = await db
-        .selectFrom('deadair.tracks')
-        .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
-        .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.tracks.albumId', 'deadair.artists.id as artistId'])
-        .where('deadair.tracks.mergedIntoId', 'is', null)
-        .where('deadair.tracks.albumId', 'is not', null)
-        .limit(1)
-        .executeTakeFirstOrThrow();
+/** The one work this run experiments on: a track that has both a record and an artist to inherit from. */
+const track = await db
+    .selectFrom('deadair.tracks')
+    .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+    .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.tracks.albumId', 'deadair.artists.id as artistId'])
+    .where('deadair.tracks.mergedIntoId', 'is', null)
+    .where('deadair.tracks.albumId', 'is not', null)
+    .limit(1)
+    .executeTakeFirstOrThrow();
 
+/** What those three rows held before any of this, so the run can hand them back unchanged. */
+const held = {
+    track: (await db.selectFrom('deadair.tracks').select('rating').where('id', '=', track.trackId).executeTakeFirstOrThrow()).rating,
+    album: (await db.selectFrom('deadair.albums').select('rating').where('id', '=', track.albumId!).executeTakeFirstOrThrow()).rating,
+    artist: (await db.selectFrom('deadair.artists').select('rating').where('id', '=', track.artistId).executeTakeFirstOrThrow()).rating,
+};
+
+const restore = async () => {
+    await db.updateTable('deadair.tracks').set({ rating: held.track }).where('id', '=', track.trackId).execute();
+    await db.updateTable('deadair.albums').set({ rating: held.album }).where('id', '=', track.albumId!).execute();
+    await db.updateTable('deadair.artists').set({ rating: held.artist }).where('id', '=', track.artistId).execute();
+};
+
+/** A transaction thrown away on purpose. */
+class Rollback extends Error {}
+
+/**
+ * What to ask a draw for.
+ *
+ * Larger than any real library so the sample is bounded by its own ceiling rather than by this
+ * number — the point is to see the whole candidate set, not to size a batch.
+ */
+const SAMPLE_ATTEMPT = 5_000;
+
+try {
     say(`rating "${track.title}"`);
 
     // ── the song ──────────────────────────────────────────────────────────────
@@ -127,6 +157,83 @@ try {
         merged === undefined ? 'none in this catalog to try' : await tracks.setRating(merged.id, 1),
         merged === undefined ? 'none in this catalog to try' : false,
     );
+
+    // ── what the three levels add up to ───────────────────────────────────────
+    //
+    // The half that decides what the station actually plays, and the half no unit test can reach:
+    // it is one SQL expression. A dislike at any level has to win outright, and a like at any level
+    // has to count for something — an operator who likes a record and watches nothing change has
+    // been given a control that does not work.
+    say('');
+    say(`judging "${track.title}" at each level`);
+
+    const level = async (table: 'tracks' | 'albums' | 'artists', id: string, rating: number) =>
+        void (await db.updateTable(`deadair.${table}`).set({ rating }).where('id', '=', id).execute());
+    const unrated = async () => {
+        await level('tracks', track.trackId, 0);
+        await level('albums', track.albumId!, 0);
+        await level('artists', track.artistId, 0);
+    };
+    const effective = async () => (await candidates.ratingsFor([track.trackId])).get(track.trackId);
+    /**
+     * The candidate as the DRAW sees it, or `not offered`.
+     *
+     * Sampled repeatedly because the sample is capped below the size of a real library, so one draw
+     * legitimately misses a given track. Coming back empty every time means the query excludes it
+     * rather than that the dice were unkind.
+     */
+    const weight = async () => {
+        for (let attempt = 0; attempt < 15; attempt += 1) {
+            const hit = (await candidates.sample(SAMPLE_ATTEMPT)).find(candidate => candidate.trackId === track.trackId);
+            if (hit) return weightOf(hit);
+        }
+        return 'not offered';
+    };
+
+    await unrated();
+    check('nothing rated is no opinion, at an ordinary weight', [await effective(), await weight()], [0, 1]);
+
+    for (const [what, table, id] of [
+        ['song', 'tracks', track.trackId],
+        ['record', 'albums', track.albumId!],
+        ['artist', 'artists', track.artistId],
+    ] as const) {
+        await unrated();
+        await level(table, id, 1);
+        check(`liking the ${what} alone counts, and doubles the draw weight`, [await effective(), await weight()], [1, 2]);
+    }
+
+    for (const [what, table, id, alsoLiked] of [
+        ['artist', 'artists', track.artistId, 'tracks'],
+        ['record', 'albums', track.albumId!, 'artists'],
+        ['song', 'tracks', track.trackId, 'albums'],
+    ] as const) {
+        await unrated();
+        await level(alsoLiked, alsoLiked === 'tracks' ? track.trackId : alsoLiked === 'albums' ? track.albumId! : track.artistId, 1);
+        await level(table, id, -1);
+        check(`disliking the ${what} beats a like anywhere else`, await effective(), -1);
+    }
+
+    // The one case this catalog may not contain: `tracks.album_id` is nullable, and a single with no
+    // record must not read as "the missing album has no opinion, so nothing does". Done inside a
+    // transaction that is thrown away, since it is the shape rather than any row that is in question.
+    await unrated();
+    await db
+        .transaction()
+        .execute(async trx => {
+            const scoped = new CandidatesRepository(trx);
+            await trx.updateTable('deadair.tracks').set({ albumId: null, rating: 1 }).where('id', '=', track.trackId).execute();
+            check('a liked single filed outside any release still counts', (await scoped.ratingsFor([track.trackId])).get(track.trackId), 1);
+            throw new Rollback();
+        })
+        .catch((error: unknown) => {
+            if (!(error instanceof Rollback)) throw error;
+        });
 } finally {
+    // Only the three rows this touched, and back to what they held rather than to zero: these are
+    // the operator's own opinions, and a smoke run must not be able to erase one. It runs even when
+    // a check threw part way through, which is the case that would otherwise leave a rating on the
+    // catalog that nobody expressed.
+    await restore();
     await db.destroy();
 }

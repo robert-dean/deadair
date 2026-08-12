@@ -189,9 +189,13 @@ export interface RotationCandidate {
     songKey: string;
     artistKey: string;
     /**
-     * The lowest rating across the track, its record and its artist: `-1`
+     * How the station feels about this work across all three levels: `-1`
      * disliked, `0` unrated, `1` liked. Absent for anything the catalog has no
      * opinion on.
+     *
+     * A dislike at any level wins outright and a like at any level otherwise
+     * carries; `CandidatesRepository.effectiveRating` is where that is decided,
+     * and it is the only place it should be.
      */
     rating?: number;
 }
@@ -221,9 +225,9 @@ export const filterByHistory = <T extends RotationCandidate>(candidates: readonl
  * **Not a rotation rule, and not disable-able by a lineup.** A dislike is an
  * instruction about what the station may play, not a preference about how often;
  * a setlist that turned the rules off must still not air a record its owner
- * marked `-1`. It reads the LOWEST rating across the track, its album and its
- * artist, so disliking an artist stops the station playing them rather than
- * stopping it playing one of their songs.
+ * marked `-1`. The rating it reads takes a dislike at ANY of the three levels as
+ * a dislike of the work, so disliking an artist stops the station playing them
+ * rather than stopping it playing one of their songs.
  */
 export const rejectDisliked = <T extends RotationCandidate>(candidates: readonly T[]): T[] => candidates.filter(candidate => candidate.rating !== -1);
 
@@ -234,6 +238,11 @@ export const rejectDisliked = <T extends RotationCandidate>(candidates: readonly
  * not a promise. A station that always played its liked tracks would have a
  * library of a few dozen songs and would still be obeying the repeat window
  * while it did it.
+ *
+ * Liked at ANY level counts, which is the whole reason the rating reaching this
+ * is not a `least()` across the three. It used to be, and the effect was that
+ * this doubled nothing an operator could produce from the console without rating
+ * a song, its record and its artist identically.
  */
 export const weightOf = (candidate: RotationCandidate): number => (candidate.rating === 1 ? 2 : 1);
 

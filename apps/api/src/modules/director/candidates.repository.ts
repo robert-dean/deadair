@@ -22,7 +22,7 @@ export interface CandidateTrack {
     artist: string;
     /** The credit as written on the release, for display. */
     credit: string;
-    /** The LOWEST of the track's, record's and artist's ratings: -1, 0 or 1. */
+    /** How the station feels about this work once its record and its artist are taken into account: -1, 0 or 1. See {@link effectiveRating}. */
     rating: number;
 }
 
@@ -44,6 +44,35 @@ export interface TrackBinding {
  */
 const SAMPLE_MULTIPLIER = 12;
 const SAMPLE_CEILING = 500;
+
+/**
+ * How the station feels about one work, as one number: `-1`, `0` or `1`.
+ *
+ * An opinion is held at three levels and inherits DOWNWARD in both directions, which is why this is
+ * not a plain `least()` over the three columns:
+ *
+ * - **A dislike anywhere wins, absolutely.** Disliking an artist stops the station playing them,
+ *   whatever any one of their songs says. That is an instruction rather than a preference, and it
+ *   is why the veto is taken first.
+ * - **Otherwise the strongest like wins.** Liking an artist means play more of them, and liking one
+ *   song means play that song more; neither should need the other two levels to agree before it
+ *   counts for anything.
+ *
+ * The `least()` this replaces got the first half right and silently swallowed the second: a liked
+ * song on an unrated record by an unrated artist came out as `0`, so {@link weightOf} never doubled
+ * anything unless all three levels had been rated the same way. Liking a record did nothing at all,
+ * which made the whole positive half of the console's rating control decorative.
+ *
+ * An album is `coalesce(…, 0)` because `tracks.album_id` is nullable: a single ingested outside any
+ * release has no record to have an opinion about, and that is "no opinion" rather than a missing
+ * one.
+ */
+const RATING_COLUMNS = [sql.ref('deadair.tracks.rating'), sql`coalesce(${sql.ref('deadair.albums.rating')}, 0)`, sql.ref('deadair.artists.rating')];
+
+const effectiveRating = () => sql<number>`case
+    when least(${sql.join(RATING_COLUMNS)}) = -1 then -1
+    else greatest(${sql.join(RATING_COLUMNS)})
+end`;
 
 @Injectable()
 export class CandidatesRepository extends DataRepository {
@@ -74,15 +103,8 @@ export class CandidatesRepository extends DataRepository {
             .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
             .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
             .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.artists.name as artist', 'deadair.tracks.artists as credit'])
-            // One number for "how does the station feel about this", taken as the lowest of
-            // the three: disliking an artist has to outweigh liking one of their songs.
-            .select(
-                sql<number>`least(
-                    ${sql.ref('deadair.tracks.rating')},
-                    coalesce(${sql.ref('deadair.albums.rating')}, 0),
-                    ${sql.ref('deadair.artists.rating')}
-                )`.as('rating'),
-            )
+            // One number for "how does the station feel about this", across all three levels.
+            .select(effectiveRating().as('rating'))
             .where('deadair.tracks.mergedIntoId', 'is', null)
             .where(eb =>
                 eb.exists(
@@ -112,7 +134,7 @@ export class CandidatesRepository extends DataRepository {
     /**
      * How the station feels about a batch of works it did not draw itself.
      *
-     * The same `least(track, album, artist)` {@link sample} computes, asked of ids rather than
+     * The same {@link effectiveRating} {@link sample} computes, asked of ids rather than
      * produced alongside a random draw. It exists because a pick can arrive from a generator that
      * never touched this repository — a model naming a record — and `rejectDisliked` has to be able
      * to judge it anyway. A dislike is an instruction rather than a preference, so the one thing
@@ -131,13 +153,7 @@ export class CandidatesRepository extends DataRepository {
             .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
             .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
             .select('deadair.tracks.id as trackId')
-            .select(
-                sql<number>`least(
-                    ${sql.ref('deadair.tracks.rating')},
-                    coalesce(${sql.ref('deadair.albums.rating')}, 0),
-                    ${sql.ref('deadair.artists.rating')}
-                )`.as('rating'),
-            )
+            .select(effectiveRating().as('rating'))
             .where('deadair.tracks.id', 'in', [...trackIds])
             .execute();
 

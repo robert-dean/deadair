@@ -1,6 +1,7 @@
 import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
 import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
+import { DEFAULT_TRACK_CACHE, TRACK_CACHE_KEY } from '#modules/playout/audio/track.cache.settings.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
@@ -255,6 +256,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_TARGET_LUFS,
         help: 'Where measured records are set before they air, so a quiet master and a loud one arrive at the same level. A record the station has not measured is left to the live leveller instead. Changing this needs the same number set in the stream config, which the player levels everything else against.',
+    },
+    {
+        group: 'playout',
+        key: TRACK_CACHE_KEY,
+        label: 'Keep a local copy of each record',
+        type: 'boolean',
+        default: DEFAULT_TRACK_CACHE,
+        help: 'The first play of a record is fetched twice, once to air it and once to keep it; every play after that is served off this machine and the provider is not asked at all. Costs disk, and nothing removes the files yet. Turning it off leaves them where they are and stops using them, so the station goes back to fetching every play.',
     },
 
     // ── render ─────────────────────────────────────────────────────────────────

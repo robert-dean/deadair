@@ -3,6 +3,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StreamService } from '#modules/stream/stream.service.js';
+import { TrackAudioRepository } from './audio/track.audio.repository.js';
+import { TrackStore } from './audio/track.store.js';
 import { AudienceWatch } from './audience.watch.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
@@ -13,6 +15,15 @@ import { SegmentTrackResolver } from './providers/segment.resolver.js';
 import { PlayoutPusher } from './playout.pusher.js';
 import { PlayoutService } from './playout.service.js';
 import { Rundown } from './rundown.js';
+
+/**
+ * Where the station's own copies of records are written when `TRACKS_DIR` is unset. Beside
+ * `media/art`, and gitignored with it.
+ *
+ * A path the process needs rather than a decision an operator makes from the console, which is why it
+ * is env and `playout.trackCache` is a setting.
+ */
+const DEFAULT_TRACKS_DIR = './media/tracks';
 
 /**
  * The station's transport: the running order, and the loop that drains it into
@@ -31,6 +42,17 @@ export const PlayoutModule: ServerKitModule = {
     setup: async (registry: Registry, config: AppConfig) => {
         registry.register(LiquidsoapEndpoint).useClass(LiquidsoapEndpoint).asSingleton();
         registry.register(PlayoutControlClient).useClass(PlayoutControlClient).asSingleton();
+
+        // The station's own copy of a record: the files, and the rows saying what is in them.
+        //
+        // Singleton for the store, because it is a directory root and nothing else, so a per-request
+        // copy would be a per-request re-read of the same string. Scoped for the repository, like
+        // every other one: per-request on the request path, per-run inside the job that fills it.
+        registry
+            .register(TrackStore)
+            .useFactory(() => new TrackStore(config.get('TRACKS_DIR', DEFAULT_TRACKS_DIR)))
+            .asSingleton();
+        registry.register(TrackAudioRepository).useClass(TrackAudioRepository).asScoped();
 
         // The resolver chain. Every provider answers for its own tracks through
         // `resolveStreamUrl`, including the ones whose audio reaches the player by

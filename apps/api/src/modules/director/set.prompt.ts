@@ -82,7 +82,13 @@ function systemPrompt(settings: SetPromptSettings): string {
         // dropped, and the running order silently comes up short.
         '- You MUST use the search_library tool to find records. Only name records it returned to you.',
         '- Never name a record from your own knowledge. If search_library did not return it, the station cannot play it.',
-        '- Search several times, for different artists, styles or eras, before you answer.',
+        // Bounded rather than encouraged, which is the correction a live run forced. "Search
+        // several times" with no ceiling had the model spend every round it was given searching and
+        // never answer at all: the tool loop ran out, the final turn was asked with no tools, and
+        // what came back was the model still saying it wanted to search. A DJ does not need to have
+        // read the whole library to pick an hour of it.
+        '- Search three or four times, for different artists, styles or eras, and then ANSWER.',
+        '- Do not keep searching for more. Choose from what the searches have already returned.',
         '- Do not put two records by the same artist next to each other.',
         '- Order them so the set flows: think about what follows what.',
         '',

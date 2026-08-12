@@ -283,10 +283,37 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
 
     /** The SDK's several settled promises, as the one result the station's boundary describes. */
     private async resultOf(stream: ReturnType<typeof streamText>): Promise<LlmResult> {
-        const [text, toolCalls, usage, finishReason] = await Promise.all([stream.text, stream.toolCalls, stream.usage, stream.finishReason]);
+        const [text, reasoningText, content, toolCalls, usage, finishReason] = await Promise.all([
+            stream.text,
+            stream.reasoningText,
+            stream.content,
+            stream.toolCalls,
+            stream.usage,
+            stream.finishReason,
+        ]);
+
+        // An answer with no words in it is worth describing rather than passing on as an empty
+        // string, because every cause looks identical from the caller: a model that had nothing to
+        // say, one that spent its allowance thinking, and one that put its answer somewhere this
+        // does not read. The part types are what tell them apart, and they are only visible here.
+        if (text.trim().length === 0 && toolCalls.length === 0) {
+            this.host.logger.debug('llm: the model answered with no text', {
+                finishReason,
+                parts: content.map(part => part.type).join(','),
+                reasoningChars: reasoningText?.length ?? 0,
+            });
+        }
+
+        const spoken = spokenAnswer({ text, reasoningText, toolCalls: toolCalls.length, finishReason });
+        if (spoken !== text) {
+            this.host.logger.debug('llm: the answer arrived as reasoning rather than text; using it', {
+                reasoningChars: spoken.length,
+                finishReason,
+            });
+        }
 
         return {
-            text,
+            text: spoken,
             toolCalls: toolCalls.map((call): LlmToolCall => ({
                 id: call.toolCallId,
                 name: call.toolName,
@@ -308,6 +335,53 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     private authHeaders(): Record<string, string> {
         return this.apiKey === undefined || this.apiKey.length === 0 ? {} : { authorization: `Bearer ${this.apiKey}` };
     }
+}
+
+/** One turn's several text-bearing fields, as {@link spokenAnswer} judges them. */
+export interface SpokenCandidates {
+    /** What the SDK collected as text content. */
+    text: string;
+    /** What it collected as reasoning, if the model reasons at all. */
+    reasoningText?: string;
+    /** How many tools the model asked for on this turn. */
+    toolCalls: number;
+    finishReason: string;
+}
+
+/**
+ * What the model actually SAID this turn, out of the several places it may have put it.
+ *
+ * Pure and exported so the judgement is testable without a model, which matters more here than it
+ * looks: every branch below was discovered by watching one, and each is one live run apart.
+ *
+ * ## Why a reasoning channel is ever read as an answer
+ *
+ * Measured against gpt-oss on Ollama, 2026-08-12. On the turn where that model finally ANSWERS
+ * after a tool round, it puts the answer in the reasoning channel and leaves the text content
+ * empty — so `stream.text` is `''` and the caller is handed something indistinguishable from a
+ * model with nothing to say. The same model answers normally when no tools were offered, which is
+ * why nothing noticed for as long as the only caller passed `tools: false`.
+ *
+ * ## The two guards, both of which cost a run to find
+ *
+ * **A turn that asked for a tool is never recovered from.** Its reasoning is working-out rather
+ * than a reply, and promoting it feeds the model's own thoughts back as the assistant's words on
+ * the next step.
+ *
+ * **`tool-calls` disqualifies even with no calls attached.** Asked for a final answer with no tools
+ * offered, gpt-oss still finishes this way when what it WANTED was another search, and its
+ * reasoning then reads "Need more variety. Search for rock." Handing that back is worse than an
+ * empty string, because it looks like an answer.
+ *
+ * Text always wins where there is any, so a provider that reasons and then answers is untouched:
+ * its reasoning is not its answer, and the fallback is reached only where there is no answer at all.
+ */
+export function spokenAnswer({ text, reasoningText, toolCalls, finishReason }: SpokenCandidates): string {
+    if (text.trim().length > 0) return text;
+    if (toolCalls > 0 || finishReason === 'tool-calls') return text;
+    if ((reasoningText?.trim().length ?? 0) === 0) return text;
+
+    return reasoningText!;
 }
 
 /**

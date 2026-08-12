@@ -95,18 +95,44 @@ model half is not earning its keep yet. What was learned, in order:
    search is reasoned about with seven searches' worth of library listing in front of it. `MAX_TOOL_STEPS`
    came down from 8 to 5; fewer, larger searches beat more, smaller ones on a host whose context
    spills VRAM.
-3. **What remains is a plugin-level defect, not this binding's.** With `reasoningEffort` fixed the
-   conversation finishes cleanly (`finish: 'stop'`) and `text` is still empty, while the SAME model
-   writes talk breaks perfectly (113–220 output tokens, real scripts in `script_history`). The only
-   difference between the two callers is tools: the break writer passes `tools: false`. So an answer
-   produced after a tool round is not reaching `stream.text`, which is what `plugins/llm` reads in
-   `resultOf`. The likely cause is gpt-oss's harmony channels — the final answer arriving as
-   reasoning parts rather than text parts — and the fix belongs in the plugin's extraction, where it
-   will fix every future tool-using caller at once rather than only this one.
+3. **The last blocker was a plugin-level defect, and it is fixed.** With `reasoningEffort` fixed the
+   conversation finished cleanly and `text` was STILL empty, while the same model wrote talk breaks
+   perfectly. The only difference between those two callers is tools, and the cause was as suspected:
+   on the turn where gpt-oss finally answers after a tool round it puts the answer in the **reasoning
+   channel** and leaves the text content empty, so `stream.text` is `''`. `spokenAnswer` in
+   `plugins/llm` recovers it, which fixes every future tool-using caller rather than only this one.
 
-Until that lands, `llm.setGenerator` stays off and the station programmes itself exactly as before.
-**Nothing about the failure is silent**: the generator logs the searches, the tokens, the finish
-reason and the first 400 characters of whatever it could not read.
+   Two guards on that recovery each cost their own live run to find, and both are the difference
+   between a fix and a new bug. **A turn that asked for a tool is never recovered from**, because
+   its reasoning is working-out rather than a reply and promoting it feeds the model its own
+   thoughts back as the assistant's words. And **`tool-calls` disqualifies even with no calls
+   attached**: asked for a final answer with no tools offered, gpt-oss still finishes that way when
+   what it wanted was another search, and the reasoning then reads "Need more variety. Search for
+   rock." Handing that back is worse than an empty string because it looks like an answer.
+
+**With that in, the model programmes the order**: 13 records named from 5 searches, `finish: 'stop'`.
+Two things found on the way there and worth keeping:
+
+- **The prompt has to BOUND the searching.** "Search several times" with no ceiling had the model
+  spend every round it was given searching and never answer, so the loop ran out and the forced
+  final turn was still asking for another search. It now says three or four, then answer.
+- **The library search matches genre, which was not obvious.** Asked to programme an hour the model
+  searched `hard rock`, `metal band 80s` and `rock classic`; all three found nothing and it
+  apologised that the library was empty when the library was full. It reaches for a style because
+  that is how anyone thinks about programming radio — and because the tool RETURNS a genre on every
+  row, which reads as an invitation to search one.
+
+**Nothing about a failure here is silent.** The generator logs the searches, the tokens, the finish
+reason and the first 400 characters of whatever it could not read; the chain logs how many of a
+generator's picks the running order already held, which is the only visible symptom of a generator
+naming records that are already scheduled.
+
+`llm.setGenerator` is still off by default and was left off. Two things are worth knowing before
+turning it on for real. Its answers are only as good as what the tool surfaces, and **genre matching
+is one-directional** (§6): a search for `classic rock` does not match a record tagged `rock`, so a
+model reaching for a compound style still finds nothing. And on this station the running order
+currently holds more items than the library has playable tracks, which makes every generator — the
+deterministic one included — come up short for reasons that have nothing to do with either of them.
 
 The seam was already the right shape, so the call itself was smaller than it sounds. What was worth
 building deliberately is everything around it, because each of these is a failure that is inaudible

@@ -93,9 +93,25 @@ export class TracksRepository extends DataRepository {
                 'deadair.albums.name as albumName',
             ])
             .where('deadair.tracks.mergedIntoId', 'is', null)
-            // Title OR artist, because a DJ looking for a record knows one or the other and a
-            // search that only matched titles would answer nothing for "play me some Aphex Twin".
-            .where(eb => eb.or([eb('deadair.tracks.title', 'ilike', pattern), eb('deadair.artists.name', 'ilike', pattern)]))
+            // Title, artist OR genre.
+            //
+            // The first two are obvious: a DJ looking for a record knows one or the other, and
+            // matching titles alone answers nothing for "play me some Aphex Twin".
+            //
+            // Genre was NOT obvious and was added after watching a model use this. Asked to
+            // programme an hour it searched `hard rock`, `metal band 80s` and `rock classic` — all
+            // three found nothing, and it apologised that the library was empty when the library
+            // was full. It reaches for a style because that is how anyone thinks about programming
+            // radio, and because this very method RETURNS a genre on every row, which reads as an
+            // invitation to search one. Answering nothing to the field you just handed back is the
+            // kind of gap that looks like a thin catalogue from the outside.
+            .where(eb =>
+                eb.or([
+                    eb('deadair.tracks.title', 'ilike', pattern),
+                    eb('deadair.artists.name', 'ilike', pattern),
+                    eb('deadair.tracks.genre', 'ilike', pattern),
+                ]),
+            )
             .where(eb =>
                 eb.exists(
                     eb

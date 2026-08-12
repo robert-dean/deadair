@@ -72,6 +72,7 @@ export class SetGeneratorChain extends SetGenerator {
 
             const picks = await this.ask(generator, { ...inputs, count: missing, avoidSongKeys });
 
+            let repeated = 0;
             for (const pick of picks) {
                 if (chosen.length >= inputs.count) break;
 
@@ -79,18 +80,34 @@ export class SetGeneratorChain extends SetGenerator {
                 // Belt as well as braces. The avoid sets above are advice a generator is trusted to
                 // honour, and a duplicate reaching the running order is a record airing twice in an
                 // hour — cheap enough to make impossible here rather than to trust.
-                if (avoidSongKeys.has(song)) continue;
+                if (avoidSongKeys.has(song)) {
+                    repeated += 1;
+                    continue;
+                }
 
                 avoidSongKeys.add(song);
                 chosen.push(pick);
             }
 
             if (picks.length > 0) {
+                // `repeated` is the number worth having and it is not a curiosity. A generator that
+                // names records already in the running order is failing in a way NOTHING else can
+                // see: the count comes back right, the floor quietly covers the shortfall, and the
+                // station sounds fine. On a model binding it is the specific failure
+                // `set.prompt.ts` calls "the seed is not a pick" — the avoid list shown as context
+                // being read as a menu — and without this line the only symptom is the floor doing
+                // more work than expected.
                 this.logger.debug('director: a generator named part of the set', {
                     generator: generator.name,
                     asked: missing,
                     named: picks.length,
+                    ...(repeated === 0 ? {} : { alreadyQueued: repeated }),
                 });
+                if (repeated > 0 && repeated >= picks.length / 2) {
+                    this.logger.warn(
+                        `director: the ${generator.name} generator named ${repeated} of ${picks.length} records the running order already holds`,
+                    );
+                }
             }
         }
 

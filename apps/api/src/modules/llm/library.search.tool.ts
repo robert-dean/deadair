@@ -65,7 +65,13 @@ export class LibrarySearchTool implements ToolSource {
                     parameters: {
                         type: 'object',
                         properties: {
-                            query: { type: 'string', description: 'A title, an artist, or part of either.' },
+                            query: {
+                                type: 'string',
+                                // Says genre explicitly because a model programming an hour reaches
+                                // for a style first, and because every result carries one. A field
+                                // handed back but not accepted back reads as an empty library.
+                                description: 'A title, an artist, or a genre. Matches part of any of them.',
+                            },
                             limit: { type: 'number', description: `How many records, at most ${MAX_RESULTS}.` },
                         },
                         required: ['query'],

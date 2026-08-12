@@ -23,15 +23,17 @@ function build(rows: Row[] = []) {
 const only = async (tool: LibrarySearchTool) => (await tool.tools())[0]!;
 
 describe('LibrarySearchTool', () => {
-    it('offers one tool that says it answers with schedulable records', async () => {
+    it('offers one tool that says to look here first, and where to look next', async () => {
         const { tool } = build();
         const declaration = (await only(tool)).declaration;
 
         expect(declaration.name).toBe('search_library');
         // The description is the entire basis on which the model chooses between this and
-        // `search_catalog`, so it has to name the distinction rather than describe a search.
-        expect(declaration.description).toMatch(/library/i);
-        expect(declaration.description).toMatch(/cannot be scheduled/i);
+        // `search_catalog`. Both answer with records that can air now, so what it has to carry is
+        // the ORDER — look here first, reach past it when this cannot fill the ask — rather than
+        // the old claim that anything else was unschedulable.
+        expect(declaration.description).toMatch(/already owns/i);
+        expect(declaration.description).toMatch(/search_catalog/);
     });
 
     it('answers with the names a model needs and nothing else', async () => {

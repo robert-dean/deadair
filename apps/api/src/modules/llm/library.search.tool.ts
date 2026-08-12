@@ -8,20 +8,22 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  *
  * ## Why this is not {@link CatalogSearchTool}
  *
- * That one fans out across every provider PLUGIN and asks each what it can find. It is the right
- * tool for a break writer checking a claim, because the question there is "does a record by this
- * name exist anywhere I could reach".
+ * That one fans out across every provider PLUGIN and asks what it can REACH. This asks what the
+ * station HAS: what has been catalogued and bound.
  *
- * This is a different question with a different answer: **what has been catalogued and bound**. It
- * matters because of what happens downstream of a pick. `PickResolver` turns a name into a copy by
- * matching `deadair.tracks`, and a pick that matches nothing is dropped. So a DJ steered by
- * provider search names records the station has never ingested, they resolve to nothing, and the
- * running order comes back short for reasons nothing in the log connects to the search. Asking the
- * catalog instead means every answer is a record that will survive resolution.
+ * The difference used to be that only this one's results could be scheduled at all — a pick that
+ * matched no catalog row was dropped, so a DJ steered by provider search produced a running order
+ * that came back short for reasons nothing in the log connected to the search. That is no longer
+ * true: `PickResolver` looks a missing record up at the providers and ingests it, so both tools
+ * answer with records that can air.
  *
- * Both are registered. A model choosing what to PLAY wants this one; a model checking a claim it is
- * about to make on air wants the other; and the descriptions are what tell them apart, because that
- * text is the entire basis on which the model decides.
+ * What survives is a preference, and it is a real one. A record here is already catalogued, often
+ * already on disk, and measured, so it costs nothing to play and airs trimmed. One from the other
+ * tool costs a lookup, an ingest and a download, and airs untrimmed until the analysis pass reaches
+ * it. So this is where a picker looks first, and the other is how it reaches something the station
+ * does not own — which is the whole point of being able to programme against a brief the library
+ * cannot fill. The descriptions carry that ordering, because that text is the entire basis on which
+ * the model decides.
  *
  * ## Bans filter this tool. Rotation rules do not.
  *
@@ -61,7 +63,7 @@ export class LibrarySearchTool implements ToolSource {
                     // `search_catalog` is stated because both are on offer and choosing wrongly is
                     // the failure this tool exists to prevent.
                     description:
-                        "Search the station's own library: records that are catalogued, have a playable copy, and can go straight into the running order. Use this when CHOOSING what to play. Every result is safe to name; anything this does not return cannot be scheduled.",
+                        "Search the station's own library: records it already owns, ready to play. Look here FIRST when choosing what to play. If the library cannot fill what you were asked for, use search_catalog to reach a record the station does not own yet.",
                     parameters: {
                         type: 'object',
                         properties: {

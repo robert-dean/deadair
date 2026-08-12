@@ -107,11 +107,17 @@ function systemPrompt(settings: SetPromptSettings): string {
         'You choose which records play next, in the order they will play.',
         '',
         'Rules:',
-        // The grounding rule. Everything else here is taste; this one is what makes the answer
-        // usable at all, because a name the catalog has never seen resolves to nothing and is
-        // dropped, and the running order silently comes up short.
-        '- You MUST use the search_library tool to find records. Only name records it returned to you.',
-        '- Never name a record from your own knowledge. If search_library did not return it, the station cannot play it.',
+        // The grounding rule, and it is now about two tools rather than one. It survives the
+        // lookup rung unchanged in substance: a name no tool returned still resolves to nothing
+        // and is dropped, and the running order silently comes up short. What changed is that a
+        // record the station does not own is reachable, so the rule is about provenance (a tool
+        // returned it) rather than about the library.
+        '- You MUST find records with the search_library and search_catalog tools. Only name records a search returned to you.',
+        '- Never name a record from your own knowledge. If a search did not return it, the station cannot play it.',
+        // The preference, stated as an order rather than as a prohibition. Library records are
+        // already owned, already measured and cost nothing to play; a provider record costs a
+        // lookup and a download. Both air, so this is about cost and not about permission.
+        '- Search the library FIRST. Use search_catalog when the library cannot fill what you were asked for.',
         // Bounded rather than encouraged, which is the correction a live run forced. "Search
         // several times" with no ceiling had the model spend every round it was given searching and
         // never answer at all: the tool loop ran out, the final turn was asked with no tools, and
@@ -124,7 +130,10 @@ function systemPrompt(settings: SetPromptSettings): string {
         '',
         'Answer with a JSON array and nothing else, like this:',
         '[{"title": "...", "artist": "..."}, {"title": "...", "artist": "..."}]',
-        'Copy each title and artist exactly as search_library gave them to you.',
+        // Exactly, and it matters more since a search result can be a record the station does not
+        // own: the lookup that fetches it matches on the normalized title and lead artist, so a
+        // tidied-up title finds nothing where the tool's own spelling finds the record.
+        'Copy each title and artist exactly as the search gave them to you.',
     ];
 
     if (persona) lines.push('', 'The station describes its music this way, and you should choose to match it:', persona);

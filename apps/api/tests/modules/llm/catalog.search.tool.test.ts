@@ -82,12 +82,16 @@ describe('what it offers', () => {
         expect(tool?.declaration.parameters).toMatchObject({ required: ['query'] });
     });
 
-    it('tells the model not to name what the search did not return', async () => {
-        // The description is the entire basis on which a model decides to call this, and the
-        // grounding rule is the reason it exists.
+    it('says it reaches past what the station owns, and that those records can still be played', async () => {
+        // The description is the entire basis on which a model decides to call this. It used to
+        // claim these results were "music the station can actually play", which was false until the
+        // resolver could look a record up and ingest it; now it is true, and the text has to say
+        // both halves — this reaches further, and choosing from it costs a fetch.
         const tool = await offered([fakeCatalog()]);
 
-        expect(tool?.declaration.description).toContain('never name');
+        expect(tool?.declaration.description).toContain('does not own yet');
+        expect(tool?.declaration.description).toContain('safe to name');
+        expect(tool?.declaration.description).toContain('search_library');
     });
 });
 

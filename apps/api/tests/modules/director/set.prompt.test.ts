@@ -17,13 +17,22 @@ describe('setPrompt', () => {
         expect(messages.map(message => message.role)).toEqual(['system', 'user']);
     });
 
-    it('makes searching the library mandatory rather than encouraged', () => {
-        // The grounding rule. A name the catalog has never seen resolves to nothing and is dropped,
-        // so the running order silently comes up short.
+    it('makes searching mandatory rather than encouraged', () => {
+        // The grounding rule, now about provenance rather than about the library: a name no tool
+        // returned still resolves to nothing and is dropped, whichever tool could have returned it.
         const system = systemOf(setPrompt({ count: 5, avoid: [] }));
 
-        expect(system).toMatch(/MUST use the search_library tool/);
+        expect(system).toMatch(/MUST find records with the search_library and search_catalog tools/);
         expect(system).toMatch(/Never name a record from your own knowledge/);
+    });
+
+    it('puts the library first and the provider second', () => {
+        // Both air, so this is about cost rather than permission: a library record is owned,
+        // measured and on hand, while a provider record costs a lookup and a download.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }));
+
+        expect(system).toMatch(/Search the library FIRST/);
+        expect(system).toMatch(/when the library cannot fill/);
     });
 
     it('asks for the answer in a shape something can read back', () => {

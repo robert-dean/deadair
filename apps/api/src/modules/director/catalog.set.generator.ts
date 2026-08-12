@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { CandidatesRepository, type CandidateTrack } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { artistKey, songKey } from './rotation.keys.js';
-import { capPerArtist, filterByHistory, rejectDisliked, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
+import { applyRules, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 
 /**
@@ -50,10 +50,12 @@ export class CatalogSetGenerator extends SetGenerator {
         const sampled = await this.candidates.sample(count);
         const scored = sampled.map(toRotationCandidate);
 
-        // Order matters. History first, because it is the largest reduction and
-        // everything after it is cheaper on a smaller set. Dislikes next, which the
-        // sample already excluded but which must not depend on that having happened.
-        const eligible = capPerArtist(filterByHistory(rejectDisliked(scored), recent), rules.maxPerArtist);
+        // The same rules `PickResolver` applies to every pick from every generator, applied
+        // again here and deliberately. Not redundancy: filtering BEFORE the draw is what keeps
+        // the draw from spending its weight on candidates that cannot air, and filtering at the
+        // resolver is what makes the rules true for a generator that never read this repository.
+        // Neither one is safe to delete on the grounds that the other exists.
+        const eligible = applyRules(scored, rules, recent);
 
         return spaceArtists(drawWeighted(eligible, count)).map(candidate => ({
             title: candidate.track.title,

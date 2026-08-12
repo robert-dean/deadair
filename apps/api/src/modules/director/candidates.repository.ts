@@ -110,6 +110,42 @@ export class CandidatesRepository extends DataRepository {
     }
 
     /**
+     * How the station feels about a batch of works it did not draw itself.
+     *
+     * The same `least(track, album, artist)` {@link sample} computes, asked of ids rather than
+     * produced alongside a random draw. It exists because a pick can arrive from a generator that
+     * never touched this repository — a model naming a record — and `rejectDisliked` has to be able
+     * to judge it anyway. A dislike is an instruction rather than a preference, so the one thing
+     * that must never depend on WHICH generator chose a track is whether the operator forbade it.
+     *
+     * A track with no row answers with nothing rather than `0`. "The catalog has no opinion" and
+     * "the catalog has never heard of it" are different facts, and only the caller knows which of
+     * them is a reason to drop the pick.
+     */
+    async ratingsFor(trackIds: readonly string[]): Promise<Map<string, number>> {
+        const ratings = new Map<string, number>();
+        if (trackIds.length === 0) return ratings;
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .select('deadair.tracks.id as trackId')
+            .select(
+                sql<number>`least(
+                    ${sql.ref('deadair.tracks.rating')},
+                    coalesce(${sql.ref('deadair.albums.rating')}, 0),
+                    ${sql.ref('deadair.artists.rating')}
+                )`.as('rating'),
+            )
+            .where('deadair.tracks.id', 'in', [...trackIds])
+            .execute();
+
+        for (const row of rows) ratings.set(row.trackId, Number(row.rating));
+        return ratings;
+    }
+
+    /**
      * The playable copies of a batch of works, best first.
      *
      * "Best" is: a binding the provider still offers, then the operator's own

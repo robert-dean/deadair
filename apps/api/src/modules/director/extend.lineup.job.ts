@@ -113,7 +113,10 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         });
         if (signal?.aborted) return;
 
-        const resolved = await this.resolver.resolve(picks);
+        // The rules go WITH the picks. The resolver judges every one of them against these,
+        // whatever generator named them, which is what stops a second binding routing around a
+        // dislike. See `PickResolver`.
+        const resolved = await this.resolver.resolve(picks, rules);
         // Back down to what was asked for. The oversample is headroom against what the
         // rules and the resolver discard, not a licence to hand back half an hour more
         // programming than the station wanted.

@@ -259,6 +259,24 @@ export const capPerArtist = <T extends RotationCandidate>(candidates: readonly T
 };
 
 /**
+ * Every rule that decides WHETHER a candidate may air, in the order they are cheapest.
+ *
+ * The four functions above are each usable alone and two callers now want all of them, so the
+ * ORDER is written down once here rather than being copied. It is the order
+ * {@link CatalogSetGenerator} arrived at: dislikes first because they are absolute and cost nothing,
+ * history next because it is the largest reduction and everything after it is cheaper on a smaller
+ * set, then the cap.
+ *
+ * {@link spaceArtists} is deliberately NOT in here. Everything above answers "may this air"; spacing
+ * answers "in what order", and it has to run after a caller has finished dropping things — a batch
+ * spaced before two of its tracks turn out to be unplayable comes back with the gap closed up and
+ * two by one artist adjacent again. So the two halves are separate on purpose and a caller applies
+ * this one, drops what it must, and spaces last.
+ */
+export const applyRules = <T extends RotationCandidate>(candidates: readonly T[], rules: ResolvedRules, recent: RecentlyAired): T[] =>
+    capPerArtist(filterByHistory(rejectDisliked(candidates), recent), rules.maxPerArtist);
+
+/**
  * Reorder so the same artist is never back to back.
  *
  * Cosmetic in a way the other rules are not: it changes nothing about WHICH

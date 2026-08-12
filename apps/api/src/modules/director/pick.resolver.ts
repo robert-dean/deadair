@@ -6,6 +6,9 @@ import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import type { MeasuredLoudness } from '#modules/playout/gain.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { CandidatesRepository } from './candidates.repository.js';
+import { PlayHistoryRepository } from './play.history.repository.js';
+import { artistKey, songKey } from './rotation.keys.js';
+import { applyRules, spaceArtists, type ResolvedRules, type RotationCandidate } from './rotation.rules.js';
 import type { TrackPick } from './set.generator.js';
 
 /** The four cue points as an item carries them: all of them, or none. */
@@ -110,6 +113,24 @@ function taggedLoudness(data: StoredAnalysis['data'] | undefined): number | unde
 const measurement = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
 
 /**
+ * A pick that has been matched to a catalog row, carrying what the rules judge it by.
+ *
+ * The keys are computed once, here, through the same helpers `play_history` is written with, rather
+ * than recomputed at each rule. A rotation rule that silently never matches has no symptom except a
+ * station that repeats itself, so the fewer places these are derived the better.
+ */
+interface Identified extends RotationCandidate {
+    pick: TrackPick;
+    trackId: string;
+}
+
+/** A resolved track with its keys still attached, so the last rule can be applied to it. */
+type Airable = RundownTrack & RotationCandidate;
+
+/** Drop the keys again. They are a rotation concern and a rundown item has no business carrying them. */
+const toRundownTrack = ({ songKey: _song, artistKey: _artist, rating: _rating, ...track }: Airable): RundownTrack => track;
+
+/**
  * Turning a chosen track into something the station can actually air.
  *
  * A pick names a work; a lineup item has to name a COPY, because that is what
@@ -128,6 +149,26 @@ const measurement = (value: unknown): number | undefined => (typeof value === 'n
  * from outside the library, which is an LLM DJ's problem and not this one's, and
  * a bad match there airs the wrong record rather than failing visibly. The shape
  * here leaves room for it: nothing above this cares how a pick became a copy.
+ *
+ * ## It is also where the rotation rules are enforced, and that is not tidiness
+ *
+ * The rules used to live inside `CatalogSetGenerator` alone, which was correct
+ * exactly as long as it was the only generator. It is not: a {@link SetGenerator}
+ * pick is a NAME, so any second binding — a model, an operator's request, a
+ * plugin that programmes the station — hands over titles that nothing has judged.
+ * A dislike is documented as an INSTRUCTION that no lineup may turn off, so a
+ * generator able to route around it is a correctness hole rather than a matter of
+ * taste.
+ *
+ * So the rules are applied HERE, at the one step every pick from every source
+ * passes through on its way to becoming something airable. `CatalogSetGenerator`
+ * still filters before its own draw and that is not redundant: filtering early is
+ * what makes the draw efficient, and filtering here is what makes it guaranteed.
+ * **Do not delete either one on the grounds that the other exists.**
+ *
+ * The one rule applied after the drops rather than before them is
+ * {@link spaceArtists}, because spacing a batch and then removing two of its
+ * tracks closes the gap back up. See {@link applyRules}.
  */
 @Injectable()
 export class PickResolver {
@@ -135,6 +176,7 @@ export class PickResolver {
         private readonly candidates: CandidatesRepository,
         private readonly tracks: TracksRepository,
         private readonly analysis: AnalysisRepository,
+        private readonly history: PlayHistoryRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -145,16 +187,21 @@ export class PickResolver {
      * and one for the display metadata, however many picks there are. A refill of
      * fifteen tracks costs the same as one.
      *
+     * @param rules - The rules in force for the lineup these picks are for, which
+     *   every pick is judged against here whatever chose it.
      * @param preference - Plugin ids in the operator's order, for a work several
      *   providers can serve.
      */
-    async resolve(picks: readonly TrackPick[], preference: readonly string[] = []): Promise<RundownTrack[]> {
+    async resolve(picks: readonly TrackPick[], rules: ResolvedRules, preference: readonly string[] = []): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
         const identified = await this.identify(picks);
         if (identified.length === 0) return [];
 
-        const trackIds = identified.map(entry => entry.trackId);
+        const eligible = await this.judge(identified, rules);
+        if (eligible.length === 0) return [];
+
+        const trackIds = eligible.map(entry => entry.trackId);
         // A third batch query alongside the two that were already here, so a refill of
         // fifteen tracks still costs three round trips rather than three per track.
         // `trustedAnalysisFor` has already dropped anything not worth acting on -- a
@@ -166,8 +213,8 @@ export class PickResolver {
             this.analysis.trustedAnalysisFor(trackIds, ANALYSIS_SCHEMA_VERSION),
         ]);
 
-        const resolved: RundownTrack[] = [];
-        for (const { pick, trackId } of identified) {
+        const resolved: Airable[] = [];
+        for (const { pick, trackId, artistKey: artist, songKey: song } of eligible) {
             const binding = bindings.get(trackId);
             if (!binding) {
                 // Every provider that carried it has stopped. The catalog still knows the
@@ -180,6 +227,8 @@ export class PickResolver {
 
             const row = metadata.get(trackId);
             resolved.push({
+                artistKey: artist,
+                songKey: song,
                 pluginId: binding.pluginId,
                 externalId: binding.externalId,
                 title: row?.title ?? pick.title,
@@ -195,7 +244,45 @@ export class PickResolver {
                 trackId,
             });
         }
-        return resolved;
+
+        // Last, and only now that every drop above has happened. Spacing a batch and then
+        // removing two of its tracks closes the gap back up and puts one artist back on its
+        // own heels, which is the one thing this rule exists to prevent.
+        return spaceArtists(resolved).map(toRundownTrack);
+    }
+
+    /**
+     * Drop everything the rules say may not air, whatever named it.
+     *
+     * Two reads, both of which {@link CatalogSetGenerator} also makes and neither of which can be
+     * shared with it: a generator that never touched the catalog has produced no ratings, and the
+     * windows move — a refill that ran a minute ago has itself changed the answer, which is why they
+     * are read at judging time rather than passed in.
+     *
+     * A pick the catalog has no rating row for is KEPT. `identify` has already established the track
+     * exists, so a missing rating is a join that found no album rather than a record nobody has an
+     * opinion about, and dropping on it would silently refuse tracks for having no artwork.
+     */
+    private async judge(identified: readonly Identified[], rules: ResolvedRules): Promise<Identified[]> {
+        const [ratings, songKeys, artistKeys] = await Promise.all([
+            this.candidates.ratingsFor(identified.map(entry => entry.trackId)),
+            this.history.songKeysSince(rules.repeatWindowDays),
+            this.history.artistKeysSince(rules.artistCooldownMinutes),
+        ]);
+
+        const judged = identified.map(entry => {
+            const rating = ratings.get(entry.trackId);
+            return rating === undefined ? entry : { ...entry, rating };
+        });
+
+        const eligible = applyRules(judged, rules, { songKeys, artistKeys });
+        if (eligible.length < identified.length) {
+            this.logger.debug('director: the rotation rules dropped some chosen tracks', {
+                offered: identified.length,
+                kept: eligible.length,
+            });
+        }
+        return eligible;
     }
 
     /**
@@ -206,8 +293,8 @@ export class PickResolver {
      * up one at a time because there is no batch form of "match this title under
      * this artist" that stays as strict as the single one.
      */
-    private async identify(picks: readonly TrackPick[]): Promise<{ pick: TrackPick; trackId: string }[]> {
-        const identified: { pick: TrackPick; trackId: string }[] = [];
+    private async identify(picks: readonly TrackPick[]): Promise<Identified[]> {
+        const identified: Identified[] = [];
 
         for (const pick of picks) {
             const trackId = pick.trackId ?? (await this.candidates.findByName(pick.title, pick.artist));
@@ -217,7 +304,15 @@ export class PickResolver {
                 });
                 continue;
             }
-            identified.push({ pick, trackId });
+            identified.push({
+                pick,
+                trackId,
+                // Off the PICK's own strings rather than the catalog row's, which matches how
+                // `CatalogSetGenerator` keys its candidates and how `play_history` is written: the
+                // lead artist is what identity is taken from, never the credit line.
+                songKey: songKey(pick.title, [pick.artist]),
+                artistKey: artistKey([pick.artist]),
+            });
         }
         return identified;
     }

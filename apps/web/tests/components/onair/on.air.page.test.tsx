@@ -89,6 +89,31 @@ describe('OnAirPage', () => {
         expect(screen.getByText(/1 still to come/)).toBeInTheDocument();
     });
 
+    it('calls a break the operator cut removed rather than skipped', async () => {
+        // The two are opposite facts and used to be one word. `skipped` is the station reaching
+        // an item and passing over it, which is something going wrong; a cut is the operator's own
+        // edit, and it stays in the order only so the station does not plant another break into
+        // the same slot.
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'item-1', state: 'airing', title: 'Windowlicker' }),
+                    orderItem({ id: 'item-2', state: 'removed', kind: 'segment', title: 'Talk break' }),
+                    orderItem({ id: 'item-3', state: 'skipped', kind: 'segment', title: 'Station ident' }),
+                ],
+            }),
+        );
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByText('removed')).toBeInTheDocument();
+        expect(screen.getByText('skipped')).toBeInTheDocument();
+        // Neither is still the operator's to act on.
+        expect(screen.queryByRole('button', { name: 'Drop Talk break' })).not.toBeInTheDocument();
+    });
+
     it('offers no way to drop anything but what is still planned', async () => {
         getTheRunningOrder.mockResolvedValue(order());
         getStationAir.mockResolvedValue(stationAir());

@@ -55,9 +55,14 @@ const STATE_LABEL: Record<StationItemState, { label: string; colour: string; hin
     skipped: {
         label: 'skipped',
         colour: 'yellow',
-        hint:
-            'This one will not be heard: a segment with no audio, an item the player never started, or a break you removed. ' +
-            'A removed break stays in the order marked like this rather than disappearing, which is what stops the station planting another one in the same slot a minute later.',
+        hint: 'The station passed over this one: a segment with no audio, or an item the player never started.',
+    },
+    // Its own state rather than a shade of `skipped`, because it is the opposite fact: nothing
+    // went wrong here. Grey rather than yellow for the same reason.
+    removed: {
+        label: 'removed',
+        colour: 'gray',
+        hint: 'You took this out. It stays in the order marked like this rather than disappearing, which is what stops the station planting another break into the same slot a minute later.',
     },
 };
 

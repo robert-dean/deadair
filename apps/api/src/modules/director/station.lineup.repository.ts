@@ -98,7 +98,7 @@ export class StationLineupRepository extends DataRepository {
 const jsonb = (value: unknown): never | null => (value === undefined ? null : (JSON.stringify(value) as unknown as never));
 
 /** The states an item may legally come back in. Anything else is a row nobody here wrote. */
-const STATES = new Set<string>(['planned', 'handed', 'airing', 'played', 'skipped']);
+const STATES = new Set<string>(['planned', 'handed', 'airing', 'played', 'skipped', 'removed']);
 
 /**
  * Read an order back out of jsonb.

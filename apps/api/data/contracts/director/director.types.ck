@@ -25,8 +25,8 @@ contract SetStationAirInput: { # Change how the station decides to be on air
 # What the station does when the running order runs out
 contract StationOnEnd: enum(extend, repeat, stop)
 
-# Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around
-contract StationItemState: enum(planned, handed, airing, played, skipped)
+# Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around. `skipped` is the station passing over an item it reached; `removed` is an operator taking one out before its turn, and the two are different facts on a page that has to say why the station is silent
+contract StationItemState: enum(planned, handed, airing, played, skipped, removed)
 
 contract StationOrderItem: { # One item of the live running order, and where it has got to
     id: string(min=1, max=100) # What an edit names, what rides through the player, and what comes back on its readings

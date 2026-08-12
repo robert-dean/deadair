@@ -205,12 +205,16 @@ posts a command to `DirectorService`; nothing else may write it.
 **Removing a break MARKS it; removing a record splices it.** `StationLineup.remove` is asymmetric on
 purpose. `BreakPlanner` is idempotent positionally and by nothing else — it counts records since the
 last segment already in the order — so a spliced-out break left a gap it could not tell from one
-never planted into, and it planted another one a boundary later. `skipped` is that mark, it resets
-the walk's count like any other segment, and it ages out through `trimPast`. Two things ride on it:
-`committedThrough` measures the head from the last item the player was GIVEN and then extends over
-the run of skipped items next to it, because a cut in the middle of the tail counted as the head
-would freeze the whole order in front of it; and `DirectorService.collectRemoved` retires the segment
-row behind the cut, skipping a `ready` row and any id still elsewhere in the order, since idents come
+never planted into, and it planted another one a boundary later. `removed` is that mark, it resets
+the walk's count like any other segment, and it ages out through `trimPast`. **It is its own state
+rather than a use of `skipped`**, which would have done the planner's job and nothing else:
+`skipped` is the station reaching an item and passing over it (no audio, nothing could resolve it, a
+push the player never took) and `removed` is an operator cutting one before its turn, and those are
+opposite facts on any page that has to say why the station is silent. Two things read the
+difference: `committedThrough` counts every non-`planned` state as the head EXCEPT `removed`,
+because a cut says nothing about how far the broadcast has got and counting it would freeze the
+order in front of it; and `DirectorService.collectRemoved` retires the segment row behind the cut,
+leaving a `ready` row alone and leaving any id still elsewhere in the order alone, since idents come
 from a shared library and the same row is legitimately at three slots in an hour.
 
 **The player fetches every record from the app, and the app is the only thing that fetches a provider.**

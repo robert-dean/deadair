@@ -13,8 +13,15 @@
  * appends or removes.
  */
 
-/** Where one item has got to. The same states `station_lineup.items` stores. */
-export type LiveItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped';
+/**
+ * Where one item has got to. The same states `station_lineup.items` stores.
+ *
+ * `removed` is here for completeness of the union rather than because the transport has any
+ * business producing one: it is an operator's cut, and nothing out here may edit the order.
+ * What the transport does with it is what it does with any item that is not `planned` —
+ * nothing.
+ */
+export type LiveItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped' | 'removed';
 
 /** One item, as the transport sees it: an id and where it has got to. */
 export interface LiveItem {

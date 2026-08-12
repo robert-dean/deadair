@@ -66,12 +66,22 @@ export type StationLineupOnEnd = 'extend' | 'repeat' | 'stop';
  * state for it is precisely how programming an operator planned and paid for gets
  * lost silently. See {@link reclaim}.
  *
+ * `skipped` and `removed` are both "this will not be heard", and they are two arms
+ * rather than one because they are opposite facts about the station. `skipped` is
+ * the station reaching an item and passing over it: a segment with no audio, a
+ * record nothing could resolve, a push the player never took. `removed` is an
+ * operator cutting one before its turn came. Merging them costs three things — a
+ * console that can only describe a removal as one of the ways an item goes wrong,
+ * a {@link committedThrough} reduced to guessing which is which from adjacency,
+ * and an activity feed that reports an operator's edit as a fault on the page whose
+ * whole job is naming why the station is silent.
+ *
  * The local-audio arms the decision doc sketches (`resolved`, `warming`, `ready`)
  * are not here because nothing warms audio yet. When they land they are new arms on
  * this union rather than new fields, which is the point of one list of stateful
  * items.
  */
-export type StationLineupItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped';
+export type StationLineupItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped' | 'removed';
 
 /**
  * What is common to every item.
@@ -190,7 +200,7 @@ const refuse = (reason: EditRefusal, message: string): EditResult => ({ ok: fals
 export const MAX_PLAYED_KEPT = 20;
 
 /** The states an item is in once it is no longer this broadcast's to decide about. */
-const isPast = (state: StationLineupItemState): boolean => state === 'played' || state === 'skipped';
+const isPast = (state: StationLineupItemState): boolean => state === 'played' || state === 'skipped' || state === 'removed';
 
 export class StationLineup implements LiveOrder {
     private itemList: StationLineupItem[];
@@ -359,28 +369,20 @@ export class StationLineup implements LiveOrder {
      *
      * What the old `Lineup.cursor()` answered, derived rather than counted.
      *
-     * ## Why `skipped` alone does not count
+     * ## A `removed` item is not part of the head
      *
-     * It is measured from the last item the player was actually GIVEN, and then extended
-     * over whatever run of skipped items sits immediately after it. A skipped item next to
-     * the head is one the player passed over on its way here, and it belongs to the head. A
-     * skipped item further out, with planned items between, is an operator's cut ({@link
-     * remove}) and belongs to the tail — treating that one as the head would make everything
-     * in front of it unmovable and unplantable, so deleting a break in the middle of the hour
-     * would freeze the half of the order in front of it.
+     * Everything else that is not `planned` is: the player was given it, passed over it, or
+     * heard it. An operator's cut ({@link remove}) is the one non-`planned` state that says
+     * nothing about how far the broadcast has got, and counting it would make everything in
+     * front of it unmovable and unplantable — so cutting one break in the middle of the hour
+     * would freeze the half of the order before it.
      */
     committedThrough(): number {
-        let last = -1;
         for (let index = this.itemList.length - 1; index >= 0; index--) {
             const state = this.itemList[index]!.state;
-            if (state === 'handed' || state === 'airing' || state === 'played') {
-                last = index;
-                break;
-            }
+            if (state !== 'planned' && state !== 'removed') return index + 1;
         }
-
-        while (this.itemList[last + 1]?.state === 'skipped') last += 1;
-        return last + 1;
+        return 0;
     }
 
     /** The row as it should be stored. */
@@ -580,13 +582,16 @@ export class StationLineup implements LiveOrder {
      * planner then did the correct thing for that order and planted a break. The operator's
      * delete was not being overruled, it was being forgotten.
      *
-     * `skipped` already means "this was in the order and will not air", and a segment in any
-     * state resets the planner's count, so marking is the record of the removal the walk can
-     * read. The station goes one interval without talking and then talks again, which is what
-     * deleting one break means. Removing a RECORD stays a splice: the two are different
-     * requests and only this one has to leave a mark.
+     * `removed` is that mark. A segment in ANY state resets the planner's count, so the station
+     * goes one interval without talking and then talks again, which is what deleting one break
+     * means. Removing a RECORD stays a splice: the two are different requests and only this one
+     * has to leave a mark.
      *
-     * The mark ages out with the rest of the past, through {@link trimPast}.
+     * Its own state rather than {@link skipped}, which would have done the planner's job and
+     * nothing else. An operator's cut and the station passing over a break it could not render
+     * are opposite facts, and everything downstream that reads one of them — the console's
+     * label, {@link committedThrough}, an activity feed — needs to tell them apart. The mark
+     * ages out with the rest of the past, through {@link trimPast}.
      */
     remove(itemId: string): EditResult {
         const index = this.itemList.findIndex(item => item.id === itemId);
@@ -595,7 +600,7 @@ export class StationLineup implements LiveOrder {
         const item = this.itemList[index]!;
         if (item.state !== 'planned') return refuse('already-aired', 'that item has already been handed to the player');
 
-        if (item.kind === 'segment') item.state = 'skipped';
+        if (item.kind === 'segment') item.state = 'removed';
         else this.itemList.splice(index, 1);
         return OK;
     }

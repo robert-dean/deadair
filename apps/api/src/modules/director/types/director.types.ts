@@ -22,10 +22,10 @@ export const StationOnEnd = z.enum(['extend', 'repeat', 'stop']);
 export type StationOnEnd = z.infer<typeof StationOnEnd>;
 
 /**
- * Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around
+ * Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around. `skipped` is the station passing over an item it reached; `removed` is an operator taking one out before its turn, and the two are different facts on a page that has to say why the station is silent
  * generated from [StationItemState](file://./../../../../data/contracts/director/director.types.ck#L29)
  */
-export const StationItemState = z.enum(['planned', 'handed', 'airing', 'played', 'skipped']);
+export const StationItemState = z.enum(['planned', 'handed', 'airing', 'played', 'skipped', 'removed']);
 export type StationItemState = z.infer<typeof StationItemState>;
 
 /**

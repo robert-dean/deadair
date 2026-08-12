@@ -199,7 +199,7 @@ describe('StationLineup editing', () => {
         expect(lineup.remove(first!.id)).toMatchObject({ ok: false, reason: 'already-aired' });
     });
 
-    it('splices a record out, and leaves a removed break in the order as a skipped item', () => {
+    it('splices a record out, and leaves a removed break in the order marked as removed', () => {
         // The whole of the removed-break bug. `BreakPlanner` counts records since the
         // last segment ALREADY in the order, so a spliced-out break leaves a gap it
         // cannot tell from one that was never planted into, and it plants another.
@@ -212,7 +212,7 @@ describe('StationLineup editing', () => {
 
         expect(lineup.remove(lineup.all()[1]!.id)).toEqual({ ok: true });
         expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'c']);
-        expect(statesOf(lineup)).toEqual(['planned', 'skipped', 'planned']);
+        expect(statesOf(lineup)).toEqual(['planned', 'removed', 'planned']);
     });
 
     it('never offers a removed break to the player, and ages the mark out with the rest of the past', () => {
@@ -228,9 +228,9 @@ describe('StationLineup editing', () => {
     });
 
     it('keeps a removed break out of the committed head, so the order in front of it stays editable', () => {
-        // Measured from the last item the player was GIVEN. Counting a cut in the middle
-        // of the tail as the head would freeze everything in front of it: no move, no
-        // insert, and nothing planted.
+        // `removed` is the one non-planned state that says nothing about how far the
+        // broadcast has got. Counting it would freeze everything in front of it: no move,
+        // no insert, and nothing planted.
         const lineup = lineupWith(['a', 'b', 'c', 'd', 'e']);
         lineup.insertSegment('talk', 3);
         hand(lineup, 1);
@@ -241,8 +241,9 @@ describe('StationLineup editing', () => {
         expect(lineup.move(lineup.all()[4]!.id, 1)).toEqual({ ok: true });
     });
 
-    it('still counts a skipped item next to the head as part of it', () => {
-        // One the player passed over on its way here, rather than an operator's cut.
+    it('still counts a skipped item as part of the head, because the player reached it', () => {
+        // The other half of the same distinction: passed over on the way here, rather than
+        // cut before its turn came.
         const lineup = lineupWith(['a', 'b', 'c']);
         const handed = hand(lineup, 2);
         lineup.markSkipped(handed[1]!.id);

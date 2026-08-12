@@ -99,8 +99,8 @@ describe('BreakPlanner', () => {
 
     // The bug this pairs with is in `StationLineup.remove`: a spliced-out break left a gap the
     // walk could not tell from one that was never planted into, so the break came back a
-    // boundary later. The removal is a `skipped` segment now, and the walk reads it like any
-    // other segment already in the order.
+    // boundary later. The cut is a `removed` segment now, and the walk reads it like any other
+    // segment already in the order — the state matters to the console and to the head, not here.
     it('does not plant a break back into a slot the operator has just cleared', async () => {
         const { planner } = build();
         const lineup = await lineupOf(20);
@@ -111,7 +111,7 @@ describe('BreakPlanner', () => {
 
         expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
         expect(segmentsAt(lineup)).toEqual([4, 9, 14, 19]);
-        expect(lineup.all()[9]!.state).toBe('skipped');
+        expect(lineup.all()[9]!.state).toBe('removed');
     });
 
     // The property that makes it safe to call from the commit pass, which runs on every boundary.

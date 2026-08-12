@@ -491,7 +491,7 @@ export class DirectorService {
 
         const stillWanted = lineup
             .all()
-            .some(other => other.id !== itemId && other.kind === 'segment' && other.segmentId === item.segmentId && other.state !== 'skipped');
+            .some(other => other.id !== itemId && other.kind === 'segment' && other.segmentId === item.segmentId && other.state !== 'removed');
         if (stillWanted) return;
 
         try {

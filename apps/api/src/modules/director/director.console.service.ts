@@ -311,6 +311,12 @@ export class DirectorConsoleService {
      */
     private async toOrder(order: StationLineupSnapshot): Promise<StationOrder> {
         const segments = await this.segments.findByIds(order.items.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])));
+        // Read here rather than stored on the lineup, for the reason a segment's label is: the
+        // document holds an id and the catalog holds the opinion, so an operator who rates a record
+        // sees it against what is on air instead of against what it was when the order was built.
+        const ratings = await this.tracks.ratingsByTrackId(
+            order.items.flatMap(item => (item.kind === 'track' && item.track.trackId !== undefined ? [item.track.trackId] : [])),
+        );
 
         return {
             name: order.name,
@@ -336,6 +342,8 @@ export class DirectorConsoleService {
                     ...(item.track.artworkUrl === undefined ? {} : { artworkUrl: item.track.artworkUrl }),
                     ...(item.track.year === undefined ? {} : { year: item.track.year }),
                     ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
+                    // Absent for a record the catalog has never seen, which has nothing to rate.
+                    ...(item.track.trackId === undefined || !ratings.has(item.track.trackId) ? {} : { rating: ratings.get(item.track.trackId) }),
                 };
             }),
         };

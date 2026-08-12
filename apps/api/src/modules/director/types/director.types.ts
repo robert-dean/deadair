@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Rating } from '../../catalog/types/catalog.types.js';
 
 /**
  * What kind of programming the station is running, which decides the rules it runs under
@@ -30,7 +31,7 @@ export type StationItemState = z.infer<typeof StationItemState>;
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L72)
+ * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L73)
  */
 export const AddStationSegmentInput = z.strictObject({
     segmentId: z.string().min(1).max(100),
@@ -54,7 +55,7 @@ export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L78)
+ * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L79)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -63,7 +64,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L82)
+ * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L83)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -98,7 +99,7 @@ export type SetStationAirInput = z.infer<typeof SetStationAirInput>;
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L63)
+ * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L64)
  */
 export const PutOnAirInput = z.strictObject({
     pluginId: z
@@ -152,6 +153,9 @@ export const StationOrderItem = z.strictObject({
     artworkUrl: z.string().max(2000).optional(),
     year: z.coerce.number().int().min(0).optional(),
     trackId: z.string().max(100).optional().describe('The canonical catalog track, when this is one the catalog holds'),
+    rating: Rating.optional().describe(
+        'What the station thinks of this record, read as the order is drawn rather than stored on it. Absent on a segment, and on a record the catalog has never seen',
+    ),
     segmentId: z.string().min(1).max(100).optional().describe('Which segment this plays. Present only on a segment'),
     segmentState: z.enum(['planned', 'writing', 'written', 'rendering', 'ready', 'failed', 'gone']).optional(),
     playable: z
@@ -177,7 +181,7 @@ export type StationOrderItem = z.infer<typeof StationOrderItem>;
 
 /**
  * The station's live running order: what is airing, item by item
- * generated from [StationOrder](file://./../../../../data/contracts/director/director.types.ck#L52)
+ * generated from [StationOrder](file://./../../../../data/contracts/director/director.types.ck#L53)
  */
 export const StationOrder = z.strictObject({
     name: z.string().max(200).describe('What is on, for a console to draw. A label for this broadcast rather than the name of a stored object'),

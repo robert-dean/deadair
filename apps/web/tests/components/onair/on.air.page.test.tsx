@@ -18,6 +18,7 @@ const removeARunningOrderItem = vi.fn();
 const shuffleTheRunningOrder = vi.fn();
 const extendTheRunningOrder = vi.fn();
 const stopPlayout = vi.fn();
+const rateTrack = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -29,6 +30,7 @@ vi.mock('../../../src/api/client', () => ({
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
         },
         playout: { stop: () => stopPlayout() },
+        catalog: { rateTrack: (...args: unknown[]) => rateTrack(...args) },
     },
 }));
 
@@ -112,6 +114,52 @@ describe('OnAirPage', () => {
         expect(screen.getByText('skipped')).toBeInTheDocument();
         // Neither is still the operator's to act on.
         expect(screen.queryByRole('button', { name: 'Drop Talk break' })).not.toBeInTheDocument();
+    });
+
+    // The running order is where an opinion actually forms: the operator is hearing the record.
+    it('rates the record that is airing, and offers nothing to rate on a segment or on a record the catalog has never seen', async () => {
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'item-1', state: 'airing', title: 'Windowlicker', trackId: 'trk_1', rating: 'neutral' }),
+                    orderItem({ id: 'item-2', state: 'planned', kind: 'segment', title: 'Talk break' }),
+                    orderItem({ id: 'item-3', state: 'planned', title: 'Uningested' }),
+                ],
+            }),
+        );
+        getStationAir.mockResolvedValue(stationAir());
+        rateTrack.mockResolvedValue({ id: 'trk_1', title: 'Windowlicker', rating: 'liked' });
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.queryByRole('radio', { name: 'Like Talk break' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('radio', { name: 'Like Uningested' })).not.toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Like Windowlicker' }));
+
+        await waitFor(() => {
+            expect(rateTrack).toHaveBeenCalledWith('trk_1', { rating: 'liked' });
+        });
+    });
+
+    // A rating is about the work rather than about this item's turn, so unlike every other control
+    // on the page it survives the record having already been played.
+    it('still rates a record that has already aired', async () => {
+        getTheRunningOrder.mockResolvedValue(
+            order({ items: [orderItem({ id: 'item-1', state: 'played', title: 'Xtal', trackId: 'trk_9', rating: 'neutral' })] }),
+        );
+        getStationAir.mockResolvedValue(stationAir());
+        rateTrack.mockResolvedValue({ id: 'trk_9', title: 'Xtal', rating: 'disliked' });
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Dislike Xtal' }));
+
+        await waitFor(() => {
+            expect(rateTrack).toHaveBeenCalledWith('trk_9', { rating: 'disliked' });
+        });
     });
 
     it('offers no way to drop anything but what is still planned', async () => {

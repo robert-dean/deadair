@@ -1,6 +1,7 @@
 import { ActionIcon, Badge, Group, Table, Text, Tooltip } from '@mantine/core';
-import type { StationItemState, StationOrderItem } from '@deadair/sdk';
+import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
+import { RatingControl } from '../catalog/rating.control';
 import { Artwork } from '../shared/artwork';
 import { formatDuration } from '../shared/format.duration';
 
@@ -12,6 +13,16 @@ export interface StationOrderTableProps {
     removingItemId?: string;
     /** Moving an item to a new index. Absent draws no handles. */
     onMove?: (item: StationOrderItem, toIndex: number) => void;
+    /**
+     * What the station thinks of the record on a row. Absent draws no rating controls at all.
+     *
+     * Offered on a SPENT row as well as a planned one, unlike every other control here: the record
+     * that just finished is exactly the one an operator has an opinion about, and a rating is about
+     * the work rather than about this item's turn in the order.
+     */
+    onRate?: (trackId: string, rating: Rating) => void;
+    /** Which record's rating is being written, so its row can say so rather than looking ignored. */
+    ratingTrackId?: string;
 }
 
 /** `artists.join(', ')`, but without a stray separator when the array is documented-empty. */
@@ -77,7 +88,7 @@ const STATE_LABEL: Record<StationItemState, { label: string; colour: string; hin
  * position used to be an integer that could disagree with what actually aired, and it is now a fact
  * on each item that the player itself reported.
  */
-export function StationOrderTable({ items, onRemove, removingItemId, onMove }: StationOrderTableProps) {
+export function StationOrderTable({ items, onRemove, removingItemId, onMove, onRate, ratingTrackId }: StationOrderTableProps) {
     const editable = onRemove !== undefined || onMove !== undefined;
 
     return (
@@ -89,12 +100,16 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove }: S
                     <Table.Th>Artists</Table.Th>
                     <Table.Th visibleFrom="sm">Album</Table.Th>
                     <Table.Th w={90}>Duration</Table.Th>
+                    {onRate ? <Table.Th w={130}>Rating</Table.Th> : undefined}
                     {editable ? <Table.Th w={60} /> : undefined}
                 </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
                 {items.map((item, index) => {
                     const state = STATE_LABEL[item.state];
+                    // A segment is the station's own words, and a record the catalog has never seen
+                    // has no row to hold an opinion — a station can air one it never ingested.
+                    const trackId = item.kind === 'track' ? item.trackId : undefined;
                     return (
                         <Table.Tr
                             key={item.id}
@@ -183,6 +198,21 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove }: S
                                     {formatDuration(item.durationMs)}
                                 </Text>
                             </Table.Td>
+                            {onRate ? (
+                                <Table.Td>
+                                    {trackId === undefined ? undefined : (
+                                        <RatingControl
+                                            size="xs"
+                                            rating={item.rating}
+                                            label={item.title}
+                                            busy={ratingTrackId === trackId}
+                                            onChange={rating => {
+                                                onRate(trackId, rating);
+                                            }}
+                                        />
+                                    )}
+                                </Table.Td>
+                            ) : undefined}
                             {editable ? (
                                 <Table.Td>
                                     {/* Nothing at all on a spent item, rather than a disabled

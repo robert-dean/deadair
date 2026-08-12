@@ -1,6 +1,7 @@
 import { Alert, Anchor, Badge, Button, Card, Group, Skeleton, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 
+import { useRateTrack } from '../../api/catalog.queries';
 import { useExtendOrder, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
 import { useStopPlayout } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -24,6 +25,7 @@ export function OnAirPage() {
     const shuffle = useShuffleOrder();
     const extend = useExtendOrder();
     const removeItem = useRemoveOrderItem();
+    const rateTrack = useRateTrack();
     const stop = useStopPlayout();
 
     const loaded = order.data;
@@ -176,6 +178,13 @@ export function OnAirPage() {
                     items={items}
                     removingItemId={removeItem.isPending ? removeItem.variables : undefined}
                     onRemove={item => removeItem.mutate(item.id)}
+                    // The running order is where an operator actually forms an opinion about a
+                    // record: they are hearing it. The write goes to the catalog rather than to the
+                    // order, and the order is re-read because it carries each row's rating.
+                    ratingTrackId={rateTrack.isPending ? rateTrack.variables?.id : undefined}
+                    onRate={(trackId, rating) => {
+                        rateTrack.mutate({ id: trackId, rating });
+                    }}
                 />
             ) : undefined}
         </Stack>

@@ -3,6 +3,8 @@ import { sql } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import { CatalogListQuery, likeContains } from './catalog.query.js';
 import { artUrl } from './catalog.art.js';
+import { ratingFromColumn } from './rating.js';
+import type { Rating } from './types/catalog.types.js';
 
 /** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
 const ALBUM_IMAGE_COLUMN = 'deadair.albums.image_url';
@@ -258,6 +260,35 @@ export class TracksRepository extends DataRepository {
             .executeTakeFirst();
 
         return (result.numUpdatedRows ?? 0n) > 0n;
+    }
+
+    /**
+     * What the station thinks of a batch of tracks, as the wire spells it.
+     *
+     * For the running order, which holds ids and needs each row's opinion to draw a control that is
+     * not lying about what the operator already said. It is read as the order is DRAWN rather than
+     * stored in the lineup document: the director owns that document, and a rating copied into it
+     * would be a second answer going stale the moment the operator changed their mind.
+     *
+     * Deliberately each track's OWN rating rather than the effective one `CandidatesRepository`
+     * resolves. That one answers "may this air", which is a `least()` over three rows; this one is
+     * what a control has to show, and a track reading as disliked because of its artist would
+     * change the wrong row when the operator clicked it.
+     *
+     * Ids the catalog has never seen are absent, which is an ordinary state: a station can air a
+     * track it has not ingested.
+     */
+    async ratingsByTrackId(trackIds: readonly string[]): Promise<Map<string, Rating>> {
+        if (trackIds.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .select(['deadair.tracks.id', 'deadair.tracks.rating'])
+            .where('deadair.tracks.id', 'in', [...trackIds])
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            .execute();
+
+        return new Map(rows.map(row => [row.id, ratingFromColumn(Number(row.rating))]));
     }
 
     /** One track, in the shape a list row has. Undefined when there is no such track, and equally when it was merged away. */

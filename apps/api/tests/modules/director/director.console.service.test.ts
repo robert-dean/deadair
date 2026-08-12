@@ -32,6 +32,8 @@ interface Options {
     order?: StationLineup;
     /** What the segment library holds, for the lines a lineup names by id. */
     segments?: Partial<Segment>[];
+    /** What the station thinks of the records in the order, keyed by canonical track id. */
+    ratings?: Record<string, 'liked' | 'neutral' | 'disliked'>;
 }
 
 function build(options: Options = {}) {
@@ -74,6 +76,7 @@ function build(options: Options = {}) {
             if (options.catalogError) throw options.catalogError;
             return options.catalogRows ?? [];
         }),
+        ratingsByTrackId: vi.fn(async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.ratings?.[id] ? [[id, options.ratings[id]]] : [])))),
     } as unknown as TracksRepository;
 
     // Read-only from the console's side: a lineup names a segment and the library owns it.
@@ -377,6 +380,23 @@ describe('DirectorConsoleService editing the running order', () => {
         await service.extendOrder({ count: 5 });
 
         expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { count: 5 });
+    });
+
+    // The rating is read as the order is DRAWN rather than stored on the lineup: the director owns
+    // that document, and a copy of an opinion in it would be a second answer going stale the moment
+    // the operator changed their mind.
+    it('carries what the station thinks of each record, and says nothing about one the catalog has never seen', async () => {
+        const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.append([
+            { pluginId: 'p', externalId: 't0', title: 'Known', artists: ['X'], trackId: 'trk_known' },
+            { pluginId: 'p', externalId: 't1', title: 'Uningested', artists: ['Y'] },
+        ]);
+        const { service, tracks } = build({ order, ratings: { trk_known: 'disliked' } });
+
+        const drawn = await service.getOrder();
+
+        expect(tracks.ratingsByTrackId).toHaveBeenCalledWith(['trk_known']);
+        expect(drawn.items.map(item => item.rating)).toEqual(['disliked', undefined]);
     });
 
     it('draws an empty running order rather than a 404 when nothing is on', async () => {

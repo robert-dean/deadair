@@ -184,13 +184,17 @@ describe('SettingsPage', () => {
     });
 
     it('sends a multi-line setting back as the plain string it is', async () => {
-        getSettings.mockResolvedValue(
-            settingsOf({
-                descriptors: [{ group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' }],
-                values: { 'rotation.breakTemplates': 'That was {{previous.title}}.' },
-            }),
-        );
-        updateSettings.mockResolvedValue({});
+        const templates = settingsOf({
+            descriptors: [{ group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' }],
+            values: { 'rotation.breakTemplates': 'That was {{previous.title}}.' },
+        });
+        getSettings.mockResolvedValue(templates);
+        // The settings as they now stand, which is what the route answers with and what the
+        // mutation writes straight into the cache. An empty object here is not a lighter fake, it
+        // is a body the API cannot send: the page re-renders off whatever this resolves to, so a
+        // partial one crashes an unrelated card and shows up as an unhandled error attributed to
+        // this test.
+        updateSettings.mockResolvedValue(templates);
         render(<SettingsPage />);
         await screen.findByLabelText('What the station says');
 

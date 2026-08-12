@@ -78,6 +78,24 @@ export class ArtistsRepository extends DataRepository {
 
         return row === undefined ? undefined : countsAsNumbers(row);
     }
+
+    /**
+     * What the station thinks of this artist, as the column spells it. See `rating.ts`.
+     *
+     * False when nothing was updated, which covers both an id that is not there and one that was
+     * merged away: a merged row is never read out, so it is never rated either — the opinion belongs
+     * on the row the catalog actually shows. `updated_at` moves through the table's own trigger.
+     */
+    async setRating(id: string, rating: number): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.artists')
+            .set({ rating })
+            .where('deadair.artists.id', '=', id)
+            .where('deadair.artists.mergedIntoId', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
+    }
 }
 
 /**

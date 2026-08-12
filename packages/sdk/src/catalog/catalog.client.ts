@@ -1,5 +1,5 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { parseJson, buildQueryString } from '../sdk-options.js';
+import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
     Album,
     AlbumEnrichmentDetail,
@@ -9,6 +9,8 @@ import type {
     ArtistPage,
     CatalogQuery,
     CatalogQueryInput,
+    RateInput,
+    Track,
     TrackEnrichmentDetail,
     TrackPage,
 } from './types/catalog.types.js';
@@ -58,6 +60,19 @@ export class CatalogClient {
         return await parseJson<AlbumPage>(result);
     }
 
+    /**
+     * @name Rate artist
+     * @description What the station thinks of this artist. A dislike here excludes every record they are credited on
+     */
+    async rateArtist(id: string, body: RateInput): Promise<Artist> {
+        const result = await this.fetch(`/catalog/artists/${encodeURIComponent(id)}/rating`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<Artist>(result);
+    }
+
     /** @name List albums */
     async listAlbums(query?: CatalogQueryInput): Promise<AlbumPage> {
         const qs = buildQueryString(query);
@@ -95,6 +110,19 @@ export class CatalogClient {
     }
 
     /**
+     * @name Rate album
+     * @description What the station thinks of this record. A dislike here excludes every track on it
+     */
+    async rateAlbum(id: string, body: RateInput): Promise<Album> {
+        const result = await this.fetch(`/catalog/albums/${encodeURIComponent(id)}/rating`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<Album>(result);
+    }
+
+    /**
      * @name Get track enrichment
      * @description What the providers said about one recording, including everything no canonical column holds
      */
@@ -113,5 +141,18 @@ export class CatalogClient {
             method: 'GET',
         });
         return await parseJson<TrackPage>(result);
+    }
+
+    /**
+     * @name Rate track
+     * @description What the station thinks of this song, which is the narrowest thing an opinion can be about
+     */
+    async rateTrack(id: string, body: RateInput): Promise<Track> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/rating`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<Track>(result);
     }
 }

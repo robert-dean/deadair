@@ -84,6 +84,18 @@ export class AlbumsRepository extends DataRepository {
 
         return row === undefined ? undefined : countAsNumber(row);
     }
+
+    /** What the station thinks of this record, as the column spells it. Merged rows are not rated; see `ArtistsRepository.setRating`. */
+    async setRating(id: string, rating: number): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.albums')
+            .set({ rating })
+            .where('deadair.albums.id', '=', id)
+            .where('deadair.albums.mergedIntoId', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
+    }
 }
 
 /**

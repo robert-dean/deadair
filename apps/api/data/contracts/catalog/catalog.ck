@@ -9,9 +9,10 @@ options {
         EnrichmentReadService: "#src/modules/enrichment/enrichment.read.service.js"
     }
     security: {
-        # The floor for every operation in this file, cascading file -> route -> operation. The
-        # catalog is entirely reads, so it sits on the read floor that `playout.ck` already uses:
-        # `platform.view`, which both platform roles grant. Nothing here overrides it.
+        # The floor for every operation in this file, cascading file -> route -> operation. Almost
+        # everything here is a read, so the floor is the one `playout.ck` already uses:
+        # `platform.view`, which both platform roles grant. The three rating verbs override it with
+        # `platform.manage`, and they are the only operations here that do.
         #
         # Not `policy: none`. That spelling still requires a session, but it accepts ANY signed-in
         # actor, including one holding no platform role at all — which today is every account that
@@ -21,7 +22,8 @@ options {
 }
 
 # The station's own catalog, as opposed to /playlists, which fans out to whatever the enabled
-# plugins can offer right now. Everything here is a `platform.view` read of canonical rows.
+# plugins can offer right now. Reads are `platform.view` over canonical rows; the one thing an
+# operator writes here is what the station thinks of them.
 
 operation /catalog/artists: {
     get: { # Every artist the station has ingested, ordered by name
@@ -77,6 +79,30 @@ operation /catalog/artists/{id}/albums: {
         response: {
             200: {
                 application/json: AlbumPage
+            }
+        }
+    }
+}
+
+operation /catalog/artists/{id}/rating: {
+    params: {
+        id: uuid
+    }
+    put: { # What the station thinks of this artist. A dislike here excludes every record they are credited on
+        name: Rate artist
+        service: ArtistsService.rateArtist
+        security: {
+            # Reading the catalog is what a listener's console shows; rating something changes what
+            # the station will play, and a dislike cannot be overridden by any programming. That is
+            # an operator action, so it takes `platform.manage` rather than the file's read floor.
+            policy: platform.manage
+        }
+        request: {
+            application/json: RateInput
+        }
+        response: {
+            200: {
+                application/json: Artist
             }
         }
     }
@@ -141,6 +167,28 @@ operation /catalog/albums/{id}/tracks: {
     }
 }
 
+operation /catalog/albums/{id}/rating: {
+    params: {
+        id: uuid
+    }
+    put: { # What the station thinks of this record. A dislike here excludes every track on it
+        name: Rate album
+        service: AlbumsService.rateAlbum
+        security: {
+            # An operator action, for the reason the artist's rating is. See that one.
+            policy: platform.manage
+        }
+        request: {
+            application/json: RateInput
+        }
+        response: {
+            200: {
+                application/json: Album
+            }
+        }
+    }
+}
+
 operation /catalog/tracks/{id}/enrichment: {
     params: {
         id: uuid
@@ -164,6 +212,28 @@ operation /catalog/tracks: {
         response: {
             200: {
                 application/json: TrackPage
+            }
+        }
+    }
+}
+
+operation /catalog/tracks/{id}/rating: {
+    params: {
+        id: uuid
+    }
+    put: { # What the station thinks of this song, which is the narrowest thing an opinion can be about
+        name: Rate track
+        service: TracksService.rateTrack
+        security: {
+            # An operator action, for the reason the artist's rating is. See that one.
+            policy: platform.manage
+        }
+        request: {
+            application/json: RateInput
+        }
+        response: {
+            200: {
+                application/json: Track
             }
         }
     }

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ServerKitRouter, requirePolicy } from '@maroonedsoftware/koa';
+import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { AlbumsService } from '#src/modules/catalog/albums.service.js';
 import { ArtistsService } from '#src/modules/catalog/artists.service.js';
 import { EnrichmentReadService } from '#src/modules/enrichment/enrichment.read.service.js';
@@ -13,6 +13,8 @@ import {
     ArtistPage,
     CatalogQuery,
     CatalogQueryInput,
+    RateInput,
+    Track,
     TrackEnrichmentDetail,
     TrackPage,
 } from '../modules/catalog/types/catalog.types.js';
@@ -25,7 +27,7 @@ export const CatalogRouter = ServerKitRouter();
 
 /**
  * Every artist the station has ingested, ordered by name
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L27)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L29)
  */
 CatalogRouter.get('/catalog/artists', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
@@ -40,7 +42,7 @@ CatalogRouter.get('/catalog/artists', requirePolicy({ policy: 'platform.view' })
 
 /**
  * One artist. 404s on an id that was merged away, since reads never return merged rows
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L43)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L45)
  */
 CatalogRouter.get('/catalog/artists/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -60,7 +62,7 @@ CatalogRouter.get('/catalog/artists/:id', requirePolicy({ policy: 'platform.view
 
 /**
  * What every enrichment provider said about this artist, and when each of them said it
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L58)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L60)
  */
 CatalogRouter.get('/catalog/artists/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -80,7 +82,7 @@ CatalogRouter.get('/catalog/artists/:id/enrichment', requirePolicy({ policy: 'pl
 
 /**
  * The albums credited to one artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L73)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L75)
  */
 CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -101,7 +103,29 @@ CatalogRouter.get('/catalog/artists/:id/albums', requirePolicy({ policy: 'platfo
 });
 
 /**
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L86)
+ * What the station thinks of this artist. A dislike here excludes every record they are credited on
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L91)
+ */
+CatalogRouter.put('/catalog/artists/:id/rating', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, RateInput);
+
+    const service = ctx.container.get(ArtistsService);
+    const result: Artist = await service.rateArtist(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L112)
  */
 CatalogRouter.get('/catalog/albums', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
@@ -115,7 +139,7 @@ CatalogRouter.get('/catalog/albums', requirePolicy({ policy: 'platform.view' }),
 });
 
 /**
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L102)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L128)
  */
 CatalogRouter.get('/catalog/albums/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -135,7 +159,7 @@ CatalogRouter.get('/catalog/albums/:id', requirePolicy({ policy: 'platform.view'
 
 /**
  * The record's own enrichment: the label, pressing and cover belong to the release, not to a track on it
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L117)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L143)
  */
 CatalogRouter.get('/catalog/albums/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -155,7 +179,7 @@ CatalogRouter.get('/catalog/albums/:id/enrichment', requirePolicy({ policy: 'pla
 
 /**
  * One album's tracks
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L132)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L158)
  */
 CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -176,8 +200,30 @@ CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: 'platfor
 });
 
 /**
+ * What the station thinks of this record. A dislike here excludes every track on it
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L174)
+ */
+CatalogRouter.put('/catalog/albums/:id/rating', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, RateInput);
+
+    const service = ctx.container.get(AlbumsService);
+    const result: Album = await service.rateAlbum(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * What the providers said about one recording, including everything no canonical column holds
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L148)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L196)
  */
 CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -197,13 +243,35 @@ CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'pla
 
 /**
  * Every track, flat. The only way to answer "do we have this song?" without knowing its artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L160)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L208)
  */
 CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
 
     const service = ctx.container.get(TracksService);
     const result: TrackPage = await service.listTracks(query);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * What the station thinks of this song, which is the narrowest thing an opinion can be about
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L224)
+ */
+CatalogRouter.put('/catalog/tracks/:id/rating', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, RateInput);
+
+    const service = ctx.container.get(TracksService);
+    const result: Track = await service.rateTrack(id, body);
 
     ctx.status = 200;
     ctx.type = 'application/json';

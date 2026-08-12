@@ -36,6 +36,12 @@ const trackRow = () => ({
     rating: 0,
 });
 
+/**
+ * A row as the CONSOLE sees it: the repository answers with the column's `-1 / 0 / 1` and the
+ * service hands on the enum, so an expectation written against a repository row has to say which.
+ */
+const seen = <T extends object>(row: T, rating: 'liked' | 'neutral' | 'disliked' = 'neutral') => ({ ...row, rating });
+
 /** The query as the router hands it over, after zod has applied the contract's defaults. */
 const query = (overrides: { page?: number; pageSize?: number; sort?: 'asc' | 'desc'; search?: string } = {}) => ({
     page: 0,
@@ -53,7 +59,7 @@ describe('ArtistsService', () => {
 
         expect(listArtists).toHaveBeenCalledWith({ limit: 10, offset: 30, sort: 'asc', search: undefined });
         expect(result.meta).toEqual({ total: 97, page: 3, pageSize: 10, sort: 'asc' });
-        expect(result.data).toEqual([artistRow()]);
+        expect(result.data).toEqual([seen(artistRow())]);
     });
 
     it('passes the search term through rather than filtering the page it got back', async () => {
@@ -76,7 +82,38 @@ describe('ArtistsService', () => {
         const findArtist = vi.fn().mockResolvedValue(artistRow());
         const service = new ArtistsService({ findArtist } as unknown as ArtistsRepository);
 
-        await expect(service.getArtist(ARTIST_ID)).resolves.toEqual(artistRow());
+        await expect(service.getArtist(ARTIST_ID)).resolves.toEqual(seen(artistRow()));
+    });
+
+    it('stores the rating as the column spells it and answers with the artist re-read', async () => {
+        const setRating = vi.fn().mockResolvedValue(true);
+        // Deliberately the row as it stands AFTER the write: the answer is a re-read, so a service
+        // that echoed the request instead would pass this only by accident.
+        const findArtist = vi.fn().mockResolvedValue({ ...artistRow(), rating: -1 });
+        const service = new ArtistsService({ setRating, findArtist } as unknown as ArtistsRepository);
+
+        const result = await service.rateArtist(ARTIST_ID, { rating: 'disliked' });
+
+        expect(setRating).toHaveBeenCalledWith(ARTIST_ID, -1);
+        expect(result).toEqual(seen(artistRow(), 'disliked'));
+    });
+
+    it('clears an opinion back to neutral rather than treating it as a middling one', async () => {
+        const setRating = vi.fn().mockResolvedValue(true);
+        const findArtist = vi.fn().mockResolvedValue(artistRow());
+        const service = new ArtistsService({ setRating, findArtist } as unknown as ArtistsRepository);
+
+        await expect(service.rateArtist(ARTIST_ID, { rating: 'neutral' })).resolves.toEqual(seen(artistRow()));
+        expect(setRating).toHaveBeenCalledWith(ARTIST_ID, 0);
+    });
+
+    it('404s on rating an artist that is absent or merged away, without re-reading it', async () => {
+        const setRating = vi.fn().mockResolvedValue(false);
+        const findArtist = vi.fn();
+        const service = new ArtistsService({ setRating, findArtist } as unknown as ArtistsRepository);
+
+        await expect(service.rateArtist(ARTIST_ID, { rating: 'liked' })).rejects.toMatchObject({ statusCode: 404 });
+        expect(findArtist).not.toHaveBeenCalled();
     });
 });
 
@@ -116,6 +153,22 @@ describe('AlbumsService', () => {
 
         await expect(service.getAlbum(ALBUM_ID)).rejects.toMatchObject({ statusCode: 404 });
     });
+
+    it('rates a record and answers with it re-read', async () => {
+        const setRating = vi.fn().mockResolvedValue(true);
+        const findAlbum = vi.fn().mockResolvedValue({ ...albumRow(), rating: 1 });
+        const service = new AlbumsService({ setRating, findAlbum } as unknown as AlbumsRepository);
+
+        await expect(service.rateAlbum(ALBUM_ID, { rating: 'liked' })).resolves.toEqual(seen(albumRow(), 'liked'));
+        expect(setRating).toHaveBeenCalledWith(ALBUM_ID, 1);
+    });
+
+    it('404s on rating an album that is absent or merged away', async () => {
+        const setRating = vi.fn().mockResolvedValue(false);
+        const service = new AlbumsService({ setRating } as unknown as AlbumsRepository);
+
+        await expect(service.rateAlbum(ALBUM_ID, { rating: 'liked' })).rejects.toMatchObject({ statusCode: 404 });
+    });
 });
 
 describe('TracksService', () => {
@@ -135,7 +188,25 @@ describe('TracksService', () => {
 
         const result = await service.listTracks(query());
 
-        expect(result.data).toEqual([orphan]);
+        expect(result.data).toEqual([seen(orphan)]);
         expect(result.data[0].albumId).toBeUndefined();
+    });
+
+    it('rates a song and answers with it re-read', async () => {
+        const setRating = vi.fn().mockResolvedValue(true);
+        const findTrack = vi.fn().mockResolvedValue({ ...trackRow(), rating: 1 });
+        const service = new TracksService({ setRating, findTrack } as unknown as TracksRepository);
+
+        await expect(service.rateTrack(TRACK_ID, { rating: 'liked' })).resolves.toEqual(seen(trackRow(), 'liked'));
+        expect(setRating).toHaveBeenCalledWith(TRACK_ID, 1);
+    });
+
+    it('404s on rating a track that is absent or merged away', async () => {
+        const setRating = vi.fn().mockResolvedValue(false);
+        const findTrack = vi.fn();
+        const service = new TracksService({ setRating, findTrack } as unknown as TracksRepository);
+
+        await expect(service.rateTrack(TRACK_ID, { rating: 'disliked' })).rejects.toMatchObject({ statusCode: 404 });
+        expect(findTrack).not.toHaveBeenCalled();
     });
 });

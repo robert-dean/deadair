@@ -25,18 +25,27 @@ const TRACK_COLUMNS = [
 @Injectable()
 export class TracksRepository extends DataRepository {
     /**
+     * Every track the catalog will show, joined to the two rows a `Track` is drawn from.
+     *
+     * The album join is left, not inner: `tracks.album_id` is nullable, and a single ingested
+     * outside any release is a track the catalog holds rather than a row to drop. Merged rows are
+     * excluded here rather than at each call site, because a read never returns one.
+     */
+    private readable() {
+        return this.db
+            .selectFrom('deadair.tracks')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .where('deadair.tracks.mergedIntoId', 'is', null);
+    }
+
+    /**
      * @param albumId - Narrows to one album's tracks. Absent lists the whole catalog.
      */
     async listTracks(query: CatalogListQuery, albumId?: string) {
         const { limit, offset, sort, search } = query;
 
-        // The album join is left, not inner: `tracks.album_id` is nullable, and a single ingested
-        // outside any release is a track the catalog holds rather than a row to drop.
-        let scoped = this.db
-            .selectFrom('deadair.tracks')
-            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
-            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
-            .where('deadair.tracks.mergedIntoId', 'is', null);
+        let scoped = this.readable();
         if (albumId !== undefined) {
             scoped = scoped.where('deadair.tracks.albumId', '=', albumId);
         }
@@ -246,6 +255,27 @@ export class TracksRepository extends DataRepository {
             .where('pluginId', '=', pluginId)
             .where('externalId', '=', externalId)
             .where('missingAt', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
+    }
+
+    /** One track, in the shape a list row has. Undefined when there is no such track, and equally when it was merged away. */
+    async findTrack(id: string) {
+        return await this.readable()
+            .where('deadair.tracks.id', '=', id)
+            .select(TRACK_COLUMNS)
+            .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
+            .executeTakeFirst();
+    }
+
+    /** What the station thinks of this song, as the column spells it. Merged rows are not rated; see `ArtistsRepository.setRating`. */
+    async setRating(id: string, rating: number): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.tracks')
+            .set({ rating })
+            .where('deadair.tracks.id', '=', id)
+            .where('deadair.tracks.mergedIntoId', 'is', null)
             .executeTakeFirst();
 
         return (result.numUpdatedRows ?? 0n) > 0n;

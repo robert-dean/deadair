@@ -4,6 +4,16 @@ options {
     }
 }
 
+# What the station has been told about a record. `neutral` is the absence of an opinion rather than
+# a middling one, and it is what rating something back to nothing means.
+contract Rating: enum(liked, neutral, disliked)
+
+# Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
+# excludes it, and nothing the station programmes may turn that off.
+contract RateInput: {
+    rating: Rating
+}
+
 # The canonical work, not a binding to a provider. `deadair.artists` minus the columns that
 # only ingest cares about: `artist_key` is a match key, and a row with `merged_into_id` set is
 # never read out at all.
@@ -18,7 +28,7 @@ contract Artist: {
     name: string
     mbid?: uuid # MusicBrainz artist id, absent until enrichment resolves one
     imageUrl?: string # Absolute upstream URL, or an API-relative path to the local copy
-    rating: int(min=-1, max=1) = 0
+    rating: Rating = neutral
     albumCount: readonly int(min=0) # Unmerged albums credited to this artist
     trackCount: readonly int(min=0) # Unmerged tracks credited to this artist
 }
@@ -31,7 +41,7 @@ contract Album: {
     mbid?: uuid # MusicBrainz release-group id, absent until enrichment resolves one
     year?: int
     imageUrl?: string # Absolute upstream URL, or an API-relative path to the local copy
-    rating: int(min=-1, max=1) = 0
+    rating: Rating = neutral
     trackCount: readonly int(min=0)
 }
 
@@ -47,7 +57,7 @@ contract Track: {
     genre?: string
     year?: int
     durationMs?: int(min=0)
-    rating: int(min=-1, max=1) = 0
+    rating: Rating = neutral
 }
 
 # Pagination plus a name filter. Every list operation here takes it, so the console's search box

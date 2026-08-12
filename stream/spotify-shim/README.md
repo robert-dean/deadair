@@ -3,9 +3,16 @@
 Serves ONE Spotify track per HTTP request, as a plain Ogg Vorbis file, with no Connect session.
 
 This is how a Spotify track becomes something the station owns *before* it airs, the way it already
-owned a Navidrome one. The rundown resolves each Spotify item to a signed URL here, Liquidsoap
-downloads it ahead of air, and `/control/skip` lands at once — because no audio is committed to a
-pipe the app cannot take back.
+owned a Navidrome one. **The app** fetches each track from here — not Liquidsoap, since the player is
+handed `/playout/audio/{sourceId}` for every record and `TrackAudioService` is the only thing that ever
+asks a provider for audio — and the player downloads it from the app ahead of air, so `/control/skip`
+still lands at once because no audio is committed to a pipe the app cannot take back.
+
+That is also why there is one address here rather than two. A signed URL is valid at whatever address
+reaches the shim (the token covers the track id and the expiry, not the host), and the app is the only
+thing that fetches one, so `SPOTIFY_SHIM_CONTROL_URL` serves both the session push and the fetch.
+`SPOTIFY_SHIM_URL` was the player-facing address and is now only a fallback for an install that still
+sets it.
 
 It replaced go-librespot, which registered as a Connect device and streamed realtime PCM into
 Liquidsoap through `input.external`. That arrangement could only be steered from the outside: the
@@ -35,7 +42,7 @@ Its config comes from the process env, which the entrypoint sources from `radio.
 
 | | |
 | --- | --- |
-| `PLAYOUT_BRIDGE_SECRET` | signs track URLs; the same secret gating `/control/*` |
+| `PLAYOUT_BRIDGE_SECRET` | signs track URLs, which only the app fetches; the same secret gating `/control/*` |
 | `SPOTIFY_SHIM_SECRET` | gates `POST /session` and `POST /authorize`, which both decide whose account this shim fetches as |
 | `SHIM_ADDR` | listen address, default `:3679` |
 | `SHIM_CREDENTIALS` | where the shim keeps its own authorization, default `/streamstate/spotify-credentials.json` |

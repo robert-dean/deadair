@@ -26,7 +26,10 @@ import { Logger } from '@maroonedsoftware/logger';
  * helper is what would earn the indirection.
  */
 
-/** Where the shim listens inside the stream container (`SHIM_ADDR` in spotify-shim-run.sh). */
+/**
+ * Where the shim listens, as the app reaches it (`SHIM_ADDR` in spotify-shim-run.sh, published on
+ * localhost by the compose file).
+ */
 export const DEFAULT_SHIM_BASE_URL = 'http://127.0.0.1:3679';
 
 /**
@@ -75,7 +78,13 @@ export class SpotifyShimClient {
     }
 
     /**
-     * Lend the shim a login, and mint the URL Liquidsoap fetches the track from.
+     * Lend the shim a login, and mint the URL the APP fetches the track from.
+     *
+     * The app, not Liquidsoap, and that is the whole of what changed here: the player is handed
+     * `/playout/audio/{sourceId}` for every record now and `TrackAudioService` is the only thing that
+     * ever fetches a provider, so there is exactly one consumer of this URL and one address that has
+     * to work — {@link SpotifyShimClient.baseUrl}. A signed URL is valid at any address that reaches
+     * the shim, because the token covers the track id and the expiry and not the host.
      *
      * `undefined` when the bridge secret is unseeded: nothing could verify a
      * signature yet, so a URL minted now would be refused on air. The caller
@@ -89,7 +98,7 @@ export class SpotifyShimClient {
 
         const expiresAt = Date.now() + TRACK_URL_TTL_MS;
         return {
-            url: spotifyTrackUrl(this.fetchBaseUrl(), trackId, signTrackToken(this.bridgeSecret, trackId, expiresAt)),
+            url: spotifyTrackUrl(this.baseUrl(), trackId, signTrackToken(this.bridgeSecret, trackId, expiresAt)),
             expiresAt,
             mimeType: 'audio/ogg',
         };
@@ -111,7 +120,7 @@ export class SpotifyShimClient {
         }
 
         try {
-            const response = await fetch(`${this.controlBaseUrl()}/session`, {
+            const response = await fetch(`${this.baseUrl()}/session`, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json', 'x-spotify-login-secret': this.shimSecret },
                 body: JSON.stringify(session),
@@ -128,30 +137,29 @@ export class SpotifyShimClient {
     }
 
     /**
-     * Where **Liquidsoap** fetches the track from, which is what gets signed.
+     * Where **the app** reaches the shim, for both things it does: pushing a session and fetching a
+     * track.
      *
-     * Loopback is both correct and the most robust default: the shim and
-     * Liquidsoap are in the SAME container and Liquidsoap is the one fetching,
-     * so there is no compose DNS to resolve and no dependence on the
-     * host-published port. This is why nothing is probed here, unlike
-     * {@link LiquidsoapEndpoint}, which describes the app-to-container direction.
+     * One address, because there is one fetcher. This used to be two — a `SPOTIFY_SHIM_URL` signed
+     * into the track URL for Liquidsoap to fetch, and this one for the app's own calls — and the split
+     * was a genuine trap: the two are different addresses in every deployment (an app on the host uses
+     * the published port, an app in compose uses the service name, and Liquidsoap uses its own
+     * loopback), so whichever consumer got handed the wrong one failed at a distance. A host-run app
+     * handed `http://liquidsoap:3679` answers `ENOTFOUND` and records it as an unfetchable binding.
+     *
+     * `SPOTIFY_SHIM_URL` is deliberately still read as a fallback rather than deleted: an operator's
+     * `.env` naming it should keep working rather than silently falling back to a default that is
+     * wrong for their deployment. It is the wrong name for what it now means, and it goes once
+     * nothing sets it.
+     *
+     * The default is right for a host-run app, since 3679 is published on localhost; an app in the
+     * compose network sets `SPOTIFY_SHIM_CONTROL_URL` explicitly, which `docker-compose.prod.yml`
+     * already does.
      */
-    private fetchBaseUrl(): string {
-        return trimSlashes(this.config.get('SPOTIFY_SHIM_URL', DEFAULT_SHIM_BASE_URL));
-    }
+    private baseUrl(): string {
+        const configured = this.config.get('SPOTIFY_SHIM_CONTROL_URL', '') || this.config.get('SPOTIFY_SHIM_URL', DEFAULT_SHIM_BASE_URL);
 
-    /**
-     * Where **the app** reaches the shim to push a session, which is a different
-     * question and frequently a different address: an app running on the host
-     * uses the published port, an app in the compose network uses the service
-     * name, and neither is the loopback address Liquidsoap fetches on.
-     *
-     * Defaults to the fetch address, which is right for a host-run app (3679 is
-     * published on localhost) and wrong only for an in-container app, which
-     * compose sets explicitly.
-     */
-    private controlBaseUrl(): string {
-        return trimSlashes(this.config.get('SPOTIFY_SHIM_CONTROL_URL', this.fetchBaseUrl()));
+        return trimSlashes(configured);
     }
 }
 

@@ -24,9 +24,18 @@ it assumes are not true of this tree and the third is true of something the walk
 > provider exactly as before. The fill is on air only, on purpose — measuring is not a reason to put a
 > catalogue on disk.
 >
-> It is also not a tee, which the last section below hoped for: Liquidsoap fetches the provider URL
-> itself and those bytes never pass through Node, so the first play of a record costs two downloads
-> and every play after it costs none.
+> **Update, 2026-08-12 (later the same day): the distinction the section below is built on is gone.**
+> The transport was reshaped so the player fetches every record from `/playout/audio/{sourceId}` and
+> `TrackAudioService` is the only thing that ever asks a provider, which means the walk no longer tells
+> a cached record from an uncached one at all: it resolves the same URL for both and the fetch behind
+> that URL happens if it needs to. So "measure only what we have already got" is not a choice anyone
+> can make any more, and it does not need to be — measuring a record the station has never played
+> fetches it once, and with `playout.trackCache` on that fetch is also the copy the play will use.
+>
+> What that leaves genuinely open is only the ORDER of the walk (`play_history` rather than
+> `created_at`), telling `unfetchable` from `undecodable`, and the `missing_at` feedback loop. The
+> earlier hope of a tee is moot: nothing is teed, and nothing needs to be, because there is exactly one
+> fetch per record rather than two.
 
 ## What "handed over or cached" would and would not buy
 

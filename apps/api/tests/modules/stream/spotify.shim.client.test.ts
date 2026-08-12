@@ -144,24 +144,35 @@ describe('SpotifyShimClient', () => {
         expect((await client.serve(VECTOR.trackId, SESSION))?.url).toContain('/track/');
     });
 
-    it('pushes to the control address, which is not the one it signs', async () => {
-        // An app inside the compose network reaches the shim by service name, while
-        // Liquidsoap fetches it on loopback in its own container. Signing the address
-        // the app uses would hand the player a URL it cannot resolve.
+    // One address for both, because there is one consumer. The app pushes the session AND fetches the
+    // track now — the player is handed `/playout/audio/{sourceId}` instead of a shim URL — so an
+    // address that worked for one caller and not the other is the trap this collapse removes.
+    it('signs the same address it pushes to', async () => {
         const { client, fetchMock } = clientWith({ SPOTIFY_SHIM_CONTROL_URL: 'http://liquidsoap:3679/' });
 
         const stream = await client.serve(VECTOR.trackId, SESSION);
 
         expect(fetchMock.mock.calls[0][0]).toBe('http://liquidsoap:3679/session');
-        expect(stream?.url).toContain('http://127.0.0.1:3679/track/');
+        expect(stream?.url).toContain('http://liquidsoap:3679/track/');
     });
 
     it('honours a shim moved off the stream container', async () => {
         const { client, fetchMock } = clientWith({ SPOTIFY_SHIM_URL: 'http://shim.internal:3679/' });
 
         expect((await client.serve(VECTOR.trackId, SESSION))?.url).toContain('http://shim.internal:3679/track/');
-        // With no control address of its own, the push follows the fetch address.
         expect(fetchMock.mock.calls[0][0]).toBe('http://shim.internal:3679/session');
+    });
+
+    // `SPOTIFY_SHIM_URL` is the old player-facing key and is kept only so an operator's existing .env
+    // keeps working. A station that sets both means the app-reachable one.
+    it('prefers the app address when an install still sets both keys', async () => {
+        const { client, fetchMock } = clientWith({
+            SPOTIFY_SHIM_URL: 'http://liquidsoap:3679/',
+            SPOTIFY_SHIM_CONTROL_URL: 'http://127.0.0.1:3679/',
+        });
+
+        expect((await client.serve(VECTOR.trackId, SESSION))?.url).toContain('http://127.0.0.1:3679/track/');
+        expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3679/session');
     });
 
     it('mints a URL that outlives the lead the pusher keeps', async () => {

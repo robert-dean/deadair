@@ -202,22 +202,27 @@ through before its caller is answered, everything the transport does rides a thr
 graceful shutdown flushes. `station_air` says only whether the station is driving. Every writer
 posts a command to `DirectorService`; nothing else may write it.
 
-**A record the station has played is kept, and the second fetch is not a tee.** `deadair.track_audio`
-says what is on disk under `TRACKS_DIR` for a BINDING (`track_sources.id`, since two copies of one
-record within a provider are two files), the bytes live in a `ContentStore` beside art and segments,
-and `CachedTrackResolver` sits FIRST in the resolver chain so a hit is `/playout/audio/{sourceId}` on
-this machine. It is the one link that does not guard on `pluginId`: whether the bytes are on disk is a
-fact about the file, not about who served it. **A miss declines**, so the provider answers next and
-that play is unaffected, and the miss is what sends `playout.cache_track` — Liquidsoap fetches the
-provider URL itself and those bytes never pass through Node, so the fill is a SECOND fetch of the same
-binding and the first play of a record costs two downloads rather than one intercepted. Three things
-are load-bearing: **over the cap or under the floor stores nothing**, because a truncated file would
-air as a record that stops mid-song, which is worse than the fetch it replaced; every failure is a row
-with a doubling backoff rather than a throw, because a record comes round every few hours forever and
-the station is still playing it through the provider meanwhile; and the claim in front of the fetch is
-what makes a duplicate send free. `playout.trackCache` off means neither serve nor fill and **leaves
-the files where they are** — the audio route deliberately ignores the setting, because a URL already
-handed to the player has to keep working, and nothing evicts yet.
+**The player fetches every record from the app, and the app is the only thing that fetches a provider.**
+`TrackAudioResolver` answers `/playout/audio/{sourceId}` for any binding that is `playable and
+missing_at is null` — one URL, on this machine, whether or not the bytes are here yet — and
+`TrackAudioService.ensure` behind that route reads the file, the in-memory hold, a fetch already
+running, or the provider, in that order. `deadair.track_audio` says what is on disk under `TRACKS_DIR`
+for a BINDING (`track_sources.id`, since two copies of one record within a provider are two files) and
+the bytes live in a `ContentStore` beside art and segments. **There is deliberately no provider link in
+the resolver chain**: a provider URL is fetchable only from wherever it was minted for, so a chain that
+sometimes handed one to the player was deciding, silently and per deployment, whether the URL worked at
+all — which is why `SpotifyShimClient` now has ONE address (`SPOTIFY_SHIM_CONTROL_URL`, with
+`SPOTIFY_SHIM_URL` kept only as a fallback) and why a signed shim URL is valid anywhere, the token
+covering the track id and the expiry rather than the host. **`playout.trackCache` decides whether a
+fetched record is KEPT, not whether it can be played**: off, everything still airs and the bytes go to a
+bounded in-memory hold instead of disk, existing files are left alone, and the bookkeeping half of the
+row is written either way. Four things are load-bearing: over the cap or under the floor **serves and
+stores nothing**, because a truncated record airing is worse than an item the player skips; every
+failure is a row with a doubling backoff rather than a throw; `attempts` counts CONSECUTIVE failures,
+which is why `recordSuccess` resets it (with the cache off there is no checksum to tell a healthy
+binding from a failing one, so without the reset a working catalogue would look progressively dead); and
+de-duplication is an in-process map covering the LOOKUP as well as the download, because the read that
+decides whether to fetch is itself a round trip. Nothing evicts yet.
 
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on

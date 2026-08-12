@@ -11,11 +11,13 @@ import type { LlmService } from '../../../src/modules/llm/llm.service.js';
 import {
     BUDGET_MS,
     MAX_WAIT_MS,
+    MAX_OUTPUT_TOKENS,
     MODEL_WRITER,
     MODEL_WRITER_KEYS,
     ModelTalkBreakWriter,
 } from '../../../src/modules/director/model.talk.break.writer.js';
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
+import { DEFAULT_MAX_WORDS } from '../../../src/modules/director/break.prompt.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
@@ -26,6 +28,7 @@ interface Options {
     /** What the model answers, or a thrower. */
     answer?: string | (() => never);
     usage?: Record<string, number>;
+    finishReason?: 'stop' | 'length';
     canGenerate?: boolean;
 }
 
@@ -37,7 +40,7 @@ function build(options: Options = {}) {
         return {
             text: options.answer ?? 'That was Solid Air. Coming up, Pink Moon.',
             toolCalls: [],
-            finishReason: 'stop' as const,
+            finishReason: options.finishReason ?? ('stop' as const),
             ...(options.usage === undefined ? {} : { usage: options.usage }),
         };
     });
@@ -108,6 +111,25 @@ describe('ModelTalkBreakWriter', () => {
             const { writer } = build({ answer: '   ' });
 
             await expect(writer.write({ kind: TALK_BREAK_KIND, previous, next })).resolves.toBeUndefined();
+        });
+
+        it('and says so plainly when a reasoning model spent the whole ceiling thinking', async () => {
+            // Measured, not imagined: at 160 tokens gpt-oss at low effort returned `outputTokens:
+            // 160` and an answer of "". Every break went to the floor, which from the row looks
+            // exactly like a model nobody turned on. The two need different fixes — a number to
+            // raise versus a prompt to tighten — so the log has to tell them apart.
+            const { writer, logger } = build({ answer: '', finishReason: 'length', usage: { outputTokens: MAX_OUTPUT_TOKENS } });
+
+            await expect(writer.write({ kind: TALK_BREAK_KIND, previous, next })).resolves.toBeUndefined();
+
+            expect(vi.mocked(logger.info).mock.calls[0]?.[0]).toContain('thinking');
+        });
+
+        it('leaves a reasoning model room to think AND speak', async () => {
+            // The bound this is really about. Forty words is about sixty tokens; the rest is
+            // headroom for the thinking that happens first. A ceiling that only fits the answer is
+            // a model that is on and permanently silent.
+            expect(MAX_OUTPUT_TOKENS).toBeGreaterThan(DEFAULT_MAX_WORDS * 4);
         });
     });
 

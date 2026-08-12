@@ -4,9 +4,13 @@
 
 **Shape 1 built 2026-08-12.** A removed break is a `removed` item in the order rather than a splice,
 the walk reads it like any other segment already there, and the segment row behind it is retired
-with a reason. What is left of this file is shape 2 (the timed suppression), the move case, and the
-two smaller things at the bottom. The two sections below are kept as written, because the reasoning
-in them is why the fix is the shape it is.
+with a reason. What is left of this file is shape 2, the move case, and the two smaller things at the
+bottom. The two sections below are kept as written, because the reasoning in them is why the fix is
+the shape it is.
+
+**Shape 2 is now scoped**, under "The quiet spell": a quiet counted in RECORDS on
+`deadair.station_air`, decremented where play history is already written, which gates planting and
+withdraws the breaks already in the tail. Three phases, the first usable on its own.
 
 ## What happens
 
@@ -89,17 +93,128 @@ shapes, and the first is likelier:
    next hour" / "next N records"). Independent of the running order, so it survives an extend and a
    regenerate, and it is what the test that found this actually wanted. Wants a home:
    `deadair.settings` is wrong for something with an expiry, and the lineup's own
-   `StationLineupRules` overrides are right for "this lineup" but not for "for a while".
+   `StationLineupRules` overrides are right for "this lineup" but not for "for a while". **Scoped
+   against the tree on 2026-08-12; see "The quiet spell" below.**
 
 They compose: (1) makes one delete honest, (2) makes a listening session possible without touching
 station-wide settings. (1) is the bug fix and (2) is the feature.
+
+## The quiet spell
+
+Shape 2, worked out against the tree on 2026-08-12. Not built.
+
+### What it is for
+
+The failure mode of `rotation.breaks = false` is not that it fails to work, it is that it has no
+expiry. An operator turns it off for an album and the station never says its own name again until
+they remember. Every property below follows from that one: the operator's standing preference is
+left untouched, and the quiet ends by itself.
+
+### Records, not minutes
+
+The line above offers both. Records wins, and the audience gate is why: in `audience` mode a station
+nobody is connected to is silent on purpose, so a wall-clock hour spent with no listeners burns the
+whole suppression in silence and the operator comes back to a talking station. A count of records
+only advances while somebody is hearing them.
+
+It is also the grain everything else here is cut on. `breakEveryItems` counts records and
+`BreakPlanner` says why: the listener is counting songs since they last heard the station's name,
+not minutes. A suppression counted in minutes and a spacing counted in records would need
+reconciling at the one place they meet. The console can still SAY "about twenty minutes" from the
+order's own durations, because saying it is presentation and storing it is a second unit.
+
+### Where it lives: `deadair.station_air`
+
+The two homes the note rules out are ruled out for good reasons, and this is what is left. That row
+holds the one fact about the BROADCAST rather than about the programming or the station's
+configuration, which is exactly what a quiet spell is. One integer column beside `active`
+(`breaks_quiet_records`, `0` meaning not quiet), and `StationAirRepository` grows a writer for it
+while `get` returns it.
+
+Stored rather than held in the director's memory, by the argument that made `active` a column: an
+app restarted mid-quiet must not come back talking.
+
+`deadair.settings` is also the thing a quiet spell must not touch. Writing `rotation.breaks` to
+express "quiet for ten records" would silently rewrite the standing preference it exists to leave
+alone.
+
+### Where it decrements: `DirectorService.remember`
+
+It already hangs off the rundown's confirmation that a record actually STARTED rather than off the
+commit lead, and it already drops segments through `isRenderItem`. That is precisely the filter the
+countdown needs, for the same reason: a break the station airs is not a record the listener is
+counting. One `set breaks_quiet_records = greatest(0, breaks_quiet_records - 1)` on a path that
+already writes a row per record, and it may fail as harmlessly as play history does.
+
+### What being quiet does
+
+Three behaviours, and only the first is obvious.
+
+1. **`plant` returns early.** One more clause beside `if (!rules.breaks || rules.breakEveryItems <=
+   0)`. Cheap, and by itself not enough.
+2. **It retires the breaks already planted in the tail.** Planting runs to the end of the order, so
+   at the moment quiet is asked for there are already three or four breaks laid out across the next
+   hour. Without this, "no breaks for the next ten records" is not heard until the tail runs out,
+   which is the same defect already logged below against `rotation.breaks` toggled off mid-air. One
+   mechanism settles both.
+3. **Nothing is written.** Falls out of (2): `ripen` only offers what is still in the order.
+
+The committed head is untouched throughout. A break already handed to the player airs, quiet or not,
+for the same reason an operator cannot remove one.
+
+**The retirement SPLICES rather than marking `removed`, and the asymmetry with an operator's cut is
+the load-bearing part.** `removed` means "this slot is cut, do not refill it", and it works by
+resetting the planner's count where it sits. A suppression is the opposite instruction: withdraw the
+whole break structure now, and rebuild it from scratch when the quiet ends. Leave `removed` marks
+across the tail and the walk counts from the last one when it lifts, so the station stays quiet for
+an interval beyond what was asked and by an amount nobody can predict from the number they typed.
+Splicing is safe here for the reason it was unsafe in the bug at the top of this file: nothing
+replants while `plant` is gated, and when the gate opens the walk sees a clean tail. The segment rows
+go through the same collection as a cut, so the shared piece is a `retireSegment(segmentId)` that
+both `collectRemoved` and this call.
+
+### What it survives
+
+An extend, a regenerate and a restart, deliberately: it is a fact about the room rather than about
+the hour of programming that happened to be loaded when it was asked for. That is what makes it not
+a lineup rule.
+
+**One open question**, and the default is to survive: a stand-down followed by a fresh `putOnAir`.
+Keeping it costs an operator who wanted a clean start one confused minute; dropping it costs the
+operator who stopped the station to change playlists their quiet. Both are small, and the count
+expires either way.
+
+### Surface
+
+A command, like everything else that touches the order (`{ kind: 'quiet'; records: number }` through
+`DirectorMailbox`), so it serialises against the commit pass rather than racing it. `POST
+/station/quiet` and `DELETE /station/quiet` in the `.ck`, and `StationAir` gaining `quietRecords` so
+the console can draw it.
+
+On the console, a control beside Stop offering something like 3 / 10 / rest of the order, and the
+on-air header reading "quiet for the next 8 records" with a cancel. A station that has silently
+stopped talking and a station that is quiet on purpose look identical otherwise, which is the same
+class of problem the `removed` badge fixed.
+
+### Phases
+
+1. **The stored fact and the gate.** Migration column, repository, mailbox command, `plant` reads it,
+   `remember` decrements it. Works end to end; the quiet takes up to one interval to be heard,
+   because the planted tail still airs.
+2. **Retire the planted tail**, shared with `rotation.breaks` turned off mid-air, which stops being a
+   documented wart in the same commit.
+3. **The surface**: contract, air payload, console control and header.
+
+Each is one commit and one sentence, and 1 is usable without 2.
 
 ## Also worth settling with it
 
 - **`rotation.breaks` toggled off mid-air does not retire breaks already planted.** The planner
   returns early, so nothing new goes in, but the ones already in the tail still air. That is
   defensible (they are programmed, and the head is committed anyway) but it is not what an operator
-  who just switched breaks off expects to hear, and it is undocumented either way.
+  who just switched breaks off expects to hear, and it is undocumented either way. **Settled by
+  phase 2 of the quiet spell**, which needs the same withdrawal and should do both from one place
+  rather than growing a second one later.
 - **Whether the console's delete should say what it did.** A delete that answers "removed, and the
   station will not talk again until N records from now" is the whole of this bug's user-visible
   half.

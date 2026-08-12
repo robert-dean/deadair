@@ -341,22 +341,31 @@ playout_queue.on_track(synchronous=false, playout_aired)
 # Trim the dead air off the head and tail of each record.
 #
 # The app stamps `liq_cue_in` / `liq_cue_out` on the `annotate:` uri from the measurements in
-# `deadair.track_analysis` (see apps/api/src/modules/playout/annotate.ts). **Those keys do nothing on
-# their own** — Liquidsoap only acts on them where `cue_cut` sits in the graph, so stamping without
-# this operator is a silent no-op, which is exactly how it shipped the first time.
+# `deadair.track_analysis` (see apps/api/src/modules/playout/annotate.ts).
 #
-# Placement matters in three ways:
+# **There is no operator here any more, and that is not an omission.** 2.4.5 removed `cue_cut` and
+# integrated the trim into request resolution, so the keys are applied when the request is resolved
+# whether or not anything sits in the graph — the boot log said so on every start:
+# "cue_cut has been removed and integrated directly into requests resolution! This operator can be
+# safely removed from your script now." It was, in the same pass that fixed the transition crash.
 #
-#   - BELOW `normalize`, so the level follower never sees the leading silence and does not spend the
-#     first second of every record recovering from it.
-#   - ABOVE the two `on_track` handlers, which stay attached to `playout_queue` itself. They report
-#     which item started, and that is a fact about the queue rather than about where the audio was
-#     cut, so they must not move.
-#   - BELOW the `cross` further down. That operator presents its output as one never-ending track,
-#     so a `track_sensitive` operator above it never sees another boundary. This is the right side
-#     of that line, and it is also why the blend is sized against a TRIMMED record: `cross` reads
-#     `remaining()` from above here, so the outro it buffers is measured to `cue_out` rather than to
-#     the end of the file, which is the same number the app sized it from.
+# So the warning the previous version of this comment carried is now inverted. It used to be that
+# stamping without `cue_cut` was a silent no-op; it is now that ADDING `cue_cut` back would be the
+# no-op, and the trim happens regardless.
+#
+# Placement used to matter in three ways, and the trim moving into request resolution settles all
+# three by construction rather than by where a line sits. Kept because each one is still a fact about
+# the graph that anything added here has to respect:
+#
+#   - The level follower never sees the leading silence, so it does not spend the first second of
+#     every record recovering from it.
+#   - The two `on_track` handlers stay attached to `playout_queue` itself. They report which item
+#     started, and that is a fact about the queue rather than about where the audio was cut, so they
+#     must not move.
+#   - The blend is sized against a TRIMMED record: `cross` reads `remaining()` from a source whose
+#     audio is already cut to `cue_out`, so the outro it buffers is the same number the app sized it
+#     from. Note also that `cross` presents its output as one never-ending track, so a
+#     `track_sensitive` operator ABOVE it never sees another boundary.
 #
 # An unstamped track passes through untouched, which is the ordinary case: a track the station has
 # not measured yet plays exactly as it did before.
@@ -366,7 +375,7 @@ playout_queue.on_track(synchronous=false, playout_aired)
 # the first audible sound now coincide. A voice cue against a record with a long lead-in therefore
 # fires closer to where it was meant to. That is a correction rather than a regression, but it IS a
 # change, and it is the sort that can only be judged by listening.
-playout_bed = cue_cut(playout_queue)
+playout_bed = playout_queue
 
 # Set each record to the station's level, decided before it aired.
 #
@@ -377,9 +386,10 @@ playout_bed = cue_cut(playout_queue)
 # the value is parsed as `sscanf " %f dB"` falling back to `float_of_string` and a bare `-3` would
 # be a linear factor of minus three.
 #
-# It sits between `cue_cut` and `normalize` on purpose: after the trim, so the gain is not decided
-# against silence, and before the follower, so the follower is handed audio that is already at the
-# target and has nothing left to do.
+# It sits after the cue trim and before `normalize` on purpose: the gain is not decided against
+# silence, and the follower is handed audio that is already at the target and has nothing left to do.
+# The trim is no longer an operator to sit after (2.4.5 does it during request resolution), so the
+# ordering that matters here is only the one against `normalize`.
 #
 # An unmeasured track passes through at 1.0, which is the ordinary case.
 playout_bed = amplify(1., override="liq_amplify", playout_bed)

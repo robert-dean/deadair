@@ -23,15 +23,27 @@ and should not have one"). So the diagnosis was three control experiments instea
 | The same record, signed shim URL | the pre-`61d18a0` provider path | resolved, dropped |
 | A `ready` ident, mp3 | `/segments/{id}/audio`, older than any of this | resolved, dropped |
 
-All three behave identically, which rules out the one-path track-audio work, the format and the route,
-and leaves the stream container itself. **The cause is still unknown** — that is not what this file is
-about, but the next person to hit it should know the three experiments are already done and that the
-missing log is why they were needed.
+All three behave identically, which ruled out the one-path track-audio work, the format and the route,
+and left the stream container itself.
 
-Also measured on the way past: `spotify-shim-run: starting` appears 65 times in the shim's log, several
-of them yesterday, and the restarts follow shim FETCHES rather than plays; Liquidsoap's control
-endpoint never dropped through any of them, so that is the shim's wrapper restarting it and not the
-container going down.
+**The cause was found the moment the log was read, and is fixed** (`4a1dd80`):
+`float_of_string(default=null, …)` RAISES rather than returning null, so
+`playout_cross_duration` threw on any item the app had not stamped — the local music bed included —
+from inside `cross`'s transition callback, which killed the clock thread and the process with it. The
+station aired one item after each restart and died on the second. See the version table in
+`stream/README.md` for the detail.
+
+**That is the argument this file is making**, so it is worth being blunt about the arithmetic: the
+cause was a one-line misreading whose error message named the file and line number, and reading it
+took an hour of control experiments because the message was on stdout behind a socket. Three of the
+inferences drawn from the outside were also WRONG in ways the log corrected instantly — that the
+restarts were the shim's wrapper rather than the container (they were Liquidsoap crashing), that the
+mount having bytes meant a programme (it was `station-id.mp3` looping as the bed), and that records
+failed where idents played (the split was first-item-after-restart versus second).
+
+Also measured on the way past, and still true: `spotify-shim-run: starting` appears 65 times in the
+shim's log, and its restarts follow shim FETCHES rather than plays — that part is the shim's wrapper
+and not the container, which is what made the container's own crashes easy to attribute wrongly.
 
 ## What Liquidsoap gives us, which is not rotation
 

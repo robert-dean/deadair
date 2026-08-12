@@ -27,9 +27,11 @@ RUN cd /src && CGO_ENABLED=0 go build -v -o /out/deadair-shim ./cmd/deadair-shim
 
 # 2.4.x for the stream script: async source callbacks (the playout `on_track` notify runs off
 # the streaming loop), `normalize_track_gain`, and `request.queue.remove`. Bumped from v2.2.5,
-# which is BREAKING in two places radio.liq touches — callbacks moved to source methods, and the
-# `annotate` protocol now checks nested static uris. See stream/README.md for the checks to run
-# after a bump.
+# which is BREAKING in four places radio.liq touches — callbacks moved to source methods, the
+# `annotate` protocol now checks nested static uris, `cue_cut` was removed, and
+# `float_of_string(default=null, …)` raises rather than returning null, which killed the clock thread
+# from inside the crossfade transition for a day. See stream/README.md for all four and for the
+# checks to run after a bump.
 FROM savonet/liquidsoap:v2.4.5
 # Root so we can drop the binary in and prepare the log dir. Liquidsoap runs fine as root for a
 # local/personal station; the process only reads config and pushes to Icecast.

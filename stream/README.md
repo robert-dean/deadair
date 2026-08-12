@@ -23,13 +23,14 @@ which doesn't fire across Docker Desktop for Mac's bind mount, so no segment eve
 `radio.default.env` dev default adopts it on the restart `config-watch.sh` triggers when the
 app renders one (see below).
 
-Each record is **trimmed** before it is levelled: `cue_cut` sits between `playout_queue` and
-`normalize`, acting on the `liq_cue_in` / `liq_cue_out` the app stamps on the `annotate:` uri from
-`deadair.track_analysis`. Those keys do nothing without that operator, which is worth knowing because
-the failure is silent — the annotations are accepted and ignored. A track the station has not
-measured yet passes through untouched, which is the ordinary case. It sits below `normalize` so the
-level follower never sees the leading silence, and below the `cross`, since `cross` presents its
-output as one never-ending track.
+Each record is **trimmed** before it is levelled, on the `liq_cue_in` / `liq_cue_out` the app stamps
+on the `annotate:` uri from `deadair.track_analysis`. There is no operator for it: 2.4.5 removed
+`cue_cut` and does the trim during request resolution, so the keys apply wherever the request is
+resolved and the old silent failure — annotations accepted and ignored because nothing sat in the
+graph — cannot happen any more. A track the station has not measured yet passes through untouched,
+which is the ordinary case. The level follower therefore never sees the leading silence, and the
+blend is sized against the trimmed record; note that `cross` presents its output as one never-ending
+track, so nothing `track_sensitive` above it sees a boundary.
 
 Then it is **set to the station's level**, from the same measurement: `amplify(override="liq_amplify")`
 sits between the trim and `normalize`, acting on a gain the app resolved before the record was handed
@@ -573,9 +574,39 @@ docker compose restart liquidsoap
 `stream/Dockerfile` pins the base image; it is currently `savonet/liquidsoap:v2.4.5`, up from
 v2.2.5. 2.4 buys async source callbacks (the playout `on_track` notify runs off the streaming
 loop), `normalize_track_gain`, and `request.queue`'s script-level `push`/`queue`/`remove`/`length`
-methods (which the push model is built on), and it is BREAKING in two places
-`radio.liq` touches: callbacks moved to source methods, and the `annotate` protocol now checks
-nested static uris.
+methods (which the push model is built on), and it is BREAKING in FOUR places
+`radio.liq` touches: callbacks moved to source methods, the `annotate` protocol now checks
+nested static uris, `cue_cut` was removed, and `float_of_string(default=null, …)` raises.
+
+The last two were found the hard way on 2026-08-12 and are worth reading before the next bump,
+because one of them took the station off air for a day without anything saying so:
+
+- **`float_of_string(default=null, s)` RAISES on anything it cannot parse**, the empty string
+  included — it does not return null, so the `?? fallback` it was paired with here was unreachable.
+  Fatal in `playout_cross_duration`, which `cross` calls from its transition callback on every
+  boundary: the raise comes out through `Cross.cross#create_after` and `Output.output#output`, kills
+  the clock thread, and takes the process and the mount with it. The station aired one item after
+  each restart and died on the second, about 65 times, and the only trace was a stack trace on
+  stdout. Use `string.to_float(default=x, s)`, which is 2.4.5's own wrapper for this
+  (`src/libs/string.liq`: `float_of_string(default=default, s)`). Fixed at all three sites in this
+  script and in both `*.check.liq` harnesses, whose copies always stamp both keys and so could never
+  have reproduced it.
+- **`cue_cut` was removed** and the trim moved into request resolution, so `liq_cue_in` /
+  `liq_cue_out` now apply whether or not an operator sits in the graph. The call is gone from this
+  script; adding it back would be the no-op, which is the exact inverse of what it used to be.
+
+Two deprecation warnings are still outstanding, deliberately. Both still work on 2.4.5 and neither
+is worth a blind edit to a script whose failure mode is no stream at all, so they are the next
+bump's work rather than this one's:
+
+| Warning on every boot | Replacement | Sites |
+| --- | --- | --- |
+| `"map_metadata" is deprecated` | `metadata.map` | `radio.liq` bed labels (two calls) |
+| `insert_metadata operator is deprecated` | the `insert_metadata` SOURCE method | `radio = insert_metadata(radio)`; note the comment further down about rebinding moving the method onto the wrong source |
+
+**Liquidsoap logs to stdout and only to stdout**, so every one of those findings needed
+`docker compose logs`. That is a wall for anything without the Docker socket — see
+`docs/todo/stream-logs.md` for what it cost and the three ways to fix it.
 
 The base's Debian release used to matter as much as the Liquidsoap version, because the
 go-librespot daemon was a CGO build whose codec sonames move between releases. The track shim that

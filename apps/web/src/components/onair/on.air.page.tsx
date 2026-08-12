@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router';
 import { useExtendOrder, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
 import { useStopPlayout } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { BriefTheStation } from './brief.the.station';
 import { StationOrderTable } from './station.order.table';
 
 /**
@@ -72,6 +73,17 @@ export function OnAirPage() {
                             <Badge size="sm" variant="light" color="gray" tt="none">
                                 ends: {loaded.onEnd}
                             </Badge>
+                            {/* Shown rather than only accepted, because it is still WORKING: every
+                                refill for the rest of this broadcast is programmed against it, so an
+                                operator wondering why the station keeps choosing what it chooses is
+                                looking at the answer. */}
+                            {loaded.brief ? (
+                                <Tooltip multiline maw={360} label="Every refill of this broadcast is programmed against this until the station is put on air again.">
+                                    <Badge size="sm" variant="light" color="grape" tt="none">
+                                        asked for: {loaded.brief}
+                                    </Badge>
+                                </Tooltip>
+                            ) : undefined}
                             <Text size="sm" c="dimmed">
                                 {planned === 1 ? '1 still to come' : `${planned} still to come`}
                             </Text>
@@ -140,19 +152,23 @@ export function OnAirPage() {
             {order.isPending ? <Skeleton height={280} radius="sm" /> : undefined}
 
             {nothingOn ? (
-                <Card withBorder padding="xl" radius="sm">
-                    <Stack gap="xs" align="flex-start">
-                        <Text size="sm" c="dimmed">
-                            The station has nothing on. A running order is built from a playlist at the moment it goes on air, so there is nothing to
-                            prepare first.
-                        </Text>
-                        {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
-                            the router's own types, and with them the check that `params` matches. */}
-                        <Anchor renderRoot={props => <Link to="/playlists" {...props} />} size="sm">
-                            Browse playlists
-                        </Anchor>
-                    </Stack>
-                </Card>
+                <Stack gap="md">
+                    {/* Two ways on air, and this one is first because it needs nothing prepared. */}
+                    <BriefTheStation />
+                    <Card withBorder padding="xl" radius="sm">
+                        <Stack gap="xs" align="flex-start">
+                            <Text size="sm" c="dimmed">
+                                Or start from a playlist. It is READ at the moment the station goes on air rather than copied, so there is nothing to
+                                prepare first and nothing of yours is written into.
+                            </Text>
+                            {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
+                                the router's own types, and with them the check that `params` matches. */}
+                            <Anchor renderRoot={props => <Link to="/playlists" {...props} />} size="sm">
+                                Browse playlists
+                            </Anchor>
+                        </Stack>
+                    </Card>
+                </Stack>
             ) : undefined}
 
             {items.length > 0 ? (

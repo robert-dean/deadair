@@ -68,6 +68,30 @@ Without that ordering, a record by a disliked act would air because nothing had 
 yet — which is `rejectDisliked` being routed around by a new path, the exact hole
 [station-intelligence.md](station-intelligence.md) §1 records.
 
+## Changing the brief on a live broadcast
+
+**Written 2026-08-12**, from using the brief for the first time. `station_lineup.brief` is set when
+the station goes on air and there is no way to change it after that: `PUT /director/air` sets the
+air mode and nothing else, so re-steering an hour means calling `putOnAir` again, which replaces the
+running order. An operator who wants the next fifteen records to lean differently has to throw away
+the fourteen they already have.
+
+The shape it wants is the shape everything else here has: a command posted to `DirectorService`
+(`{ kind: 'rebrief', brief }`) that rewrites the binding and nothing else, a `PATCH /director/air/order`
+in front of it, and an editable field where the header already draws `asked for: …`. The order is
+untouched — what is planned stays planned — and the next refill reads the new brief because
+`ExtendLineupJob` reads it off the row every time rather than being handed it.
+
+Two decisions to make when it lands, neither obvious:
+
+- **Whether a re-brief should discard what is planned but unheard.** It is the honest reading of "play
+  something else" and it is also an operator losing programming they may have wanted. Leaning
+  towards leaving it and letting the brief apply forwards, since dropping the tail is already
+  expressible one item at a time.
+- **Whether `name` follows the brief.** The console names a briefed broadcast after its brief, so a
+  re-brief leaves the header saying something the station is no longer doing. They are separate
+  columns for good reason and this is the one case where the split shows.
+
 ## The daypart schedule
 
 Morning / afternoon / evening / night, each naming a PLAYLIST rather than a stored lineup: there is

@@ -547,6 +547,22 @@ real record are independent failures and a single instruction covering both gets
 
 ## Smaller entries, noted so they are not re-derived
 
+- **`search_catalog` does not say which results the station already owns.** Both search tools now
+  answer with records that can air, and the prompt tells the model to prefer the library — but within
+  one `search_catalog` answer it cannot tell a record already in `deadair.tracks` from one that will
+  cost a lookup, an ingest and a download. Every row carries `source` and nothing else. An `owned`
+  boolean per row (one batch query against `track_sources` over the merged results, the way
+  `CatalogSearchTool` already dedupes them) would let the preference apply inside a single search
+  rather than only between the two tools. Worth doing when a station's own library is large enough
+  that the two answers overlap heavily; on a small one it makes no difference, because the overlap is
+  the part the library search already returned.
+- **The taste block has never been exercised against real data.** `TasteRepository`, the prompt block
+  and `station_taste` are all built and tested, and on this install `deadair.tracks`, `albums` and
+  `artists` hold zero non-zero ratings — so every list is empty, every total is 0, and the steering
+  half of "cross-reference my likes and dislikes" is inert rather than wrong. The enforcement half
+  (`rejectDisliked`) is unaffected and has its own tests. Before designing anything on top of the
+  steering, rate a few dozen rows and look at what a real prompt block costs in tokens: `TASTE_SHOWN`
+  is 15 per kind, chosen against nothing.
 - **The Icecast burst is a BYTE count** (`burst-size`, currently 8192, so backlog is under a second
   and nothing downstream needs to care). If it is ever raised for faster player start, note that the
   same byte figure is a different number of seconds on every mount at a different bitrate, and that

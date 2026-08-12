@@ -72,6 +72,25 @@ again, while leaving everything else in the queue behind them rather than out of
 `order by` and an index: `play_history` carries indexes on `aired_at`, `song_key` and `artist_key`,
 and none on `track_id`, which this needs.
 
+**1b. A DISCOVERED record is the sharpest case of (1), and it arrives with a schedule attached.**
+Added 2026-08-12, when `PickResolver` grew the rung that looks a chosen record up at a provider and
+ingests it. Such a record is created seconds before it airs and ordered `created_at asc` behind the
+whole library, so its first play — and every play until the walk grinds down to it — is untrimmed.
+It is also the one case where the walk does not have to guess whether a track will ever be wanted:
+something has already put it in the running order, and `TrackCachePlanner` is about to fetch it.
+Ordering by `play_history` (1) does not reach it, because it has never played.
+
+Two ways in, and they are the same two as above. Order `listTracksNeedingAnalysis` by
+`track_sources.origin = 'discovered'` first, which is one more `order by` term and no new index; or
+have `PickResolver.discover` post the measurement onto the paced walk when it ingests, which is (2)
+fired at the moment of ingest rather than the moment of air, and gets the record measured while it is
+still sitting behind fourteen others rather than after it has aired unmeasured once. The second is
+better and costs a `JobBroker` in the resolver, which is on the refill job's scope and has one.
+
+Do not special-case it into an inline measurement. `TRACK_PACE_MS` exists so background fetches do
+not compete with the station's own, and a discovered record is by definition being fetched by the
+cache planner at the same moment.
+
 **2. Or measure on the played edge**, enqueueing the track that just aired if it is unmeasured or
 stale. Same effect as (1) with the proof minutes old rather than days, and it makes the periodic walk
 the backfill rather than the mechanism. It is more moving parts: the pacing in

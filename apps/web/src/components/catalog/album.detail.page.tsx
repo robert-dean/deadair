@@ -3,12 +3,20 @@ import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from 
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { CATALOG_PAGE_SIZE, catalogAlbumEnrichmentOptions, catalogAlbumOptions, catalogAlbumTracksOptions } from '../../api/catalog.queries';
+import {
+    CATALOG_PAGE_SIZE,
+    catalogAlbumEnrichmentOptions,
+    catalogAlbumOptions,
+    catalogAlbumTracksOptions,
+    useRateAlbum,
+    useRateTrack,
+} from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
+import { RatingControl } from './rating.control';
 import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
 
 export interface AlbumDetailPageProps {
@@ -23,6 +31,8 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
     const enrichment = useQuery(catalogAlbumEnrichmentOptions(albumId));
     const rows = tracks.data?.data ?? [];
     const expansion = useTrackExpansion();
+    const rateAlbum = useRateAlbum();
+    const rateTrack = useRateTrack();
 
     return (
         <Stack gap="lg">
@@ -49,6 +59,21 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                             {album.data.artistName}
                             {album.data.year === undefined ? '' : ` • ${album.data.year}`}
                         </Text>
+                    ) : undefined}
+                    {/* An opinion about the RECORD, which is not an opinion about any one track on
+                        it: a dislike here takes the whole thing out of rotation. */}
+                    {album.data ? (
+                        <Group gap="xs" pt={4}>
+                            <RatingControl
+                                size="xs"
+                                rating={album.data.rating}
+                                label={album.data.name}
+                                busy={rateAlbum.isPending}
+                                onChange={rating => {
+                                    rateAlbum.mutate({ id: albumId, rating });
+                                }}
+                            />
+                        </Group>
                     ) : undefined}
                 </Stack>
             </Group>
@@ -96,6 +121,7 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                                 <Table.Th>Title</Table.Th>
                                 <Table.Th>Credit</Table.Th>
                                 <Table.Th w={120}>Duration</Table.Th>
+                                <Table.Th w={150}>Rating</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -116,8 +142,21 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                                             as the canonical artist this album hangs off. */}
                                         <Table.Td>{track.artists}</Table.Td>
                                         <Table.Td>{formatDuration(track.durationMs)}</Table.Td>
+                                        <Table.Td>
+                                            <RatingControl
+                                                size="xs"
+                                                rating={track.rating}
+                                                label={track.title}
+                                                busy={rateTrack.isPending && rateTrack.variables?.id === track.id}
+                                                onChange={rating => {
+                                                    rateTrack.mutate({ id: track.id, rating });
+                                                }}
+                                            />
+                                        </Table.Td>
                                     </Table.Tr>
-                                    <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={4} />
+                                    {/* One wider than the row above it, so the expansion still spans
+                                        the table now that the rating has its own column. */}
+                                    <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={5} />
                                 </Fragment>
                             ))}
                         </Table.Tbody>

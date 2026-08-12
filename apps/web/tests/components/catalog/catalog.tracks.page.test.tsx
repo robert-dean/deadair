@@ -8,6 +8,7 @@ import { render, screen, waitFor } from '../../utils/render';
 
 const listTracks = vi.fn();
 const getTrackEnrichment = vi.fn();
+const rateTrack = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     BASE_URL: '/api',
@@ -15,6 +16,7 @@ vi.mock('../../../src/api/client', () => ({
         catalog: {
             listTracks: (...args: unknown[]) => listTracks(...args),
             getTrackEnrichment: (...args: unknown[]) => getTrackEnrichment(...args),
+            rateTrack: (...args: unknown[]) => rateTrack(...args),
         },
     },
 }));
@@ -39,7 +41,7 @@ const track = (overrides: Record<string, unknown> = {}) => ({
     albumName: '( )',
     artists: 'Sigur Rós',
     durationMs: 394_000,
-    rating: 0,
+    rating: 'neutral',
     ...overrides,
 });
 
@@ -121,6 +123,22 @@ describe('CatalogTracksPage', () => {
             expect(getTrackEnrichment).toHaveBeenCalledWith('33333333-3333-4333-8333-333333333333');
         });
         expect(await screen.findByText('Fat Cat')).toBeInTheDocument();
+    });
+
+    // The flat list is where an operator forms most of these opinions, so it has to be ratable
+    // without a navigation each way.
+    it('rates a track from its row and sends what was picked', async () => {
+        listTracks.mockResolvedValue(page([track()]));
+        rateTrack.mockResolvedValue(track({ rating: 'liked' }));
+
+        render(<CatalogTracksPage page={0} search="" onPageChange={noop} onSearchChange={noop} />);
+        await screen.findByText('Vaka');
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Like Vaka' }));
+
+        await waitFor(() => {
+            expect(rateTrack).toHaveBeenCalledWith('33333333-3333-4333-8333-333333333333', { rating: 'liked' });
+        });
     });
 
     it('surfaces a failed read as an alert', async () => {

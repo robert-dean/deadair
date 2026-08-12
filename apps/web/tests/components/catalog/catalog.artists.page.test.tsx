@@ -26,7 +26,7 @@ vi.mock('@tanstack/react-router', () => ({
 const artist = (overrides: Partial<{ id: string; name: string; albumCount: number; trackCount: number; imageUrl: string }> = {}) => ({
     id: '11111111-1111-4111-8111-111111111111',
     name: 'Sigur Rós',
-    rating: 0,
+    rating: 'neutral',
     albumCount: 3,
     trackCount: 41,
     ...overrides,

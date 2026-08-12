@@ -2,11 +2,12 @@ import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from 
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { CATALOG_PAGE_SIZE, catalogArtistsOptions } from '../../api/catalog.queries';
+import { CATALOG_PAGE_SIZE, catalogArtistsOptions, useRateArtist } from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { Artwork } from '../shared/artwork';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
+import { RatingControl } from './rating.control';
 
 export interface CatalogArtistsPageProps {
     page: number;
@@ -18,6 +19,7 @@ export interface CatalogArtistsPageProps {
 export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange }: CatalogArtistsPageProps) {
     const artists = useQuery(catalogArtistsOptions({ page, search }));
     const rows = artists.data?.data ?? [];
+    const rate = useRateArtist();
 
     return (
         <Stack gap="lg">
@@ -67,6 +69,7 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
                                 <Table.Th>Artist</Table.Th>
                                 <Table.Th w={120}>Albums</Table.Th>
                                 <Table.Th w={120}>Tracks</Table.Th>
+                                <Table.Th w={150}>Rating</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -86,6 +89,21 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
                                     </Table.Td>
                                     <Table.Td>{artist.albumCount}</Table.Td>
                                     <Table.Td>{artist.trackCount}</Table.Td>
+                                    <Table.Td>
+                                        {/* Rating from the list rather than only from the detail
+                                            page: an operator forms most of these opinions while
+                                            browsing, and a rating that costs a navigation each way
+                                            is one they will not bother recording. */}
+                                        <RatingControl
+                                            size="xs"
+                                            rating={artist.rating}
+                                            label={artist.name}
+                                            busy={rate.isPending && rate.variables?.id === artist.id}
+                                            onChange={rating => {
+                                                rate.mutate({ id: artist.id, rating });
+                                            }}
+                                        />
+                                    </Table.Td>
                                 </Table.Tr>
                             ))}
                         </Table.Tbody>

@@ -114,7 +114,7 @@ describe('/catalog/tracks loader', () => {
 
 describe('the drill-down loaders', () => {
     it('warm both halves of the artist page in one pass', async () => {
-        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 0, albumCount: 0, trackCount: 0 });
+        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 0, trackCount: 0 });
         listArtistAlbums.mockResolvedValue(emptyPage);
         const queryClient = createTestQueryClient();
 
@@ -125,7 +125,7 @@ describe('the drill-down loaders', () => {
     });
 
     it('warm both halves of the album page in one pass', async () => {
-        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 0, trackCount: 0 });
+        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 'neutral', trackCount: 0 });
         listAlbumTracks.mockResolvedValue(emptyPage);
         const queryClient = createTestQueryClient();
 

@@ -1,4 +1,5 @@
-import { keepPreviousData, queryOptions } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import type { Album, Artist, Rating } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -127,5 +128,68 @@ export function catalogTracksOptions(input: CatalogPageInput) {
         queryFn: () => sdk.catalog.listTracks(pageQuery(input)),
         staleTime: CATALOG_STALE_TIME,
         placeholderData: keepPreviousData,
+    });
+}
+
+/**
+ * Every cached list that could be showing a row of this kind, marked stale.
+ *
+ * A prefix will not do it. The flat lists are keyed `['catalog', 'artists', …]`, but an artist's
+ * albums are keyed under the artist (`['catalog', 'artist', id, 'albums', …]`) and an album's tracks
+ * under the album, so `['catalog', 'albums']` reaches neither. Matching on the segment anywhere in
+ * the key reaches all of them, and deliberately misses the enrichment keys: what a provider said
+ * about a record has nothing to do with what the operator thinks of it, and their ten-minute
+ * freshness is not worth spending on an opinion.
+ */
+function invalidateRatedLists(queryClient: QueryClient, kind: 'artists' | 'albums' | 'tracks'): void {
+    void queryClient.invalidateQueries({
+        predicate: query => query.queryKey[0] === 'catalog' && query.queryKey.includes(kind),
+    });
+}
+
+/**
+ * What the station thinks of an artist.
+ *
+ * The answer is the artist as it now stands, so it goes straight into the detail cache rather than
+ * being re-read, the way the running order's edits do. The lists around it are invalidated instead:
+ * they are paged and searched, and there is no telling which page this row is on.
+ */
+export function useRateArtist() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, rating }: { id: string; rating: Rating }) => sdk.catalog.rateArtist(id, { rating }),
+        onSuccess: (artist: Artist) => {
+            queryClient.setQueryData(queryKeys.catalog.artist(artist.id), artist);
+            invalidateRatedLists(queryClient, 'artists');
+        },
+    });
+}
+
+/** What the station thinks of a record. */
+export function useRateAlbum() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, rating }: { id: string; rating: Rating }) => sdk.catalog.rateAlbum(id, { rating }),
+        onSuccess: (album: Album) => {
+            queryClient.setQueryData(queryKeys.catalog.album(album.id), album);
+            invalidateRatedLists(queryClient, 'albums');
+        },
+    });
+}
+
+/**
+ * What the station thinks of a song.
+ *
+ * Also invalidates the running order, which carries each item's rating so the on-air table can draw
+ * a control that is not lying. Without it the row would keep its old answer until the next poll.
+ */
+export function useRateTrack() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, rating }: { id: string; rating: Rating }) => sdk.catalog.rateTrack(id, { rating }),
+        onSuccess: () => {
+            invalidateRatedLists(queryClient, 'tracks');
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
+        },
     });
 }

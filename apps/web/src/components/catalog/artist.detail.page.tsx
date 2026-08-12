@@ -2,11 +2,19 @@ import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from 
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { CATALOG_PAGE_SIZE, catalogArtistAlbumsOptions, catalogArtistEnrichmentOptions, catalogArtistOptions } from '../../api/catalog.queries';
+import {
+    CATALOG_PAGE_SIZE,
+    catalogArtistAlbumsOptions,
+    catalogArtistEnrichmentOptions,
+    catalogArtistOptions,
+    useRateAlbum,
+    useRateArtist,
+} from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { Artwork } from '../shared/artwork';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
+import { RatingControl } from './rating.control';
 
 export interface ArtistDetailPageProps {
     artistId: string;
@@ -19,6 +27,8 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
     const albums = useQuery(catalogArtistAlbumsOptions(artistId, { page }));
     const enrichment = useQuery(catalogArtistEnrichmentOptions(artistId));
     const rows = albums.data?.data ?? [];
+    const rateArtist = useRateArtist();
+    const rateAlbum = useRateAlbum();
 
     return (
         <Stack gap="lg">
@@ -39,6 +49,21 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                             {' • '}
                             {artist.data.trackCount === 1 ? '1 track' : `${artist.data.trackCount} tracks`}
                         </Text>
+                    ) : undefined}
+                    {/* The widest an opinion gets: a dislike here takes every record they are
+                        credited on out of rotation, whatever the tracks themselves say. */}
+                    {artist.data ? (
+                        <Group gap="xs" pt={4}>
+                            <RatingControl
+                                size="xs"
+                                rating={artist.data.rating}
+                                label={artist.data.name}
+                                busy={rateArtist.isPending}
+                                onChange={rating => {
+                                    rateArtist.mutate({ id: artistId, rating });
+                                }}
+                            />
+                        </Group>
                     ) : undefined}
                 </Stack>
             </Group>
@@ -86,6 +111,7 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                                 <Table.Th>Album</Table.Th>
                                 <Table.Th w={100}>Year</Table.Th>
                                 <Table.Th w={120}>Tracks</Table.Th>
+                                <Table.Th w={150}>Rating</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -103,6 +129,17 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                                     </Table.Td>
                                     <Table.Td>{album.year ?? ''}</Table.Td>
                                     <Table.Td>{album.trackCount}</Table.Td>
+                                    <Table.Td>
+                                        <RatingControl
+                                            size="xs"
+                                            rating={album.rating}
+                                            label={album.name}
+                                            busy={rateAlbum.isPending && rateAlbum.variables?.id === album.id}
+                                            onChange={rating => {
+                                                rateAlbum.mutate({ id: album.id, rating });
+                                            }}
+                                        />
+                                    </Table.Td>
                                 </Table.Tr>
                             ))}
                         </Table.Tbody>

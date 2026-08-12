@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 
 import { AlbumDetailPage } from '../../../src/components/catalog/album.detail.page';
@@ -13,6 +14,8 @@ const listAlbumTracks = vi.fn();
 const getArtistEnrichment = vi.fn();
 const getAlbumEnrichment = vi.fn();
 const getTrackEnrichment = vi.fn();
+const rateArtist = vi.fn();
+const rateAlbum = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     BASE_URL: '/api',
@@ -25,6 +28,8 @@ vi.mock('../../../src/api/client', () => ({
             getArtistEnrichment: (...args: unknown[]) => getArtistEnrichment(...args),
             getAlbumEnrichment: (...args: unknown[]) => getAlbumEnrichment(...args),
             getTrackEnrichment: (...args: unknown[]) => getTrackEnrichment(...args),
+            rateArtist: (...args: unknown[]) => rateArtist(...args),
+            rateAlbum: (...args: unknown[]) => rateAlbum(...args),
         },
     },
 }));
@@ -58,9 +63,9 @@ afterEach(() => {
 
 describe('ArtistDetailPage', () => {
     it('heads the page with the artist and lists their albums', async () => {
-        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 0, albumCount: 1, trackCount: 11 });
+        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 1, trackCount: 11 });
         listArtistAlbums.mockResolvedValue(
-            page([{ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 0, trackCount: 8 }]),
+            page([{ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 'neutral', trackCount: 8 }]),
         );
 
         render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
@@ -72,7 +77,7 @@ describe('ArtistDetailPage', () => {
     });
 
     it('heads the page with the artist’s art and puts a cover against each album', async () => {
-        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 0, albumCount: 1, trackCount: 11, imageUrl: 'art/aaaa' });
+        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 1, trackCount: 11, imageUrl: 'art/aaaa' });
         listArtistAlbums.mockResolvedValue(
             page([
                 {
@@ -81,7 +86,7 @@ describe('ArtistDetailPage', () => {
                     artistId: ARTIST_ID,
                     artistName: 'Sigur Rós',
                     year: 2002,
-                    rating: 0,
+                    rating: 'neutral',
                     trackCount: 8,
                     imageUrl: 'art/bbbb',
                 },
@@ -94,8 +99,42 @@ describe('ArtistDetailPage', () => {
         expect(await screen.findByRole('img', { name: '( )' })).toHaveAttribute('src', '/api/art/bbbb');
     });
 
+    // The widest opinion the station holds: a dislike here takes every record they are credited on
+    // out of rotation, which is why it belongs on the artist rather than only on their tracks.
+    it('rates the artist from the header', async () => {
+        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 0, trackCount: 2 });
+        listArtistAlbums.mockResolvedValue(page([]));
+        rateArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'disliked', albumCount: 0, trackCount: 2 });
+
+        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        await screen.findByRole('heading', { name: 'Sigur Rós' });
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Dislike Sigur Rós' }));
+
+        await vi.waitFor(() => {
+            expect(rateArtist).toHaveBeenCalledWith(ARTIST_ID, { rating: 'disliked' });
+        });
+    });
+
+    it('rates one of the artist’s albums from its row, naming that record rather than the artist', async () => {
+        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 1, trackCount: 11 });
+        listArtistAlbums.mockResolvedValue(
+            page([{ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 'neutral', trackCount: 8 }]),
+        );
+        rateAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 'liked', trackCount: 8 });
+
+        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        await screen.findByText('( )');
+
+        await userEvent.click(screen.getByRole('radio', { name: 'Like ( )' }));
+
+        await vi.waitFor(() => {
+            expect(rateAlbum).toHaveBeenCalledWith(ALBUM_ID, { rating: 'liked' });
+        });
+    });
+
     it('says an artist with no albums may still have tracks, rather than implying they have nothing', async () => {
-        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 0, albumCount: 0, trackCount: 2 });
+        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 0, trackCount: 2 });
         listArtistAlbums.mockResolvedValue(page([]));
 
         render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
@@ -104,7 +143,7 @@ describe('ArtistDetailPage', () => {
     });
 
     it('shows what the providers said about the artist, and who said it', async () => {
-        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 0, albumCount: 0, trackCount: 2 });
+        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 0, trackCount: 2 });
         listArtistAlbums.mockResolvedValue(page([]));
         getArtistEnrichment.mockResolvedValue({
             artistId: ARTIST_ID,
@@ -120,7 +159,7 @@ describe('ArtistDetailPage', () => {
     });
 
     it('says the walk has not reached an artist yet, rather than showing an empty panel', async () => {
-        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 0, albumCount: 0, trackCount: 2 });
+        getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 0, trackCount: 2 });
         listArtistAlbums.mockResolvedValue(page([]));
 
         render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
@@ -141,7 +180,7 @@ describe('ArtistDetailPage', () => {
 
 describe('AlbumDetailPage', () => {
     it('heads the page with the album and lists its tracks with durations', async () => {
-        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 0, trackCount: 1 });
+        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 'neutral', trackCount: 1 });
         listAlbumTracks.mockResolvedValue(
             page([
                 {
@@ -153,7 +192,7 @@ describe('AlbumDetailPage', () => {
                     albumName: '( )',
                     artists: 'Sigur Rós',
                     durationMs: 394_000,
-                    rating: 0,
+                    rating: 'neutral',
                 },
             ]),
         );
@@ -167,7 +206,7 @@ describe('AlbumDetailPage', () => {
     });
 
     it('heads the page with the cover, and with an initial for a record that has none', async () => {
-        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 0, trackCount: 0 });
+        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 'neutral', trackCount: 0 });
         listAlbumTracks.mockResolvedValue(page([]));
 
         render(<AlbumDetailPage albumId={ALBUM_ID} page={0} onPageChange={noop} />);
@@ -179,7 +218,7 @@ describe('AlbumDetailPage', () => {
     // The label and the pressing belong to the release rather than to any track on it, which is
     // why the album has an enrichment of its own at all.
     it('shows the record’s own enrichment under the header', async () => {
-        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 0, trackCount: 0 });
+        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 'neutral', trackCount: 0 });
         listAlbumTracks.mockResolvedValue(page([]));
         getAlbumEnrichment.mockResolvedValue({
             albumId: ALBUM_ID,
@@ -195,7 +234,7 @@ describe('AlbumDetailPage', () => {
     });
 
     it('renders a track with no duration as a blank cell rather than 0:00', async () => {
-        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 0, trackCount: 1 });
+        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 'neutral', trackCount: 1 });
         listAlbumTracks.mockResolvedValue(
             page([
                 {
@@ -206,7 +245,7 @@ describe('AlbumDetailPage', () => {
                     albumId: ALBUM_ID,
                     albumName: '( )',
                     artists: 'Sigur Rós',
-                    rating: 0,
+                    rating: 'neutral',
                 },
             ]),
         );

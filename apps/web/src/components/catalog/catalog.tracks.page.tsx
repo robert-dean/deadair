@@ -3,12 +3,13 @@ import { Alert, Anchor, Card, Skeleton, Stack, Table, Text, Title } from '@manti
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { CATALOG_PAGE_SIZE, catalogTracksOptions } from '../../api/catalog.queries';
+import { CATALOG_PAGE_SIZE, catalogTracksOptions, useRateTrack } from '../../api/catalog.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
+import { RatingControl } from './rating.control';
 import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
 
 export interface CatalogTracksPageProps {
@@ -28,6 +29,7 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
     const tracks = useQuery(catalogTracksOptions({ page, search }));
     const rows = tracks.data?.data ?? [];
     const expansion = useTrackExpansion();
+    const rate = useRateTrack();
 
     return (
         <Stack gap="lg">
@@ -77,6 +79,7 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
                                 <Table.Th>Artist</Table.Th>
                                 <Table.Th>Album</Table.Th>
                                 <Table.Th w={120}>Duration</Table.Th>
+                                <Table.Th w={150}>Rating</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -123,8 +126,21 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
                                             )}
                                         </Table.Td>
                                         <Table.Td>{formatDuration(track.durationMs)}</Table.Td>
+                                        <Table.Td>
+                                            <RatingControl
+                                                size="xs"
+                                                rating={track.rating}
+                                                label={track.title}
+                                                busy={rate.isPending && rate.variables?.id === track.id}
+                                                onChange={rating => {
+                                                    rate.mutate({ id: track.id, rating });
+                                                }}
+                                            />
+                                        </Table.Td>
                                     </Table.Tr>
-                                    <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={6} />
+                                    {/* One wider than the row above it, so the expansion still spans
+                                        the table now that the rating has its own column. */}
+                                    <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={7} />
                                 </Fragment>
                             ))}
                         </Table.Tbody>

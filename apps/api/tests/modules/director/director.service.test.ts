@@ -116,6 +116,8 @@ function build(options: Options = {}) {
     // mid-commit, or to fail it, which is the only way to reach the window this class guards.
     const segmentStub = {
         findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
+        findById: vi.fn(async (id: string) => library.get(id)),
+        markFailed: vi.fn(async () => {}),
     };
     const segments = segmentStub as unknown as SegmentRepository;
 
@@ -1156,6 +1158,35 @@ describe('DirectorService editing what is on air', () => {
         await director.applyEdit({ kind: 'remove', itemId: lineup.all()[lineup.size() - 1]!.id });
 
         expect(lineups.save).toHaveBeenCalled();
+    });
+
+    it('retires the segment row behind a break the operator removes', async () => {
+        // The quiet half of the removed-break bug. The row used to be left in `planned`, with a
+        // write job possibly in flight for it, and nothing ever collected it: it sat in the
+        // library looking like a break that was still coming.
+        const { director, lineup, segmentStub, seed } = build({
+            segments: [{ id: 'talk-1', kind: 'talk', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertSegment('talk-1', lineup.size());
+
+        await director.applyEdit({ kind: 'remove', itemId: lineup.all()[lineup.size() - 1]!.id });
+
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('removed'), 'planned');
+    });
+
+    it('leaves an ident alone, because the same recording is at three slots in an hour', async () => {
+        const { director, lineup, segmentStub, seed } = build({
+            segments: [{ id: 'ident-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertSegment('ident-1', lineup.size());
+
+        await director.applyEdit({ kind: 'remove', itemId: lineup.all()[lineup.size() - 1]!.id });
+
+        expect(segmentStub.markFailed).not.toHaveBeenCalled();
     });
 
     it('tops the running order back up after a removal leaves room', async () => {

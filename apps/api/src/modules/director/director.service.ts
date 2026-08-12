@@ -454,11 +454,58 @@ export class DirectorService {
         if (!result.ok) return result;
 
         await this.persist();
+        // After the write, because the row is the record and the caller is answered off the
+        // edit rather than off this: a break whose words are never collected is untidy, and one
+        // whose removal was not written down is the bug.
+        if (edit.kind === 'remove') await this.collectRemoved(lineup, edit.itemId);
         // An edit to the tail says nothing about what is already with the player, so nothing is
         // retracted. It can leave room for something new, though — a removal shortens the order —
         // so the pass runs.
         await this.commit();
         return result;
+    }
+
+    /**
+     * Retire the segment row behind a break the operator has just deleted.
+     *
+     * The quiet half of the same bug. Removing a break leaves its `deadair.segments` row in
+     * whatever state it had reached, and a `director.write_break` job may be in flight for it or
+     * may already have written a script for two records it now sits between neither of. Nothing
+     * collected it: it sat in the console's library looking like a break that was still coming.
+     * This is `BreakPlanner.abandon`'s shape for a removal — failed rather than deleted, so it
+     * carries the reason and is inert.
+     *
+     * Two things it will not touch. **A `ready` segment**, because that is an ident off the shelf
+     * or a break whose audio exists, and both are material an operator can put back in; only the
+     * unfinished states are this order's to write off. **A segment id still in the order
+     * somewhere else**, because idents are planted from a shared library and the same row is
+     * legitimately at three slots in an hour — failing it here would take the other two off air.
+     *
+     * Failures are swallowed, for {@link plantBreaks}'s reason and a stronger one: the edit has
+     * already happened and been written down, so throwing here would report a removal that stuck
+     * as a removal that failed.
+     */
+    private async collectRemoved(lineup: StationLineup, itemId: string): Promise<void> {
+        const item = lineup.find(itemId);
+        if (item?.kind !== 'segment') return;
+
+        const stillWanted = lineup
+            .all()
+            .some(other => other.id !== itemId && other.kind === 'segment' && other.segmentId === item.segmentId && other.state !== 'skipped');
+        if (stillWanted) return;
+
+        try {
+            await this.inScope(async scope => {
+                const segments = scope.get(SegmentRepository);
+                const segment = await segments.findById(item.segmentId);
+                if (segment === undefined || segment.state === 'ready' || segment.state === 'failed') return;
+
+                await segments.markFailed(item.segmentId, 'the operator removed this break from the running order', segment.state);
+                this.logger.info('director: retired the break an operator removed', { segmentId: item.segmentId, from: segment.state });
+            });
+        } catch (error) {
+            this.logger.warn(`director: could not retire the break an operator removed (${message(error)})`);
+        }
     }
 
     private applyTo(lineup: StationLineup, edit: OrderEdit): EditResult {

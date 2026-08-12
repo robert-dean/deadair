@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { TrackAudioRepository } from './audio/track.audio.repository.js';
+import { TrackCacheService } from './audio/track.cache.service.js';
 import { TrackStore } from './audio/track.store.js';
 import { AudienceWatch } from './audience.watch.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
@@ -53,6 +54,10 @@ export const PlayoutModule: ServerKitModule = {
             .useFactory(() => new TrackStore(config.get('TRACKS_DIR', DEFAULT_TRACKS_DIR)))
             .asSingleton();
         registry.register(TrackAudioRepository).useClass(TrackAudioRepository).asScoped();
+
+        // Scoped like the repository it writes through, and resolved per run by the job that fetches
+        // one record. `CacheTrackJob` itself is registered from `JobMappings`, like every other job.
+        registry.register(TrackCacheService).useClass(TrackCacheService).asScoped();
 
         // The resolver chain. Every provider answers for its own tracks through
         // `resolveStreamUrl`, including the ones whose audio reaches the player by

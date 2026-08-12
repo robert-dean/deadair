@@ -8,6 +8,7 @@ import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
+import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
@@ -138,6 +139,24 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: AnalysisJob,
         cron: '7 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 50 }) },
+    },
+
+    // No cron: a record is worth a local copy because the station played it, so the
+    // resolver sends this on a miss and there is nothing to find by walking. A
+    // schedule would download the parts of the catalogue that never air, which is
+    // the fill shape that was deliberately not chosen.
+    //
+    // ONE retry, and it is nearly free: the job does not rethrow, so the retry is
+    // only ever spent on a fault outside the fetch itself, and the real retry is the
+    // next play of the same record. No dead-letter queue for the same reason — the
+    // row carries `last_error` and `next_attempt_at`, so the work is its own record.
+    //
+    // `expiresIn` sits above the fetch timeout plus the claim it holds, so a wedged
+    // run is reclaimed rather than blocking the queue, and well below anything an
+    // operator would call stuck.
+    'playout.cache_track': {
+        job: CacheTrackJob,
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 15 }) },
     },
 
     // No cron: the director sends this when a lineup it is airing runs short, which

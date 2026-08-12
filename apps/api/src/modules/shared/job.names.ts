@@ -5,6 +5,7 @@ export type JobNames =
     | 'catalog.enrich'
     | 'catalog.cache_art'
     | 'catalog.analyze'
+    | 'playout.cache_track'
     | 'director.extend_lineup'
     | 'director.write_break'
     | 'render.segment'

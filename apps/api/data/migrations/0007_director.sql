@@ -45,6 +45,10 @@ create table deadair.station_lineup (
     --   airing   the player says this is what a listener is hearing.
     --   played   heard, and behind us.
     --   skipped  passed over: a segment with no audio, or an item the player never started.
+    --   removed  cut by the operator before its turn came. Its own state rather than a use of
+    --            `skipped` because the two are opposite facts: one is something going wrong and
+    --            one is somebody deciding. A cut break stays in the document so the break planner
+    --            can see it and not plant another into the same slot.
     --
     -- One document rather than a row per item, deliberately. A live running order is bounded
     -- at tens of items, the order IS the data, nothing joins to an individual line, and the

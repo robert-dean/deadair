@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 
+import type { StationTaste, TasteRepository } from '../../../src/modules/catalog/taste.repository.js';
 import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
 import { MODEL_GENERATOR_KEYS, ModelSetGenerator } from '../../../src/modules/director/model.set.generator.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
@@ -26,7 +27,14 @@ interface Options {
     /** A model that throws instead of answering. */
     fails?: boolean;
     settings?: Record<string, string>;
+    /** What the operator has rated. Absent is a station nobody has said anything about. */
+    taste?: Partial<StationTaste>;
+    /** A catalog that cannot answer what the operator likes. */
+    tasteFails?: boolean;
 }
+
+/** An empty side of the operator's taste: nothing said, and nothing hidden behind a limit. */
+const nothing = <T,>(): { shown: T[]; total: number } => ({ shown: [], total: 0 });
 
 function build(options: Options = {}) {
     const converse = vi.fn(async (): Promise<LlmConversation> => {
@@ -59,7 +67,22 @@ function build(options: Options = {}) {
         has: (key: string) => values[key] !== undefined,
     } as unknown as AppConfig;
 
-    return { generator: new ModelSetGenerator(llm, config, logger), converse };
+    const taste = {
+        taste: vi.fn(async (): Promise<StationTaste> => {
+            if (options.tasteFails) throw new Error('the pool is gone');
+            return {
+                likedArtists: nothing(),
+                dislikedArtists: nothing(),
+                likedAlbums: nothing(),
+                dislikedAlbums: nothing(),
+                likedTracks: nothing(),
+                dislikedTracks: nothing(),
+                ...options.taste,
+            };
+        }),
+    } as unknown as TasteRepository;
+
+    return { generator: new ModelSetGenerator(llm, taste, config, logger), converse, taste };
 }
 
 const inputs = (count: number, overrides: Partial<SetInputs> = {}): SetInputs => ({ count, rules: DEFAULT_RULES, ...overrides });
@@ -158,6 +181,53 @@ describe('ModelSetGenerator', () => {
         expect(user).not.toMatch(/nocolonhere/);
         expect(user).not.toMatch(/leadingcolon/);
         expect(user).not.toMatch(/trailing/);
+    });
+
+    it('carries the operator’s brief into the turn about this refill', async () => {
+        const { generator, converse } = build({ enabled: true });
+
+        await generator.generate(inputs(5, { brief: 'heavy metal hits' }));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        expect(request.messages.find(message => message.role === 'user')?.content ?? '').toMatch(/heavy metal hits/);
+    });
+
+    it('shows the model what the operator likes and dislikes', async () => {
+        const { generator, converse } = build({
+            enabled: true,
+            taste: {
+                likedArtists: { shown: [{ name: 'Sleep' }], total: 1 },
+                dislikedArtists: { shown: [{ name: 'Nickelback' }], total: 1 },
+                dislikedTracks: { shown: [{ title: 'Photograph', artist: 'Nickelback' }], total: 1 },
+            },
+        });
+
+        await generator.generate(inputs(5));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const system = request.messages.find(message => message.role === 'system')?.content ?? '';
+        expect(system).toMatch(/Sleep/);
+        expect(system).toMatch(/Nickelback/);
+        expect(system).toMatch(/Photograph/);
+    });
+
+    it('reads the taste on every refill, so an opinion counts on the next hour', async () => {
+        // Read rather than held, like every setting here. An operator who likes a record now does
+        // not expect to restart the station for it to matter.
+        const { generator, taste } = build({ enabled: true });
+
+        await generator.generate(inputs(5));
+        await generator.generate(inputs(5));
+
+        expect(taste.taste).toHaveBeenCalledTimes(2);
+    });
+
+    it('programmes without the taste rather than failing when the catalog cannot answer', async () => {
+        // Steering only. The dislikes are enforced at resolution from the ratings as they stand, so
+        // losing this list costs a duller set and can never air something the operator forbade.
+        const { generator } = build({ enabled: true, tasteFails: true, text: '[{"title":"One","artist":"A"}]' });
+
+        expect(await generator.generate(inputs(5))).toHaveLength(1);
     });
 
     it('bounds both the wait and the generation, so a refill cannot starve the breaks', async () => {

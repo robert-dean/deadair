@@ -1,11 +1,12 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { artistKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
-import { readPicks, setPrompt } from './set.prompt.js';
+import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
 
 /**
  * A model choosing what the station plays, with the catalog draw underneath it.
@@ -112,6 +113,17 @@ export const MAX_TOOL_STEPS = 5;
 /** A ceiling on the answer, in tokens. Fifteen records of JSON is small; the headroom is reasoning. */
 export const MAX_OUTPUT_TOKENS = 2_000;
 
+/**
+ * How many of the operator's likes and dislikes, per kind, are read for the prompt.
+ *
+ * Small on purpose. Every line of these lists is context the model then has less room to think in,
+ * on a host where that is the difference between an answer and a run that finishes on `length`, and
+ * a taste block longer than the search results it is meant to steer would be steering nothing. A
+ * station with more opinions than this is not shown the rest, and `station_taste` is how a model
+ * that wants the whole list asks for it.
+ */
+export const TASTE_SHOWN = 15;
+
 /** How much of an unreadable answer is logged. Enough to see the shape, not enough to flood a line. */
 const ANSWER_LOG_CHARS = 400;
 
@@ -128,6 +140,7 @@ export class ModelSetGenerator extends SetGenerator {
 
     constructor(
         private readonly llm: LlmService,
+        private readonly taste: TasteRepository,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {
@@ -151,6 +164,7 @@ export class ModelSetGenerator extends SetGenerator {
             {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                 persona: this.config.get(MODEL_GENERATOR_KEYS.persona, ''),
+                taste: await this.describeTaste(),
             },
         );
 
@@ -214,7 +228,38 @@ export class ModelSetGenerator extends SetGenerator {
 
         return picks;
     }
+
+    /**
+     * The operator's taste, as prompt lines, or nothing.
+     *
+     * Read per refill rather than held, like every other setting here: an operator who likes a
+     * record now expects it to count on the next hour, not after a restart.
+     *
+     * A read that fails costs the steering and not the set. This is advice — the dislikes are
+     * enforced in `PickResolver` from the ratings as they stand at resolution — so a station whose
+     * catalog read threw still cannot air a forbidden record. Losing the whole refill over a list
+     * that only makes it better would be the wrong trade.
+     */
+    private async describeTaste(): Promise<TastePrompt | undefined> {
+        let taste: StationTaste;
+        try {
+            taste = await this.taste.taste(TASTE_SHOWN);
+        } catch (error) {
+            this.logger.warn(`director: could not read what the operator likes; programming without it (${messageOf(error)})`);
+            return undefined;
+        }
+
+        const named = (set: StationTaste['likedTracks']): string[] => set.shown.map(entry => `"${entry.title}" by ${entry.artist}`);
+        return {
+            likedArtists: taste.likedArtists.shown.map(entry => entry.name),
+            dislikedArtists: taste.dislikedArtists.shown.map(entry => entry.name),
+            likedTracks: named(taste.likedTracks),
+            dislikedTracks: named(taste.dislikedTracks),
+        };
+    }
 }
+
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
  * The records the lineup already holds, as something a model can read.

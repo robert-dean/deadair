@@ -39,12 +39,34 @@ export const NEVER_ECHO =
 /** How many already-queued records are shown, at most. */
 const MAX_AVOID_SHOWN = 40;
 
+/** How many of the operator's likes or dislikes are shown per kind. */
+const MAX_TASTE_SHOWN = 20;
+
+/** What the operator has said about one artist or one record, as a line of the prompt. */
+export interface TastePrompt {
+    /** Artists to lean toward, and artists never to choose. Names only. */
+    likedArtists?: readonly string[];
+    dislikedArtists?: readonly string[];
+    /** Songs, as `"Title" by Artist`. */
+    likedTracks?: readonly string[];
+    dislikedTracks?: readonly string[];
+}
+
 /** How the operator wants the station programmed. */
 export interface SetPromptSettings {
     /** What the station calls itself, from `stream.title`. */
     station?: string;
     /** The operator's own line about what the station plays, from `llm.setPersona`. */
     persona?: string;
+    /**
+     * What the operator has liked and disliked, for steering.
+     *
+     * In the SYSTEM turn, unlike the brief: this is a standing fact about the station rather than
+     * about tonight, and it is the same on every refill. It is advice — the dislikes are enforced in
+     * `PickResolver` whatever the model does, so a model that ignores this list cannot air a
+     * forbidden record, it can only waste the picks it spent on one.
+     */
+    taste?: TastePrompt;
 }
 
 /** What the model is being asked to choose between. */
@@ -106,8 +128,45 @@ function systemPrompt(settings: SetPromptSettings): string {
     ];
 
     if (persona) lines.push('', 'The station describes its music this way, and you should choose to match it:', persona);
+    lines.push(...tasteLines(settings.taste));
 
     return lines.join('\n');
+}
+
+/**
+ * What the operator likes and dislikes, as lines of the system turn.
+ *
+ * Four lists, each truncated with its own count so a long one does not read as a short one, and
+ * each phrased as steering rather than as a rule the model is enforcing. The dislikes carry the
+ * sentence that they are enforced anyway, which is there for the model's benefit rather than for a
+ * reader's: a model told a list is advisory spends picks testing it, and one told the station will
+ * drop those picks does not.
+ *
+ * Nothing here is a hazard of the {@link NEVER_ECHO} kind, which is worth being explicit about
+ * because these ARE real, well-formed records that no tool returned. The liked ones are the same
+ * shape as the avoid list and would be echoed just as readily — so they are worded as *artists and
+ * records to look for with the tool*, never as records to name, and the grounding rule above still
+ * says only a search result may be named. A liked record that is not in the library is a record the
+ * model cannot find, which is the correct outcome.
+ */
+function tasteLines(taste: TastePrompt | undefined): string[] {
+    if (!taste) return [];
+
+    const lines: string[] = [];
+    const section = (heading: string, entries: readonly string[] | undefined): void => {
+        const shown = (entries ?? []).filter(entry => entry.trim().length > 0).slice(0, MAX_TASTE_SHOWN);
+        if (shown.length === 0) return;
+
+        lines.push('', heading, ...shown.map(entry => `- ${entry}`));
+        if ((entries?.length ?? 0) > shown.length) lines.push(`(and ${entries!.length - shown.length} more)`);
+    };
+
+    section('The operator LIKES these artists. Search for them and lean toward them:', taste.likedArtists);
+    section('The operator LIKES these records. Search for them and lean toward them:', taste.likedTracks);
+    section('The operator DISLIKES these artists. Never choose them; the station drops them anyway:', taste.dislikedArtists);
+    section('The operator DISLIKES these records. Never choose them; the station drops them anyway:', taste.dislikedTracks);
+
+    return lines;
 }
 
 function userPrompt(request: SetPromptRequest): string {

@@ -6,6 +6,7 @@ import { LibrarySearchTool } from './library.search.tool.js';
 import { LlmGate } from './llm.gate.js';
 import { LlmService } from './llm.service.js';
 import { ToolRegistry } from './llm.tools.js';
+import { StationTasteTool } from './station.taste.tool.js';
 
 /**
  * Asking a model for words.
@@ -50,6 +51,9 @@ export const LlmModule: ServerKitModule = {
         // Scoped with the catalog repository it reads. Not a plugin consumer at all, which is the
         // difference between the two search tools: this one asks what the station HAS.
         registry.register(LibrarySearchTool).useClass(LibrarySearchTool).asScoped();
+        // Also a catalog read rather than a plugin one, and offered to every caller rather than to
+        // selection alone: "the station loves this band" is a thing a break writer says on air.
+        registry.register(StationTasteTool).useClass(StationTasteTool).asScoped();
 
         // The source list is explicit rather than discovered, so what the model can reach is one
         // readable line rather than the sum of whatever registered itself. A `tool` plugin
@@ -63,7 +67,10 @@ export const LlmModule: ServerKitModule = {
             .register(ToolRegistry)
             .useFactory(
                 (container: Container) =>
-                    new ToolRegistry([container.get(LibrarySearchTool), container.get(CatalogSearchTool)], container.get(Logger)),
+                    new ToolRegistry(
+                        [container.get(LibrarySearchTool), container.get(CatalogSearchTool), container.get(StationTasteTool)],
+                        container.get(Logger),
+                    ),
             )
             .asScoped();
 

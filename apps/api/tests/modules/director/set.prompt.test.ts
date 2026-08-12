@@ -41,6 +41,48 @@ describe('setPrompt', () => {
         expect(system).toMatch(/Krautrock and dub/);
     });
 
+    it('carries what the operator likes and dislikes, as steering', () => {
+        const system = systemOf(
+            setPrompt(
+                { count: 5, avoid: [] },
+                { taste: { likedArtists: ['Sleep'], dislikedArtists: ['Nickelback'], dislikedTracks: ['"Photograph" by Nickelback'] } },
+            ),
+        );
+
+        expect(system).toMatch(/LIKES these artists/);
+        expect(system).toMatch(/Sleep/);
+        expect(system).toMatch(/DISLIKES these artists/);
+        expect(system).toMatch(/Photograph/);
+    });
+
+    it('tells the model the dislikes are enforced whatever it does', () => {
+        // A model told a list is advisory spends picks testing it. It is not advisory: PickResolver
+        // drops a disliked record whatever named it.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { taste: { dislikedArtists: ['Nickelback'] } }));
+
+        expect(system).toMatch(/drops them anyway/);
+    });
+
+    it('words the liked records as something to search for rather than something to name', () => {
+        // These are real, well-formed records that no tool returned, which is the NEVER_ECHO hazard
+        // exactly. The grounding rule stands: only a search result may be named.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { taste: { likedTracks: ['"Dopesmoker" by Sleep'] } }));
+
+        expect(system).toMatch(/Search for them/);
+    });
+
+    it('says how many likes it did not show, so a long list does not read as a short one', () => {
+        const many = Array.from({ length: 25 }, (_, index) => `Artist ${index}`);
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { taste: { likedArtists: many } }));
+
+        expect(system).toMatch(/and 5 more/);
+    });
+
+    it('says nothing about taste when the operator has rated nothing', () => {
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { taste: {} }))).not.toMatch(/LIKES/);
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/DISLIKES/);
+    });
+
     it('asks for the count it was given', () => {
         expect(userOf(setPrompt({ count: 12, avoid: [] }))).toMatch(/Choose 12 records/);
     });

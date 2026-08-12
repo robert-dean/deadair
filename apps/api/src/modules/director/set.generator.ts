@@ -41,6 +41,15 @@ export interface SetInputs {
 
 export abstract class SetGenerator {
     /**
+     * What this binding is called, for the log and for anything that reports which one chose.
+     *
+     * The sibling of `BreakWriter.name` and there for the same reason: once several bindings can
+     * answer, "the station picked these fifteen tracks" is only half a fact. Which one picked them
+     * is the other half, and it is the half that says whether a model is actually being used.
+     */
+    abstract readonly name: string;
+
+    /**
      * Name up to `count` tracks for the station to play.
      *
      * Returning fewer is an ordinary outcome, not a failure: a small library

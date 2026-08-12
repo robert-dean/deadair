@@ -23,6 +23,8 @@ import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js
  */
 @Injectable()
 export class CatalogSetGenerator extends SetGenerator {
+    readonly name = 'catalog';
+
     constructor(
         private readonly candidates: CandidatesRepository,
         private readonly history: PlayHistoryRepository,

@@ -13,6 +13,7 @@ import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { SetGenerator } from './set.generator.js';
+import { SetGeneratorChain } from './set.generator.chain.js';
 import { StationAirRepository } from './station.air.repository.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 
@@ -35,10 +36,21 @@ export const DirectorModule: ServerKitModule = {
         registry.register(PlayHistoryRepository).useClass(PlayHistoryRepository).asScoped();
         registry.register(CandidatesRepository).useClass(CandidatesRepository).asScoped();
 
-        // The selection seam. Bound to the deterministic catalog draw; an LLM DJ
-        // later replaces this one line and nothing downstream of the token changes,
-        // which is the whole reason a pick is a NAME rather than an id.
-        registry.register(SetGenerator).useClass(CatalogSetGenerator).asScoped();
+        // The selection seam, and its ranking. Shaped exactly like the writer seam below and for
+        // the same reason: several bindings may choose what the station plays, THIS ORDER is the
+        // preference order, and the deterministic draw stays the floor by being the final entry.
+        // The one difference is that the chain TOPS UP rather than falling through — a generator
+        // that named six of fifteen has done most of the job — which is why a set is not a break.
+        registry.register(CatalogSetGenerator).useClass(CatalogSetGenerator).asScoped();
+        registry
+            .register(SetGenerator)
+            .useFactory(
+                (container: Container) =>
+                    // One entry today. The floor is last because it cannot fail; anything added
+                    // above it may.
+                    new SetGeneratorChain([container.get(CatalogSetGenerator)], container.get(Logger)),
+            )
+            .asScoped();
         registry.register(PickResolver).useClass(PickResolver).asScoped();
 
         // The writer seam, keyed by `segments.kind`. The list is explicit rather than discovered,

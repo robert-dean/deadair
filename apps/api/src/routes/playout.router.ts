@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { PlayoutService } from '#src/modules/playout/playout.service.js';
 import {
@@ -69,8 +70,36 @@ PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' })
 });
 
 /**
+ * The station's own copy of one record, by the provider binding it was cached for
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L98)
+ * anonymous access, no security required
+ * @internal
+ */
+PlayoutRouter.get('/playout/audio/:sourceId', async ctx => {
+    const { sourceId } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            sourceId: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(PlayoutService);
+    const result: {
+        contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
+        body: Buffer;
+        headers: { cacheControl?: string; etag?: string };
+    } = await service.getTrackAudio(sourceId);
+
+    ctx.status = 200;
+    if (result.headers['cacheControl'] !== undefined) ctx.set('cache-control', String(result.headers['cacheControl']));
+    if (result.headers['etag'] !== undefined) ctx.set('etag', String(result.headers['etag']));
+    ctx.type = result.contentType;
+    ctx.body = result.body;
+});
+
+/**
  * Notes a listener arriving or leaving, so the station reacts the moment somebody tunes in rather than at the next poll of Icecast's stats. The count itself still comes from the poll, which is what makes a dropped event harmless
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L107)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L154)
  * anonymous access, no security required
  * @internal
  */
@@ -88,7 +117,7 @@ PlayoutRouter.post('/playout/bridge/listener', async ctx => {
 
 /**
  * Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L126)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L173)
  * anonymous access, no security required
  * @internal
  */
@@ -103,7 +132,7 @@ PlayoutRouter.post('/playout/bridge/aired', async ctx => {
 
 /**
  * Reports that the running order stopped producing audio, or started again. The mount has fallen through to the local bed in between, so nothing deadair programmed is being heard
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L146)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L193)
  * anonymous access, no security required
  * @internal
  */

@@ -4,6 +4,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { StreamConfigWatch } from '#modules/stream/stream.staleness.js';
+import { TrackAudioRepository } from './audio/track.audio.repository.js';
+import { TRACK_CONTENT_TYPES, TrackContentType, TrackStore } from './audio/track.store.js';
 import { AudienceWatch } from './audience.watch.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
@@ -41,6 +43,29 @@ const UP_NEXT_LIMIT = 10;
 const GAP_WARN_MS = RECONCILE_TICK_MS;
 
 /**
+ * How long a cached record may be held by whatever fetched it.
+ *
+ * A day, matching the segment audio route, and safe for the same reason: the URL is keyed by the
+ * binding and the ETag is the checksum, so a re-fetched copy revalidates rather than being served
+ * stale. In practice the only client is Liquidsoap, which downloads each item once.
+ */
+const TRACK_CACHE_CONTROL = 'public, max-age=86400';
+
+/**
+ * What the cached-audio route hands the generated router.
+ *
+ * `contentType` is the answer rather than decoration, exactly as it is for segment audio: the
+ * operation declares every format the store holds and the router sets `ctx.type` from whichever
+ * this names. Liquidsoap picks its decoder from that header, so it is the difference between a
+ * flac that plays and one that silently does not.
+ */
+export interface TrackAudioResponse {
+    contentType: TrackContentType;
+    body: Buffer;
+    headers: { cacheControl: string; etag: string };
+}
+
+/**
  * The playout surface: the console's transport, plus the one call the stream
  * container makes inbound.
  *
@@ -60,6 +85,9 @@ export class PlayoutService {
         private readonly control: PlayoutControlClient,
         private readonly audience: AudienceWatch,
         private readonly stream: StreamService,
+        // The station's own copies of records, for the one route that serves them back.
+        private readonly trackAudio: TrackAudioRepository,
+        private readonly tracks: TrackStore,
         // Whether the containers are running the config that was rendered for them.
         // It rides the transport status because that is the reading the console already
         // polls and the card it draws is where an operator looks when nothing is being
@@ -176,6 +204,35 @@ export class PlayoutService {
         this.rundown.reset();
         this.logger.info('playout: standing down; the running order is dropped and the mount goes quiet');
         return this.getStatus();
+    }
+
+    /**
+     * The station's own copy of one record, for the player to fetch.
+     *
+     * The read the whole cache exists for, and the one place that is on the air
+     * path: a 404 here is an item Liquidsoap cannot play. So it checks the file as
+     * well as the row — a row whose bytes have been removed from disk answers 404
+     * rather than an empty 200, which the player would take as a record of no
+     * length.
+     *
+     * Deliberately does not consult `playout.trackCache`. A URL already handed over
+     * for an item about to air has to keep working, and the switch governs which
+     * URL is handed out. See the operation in `playout.ck`.
+     */
+    async getTrackAudio(sourceId: string): Promise<TrackAudioResponse> {
+        const cached = await this.trackAudio.findBySourceId(sourceId);
+        if (cached?.checksum === undefined || cached.ext === undefined) {
+            throw httpError(404).withDetails({ message: `no cached audio for track source "${sourceId}"` });
+        }
+
+        const bytes = await this.tracks.read(cached.checksum, cached.ext);
+        if (bytes === undefined) throw httpError(404).withDetails({ message: `the cached file for track source "${sourceId}" is gone` });
+
+        return {
+            contentType: TRACK_CONTENT_TYPES[cached.ext],
+            body: bytes,
+            headers: { cacheControl: TRACK_CACHE_CONTROL, etag: `"${cached.checksum}"` },
+        };
     }
 
     /**

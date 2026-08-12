@@ -61,7 +61,25 @@ function extensionFor(contentType: string | null): TrackExtension | undefined {
     return TRACK_SOURCE_TYPES[mime];
 }
 
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+/**
+ * One line describing a failure, cause included.
+ *
+ * The cause is not decoration here. `fetch` rejects with a bare `TypeError: fetch failed` and puts
+ * the only useful half — `ECONNREFUSED`, a DNS failure, a TLS error — on `cause`, and this row is the
+ * ONLY evidence anybody gets: the station keeps playing through the provider, so nothing else is going
+ * to notice. A `last_error` reading "fetch failed" costs an operator the whole diagnosis.
+ */
+const errorText = (error: unknown): string => {
+    if (!(error instanceof Error)) return String(error);
+
+    const causes: string[] = [];
+    for (let cause = error.cause; cause instanceof Error && causes.length < 3; cause = cause.cause) {
+        const code = (cause as { code?: string }).code;
+        causes.push(code === undefined ? cause.message : `${cause.message} (${code})`);
+    }
+
+    return causes.length === 0 ? error.message : `${error.message}: ${causes.join(': ')}`;
+};
 
 /**
  * Fetching a record the station has played into the station's own copy of it.

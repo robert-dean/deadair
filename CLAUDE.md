@@ -202,6 +202,23 @@ through before its caller is answered, everything the transport does rides a thr
 graceful shutdown flushes. `station_air` says only whether the station is driving. Every writer
 posts a command to `DirectorService`; nothing else may write it.
 
+**A record the station has played is kept, and the second fetch is not a tee.** `deadair.track_audio`
+says what is on disk under `TRACKS_DIR` for a BINDING (`track_sources.id`, since two copies of one
+record within a provider are two files), the bytes live in a `ContentStore` beside art and segments,
+and `CachedTrackResolver` sits FIRST in the resolver chain so a hit is `/playout/audio/{sourceId}` on
+this machine. It is the one link that does not guard on `pluginId`: whether the bytes are on disk is a
+fact about the file, not about who served it. **A miss declines**, so the provider answers next and
+that play is unaffected, and the miss is what sends `playout.cache_track` — Liquidsoap fetches the
+provider URL itself and those bytes never pass through Node, so the fill is a SECOND fetch of the same
+binding and the first play of a record costs two downloads rather than one intercepted. Three things
+are load-bearing: **over the cap or under the floor stores nothing**, because a truncated file would
+air as a record that stops mid-song, which is worse than the fetch it replaced; every failure is a row
+with a doubling backoff rather than a throw, because a record comes round every few hours forever and
+the station is still playing it through the provider meanwhile; and the claim in front of the fetch is
+what makes a duplicate send free. `playout.trackCache` off means neither serve nor fill and **leaves
+the files where they are** — the audio route deliberately ignores the setting, because a URL already
+handed to the player has to keep working, and nothing evicts yet.
+
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on
 its reconcile only while `Rundown.hasProgramme()` **and** `AudienceWatch.gateOpen()`. So a crashed,

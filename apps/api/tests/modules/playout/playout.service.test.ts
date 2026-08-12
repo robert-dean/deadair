@@ -16,6 +16,8 @@ import type { DirectorConsoleService } from '../../../src/modules/director/direc
 import type { StreamService } from '../../../src/modules/stream/stream.service.js';
 import type { StreamConfigWarning, StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
+import type { TrackAudio, TrackAudioRepository } from '../../../src/modules/playout/audio/track.audio.repository.js';
+import type { TrackStore } from '../../../src/modules/playout/audio/track.store.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -35,6 +37,9 @@ interface Options {
     listeners?: number;
     /** Stream containers holding config the app has replaced. Empty is the ordinary state. */
     staleStreamConfig?: StreamConfigWarning[];
+    /** The row the cached-audio route finds for a binding, and the bytes behind it. */
+    cachedTrack?: TrackAudio;
+    cachedBytes?: Buffer;
 }
 
 const item = { id: 'item-1', pluginId: 'deadair.spotify', externalId: 'trk_1', title: 'A Track', artists: ['An Artist'], durationMs: 200_000 };
@@ -88,8 +93,13 @@ function build(options: Options = {}) {
         noteArrival: vi.fn(),
     } as unknown as AudienceWatch;
 
+    // The cached-audio route is the one read here that touches a store and a row. What it serves is
+    // covered in its own file; these two are what the constructor needs.
+    const trackAudio = { findBySourceId: async () => options.cachedTrack } as unknown as TrackAudioRepository;
+    const tracks = { read: async () => options.cachedBytes } as unknown as TrackStore;
+
     return {
-        service: new PlayoutService(rundown, pusher, director, endpoint, control, audience, stream, staleness, logger),
+        service: new PlayoutService(rundown, pusher, director, endpoint, control, audience, stream, trackAudio, tracks, staleness, logger),
         audience,
         rundown,
         pusher,
@@ -339,5 +349,38 @@ describe('PlayoutService.noteStarve', () => {
         service.noteStarve({ state: 'recovered', forMs: 30_000 });
 
         expect(logger.warn).toHaveBeenCalledOnce();
+    });
+});
+
+// The one read here that is on the air path: a 404 is an item Liquidsoap cannot play, so both halves
+// of "there is a copy" have to hold — the row AND the file.
+describe('PlayoutService.getTrackAudio', () => {
+    const SOURCE_ID = '11111111-2222-3333-4444-555555555555';
+    const CHECKSUM = 'a'.repeat(64);
+    const cached: TrackAudio = { id: 'row-1', sourceId: SOURCE_ID, checksum: CHECKSUM, ext: 'ogg', byteSize: 9, attempts: 0 };
+
+    it('serves the file with the mime the player picks its decoder from', async () => {
+        const bytes = Buffer.from('a record');
+        const { service } = build({ cachedTrack: cached, cachedBytes: bytes });
+
+        expect(await service.getTrackAudio(SOURCE_ID)).toEqual({
+            contentType: 'audio/ogg',
+            body: bytes,
+            headers: { cacheControl: 'public, max-age=86400', etag: `"${CHECKSUM}"` },
+        });
+    });
+
+    it('is a 404 for a binding nothing has cached', async () => {
+        const { service } = build({});
+
+        expect(await statusOf(service.getTrackAudio(SOURCE_ID))).toBe(404);
+    });
+
+    // A row whose bytes have been deleted from disk. An empty 200 would be a record of no length,
+    // which the player would air as a gap rather than skip.
+    it('is a 404 when the row survives and the file does not', async () => {
+        const { service } = build({ cachedTrack: cached });
+
+        expect(await statusOf(service.getTrackAudio(SOURCE_ID))).toBe(404);
     });
 });

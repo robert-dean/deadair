@@ -80,6 +80,23 @@ export function segmentAudioUrl(base: string, segmentId: string): string {
 }
 
 /**
+ * Where the player fetches the station's own copy of a record.
+ *
+ * Built off the playout base directly rather than off its parent, unlike
+ * {@link segmentAudioUrl}: this route lives under `/playout/` because it is the
+ * transport's own, while a segment is the render module's and is served where the
+ * console previews it.
+ *
+ * Deliberately NOT under {@link BRIDGE}. Everything under that prefix is gated on
+ * the shared secret, and this is fetched by the same headerless Liquidsoap GET
+ * that fetches segment audio — see the note on the operation in `playout.ck` for
+ * why signing it would gate one door of a room with two.
+ */
+export function trackAudioUrl(base: string, sourceId: string): string {
+    return `${base}/audio/${sourceId}`;
+}
+
+/**
  * Where Icecast posts a listener arriving or leaving.
  *
  * The event is in the query because Icecast configures one URL per event and can

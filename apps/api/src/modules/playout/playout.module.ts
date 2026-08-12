@@ -11,6 +11,7 @@ import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { CompositeTrackResolver, TrackResolver } from './playout.capability.js';
 import { resolvePlayoutBaseUrl } from './playout.urls.js';
+import { CachedTrackResolver } from './providers/cache.resolver.js';
 import { PluginTrackResolver } from './providers/plugin.resolver.js';
 import { SegmentTrackResolver } from './providers/segment.resolver.js';
 import { PlayoutPusher } from './playout.pusher.js';
@@ -68,14 +69,31 @@ export const PlayoutModule: ServerKitModule = {
         //
         // The segment link is exactly the second one the original comment here
         // anticipated: a source deadair serves itself rather than through a plugin.
+        //
+        // The cache link is FIRST, and its position is the whole of what makes the
+        // station play its own copies: it is the one link that does not guard on a
+        // `pluginId`, because whether the bytes are on disk is a fact about the file
+        // rather than about who served it. A miss declines, so the provider answers
+        // next and the record plays exactly as it did before.
         registry.register(PluginTrackResolver).useClass(PluginTrackResolver).asSingleton();
         registry
             .register(SegmentTrackResolver)
             .useFactory(container => new SegmentTrackResolver(container, resolvePlayoutBaseUrl(config), container.get(Logger)))
             .asSingleton();
         registry
+            .register(CachedTrackResolver)
+            .useFactory(container => new CachedTrackResolver(container, config, resolvePlayoutBaseUrl(config), container.get(Logger)))
+            .asSingleton();
+        registry
             .register(TrackResolver)
-            .useFactory(container => new CompositeTrackResolver([container.get(PluginTrackResolver), container.get(SegmentTrackResolver)]))
+            .useFactory(
+                container =>
+                    new CompositeTrackResolver([
+                        container.get(CachedTrackResolver),
+                        container.get(PluginTrackResolver),
+                        container.get(SegmentTrackResolver),
+                    ]),
+            )
             .asSingleton();
 
         registry.register(Rundown).useClass(Rundown).asSingleton();

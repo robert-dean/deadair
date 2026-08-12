@@ -76,6 +76,53 @@ operation /playout/stop: {
     }
 }
 
+# ── The station's own copy of a record ─────────────────────────────────────────────────
+
+# Where the player fetches a record the station has cached. Anonymous, and NOT under
+# `/playout/bridge/`: Liquidsoap fetches this with no headers from us, exactly as it fetches
+# `/segments/{id}/audio`, and putting it behind the bridge secret would mean minting a signed
+# URL for audio the station is already broadcasting unauthenticated to anyone who opens the
+# mount. See the note at the top of `render.ck`, which is the same argument.
+#
+# It does NOT check `playout.trackCache`. A URL already handed to the player for an item about
+# to air has to keep working, and refusing to serve a file that exists would turn a settings
+# toggle into a gap on the mount. The switch decides which URL is handed out, which is the
+# resolver's job and not this route's.
+#
+# `internal`, unlike the segment audio route: nothing in the console plays a record back, so
+# there is no reason for this to reach the SDK.
+operation(internal) /playout/audio/{sourceId}: {
+    params: {
+        sourceId: uuid
+    }
+    get: { # The station's own copy of one record, by the provider binding it was cached for
+        name: Get cached track audio
+        service: PlayoutService.getTrackAudio
+        security: none
+        response: {
+            200: {
+                # Every format the track store holds. The service returns `contentType` and the
+                # router sets ctx.type from it, because Liquidsoap names the temp file it
+                # downloads to after the content type and picks its decoder from that name — so
+                # announcing one mime for all of them fails as silence rather than as an error.
+                audio/mpeg: binary
+                audio/wav: binary
+                audio/ogg: binary
+                audio/flac: binary
+                audio/mp4: binary
+                headers: {
+                    cache-control?: string
+                    etag?: string
+                }
+            }
+            # Documented rather than produced here: the conditional-GET middleware turns a fresh
+            # 200 carrying an ETag into one. A bare status says exactly that, so the service is
+            # not asked to return it.
+            304:
+        }
+    }
+}
+
 # ── The stream container's half: the bridge ────────────────────────────────────────────
 #
 # Everything under `/playout/bridge/` is called by a process in the stream container rather

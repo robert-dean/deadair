@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Container } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PluginTrackResolver } from '../providers/plugin.resolver.js';
 import { TrackAudioRepository, type SourceAudio } from './track.audio.repository.js';
 import { TRACK_CONTENT_TYPES, TRACK_SOURCE_TYPES, TrackContentType, TrackExtension, TrackStore } from './track.store.js';
@@ -39,6 +40,21 @@ const MIN_TRACK_BYTES = 16 * 1024;
 /** First retry after five minutes, doubling per attempt up to a day. The art cache's ladder. */
 const BASE_RETRY_MS = 5 * 60 * 1000;
 const MAX_RETRY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How many failures in a row before the station stops offering the copy at all.
+ *
+ * Four, which against the retry ladder above is roughly an hour and a quarter of trying (5 + 10 + 20 +
+ * 40 minutes) before a record is benched — long enough that a provider blip, a restarted shim or an
+ * expired session costs nothing, short enough that a station is not offering a record nothing can serve
+ * all evening.
+ *
+ * It counts CONSECUTIVE failures rather than total attempts, which is `recordSuccess` resetting the
+ * counter. That reset is load-bearing here and not bookkeeping: with `playout.trackCache` off there is
+ * never a checksum to tell a healthy binding from a failing one, so a count that only ever climbed
+ * would eventually bench a perfectly good catalogue, one record at a time, silently.
+ */
+const MISSING_AFTER_ATTEMPTS = 4;
 
 /**
  * How far past the cursor a record is fetched before its slot, in ITEMS.
@@ -281,7 +297,50 @@ export class TrackAudioService {
                 reason,
             });
 
+            // `attempts` on the row we read was the count BEFORE this failure, which the write above has
+            // just bumped — hence `+ 1` rather than a re-read.
+            if (source.attempts + 1 >= MISSING_AFTER_ATTEMPTS) await this.bench(source, reason);
+
             return undefined;
+        }
+    }
+
+    /**
+     * Stop offering a copy whose audio never arrives.
+     *
+     * Writes `track_sources.missing_at` through the catalog, which owns that table. Every reader
+     * already excludes on it, so this one statement takes the binding out of rotation, out of binding
+     * selection, out of measurement and out of the running order — see `TracksRepository`.
+     *
+     * A bench rather than a ban: the hourly `catalog.sync` clears the mark on every re-sighting, so a
+     * record the provider still lists comes back, gets one more attempt, and is benched again if it
+     * still refuses. That is the reason this uses `missing_at` and not `playable`, which nothing clears.
+     *
+     * Said at `warn` and once, because the station is narrowing its own rotation and nothing else will
+     * mention it. Swallows its own failure: not being able to write the mark is not a reason to fail a
+     * request that has already answered.
+     */
+    private async bench(source: SourceAudio, reason: string): Promise<void> {
+        const scope = this.container.createScopedContainer();
+        try {
+            // Already benched, by an earlier failure or by ingest noticing the same thing: say nothing
+            // rather than repeating a line an operator has already seen.
+            if (!(await scope.get(TracksRepository).markBindingMissing(source.pluginId, source.externalId))) return;
+
+            this.logger.warn('playout: giving up on a copy of a record; the catalog will stop offering it', {
+                plugin: source.pluginId,
+                track: source.externalId,
+                attempts: source.attempts + 1,
+                reason,
+            });
+        } catch (error) {
+            this.logger.warn('playout: could not write off a binding that will not serve', {
+                plugin: source.pluginId,
+                track: source.externalId,
+                error: errorText(error),
+            });
+        } finally {
+            await scope.disposeAsync();
         }
     }
 

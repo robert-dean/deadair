@@ -16,6 +16,7 @@ import { TrackAudioRepository, type SourceAudio } from '../../../../src/modules/
 import { TrackStore } from '../../../../src/modules/playout/audio/track.store.js';
 import { TRACK_CACHE_KEY } from '../../../../src/modules/playout/audio/track.cache.settings.js';
 import type { PluginTrackResolver } from '../../../../src/modules/playout/providers/plugin.resolver.js';
+import { TracksRepository } from '../../../../src/modules/catalog/tracks.repository.js';
 
 const SOURCE_ID = '11111111-2222-3333-4444-555555555555';
 const AUDIO_URL = 'http://127.0.0.1:3679/track/track-42?t=signed';
@@ -52,11 +53,17 @@ const build = (options: { source: SourceAudio | undefined; keeping?: boolean; ur
     const findForSource = vi.fn(async () => options.source);
     const recordSuccess = vi.fn(async () => {});
     const recordFailure = vi.fn(async () => {});
+    const markBindingMissing = vi.fn(async () => true);
     const disposeAsync = vi.fn(async () => {});
 
     const container = {
         createScopedContainer: () => ({
-            get: (token: unknown) => (token === TrackAudioRepository ? { findForSource, recordSuccess, recordFailure } : undefined),
+            get: (token: unknown) =>
+                token === TrackAudioRepository
+                    ? { findForSource, recordSuccess, recordFailure }
+                    : token === TracksRepository
+                      ? { markBindingMissing }
+                      : undefined,
             disposeAsync,
         }),
     } as unknown as Container;
@@ -73,6 +80,7 @@ const build = (options: { source: SourceAudio | undefined; keeping?: boolean; ur
         findForSource,
         recordSuccess,
         recordFailure,
+        markBindingMissing,
         resolveBinding,
     };
 };
@@ -274,5 +282,63 @@ describe('TrackAudioService.warm', () => {
 
         expect(await service.warm(SOURCE_ID)).toBe(false);
         expect(recordFailure).toHaveBeenCalled();
+    });
+});
+
+// Giving up on a copy the provider will not serve. The station narrows its own rotation here, so the
+// threshold has to be reached by CONSECUTIVE failures and by nothing else.
+describe('benching a binding that will not serve', () => {
+    const failing = (attempts: number): SourceAudio => ({ ...BINDING, attempts });
+
+    it('leaves a binding alone while it is still worth retrying', async () => {
+        const { service, markBindingMissing } = build({ source: failing(2) });
+        respondWith(RECORD, { status: 502, contentType: 'audio/ogg' });
+
+        await service.ensure(SOURCE_ID);
+
+        expect(markBindingMissing).not.toHaveBeenCalled();
+    });
+
+    it('writes the copy off once the failures run out of patience', async () => {
+        // Three already recorded, so this failure is the fourth.
+        const { service, markBindingMissing } = build({ source: failing(3) });
+        respondWith(RECORD, { status: 502, contentType: 'audio/ogg' });
+
+        await service.ensure(SOURCE_ID);
+
+        expect(markBindingMissing).toHaveBeenCalledExactlyOnceWith('deadair.spotify', 'track-42');
+    });
+
+    // The mark is idempotent in the repository, so a later failure on an already-benched binding says
+    // nothing rather than repeating a line an operator has seen.
+    it('says nothing when the copy was already written off', async () => {
+        const { service, markBindingMissing } = build({ source: failing(9) });
+        markBindingMissing.mockResolvedValue(false);
+        respondWith(RECORD, { status: 502, contentType: 'audio/ogg' });
+
+        await service.ensure(SOURCE_ID);
+
+        expect(markBindingMissing).toHaveBeenCalled();
+    });
+
+    // The failure mode with teeth: with the cache off there is no checksum to distinguish a healthy
+    // binding from a failing one, so a fetch that WORKS has to clear the count or a working catalogue
+    // benches itself one record at a time.
+    it('resets nothing itself, but records a success that does', async () => {
+        const { service, recordSuccess, markBindingMissing } = build({ source: failing(3), keeping: false });
+        respondWith(RECORD, { contentType: 'audio/ogg' });
+
+        expect(await service.ensure(SOURCE_ID)).toBeDefined();
+        expect(recordSuccess).toHaveBeenCalledWith(SOURCE_ID, undefined);
+        expect(markBindingMissing).not.toHaveBeenCalled();
+    });
+
+    // Not being able to write the mark must not fail a request that has already answered.
+    it('swallows a failure to write the mark', async () => {
+        const { service, markBindingMissing } = build({ source: failing(3) });
+        markBindingMissing.mockRejectedValue(new Error('the pool is gone'));
+        respondWith(RECORD, { status: 502, contentType: 'audio/ogg' });
+
+        await expect(service.ensure(SOURCE_ID)).resolves.toBeUndefined();
     });
 });

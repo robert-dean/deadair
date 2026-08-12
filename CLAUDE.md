@@ -229,7 +229,13 @@ and it is the only place the backoff is read (a request for bytes something is w
 `CACHE_AHEAD` lives in `track.audio.service.ts` rather than in the planner that owns the window, for the
 reason `TRACK_PACE_MS` lives in `AnalysisService`: the planner imports the service, and the cycle the
 other way throws `Cannot access 'CACHE_AHEAD' before initialization` under Node's ESM loader while
-loading fine under vitest. Nothing evicts yet.
+loading fine under vitest. **Four consecutive failures write off the copy** — `TracksRepository.markBindingMissing`
+sets `track_sources.missing_at`, which every reader already excludes on, so one statement takes the
+binding out of rotation, binding selection, measurement and the running order. It is a BENCH, not a ban:
+`upsertTrackSource` clears the mark on every re-sighting, so the hourly `catalog.sync` un-benches a copy
+the provider still lists and it gets one more attempt. That is why the column is `missing_at` and not
+`playable`, which nothing clears and which would bench a record for good over an outage. Nothing evicts
+yet.
 
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on

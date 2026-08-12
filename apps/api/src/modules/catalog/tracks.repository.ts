@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { sql } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import { CatalogListQuery, likeContains } from './catalog.query.js';
 import { artUrl } from './catalog.art.js';
@@ -143,5 +144,37 @@ export class TracksRepository extends DataRepository {
                 .where('deadair.tracks.mergedIntoId', 'is', null)
                 .execute()
         );
+    }
+
+    /**
+     * Write off one provider's copy of a track, because its audio never arrives.
+     *
+     * The one WRITE in this file, and it is here rather than in the playout module because the catalog
+     * owns `track_sources`. What it means is what `missing_at` has always meant — this provider will not
+     * give us this track — arrived at from the other direction: ingest stops seeing it in a listing,
+     * this notices the audio refusing to be fetched. Both are the same fact about the same binding, and
+     * every reader already excludes on it (`CandidatesRepository.sample` and `bindingsFor`, the analysis
+     * walk, and the transport's own resolver), so one statement takes the copy out of rotation, out of
+     * binding selection, out of measurement and out of the running order.
+     *
+     * `where missing_at is null` makes it idempotent and stops a repeat pushing the timestamp forward:
+     * the interesting fact is WHEN the station gave up, and a later attempt is not a fresh giving-up.
+     *
+     * **Not permanent, and that is the point of using this column.** `upsertTrackSource` clears
+     * `missing_at` on every re-sighting, so the hourly `catalog.sync` un-benches a binding the provider
+     * still lists — the copy gets one more attempt, cheaply, and is benched again if it still refuses.
+     * A permanent mark would need `playable`, which nothing clears, and a transient outage would then
+     * bench a record for good.
+     */
+    async markBindingMissing(pluginId: string, externalId: string): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.trackSources')
+            .set({ missingAt: sql<never>`now()` })
+            .where('pluginId', '=', pluginId)
+            .where('externalId', '=', externalId)
+            .where('missingAt', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
     }
 }

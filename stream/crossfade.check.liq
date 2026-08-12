@@ -30,8 +30,12 @@ playout_cross_out_key = "liq_cross_end_duration"
 playout_cross_in_key = "liq_cross_start_duration"
 playout_cross_hard_join = 0.1
 
+# Must stay the same shape as radio.liq's: `string.to_float`, never
+# `float_of_string(default=null, …) ?? fallback`, which RAISES on an unstamped item rather than
+# falling back. These harnesses always stamp both keys, so they never hit it — which is exactly why
+# they did not catch it on air.
 def playout_cross_duration(m) =
-  float_of_string(default=null, string.trim(m[playout_cross_out_key])) ?? playout_cross_hard_join
+  string.to_float(default=playout_cross_hard_join, string.trim(m[playout_cross_out_key]))
 end
 
 def playout_transition(a, b) =

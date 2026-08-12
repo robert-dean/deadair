@@ -60,11 +60,16 @@ talk_over = environment.get("TALK_OVER_TRACKS", default="true") == "true"
 # duckGainDb / duckFadeMs, materialized into radio.env). Read at startup like talk_over.
 #
 # Tolerate an unset, empty or malformed value: the materializer writes every key whether or not
-# it is set. `float_of_string`'s own `default` is NULLABLE, so passing our fallback to it would
-# make this whole function return `float?` and nothing downstream would accept it — hence
-# `default=null` and `??`, which also folds the empty case in.
+# it is set.
+#
+# **`string.to_float`, and NOT `float_of_string(default=null, …) ?? fallback`.** That shape is what
+# this was, and it is a misreading of the stdlib that took the station off air: with `default=null`,
+# `float_of_string` RAISES `failure("float_of_string")` on anything it cannot parse — the empty
+# string included — so the `??` it was paired with is unreachable. 2.4.5's own
+# `string.to_float(~default=0., s) = float_of_string(default=default, s)` is the sanctioned form: a
+# non-null default is returned rather than raised, and the result is a plain float.
 def env_float(name, default) =
-  float_of_string(default=null, string.trim(environment.get(name, default=""))) ?? default
+  string.to_float(default=default, string.trim(environment.get(name, default="")))
 end
 duck_gain_db = env_float("DUCK_GAIN_DB", -12.)
 duck_fade_ms = max(1., env_float("DUCK_FADE_MS", 300.))
@@ -465,10 +470,15 @@ playout_cross_hard_join = 0.1
 
 # How long the boundary OUT of a record is, off its own metadata.
 #
-# Same `float_of_string(default=null, …) ?? fallback` shape as `env_float` at the top, and for the
-# same reason: the key is absent on anything the app did not stamp.
+# `string.to_float` for the reason `env_float` gives at the top, and THIS is the site where getting it
+# wrong was fatal rather than latent: the key is absent on anything the app did not stamp — the local
+# music bed, a hand-pushed uri, anything queued by something other than `PlayoutPusher` — and every
+# boundary runs this from inside `cross`'s transition callback. A raise there is not caught: it comes
+# out through `Cross.cross#create_after`, up through `Output.output#output`, and kills the clock
+# thread, which takes the whole process down and the mount with it. Measured on 2026-08-12: a station
+# that aired one item after every restart and crashed on the second, ~65 times.
 def playout_cross_duration(m) =
-  float_of_string(default=null, string.trim(m[playout_cross_out_key])) ?? playout_cross_hard_join
+  string.to_float(default=playout_cross_hard_join, string.trim(m[playout_cross_out_key]))
 end
 
 # What happens during the overlap.
@@ -837,7 +847,9 @@ def control_voice_arm(req) =
   else
     uri = string.trim(req.body())
     item = list.assoc(default="", "x-voice-item", req.headers)
-    at_ms = float_of_string(default=null, string.trim(list.assoc(default="", "x-voice-at-ms", req.headers))) ?? 0.
+    # `string.to_float`, per `env_float` at the top: a missing or malformed header is an ordinary
+    # request to reject below, and the old `default=null` shape raised on it instead.
+    at_ms = string.to_float(default=0., string.trim(list.assoc(default="", "x-voice-at-ms", req.headers)))
     if uri == "" or item == "" then
       http.response(status_code=400, content_type="text/plain", data="need a uri and an item")
     else

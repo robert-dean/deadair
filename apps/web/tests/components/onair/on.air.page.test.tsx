@@ -203,16 +203,30 @@ describe('OnAirPage', () => {
         expect(await screen.findByRole('button', { name: 'Shuffle' })).toBeDisabled();
     });
 
-    it('points an empty station at the playlists it airs from', async () => {
-        // There is nothing to prepare first: a running order is built from a playlist at the
-        // moment it goes on air.
+    it('offers an empty station both ways on air, the brief first', async () => {
+        // Neither needs anything prepared: a brief is programmed against from nothing, and a
+        // playlist is READ at the moment the station goes on. The brief is first because it is the
+        // one that needs no material at all.
         getTheRunningOrder.mockResolvedValue(order({ items: [], name: '' }));
         getStationAir.mockResolvedValue(stationAir({ active: false }));
 
         render(<OnAirPage />);
 
-        expect(await screen.findByText(/The station has nothing on/)).toBeInTheDocument();
+        expect(await screen.findByText('Tell the station what to play')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Go on air' })).toBeDisabled();
         expect(screen.getByText('Browse playlists')).toBeInTheDocument();
+    });
+
+    it('shows the brief that is still steering a broadcast', async () => {
+        // It is not a label: every refill for the rest of this broadcast is programmed against it,
+        // so an operator wondering why the station keeps choosing what it chooses is looking at
+        // the answer.
+        getTheRunningOrder.mockResolvedValue(order({ brief: 'heavy metal hits' }));
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+
+        expect(await screen.findByText('asked for: heavy metal hits')).toBeInTheDocument();
     });
 
     it('says when the station is silent on purpose', async () => {

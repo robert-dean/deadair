@@ -67,9 +67,12 @@ export const modules: ServerKitModule[] = [
     NowPlayingModule,
     // After PluginsModule for the same reason as EnrichmentModule, and after
     // PlayoutModule as well: it measures a track by fetching the same audio the
-    // transport would play, through that module's `PluginTrackResolver`. A plugin
-    // cannot ask another plugin for a stream URL, so resolving one is the host's
-    // job and this borrows the resolver that already does it.
+    // transport would play, through that module's `CachedTrackResolver` and then
+    // its `PluginTrackResolver`. A plugin cannot ask another plugin for a stream
+    // URL, so resolving one is the host's job and this borrows the resolvers that
+    // already do it — in that order, because a record the station has cached is
+    // measured from the file that will actually air rather than from a fresh
+    // download of it.
     //
     // Before DirectorModule, which reads the measurements back the other way:
     // `PickResolver` stamps a track's cue points onto the item it builds, so the

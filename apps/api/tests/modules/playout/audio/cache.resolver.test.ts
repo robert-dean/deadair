@@ -108,6 +108,23 @@ describe('CachedTrackResolver', () => {
         expect(disposeAsync).toHaveBeenCalled();
     });
 
+    // What the measurement walk calls. A miss there means the station has never aired the record, so
+    // asking for a copy would download the parts of the catalogue that never air.
+    it('answers a bare binding question without asking for a copy on a miss', async () => {
+        const { resolver, send } = build({ binding: MISS });
+
+        expect(await resolver.resolveBinding('deadair.navidrome', 'track-42')).toBeUndefined();
+        expect(send).not.toHaveBeenCalled();
+    });
+
+    it('serves a cached record to a bare binding question too', async () => {
+        const { resolver } = build({ binding: CACHED });
+
+        expect(await resolver.resolveBinding('deadair.navidrome', 'track-42')).toBe(
+            `http://host.docker.internal:3333/playout/audio/${CACHED.sourceId}`,
+        );
+    });
+
     it('closes its scope on every path, since it opens one per hand-over', async () => {
         const { resolver, disposeAsync } = build({ binding: CACHED });
 

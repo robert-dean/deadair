@@ -9,6 +9,25 @@ that have been handed over or cached, so it does not fail on tracks we cannot re
 The question is the right one and its premise is worth taking apart, because two of the three things
 it assumes are not true of this tree and the third is true of something the walk does not do yet.
 
+> **Update, 2026-08-12: there is a cache now, and half of "the version where analysis is free" is
+> real.** `deadair.track_audio` keeps a copy of every record the station plays (`playout.trackCache`,
+> on by default), and `AnalysisService.resolveAudio` asks `CachedTrackResolver` before the provider.
+> So for anything the station has aired, a measurement is a local read and costs no provider fetch at
+> all — `BATCH_SIZE` and `TRACK_PACE_MS` still bound the walk, but they are only spending anything on
+> records that have never been played. The premise below that "there is no cache to ride on" is
+> therefore out of date, and so is the reasoning that follows from it.
+>
+> What is NOT done, and is still worth its section: the walk does not order by `play_history`, so
+> which tracks it reaches is unchanged; `unfetchable` and `undecodable` still land in one row with one
+> suppression; nothing feeds an air-time failure back into `track_sources.missing_at`; and the walk
+> deliberately does not FILL the cache, so a record the station has never played is fetched from the
+> provider exactly as before. The fill is on air only, on purpose — measuring is not a reason to put a
+> catalogue on disk.
+>
+> It is also not a tee, which the last section below hoped for: Liquidsoap fetches the provider URL
+> itself and those bytes never pass through Node, so the first play of a record costs two downloads
+> and every play after it costs none.
+
 ## What "handed over or cached" would and would not buy
 
 **There is no cache to ride on.** The shim streams a record on demand and Liquidsoap downloads each

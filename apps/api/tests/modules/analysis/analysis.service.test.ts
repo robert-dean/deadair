@@ -44,8 +44,10 @@ interface HarnessOptions {
     pending?: AnalysableTrack[];
     /** What `analyzeTrack` does. Default: a good measurement. */
     analyze?: (ref: { trackId: string }) => Promise<TrackAnalysis>;
-    /** What the resolver answers. Default: a URL for everything. */
+    /** What the provider resolver answers. Default: a URL for everything. */
     resolveUrl?: (pluginId: string, externalId: string) => Promise<string | undefined>;
+    /** The station's own copy of the track, when it has one. Absent means it has not played it. */
+    cachedUrl?: string;
 }
 
 function build(options: HarnessOptions = {}) {
@@ -81,6 +83,12 @@ function build(options: HarnessOptions = {}) {
         resolveBinding: vi.fn(options.resolveUrl ?? (async () => 'http://shim.test/audio.mp3')),
     };
 
+    // The station's own copy, asked first. Holds nothing unless a case says it does, which is the
+    // ordinary state of a catalog the station has not played through yet.
+    const cachedTracks = {
+        resolveBinding: vi.fn(async () => options.cachedUrl),
+    };
+
     const config = {
         get: vi.fn((key: string, fallback: unknown) => {
             if (key === 'analysis.pluginId') return options.configured ?? '';
@@ -96,11 +104,12 @@ function build(options: HarnessOptions = {}) {
         registry as never,
         invoker as never,
         trackResolver as never,
+        cachedTracks as never,
         config,
         logger,
     );
 
-    return { service, repository, registry, invoker, trackResolver, logger, analyzeTrack, recordAnalysis, recordFailure };
+    return { service, repository, registry, invoker, trackResolver, cachedTracks, logger, analyzeTrack, recordAnalysis, recordFailure };
 }
 
 describe('choosing an analyzer', () => {
@@ -150,6 +159,27 @@ describe('measuring a track', () => {
             audioUrl: 'http://shim.test/audio.mp3',
             durationMs: 214_000,
         });
+    });
+
+    // Correctness before cost: cue points describe a specific set of bytes, and the bytes that air
+    // for a cached record are the file. Measuring the provider's stream instead would leave
+    // `liq_cue_in` out by whatever its encoder shifted.
+    it('measures the station copy when there is one, and never asks the provider', async () => {
+        const { service, trackResolver, analyzeTrack } = build({ cachedUrl: 'http://station.test/playout/audio/source-1' });
+        await service.analysePending(50, undefined, 0);
+
+        expect(analyzeTrack).toHaveBeenCalledWith(expect.objectContaining({ audioUrl: 'http://station.test/playout/audio/source-1' }));
+        expect(trackResolver.resolveBinding).not.toHaveBeenCalled();
+    });
+
+    // A miss means the station has never aired the record. Fetching a copy to measure it would be
+    // the walk-shaped fill that was deliberately not built.
+    it('falls back to the provider for a record the station has not cached, without asking for a copy', async () => {
+        const { service, cachedTracks, analyzeTrack } = build();
+        await service.analysePending(50, undefined, 0);
+
+        expect(cachedTracks.resolveBinding).toHaveBeenCalledWith('deadair.spotify', 'spotify-1');
+        expect(analyzeTrack).toHaveBeenCalledWith(expect.objectContaining({ audioUrl: 'http://shim.test/audio.mp3' }));
     });
 
     it('stores the measurement against the analyzer that made it', async () => {

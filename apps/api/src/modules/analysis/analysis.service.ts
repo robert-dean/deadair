@@ -5,6 +5,7 @@ import { ANALYSIS_SCHEMA_VERSION, type AnalysisRef } from '@deadair/plugin-sdk';
 import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
+import { CachedTrackResolver } from '#modules/playout/providers/cache.resolver.js';
 import { PluginTrackResolver } from '#modules/playout/providers/plugin.resolver.js';
 import { AnalysisRepository, type AnalysableTrack } from './analysis.repository.js';
 import {
@@ -74,6 +75,8 @@ export class AnalysisService {
         private readonly registry: PluginRegistry,
         private readonly invoker: PluginInvoker,
         private readonly trackResolver: PluginTrackResolver,
+        // Asked before the provider, and never asked to FILL. See resolveAudio below.
+        private readonly cachedTracks: CachedTrackResolver,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -184,6 +187,27 @@ export class AnalysisService {
     }
 
     /**
+     * The audio to measure: the station's own copy if it has one, else the provider's.
+     *
+     * Cache first, and the reason is correctness before it is cost. Cue points and loudness are
+     * measured against a specific set of BYTES, and what the station plays for a record it has cached
+     * is that file — so measuring the provider's stream instead leaves `liq_cue_in` and `liq_amplify`
+     * describing audio nobody will hear, out by however much the provider's encoder shifted. The
+     * saved download is the second benefit, and it is the half `docs/todo/analysis-queue-ordering.md`
+     * calls the version where analysis is free: for everything the station has played, it now is.
+     *
+     * It does NOT fill the cache. A miss here means the station has never aired the record, and
+     * fetching a copy because something wanted to measure it would be the walk-shaped fill that was
+     * deliberately not built — a whole catalogue on disk including the parts that never air.
+     */
+    private async resolveAudio(track: AnalysableTrack): Promise<string | undefined> {
+        const cached = await this.cachedTracks.resolveBinding(track.pluginId, track.externalId);
+        if (cached !== undefined) return cached;
+
+        return this.trackResolver.resolveBinding(track.pluginId, track.externalId);
+    }
+
+    /**
      * One track: resolve its audio, measure it, write the outcome.
      *
      * Never throws. Everything that can go wrong here is one track's problem,
@@ -195,7 +219,7 @@ export class AnalysisService {
         // Resolved here rather than by the analyzer, because a plugin cannot ask
         // another plugin for anything: the copy that can actually be served is a
         // binding the catalog owns, and reaching it is the host's job.
-        const audioUrl = await this.trackResolver.resolveBinding(track.pluginId, track.externalId);
+        const audioUrl = await this.resolveAudio(track);
         if (audioUrl === undefined) {
             // Not recorded as a failure. Nothing about the TRACK is wrong -- its
             // provider is disabled, unconfigured or between reloads -- and

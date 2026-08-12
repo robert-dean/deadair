@@ -22,6 +22,14 @@ describe('the settings registry', () => {
         }
     });
 
+    it('only makes a descriptor depend on a key that exists', () => {
+        // A `dependsOn` naming a key nothing declares is a field the console hides forever, which
+        // reads to an operator as a setting that was never built rather than as a typo.
+        for (const descriptor of SETTING_DESCRIPTORS.filter(candidate => candidate.dependsOn !== undefined)) {
+            expect(findDescriptor(descriptor.dependsOn!), `${descriptor.key} depends on ${descriptor.dependsOn}`).toBeDefined();
+        }
+    });
+
     it('never gives a secret a default', () => {
         // A default for a secret would be a shared password shipped in the source, and the console
         // would prefill an input that must always start empty.

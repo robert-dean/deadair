@@ -1,0 +1,204 @@
+// Everything here is a way the model can be unhelpful without being broken: off, absent, silent,
+// repetitive, or answering confidently without ever having looked at the library. None of them may
+// cost the station a running order, because the chain tops up from a draw that cannot fail -- so
+// what is actually under test is that each one produces FEWER picks rather than an exception.
+
+import { describe, expect, it, vi } from 'vitest';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
+import type { Logger } from '@maroonedsoftware/logger';
+
+import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
+import { MODEL_GENERATOR_KEYS, ModelSetGenerator } from '../../../src/modules/director/model.set.generator.js';
+import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
+import type { SetInputs } from '../../../src/modules/director/set.generator.js';
+
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+
+interface Options {
+    /** Whether `llm.setGenerator` is on. Off is the default, as it is in the registry. */
+    enabled?: boolean;
+    /** Whether a plugin can produce words at all. */
+    canGenerate?: boolean;
+    /** What the model answers with. */
+    text?: string;
+    /** How many tool calls the loop ran. */
+    toolCallsMade?: number;
+    /** A model that throws instead of answering. */
+    fails?: boolean;
+    settings?: Record<string, string>;
+}
+
+function build(options: Options = {}) {
+    const converse = vi.fn(async (): Promise<LlmConversation> => {
+        if (options.fails) throw new Error('the model host is down');
+        return {
+            text: options.text ?? '[]',
+            toolCalls: [],
+            toolCallsMade: options.toolCallsMade ?? 1,
+            finishReason: 'stop',
+            usage: { totalTokens: 500 },
+        };
+    });
+
+    const llm = {
+        converse,
+        canGenerate: () => options.canGenerate ?? true,
+        explainGenerator: () => 'no active plugin can produce words',
+    } as unknown as LlmService;
+
+    const values: Record<string, string> = {
+        [MODEL_GENERATOR_KEYS.enabled]: options.enabled ? 'true' : 'false',
+        ...options.settings,
+    };
+    const config = {
+        get: (key: string, fallback: unknown) => {
+            const value = values[key];
+            if (value === undefined) return fallback;
+            return typeof fallback === 'boolean' ? value !== 'false' : value;
+        },
+        has: (key: string) => values[key] !== undefined,
+    } as unknown as AppConfig;
+
+    return { generator: new ModelSetGenerator(llm, config, logger), converse };
+}
+
+const inputs = (count: number, overrides: Partial<SetInputs> = {}): SetInputs => ({ count, rules: DEFAULT_RULES, ...overrides });
+
+const picks = (...pairs: [string, string][]) => JSON.stringify(pairs.map(([title, artist]) => ({ title, artist })));
+
+describe('ModelSetGenerator', () => {
+    it('names itself so the log can say which binding chose', () => {
+        expect(build().generator.name).toBe('model');
+    });
+
+    it('declines without touching the plugin while the setting is off', async () => {
+        // Off by default, and this is the state every fresh install is in.
+        const { generator, converse } = build({ enabled: false });
+
+        expect(await generator.generate(inputs(10))).toEqual([]);
+        expect(converse).not.toHaveBeenCalled();
+    });
+
+    it('declines when nothing can produce words, which is an ordinary state', async () => {
+        const { generator, converse } = build({ enabled: true, canGenerate: false });
+
+        expect(await generator.generate(inputs(10))).toEqual([]);
+        expect(converse).not.toHaveBeenCalled();
+    });
+
+    it('asks nobody for nothing', async () => {
+        const { generator, converse } = build({ enabled: true });
+
+        expect(await generator.generate(inputs(0))).toEqual([]);
+        expect(converse).not.toHaveBeenCalled();
+    });
+
+    it('turns the model’s answer into picks', async () => {
+        const { generator } = build({ enabled: true, text: picks(['Windowlicker', 'Aphex Twin'], ['Teardrop', 'Massive Attack']) });
+
+        expect(await generator.generate(inputs(10))).toEqual([
+            { title: 'Windowlicker', artist: 'Aphex Twin' },
+            { title: 'Teardrop', artist: 'Massive Attack' },
+        ]);
+    });
+
+    it('hands back fewer than asked rather than padding', async () => {
+        // A partial answer is a good answer here: the chain keeps these and asks the floor for the
+        // rest, which is the whole reason a set is not a break.
+        const { generator } = build({ enabled: true, text: picks(['A', 'One'], ['B', 'Two']) });
+
+        expect(await generator.generate(inputs(15))).toHaveLength(2);
+    });
+
+    it('never hands back more than asked', async () => {
+        const { generator } = build({ enabled: true, text: picks(['A', 'One'], ['B', 'Two'], ['C', 'Three']) });
+
+        expect(await generator.generate(inputs(2))).toHaveLength(2);
+    });
+
+    it('re-picks rather than drops when the model put one artist on its own heels', async () => {
+        // A reorder and never a drop: the model chose these records, and losing one over its
+        // neighbour's sake costs the station a track for something a swap fixes.
+        const { generator } = build({
+            enabled: true,
+            text: picks(['A', 'One'], ['B', 'One'], ['C', 'Two']),
+        });
+
+        const chosen = await generator.generate(inputs(10));
+
+        expect(chosen).toHaveLength(3);
+        expect(chosen.map(pick => pick.artist)).toEqual(['One', 'Two', 'One']);
+    });
+
+    it('leaves an all-one-artist answer alone rather than stalling over it', async () => {
+        const { generator } = build({ enabled: true, text: picks(['A', 'One'], ['B', 'One']) });
+
+        expect(await generator.generate(inputs(10))).toHaveLength(2);
+    });
+
+    it('shows the model what the lineup already holds, as prose rather than as keys', async () => {
+        const { generator, converse } = build({ enabled: true });
+
+        await generator.generate(inputs(5, { avoidSongKeys: new Set(['aphex twin:windowlicker']) }));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const user = request.messages.find(message => message.role === 'user')?.content ?? '';
+        expect(user).toMatch(/"windowlicker" by aphex twin/);
+    });
+
+    it('skips an avoid key it cannot split rather than showing it mangled', async () => {
+        // It would still be a real record in the model's context that no tool returned, which is
+        // the one thing the prompt is shaped to avoid.
+        const { generator, converse } = build({ enabled: true });
+
+        await generator.generate(inputs(5, { avoidSongKeys: new Set(['nocolonhere', ':leadingcolon', 'trailing:']) }));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const user = request.messages.find(message => message.role === 'user')?.content ?? '';
+        expect(user).not.toMatch(/nocolonhere/);
+        expect(user).not.toMatch(/leadingcolon/);
+        expect(user).not.toMatch(/trailing/);
+    });
+
+    it('bounds both the wait and the generation, so a refill cannot starve the breaks', async () => {
+        const { generator, converse } = build({ enabled: true });
+
+        await generator.generate(inputs(5));
+
+        const [, options] = converse.mock.calls[0] as unknown as [unknown, { budgetMs: number; maxWaitMs: number; maxToolSteps: number }];
+        expect(options.budgetMs).toBe(180_000);
+        expect(options.maxWaitMs).toBe(60_000);
+        expect(options.maxToolSteps).toBe(8);
+    });
+
+    it('passes the operator’s chosen model through, and omits it when there is none', async () => {
+        const chosen = build({ enabled: true, settings: { [MODEL_GENERATOR_KEYS.model]: 'big-model' } });
+        await chosen.generator.generate(inputs(5));
+        expect((chosen.converse.mock.calls[0] as unknown as [{ model?: string }])[0].model).toBe('big-model');
+
+        const bare = build({ enabled: true });
+        await bare.generator.generate(inputs(5));
+        expect((bare.converse.mock.calls[0] as unknown as [{ model?: string }])[0]).not.toHaveProperty('model');
+    });
+
+    it('warns when the model answered without ever searching, and not when it searched and found nothing', async () => {
+        // The breaker distinction. A run that searched honestly and came back empty is a fact
+        // about a thin library; counting it would let a small catalogue condemn the model.
+        vi.mocked(logger.warn).mockClear();
+        const searched = build({ enabled: true, text: '[]', toolCallsMade: 3 });
+        await searched.generator.generate(inputs(5));
+        expect(logger.warn).not.toHaveBeenCalled();
+
+        const lazy = build({ enabled: true, text: '[]', toolCallsMade: 0 });
+        await lazy.generator.generate(inputs(5));
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/never searched/));
+    });
+
+    it('lets a model failure reach the chain, which is what absorbs it', async () => {
+        // Not caught here. `SetGeneratorChain.ask` flattens every way of failing to "it named
+        // nothing" in one place, so a second generator does not reimplement the same catch.
+        const { generator } = build({ enabled: true, fails: true });
+
+        await expect(generator.generate(inputs(5))).rejects.toThrow(/model host is down/);
+    });
+});

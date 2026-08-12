@@ -76,6 +76,24 @@ export interface LlmConverseOptions extends LlmCallOptions {
     maxToolSteps?: number;
 }
 
+/**
+ * What a conversation answers with: the model's own result, plus what the loop did to get it.
+ *
+ * An extension declared HERE rather than a change to `LlmResult`, which is a plugin-sdk payload
+ * describing one generation. The tool loop is the host's, so what it did is the host's to report.
+ *
+ * {@link toolCallsMade} exists for a specific judgement a caller cannot otherwise make. `converse`
+ * asks its last step without tools, so the returned `toolCalls` is empty on every successful
+ * conversation and says nothing about whether the model drove its tools at all. That distinction
+ * matters: a model that searched honestly and found nothing has told the truth about a thin
+ * library, while a model that never searched and answered anyway is a model failing to use what it
+ * was given. Only the second is worth counting against it.
+ */
+export interface LlmConversation extends LlmResult {
+    /** How many tool calls the loop actually ran, across every step. */
+    toolCallsMade: number;
+}
+
 /** Fold one generation's usage into a conversation's running total. */
 function addUsage(total: LlmUsage, step: LlmUsage | undefined): void {
     if (step === undefined) return;
@@ -257,7 +275,7 @@ export class LlmService {
      * is a request for a tool call nobody is going to make, which reads downstream as the model
      * having said nothing.
      */
-    async converse(request: LlmRequest, options: LlmConverseOptions = {}): Promise<LlmResult> {
+    async converse(request: LlmRequest, options: LlmConverseOptions = {}): Promise<LlmConversation> {
         const plugin = this.generator();
         if (plugin === undefined) throw new PluginError(`llm: ${this.explainGenerator()}`).withCode('unavailable');
 
@@ -298,10 +316,11 @@ export class LlmService {
         tools: Map<string, StationTool>,
         maxSteps: number,
         signal: AbortSignal,
-    ): Promise<LlmResult> {
+    ): Promise<LlmConversation> {
         const declarations = [...tools.values()].map(tool => tool.declaration);
         const messages = [...request.messages];
         const usage: LlmUsage = {};
+        let toolCallsMade = 0;
 
         for (let step = 0; ; step++) {
             // The last step is asked WITHOUT tools, so the model has to produce words rather than
@@ -313,7 +332,7 @@ export class LlmService {
             addUsage(usage, result.usage);
 
             if (result.toolCalls.length === 0 || lastStep) {
-                return { ...result, usage };
+                return { ...result, usage, toolCallsMade };
             }
 
             if (signal.aborted) {
@@ -321,7 +340,7 @@ export class LlmService {
                 // model has said so far rather than throwing: a partial line is worth more to a
                 // writer that can fall back than an exception is.
                 this.logger.info('llm: a conversation ran out of budget mid-loop', { plugin: plugin.record.id, step });
-                return { ...result, usage, finishReason: 'length' };
+                return { ...result, usage, toolCallsMade, finishReason: 'length' };
             }
 
             // The assistant turn AND its calls, as one message. A model that cannot see its own
@@ -331,6 +350,7 @@ export class LlmService {
             for (const call of result.toolCalls) {
                 const answer = await this.tools.run(call, tools, signal);
                 messages.push({ role: 'tool', toolCallId: call.id, content: answer });
+                toolCallsMade += 1;
             }
 
             this.logger.debug('llm: ran tools for a conversation', { plugin: plugin.record.id, step, calls: result.toolCalls.length });

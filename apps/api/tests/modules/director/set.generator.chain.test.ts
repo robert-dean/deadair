@@ -8,6 +8,8 @@ import type { Logger } from '@maroonedsoftware/logger';
 
 import { SetGeneratorChain } from '../../../src/modules/director/set.generator.chain.js';
 import { SetGenerator, type SetInputs, type TrackPick } from '../../../src/modules/director/set.generator.js';
+import { CatalogSetGenerator } from '../../../src/modules/director/catalog.set.generator.js';
+import { ModelSetGenerator } from '../../../src/modules/director/model.set.generator.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -149,5 +151,54 @@ describe('SetGeneratorChain', () => {
         const chain = new SetGeneratorChain([new Fake('model', []), new Fake('catalog', [])], logger);
 
         expect(chain.bindings()).toEqual(['model', 'catalog']);
+    });
+});
+
+// The invariant, driven through the two bindings the station actually registers rather than
+// through fakes. Everything above proves the chain's arithmetic; this proves the thing the
+// arithmetic exists for, which is that no way of the model being unavailable can leave the station
+// without a running order.
+describe('SetGeneratorChain with the real bindings', () => {
+    /** A catalog of `count` records by distinct artists, none of them recently aired. */
+    function catalogOf(count: number) {
+        const candidates = {
+            sample: vi.fn(async () =>
+                Array.from({ length: count }, (_, index) => ({
+                    trackId: `track-${index}`,
+                    title: `Title ${index}`,
+                    artist: `Artist ${index}`,
+                    credit: `Artist ${index}`,
+                    rating: 0,
+                })),
+            ),
+        } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[0];
+
+        const history = {
+            songKeysSince: vi.fn(async () => new Set<string>()),
+            artistKeysSince: vi.fn(async () => new Set<string>()),
+        } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[1];
+
+        return new CatalogSetGenerator(candidates, history);
+    }
+
+    /** The model binding as an operator who never turned it on has it. */
+    const modelOff = () =>
+        new ModelSetGenerator(
+            { converse: vi.fn(), canGenerate: () => true, explainGenerator: () => '' } as never,
+            { get: (_key: string, fallback: unknown) => fallback, has: () => false } as never,
+            logger,
+        );
+
+    it('fills the whole request from the floor when the model is switched off', async () => {
+        const chain = new SetGeneratorChain([modelOff(), catalogOf(50)], logger);
+
+        expect(await chain.generate(inputs(15))).toHaveLength(15);
+    });
+
+    it('fills it from the floor when the model throws', async () => {
+        const broken = new Fake('model', new Error('the model host is down'));
+        const chain = new SetGeneratorChain([broken, catalogOf(50)], logger);
+
+        expect(await chain.generate(inputs(15))).toHaveLength(15);
     });
 });

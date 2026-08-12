@@ -4,6 +4,7 @@ import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
 import { DEFAULT_TRACK_CACHE, TRACK_CACHE_KEY } from '#modules/playout/audio/track.cache.settings.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
+import { MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ANALYSIS_CONCURRENCY_KEY, ANALYSIS_PLUGIN_KEY, DEFAULT_ANALYSIS_CONCURRENCY } from '#modules/analysis/analysis.settings.js';
@@ -320,6 +321,32 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         dependsOn: MODEL_WRITER_KEYS.enabled,
         help: 'A line or two in your own words, handed to the model as the voice to write in. It cannot loosen the rules the station always sends: never name a record it was not given, and be certain or say nothing.',
+    },
+    {
+        group: 'llm',
+        key: MODEL_GENERATOR_KEYS.enabled,
+        label: 'Let a model choose what plays',
+        type: 'boolean',
+        default: false,
+        help: 'With this off the station picks by rule: a weighted draw shaped by the repeat window, the artist cooldown and your ratings. With it on the model chooses first and that draw finishes whatever it did not — a model that names six good records has done most of the job, so a partial answer is kept rather than thrown away. It can only choose records already in your library.',
+    },
+    {
+        group: 'llm',
+        key: MODEL_GENERATOR_KEYS.model,
+        label: 'Model for choosing records',
+        type: 'string',
+        dependsOn: MODEL_GENERATOR_KEYS.enabled,
+        default: '',
+        help: "Separate from the talk break's model on purpose: programming an hour is a research task and writing a link is not, so the two are worth sizing differently. Leave empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: MODEL_GENERATOR_KEYS.persona,
+        label: 'What the station plays',
+        type: 'text',
+        dependsOn: MODEL_GENERATOR_KEYS.enabled,
+        default: '',
+        help: 'A line or two in your own words about the music itself, handed to the model as what to choose towards. It cannot loosen the rules the station always sends, and it cannot reach a record your library does not hold. Your dislikes and the repeat window still apply to whatever it picks.',
     },
     {
         group: 'llm',

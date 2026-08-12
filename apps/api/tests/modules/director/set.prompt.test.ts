@@ -1,0 +1,153 @@
+// Two pure functions, so the decisions worth testing are all about what the model must not do and
+// what the station will not accept back. The prompt half is shaped around one failure -- a real
+// record shown as context being read as a record offered -- and the parsing half around the fact
+// that a local model told to answer in JSON often answers in a list instead.
+
+import { describe, expect, it } from 'vitest';
+
+import { NEVER_ECHO, readPicks, setPrompt } from '../../../src/modules/director/set.prompt.js';
+
+const systemOf = (messages: ReturnType<typeof setPrompt>) => messages.find(message => message.role === 'system')?.content ?? '';
+const userOf = (messages: ReturnType<typeof setPrompt>) => messages.find(message => message.role === 'user')?.content ?? '';
+
+describe('setPrompt', () => {
+    it('opens with one system turn and one user turn', () => {
+        const messages = setPrompt({ count: 5, avoid: [] });
+
+        expect(messages.map(message => message.role)).toEqual(['system', 'user']);
+    });
+
+    it('makes searching the library mandatory rather than encouraged', () => {
+        // The grounding rule. A name the catalog has never seen resolves to nothing and is dropped,
+        // so the running order silently comes up short.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }));
+
+        expect(system).toMatch(/MUST use the search_library tool/);
+        expect(system).toMatch(/Never name a record from your own knowledge/);
+    });
+
+    it('asks for the answer in a shape something can read back', () => {
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }))).toMatch(/JSON array/);
+    });
+
+    it('names the station when it has a name and says nothing when it does not', () => {
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { station: 'Dead Air' }))).toMatch(/called Dead Air/);
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/called/);
+    });
+
+    it('carries the operator’s own description of the music', () => {
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { persona: 'Krautrock and dub, nothing after 1985.' }));
+
+        expect(system).toMatch(/Krautrock and dub/);
+    });
+
+    it('asks for the count it was given', () => {
+        expect(userOf(setPrompt({ count: 12, avoid: [] }))).toMatch(/Choose 12 records/);
+    });
+
+    it('states the do-not-echo rule beside the records it governs', () => {
+        // The one hazard in this prompt: a real, well-formed record that no tool returned. A rule
+        // fifteen lines above the thing it governs is a rule about something else.
+        const user = userOf(setPrompt({ count: 5, avoid: ['"Windowlicker" by Aphex Twin'] }));
+
+        expect(user).toContain(NEVER_ECHO);
+        expect(user).toMatch(/Windowlicker/);
+    });
+
+    it('is worded about provenance rather than invention', () => {
+        // "Never invent an id" is satisfied by echoing something real, which is the exact failure.
+        expect(NEVER_ECHO).toMatch(/not suggestions/i);
+        expect(NEVER_ECHO).not.toMatch(/invent/i);
+    });
+
+    it('says nothing about avoiding anything when there is nothing to avoid', () => {
+        expect(userOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/do NOT choose/);
+    });
+
+    it('caps how much of a long running order it shows, and says it capped it', () => {
+        const avoid = Array.from({ length: 60 }, (_, index) => `"Song ${index}" by Artist ${index}`);
+
+        const user = userOf(setPrompt({ count: 5, avoid }));
+
+        expect(user).toMatch(/and 20 more/);
+        expect(user).not.toMatch(/Song 45/);
+    });
+});
+
+describe('readPicks', () => {
+    it('reads a plain JSON array', () => {
+        const answer = '[{"title": "Windowlicker", "artist": "Aphex Twin"}, {"title": "Xtal", "artist": "Aphex Twin"}]';
+
+        expect(readPicks(answer, 10)).toEqual([
+            { title: 'Windowlicker', artist: 'Aphex Twin' },
+            { title: 'Xtal', artist: 'Aphex Twin' },
+        ]);
+    });
+
+    it('reads an array a model wrapped in prose', () => {
+        // A perfectly good array that JSON.parse will not touch, which is why the brackets are
+        // located rather than the whole answer parsed.
+        const answer = 'Here you go:\n[{"title": "A", "artist": "One"}]\nHope that works!';
+
+        expect(readPicks(answer, 10)).toEqual([{ title: 'A', artist: 'One' }]);
+    });
+
+    it('reads an array a reasoning model thought out loud before', () => {
+        const answer = '<think>I should search first, then pick.</think>[{"title": "A", "artist": "One"}]';
+
+        expect(readPicks(answer, 10)).toEqual([{ title: 'A', artist: 'One' }]);
+    });
+
+    it('drops an entry missing a title or an artist rather than repairing it', () => {
+        // A half-named record resolves to the wrong one or to nothing, and both are worse than a
+        // shorter set that the floor will finish.
+        const answer = '[{"title": "A"}, {"artist": "Two"}, {"title": "C", "artist": "Three"}, {"title": "  ", "artist": "Four"}]';
+
+        expect(readPicks(answer, 10)).toEqual([{ title: 'C', artist: 'Three' }]);
+    });
+
+    it('trims what it keeps', () => {
+        expect(readPicks('[{"title": "  A  ", "artist": " One "}]', 10)).toEqual([{ title: 'A', artist: 'One' }]);
+    });
+
+    it('falls back to a numbered list, which is what a local model actually sends', () => {
+        const answer = '1. "Windowlicker" by Aphex Twin\n2. Teardrop by Massive Attack';
+
+        expect(readPicks(answer, 10)).toEqual([
+            { title: 'Windowlicker', artist: 'Aphex Twin' },
+            { title: 'Teardrop', artist: 'Massive Attack' },
+        ]);
+    });
+
+    it('reads a dashed list with either dash', () => {
+        const answer = '- Windowlicker — Aphex Twin\n- Teardrop - Massive Attack';
+
+        expect(readPicks(answer, 10)).toEqual([
+            { title: 'Windowlicker', artist: 'Aphex Twin' },
+            { title: 'Teardrop', artist: 'Massive Attack' },
+        ]);
+    });
+
+    it('skips a list line it cannot split rather than guessing', () => {
+        const answer = '1. "Windowlicker" by Aphex Twin\n2. something with no separator at all';
+
+        expect(readPicks(answer, 10)).toEqual([{ title: 'Windowlicker', artist: 'Aphex Twin' }]);
+    });
+
+    it('never returns more than was asked for', () => {
+        const answer = '[{"title": "A", "artist": "One"}, {"title": "B", "artist": "Two"}, {"title": "C", "artist": "Three"}]';
+
+        expect(readPicks(answer, 2)).toHaveLength(2);
+    });
+
+    it('answers with nothing for an answer that holds no picks at all', () => {
+        expect(readPicks('I could not find anything suitable.', 10)).toEqual([]);
+        expect(readPicks('', 10)).toEqual([]);
+    });
+
+    it('does not read an empty array as a reason to try the line reader', () => {
+        // An array of nothing usable is the model saying nothing, not an invitation to scrape
+        // whatever prose surrounds it.
+        expect(readPicks('[]', 10)).toEqual([]);
+    });
+});

@@ -8,6 +8,7 @@ import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
+import { ModelSetGenerator } from './model.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
 import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
@@ -41,14 +42,16 @@ export const DirectorModule: ServerKitModule = {
         // preference order, and the deterministic draw stays the floor by being the final entry.
         // The one difference is that the chain TOPS UP rather than falling through — a generator
         // that named six of fifteen has done most of the job — which is why a set is not a break.
+        registry.register(ModelSetGenerator).useClass(ModelSetGenerator).asScoped();
         registry.register(CatalogSetGenerator).useClass(CatalogSetGenerator).asScoped();
         registry
             .register(SetGenerator)
             .useFactory(
                 (container: Container) =>
-                    // One entry today. The floor is last because it cannot fail; anything added
-                    // above it may.
-                    new SetGeneratorChain([container.get(CatalogSetGenerator)], container.get(Logger)),
+                    // The model first and the catalog draw last, which is the whole of how they are
+                    // ranked. Everything the model can do wrong is topped up by the entry below it,
+                    // and the entry below it cannot fail.
+                    new SetGeneratorChain([container.get(ModelSetGenerator), container.get(CatalogSetGenerator)], container.get(Logger)),
             )
             .asScoped();
         registry.register(PickResolver).useClass(PickResolver).asScoped();

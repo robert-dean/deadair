@@ -1,15 +1,42 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { AnalysisRepository, type StoredAnalysis } from '#modules/analysis/analysis.repository.js';
+import { CatalogResolverService } from '#modules/catalog/ingest/catalog.resolver.service.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import type { MeasuredLoudness } from '#modules/playout/gain.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
+import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import { applyRules, spaceArtists, type ResolvedRules, type RotationCandidate } from './rotation.rules.js';
 import type { TrackPick } from './set.generator.js';
+
+/**
+ * Whether the station may play records it does not own yet.
+ *
+ * On by default, because off makes the whole lookup path inert and a station that has been asked
+ * for heavy metal cannot have any if it may only draw from playlists somebody happened to sync. Off
+ * is the switch for an operator who wants the library to be the boundary — nothing else changes,
+ * and a pick outside it goes back to being dropped.
+ */
+export const DISCOVER_KEY = 'rotation.discover';
+export const DISCOVER_DEFAULT = true;
+
+/**
+ * How many records one resolve may look up at a provider.
+ *
+ * A bound on the network rather than on the answer. Every miss is a search across every searchable
+ * provider, so an unlucky batch — a model naming fifteen records nothing carries — would otherwise
+ * spend a provider's whole rate budget on one refill and leave nothing for the next. Eight is most
+ * of a normal batch's headroom and far short of a runaway.
+ *
+ * Counted as ATTEMPTS rather than successes, since a search that found nothing cost the same round
+ * trip as one that found something.
+ */
+export const MAX_DISCOVERIES = 8;
 
 /** The four cue points as an item carries them: all of them, or none. */
 type CuePointSnapshot = { cueInMs?: number; introEndMs?: number; outroStartMs?: number; cueOutMs?: number };
@@ -138,17 +165,28 @@ const toRundownTrack = ({ songKey: _song, artistKey: _artist, rating: _rating, .
  * of `deadair.track_sources`. This is the step between, and it is where a pick
  * that nothing can play is dropped rather than becoming a gap on the mount.
  *
- * Two rungs today:
+ * Three rungs:
  *
  *   1. The pick carries a canonical id (everything the catalog generator picks),
  *      or its title and artist match a catalog row.
- *   2. Neither: the pick is discarded and logged.
+ *   2. A provider has it under that exact name: it is ingested, becoming a real
+ *      catalog row with a binding, and resolves like anything else from then on.
+ *      See {@link ProviderTrackLookup}, and note the discovery is bounded per
+ *      call and gated by `rotation.discover`.
+ *   3. Neither: the pick is discarded and logged.
  *
- * A third rung — asking the providers to search for a name the catalog has never
- * seen — is deliberately absent. It only matters once something is naming tracks
- * from outside the library, which is an LLM DJ's problem and not this one's, and
- * a bad match there airs the wrong record rather than failing visibly. The shape
- * here leaves room for it: nothing above this cares how a pick became a copy.
+ * Rung 2 is what makes "the provider's whole catalog" mean anything. The library
+ * is filled by walking the connected account's playlists, so a station whose
+ * playlists are ambient cannot match a metal record however well its provider
+ * knows one — the pick was good, the copy exists, and it was being dropped for
+ * want of a lookup. It ingests rather than airing straight from the provider
+ * because the player fetches every record through `track_sources`, so a copy with
+ * no binding has no URL; the row is the mechanism, not bookkeeping.
+ *
+ * The rules still run afterwards, and that ORDER is load-bearing rather than
+ * incidental: a newly ingested track inherits whatever the operator already
+ * thinks of its artist, so a record by a disliked act is dropped at rung 2's
+ * expense rather than aired because nothing had an opinion about it yet.
  *
  * ## It is also where the rotation rules are enforced, and that is not tidiness
  *
@@ -177,6 +215,9 @@ export class PickResolver {
         private readonly tracks: TracksRepository,
         private readonly analysis: AnalysisRepository,
         private readonly history: PlayHistoryRepository,
+        private readonly lookup: ProviderTrackLookup,
+        private readonly ingest: CatalogResolverService,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -292,12 +333,28 @@ export class PickResolver {
      * catalog a moment ago. Only a named pick costs a lookup, and those are looked
      * up one at a time because there is no batch form of "match this title under
      * this artist" that stays as strict as the single one.
+     *
+     * A pick the catalog misses falls to {@link discover}, which is where the
+     * network is, and which is bounded per call.
      */
     private async identify(picks: readonly TrackPick[]): Promise<Identified[]> {
         const identified: Identified[] = [];
+        const mayDiscover = this.mayDiscover();
+        let attempted = 0;
+        let overCap = 0;
 
         for (const pick of picks) {
-            const trackId = pick.trackId ?? (await this.candidates.findByName(pick.title, pick.artist));
+            let trackId = pick.trackId ?? (await this.candidates.findByName(pick.title, pick.artist));
+
+            if (!trackId && mayDiscover) {
+                if (attempted < MAX_DISCOVERIES) {
+                    attempted += 1;
+                    trackId = await this.discover(pick);
+                } else {
+                    overCap += 1;
+                }
+            }
+
             if (!trackId) {
                 this.logger.warn('director: a chosen track is not in the catalog; skipping it', {
                     track: `${pick.artist} — ${pick.title}`,
@@ -314,6 +371,71 @@ export class PickResolver {
                 artistKey: artistKey([pick.artist]),
             });
         }
+
+        if (overCap > 0) {
+            // Said out loud rather than absorbed. A cap that silently truncates reads exactly like a
+            // provider that had nothing, and the two want opposite fixes: raise the bound, or look
+            // at why a whole batch is naming records nothing carries.
+            this.logger.info('director: stopped looking records up at the per-refill cap', { cap: MAX_DISCOVERIES, notLookedUp: overCap });
+        }
         return identified;
+    }
+
+    /**
+     * Whether this refill may look records up at a provider.
+     *
+     * Two conditions, both cheap, and both read per call rather than held. The setting, so an
+     * operator confining the station to what it owns is obeyed on the next refill rather than after
+     * a restart; and whether any plugin can be searched at all, so a station with no searchable
+     * provider skips the whole path instead of discovering it one pick at a time.
+     */
+    private mayDiscover(): boolean {
+        return this.config.get(DISCOVER_KEY, DISCOVER_DEFAULT) && this.lookup.canLookUp();
+    }
+
+    /**
+     * Find one named record at a provider and make it part of the catalog.
+     *
+     * The ingest is the point rather than a side effect: the player fetches every record through
+     * `track_sources`, so a copy with no binding has no URL and cannot air. Writing the row also
+     * puts the record in front of everything that walks the catalog — measurement, enrichment, art —
+     * so it is trimmed and illustrated by the existing passes rather than needing anything here.
+     *
+     * Never throws. A provider that is down, a record nobody carries and an item with no credited
+     * artist are all the same outcome to the caller: one pick dropped from a batch that was
+     * oversampled against exactly this.
+     */
+    private async discover(pick: TrackPick): Promise<string | undefined> {
+        try {
+            const found = await this.lookup.find(pick.title, pick.artist);
+            if (!found) return undefined;
+
+            // `discovered`, which is what keeps the sync's missing sweep from benching it within the
+            // hour: this copy is in no playlist and a walk will never see it. See
+            // `markMissingTrackSources`.
+            const result = await this.ingest.ingestTrack(found.pluginId, found.track, 'discovered');
+            if (result.status === 'skipped') {
+                this.logger.info('director: a record found at a provider could not become a catalog row', {
+                    track: `${pick.artist} — ${pick.title}`,
+                    reason: result.reason,
+                });
+                return undefined;
+            }
+
+            this.logger.info('director: took a chosen record into the catalog from a provider', {
+                track: `${pick.artist} — ${pick.title}`,
+                plugin: found.pluginId,
+                // Whether the station had the WORK already and only lacked this copy, which is a
+                // different fact about the library from having never heard of it at all.
+                created: result.created,
+            });
+            return result.trackId;
+        } catch (error) {
+            this.logger.warn('director: could not look up a chosen record at a provider', {
+                track: `${pick.artist} — ${pick.title}`,
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return undefined;
+        }
     }
 }

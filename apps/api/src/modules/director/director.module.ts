@@ -13,6 +13,7 @@ import { DirectorConsoleService } from './director.console.service.js';
 import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
+import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { SetGenerator } from './set.generator.js';
 import { SetGeneratorChain } from './set.generator.chain.js';
 import { StationAirRepository } from './station.air.repository.js';
@@ -54,6 +55,9 @@ export const DirectorModule: ServerKitModule = {
                     new SetGeneratorChain([container.get(ModelSetGenerator), container.get(CatalogSetGenerator)], container.get(Logger)),
             )
             .asScoped();
+        // The rung under the resolver: a record the catalog has never seen, found at a provider and
+        // taken into the library. Scoped with the plugin registry and invoker it reads.
+        registry.register(ProviderTrackLookup).useClass(ProviderTrackLookup).asScoped();
         registry.register(PickResolver).useClass(PickResolver).asScoped();
 
         // The writer seam, keyed by `segments.kind`. The list is explicit rather than discovered,

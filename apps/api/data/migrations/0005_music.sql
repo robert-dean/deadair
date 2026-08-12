@@ -155,7 +155,23 @@ create table deadair.track_sources (
     cover_art_id text,
     raw jsonb,
     last_seen_at timestamptz,
-    missing_at timestamptz
+    missing_at timestamptz,
+    -- How this copy was found, which decides whether the sync's missing sweep may judge it.
+    --
+    --   sync        seen while walking the provider's playlists, which is the only enumeration
+    --               path a provider offers. The sweep marks whatever a clean walk did not see.
+    --   discovered  looked up by name because something chose this record, and ingested on the
+    --               spot. It is in no playlist, so a walk will never see it and the sweep would
+    --               bench it within an hour of it being found.
+    --
+    -- The sweep is an argument about what a PLAYLIST WALK saw, and a binding that was never
+    -- advertised by a playlist cannot be judged by it. What does judge a discovered copy is
+    -- fetching it: four consecutive failures set `missing_at` through
+    -- `TracksRepository.markBindingMissing`, which is the mechanism that actually knows.
+    --
+    -- A discovered copy that later turns up in a playlist is re-marked `sync` by the upsert, so it
+    -- rejoins the sweep rather than being exempt for good.
+    origin text not null default 'sync' constraint track_sources_origin_check check (origin in ('sync', 'discovered'))
 );
 select deadair.add_updated_at_trigger('deadair.track_sources');
 -- Deliberately (plugin_id, external_id) and not (track_id, plugin_id): one canonical

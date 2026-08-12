@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { Kysely } from 'kysely';
 import type { ProviderTrack } from '@deadair/plugin-sdk';
 import { DB } from '../../data/db.js';
-import { CatalogResolverRepository } from './catalog.resolver.repository.js';
+import { CatalogResolverRepository, type TrackSourceOrigin } from './catalog.resolver.repository.js';
 import { normalizeKey } from '../catalog.keys.js';
 
 /** Why an item could not become a catalog row. */
@@ -51,9 +51,12 @@ export class CatalogResolverService {
      *
      * @param pluginId - Manifest id of the providing plugin.
      * @param track - The item as the provider described it.
+     * @param origin - How this copy was found. The walk leaves it at `sync`; a
+     *   lookup for a record something chose passes `discovered`, which is what
+     *   exempts the binding from a sweep that could never have seen it.
      * @returns The canonical track id, or why the item could not become one.
      */
-    async ingestTrack(pluginId: string, track: ProviderTrack): Promise<IngestResult> {
+    async ingestTrack(pluginId: string, track: ProviderTrack, origin: TrackSourceOrigin = 'sync'): Promise<IngestResult> {
         const artistName = track.artists[0];
         if (!artistName || normalizeKey(artistName).length === 0) {
             return { status: 'skipped', reason: 'no-artist' };
@@ -64,7 +67,7 @@ export class CatalogResolverService {
             const artistId = await resolver.resolveArtist(artistName);
             const albumId = track.album ? await resolver.resolveAlbum(artistId, track.album, track.artworkUrl) : undefined;
             const resolved = await resolver.resolveTrack(artistId, albumId, track);
-            await resolver.upsertTrackSource(resolved.id, pluginId, track);
+            await resolver.upsertTrackSource(resolved.id, pluginId, track, origin);
             return { status: 'ingested', trackId: resolved.id, created: resolved.created };
         });
     }

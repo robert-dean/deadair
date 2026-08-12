@@ -130,6 +130,27 @@ describe('CatalogResolverService.ingestTrack', () => {
         expect(onTransaction.indexOf('resolveTrack')).toBeLessThan(onTransaction.indexOf('upsertTrackSource'));
     });
 
+    it('leaves the binding at the walk’s origin when nobody says otherwise', async () => {
+        // The walk is the only caller that enumerates anything, so it is the default.
+        const { repository, bound } = fakeRepository();
+        const { db } = fakeDb();
+
+        await new CatalogResolverService(db, repository).ingestTrack('deadair.spotify', track());
+
+        expect(bound.upsertTrackSource).toHaveBeenCalledWith('track-1', 'deadair.spotify', expect.anything(), 'sync');
+    });
+
+    it('carries a lookup’s origin through, which is what keeps the sweep off it', async () => {
+        // A discovered copy is in no playlist, so a walk will never see it and the missing sweep
+        // would bench it within the hour of the station finding it.
+        const { repository, bound } = fakeRepository();
+        const { db } = fakeDb();
+
+        await new CatalogResolverService(db, repository).ingestTrack('deadair.spotify', track(), 'discovered');
+
+        expect(bound.upsertTrackSource).toHaveBeenCalledWith('track-1', 'deadair.spotify', expect.anything(), 'discovered');
+    });
+
     it('skips the album entirely when the provider named none', async () => {
         const { repository, bound, onTransaction } = fakeRepository();
         const { db } = fakeDb();

@@ -25,6 +25,17 @@ const MAX_MERGE_HOPS = 8;
 type MergeableTable = 'deadair.artists' | 'deadair.albums' | 'deadair.tracks';
 
 /**
+ * How a copy came to be in the catalog, which is the only thing that decides whether the sync's
+ * missing sweep may judge it.
+ *
+ * `sync` is a copy a playlist walk saw and `discovered` is one looked up by name because something
+ * chose the record. The distinction exists because the sweep marks whatever a clean walk did not
+ * see, and a discovered copy is in no playlist — so without it the first sync after a discovery
+ * benches the record. See `markMissingTrackSources` and the column comment in `0005_music.sql`.
+ */
+export type TrackSourceOrigin = 'sync' | 'discovered';
+
+/**
  * A nullable column as it actually arrives.
  *
  * `db.ts` types these `T | null`, but the plugins on the runtime `Kysely`
@@ -289,8 +300,19 @@ export class CatalogResolverRepository extends DataRepository {
      * `playable` is left alone on update: nothing sets it false yet, and when
      * something does (a regional restriction, a tombstoned file) that decision
      * should not be quietly reverted by the next sync.
+     *
+     * `origin` is written on BOTH paths, which is what keeps the sweep honest in
+     * the direction that matters. A copy first found by a lookup and later seen
+     * in a playlist becomes `sync` and rejoins the sweep, because from then on a
+     * walk that does not see it is saying something real about it. The reverse
+     * does not happen: a lookup passes `discovered`, so re-finding a synced copy
+     * by name would take it OUT of the sweep, which is why the update writes
+     * `least`-style rather than blindly — see the coalesce below.
+     *
+     * @param origin - How this sighting was made. Defaults to the walk, which is
+     *   the only caller that enumerates anything.
      */
-    async upsertTrackSource(trackId: string, pluginId: string, track: ProviderTrack): Promise<void> {
+    async upsertTrackSource(trackId: string, pluginId: string, track: ProviderTrack, origin: TrackSourceOrigin = 'sync'): Promise<void> {
         const seen = {
             durationMs: track.durationMs ?? null,
             isrc: track.isrc ?? null,
@@ -301,8 +323,20 @@ export class CatalogResolverRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.trackSources')
-            .values({ trackId, pluginId, externalId: track.id, ...seen })
-            .onConflict(oc => oc.columns(['pluginId', 'externalId']).doUpdateSet({ trackId, ...seen }))
+            .values({ trackId, pluginId, externalId: track.id, origin, ...seen })
+            .onConflict(oc =>
+                oc.columns(['pluginId', 'externalId']).doUpdateSet({
+                    trackId,
+                    ...seen,
+                    // A sighting can only ever move a copy INTO the sweep, never out of it. A walk
+                    // seeing a discovered copy is new information — a playlist advertises it now,
+                    // so a later walk that does not is worth acting on. A lookup finding a synced
+                    // copy is not: it says nothing about the playlists, and taking the row out of
+                    // the sweep would exempt a normal binding for good the first time a model
+                    // happened to name it.
+                    ...(origin === 'sync' ? { origin } : {}),
+                }),
+            )
             .execute();
     }
 
@@ -329,6 +363,13 @@ export class CatalogResolverRepository extends DataRepository {
      * same statement. A caller that genuinely wants that has to say so a
      * different way.
      *
+     * **Only `origin = 'sync'` bindings are judged.** The caller has just walked
+     * this provider's PLAYLISTS, which is the only enumeration a provider
+     * offers, so "I did not see it" is evidence about a copy a playlist once
+     * advertised and no evidence at all about one that was looked up by name.
+     * Without this the first sync after a discovery would bench every record the
+     * station found for itself, an hour after finding it.
+     *
      * @returns How many bindings were newly marked missing.
      */
     async markMissingTrackSources(pluginId: string, seenExternalIds: readonly string[]): Promise<number> {
@@ -342,6 +383,7 @@ export class CatalogResolverRepository extends DataRepository {
             .set({ missingAt: sql<never>`now()` })
             .where('pluginId', '=', pluginId)
             .where('missingAt', 'is', null)
+            .where('origin', '=', 'sync')
             .where(sql<boolean>`external_id <> all(${[...seenExternalIds]}::text[])`)
             .executeTakeFirst();
         return Number(result.numUpdatedRows ?? 0);

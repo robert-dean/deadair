@@ -5,9 +5,12 @@
 // track and not a gap on the mount.
 
 import { describe, expect, it, vi } from 'vitest';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 
-import { PickResolver } from '../../../src/modules/director/pick.resolver.js';
+import { DISCOVER_KEY, MAX_DISCOVERIES, PickResolver } from '../../../src/modules/director/pick.resolver.js';
+import type { ProviderTrackLookup } from '../../../src/modules/director/provider.track.lookup.js';
+import type { CatalogResolverService } from '../../../src/modules/catalog/ingest/catalog.resolver.service.js';
 import type { CandidatesRepository, TrackBinding } from '../../../src/modules/director/candidates.repository.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { DEFAULT_RULES, type ResolvedRules } from '../../../src/modules/director/rotation.rules.js';
@@ -48,6 +51,16 @@ interface Options {
      * shape in it.
      */
     analysis?: Record<string, Record<string, unknown>>;
+    /** What a provider has, keyed the way `byName` is: `Artist — Title`. */
+    atProvider?: Record<string, { pluginId: string; track: { id: string; title: string; artists: string[] } }>;
+    /** Whether `rotation.discover` is on. On is the default, as it is in the registry. */
+    discover?: boolean;
+    /** Whether any plugin can be searched at all. */
+    canLookUp?: boolean;
+    /** An ingest that refuses the item, as one with no credited artist does. */
+    ingestSkips?: boolean;
+    /** The canonical id an ingest answers with. */
+    ingestsAs?: string;
 }
 
 const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: number): TrackBinding => ({
@@ -105,7 +118,36 @@ function build(options: Options = {}) {
         }),
     } as unknown as AnalysisRepository;
 
-    return { resolver: new PickResolver(candidates, tracks, analysis, history, logger), candidates, tracks, analysis, history };
+    // The rung under the catalog: a provider that has the record under that exact name, and the
+    // ingest that turns it into a row. Both silent by default -- no provider carries anything --
+    // so every test above this one behaves as it did before the rung existed.
+    const find = vi.fn(async (title: string, artist: string) => options.atProvider?.[`${artist} — ${title}`]);
+    const lookup = {
+        canLookUp: () => options.canLookUp ?? true,
+        find,
+    } as unknown as ProviderTrackLookup;
+
+    const ingestTrack = vi.fn(async (pluginId: string, track: { id: string }, origin: string) => {
+        if (options.ingestSkips) return { status: 'skipped' as const, reason: 'no-artist' as const };
+        ingested.push({ pluginId, externalId: track.id, origin });
+        return { status: 'ingested' as const, trackId: options.ingestsAs ?? `cat-${track.id}`, created: true };
+    });
+    const ingested: { pluginId: string; externalId: string; origin: string }[] = [];
+    const ingest = { ingestTrack } as unknown as CatalogResolverService;
+
+    const values: Record<string, boolean> = { [DISCOVER_KEY]: options.discover ?? true };
+    const config = { get: (key: string, fallback: unknown) => values[key] ?? fallback } as unknown as AppConfig;
+
+    return {
+        resolver: new PickResolver(candidates, tracks, analysis, history, lookup, ingest, config, logger),
+        candidates,
+        tracks,
+        analysis,
+        history,
+        find,
+        ingestTrack,
+        ingested: () => ingested,
+    };
 }
 
 describe('PickResolver', () => {
@@ -183,10 +225,10 @@ describe('PickResolver', () => {
         expect(candidates.findByName).toHaveBeenCalledWith('Windowlicker', 'Aphex Twin');
     });
 
-    it('drops a name the catalog has never seen rather than guessing', async () => {
-        // Searching the providers for it is a later rung; a near-miss here airs the
-        // wrong record instead of failing visibly.
-        const { resolver } = build({ byName: {} });
+    it('drops a name neither the catalog nor any provider has, rather than guessing', async () => {
+        // A near-miss airs the wrong record instead of failing visibly, so nothing here is
+        // approximate: the lookup refuses anything that is not an exact normalized match.
+        const { resolver } = build({ byName: {}, atProvider: {} });
 
         expect(await resolve(resolver, [{ title: 'Invented', artist: 'Hallucinated' }])).toEqual([]);
     });
@@ -239,6 +281,112 @@ describe('PickResolver', () => {
 
         expect(await resolve(resolver, [])).toEqual([]);
         expect(candidates.bindingsFor).not.toHaveBeenCalled();
+    });
+});
+
+// The rung that makes "the provider's whole catalog" mean anything: the library is filled by
+// walking playlists, so a perfectly good pick outside them matched nothing and was dropped. What is
+// worth testing is that the record becomes a real catalog row (the player fetches through
+// `track_sources`, so nothing else can air), that it is marked so the sync's sweep cannot bench it,
+// and that every way this can fail costs one track rather than the batch.
+describe('PickResolver discovering a record at a provider', () => {
+    const missing = {
+        byName: {},
+        atProvider: {
+            'Sleep — Dopesmoker': { pluginId: 'deadair.spotify', track: { id: 'sp_1', title: 'Dopesmoker', artists: ['Sleep'] } },
+        },
+        bindings: { 'cat-sp_1': binding('cat-sp_1') },
+        metadata: { 'cat-sp_1': { title: 'Dopesmoker', credit: 'Sleep' } },
+    };
+
+    const pick = [{ title: 'Dopesmoker', artist: 'Sleep' }];
+
+    it('takes a record the catalog has never seen into the catalog and airs it', async () => {
+        const { resolver } = build(missing);
+
+        const resolved = await resolve(resolver, pick);
+
+        expect(resolved).toHaveLength(1);
+        expect(resolved[0]).toMatchObject({ trackId: 'cat-sp_1', pluginId: 'deadair.spotify' });
+    });
+
+    it('marks the copy as discovered, so the sync sweep cannot bench it', async () => {
+        // It is in no playlist and a walk will never see it, so the sweep would mark it missing
+        // within the hour of the station finding it.
+        const { resolver, ingested } = build(missing);
+
+        await resolve(resolver, pick);
+
+        expect(ingested()).toEqual([{ pluginId: 'deadair.spotify', externalId: 'sp_1', origin: 'discovered' }]);
+    });
+
+    it('does not look anything up while the operator has that turned off', async () => {
+        const { resolver, find } = build({ ...missing, discover: false });
+
+        expect(await resolve(resolver, pick)).toEqual([]);
+        expect(find).not.toHaveBeenCalled();
+    });
+
+    it('does not look anything up when no provider can be searched', async () => {
+        const { resolver, find } = build({ ...missing, canLookUp: false });
+
+        await resolve(resolver, pick);
+
+        expect(find).not.toHaveBeenCalled();
+    });
+
+    it('never looks up a pick the catalog already holds', async () => {
+        const { resolver, find } = build({
+            byName: { 'Sleep — Dopesmoker': 'track-1' },
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'Dopesmoker', credit: 'Sleep' } },
+        });
+
+        await resolve(resolver, pick);
+
+        expect(find).not.toHaveBeenCalled();
+    });
+
+    it('bounds how many records one refill may look up', async () => {
+        // Every miss is a search across every provider. An unlucky batch would otherwise spend a
+        // provider's whole rate budget on one refill.
+        const { resolver, find } = build({ byName: {}, atProvider: {} });
+
+        await resolve(
+            resolver,
+            Array.from({ length: MAX_DISCOVERIES + 5 }, (_, index) => ({ title: `T${index}`, artist: `A${index}` })),
+        );
+
+        expect(find).toHaveBeenCalledTimes(MAX_DISCOVERIES);
+    });
+
+    it('drops one track rather than the batch when the lookup throws', async () => {
+        const { resolver, find } = build({
+            byName: {},
+            bindings: { 'track-1': binding('track-1') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+        });
+        find.mockRejectedValueOnce(new Error('the provider is down'));
+
+        const resolved = await resolve(resolver, [{ title: 'Dopesmoker', artist: 'Sleep' }, { title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved.map(track => track.trackId)).toEqual(['track-1']);
+    });
+
+    it('drops the pick when the record cannot become a catalog row', async () => {
+        // An item the provider credits to nobody. `tracks.artist_id` is NOT NULL, so there is no
+        // row to attach it to and the ingest refuses it rather than inventing an artist.
+        const { resolver } = build({ ...missing, ingestSkips: true });
+
+        expect(await resolve(resolver, pick)).toEqual([]);
+    });
+
+    it('judges a newly ingested record against what the operator already thinks of its artist', async () => {
+        // The ordering that makes this safe: ingest, then judge. A record by a disliked act is
+        // dropped at the lookup's expense rather than aired because nothing had an opinion yet.
+        const { resolver } = build({ ...missing, ratings: { 'cat-sp_1': -1 } });
+
+        expect(await resolve(resolver, pick)).toEqual([]);
     });
 });
 

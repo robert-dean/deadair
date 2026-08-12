@@ -441,6 +441,7 @@ export interface DeadairTrackSources {
   isrc: string | null;
   lastSeenAt: DateTime | null;
   missingAt: DateTime | null;
+  origin: Generated<"sync" | "discovered">;
   playable: Generated<boolean>;
   pluginId: string;
   raw: Json | null;

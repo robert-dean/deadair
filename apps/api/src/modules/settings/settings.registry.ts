@@ -5,6 +5,7 @@ import { DEFAULT_TRACK_CACHE, TRACK_CACHE_KEY } from '#modules/playout/audio/tra
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
+import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ANALYSIS_CONCURRENCY_KEY, ANALYSIS_PLUGIN_KEY, DEFAULT_ANALYSIS_CONCURRENCY } from '#modules/analysis/analysis.settings.js';
@@ -197,6 +198,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: DEFAULT_RULES.autoExtend,
         help: 'Generate more when a rotation runs short. Turning this off means the station plays what is planned and then stops.',
+    },
+    {
+        group: 'rotation',
+        key: DISCOVER_KEY,
+        label: 'Play records the station does not own yet',
+        type: 'boolean',
+        default: DISCOVER_DEFAULT,
+        help: 'The library holds what your playlists carry, which is a fraction of what a provider knows. With this on, a chosen record the library has never seen is looked up at your providers, taken into the catalog and played. Turning it off makes the library the boundary again: anything outside it is skipped.',
     },
     {
         group: 'rotation',

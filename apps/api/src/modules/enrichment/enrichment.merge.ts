@@ -288,6 +288,26 @@ function sanitize(value: unknown, spec: FieldSpec, onDrop?: (reason: string) => 
     return clean;
 }
 
+/**
+ * A stored payload as the WIRE carries it: everything the plugin said, minus the fields that belong
+ * to the plugin rather than to the thing it described.
+ *
+ * `providerRef` is the whole category, and it lives in two places on purpose — in the payload,
+ * because that is what the plugin actually said, and in `*_enrichment.provider_ref`, because
+ * something queries it. The read contracts put it on the SOURCE for that reason, and their `data` is
+ * a strict object that has never had a field for it: handing the payload over untouched failed its
+ * own response validation with `providerRef: Unrecognized key`, which is every enrichment panel in
+ * the console reading "the enrichment could not be loaded".
+ *
+ * Here rather than in {@link sanitize}, which is about what is SAFE to store and would otherwise
+ * throw away provenance the merge already knows to skip.
+ */
+export const withoutPerProviderFields = <T extends object>(data: T): T => {
+    const clean = { ...data } as Record<string, unknown>;
+    for (const field of PER_PROVIDER_FIELDS) delete clean[field];
+    return clean as T;
+};
+
 export const sanitizeEnrichment = (value: unknown, onDrop?: (reason: string) => void): StoredEnrichment =>
     sanitize(value, TRACK_FIELDS, onDrop) as StoredEnrichment;
 

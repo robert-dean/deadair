@@ -19,7 +19,7 @@ function env(key: string, fallback: string): string {
 
 import { readFileSync } from 'node:fs';
 import { Kysely } from 'kysely';
-import { EmptyUpdateRewriteDialect, KyselyDefaultPlugins, KyselyPool } from '@maroonedsoftware/kysely';
+import { EmptyUpdateRewriteDialect, KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import type { DB } from '../src/modules/data/db.js';
@@ -38,6 +38,11 @@ const pool = new KyselyPool({
     user: env('DATABASE_USER', 'postgres'),
     password: env('DATABASE_PASSWORD', 'postgres'),
     database: env('DATABASE_NAME', 'deadair'),
+    // Not optional garnish. These are what turn a timestamptz into a Luxon `DateTime` and an int8
+    // into a `BigInt`, exactly as `DataModule` builds the runtime pool — a script that leaves them
+    // off is reading different types from the same rows, which is how a repro can invent a failure
+    // the app does not have.
+    types: KyselyPgTypeOverrides,
 });
 const db = new Kysely<DB>({ dialect: new EmptyUpdateRewriteDialect({ pool }, quiet), plugins: [...KyselyDefaultPlugins] });
 

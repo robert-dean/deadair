@@ -10,6 +10,7 @@ import {
     sanitizeAlbumEnrichment,
     sanitizeArtistEnrichment,
     sanitizeEnrichment,
+    withoutPerProviderFields,
 } from './enrichment.merge.js';
 import { EnrichmentRepository, type StoredProviderPayload } from './enrichment.repository.js';
 import { EnrichmentService } from './enrichment.service.js';
@@ -99,6 +100,12 @@ export class EnrichmentReadService {
      * the station knows about this track, and the station's own columns were
      * promoted from it; hiding it would make the console disagree with them.
      * What it does not get is a say over a running provider.
+     *
+     * The per-provider fields come OFF the payload here. `providerRef` is
+     * stored twice on purpose — in the payload because that is what the plugin
+     * said, and in its own column because something queries it — and the
+     * contract carries it on the source rather than inside `data`. See
+     * {@link withoutPerProviderFields}.
      */
     private read<T extends object>(stored: StoredProviderPayload[], order: string[], sanitize: (value: unknown) => T): ReadSource<T>[] {
         const rank = new Map(order.map((provider, index) => [provider, index]));
@@ -106,7 +113,7 @@ export class EnrichmentReadService {
 
         return stored
             .map(payload => {
-                const data = sanitize(payload.data);
+                const data = withoutPerProviderFields(sanitize(payload.data));
                 return {
                     provider: payload.provider,
                     providerRef: payload.providerRef,

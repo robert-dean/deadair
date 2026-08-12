@@ -19,8 +19,25 @@ const OTHER = 'deadair.other';
 
 const fetchedAt = DateTime.fromISO('2026-08-01T10:00:00.000Z');
 
+/**
+ * A stored row, in the shape the WRITE path actually leaves behind.
+ *
+ * `providerRef` is on both halves deliberately: `saveArtistEnrichment` lifts it into its own column
+ * AND stores the sanitized payload it came in on, which keeps it inside `data` too. Every fixture
+ * here used to omit it, so nothing in this file exercised the shape the console reads — and the read
+ * failed its own response validation against every real row while these tests stayed green. A miss
+ * is the one exception: an empty payload has no ref to carry.
+ */
 function payload(provider: string, data: unknown, overrides: Partial<StoredProviderPayload> = {}): StoredProviderPayload {
-    return { provider, data, fetchedAt, expiresAt: fetchedAt.plus({ days: 90 }), ...overrides };
+    const empty = typeof data === 'object' && data !== null && Object.keys(data).length === 0;
+    return {
+        provider,
+        data: empty ? data : { ...(data as object), providerRef: `${provider}:ref` },
+        ...(empty ? {} : { providerRef: `${provider}:ref` }),
+        fetchedAt,
+        expiresAt: fetchedAt.plus({ days: 90 }),
+        ...overrides,
+    };
 }
 
 /** The repository as a canned answer. `undefined` is its "no such row" signal. */
@@ -154,6 +171,35 @@ describe('EnrichmentReadService', () => {
         expect(detail.albumId).toBe(ALBUM_ID);
         expect(detail.merged.releaseDate).toBe('1994');
         expect(detail.merged.year).toBe(1994);
+    });
+
+    // The ref is the plugin's id for the thing, not a fact about the thing. It belongs to the
+    // source; `data` is a strict object with no field for it, so a payload handed over untouched
+    // answered 400 and every enrichment panel in the console read "could not be loaded".
+    it('carries the provider’s own ref on the source, and never inside the payload or the merged view', async () => {
+        const read = service({
+            track: [payload(MUSICBRAINZ, { artist: 'Portishead' })],
+            artist: [payload(MUSICBRAINZ, { facts: ['Formed in Bristol in 1991.'] })],
+            album: [payload(MUSICBRAINZ, { label: 'Go! Beat' })],
+        });
+
+        for (const detail of [await read.getTrackEnrichment(TRACK_ID), await read.getArtistEnrichment(ARTIST_ID), await read.getAlbumEnrichment(ALBUM_ID)]) {
+            expect(detail.sources[0]?.providerRef).toBe(`${MUSICBRAINZ}:ref`);
+            expect(detail.sources[0]?.data).not.toHaveProperty('providerRef');
+            expect(detail.merged).not.toHaveProperty('providerRef');
+            // And not swept into `extra` on the way past, which would put it back on the wire under
+            // another name and into the card the console draws.
+            expect(detail.sources[0]?.data.extra).toBeUndefined();
+        }
+    });
+
+    it('reads a payload that is nothing but a ref as a miss, since it says nothing about the record', async () => {
+        const read = service({ track: [payload(MUSICBRAINZ, {}, { providerRef: 'mb:ref', data: { providerRef: 'mb:ref' } })] });
+
+        const detail = await read.getTrackEnrichment(TRACK_ID);
+
+        expect(detail.sources[0]?.found).toBe(false);
+        expect(detail.merged).toEqual({});
     });
 
     it('404s an artist and an album that are not in the catalog', async () => {

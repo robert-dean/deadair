@@ -79,6 +79,35 @@ never ingested and the running order comes up short for reasons nothing in the l
 search. `LibrarySearchTool` answers from the catalog instead. Bans narrow it and rotation rules
 deliberately do not, per the note below.
 
+**It is built, wired and off by default, and on this station's own model it does not yet produce a
+set.** Run live against `gpt-oss-radio` on the remote Ollama, the binding searches the library
+correctly and then answers with an empty string. The degradation is exactly right — the floor filled
+every request, all six of six every time, and an operator would have heard a normal hour — but the
+model half is not earning its keep yet. What was learned, in order:
+
+1. **`reasoningEffort: 'low'` was missing and is not optional.** At the default effort the first run
+   searched eight times, spent 14,377 tokens over 85 seconds, finished on `length` and emitted
+   nothing: the model used its entire visible allowance thinking. That is the identical failure
+   already recorded on `MAX_OUTPUT_TOKENS` in `model.talk.break.writer.ts`, and it was not inherited
+   because choosing records *looks* far more like a reasoning problem than writing a link does. It is
+   not — the tool does the recall and filtering. With it set: 3 searches, 9 seconds, 5,695 tokens.
+2. **Tool rounds are not free, because each one's results stay in the conversation.** The eighth
+   search is reasoned about with seven searches' worth of library listing in front of it. `MAX_TOOL_STEPS`
+   came down from 8 to 5; fewer, larger searches beat more, smaller ones on a host whose context
+   spills VRAM.
+3. **What remains is a plugin-level defect, not this binding's.** With `reasoningEffort` fixed the
+   conversation finishes cleanly (`finish: 'stop'`) and `text` is still empty, while the SAME model
+   writes talk breaks perfectly (113–220 output tokens, real scripts in `script_history`). The only
+   difference between the two callers is tools: the break writer passes `tools: false`. So an answer
+   produced after a tool round is not reaching `stream.text`, which is what `plugins/llm` reads in
+   `resultOf`. The likely cause is gpt-oss's harmony channels — the final answer arriving as
+   reasoning parts rather than text parts — and the fix belongs in the plugin's extraction, where it
+   will fix every future tool-using caller at once rather than only this one.
+
+Until that lands, `llm.setGenerator` stays off and the station programmes itself exactly as before.
+**Nothing about the failure is silent**: the generator logs the searches, the tokens, the finish
+reason and the first 400 characters of whatever it could not read.
+
 The seam was already the right shape, so the call itself was smaller than it sounds. What was worth
 building deliberately is everything around it, because each of these is a failure that is inaudible
 until it has been running for a week.

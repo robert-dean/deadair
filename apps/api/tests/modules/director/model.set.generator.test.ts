@@ -168,7 +168,7 @@ describe('ModelSetGenerator', () => {
         const [, options] = converse.mock.calls[0] as unknown as [unknown, { budgetMs: number; maxWaitMs: number; maxToolSteps: number }];
         expect(options.budgetMs).toBe(180_000);
         expect(options.maxWaitMs).toBe(60_000);
-        expect(options.maxToolSteps).toBe(8);
+        expect(options.maxToolSteps).toBe(5);
     });
 
     it('passes the operator’s chosen model through, and omits it when there is none', async () => {
@@ -181,17 +181,42 @@ describe('ModelSetGenerator', () => {
         expect((bare.converse.mock.calls[0] as unknown as [{ model?: string }])[0]).not.toHaveProperty('model');
     });
 
-    it('warns when the model answered without ever searching, and not when it searched and found nothing', async () => {
-        // The breaker distinction. A run that searched honestly and came back empty is a fact
-        // about a thin library; counting it would let a small catalogue condemn the model.
+    it('tells a model that never searched apart from one that searched and came back empty', async () => {
+        // The breaker distinction, and the two need different fixes: "not using its tools" is the
+        // model failing, while an empty answer after real searching is a thin library or an answer
+        // arriving in a shape nothing could read. One warning covering both would hide whichever
+        // was actually happening.
         vi.mocked(logger.warn).mockClear();
-        const searched = build({ enabled: true, text: '[]', toolCallsMade: 3 });
-        await searched.generator.generate(inputs(5));
-        expect(logger.warn).not.toHaveBeenCalled();
-
         const lazy = build({ enabled: true, text: '[]', toolCallsMade: 0 });
         await lazy.generator.generate(inputs(5));
         expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/never searched/));
+
+        vi.mocked(logger.warn).mockClear();
+        const searched = build({ enabled: true, text: '[]', toolCallsMade: 3 });
+        await searched.generator.generate(inputs(5));
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/named no records/), expect.anything());
+        expect(logger.warn).not.toHaveBeenCalledWith(expect.stringMatching(/never searched/));
+    });
+
+    it('quotes what it could not read, because an empty answer is otherwise undiagnosable', async () => {
+        // A model that found nothing, one that answered in prose and one that spent its whole
+        // allowance thinking are the same empty list from here. This live-diagnosed the difference
+        // between the first two on the station's own host.
+        vi.mocked(logger.warn).mockClear();
+        const { generator } = build({ enabled: true, text: 'I had a really good think about this.', toolCallsMade: 2 });
+
+        await generator.generate(inputs(5));
+
+        expect(logger.warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ said: 'I had a really good think about this.' }));
+    });
+
+    it('says nothing at all when the model actually chose records', async () => {
+        vi.mocked(logger.warn).mockClear();
+        const { generator } = build({ enabled: true, text: picks(['A', 'One']), toolCallsMade: 2 });
+
+        await generator.generate(inputs(5));
+
+        expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it('lets a model failure reach the chain, which is what absorbs it', async () => {

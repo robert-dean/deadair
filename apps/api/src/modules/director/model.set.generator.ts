@@ -88,14 +88,23 @@ export const BUDGET_MS = 180_000;
 /**
  * How many rounds of searching the model gets before it must answer.
  *
- * Higher than `LlmService.MAX_TOOL_STEPS`, and deliberately: a break writer needs no tools at all,
- * while choosing a set is a research task and one search is not enough to programme an hour. The
- * last step is asked without tools, so this is rounds of searching plus one to answer.
+ * Higher than `LlmService.MAX_TOOL_STEPS` because a break writer needs no tools at all, while one
+ * search is not enough to programme an hour. The last step is asked without tools, so this is
+ * rounds of searching plus one to answer.
+ *
+ * **Lowered from eight after the first live run**, which used every one of them. Each round leaves
+ * its whole result set in the conversation, so the eighth search is reasoned about with seven
+ * searches' worth of library listing in front of it — and on a host whose context spills VRAM that
+ * is what pushed the answer itself past the token ceiling. Fewer, larger searches beat more,
+ * smaller ones here.
  */
-export const MAX_TOOL_STEPS = 8;
+export const MAX_TOOL_STEPS = 5;
 
 /** A ceiling on the answer, in tokens. Fifteen records of JSON is small; the headroom is reasoning. */
 export const MAX_OUTPUT_TOKENS = 2_000;
+
+/** How much of an unreadable answer is logged. Enough to see the shape, not enough to flood a line. */
+const ANSWER_LOG_CHARS = 400;
 
 /** The `deadair.settings` keys this binding reads. */
 export const MODEL_GENERATOR_KEYS = {
@@ -142,6 +151,17 @@ export class ModelSetGenerator extends SetGenerator {
                 messages,
                 ...(model.length === 0 ? {} : { model }),
                 maxOutputTokens: MAX_OUTPUT_TOKENS,
+                // The same call `ModelTalkBreakWriter` makes, for the same MEASURED reason, and it
+                // was not obvious that programming an hour would want it too: choosing records
+                // looks far more like a reasoning problem than writing a link does.
+                //
+                // It is not, and the first live run proved it. At `high` this searched eight times,
+                // spent 14,377 tokens over 85 seconds, finished on `length` and emitted an empty
+                // answer -- the model used its entire visible allowance thinking and never said a
+                // word. That is the identical failure recorded on `MAX_OUTPUT_TOKENS` in the break
+                // writer. The work here is recall and filtering, which the tool does; what is left
+                // for the model is choosing between rows it has been handed.
+                reasoningEffort: 'low',
             },
             { budgetMs: BUDGET_MS, maxWaitMs: MAX_WAIT_MS, maxToolSteps: MAX_TOOL_STEPS },
         );
@@ -162,11 +182,22 @@ export class ModelSetGenerator extends SetGenerator {
             ...(result.usage === undefined ? {} : { tokens: result.usage.totalTokens ?? result.usage.outputTokens }),
         });
 
-        if (picks.length === 0 && result.toolCallsMade === 0) {
-            // The one failure worth naming as the model's own. A run that searched and found
-            // nothing is a thin library and is not this; a run that never searched and answered
-            // anyway is a model not driving what it was given, and it will do it again.
-            this.logger.warn('director: the model chose nothing and never searched the library; it is not using its tools');
+        if (picks.length === 0) {
+            if (result.toolCallsMade === 0) {
+                // The one failure worth naming as the model's own. A run that searched and found
+                // nothing is a thin library and is not this; a run that never searched and answered
+                // anyway is a model not driving what it was given, and it will do it again.
+                this.logger.warn('director: the model chose nothing and never searched the library; it is not using its tools');
+            } else {
+                // It searched and still produced nothing this could read. Without the answer itself
+                // that is undiagnosable — a model that found nothing, one that answered in prose and
+                // one that spent its whole allowance thinking are the same empty list from here, and
+                // they need three different fixes. Truncated because the destination is a log line.
+                this.logger.warn('director: the model searched but named no records this could read', {
+                    finish: result.finishReason,
+                    said: result.text.trim().slice(0, ANSWER_LOG_CHARS),
+                });
+            }
         }
 
         return picks;

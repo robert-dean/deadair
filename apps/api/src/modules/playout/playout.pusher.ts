@@ -277,7 +277,7 @@ export class PlayoutPusher {
             // benefits from spending them. `always` mode opens the gate permanently and
             // gets exactly the behaviour this loop had before the gate existed.
             const onAir = this.onAirNow();
-            const reading = onAir ? await this.control.assertOnAir() : await this.control.status();
+            const reading = onAir ? await this.renewAndRead() : await this.control.status();
             // Stream not up, or not yet reachable. Try again next tick.
             if (!reading) return;
 
@@ -444,6 +444,29 @@ export class PlayoutPusher {
      */
     private onAirNow(): boolean {
         return this.rundown.hasProgramme() && this.audience.gateOpen();
+    }
+
+    /**
+     * Renew the lease and take the reading, and do not let one failure cost both.
+     *
+     * `radio.liq` answers `/control/onair` with the same reading as `/control/status`, which is
+     * why the loop holds the station on air for no extra request, and that stays the happy path.
+     * What it also meant is that ONE slow call lost two different things: the lease, so the mount
+     * fell through to the local bed, and the reading, so `Rundown.airing` froze at whatever the
+     * player last said. The second is silent and outlives the first — nothing clears an airing item
+     * except a reading that contradicts it — so the console went on naming a record that had
+     * finished several tracks ago, confidently, while the station played something else.
+     *
+     * The second call is on the FAILURE path only, so a healthy station makes exactly the requests
+     * it always did. It costs a slow tick slightly more when the stream is already struggling, and
+     * that is the right way round: the reading is what tells this loop the station has stopped, and
+     * giving up on it is how a transport stall becomes invisible.
+     */
+    private async renewAndRead(): Promise<QueueStatus | undefined> {
+        const renewed = await this.control.assertOnAir();
+        if (renewed) return renewed;
+
+        return this.control.status();
     }
 
     /**

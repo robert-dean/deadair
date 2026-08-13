@@ -314,6 +314,31 @@ describe('PlayoutPusher.reconcile', () => {
         expect(spy.status).toHaveBeenCalledOnce();
     });
 
+    it('still takes a reading when the renewal is the call that failed', async () => {
+        // One call carried both jobs, so a single failed renewal also lost the reading —
+        // and losing the reading is the silent half: nothing clears an airing item except a
+        // reading that contradicts it, so the console went on naming a record that had
+        // finished several tracks earlier while the station played something else.
+        const { pusher, pushed, spy } = setup(['a', 'b', 'c', 'd'], { queued: 0, ready: false });
+        spy.assertOnAir.mockResolvedValue(undefined);
+
+        await pusher.reconcile();
+
+        expect(spy.status).toHaveBeenCalledOnce();
+        expect(pushed).toHaveLength(PLAYOUT_LEAD);
+    });
+
+    it('does not pay for the second call when the renewal answers', async () => {
+        // The happy path is one request for both, which is why the fallback is on the
+        // failure path rather than beside it.
+        const { pusher, spy } = setup(['a'], { queued: 0, ready: true, onAir: 'x' });
+
+        await pusher.reconcile();
+
+        expect(spy.assertOnAir).toHaveBeenCalledOnce();
+        expect(spy.status).not.toHaveBeenCalled();
+    });
+
     it('does not renew the lease while nobody is listening', async () => {
         // The audience gate. There is a programme and a reachable stream, and the
         // station still must not hold the mount: every track it aired would be a

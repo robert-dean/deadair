@@ -21,12 +21,19 @@ import { AnalysisModule } from './analysis/analysis.module.js';
 import { ArtModule } from './art/art.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
+import { withBoundedShutdown } from './shared/shutdown.guard.js';
 
 // Registered in dependency order: infrastructure (data, shared, messaging,
 // events) first, then the single-actor identity/auth foundation. IdentityModule
 // is a list of modules, spread in place. Add your app's domain modules after
 // this chassis set.
-export const modules: ServerKitModule[] = [
+//
+// SHUTDOWN runs in this same order, which is worth stating because it is the opposite of what a
+// dependency order usually implies: DataModule is first here, so the database and Redis are closed
+// while the loops below are still running. Every hook is bounded and isolated at the bottom of this
+// file for a related reason — see `withBoundedShutdown`, and note that the failure it prevents was
+// measured rather than imagined.
+const ordered: ServerKitModule[] = [
     DataModule,
     CryptoModule,
     AuthenticationModule,
@@ -99,3 +106,12 @@ export const modules: ServerKitModule[] = [
     // FileTeeLogger before that happens.
     LoggingModule,
 ];
+
+/**
+ * The list as ServerKit gets it: same modules, same order, with every teardown bounded.
+ *
+ * Applied here rather than inside each hook because the guarantee is about the LIST — no module may
+ * cost the ones after it their teardown, and none may cost the process its exit. A module added
+ * later gets it without knowing about it.
+ */
+export const modules: ServerKitModule[] = ordered.map(module => withBoundedShutdown(module));

@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 import type { StationOrder, StationOrderItem } from '@deadair/sdk';
 
 import { OnAirPage } from '../../../src/components/onair/on.air.page';
+import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
 import { stationAir } from '../../utils/station.fixture';
 import { render, screen, waitFor } from '../../utils/render';
 
@@ -19,6 +20,7 @@ const shuffleTheRunningOrder = vi.fn();
 const extendTheRunningOrder = vi.fn();
 const stopPlayout = vi.fn();
 const rateTrack = vi.fn();
+const getPlayoutStatus = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -29,7 +31,7 @@ vi.mock('../../../src/api/client', () => ({
             shuffleTheRunningOrder: () => shuffleTheRunningOrder(),
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
         },
-        playout: { stop: () => stopPlayout() },
+        playout: { stop: () => stopPlayout(), getPlayoutStatus: () => getPlayoutStatus() },
         catalog: { rateTrack: (...args: unknown[]) => rateTrack(...args) },
     },
 }));
@@ -286,5 +288,30 @@ describe('OnAirPage', () => {
         render(<OnAirPage />);
 
         expect(await screen.findByText('when somebody is listening')).toBeInTheDocument();
+    });
+
+    it('names the gate that is keeping the station quiet', async () => {
+        // The question an operator comes to this page with. It reads the transport poll the
+        // strip already runs, so the page and the strip cannot disagree about the same station.
+        getTheRunningOrder.mockResolvedValue(order());
+        getStationAir.mockResolvedValue(stationAir());
+        getPlayoutStatus.mockResolvedValue(playoutStatus({ silence: stationSilence('audienceUnknown') }));
+
+        render(<OnAirPage />);
+
+        expect(await screen.findByText('Icecast is not answering')).toBeInTheDocument();
+    });
+
+    it('lists what it ruled out, which is why this is a panel and not a tooltip', async () => {
+        // An operator chasing silence is deciding where to look next, and the places they do not
+        // have to look are most of that decision.
+        getTheRunningOrder.mockResolvedValue(order());
+        getStationAir.mockResolvedValue(stationAir());
+        getPlayoutStatus.mockResolvedValue(playoutStatus({ silence: stationSilence('noProgramme') }));
+
+        render(<OnAirPage />);
+
+        expect(await screen.findByText('Ruled out')).toBeInTheDocument();
+        expect(screen.getByText('The stream is not reachable')).toBeInTheDocument();
     });
 });

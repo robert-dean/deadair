@@ -3,8 +3,9 @@ import { Link } from '@tanstack/react-router';
 
 import { useRateTrack } from '../../api/catalog.queries';
 import { useExtendOrder, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
-import { useStopPlayout } from '../../api/playout.queries';
+import { usePlayoutStatus, useStopPlayout } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
 import { BriefTheStation } from './brief.the.station';
 import { StationOrderTable } from './station.order.table';
 
@@ -27,6 +28,9 @@ export function OnAirPage() {
     const removeItem = useRemoveOrderItem();
     const rateTrack = useRateTrack();
     const stop = useStopPlayout();
+    // The same query the shell polls for the transport strip, so this page's panel and
+    // that strip cannot come to different conclusions about the same station.
+    const playout = usePlayoutStatus(true);
 
     const loaded = order.data;
     const items = loaded?.items ?? [];
@@ -80,7 +84,11 @@ export function OnAirPage() {
                                 operator wondering why the station keeps choosing what it chooses is
                                 looking at the answer. */}
                             {loaded.brief ? (
-                                <Tooltip multiline maw={360} label="Every refill of this broadcast is programmed against this until the station is put on air again.">
+                                <Tooltip
+                                    multiline
+                                    maw={360}
+                                    label="Every refill of this broadcast is programmed against this until the station is put on air again."
+                                >
                                     <Badge size="sm" variant="light" color="grape" tt="none">
                                         asked for: {loaded.brief}
                                     </Badge>
@@ -142,6 +150,11 @@ export function OnAirPage() {
                     </Group>
                 ) : undefined}
             </Group>
+
+            {/* Above everything the operator can DO with the running order, because it is the
+                question they came here with. It reads the transport poll the strip already
+                runs, so this is one more reader of one reading rather than a second poll. */}
+            {playout.data ? <SilenceDiagnosisPanel silence={playout.data.silence} /> : undefined}
 
             {order.error ? (
                 <Alert color="red" title="The running order could not be read">

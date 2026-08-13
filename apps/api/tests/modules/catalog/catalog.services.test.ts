@@ -189,7 +189,7 @@ describe('TracksService', () => {
         const result = await service.listTracks(query());
 
         expect(result.data).toEqual([seen(orphan)]);
-        expect(result.data[0].albumId).toBeUndefined();
+        expect(result.data[0]!.albumId).toBeUndefined();
     });
 
     it('rates a song and answers with it re-read', async () => {

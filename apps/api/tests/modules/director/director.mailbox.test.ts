@@ -6,7 +6,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { DirectorMailbox, type DirectorCommand } from '../../../src/modules/director/director.mailbox.js';
+import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult } from '../../../src/modules/director/director.mailbox.js';
 
 const WAKE: DirectorCommand = { kind: 'wake' };
 const STAND_DOWN: DirectorCommand = { kind: 'standDown' };
@@ -15,11 +15,12 @@ const STAND_DOWN: DirectorCommand = { kind: 'standDown' };
 const overlapping = () => {
     let inFlight = 0;
     let overlapped = false;
-    const handle = async () => {
+    const handle = async (_command: DirectorCommand): Promise<DirectorCommandResult> => {
         inFlight += 1;
         if (inFlight > 1) overlapped = true;
         await new Promise(resolve => setImmediate(resolve));
         inFlight -= 1;
+        return undefined;
     };
     return { handle, didOverlap: () => overlapped };
 };

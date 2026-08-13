@@ -12,7 +12,7 @@ import { StationTasteTool } from '../../../src/modules/llm/station.taste.tool.js
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
-const nothing = <T,>(): { shown: T[]; total: number } => ({ shown: [], total: 0 });
+const nothing = <T>(): { shown: T[]; total: number } => ({ shown: [], total: 0 });
 
 const empty = (): StationTaste => ({
     likedArtists: nothing(),
@@ -24,7 +24,7 @@ const empty = (): StationTaste => ({
 });
 
 function build(answer: Partial<StationTaste> = {}) {
-    const read = vi.fn(async (): Promise<StationTaste> => ({ ...empty(), ...answer }));
+    const read = vi.fn(async (_limit: number): Promise<StationTaste> => ({ ...empty(), ...answer }));
     const taste = { taste: read } as unknown as TasteRepository;
     return { tool: new StationTasteTool(taste, logger), read };
 }

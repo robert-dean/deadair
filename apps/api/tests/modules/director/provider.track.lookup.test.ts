@@ -115,7 +115,7 @@ describe('ProviderTrackLookup matching', () => {
         const lookup = lookupFor([provider]);
 
         expect(await lookup.find('', 'Sleep')).toBeUndefined();
-        expect((provider.instance as { searchTracks: ReturnType<typeof vi.fn> }).searchTracks).not.toHaveBeenCalled();
+        expect((provider.instance as unknown as { searchTracks: ReturnType<typeof vi.fn> }).searchTracks).not.toHaveBeenCalled();
     });
 });
 
@@ -132,9 +132,7 @@ describe('ProviderTrackLookup choosing between copies', () => {
     });
 
     it('takes the fuller record when one provider offers an edit and the album version', async () => {
-        const lookup = lookupFor([
-            fakeCatalog({ tracks: [track('Dopesmoker', 'Sleep', 240_000), track('Dopesmoker', 'Sleep', 3_600_000)] }),
-        ]);
+        const lookup = lookupFor([fakeCatalog({ tracks: [track('Dopesmoker', 'Sleep', 240_000), track('Dopesmoker', 'Sleep', 3_600_000)] })]);
 
         const found = await lookup.find('Dopesmoker', 'Sleep');
 

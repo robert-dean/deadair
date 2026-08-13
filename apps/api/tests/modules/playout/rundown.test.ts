@@ -260,7 +260,7 @@ describe('Rundown.reconcile', () => {
                 rundown.reconcile({ queued: 0, ready: false });
             }
 
-            expect(order.all().find(item => item.id === order.all()[0].id)?.state).toBe('skipped');
+            expect(order.all().find(item => item.id === order.all()[0]!.id)?.state).toBe('skipped');
             // And the order has moved on, which is the point: the next thing offered is
             // the item behind it rather than the same one a fourth time.
             expect((await rundown.next())?.item.externalId).toBe('b');
@@ -315,7 +315,7 @@ describe('Rundown.reconcile', () => {
             vi.advanceTimersByTime(30_000);
             rundown.reconcile({ queued: 0, ready: false });
 
-            expect(order.all()[0].state).toBe('skipped');
+            expect(order.all()[0]!.state).toBe('skipped');
         } finally {
             vi.useRealTimers();
         }
@@ -345,7 +345,7 @@ describe('Rundown.reconcile', () => {
             rundown.reconcile({ queued: 0, ready: false });
 
             // Reclaimed rather than skipped: this is attempt one of three again.
-            expect(order.all()[0].state).toBe('planned');
+            expect(order.all()[0]!.state).toBe('planned');
         } finally {
             vi.useRealTimers();
         }
@@ -439,12 +439,12 @@ describe('Rundown.retract and reset', () => {
         const rundown = new Rundown(new StubResolver(), logger);
         const order = orderOf(rundown, ['a']);
         const pulled = await rundown.next();
-        expect(order.all()[0]!.state).toBe('handed');
+        expect(order.all()[0]!!.state).toBe('handed');
 
         rundown.retract();
 
-        expect(order.all()[0]!.state).toBe('planned');
-        expect(pulled!.item.id).toBe(order.all()[0]!.id);
+        expect(order.all()[0]!!.state).toBe('planned');
+        expect(pulled!.item.id).toBe(order.all()[0]!!.id);
     });
 
     it('does not take a retracted item as a fault when the player still names it', async () => {
@@ -761,7 +761,7 @@ describe('Rundown resolving across a change of plan', () => {
         // The item is back where it started rather than half handed over, which is the whole
         // difference the shared order makes: it used to be dropped from a second list while the
         // plan behind it went on believing it had been committed.
-        expect(order.all()[0]!.state).toBe('planned');
+        expect(order.all()[0]!!.state).toBe('planned');
         expect(rundown.servedCount()).toBe(0);
     });
 

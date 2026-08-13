@@ -68,6 +68,7 @@ function harness(): Harness {
         accessControl,
         pluginLog.log,
         new AfterCommit(),
+        { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
     );
 
     return { service, store, pluginLog, getAuthorizeUrl, handleCallback };

@@ -220,7 +220,7 @@ describe('PluginsService authorization: admin', () => {
         await expect(service.testPlugin(SPOTIFY_ID)).resolves.toBeDefined();
         await expect(service.startOAuthAuthorization(SPOTIFY_ID)).resolves.toBeDefined();
 
-        const list = await service.listPlugins({});
+        const list = await service.listPlugins();
         expect(list.map(p => p.id).sort()).toEqual([OTHER_ID, SPOTIFY_ID]);
     });
 });
@@ -232,7 +232,7 @@ describe('PluginsService authorization: listener, no plugin tuples', () => {
     it('sees no plugins and is denied on every operation', async () => {
         const { service } = makeService(userActor('u-listener', ['listener']));
 
-        await expect(service.listPlugins({})).resolves.toEqual([]);
+        await expect(service.listPlugins()).resolves.toEqual([]);
         await expectForbidden(service.getPlugin(SPOTIFY_ID));
         await expectForbidden(service.updatePluginConfig(SPOTIFY_ID, { config: {} }));
         await expectForbidden(service.enablePlugin(SPOTIFY_ID));
@@ -251,7 +251,7 @@ describe('PluginsService authorization: listener holding operator on one plugin'
         const fixture = new FakePermissionsFixture().grantOperator(SPOTIFY_ID, 'u-listener-op');
         const { service } = makeService(userActor('u-listener-op', ['listener']), fixture);
 
-        const list = await service.listPlugins({});
+        const list = await service.listPlugins();
         expect(list.map(p => p.id)).toEqual([SPOTIFY_ID]);
 
         await expect(service.getPlugin(SPOTIFY_ID)).resolves.toBeDefined();
@@ -271,7 +271,7 @@ describe('PluginsService authorization: roleless user with an owner grant', () =
         const fixture = new FakePermissionsFixture().grantOwner(SPOTIFY_ID, 'u-owner');
         const { service } = makeService(userActor('u-owner', []), fixture);
 
-        const list = await service.listPlugins({});
+        const list = await service.listPlugins();
         expect(list.map(p => p.id)).toEqual([SPOTIFY_ID]);
 
         await expect(service.getPlugin(SPOTIFY_ID)).resolves.toBeDefined();
@@ -298,7 +298,7 @@ describe('PluginsService authorization: roleless user with an operator grant', (
         const fixture = new FakePermissionsFixture().grantOperator(SPOTIFY_ID, 'u-operator');
         const { service } = makeService(userActor('u-operator', []), fixture);
 
-        const list = await service.listPlugins({});
+        const list = await service.listPlugins();
         expect(list.map(p => p.id)).toEqual([SPOTIFY_ID]);
 
         await expect(service.getPlugin(SPOTIFY_ID)).resolves.toBeDefined();
@@ -316,7 +316,7 @@ describe('PluginsService authorization: roleless user, no tuples', () => {
     it('sees no plugins and is denied on getPlugin', async () => {
         const { service } = makeService(userActor('u-nobody', []));
 
-        await expect(service.listPlugins({})).resolves.toEqual([]);
+        await expect(service.listPlugins()).resolves.toEqual([]);
         await expectForbidden(service.getPlugin(SPOTIFY_ID));
     });
 });
@@ -344,7 +344,7 @@ describe('PluginsService authorization: HTTP system actor', () => {
     it('sees no plugins and is denied on getPlugin', async () => {
         const { service } = makeService(httpSystemActor);
 
-        await expect(service.listPlugins({})).resolves.toEqual([]);
+        await expect(service.listPlugins()).resolves.toEqual([]);
         await expectForbidden(service.getPlugin(SPOTIFY_ID));
     });
 });

@@ -3,10 +3,12 @@
     "compilerOptions": {
         // Type-check only: this config exists to cover tests/ as well as src/,
         // which the build tsconfig deliberately leaves out. Nothing is emitted,
-        // so rootDir is widened to the package root to admit tests/ without
-        // TS6059 and outDir is irrelevant.
+        // so rootDir is widened to the WORKSPACE root and outDir is irrelevant.
+        // The package root is not far enough: the boundary conformance test pulls
+        // in a fixture from `packages/plugin-sdk/tests`, and `rootDir` is a rule
+        // about where emit inputs may live, which is nothing here.
         "noEmit": true,
-        "rootDir": "."
+        "rootDir": "../.."
     },
     "include": ["./src/**/*", "./tests/**/*"],
     "exclude": ["node_modules", "dist"]

@@ -37,7 +37,7 @@ const loggerStub = (): Logger => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn()
 
 /** A client with both secrets seeded, and a stub for whatever it POSTs at the shim. */
 const clientWith = (values: Record<string, string> = {}, response: Response | Error = new Response(null, { status: 202 })) => {
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
         if (response instanceof Error) throw response;
         return response;
     });
@@ -115,10 +115,10 @@ describe('SpotifyShimClient', () => {
         await client.serve(VECTOR.trackId, SESSION);
 
         expect(fetchMock).toHaveBeenCalledOnce();
-        const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        const [url, init] = fetchMock.mock.calls[0]!;
         expect(url).toBe('http://127.0.0.1:3679/session');
-        expect((init.headers as Record<string, string>)['x-spotify-login-secret']).toBe('shim-secret');
-        expect(JSON.parse(init.body as string)).toEqual(SESSION);
+        expect((init!.headers as Record<string, string>)['x-spotify-login-secret']).toBe('shim-secret');
+        expect(JSON.parse(init!.body as string)).toEqual(SESSION);
     });
 
     it('stays inert until the bridge secret is seeded', async () => {
@@ -152,7 +152,7 @@ describe('SpotifyShimClient', () => {
 
         const stream = await client.serve(VECTOR.trackId, SESSION);
 
-        expect(fetchMock.mock.calls[0][0]).toBe('http://liquidsoap:3679/session');
+        expect(fetchMock.mock.calls[0]![0]).toBe('http://liquidsoap:3679/session');
         expect(stream?.url).toContain('http://liquidsoap:3679/track/');
     });
 
@@ -160,7 +160,7 @@ describe('SpotifyShimClient', () => {
         const { client, fetchMock } = clientWith({ SPOTIFY_SHIM_URL: 'http://shim.internal:3679/' });
 
         expect((await client.serve(VECTOR.trackId, SESSION))?.url).toContain('http://shim.internal:3679/track/');
-        expect(fetchMock.mock.calls[0][0]).toBe('http://shim.internal:3679/session');
+        expect(fetchMock.mock.calls[0]![0]).toBe('http://shim.internal:3679/session');
     });
 
     // `SPOTIFY_SHIM_URL` is the old player-facing key and is kept only so an operator's existing .env
@@ -172,7 +172,7 @@ describe('SpotifyShimClient', () => {
         });
 
         expect((await client.serve(VECTOR.trackId, SESSION))?.url).toContain('http://127.0.0.1:3679/track/');
-        expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3679/session');
+        expect(fetchMock.mock.calls[0]![0]).toBe('http://127.0.0.1:3679/session');
     });
 
     it('mints a URL that outlives the lead the pusher keeps', async () => {

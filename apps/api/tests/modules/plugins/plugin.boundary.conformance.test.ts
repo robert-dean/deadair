@@ -5,6 +5,7 @@ import { PLUGIN_OAUTH_SECRET_KEY, PluginHostFactory, PluginHostFactoryOptions } 
 import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
 import { PluginStorageRepository } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
 
 const PLUGIN_ID = 'test.conformance';
@@ -45,7 +46,7 @@ function harness(): Harness {
         [PluginConfigService, pluginConfigService],
         [PluginStorageRepository, pluginStorageRepository],
     ]);
-    const factory = new PluginHostFactory(options, container, stubPluginLog().log);
+    const factory = new PluginHostFactory(options, container, stubPluginLog().log, stubShimClient());
 
     return { factory, getSecrets, getConfig, saveConfig, storageGet, storageListKeys };
 }

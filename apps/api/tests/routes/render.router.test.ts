@@ -19,7 +19,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { RenderRouter } from '../../src/routes/render.router.js';
 import { RenderService } from '../../src/modules/render/render.service.js';
-import type { SegmentLibrary } from '../../src/modules/render/segment.library.js';
 import { SegmentRepository, type Segment } from '../../src/modules/render/segment.repository.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentExtension } from '../../src/modules/render/segment.store.js';
 import { conditionalGetMiddleware } from '../../src/server/middleware/conditional.get.middleware.js';
@@ -74,7 +73,11 @@ const send = (
 /** The API's chain around the segment route: errors rendered, freshness applied, container stubbed. */
 const serve = async (segment: Segment | undefined): Promise<string> => {
     const repository = { findById: async () => segment } as unknown as SegmentRepository;
-    const service = new RenderService(repository, store, {} as unknown as SegmentLibrary);
+    // Only the repository and the store are on this route: fetching a segment's audio
+    // neither writes words nor speaks them, so the rest of the service's collaborators
+    // are never reached and are stubbed to nothing rather than faked.
+    const unused = {} as never;
+    const service = new RenderService(repository, store, unused, unused, unused, unused, unused);
     const app = new Koa();
 
     app.use(errorMiddleware() as unknown as Koa.Middleware);

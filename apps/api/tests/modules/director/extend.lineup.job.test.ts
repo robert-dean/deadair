@@ -34,6 +34,13 @@ const track = (title: string, artist = 'One'): RundownTrack => ({
     artists: [artist],
 });
 
+/** The record at one position, failing loudly rather than narrowing to undefined if a segment is there. */
+const trackAt = (lineup: StationLineup, index: number): RundownTrack => {
+    const item = lineup.all()[index];
+    if (item?.kind !== 'track') throw new Error(`expected a record at ${index}, found ${item?.kind ?? 'nothing'}`);
+    return item.track;
+};
+
 interface Options {
     mode?: StationLineupMode;
     /** What the operator asked this broadcast to play. Absent is a station programming itself. */
@@ -168,7 +175,7 @@ describe('ExtendLineupJob', () => {
 
         await job.run({ count: 2 });
 
-        expect(lineup.all().map(item => item.track.title)).toEqual(['Playable']);
+        expect(lineup.all().flatMap(item => (item.kind === 'track' ? [item.track.title] : []))).toEqual(['Playable']);
     });
 
     it('refuses to generate into a setlist', async () => {
@@ -221,7 +228,7 @@ describe('ExtendLineupJob', () => {
 
         await job.run({ count: 2 });
 
-        expect(lineup.all()[0]!.track.title).toBe('Kept');
+        expect(trackAt(lineup, 0).title).toBe('Kept');
         expect(lineup.size()).toBe(3);
     });
 });

@@ -273,7 +273,7 @@ describe('the gate', () => {
 
     it('gives the slot back when the conversation throws', async () => {
         const { record } = scriptedPlugin([{ text: 'never got here' }]);
-        (record.instance as { generate: unknown }).generate = async () => {
+        (record.instance as unknown as { generate: unknown }).generate = async () => {
             throw new Error('the model refused');
         };
         const { service, gate } = serviceFor(record);

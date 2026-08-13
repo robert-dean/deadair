@@ -76,11 +76,13 @@ function build(options: Options = {}) {
             if (options.catalogError) throw options.catalogError;
             return options.catalogRows ?? [];
         }),
-        ratingsByTrackId: vi.fn(async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.ratings?.[id] ? [[id, options.ratings[id]]] : [])))),
+        ratingsByTrackId: vi.fn(
+            async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.ratings?.[id] ? [[id, options.ratings[id]]] : []))),
+        ),
     } as unknown as TracksRepository;
 
     // Read-only from the console's side: a lineup names a segment and the library owns it.
-    const library = new Map((options.segments ?? []).map(segment => [segment.id, segment as Segment]));
+    const library = new Map<string, Segment>((options.segments ?? []).map(segment => [segment.id!, segment as Segment]));
     const segments = {
         findById: vi.fn(async (id: string) => library.get(id)),
         findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),

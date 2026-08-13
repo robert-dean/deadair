@@ -146,6 +146,7 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture, readModel: P
         accessControl,
         pluginLog,
         new AfterCommit(),
+        { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
     );
 
     return { service, requireSpy, configService, pluginLog };
@@ -236,6 +237,7 @@ describe('PluginsService: downloadPluginLogs Content-Disposition', () => {
             accessControl,
             pluginLog,
             new AfterCommit(),
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
         );
 
         const result = await service.downloadPluginLogs(rawId);

@@ -8,6 +8,7 @@ import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { WriteBreakJob } from '../../../src/modules/director/write.break.job.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment } from '../../../src/modules/render/segment.repository.js';
+import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -37,7 +38,9 @@ function harness(options: { segment?: Segment; lineup?: StationLineup; written?:
         markFailed: vi.fn(async () => {}),
     };
     const lineups = { load: vi.fn(async () => options.lineup) };
-    const history = { recordAll: vi.fn(async () => options.historyThrows && Promise.reject(new Error('the history table is gone'))) };
+    const history = {
+        recordAll: vi.fn(async (_writes: readonly ScriptWrite[]) => options.historyThrows && Promise.reject(new Error('the history table is gone'))),
+    };
     const wrote = (script: string, label: string, writer: string) => ({
         written: { script, label },
         writer,
@@ -115,7 +118,7 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            const written = history.recordAll.mock.calls[0]?.[0] as ReadonlyArray<Record<string, unknown>>;
+            const written = history.recordAll.mock.calls[0]![0];
             expect(written).toHaveLength(2);
             expect(written[0]).toMatchObject({ writer: 'a-model', outcome: 'failed', reason: 'out of budget', durationMs: 41 });
             expect(written[1]).toMatchObject({ writer: 'deterministic', outcome: 'written', script: 'That was Solid Air.' });
@@ -305,9 +308,8 @@ describe('WriteBreakJob', () => {
 
         await job.run({});
         await job.run();
-        await job.run({ lineupId: 'lineup-1' });
 
         expect(segments.claimForWrite).not.toHaveBeenCalled();
-        expect(logger.warn).toHaveBeenCalledTimes(3);
+        expect(logger.warn).toHaveBeenCalledTimes(2);
     });
 });

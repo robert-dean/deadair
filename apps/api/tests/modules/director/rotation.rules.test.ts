@@ -259,7 +259,7 @@ describe('spaceArtists', () => {
         // The case a first-different-artist pass gets wrong: it places Two, Three,
         // One, and then has only One left, so the two One tracks end up adjacent even
         // though One-Two-One-Three exists. Found by a flaky generator test.
-        const spaced = spaceArtists([candidate('C', 'Two'), candidate('D', 'Three'), candidate('A', 'One'), candidate('B', 'One')]);
+        const spaced = spaceArtists([candidate('C', ['Two']), candidate('D', ['Three']), candidate('A', ['One']), candidate('B', ['One'])]);
 
         const artists = spaced.map(c => c.artistKey);
         expect(artists.every((artist, index) => index === 0 || artist !== artists[index - 1])).toBe(true);
@@ -268,7 +268,7 @@ describe('spaceArtists', () => {
     it('separates the same artist however the batch arrives', () => {
         // Every ordering of two tracks by one artist among two others has a valid
         // arrangement, so none of them may come back adjacent.
-        const batch = [candidate('A', 'One'), candidate('B', 'One'), candidate('C', 'Two'), candidate('D', 'Three')];
+        const batch = [candidate('A', ['One']), candidate('B', ['One']), candidate('C', ['Two']), candidate('D', ['Three'])];
 
         for (const order of permutations(batch)) {
             const artists = spaceArtists(order).map(c => c.artistKey);

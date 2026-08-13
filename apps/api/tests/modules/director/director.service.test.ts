@@ -139,7 +139,7 @@ function build(options: Options = {}) {
     const container = { createScopedContainer: createScope } as unknown as Container;
 
     // The singleton broker, which is what JobsModule documents for a non-request caller.
-    const jobs = { send: vi.fn(async () => 'job-1') };
+    const jobs = { send: vi.fn(async (_name: string, _payload: Record<string, unknown>) => 'job-1') };
 
     // A stub: what the gate does to the mount is PlayoutPusher's, and is tested there. The
     // director no longer tells it anything — it reads the same setting from the same config.
@@ -324,7 +324,7 @@ describe('DirectorService noticing the row', () => {
         await director.start();
         expect(rundown.upcoming()).toHaveLength(0);
 
-        setAir({ slot: 'main', lineupId: 'lineup-1', cursor: 0, active: true });
+        setAir({ slot: 'main', active: true });
         await wake(rundown);
 
         expect(rundown.upcoming().length).toBeGreaterThan(0);

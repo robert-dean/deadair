@@ -10,7 +10,7 @@ import { BreakPlanner, PLANT_AHEAD, WRITE_AHEAD } from '../../../src/modules/dir
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
-import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
+import type { PlannedSegment, Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -34,7 +34,7 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
     // anything about it — its kind, whether anybody has written it — is a lookup rather than a
     // memory. Planted rows go in here too, which is what lets `ripen` see them.
     const known = new Map<string, Segment>((options.idents ?? [ident('seg-1')]).map(segment => [segment.id, segment]));
-    const plan = vi.fn(async (input: { kind: string; label: string }) => {
+    const plan = vi.fn(async (input: PlannedSegment) => {
         const segment = { id: `planned-${++planned}`, state: 'planned', source: 'render', ...input } as Segment;
         known.set(segment.id, segment);
         return segment;
@@ -316,7 +316,7 @@ describe('BreakPlanner writing its own breaks', () => {
 // voice on the station and the station's own name stays in rotation.
 describe('BreakPlanner alternating what a break is', () => {
     /** Which kind landed at each segment position, in order. */
-    const kindsPlanted = (lineup: Lineup): string[] =>
+    const kindsPlanted = (lineup: StationLineup): string[] =>
         lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentId.startsWith('planned-') ? 'talkbreak' : 'ident'] : []));
 
     it('alternates written breaks with recorded idents', async () => {

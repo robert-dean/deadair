@@ -22,6 +22,7 @@ import {
 } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
 
 /**
@@ -121,7 +122,10 @@ function scopedFactory(
         [PluginConfigService, configService],
         [PluginStorageRepository, storage],
     ]);
-    return { ...stub, factory: new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), stub.container, stubPluginLog().log) };
+    return {
+        ...stub,
+        factory: new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), stub.container, stubPluginLog().log, stubShimClient()),
+    };
 }
 
 function factory(
@@ -1317,7 +1321,7 @@ describe('PluginHostFactory.createHost oauth', () => {
     });
 
     it('persists the tokens through saveConfig, carrying the manifest fields so stored settings survive a refresh', async () => {
-        const saveConfig = vi.fn(async () => {});
+        const saveConfig = vi.fn(async (_pluginId: string, _fields: unknown[], _submitted: Record<string, unknown>) => {});
         const configService = { saveConfig } as unknown as PluginConfigService;
         const host = factory(undefined, configService).createHost(manifest({ permissions: { network: [], storage: false, oauth: true } }));
 

@@ -9,6 +9,7 @@ import {
     PluginHostFactoryOptions,
 } from '../../../src/modules/plugins/plugin.host.factory.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
 
 /**
@@ -39,7 +40,7 @@ function factory(): PluginHostFactory {
     // Nothing here reaches the database: every manifest below declares a fixed
     // network allowlist, so no scope is ever opened.
     const { container } = stubContainer([]);
-    return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), container, stubPluginLog().log);
+    return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), container, stubPluginLog().log, stubShimClient());
 }
 
 /** A response whose body yields `chunks` in order and then ends. */

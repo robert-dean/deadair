@@ -20,7 +20,7 @@ const ACTOR_ID = '11111111-1111-4111-8111-111111111111';
 
 interface Harness {
     ctx: any;
-    next: ReturnType<typeof vi.fn>;
+    next: ReturnType<typeof vi.fn<() => Promise<void>>>;
     existsActive: ReturnType<typeof vi.fn>;
     deleteSession: ReturnType<typeof vi.fn>;
     cookieSet: ReturnType<typeof vi.fn>;
@@ -31,7 +31,7 @@ const harness = (options: { path?: string; actorExists?: boolean; relations?: st
     const existsActive = vi.fn().mockResolvedValue(options.actorExists ?? true);
     const deleteSession = vi.fn().mockResolvedValue(undefined);
     const cookieSet = vi.fn();
-    const next = vi.fn().mockResolvedValue(undefined);
+    const next = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
     const overrides = new Map<unknown, unknown>();
 
     const registry = new Map<unknown, unknown>([

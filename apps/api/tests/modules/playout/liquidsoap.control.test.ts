@@ -39,26 +39,26 @@ describe('parseReading', () => {
 
     it('treats an empty onAir as nothing playing, not as an id', () => {
         // radio.liq reports "" when the queue is not producing.
-        expect(parseReading({ queued: 0, ready: false, onAir: '' }).onAir).toBeUndefined();
+        expect(parseReading({ queued: 0, ready: false, onAir: '' })!.onAir).toBeUndefined();
     });
 
     it('drops a non-positive remaining time', () => {
         // radio.liq sends -1 for "cannot say", but `remaining()` itself answers 0 for
         // a queue with nothing on air — so a 0 reaching here is not a measurement of
         // an item at all.
-        expect(parseReading({ queued: 0, ready: true, onAir: 'x', remainingMs: -1 }).remainingMs).toBeUndefined();
-        expect(parseReading({ queued: 0, ready: true, onAir: 'x', remainingMs: 0 }).remainingMs).toBeUndefined();
+        expect(parseReading({ queued: 0, ready: true, onAir: 'x', remainingMs: -1 })!.remainingMs).toBeUndefined();
+        expect(parseReading({ queued: 0, ready: true, onAir: 'x', remainingMs: 0 })!.remainingMs).toBeUndefined();
     });
 
     it('reads whether the station is actually on air', () => {
-        expect(parseReading({ queued: 0, ready: true, driving: true }).driving).toBe(true);
-        expect(parseReading({ queued: 0, ready: true, driving: false }).driving).toBe(false);
+        expect(parseReading({ queued: 0, ready: true, driving: true })!.driving).toBe(true);
+        expect(parseReading({ queued: 0, ready: true, driving: false })!.driving).toBe(false);
     });
 
     it('leaves `driving` unreported by a script too old to have a gate', () => {
         // Absent is not false: an older radio.liq has no lease at all, and the two
         // states need telling apart by whatever decides what to claim.
-        expect(parseReading({ queued: 0, ready: true }).driving).toBeUndefined();
+        expect(parseReading({ queued: 0, ready: true })!.driving).toBeUndefined();
     });
 
     it('ignores a malformed field instead of failing the whole reading', () => {

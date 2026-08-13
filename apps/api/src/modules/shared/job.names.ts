@@ -9,4 +9,5 @@ export type JobNames =
     | 'director.extend_lineup'
     | 'director.write_break'
     | 'render.segment'
-    | 'render.prune_script_history';
+    | 'render.prune_script_history'
+    | 'activity.prune_events';

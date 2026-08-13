@@ -12,6 +12,7 @@ import { ANALYSIS_CONCURRENCY_KEY, ANALYSIS_PLUGIN_KEY, DEFAULT_ANALYSIS_CONCURR
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
 
 /**
  * What a station setting is, declared once.
@@ -161,6 +162,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: STREAM_DEFAULTS.listenerHooks,
         help: 'Keep this on unless Icecast refuses to start: url authentication needs an Icecast built with libcurl. Turning it off costs only the seconds between somebody connecting and the next stats poll.',
+    },
+
+    {
+        group: 'station',
+        key: ACTIVITY_KEYS.retentionDays,
+        label: 'Keep the activity feed for (days)',
+        type: 'number',
+        default: ACTIVITY_DEFAULTS.retentionDays,
+        help: 'How long the station remembers its own moments: going on and off air, every time a gate silenced it, every gap that outlived the loop meant to close it. Zero keeps all of it. What aired and what the station wrote have their own lifetimes and are not touched by this.',
     },
 
     // ── rotation ───────────────────────────────────────────────────────────────

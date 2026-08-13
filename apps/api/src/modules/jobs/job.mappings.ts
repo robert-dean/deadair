@@ -13,6 +13,7 @@ import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
+import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
 
 /**
  * What a job name maps to. The bare constructor is the short form for an
@@ -212,6 +213,16 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'render.prune_script_history': {
         job: PruneScriptHistoryJob,
         cron: '23 4 * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // The same sweep over a different table, and everything above about the retry applies
+    // unchanged. Half an hour later rather than at the same minute: the two are independent, and
+    // two deletes racing each other at 04:23 for no reason is the kind of thing that is only ever
+    // noticed as a mysterious spike.
+    'activity.prune_events': {
+        job: PruneActivityJob,
+        cron: '53 4 * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 };

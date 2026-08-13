@@ -522,16 +522,63 @@ one matters more than it sounds:
 
 - **An activity feed**: what aired, what was picked and why it was picked, what a plugin was asked
   and what it answered, what a render did. Structured lines, filterable by module.
-- **A diagnosis of silence.** In `audience` mode a station with a full running order and nobody
-  connected is silent **on purpose**, and a station whose API stopped renewing the lease is silent
-  because something broke. From outside the two are identical, and the console currently says
-  `ready` for the first without being able to rule out the second. An operator asking "why can't I
-  hear anything" needs one page that names the cause: no audience, no programme, no ready segment, a
-  plugin that is failing to resolve, an upstream over its rate limit, a lease that is not being
-  renewed.
+- ~~**A diagnosis of silence.**~~ **Built 2026-08-13.** See below.
 
 The general rule: every gate that can silence the station should be able to say, in one line, that
 it is the one currently doing so.
+
+### The silence diagnosis, as built
+
+`silence.diagnosis.ts` is an ORDERED chain of nine gates, pure over a `StationFacts` snapshot, and
+`PlayoutService.getStatus` gathers that snapshot and carries the verdict on the reading the console
+already polls. The console renders it twice on the `StaleConfigBadge`/`StaleConfigAlert` split: two
+words in the transport strip, the full panel with everything RULED OUT on `/onair`. There is no
+second route and no second poll.
+
+Five things are load-bearing and are the reason to read the file before adding a gate:
+
+- **The ordering is causal, not cosmetic.** A stalled reconcile loop ranks above `streamUp` and
+  `driving` because both of those are set by calls that loop makes, so a loop that stopped leaves
+  them frozen at whatever they last said. Nothing below a blocking gate can be trusted.
+- **`waiting` is its own state, not a mild fault.** A station idling for want of a listener and one
+  that cannot reach its stream are both silent, and only one is something to go and fix. This is the
+  same argument the `ready` badge was added on, and a surface that called either `degraded` would
+  undo it.
+- **`configNotAdopted` is reported and NEVER the cause.** A station can air perfectly well to
+  somebody who connected before the config was replaced, so naming it as the reason for a silence
+  with a different reason is how a real warning stops being believed. It gets its own alert.
+- **`notDriving` is the RESIDUE and does not stand on its own.** Dropping the lease is what the
+  dead-man switch and the audience gate are FOR, so it is a fault only when nothing above accounts
+  for it. Found by running it: an idle station reported "there is a programme, an audience and a
+  reachable stream" directly under the gate saying there was no audience.
+- **The pair the whole thing exists for.** `IcecastStatsClient.listeners()` answers `undefined` for
+  "could not read" and `AudienceWatch` was throwing that away, so an Icecast whose stats endpoint
+  went down was indistinguishable from an empty room — and in `audience` mode the gate then never
+  reopens. `AudienceWatch.reading()` keeps `readAt` beside the count. The GATE is deliberately
+  unchanged: an app that cannot see Icecast has no evidence anybody is there. What this bought is
+  the station being able to say so.
+
+**A heartbeat is not a health check**, and `modules/shared/heartbeat.ts` holds no opinion about
+thresholds: a poll every five seconds and a nightly sweep are both healthy and no one number
+describes them both. It answers how long it has been and the reader decides. `register` is what keeps
+boot from being a special case. A failure stays beside the loop (`PlayoutPusher.lastFailure`), because
+a loop that threw and came round again is still alive and folding the two together leaves a reader
+unable to tell a loop that stopped from one failing every pass. Two of the five loops have adopted it
+— the ones the diagnosis reads; the rest are one line each on the day something asks.
+
+**Nothing is stored.** No table, no migration, one existing row read (`station_air`, for whether the
+station was stood down, which is the only fact not in memory). Memory is the authority for what the
+station is doing now, and a stored copy of a live gate is a second thing that can disagree with the
+gate. What WOULD want storage is "why was the station silent at 3am", which no live reading can
+answer — that is the activity feed's, and until it lands the cause is logged on the EDGE, keyed the
+way `StreamConfigWatch` keys its warnings so a two-second poll cannot fill the log.
+
+**What it deliberately does not cover.** Degradation: records skipped after failed hand-overs,
+segments that never reached `ready`, a provider benching bindings. A break that missed is not the
+question this answers, and a gate list that mixed the two would stop being an answer to "why can I
+hear nothing". `apps/api/scripts/silence.smoke.ts` drives the whole chain against the real Icecast
+and Liquidsoap; `--blind` points the stats client at a closed port, which exercises `audienceUnknown`
+without stopping a container and is therefore safe against a station that is on air.
 
 ## 9. The writer, and what it must not be allowed to do
 

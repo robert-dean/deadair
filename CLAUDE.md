@@ -310,6 +310,43 @@ exists to avoid. A warm queue is therefore not available from the app side; it w
 change in `radio.liq`. The console's own
 `StreamMonitor` plays the mount, so an operator listening in the browser is an audience.
 
+**Every gate that can silence the station says so, in ONE ordered answer.** `silence.diagnosis.ts` is
+nine gates over a `StationFacts` snapshot, pure so the precedence can be tested without a stack, and
+`PlayoutStatus.silence` carries the verdict on the reading the console already polls — so the badge,
+the strip and the `/onair` panel read one answer instead of the three partial inferences they each
+used to derive. **The ordering is causal**: a stalled reconcile loop ranks above `streamUp` and
+`driving` because both are set by calls that loop makes, so a stopped loop leaves them frozen at
+whatever they last said and nothing below it can be trusted. Three rules keep it honest. `waiting` is
+its own state rather than a mild fault, because a station idling for want of a listener and one that
+cannot reach its stream are both silent and only one wants fixing — the same argument the `ready`
+badge exists on. `configNotAdopted` is reported and **never the cause**, since a station can air
+perfectly well to somebody who connected before the config was replaced. And `notDriving` is the
+RESIDUE: dropping the lease is what the dead-man switch and the audience gate are FOR, so it is a
+fault only when nothing above accounts for it. Nothing is stored; the one database read is
+`station_air`, because whether an operator stood the station down is the only fact not in memory. A
+cause CHANGE is logged on the edge, keyed like `StreamConfigWatch`'s warnings, and that line is the
+only trace outliving the process until the activity feed lands.
+
+**Zero listeners and an Icecast that stopped answering are the same number and opposite facts.**
+`IcecastStatsClient.listeners()` returns `undefined` for "could not read" and documents that as
+deliberately not `0`; `AudienceWatch` used to discard it, so a dead stats endpoint read as an empty
+room and in `audience` mode the gate then never reopened — silent for good, console saying `ready`.
+`AudienceWatch.reading()` keeps `readAt` beside the count, stamped in `accept()` because that is the
+one place a poll, an event-feed message and a `listener_add` hook all meet, and all three are proof
+Icecast is alive. **The gate itself is deliberately unchanged**: an app that cannot see Icecast has
+no evidence anybody is there, and airing on a failed request would be the worse mistake.
+
+**A heartbeat is not a health check.** `modules/shared/heartbeat.ts` is a map of name to two
+timestamps and holds no opinion about thresholds, because a five-second poll and a nightly sweep are
+both healthy and no one number describes both: it answers how long it has been and the reader
+decides. `register` keeps boot from being a special case, so a loop is measurable from its first
+millisecond without every caller inventing a grace window. A FAILURE stays beside the loop
+(`PlayoutPusher.lastFailure`), because a loop that threw and came round again is still alive and
+folding the two together leaves a reader unable to tell a loop that stopped from one failing every
+pass. The beat is skipped for a pass that threw and taken for one that returned early — the several
+`return`s in `reconcile` are the loop working. Two of the five timer loops have adopted it; the rest
+are one line each on the day something reads them.
+
 **Two database pools.** The runtime pool connects as the non-owner `app_user` role so RLS actually enforces; a separate owner pool handles privileged maintenance.
 
 **Import aliases** are `#src/*`, `#routes/*`, `#modules/*`, declared as `paths` in
@@ -318,6 +355,8 @@ otherwise are stale). `#shared/*` is declared but points at a `src/shared` that 
 shared code lives in `src/modules/shared`. Local imports carry `.js` extensions.
 
 **Formatting and toolchain:** 4-space indent, single quotes, semicolons, print width 150, `arrowParens: avoid`. Node 26+, TypeScript 6, pnpm + Turborepo. `pnpm test` / `pnpm lint` / `pnpm build` run through turbo; per package, `pnpm --filter @deadair/api test`. Tests live in each package's top-level `tests/`, mirroring `src/`.
+
+**Neither `tests/` nor `scripts/` is built, and both are type-checked.** `pnpm --filter @deadair/api typecheck` is `typecheck:tests` (`tsconfig.tests.json`) then `typecheck:scripts` (`scripts/tsconfig.json`), and both widen `rootDir` to the workspace root — `rootDir` is a rule about where EMIT inputs may live and there is none, while pinning it rejects a boundary fixture from `packages/plugin-sdk/tests` and `verify.speech.ts` importing the kokoro plugin, both of which are deliberate. Neither folder is in the build tsconfig, so `tsc` still compiles only shippable code. This is not decoration: vitest transpiles without checking types and the scripts had no runner at all, so both folders had silently stopped compiling against the code they cover — four of five smoke scripts at once.
 
 ## Multi-package work
 

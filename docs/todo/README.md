@@ -20,7 +20,7 @@ Two rules for this directory:
 | --- | --- |
 | [dj-voice.md](dj-voice.md) | **Both pieces built 2026-08-12.** What stood between a station that plays segments and one with a DJ. The TTS, the `llm` capability, the deterministic writer, the operator's own phrasings and the model binding are all in. Kept for the smaller things it leaves behind: cue visibility, segment duration, a console for segments, and play history for what the station SAID |
 | [director-and-lineups.md](director-and-lineups.md) | Segments, an LLM DJ, live provider search, the daypart schedule, station permissions, plugins that programme the station, push destinations, rotation rules as settings, palette steering, the station console page |
-| [station-intelligence.md](station-intelligence.md) | The layer above the rules. **§1, the LLM DJ, built 2026-08-12**, and §3/§4 before it; **§2 deliberately deferred** against its own ordering claim, with the reasoning kept for the day the model stops being self-hosted. What is left: never-play rules and the freshness bubble, genre and era correctness, listener signal, and what the console can tell an operator about silence |
+| [station-intelligence.md](station-intelligence.md) | The layer above the rules. **§1, the LLM DJ, built 2026-08-12**; **§8's silence half built 2026-08-13**, with the five load-bearing calls written up there and a `Heartbeat` primitive under it; §3/§4 before both; **§2 deliberately deferred** against its own ordering claim, with the reasoning kept for the day the model stops being self-hosted. What is left: never-play rules and the freshness bubble, genre and era correctness, listener signal, and the activity feed that is §8's other half |
 | [station-moment.md](station-moment.md) | The clock, the calendar and the weather as one resolver both the selector and the writers read: an operator-editable mood vocabulary, the day's lean, occasions, and why mood-biased selection is blocked and mood-flavoured talk is not |
 | [tool-plugins.md](tool-plugins.md) | A `tool` capability so a plugin can be something the model calls mid-sentence (weather, news, RSS), and which tools are host-side sources instead |
 | [chart-discovery.md](chart-discovery.md) | A `charts` capability so an operator can point the station at the week's hits, and the three seams it drops into (a tool the DJ can call, a generator that needs no model, chart history as patter). Small now only because `PickResolver` already ingests a name the library has never held — plus which chart services actually answer without auth, and why Billboard is a name to reach rather than the first plugin |
@@ -67,11 +67,20 @@ no pass. What is left, in order:
    The floor stopped being code and became a setting. See [dj-voice.md](dj-voice.md) for what
    shipped and the four things that came with it that were not on this list.
 4. **The activity feed** over the segment transitions the writers produce, which is why those
-   transitions are recorded as facts while they are written rather than afterwards. **Now the whole
+   transitions are recorded as facts while they are written rather than afterwards. **Still the whole
    of what is left on this list**, and in a better position than it assumed: `segment_events` carries
    a row per stage (`planned → writing → written → rendering → ready`) and `deadair.script_history`
    one per write attempt, with the writer, the model, the token counts and the duration. It really is
    a transport over rows that already exist.
+
+   **Its other half went first, 2026-08-13.** [station-intelligence.md](station-intelligence.md) §8
+   pairs the feed with the thing it is actually for — one answer to "why can't I hear anything" — and
+   that half is built: nine gates composed in causal order, carried on the transport reading the
+   console already polls, drawn as two words in the strip and a full panel on `/onair`. It changes
+   what is left here in one specific way. **The feed now has a producer waiting for it**: a cause
+   CHANGE is an event worth a row where a cause STATE is not, and until the feed exists that
+   transition is logged on the edge and dies with the process. "Why was the station silent at 3am" is
+   the question the diagnosis cannot answer and this one can.
 
 Everything else in the table is deferred behind item 4 unless something specific pulls it forward —
 and [listening-loop.md](listening-loop.md) still competes with it rather than queueing behind it,
@@ -124,3 +133,24 @@ Two things came with it that are worth knowing before designing anything else ne
 - **§2's budget was deliberately deferred**, against that section's own instruction to build it
   first. One call site behind one chokepoint, a self-hosted model with no bill, and an invariant that
   turned out structural. The reasoning is in the file so it can be re-opened rather than re-argued.
+
+**The station can say why it is quiet, 2026-08-13.** [station-intelligence.md](station-intelligence.md)
+§8's silence half, written up in full there. This is the first item on this list that was taken
+because the LIST said so rather than because something pulled it forward, and it came in under item 4
+rather than beside it. Three things are worth knowing outside that file:
+
+- **The bug it was designed around was real and was not the one advertised.** The file predicted the
+  console could not tell an audience-gated silence from a broken lease. What it actually could not
+  tell was an empty room from an Icecast whose stats endpoint had gone: `IcecastStatsClient.listeners()`
+  answers `undefined` for "could not read" and documents that as deliberately not `0`, and
+  `AudienceWatch` was discarding it. In `audience` mode that is permanent silence with the console
+  saying `ready`.
+- **Two defects came out of RUNNING it rather than writing it**, both in code that compiled and
+  read correctly: `notDriving` claiming there was an audience underneath the gate saying there was
+  none, and `playout.smoke.ts` inheriting a player queue that was already at the lead so nothing was
+  ever handed over. Both were found by `apps/api/scripts/silence.smoke.ts` and the scripts repair on
+  its heels, which is the argument for keeping smoke scripts that drive real services.
+- **`apps/api/scripts/` is type-checked now** (`pnpm --filter @deadair/api typecheck`, split into
+  `typecheck:tests` and `typecheck:scripts`). Four of five scripts had silently stopped compiling
+  against the code they drive, because nothing ever compiled them. Anything added there is now held
+  to the same bar as a caller in `src/`.

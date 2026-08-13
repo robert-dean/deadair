@@ -28,7 +28,7 @@ data/
   contracts/        .ck contract definitions; `pnpm build:contracts` generates routers/types
   permissions/      core.perm authorization model; `pnpm build:permissions` generates src/modules/permissions/generated
   migrations/       dbmate SQL migrations (schema `deadair`)
-scripts/            rollbackall.sh, enum-override sync
+scripts/            rollbackall.sh, enum-override sync, and the *.smoke.ts tools (type-checked, never built)
 tests/              vitest suites, mirroring src/
 ```
 
@@ -177,5 +177,17 @@ pnpm --filter @deadair/api migrate:up
 
 `build:contracts` regenerates routers/types from `data/contracts`; `build:permissions` regenerates
 the authorization model from `data/permissions`; `build:datatypes` runs the enum override sync then
-`kysely-codegen`; `rebuild:data` rolls the schema all the way down and back up. `typecheck` uses
-`tsconfig.tests.json` so tests are checked too, while `build` (`tsc`) covers only shippable `src`.
+`kysely-codegen`; `rebuild:data` rolls the schema all the way down and back up.
+
+`typecheck` is two passes — `typecheck:tests` (`tsconfig.tests.json`) and `typecheck:scripts`
+(`scripts/tsconfig.json`) — so `tests/` and the dev scripts are both held to the same bar as `src/`,
+while `build` (`tsc`) still covers only shippable `src`. Run it after changing a constructor or an
+exported signature: vitest transpiles without checking types and the scripts have no runner at all,
+so neither folder tells you it has drifted until this does.
+
+`scripts/` holds the smoke tools, which drive the real services against the running stack rather than
+stubs: `silence.smoke.ts` (why the station is quiet, `--blind` to fake an unreachable Icecast without
+touching a container), `playout.smoke.ts` (airs an ident to the mount), `stream.config.smoke.ts`
+(renders the container config through `StreamService`), `rating.smoke.ts` (the rating SQL, which
+nothing else covers) and `verify.speech.ts` (a real mp3 out of a real Kokoro). Each carries its own
+run line in its header.

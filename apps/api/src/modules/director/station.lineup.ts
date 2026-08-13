@@ -114,6 +114,25 @@ export interface StationLineupSegmentItem extends StationLineupLine {
     kind: 'segment';
     segmentId: string;
     /**
+     * What sort of segment it is — the same string as `segments.kind`.
+     *
+     * **The one field of a segment it is safe to keep a copy of here**, and the exception needs
+     * saying because the paragraph above forbids exactly this. `label`, `state` and the audio are
+     * all things a segment acquires and changes after it is planted, so a copy of one goes stale
+     * inside a document written on a throttle. `segments.kind` is set when the row is created and
+     * is never updated anywhere — a talk break is never re-recorded as an ident — so there is no
+     * later value for this to disagree with.
+     *
+     * It is here because break spacing is PER KIND: a bulletin at nine says nothing about when the
+     * DJ should next name the station, and the walk that decides both has to tell them apart on
+     * every commit pass. Reading it back out of the database instead would put a query on every
+     * track boundary, against a planting pass whose ordinary cost is no query at all.
+     *
+     * Absent for an item planted before the station kept track, which reads as the station's own
+     * break — which is what every segment in an order written before this existed actually is.
+     */
+    segmentKind?: string;
+    /**
      * Play this OVER the record that follows it, rather than between two records.
      *
      * Absent is the ordinary case: the segment is an item of the running order in
@@ -127,6 +146,14 @@ export interface StationLineupSegmentItem extends StationLineupLine {
 }
 
 export type StationLineupItem = StationLineupTrackItem | StationLineupSegmentItem;
+
+/** One segment, and where it goes. `segmentKind` is what the spacing walk counts it against. */
+export interface SegmentPlacement {
+    segmentId: string;
+    atIndex: number;
+    segmentKind?: string;
+    over?: { atMs: number };
+}
 
 export type StationLineupItemKind = 'track' | 'segment';
 
@@ -547,7 +574,7 @@ export class StationLineup implements LiveOrder {
      * placement lands one line late, the third two, and a break planned for "after the
      * fourth record" drifts further the more of them there are.
      */
-    insertSegments(placements: readonly { segmentId: string; atIndex: number; over?: { atMs: number } }[]): EditResult {
+    insertSegments(placements: readonly SegmentPlacement[]): EditResult {
         if (placements.length === 0) return refuse('empty', 'there is nothing to put in');
 
         const committed = this.committedThrough();
@@ -562,6 +589,7 @@ export class StationLineup implements LiveOrder {
                 kind: 'segment',
                 state: 'planned',
                 segmentId: placement.segmentId,
+                ...(placement.segmentKind === undefined ? {} : { segmentKind: placement.segmentKind }),
                 ...(placement.over === undefined ? {} : { over: placement.over }),
             });
         }
@@ -569,8 +597,15 @@ export class StationLineup implements LiveOrder {
     }
 
     /** Put one segment into the order at a position. */
-    insertSegment(segmentId: string, atIndex: number, over?: { atMs: number }): EditResult {
-        return this.insertSegments([{ segmentId, atIndex, ...(over === undefined ? {} : { over }) }]);
+    insertSegment(segmentId: string, atIndex: number, over?: { atMs: number }, segmentKind?: string): EditResult {
+        return this.insertSegments([
+            {
+                segmentId,
+                atIndex,
+                ...(over === undefined ? {} : { over }),
+                ...(segmentKind === undefined ? {} : { segmentKind }),
+            },
+        ]);
     }
 
     /**

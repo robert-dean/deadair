@@ -265,6 +265,10 @@ export class DirectorConsoleService {
         return await this.editOrder({
             kind: 'insertSegment',
             segmentId: segment.id,
+            // The row is already loaded, so the order gets what sort of break this is for free.
+            // Without it an operator dropping a bulletin in by hand would be counted against the
+            // station's own spacing and would push the next ident back for no reason.
+            segmentKind: segment.kind,
             ...(input.atIndex === undefined ? {} : { atIndex: input.atIndex }),
             ...(input.overAtMs === undefined ? {} : { overAtMs: input.overAtMs }),
         });

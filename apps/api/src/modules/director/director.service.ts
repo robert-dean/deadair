@@ -549,6 +549,7 @@ export class DirectorService {
                     edit.segmentId,
                     edit.atIndex ?? lineup.size(),
                     edit.overAtMs === undefined ? undefined : { atMs: edit.overAtMs },
+                    edit.segmentKind,
                 );
         }
     }

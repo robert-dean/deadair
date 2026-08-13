@@ -47,7 +47,10 @@ export type OrderEdit =
     | { kind: 'shuffle' }
     | { kind: 'move'; itemId: string; toIndex: number }
     | { kind: 'remove'; itemId: string }
-    | { kind: 'insertSegment'; segmentId: string; atIndex?: number; overAtMs?: number };
+    // `segmentKind` rather than `kind`, which this command has already spent on saying what it is.
+    // Carried from the caller because the caller has already loaded the row and the order would
+    // otherwise have to read it back to know what the break spacing should count this against.
+    | { kind: 'insertSegment'; segmentId: string; atIndex?: number; overAtMs?: number; segmentKind?: string };
 
 /**
  * Something the director has been asked to do.

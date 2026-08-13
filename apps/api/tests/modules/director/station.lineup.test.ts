@@ -288,6 +288,23 @@ describe('StationLineup editing', () => {
         expect(idsOf(lineup.all())).toEqual(['a', 'segment:ident', 'b', 'c', 'segment:talk', 'd']);
     });
 
+    it('keeps the segment kind on the item, so the spacing walk needs no query to tell breaks apart', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+
+        expect(lineup.insertSegment('news', 1, undefined, 'news')).toEqual({ ok: true });
+        expect(lineup.all()[1]).toMatchObject({ kind: 'segment', segmentId: 'news', segmentKind: 'news' });
+    });
+
+    it('leaves the kind absent when nobody said, which is how an order written before this reads', () => {
+        // Not a default of `talkbreak` written in: absent is its own answer, and the walk is what
+        // decides what an unlabelled break counts against. Writing a guess here would make an
+        // order lie about what it holds.
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('old', 1);
+
+        expect(lineup.all()[1]).not.toHaveProperty('segmentKind');
+    });
+
     it('refuses a segment placed inside the part the player is holding', () => {
         const lineup = lineupWith(['a', 'b', 'c']);
         hand(lineup, 2);

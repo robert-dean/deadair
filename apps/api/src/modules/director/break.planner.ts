@@ -129,7 +129,7 @@ export class BreakPlanner {
         const placements = await this.fill(positions, idents, canWrite, await this.lastKindBefore(lineup, positions[0]!));
         if (placements.length === 0) return 0;
 
-        const result = lineup.insertSegments(placements.map(({ segmentId, atIndex }) => ({ segmentId, atIndex })));
+        const result = lineup.insertSegments(placements.map(({ segmentId, atIndex, kind }) => ({ segmentId, atIndex, segmentKind: kind })));
         if (!result.ok) {
             // The order moved under the walk: the director committed, or an operator edited, between
             // computing these positions and writing them. Nothing is lost — the next pass walks the
@@ -226,14 +226,14 @@ export class BreakPlanner {
                 // A placeholder label. The writer replaces it with one naming the records it sits
                 // between, at the same moment and by the same hand as the script.
                 const segment = await this.segments.plan({ kind: TALK_BREAK_KIND, label: 'Talk break' });
-                placements.push({ segmentId: segment.id, atIndex, written: true });
+                placements.push({ segmentId: segment.id, atIndex, kind: TALK_BREAK_KIND, written: true });
                 previousKind = TALK_BREAK_KIND;
                 continue;
             }
 
             const segment = choose(idents, previousIdent);
             previousIdent = segment.id;
-            placements.push({ segmentId: segment.id, atIndex, written: false });
+            placements.push({ segmentId: segment.id, atIndex, kind: IDENT_KIND, written: false });
             previousKind = IDENT_KIND;
         }
 
@@ -280,6 +280,8 @@ export class BreakPlanner {
 interface Placement {
     segmentId: string;
     atIndex: number;
+    /** What sort of break it is, carried onto the order so the spacing walk can count it. */
+    kind: string;
     written: boolean;
 }
 

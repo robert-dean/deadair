@@ -11,3 +11,10 @@
 **/routeTree.gen.ts
 **/.kysely-codegenrc.json
 **/modules/data/db.ts
+
+# Prose, wrapped by hand and argued over line by line. Prettier reflows it and
+# rewrites its tables, so a one-paragraph edit to a decision doc arrives as a
+# hundred lines of churn over text nobody touched. None of it has ever been
+# formatted — `--check` fails on files that have been correct for months — so
+# this records the existing state rather than changing anything.
+**/docs/

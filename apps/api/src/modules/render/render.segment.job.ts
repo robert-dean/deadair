@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { overrideJobActor } from '#modules/jobs/job.authorization.js';
 import { SegmentRepository } from './segment.repository.js';
 import { SpeechService } from './speech.service.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 export interface RenderSegmentPayload {
     /**
@@ -103,7 +104,7 @@ export class RenderSegmentJob implements Job<RenderSegmentPayload> {
                 ext: audio.ext,
             });
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
+            const message = errorText(error);
 
             // The reason goes on the row, because the console is where an operator looks and a log
             // line scrolls away. Not rethrown: a failed render is data, and letting it bubble would

@@ -17,11 +17,10 @@ import { PluginStorageRepository } from './plugin.storage.repository.js';
 import { bundledPluginDirs } from './plugins.bundled.js';
 import { PluginsService } from './plugins.service.js';
 import { PluginLogLevel } from './types/plugins.types.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /** Where operator-installed plugins are mounted when `PLUGINS_DIR` is unset. */
 const DEFAULT_PLUGINS_DIR = './data/plugins';
-
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
  * The plugin subsystem.

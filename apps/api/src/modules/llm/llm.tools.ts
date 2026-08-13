@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import type { LlmToolCall, LlmToolDeclaration } from '@deadair/plugin-sdk';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The things a model may ask the station to do mid-sentence.
@@ -83,7 +84,7 @@ export class ToolRegistry {
             } catch (error) {
                 // A source that cannot say what it offers is a source with nothing to offer. The
                 // conversation goes ahead with the rest.
-                this.logger.warn(`llm: a tool source could not be asked what it offers (${messageOf(error)})`);
+                this.logger.warn(`llm: a tool source could not be asked what it offers (${errorText(error)})`);
                 continue;
             }
 
@@ -124,8 +125,8 @@ export class ToolRegistry {
         try {
             result = await tool.run(call.arguments, signal);
         } catch (error) {
-            this.logger.info(`llm: a tool call failed (${call.name}: ${messageOf(error)})`);
-            return `The tool "${call.name}" failed: ${messageOf(error)}`;
+            this.logger.info(`llm: a tool call failed (${call.name}: ${errorText(error)})`);
+            return `The tool "${call.name}" failed: ${errorText(error)}`;
         }
 
         return serialize(result, call.name);
@@ -141,11 +142,9 @@ function serialize(result: unknown, name: string): string {
         text = JSON.stringify(result) ?? String(result);
     } catch (error) {
         // A cycle, or a BigInt. The tool's bug, and still not worth ending a generation over.
-        return `The tool "${name}" returned something that could not be read: ${messageOf(error)}`;
+        return `The tool "${name}" returned something that could not be read: ${errorText(error)}`;
     }
 
     if (text.length <= MAX_RESULT_CHARS) return text;
     return `${text.slice(0, MAX_RESULT_CHARS)}\n[truncated: the full result was ${text.length} characters]`;
 }
-
-const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));

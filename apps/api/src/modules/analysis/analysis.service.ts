@@ -15,6 +15,7 @@ import {
     resolveAnalysisConcurrency,
     selectAnalysisPlugin,
 } from './analysis.settings.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * How long one measurement may take, as the host's invocation deadline.
@@ -246,7 +247,7 @@ export class AnalysisService {
             }
         } catch (error) {
             summary.failed += 1;
-            const reason = error instanceof Error ? error.message : String(error);
+            const reason = errorText(error);
 
             this.logger.warn('analysis: could not measure a track', {
                 track: track.trackId,
@@ -261,7 +262,7 @@ export class AnalysisService {
             await this.repository.recordFailure(track.trackId, pluginId, reason).catch((writeError: unknown) => {
                 this.logger.error('analysis: could not record a failure', {
                     track: track.trackId,
-                    error: writeError instanceof Error ? writeError.message : String(writeError),
+                    error: errorText(writeError),
                 });
             });
         }

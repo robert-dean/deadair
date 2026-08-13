@@ -25,6 +25,7 @@ import {
     type StoredEnrichment,
 } from './enrichment.merge.js';
 import { EnrichmentRepository, type EnrichableAlbum, type EnrichableArtist, type EnrichableTrack } from './enrichment.repository.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * How long a stored payload is trusted before the walk asks again.
@@ -240,8 +241,6 @@ export interface AlbumEnrichmentResult extends EnrichmentMisses {
     contributions: AlbumEnrichmentContribution[];
     failures: EnrichmentFailure[];
 }
-
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /** What one track has heard so far, while the fan-out is still walking the providers. */
 interface TrackAccumulator {

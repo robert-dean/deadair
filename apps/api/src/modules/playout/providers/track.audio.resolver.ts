@@ -5,6 +5,7 @@ import { TrackAudioRepository } from '../audio/track.audio.repository.js';
 import { TrackResolver } from '../playout.capability.js';
 import { trackAudioUrl } from '../playout.urls.js';
 import type { RundownItem } from '../rundown.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Every record, as a URL on this machine.
@@ -78,7 +79,7 @@ export class TrackAudioResolver extends TrackResolver {
             this.logger.warn('playout: could not resolve a record to the station audio route', {
                 plugin: pluginId,
                 track: externalId,
-                error: error instanceof Error ? error.message : String(error),
+                error: errorText(error),
             });
             return undefined;
         } finally {

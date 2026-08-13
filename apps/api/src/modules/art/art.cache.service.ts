@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ArtRepository } from './art.repository.js';
 import { ART_CONTENT_TYPES, ArtExtension, ArtStore } from './art.store.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * How long one image may take.
@@ -36,8 +37,6 @@ function extensionFor(contentType: string | null): ArtExtension | undefined {
     const mime = contentType.split(';')[0]?.trim().toLowerCase() ?? '';
     return ART_CONTENT_TYPES[mime];
 }
-
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 @Injectable()
 export class ArtCacheService {

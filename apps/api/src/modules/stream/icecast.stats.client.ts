@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Reads Icecast's own account of who is connected.
@@ -303,7 +304,7 @@ export class IcecastStatsClient {
                 listener();
             } catch (error) {
                 // A subscriber that throws must not stop the poll that found this out.
-                this.logger.warn(`icecast: a listener threw on the resolved endpoint (${message(error)})`);
+                this.logger.warn(`icecast: a listener threw on the resolved endpoint (${errorText(error)})`);
             }
         }
     }
@@ -508,5 +509,3 @@ function matchesMount(nameOrUrl: string, mount: string): boolean {
         return (nameOrUrl.startsWith('/') ? nameOrUrl : `/${nameOrUrl}`) === path || nameOrUrl.endsWith(path);
     }
 }
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

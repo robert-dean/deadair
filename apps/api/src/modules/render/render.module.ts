@@ -10,6 +10,7 @@ import { SegmentRepository } from './segment.repository.js';
 import { SegmentStore } from './segment.store.js';
 import { SpeechService } from './speech.service.js';
 import { VoiceSampleStore } from './voice.sample.store.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /** Where segment audio is written when `SEGMENT_DIR` is unset. Alongside `media/art`, and gitignored with it. */
 const DEFAULT_SEGMENT_DIR = './media/segments';
@@ -115,7 +116,7 @@ export const RenderModule: ServerKitModule = {
         } catch (error) {
             // A station with no idents is a station that plays records, which is what it did
             // yesterday. Not a reason to refuse to boot.
-            logger.warn(`render: could not scan the segment inbox (${error instanceof Error ? error.message : String(error)})`);
+            logger.warn(`render: could not scan the segment inbox (${errorText(error)})`);
         } finally {
             await scope.disposeAsync();
         }

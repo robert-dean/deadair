@@ -7,6 +7,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { artistKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * A model choosing what the station plays, with the catalog draw underneath it.
@@ -245,7 +246,7 @@ export class ModelSetGenerator extends SetGenerator {
         try {
             taste = await this.taste.taste(TASTE_SHOWN);
         } catch (error) {
-            this.logger.warn(`director: could not read what the operator likes; programming without it (${messageOf(error)})`);
+            this.logger.warn(`director: could not read what the operator likes; programming without it (${errorText(error)})`);
             return undefined;
         }
 
@@ -258,8 +259,6 @@ export class ModelSetGenerator extends SetGenerator {
         };
     }
 }
-
-const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 /**
  * The records the lineup already holds, as something a model can read.

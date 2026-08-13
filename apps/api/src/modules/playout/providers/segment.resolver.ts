@@ -6,6 +6,7 @@ import { RENDER_PLUGIN_ID } from '#modules/render/segment.source.js';
 import { TrackResolver } from '../playout.capability.js';
 import type { RundownItem } from '../rundown.js';
 import { segmentAudioUrl } from '../playout.urls.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The station's own audio: a segment it can play, as a URL the player can fetch.
@@ -63,7 +64,7 @@ export class SegmentTrackResolver extends TrackResolver {
             // the running order carries on without this line.
             this.logger.warn('playout: could not resolve a segment', {
                 segment: item.externalId,
-                error: error instanceof Error ? error.message : String(error),
+                error: errorText(error),
             });
             return undefined;
         } finally {

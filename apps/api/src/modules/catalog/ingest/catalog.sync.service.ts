@@ -6,6 +6,7 @@ import { asCatalogPlugin, type CatalogPlugin } from '#modules/plugins/plugin.cap
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { CatalogResolverService } from './catalog.resolver.service.js';
+import { serverkitErrorText } from '#modules/shared/error.text.js';
 
 /**
  * Items per page. Spotify caps playlist reads at 50 and clamps anything larger,
@@ -127,7 +128,7 @@ export class CatalogSyncService {
         try {
             await this.jobBroker.send('catalog.cache_art', {});
         } catch (error) {
-            this.logger.warn('could not queue the art cache pass', { error: this.errorText(error), created });
+            this.logger.warn('could not queue the art cache pass', { error: serverkitErrorText(error), created });
         }
     }
 
@@ -148,7 +149,7 @@ export class CatalogSyncService {
         try {
             await this.jobBroker.send('catalog.enrich', {});
         } catch (error) {
-            this.logger.warn('could not queue the enrichment pass', { error: this.errorText(error), created });
+            this.logger.warn('could not queue the enrichment pass', { error: serverkitErrorText(error), created });
         }
     }
 
@@ -173,7 +174,7 @@ export class CatalogSyncService {
         try {
             await this.jobBroker.send('catalog.resolve_placeholders', {});
         } catch (error) {
-            this.logger.warn('could not queue the placeholder pass', { error: this.errorText(error), created });
+            this.logger.warn('could not queue the placeholder pass', { error: serverkitErrorText(error), created });
         }
     }
 
@@ -208,7 +209,7 @@ export class CatalogSyncService {
                 }
             }
         } catch (error) {
-            summary.error = this.errorText(error);
+            summary.error = serverkitErrorText(error);
             this.logger.warn('catalog sync could not finish a plugin', { plugin: pluginId, error: summary.error, ...this.counts(summary) });
             return summary;
         }
@@ -316,13 +317,5 @@ export class CatalogSyncService {
             created: summary.created,
             skipped: summary.skipped,
         };
-    }
-
-    /** A `ServerkitError`'s `message` is the bare status text; the sentence is in `details`. */
-    private errorText(error: unknown): string {
-        if (!(error instanceof Error)) return String(error);
-        const details = (error as { details?: Record<string, unknown> }).details;
-        const detail = details?.message;
-        return typeof detail === 'string' && detail.length > 0 ? detail : error.message;
     }
 }

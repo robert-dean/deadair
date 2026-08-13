@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SseFrameReader, isMountUri, listenerEvent } from './icecast.eventfeed.parse.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Icecast telling us about listeners, instead of us asking.
@@ -157,7 +158,7 @@ export class IcecastEventFeed {
             return true;
         } catch (error) {
             // An abort is us stopping, not a failure worth reporting.
-            if (!controller.signal.aborted) this.noteDown(message(error));
+            if (!controller.signal.aborted) this.noteDown(errorText(error));
             return attached;
         } finally {
             if (this.connection === controller) this.connection = undefined;
@@ -206,5 +207,3 @@ export class IcecastEventFeed {
         });
     }
 }
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

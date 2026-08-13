@@ -14,6 +14,7 @@ import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import { applyRules, spaceArtists, type ResolvedRules, type RotationCandidate } from './rotation.rules.js';
 import type { TrackPick } from './set.generator.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Whether the station may play records it does not own yet.
@@ -445,7 +446,7 @@ export class PickResolver {
         } catch (error) {
             this.logger.warn('director: could not look up a chosen record at a provider', {
                 track: `${pick.artist} — ${pick.title}`,
-                error: error instanceof Error ? error.message : String(error),
+                error: errorText(error),
             });
             return undefined;
         }

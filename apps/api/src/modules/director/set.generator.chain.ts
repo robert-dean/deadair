@@ -2,6 +2,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Which generators are asked for a set, in the order they are asked.
@@ -171,7 +172,7 @@ export class SetGeneratorChain extends SetGenerator {
         try {
             picks = await generator.generate(inputs);
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
+            const message = errorText(error);
             // Warned rather than noted quietly, because a generator THROWING is a bug in that
             // generator even though the chain absorbs it. One declining is not.
             this.logger.warn(`director: a set generator failed (${generator.name}: ${message})`);

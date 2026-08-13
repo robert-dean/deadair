@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { StreamSettings } from './stream.settings.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The stream config materializer.
@@ -398,5 +399,3 @@ function listenerHooksXml(hooks: StreamPlayoutConfig['listenerHooks'], secret: s
         '',
     ].join('\n');
 }
-
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));

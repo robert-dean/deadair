@@ -22,6 +22,7 @@ import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
 import { PluginLog } from './plugin.log.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 export { PLUGIN_OAUTH_SECRET_KEY, OAUTH_SECRET_FIELD } from './plugin.oauth.secret.js';
 
@@ -98,8 +99,6 @@ export const PLUGIN_RESPONSE_MAX_BYTES = 64 * 1024 * 1024;
 export class PluginHostFactoryOptions {
     constructor(readonly baseUrl: string) {}
 }
-
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 

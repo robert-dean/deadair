@@ -5,6 +5,7 @@ import { Epoch } from '#modules/shared/epoch.js';
 import type { LiveOrder } from './live.order.js';
 import type { QueueStatus } from './liquidsoap.control.js';
 import { TrackResolver } from './playout.capability.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The reconciler between the station's running order and the player: what has been
@@ -796,7 +797,7 @@ export class Rundown {
             try {
                 listener(item, passedOver);
             } catch (error) {
-                this.logger.warn(`rundown: an aired listener threw (${error instanceof Error ? error.message : String(error)})`);
+                this.logger.warn(`rundown: an aired listener threw (${errorText(error)})`);
             }
         }
     }

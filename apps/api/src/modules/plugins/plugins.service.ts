@@ -31,6 +31,7 @@ import type {
     PluginSummary,
     PluginTestResult,
 } from './types/plugins.types.js';
+import { serverkitErrorText } from '#modules/shared/error.text.js';
 
 /** Stand-in for manifest fields a quarantined plugin never produced. */
 const UNKNOWN = 'unknown';
@@ -44,17 +45,6 @@ interface PluginOAuthCapability {
     getAuthorizeUrl(state: string): Promise<string>;
     handleCallback(params: Record<string, string>): Promise<void>;
 }
-
-/**
- * A `ServerkitError`'s `message` is the bare status text ("Forbidden") and the
- * useful sentence lives in `details.message`.
- */
-const errorText = (error: unknown): string => {
-    if (!(error instanceof Error)) return String(error);
-    const details = (error as { details?: Record<string, unknown> }).details;
-    const detail = details?.message;
-    return typeof detail === 'string' && detail.length > 0 ? detail : error.message;
-};
 
 /** A secret submitted blank clears the stored value; an omitted one keeps it. */
 const isClearedSecret = (value: unknown): boolean => value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
@@ -288,7 +278,7 @@ export class PluginsService {
             const result = await this.pluginInvoker.invoke(id, 'testConnection', async () => instance.testConnection!());
             return { ok: result.ok, message: result.message };
         } catch (error) {
-            return { ok: false, message: errorText(error) };
+            return { ok: false, message: serverkitErrorText(error) };
         }
     }
 
@@ -320,7 +310,7 @@ export class PluginsService {
         } catch (error) {
             // Reported at info rather than warn: an unreachable upstream is the ordinary reason,
             // and it is the operator's own address rather than a fault in the station.
-            this.logger.info(`plugins: could not get config suggestions from "${id}" (${errorText(error)})`);
+            this.logger.info(`plugins: could not get config suggestions from "${id}" (${serverkitErrorText(error)})`);
             return { fields: {}, supported: true };
         }
     }
@@ -478,7 +468,7 @@ export class PluginsService {
             // throw and every plugin-side failure renders as a 500, which tells
             // the console nothing it can act on. `pluginHttpError` is what turns
             // "the token expired" into a status and a code it can branch on.
-            this.pluginLog.for(id).warn('plugin oauth authorize failed', { error: errorText(error) });
+            this.pluginLog.for(id).warn('plugin oauth authorize failed', { error: serverkitErrorText(error) });
             throw pluginHttpError(id, error);
         }
     }
@@ -531,7 +521,7 @@ export class PluginsService {
         try {
             await this.pluginInvoker.invoke(id, 'oauth.handleCallback', async () => oauth.handleCallback(params));
         } catch (error) {
-            this.pluginLog.for(id).error('plugin oauth callback failed', { error: errorText(error) });
+            this.pluginLog.for(id).error('plugin oauth callback failed', { error: serverkitErrorText(error) });
             return { pluginId: id, ok: false, message: 'the authorization could not be completed' };
         }
 
@@ -580,7 +570,7 @@ export class PluginsService {
             issues = parsed.error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`).join('; ');
         } catch (error) {
             // `configSchema` is plugin code; a refinement may throw.
-            throw httpError(422).withDetails({ message: `configuration could not be validated: ${errorText(error)}` });
+            throw httpError(422).withDetails({ message: `configuration could not be validated: ${serverkitErrorText(error)}` });
         }
 
         throw httpError(422).withDetails({ message: `configuration is invalid: ${issues}` });
@@ -594,7 +584,7 @@ export class PluginsService {
         try {
             secrets = await this.pluginConfigService.getSecrets(manifest.id);
         } catch (error) {
-            this.pluginLog.for(manifest.id).error('stored plugin secrets could not be decrypted', { error: errorText(error) });
+            this.pluginLog.for(manifest.id).error('stored plugin secrets could not be decrypted', { error: serverkitErrorText(error) });
             throw httpError(500).withDetails({ message: `stored secrets for "${manifest.id}" could not be decrypted` });
         }
         // The OAuth vault is the host's, not a declared config field; a strict

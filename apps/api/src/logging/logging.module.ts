@@ -2,8 +2,7 @@ import { Container } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { Logger } from '@maroonedsoftware/logger';
 import { RotatingLogStore } from './rotating.log.store.js';
-
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Owns the process-level {@link RotatingLogStore}'s shutdown.

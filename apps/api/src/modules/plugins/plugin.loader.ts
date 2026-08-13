@@ -5,6 +5,7 @@ import { Injectable } from 'injectkit';
 import { satisfies, validRange } from 'semver';
 import { PLUGIN_API_VERSION, pluginManifestSchema, type DeadairPlugin, type PluginManifest } from '@deadair/plugin-sdk';
 import type { PluginRecord } from './types/plugin.record.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Where the loader looks for plugins: the directories shipped with the host
@@ -29,11 +30,6 @@ interface PluginPackageJson {
     deadair?: {
         plugin?: unknown;
     };
-}
-
-function errorText(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    return String(error);
 }
 
 /** Whether `path` resolves to an existing regular file. */

@@ -5,6 +5,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { TrackResolver } from '../playout.capability.js';
 import type { RundownItem } from '../rundown.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The generic path: ask the plugin that owns the track for a stream URL.
@@ -66,7 +67,7 @@ export class PluginTrackResolver extends TrackResolver {
             this.logger.warn('playout: plugin could not resolve a stream url', {
                 plugin: pluginId,
                 track: externalId,
-                error: error instanceof Error ? error.message : String(error),
+                error: errorText(error),
             });
             return undefined;
         }

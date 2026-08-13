@@ -11,8 +11,7 @@ import { EmptyUpdateRewriteDialect, KyselyPool, KyselyDefaultPlugins, KyselyPgTy
 import { CacheProvider } from '@maroonedsoftware/cache';
 import { resolveRuntimeConnection } from './database.connection.js';
 import { IoRedisCacheProvider } from '@maroonedsoftware/cache/ioredis';
-
-const queryErrorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+import { errorText } from '#modules/shared/error.text.js';
 
 export const DataModule: ServerKitModule = {
     name: 'Data',
@@ -49,7 +48,7 @@ export const DataModule: ServerKitModule = {
                 const pool = new KyselyPool(dbConfig);
                 const logger = container.get(Logger);
                 pool.on('error', err => {
-                    logger.error(`db: pool error: ${queryErrorText(err)}`);
+                    logger.error(`db: pool error: ${errorText(err)}`);
                 });
                 return pool;
             })
@@ -71,7 +70,7 @@ export const DataModule: ServerKitModule = {
                         // and no stack, which is how "Transaction is already committed" sat
                         // in the log on every boot for days without anyone being able to
                         // say which statement caused it.
-                        logger.error(`db: query failed: ${queryErrorText(event.error)}`, {
+                        logger.error(`db: query failed: ${errorText(event.error)}`, {
                             sql: event.query.sql,
                             parameters: event.query.parameters,
                             durationMs: Math.round(event.queryDurationMillis),
@@ -91,7 +90,7 @@ export const DataModule: ServerKitModule = {
                     enableOfflineQueue: false,
                 });
                 redis.on('error', err => {
-                    logger.error(`redis: ${queryErrorText(err)}`);
+                    logger.error(`redis: ${errorText(err)}`);
                 });
                 return redis;
             })

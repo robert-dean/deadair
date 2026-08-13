@@ -3,6 +3,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import type { ProviderStream, TrackFetchSession } from '@deadair/plugin-sdk';
 import { Logger } from '@maroonedsoftware/logger';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The station's track fetcher, which today is the Spotify shim
@@ -131,7 +132,7 @@ export class SpotifyShimClient {
             }
         } catch (error) {
             this.logger.warn('stream: could not hand the track fetcher a session', {
-                error: error instanceof Error ? error.message : String(error),
+                error: errorText(error),
             });
         }
     }

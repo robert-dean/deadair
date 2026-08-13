@@ -25,6 +25,7 @@ import type {
     StationOrder,
     StationOrderItem,
 } from './types/director.types.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The operator's side of the director: everything a request does to the
@@ -347,7 +348,7 @@ export class DirectorConsoleService {
         } catch (error) {
             this.logger.warn('director: could not read catalog metadata for an import; taking the playlist as it came', {
                 plugin: pluginId,
-                error: error instanceof Error ? error.message : String(error),
+                error: errorText(error),
             });
             return new Map();
         }

@@ -5,6 +5,7 @@ import { IcecastStatsClient } from '#modules/stream/icecast.stats.client.js';
 import { IcecastEventFeed } from '#modules/stream/icecast.eventfeed.client.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from './air.mode.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Who is listening, and whether that is enough to hold the mount.
@@ -271,7 +272,7 @@ export class AudienceWatch {
             }
             this.accept(listeners);
         } catch (error) {
-            this.logger.warn(`audience: could not read the listener count (${message(error)})`);
+            this.logger.warn(`audience: could not read the listener count (${errorText(error)})`);
         } finally {
             this.polling = false;
             // The loop came round, which is a different fact from Icecast having answered:
@@ -333,10 +334,8 @@ export class AudienceWatch {
             } catch (error) {
                 // A subscriber that throws must not stop the others hearing it, and must
                 // not kill the poll loop that got here.
-                this.logger.warn(`audience: a listener threw on the ${open ? 'open' : 'close'} edge (${message(error)})`);
+                this.logger.warn(`audience: a listener threw on the ${open ? 'open' : 'close'} edge (${errorText(error)})`);
             }
         }
     }
 }
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

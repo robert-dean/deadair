@@ -12,13 +12,7 @@ import { PluginLog } from './plugin.log.js';
 import { PluginRegistry, firstWinsById } from './plugin.registry.js';
 import type { PluginRecord, PluginStatus } from './types/plugin.record.js';
 import { PluginLogLevel } from './types/plugins.types.js';
-
-const errorText = (error: unknown): string => {
-    if (!(error instanceof Error)) return String(error);
-    const details = (error as { details?: Record<string, unknown> }).details;
-    const detail = details?.message;
-    return typeof detail === 'string' && detail.length > 0 ? detail : error.message;
-};
+import { serverkitErrorText } from '#modules/shared/error.text.js';
 
 /** Narrows a stored `log_level` column (free text) to a legal level, or `undefined` for anything else. */
 const toPluginLogLevel = (value: string | undefined): PluginLogLevel | undefined => {
@@ -88,7 +82,7 @@ export class PluginLifecycleManager {
         } catch (error) {
             // The loader is written not to throw, so this is belt and braces:
             // discovery failing wholesale must still leave a bootable server.
-            this.pluginLog.error('plugin discovery failed', { error: errorText(error) });
+            this.pluginLog.error('plugin discovery failed', { error: serverkitErrorText(error) });
         }
 
         this.pluginRegistry.setAll(records);
@@ -111,7 +105,7 @@ export class PluginLifecycleManager {
         try {
             records = await this.pluginLoader.discover();
         } catch (error) {
-            this.pluginLog.error('plugin rescan failed', { error: errorText(error) });
+            this.pluginLog.error('plugin rescan failed', { error: serverkitErrorText(error) });
             return;
         }
 
@@ -215,7 +209,7 @@ export class PluginLifecycleManager {
             const rows = await this.inScope(scope => scope.get(PluginConfigRepository).list());
             return new Map(rows.map(row => [row.pluginId, row]));
         } catch (error) {
-            this.pluginLog.error('could not read plugin configuration', { error: errorText(error) });
+            this.pluginLog.error('could not read plugin configuration', { error: serverkitErrorText(error) });
             return new Map();
         }
     }
@@ -238,7 +232,7 @@ export class PluginLifecycleManager {
         try {
             config = await this.inScope(scope => scope.get(PluginConfigRepository).get(pluginId));
         } catch (error) {
-            this.pluginLog.for(pluginId).error('could not read plugin configuration', { error: errorText(error) });
+            this.pluginLog.for(pluginId).error('could not read plugin configuration', { error: serverkitErrorText(error) });
             return;
         }
 
@@ -274,8 +268,8 @@ export class PluginLifecycleManager {
             this.pluginLog.for(pluginId).info('plugin active', { version: record.manifest.version, capabilities: record.manifest.capabilities });
         } catch (error) {
             record.instance = undefined;
-            await this.setStatus(pluginId, 'failed', errorText(error));
-            this.pluginLog.for(pluginId).error('plugin failed to initialize', { error: errorText(error) });
+            await this.setStatus(pluginId, 'failed', serverkitErrorText(error));
+            this.pluginLog.for(pluginId).error('plugin failed to initialize', { error: serverkitErrorText(error) });
         }
     }
 
@@ -291,7 +285,7 @@ export class PluginLifecycleManager {
         } catch (error) {
             // A plugin that cannot clean up still has to be let go of, or a
             // reinit would run forever against a corpse.
-            this.pluginLog.for(pluginId).warn('plugin dispose failed; dropping the instance anyway', { error: errorText(error) });
+            this.pluginLog.for(pluginId).warn('plugin dispose failed; dropping the instance anyway', { error: serverkitErrorText(error) });
         }
 
         record.instance = undefined;
@@ -322,7 +316,7 @@ export class PluginLifecycleManager {
         try {
             secrets = await this.inScope(scope => scope.get(PluginConfigService).getSecrets(manifest.id));
         } catch (error) {
-            return `stored secrets could not be decrypted: ${errorText(error)}`;
+            return `stored secrets could not be decrypted: ${serverkitErrorText(error)}`;
         }
 
         const submitted: Record<string, unknown> = { ...config.config, ...secrets };
@@ -337,7 +331,7 @@ export class PluginLifecycleManager {
             return `configuration is invalid: ${issues}`;
         } catch (error) {
             // configSchema is plugin code: a refinement may throw.
-            return `configuration could not be validated: ${errorText(error)}`;
+            return `configuration could not be validated: ${serverkitErrorText(error)}`;
         }
     }
 
@@ -376,7 +370,7 @@ export class PluginLifecycleManager {
         try {
             await this.inScope(scope => scope.get(PluginConfigService).setStatus(pluginId, status, error));
         } catch (writeError) {
-            this.pluginLog.for(pluginId).warn('could not persist plugin status', { status, error: errorText(writeError) });
+            this.pluginLog.for(pluginId).warn('could not persist plugin status', { status, error: serverkitErrorText(writeError) });
         }
     }
 

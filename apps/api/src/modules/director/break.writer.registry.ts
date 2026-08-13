@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import type { BreakWriteRequest, BreakWriter, WriteDetail, WrittenBreak } from './break.writer.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Which writers write which kind of break, in the order they are asked.
@@ -147,7 +148,7 @@ export class BreakWriterRegistry {
         try {
             written = await writer.write(request);
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
+            const message = errorText(error);
             // Warned rather than noted quietly, because a writer THROWING is a bug in that writer
             // even though the station absorbs it. A writer declining is not.
             this.logger.warn(`director: a break writer failed (${request.kind}/${writer.name}: ${message})`);

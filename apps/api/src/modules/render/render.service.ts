@@ -8,6 +8,7 @@ import { SegmentRepository, type Segment } from './segment.repository.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType, type SegmentExtension } from './segment.store.js';
 import { SpeechService } from './speech.service.js';
 import { SAMPLE_TEXT, VoiceSampleStore } from './voice.sample.store.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * What a segment is when nobody says.
@@ -163,7 +164,7 @@ export class RenderService {
                 ...(voiceId.length === 0 ? {} : { voice: voiceId }),
             });
         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
+            const message = errorText(error);
             this.logger.warn('render: could not render a voice sample', { plugin: plugin.record.id, voice: voiceId, error: message });
             throw httpError(502).withDetails({ message });
         }

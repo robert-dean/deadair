@@ -7,6 +7,7 @@ import { AudienceWatch } from './audience.watch.js';
 import { TARGET_LUFS_KEY, resolveTargetLufs } from './gain.js';
 import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Drains the running order into Liquidsoap's request queue: the station's
@@ -370,7 +371,7 @@ export class PlayoutPusher {
             }
         } catch (error) {
             threw = true;
-            this.lastFailure = { at: Date.now(), message: error instanceof Error ? error.message : String(error) };
+            this.lastFailure = { at: Date.now(), message: errorText(error) };
             throw error;
         } finally {
             this.busy = false;
@@ -495,7 +496,7 @@ export class PlayoutPusher {
      */
     private tick(): void {
         // The busy flag is released by reconcile's own finally, so a throw cannot wedge it.
-        this.reconcile().catch(error => this.logger.warn(`playout: reconcile failed (${error instanceof Error ? error.message : String(error)})`));
+        this.reconcile().catch(error => this.logger.warn(`playout: reconcile failed (${errorText(error)})`));
     }
 }
 

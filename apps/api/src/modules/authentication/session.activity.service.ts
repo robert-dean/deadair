@@ -4,6 +4,7 @@ import { AuthenticationSession, AuthenticationSessionService, SessionRevocationR
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { SessionEventRepository, SessionEventType } from './repositories/session.event.repository.js';
 import { LoginActivityRepository } from './repositories/login.activity.repository.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The logger takes a message first and structured meta second, console-style.
@@ -11,7 +12,6 @@ import { LoginActivityRepository } from './repositories/login.activity.repositor
  * object where the message goes: every one of them landed in the log as
  * `[object Object]` with the sentence discarded.
  */
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 const MAX_USER_AGENT_LEN = 512;
 const LOGIN_IP_CLAIM = 'loginIp';

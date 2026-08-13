@@ -3,6 +3,7 @@ import { PluginError, isResourceScopedCode, toPluginError } from '@deadair/plugi
 import { runWithDeadline } from './plugin.invocation.deadline.js';
 import { PluginLog } from './plugin.log.js';
 import { PluginRegistry } from './plugin.registry.js';
+import { serverkitErrorText } from '#modules/shared/error.text.js';
 
 /** How long a single call into plugin code may run before it is abandoned. */
 export const PLUGIN_INVOKE_TIMEOUT_MS = 15_000;
@@ -14,18 +15,6 @@ export interface PluginInvokeOptions {
     /** Overrides {@link PLUGIN_INVOKE_TIMEOUT_MS} for one call. */
     timeoutMs?: number;
 }
-
-/**
- * A `ServerkitError`'s `message` is the bare status text ("Forbidden") and the
- * useful sentence lives in `details.message`, so prefer that: the operator
- * reading a plugin's last error wants the sentence, not the status word.
- */
-const errorText = (error: unknown): string => {
-    if (!(error instanceof Error)) return String(error);
-    const details = (error as { details?: Record<string, unknown> }).details;
-    const detail = details?.message;
-    return typeof detail === 'string' && detail.length > 0 ? detail : error.message;
-};
 
 interface InvokeDeadline {
     /** Handed to the plugin so well-behaved code can bail out early. */
@@ -173,11 +162,11 @@ export class PluginInvoker {
      * which is why `toPluginError` is called here and nowhere downstream: past
      * this line every `PluginError` in flight is one the host built itself.
      * Only its classification is read; the outward message is rebuilt from
-     * `errorText` either way.
+     * `serverkitErrorText` either way.
      */
     private recordFailure(pluginId: string, op: string, error: unknown): PluginError {
         const pluginError = toPluginError(error);
-        const message = errorText(error);
+        const message = serverkitErrorText(error);
         const reason = `${op}: ${message}`;
 
         // A refusal about one resource says nothing about the plugin, so it is

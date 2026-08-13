@@ -5,8 +5,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { SettingsService } from './settings.service.js';
 import { SettingsRepository } from './settings.repository.js';
 import { getConfigStore } from '#src/server/config.store.js';
-
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+import { errorText } from '#modules/shared/error.text.js';
 
 export const SettingsModule: ServerKitModule = {
     name: 'Settings',

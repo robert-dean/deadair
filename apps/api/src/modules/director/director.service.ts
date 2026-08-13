@@ -17,6 +17,7 @@ import { resolveRules, stationRules, type ResolvedRules } from './rotation.rules
 import { MAIN_SLOT, StationAirRepository, type StationAir } from './station.air.repository.js';
 import { StationLineup, type EditResult, type StationLineupBinding, type StationLineupItem, type StationLineupSnapshot } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * How many items to keep in the running order beyond what is airing.
@@ -354,7 +355,7 @@ export class DirectorService {
      * event retries anyway. A caller that DOES want the outcome awaits {@link post} instead.
      */
     private send(command: DirectorCommand): void {
-        void this.post(command).catch(error => this.logger.warn(`director: a ${command.kind} command failed (${message(error)})`));
+        void this.post(command).catch(error => this.logger.warn(`director: a ${command.kind} command failed (${errorText(error)})`));
     }
 
     /**
@@ -527,7 +528,7 @@ export class DirectorService {
                 this.logger.info('director: retired the break an operator removed', { segmentId: item.segmentId, from: segment.state });
             });
         } catch (error) {
-            this.logger.warn(`director: could not retire the break an operator removed (${message(error)})`);
+            this.logger.warn(`director: could not retire the break an operator removed (${errorText(error)})`);
         }
     }
 
@@ -673,7 +674,7 @@ export class DirectorService {
         try {
             await this.inScope(scope => scope.get(TrackCachePlanner).ripen(lineup));
         } catch (error) {
-            this.logger.warn(`director: could not fetch a record ahead of its slot (${message(error)})`);
+            this.logger.warn(`director: could not fetch a record ahead of its slot (${errorText(error)})`);
         }
     }
 
@@ -715,7 +716,7 @@ export class DirectorService {
                 await planner.ripen(lineup);
             });
         } catch (error) {
-            this.logger.warn(`director: could not plan breaks for the running order (${message(error)})`);
+            this.logger.warn(`director: could not plan breaks for the running order (${errorText(error)})`);
         }
     }
 
@@ -885,7 +886,7 @@ export class DirectorService {
             // A refill that could not be sent must not take the commit pass down with it: the
             // order still has items, the station is still playing them, and the pass this is the
             // tail of is what keeps the running order full.
-            this.logger.warn(`director: could not ask for a refill (${message(error)})`);
+            this.logger.warn(`director: could not ask for a refill (${errorText(error)})`);
             return;
         }
         this.extendSent = true;
@@ -975,7 +976,7 @@ export class DirectorService {
         void this.inScope(async scope => scope.get(PlayHistoryRepository).record({ item, source })).catch(error =>
             // One lost row costs a little accuracy in the repeat window. Nothing about
             // the broadcast depends on it, and the boundary must not be held up.
-            this.logger.warn(`director: could not record what aired (${message(error)})`),
+            this.logger.warn(`director: could not record what aired (${errorText(error)})`),
         );
     }
 
@@ -1022,7 +1023,7 @@ export class DirectorService {
             // The intent stands even if the write did not. Leaving `standingDown` set
             // keeps this process off air, which is the safe half of the failure: the
             // alternative is a station that resumes because its own note did not save.
-            this.logger.warn(`director: could not record the stand-down (${message(error)})`);
+            this.logger.warn(`director: could not record the stand-down (${errorText(error)})`);
             return;
         }
         this.standingDown = false;
@@ -1061,7 +1062,7 @@ export class DirectorService {
             this.persistTimer = undefined;
             // Swallowed: the authority is memory, and a write that failed is retried by the next
             // transition. A boundary must not be held up by the record of it.
-            void this.persist().catch(error => this.logger.warn(`director: could not write the running order down (${message(error)})`));
+            void this.persist().catch(error => this.logger.warn(`director: could not write the running order down (${errorText(error)})`));
         }, PERSIST_THROTTLE_MS);
         this.persistTimer.unref?.();
     }
@@ -1072,7 +1073,7 @@ export class DirectorService {
 
         clearTimeout(this.persistTimer);
         this.persistTimer = undefined;
-        await this.persist().catch(error => this.logger.warn(`director: could not write the running order down (${message(error)})`));
+        await this.persist().catch(error => this.logger.warn(`director: could not write the running order down (${errorText(error)})`));
     }
 
     /**
@@ -1132,5 +1133,3 @@ export class DirectorService {
         }
     }
 }
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

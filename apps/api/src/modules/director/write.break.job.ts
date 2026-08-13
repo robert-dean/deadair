@@ -12,6 +12,7 @@ import type { BreakTrack } from './break.writer.js';
 import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /** How many recent scripts a writer is shown, so it can avoid repeating itself. */
 const RECENT_WINDOW = 6;
@@ -230,7 +231,7 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
                 })),
             );
         } catch (error) {
-            this.logger.warn(`director: could not record what was written (${error instanceof Error ? error.message : String(error)})`);
+            this.logger.warn(`director: could not record what was written (${errorText(error)})`);
         }
     }
 

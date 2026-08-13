@@ -9,6 +9,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '#modules/plugins/types/plugin.record.js';
 import type { CatalogPlaylist, CatalogPlaylistPage, CatalogPlaylistTracks, CatalogSourceError, CatalogTrack } from './types/playlists.types.js';
+import { serverkitErrorText } from '#modules/shared/error.text.js';
 
 /**
  * Items per page. Spotify caps playlist reads at 50 and clamps anything larger,
@@ -25,17 +26,6 @@ const PAGE_SIZE = 50;
  * forever. 200 pages is 10,000 items, far past any real playlist, and finite.
  */
 const MAX_PAGES = 200;
-
-/**
- * A `ServerkitError`'s `message` is the bare status text ("Forbidden") and the
- * useful sentence lives in `details.message`.
- */
-const errorText = (error: unknown): string => {
-    if (!(error instanceof Error)) return String(error);
-    const details = (error as { details?: Record<string, unknown> }).details;
-    const detail = details?.message;
-    return typeof detail === 'string' && detail.length > 0 ? detail : error.message;
-};
 
 /**
  * Why a plugin that declares a catalog cannot be asked for one right now, or
@@ -96,7 +86,9 @@ export class PlaylistsService {
         const settled = await Promise.allSettled(
             candidates.map(async ({ record, manifest }) => {
                 const instance = record.instance as MusicProviderPluginInstance;
-                const playlists = await this.collect(record.id, 'catalog.listPlaylists', offset => instance.listPlaylists!({ limit: PAGE_SIZE, offset }));
+                const playlists = await this.collect(record.id, 'catalog.listPlaylists', offset =>
+                    instance.listPlaylists!({ limit: PAGE_SIZE, offset }),
+                );
                 return { manifest, playlists };
             }),
         );
@@ -126,7 +118,7 @@ export class PlaylistsService {
                 return;
             }
 
-            const message = errorText(outcome.reason);
+            const message = serverkitErrorText(outcome.reason);
             this.logger.warn('catalog plugin could not list playlists', { plugin: record.id, error: message });
             errors.push({ pluginId: record.id, pluginName: manifest.name, message });
         });
@@ -163,7 +155,9 @@ export class PlaylistsService {
             artworkUrl?: string;
         }[];
         try {
-            tracks = await this.collect(pluginId, 'catalog.getPlaylistTracks', offset => instance.getPlaylistTracks!(playlistId, { limit: PAGE_SIZE, offset }));
+            tracks = await this.collect(pluginId, 'catalog.getPlaylistTracks', offset =>
+                instance.getPlaylistTracks!(playlistId, { limit: PAGE_SIZE, offset }),
+            );
         } catch (error) {
             throw pluginHttpError(pluginId, error);
         }

@@ -5,6 +5,7 @@ import { normalizeKey } from '#modules/catalog/catalog.keys.js';
 import { asCatalogPlugin, type CatalogPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Finding a record at a provider when the catalog has never heard of it.
@@ -159,7 +160,7 @@ export class ProviderTrackLookup {
                 async () => (await plugin.instance.searchTracks!(query, { limit: PER_PROVIDER_LIMIT })) ?? [],
             );
         } catch (error) {
-            this.logger.info(`director: a provider could not be searched for a chosen record (${plugin.record.id}: ${messageOf(error)})`);
+            this.logger.info(`director: a provider could not be searched for a chosen record (${plugin.record.id}: ${errorText(error)})`);
             return [];
         }
     }
@@ -174,5 +175,3 @@ export class ProviderTrackLookup {
         return searchable;
     }
 }
-
-const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));

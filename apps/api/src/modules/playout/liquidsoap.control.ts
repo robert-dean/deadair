@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { StreamConfigWatch } from '#modules/stream/stream.staleness.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * Client for the playout control endpoints in `stream/radio.liq`: the app's half
@@ -486,5 +487,3 @@ export function parseReading(body: unknown): QueueStatus | undefined {
  * the whole body: a newline in a track title would otherwise truncate it.
  */
 const oneLine = (value: string): string => value.replace(/[\r\n]+/g, ' ').trim();
-
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));

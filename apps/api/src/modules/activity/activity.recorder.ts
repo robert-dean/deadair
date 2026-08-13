@@ -1,6 +1,7 @@
 import { Container, Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { StationEventsRepository, type StationEvent } from './station.events.repository.js';
+import { errorText } from '#modules/shared/error.text.js';
 
 /**
  * The write side of the activity feed.
@@ -67,11 +68,9 @@ export class ActivityRecorder {
         try {
             await scope.get(StationEventsRepository).append(event);
         } catch (error) {
-            this.logger.warn(`activity: could not record ${event.module}/${event.kind} (${message(error)})`);
+            this.logger.warn(`activity: could not record ${event.module}/${event.kind} (${errorText(error)})`);
         } finally {
             await scope.disposeAsync();
         }
     }
 }
-
-const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

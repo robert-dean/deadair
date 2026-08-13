@@ -227,3 +227,52 @@ describe('ModelTalkBreakWriter', () => {
         });
     });
 });
+
+// The clock reached the model writer later than the template one, and only because running the
+// station showed the feature was inert: `llm.breakWriter` is on, the model wins the registry, and a
+// top-of-the-hour break was coming out with no time in it and no claim on it.
+describe('ModelTalkBreakWriter and the time', () => {
+    const clock = { words: 'just after nine', validFrom: 1_000, validUntil: 500_000 };
+
+    it('claims the window when the answer carries the words it was given', async () => {
+        const { writer } = build({ answer: "It's just after nine on Deadair." });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, clock });
+
+        expect(written?.claimsTime).toEqual({ from: 1_000, until: 500_000 });
+    });
+
+    it('claims nothing when the model said the time its own way', async () => {
+        // The opposite posture to `claimsNext`, which assumes. An invented phrasing has a lifetime
+        // this station cannot know, so there is no window it can honestly promise.
+        const { writer } = build({ answer: "It's a couple of minutes past nine on Deadair." });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, clock });
+
+        expect(written?.script).toContain('past nine');
+        expect(written?.claimsTime).toBeUndefined();
+    });
+
+    it('claims the window even when the model capitalised the phrase', async () => {
+        // Found on air, not in a test. Every timed break the model wrote went out unguarded because
+        // it began a sentence with "Coming up to three" and the check was case-sensitive.
+        const { writer } = build({ answer: 'Coming up to three, here is Wind Rose.' });
+
+        const written = await writer.write({
+            kind: TALK_BREAK_KIND,
+            previous,
+            next,
+            clock: { words: 'coming up to three', validFrom: 1_000, validUntil: 500_000 },
+        });
+
+        expect(written?.claimsTime).toEqual({ from: 1_000, until: 500_000 });
+    });
+
+    it('claims nothing for a break that was never given a time', async () => {
+        const { writer } = build({ answer: 'That was one record, here comes another.' });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next });
+
+        expect(written?.claimsTime).toBeUndefined();
+    });
+});

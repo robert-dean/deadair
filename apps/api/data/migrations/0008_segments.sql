@@ -110,7 +110,7 @@ create table deadair.segments (
     -- one jsonb document rather than rows — the check is a comparison in the director, and a stale
     -- id simply fails it, which is the safe direction.
     claims_item_id text,
-    -- The instant this break was PLACED for, when a rule on the station clock placed it.
+    -- When this break is expected to AIR, when a rule on the station clock placed it.
     --
     -- Written by the planner and read by the writer, which is the whole of why it is a column
     -- rather than a job argument. The words are asked for on a later pass than the one that planted
@@ -119,9 +119,11 @@ create table deadair.segments (
     -- say the time from. Null for a break planted by ordinary spacing, which is not about a time
     -- and has none to name.
     --
-    -- The TARGET rather than the projection. A boundary is at or after the time asked for, and
-    -- which one it turned out to be is a fact about the running order that will have changed again
-    -- by the time anybody speaks; what the operator asked for does not change.
+    -- The PROJECTION rather than the time the operator asked for. The running order is made of
+    -- whole records, so a band at half past lands on the first gap at or after it and may be a
+    -- couple of minutes late. What the break says has to describe when it will be SPOKEN, or a
+    -- break placed for half past and aired at twenty-five to announces a moment that has gone.
+    -- That the projection may itself be a minute out is what claims_time_* below covers.
     airs_at timestamptz,
     -- The window this break's words stay true in.
     --

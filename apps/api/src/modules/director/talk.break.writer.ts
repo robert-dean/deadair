@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { saysTime } from './clock.words.js';
 import { Logger } from '@maroonedsoftware/logger';
 import { BreakWriter, type BreakTrack, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import {
@@ -107,9 +108,7 @@ export class TalkBreakWriter extends BreakWriter {
         // slot that produced nothing is a slot the station is silent in. Nothing is needed to keep
         // a clock phrasing OUT of an ordinary break — `{{clock.rough}}` is unfillable without a
         // time, so `usable` has already dropped it.
-        const words = request.clock?.words;
-        const saysTime = (script: string): boolean => words !== undefined && script.includes(words);
-        const timed = fits.filter(one => saysTime(one.script));
+        const timed = fits.filter(one => request.clock !== undefined && saysTime(one.script, request.clock));
         const offered = timed.length > 0 ? timed : fits;
 
         const chosen = choose(offered, request.recent ?? []);
@@ -124,7 +123,7 @@ export class TalkBreakWriter extends BreakWriter {
             // Only when the words actually carry the time, for the reason `claimsNext` is answered
             // rather than assumed: the writer is the only thing that knows what it said, and a
             // break dropped later for a claim it never made is a break lost for nothing.
-            ...(request.clock !== undefined && saysTime(chosen.script)
+            ...(request.clock !== undefined && saysTime(chosen.script, request.clock)
                 ? { claimsTime: { from: request.clock.validFrom, until: request.clock.validUntil } }
                 : {}),
         };

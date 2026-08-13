@@ -539,6 +539,48 @@ describe('BreakPlanner against the clock', () => {
         expect(segmentsAt(lineup)).toEqual([6]);
     });
 
+    // The bug the whole feature existed for, found by running it rather than by reading it. A band
+    // naming `talkbreak` — which is what somebody writes for a top-of-the-hour station ID, the
+    // headline reason to have a clock at all — fell through to the station's own alternation. It
+    // came out as an ordinary break carrying no time, and half the time came out as an ident
+    // instead, so the one break that was supposed to say the hour never said anything of the sort.
+    // Every other case here named `news` or `sponsor` and sailed straight past it.
+    it('gives a band naming talkbreak its time, instead of handing it to the alternation', async () => {
+        const { planner, plan } = build({ settings: bands(':30 talkbreak'), canWrite: true, idents: [ident('seg-1')] });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak', airsAt: expect.any(Number) }));
+    });
+
+    it('fills a band with the kind named, never with whatever the alternation was due', async () => {
+        // Idents available and a talk break just planted would ordinarily make the next one an
+        // ident. A band is not the station taking its turn, so it gets what it asked for.
+        const { planner } = build({ settings: bands(':30 ident'), canWrite: true, idents: [ident('seg-1')] });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        const kinds = lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentKind] : []));
+        expect(kinds).toEqual(['ident']);
+    });
+
+    it('stamps when the break will AIR, not when the operator asked for it', async () => {
+        // The order is made of whole records, so the boundary that takes a half-past band is a
+        // couple of minutes past it. Words written about the target would describe a moment that
+        // had gone by the time anybody heard them.
+        // :32, deliberately not a time any boundary falls on. Records are five minutes from 09:00,
+        // so the first gap at or after it is 09:35 — three minutes late, and that is what the break
+        // has to describe.
+        const { planner, plan } = build({ settings: bands(':32 talkbreak'), canWrite: true });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        expect(plan.mock.calls[0]![0].airsAt).toBe(Date.UTC(2026, 7, 13, 9, 35));
+    });
+
     it('plants nothing from a clock when the operator has turned breaks off', async () => {
         const { planner } = build({ settings: bands(':30 news') });
         const lineup = await lineupOf(20);

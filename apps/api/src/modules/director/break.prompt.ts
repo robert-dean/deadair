@@ -116,6 +116,18 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings): strin
         );
     }
 
+    if (request.clock) {
+        // The exact words rather than a time, and an instruction to use them verbatim. A model
+        // asked to say what time it is will invent its own phrasing, and the station has no way to
+        // tell how long an invented one stays true — whereas these words come with their own expiry
+        // and the answer can simply be searched for them. Wanting it rather than requiring it: a
+        // break that came out without the time is still a break, and it just makes no claim.
+        parts.push(
+            `It is ${request.clock.words}. Work that in, using exactly the words "${request.clock.words}" ` +
+                'and no other way of saying the time. Do not give an exact time and do not name the minutes.',
+        );
+    }
+
     const station = settings.station?.trim();
     if (station) parts.push(`The station is called ${station}. You may say so, but you do not have to every time.`);
 

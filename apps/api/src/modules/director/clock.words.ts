@@ -33,6 +33,16 @@ export const CLOCK_KEYS = {
     timezone: 'station.timezone',
 } as const;
 
+/**
+ * Whether some words carry a given phrasing of the time.
+ *
+ * Case-insensitive, and that is not politeness: a model told to use these words verbatim will still
+ * capitalise them at the start of a sentence, and a station whose break said "Coming up to three"
+ * had its claim silently dropped for the capital C. Measured on the running station, where every
+ * timed break the model wrote went to air unguarded.
+ */
+export const saysTime = (script: string, time: RoughTime): boolean => script.toLowerCase().includes(time.words.toLowerCase());
+
 /** The time, said the way a presenter says it, and how long that stays true. */
 export interface RoughTime {
     /** The words, with no leading capital and no trailing stop: a template decides the sentence. */

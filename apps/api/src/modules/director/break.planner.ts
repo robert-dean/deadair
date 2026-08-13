@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
 import { isAnchored, nextOccurrence, stationBands } from './clock.bands.js';
-import { roughTime, stationZone } from './clock.words.js';
+import { stationZone } from './clock.words.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
@@ -86,6 +86,24 @@ export const WRITE_AHEAD = 8;
  * something newly discovered and not yet ingested.
  */
 const NOMINAL_TRACK_MS = 270_000;
+
+/**
+ * How late a boundary may be and still count as the slot an operator asked for.
+ *
+ * The running order is made of whole records, so a band almost never falls on a boundary: asked for
+ * half past, the station takes the first gap at or after it. This is how far it may reach.
+ *
+ * **Deliberately not the phrasing's own window**, which is what this was first written as and which
+ * running it immediately exposed. Those windows are anchored to the hour — see `clock.words.ts` —
+ * so a band at :00 had seven minutes of slack and one at :14 had one, and the second could
+ * essentially never be filled. How late is too late is a question about the OPERATOR'S slot and has
+ * the same answer wherever in the hour they put it.
+ *
+ * Ten minutes: at this catalog's average that is at most two records past the mark, and comfortably
+ * inside the half hour between the two bands most stations would write. Past it, the station has
+ * missed the slot, and the next occurrence is the honest answer.
+ */
+const BAND_LATENESS_MS = 600_000;
 
 /**
  * The station putting its own segments into a lineup.
@@ -237,13 +255,8 @@ export class BreakPlanner {
             // can be a long way past it — the whole gap between here and it may already be inside
             // the window the player is holding, so the earliest slot the station can still program
             // is half an hour after the bulletin was due. A break that late is not a late bulletin,
-            // it is the wrong one, and airing it would have the station say half past at ten.
-            //
-            // The bound is the phrasing's own: a band may take a boundary for exactly as long as
-            // the words for that time would still be true. That is the same window the director
-            // checks at hand-over, so a break cannot be planted into a slot the check would then
-            // throw it out of.
-            if (projected[at]! >= roughTime(target, zone).validUntil) {
+            // it is the wrong one.
+            if (projected[at]! - target > BAND_LATENESS_MS) {
                 this.logger.info('director: a slot on the station clock came round with no boundary near enough to use', {
                     kind: band.kind,
                     at: new Date(target).toISOString(),
@@ -256,7 +269,12 @@ export class BreakPlanner {
             // breaks in one gap is worse than a bulletin the DJ introduced.
             if (items[at]!.kind === 'segment') continue;
 
-            claim(at, band.kind, target);
+            // The PROJECTED time rather than the target, and the difference is what the break will
+            // SAY. A band asked for 14:14 and the boundary that can take it airs at 14:17, so words
+            // written about 14:14 describe a moment that has passed by the time anybody hears them.
+            // The writer needs to know when this will actually be spoken; that the projection may be
+            // a minute out is exactly what the claim window covers.
+            claim(at, band.kind, projected[at]!);
         }
 
         // ── the operator's own intervals ───────────────────────────────────────
@@ -346,11 +364,19 @@ export class BreakPlanner {
         const shelved = new Map<string, readonly Segment[]>();
 
         for (const { atIndex, band, airsAt } of wanted) {
-            if (band !== undefined && !isStationKind(band)) {
+            // A slot the operator's clock placed is filled with EXACTLY the kind they named, and
+            // never handed to the alternation below. That looks like it should have an exception
+            // for `talkbreak`, which the station's own rule also plants, and it must not have one:
+            // running it showed why. A band saying `:00 talkbreak` fell through to the alternation,
+            // came out as an ordinary break with no time on it, and half the time came out as an
+            // ident instead — so the top-of-the-hour break, which is the whole reason somebody
+            // writes a clock, never once said what time it was. What makes a break a band's is that
+            // a time was asked for, not which kind was named.
+            if (band !== undefined) {
                 const planted = await this.fillBand(band, atIndex, shelved, airsAt);
                 if (planted !== undefined) placements.push(planted);
-                // The alternation is deliberately NOT advanced. A bulletin is not the station
-                // naming itself, so it is not the station's turn at anything.
+                // The alternation is deliberately NOT advanced. What the operator scheduled is not
+                // the station taking its turn at anything.
                 continue;
             }
 
@@ -474,11 +500,13 @@ interface Slot {
     atIndex: number;
     band?: string;
     /**
-     * The time this slot was claimed FOR, for an anchored rule.
+     * When this slot is expected to reach the air, for an anchored rule.
      *
-     * The target rather than the boundary's projected time. What the operator asked for is stable;
-     * which boundary it landed on is a fact about a running order that will have moved again before
-     * anybody speaks.
+     * The boundary's PROJECTED time rather than the time the operator asked for. The two differ by
+     * up to {@link BAND_LATENESS_MS}, because the order is made of whole records and a band rarely
+     * falls on a gap — and the difference is what the break would say out loud. Words written about
+     * a target the station then reached three minutes late describe a moment that has already
+     * passed.
      */
     airsAt?: number;
 }

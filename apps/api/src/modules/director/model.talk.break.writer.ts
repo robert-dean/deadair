@@ -6,6 +6,7 @@ import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
+import { saysTime } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { labelFor, TALK_BREAK_KIND } from './talk.break.writer.js';
 
@@ -176,6 +177,15 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // costs a break the order drifted under, which is the safe direction; under-stamping
             // airs a promise nobody checked, which is the direction the claim exists to close.
             claimsNext: request.next !== undefined,
+            // Stamped only when the answer really carries the words it was given, which is the
+            // opposite posture to `claimsNext` above and deliberately so. There, over-stamping
+            // costs at most a break the order drifted under. Here the words either appear or they
+            // do not, so there is nothing to assume: a model that ignored the instruction, or
+            // paraphrased it into something with a different lifetime, has made no claim this
+            // station can honour and must not be given one.
+            ...(request.clock !== undefined && saysTime(script, request.clock)
+                ? { claimsTime: { from: request.clock.validFrom, until: request.clock.validUntil } }
+                : {}),
         };
     }
 }

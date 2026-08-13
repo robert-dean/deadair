@@ -55,12 +55,16 @@ export interface Segment {
      */
     claimsItemId?: string;
     /**
-     * When this break was PLACED for, as epoch millis, for one placed by a rule on the station
+     * When this break is expected to AIR, as epoch millis, for one placed by a rule on the station
      * clock.
      *
      * Written by the planner and read by the writer, because the words are asked for on a later
      * pass than the one that planted the break and nothing recomputes the schedule in between.
      * Absent for a break planted by ordinary spacing, which is not about a time.
+     *
+     * The projected time rather than the time the operator asked for: a band at half past lands on
+     * the first gap at or after it, and what the break says has to describe when it will be spoken
+     * rather than when it was due.
      */
     airsAt?: number;
     /**

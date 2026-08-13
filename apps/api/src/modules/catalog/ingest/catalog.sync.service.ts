@@ -8,22 +8,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { CatalogResolverService } from './catalog.resolver.service.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
-
-/**
- * Items per page. Spotify caps playlist reads at 50 and clamps anything larger,
- * so asking for more buys nothing and makes the offsets lie.
- */
-const PAGE_SIZE = 50;
-
-/**
- * Pages one plugin may serve before the walk gives up on it.
- *
- * Termination here depends on the provider honouring `offset`, which is a
- * promise made by code the host does not own. A provider that ignores it
- * returns page one forever, and this walk would never end on its own.
- * 200 pages is 10,000 items per list — far past any real library, and finite.
- */
-const MAX_PAGES = 200;
+import { PLUGIN_PAGE_SIZE, pluginPages } from '#modules/plugins/plugin.paging.js';
 
 /** What one plugin's walk produced. */
 export interface PluginSyncSummary {
@@ -245,7 +230,12 @@ export class CatalogSyncService {
 
     /** Every playlist the plugin offers, one page at a time. */
     private async *playlists(candidate: CatalogPlugin, signal?: AbortSignal): AsyncGenerator<ProviderPlaylist> {
-        yield* this.pages(candidate, 'catalog.listPlaylists', offset => candidate.instance.listPlaylists!({ limit: PAGE_SIZE, offset }), signal);
+        yield* this.pages(
+            candidate,
+            'catalog.listPlaylists',
+            offset => candidate.instance.listPlaylists!({ limit: PLUGIN_PAGE_SIZE, offset }),
+            signal,
+        );
     }
 
     /** Every track in one playlist, one page at a time. */
@@ -253,36 +243,14 @@ export class CatalogSyncService {
         yield* this.pages(
             candidate,
             'catalog.getPlaylistTracks',
-            offset => candidate.instance.getPlaylistTracks!(playlistId, { limit: PAGE_SIZE, offset }),
+            offset => candidate.instance.getPlaylistTracks!(playlistId, { limit: PLUGIN_PAGE_SIZE, offset }),
             signal,
         );
     }
 
-    /**
-     * Offset pagination over a plugin call, stopping at the first short page.
-     *
-     * Every call goes through `PluginInvoker`, which is what keeps a hanging
-     * plugin from becoming a hanging job: the deadline and the failure breaker
-     * both apply per page.
-     *
-     * A short page means the end. A full page that yields nothing new would
-     * still advance the offset, so the only way this does not terminate is a
-     * provider that ignores `offset` entirely — which {@link MAX_PAGES} covers,
-     * loudly, because silently truncating a library would look exactly like a
-     * successful sync.
-     */
-    private async *pages<T>(candidate: CatalogPlugin, op: string, fetch: (offset: number) => Promise<T[]>, signal?: AbortSignal): AsyncGenerator<T> {
-        const pluginId = candidate.record.id;
-
-        for (let page = 0; page < MAX_PAGES; page++) {
-            if (signal?.aborted) return;
-
-            const items = await this.pluginInvoker.invoke(pluginId, op, async () => fetch(page * PAGE_SIZE));
-            for (const item of items) yield item;
-            if (items.length < PAGE_SIZE) return;
-        }
-
-        this.logger.warn('stopped paging a plugin at the page cap; its catalog may be incomplete', { plugin: pluginId, op, cap: MAX_PAGES });
+    /** {@link pluginPages} for this walk: the plugin's id, and what an operator loses if it is cut short. */
+    private pages<T>(candidate: CatalogPlugin, op: string, fetch: (offset: number) => Promise<T[]>, signal?: AbortSignal): AsyncGenerator<T> {
+        return pluginPages(this.pluginInvoker, this.logger, { pluginId: candidate.record.id, op, incomplete: 'its catalog', signal }, fetch);
     }
 
     /**

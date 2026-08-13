@@ -1,6 +1,8 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { ActivityRecorder } from './activity.recorder.js';
+import { ActivityRepository } from './activity.repository.js';
+import { ActivityService } from './activity.service.js';
 import { StationEventsRepository } from './station.events.repository.js';
 
 /**
@@ -31,6 +33,10 @@ export const ActivityModule: ServerKitModule = {
     setup: async (registry: Registry) => {
         // Scoped, like every other repository.
         registry.register(StationEventsRepository).useClass(StationEventsRepository).asScoped();
+        registry.register(ActivityRepository).useClass(ActivityRepository).asScoped();
+
+        // Scoped with the repository it reads through, like every other request-path service.
+        registry.register(ActivityService).useClass(ActivityService).asScoped();
 
         // Singleton, because its callers are: the transport's silence edge, the director's air
         // toggle, and the starve route. It holds no state of its own and opens a scope per write.

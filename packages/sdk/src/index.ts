@@ -1,4 +1,6 @@
 // Auto-generated barrel file
+export * from './activity/activity.client.js';
+export * from './activity/types/index.js';
 export * from './art/art.client.js';
 export * from './authentication/authentication.client.js';
 export * from './authentication/authentication.factor.client.js';

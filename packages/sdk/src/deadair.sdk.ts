@@ -1,5 +1,6 @@
 import type { SdkOptions } from './sdk-options.js';
 import { createSdkFetch } from './sdk-options.js';
+import { ActivityClient } from './activity/activity.client.js';
 import { ArtClient } from './art/art.client.js';
 import { AuthenticationClient } from './authentication/authentication.client.js';
 import { CatalogClient } from './catalog/catalog.client.js';
@@ -13,6 +14,7 @@ import { RenderClient } from './render/render.client.js';
 import { SettingsClient } from './settings/settings.client.js';
 
 export class DeadairSdk {
+    readonly activity: ActivityClient;
     readonly art: ArtClient;
     readonly authentication: AuthenticationClient;
     readonly catalog: CatalogClient;
@@ -27,6 +29,7 @@ export class DeadairSdk {
 
     constructor(options: SdkOptions) {
         const sdkFetch = options.fetch ?? createSdkFetch(options);
+        this.activity = new ActivityClient(sdkFetch);
         this.art = new ArtClient(sdkFetch);
         this.authentication = new AuthenticationClient(sdkFetch);
         this.catalog = new CatalogClient(sdkFetch);

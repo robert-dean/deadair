@@ -1,6 +1,7 @@
 import { AuthenticationFactorRouter } from './authentication.factor.router.js';
 import { AuthenticationRouter } from './authentication.router.js';
 import { AuthenticationSessionsRouter } from './authentication.sessions.router.js';
+import { ActivityRouter } from './activity.router.js';
 import { ArtRouter } from './art.router.js';
 import { CatalogRouter } from './catalog.router.js';
 import { DirectorRouter } from './director.router.js';
@@ -17,6 +18,7 @@ export const routers = [
     AuthenticationFactorRouter,
     AuthenticationSessionsRouter,
     ArtRouter,
+    ActivityRouter,
     CatalogRouter,
     PlaylistsRouter,
     PlayoutRouter,

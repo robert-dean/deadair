@@ -1,4 +1,6 @@
 import {
+    configBaseUrl,
+    configString,
     Plugin,
     PluginError,
     tryJsonBody,
@@ -84,10 +86,10 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
-        this.baseUrl = trimSlashes(typeof config.baseUrl === 'string' ? config.baseUrl : '');
-        this.model = nonEmpty(config.model) ?? DEFAULT_MODEL;
+        this.baseUrl = configBaseUrl(config.baseUrl);
+        this.model = configString(config.model) ?? DEFAULT_MODEL;
         this.format = isResponseFormat(config.format) ? config.format : DEFAULT_FORMAT;
-        this.defaultVoice = nonEmpty(config.defaultVoice) ?? DEFAULT_VOICE;
+        this.defaultVoice = configString(config.defaultVoice) ?? DEFAULT_VOICE;
         this.voices = voiceMapOf(config.voices);
         this.apiKey = await this.host.secrets.get('apiKey');
 
@@ -187,14 +189,5 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         return this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {};
     }
 }
-
-const nonEmpty = (value: unknown): string | undefined => {
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-};
-
-/** The base URL without a trailing slash, so paths can be appended with one. */
-const trimSlashes = (value: string): string => value.trim().replace(/\/+$/, '');
 
 const isResponseFormat = (value: unknown): value is ResponseFormat => typeof value === 'string' && Object.hasOwn(RESPONSE_FORMATS, value);

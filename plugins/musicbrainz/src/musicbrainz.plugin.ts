@@ -1,4 +1,6 @@
 import {
+    baseForm,
+    configString,
     Plugin,
     type AlbumEnrichment,
     type AlbumRef,
@@ -25,7 +27,6 @@ import {
     selectByIsrc,
     selectFromTracklist,
     selectRecording,
-    baseForm,
     type RecordingMatch,
 } from './musicbrainz.match.js';
 import type {
@@ -192,8 +193,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
-        const contactEmail = typeof config.contactEmail === 'string' ? config.contactEmail.trim() : '';
-        const baseUrl = typeof config.baseUrl === 'string' && config.baseUrl.length > 0 ? config.baseUrl : DEFAULT_BASE_URL;
+        const contactEmail = configString(config.contactEmail) ?? '';
+        const baseUrl = configString(config.baseUrl) ?? DEFAULT_BASE_URL;
         const matchScore = Number(config.matchScore);
         this.matchScore = Number.isFinite(matchScore) ? matchScore : DEFAULT_MATCH_SCORE;
         this.includeArtwork = config.includeArtwork !== false;

@@ -1,5 +1,6 @@
 import {
     ANALYSIS_SCHEMA_VERSION,
+    configBaseUrl,
     Plugin,
     PluginError,
     tryJsonBody,
@@ -65,7 +66,7 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider {
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
-        this.baseUrl = trimSlashes(typeof config.baseUrl === 'string' ? config.baseUrl : '');
+        this.baseUrl = configBaseUrl(config.baseUrl);
 
         this.host.logger.info('analyzer ready', { baseUrl: this.baseUrl });
     }
@@ -176,6 +177,3 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider {
         };
     }
 }
-
-/** The base URL without a trailing slash, so paths can be appended with one. */
-const trimSlashes = (value: string): string => value.trim().replace(/\/+$/, '');

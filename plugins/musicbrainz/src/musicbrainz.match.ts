@@ -8,18 +8,12 @@
  * refuse, and every relaxation here is deliberate.
  */
 
-import type { TrackRef } from '@deadair/plugin-sdk';
+import { baseForm, normalize, type TrackRef } from '@deadair/plugin-sdk';
 
 import type { MusicBrainzArtistCredit, MusicBrainzRecording, MusicBrainzSearchRecording } from './musicbrainz.types.js';
 
 /** Lucene syntax characters, which have to survive as literals inside a phrase. */
 const LUCENE_SPECIALS = /[+\-&|!(){}[\]^"~*?:\\/]/g;
-
-/** Kept apart from the general punctuation strip: these carry the "which version" information. */
-const PARENTHETICAL = /[([{].*?[)\]}]/g;
-
-/** Everything that is decoration rather than identity once a string is lowercased. */
-const PUNCTUATION = /[^\p{Letter}\p{Number}\s]/gu;
 
 /** Within this much of the reference duration, the candidate is the same performance. */
 const DURATION_EXACT_MS = 3_000;
@@ -62,33 +56,6 @@ const TRACKLIST_BASE_SCORE = 95;
  */
 export function escapeLucene(value: string): string {
     return value.replace(LUCENE_SPECIALS, character => `\\${character}`);
-}
-
-/**
- * Comparison form: lowercased, unaccented, stripped of punctuation, with runs
- * of whitespace collapsed. `Beyoncé` and `Beyonce`, `Mr. Brightside` and
- * `Mr Brightside` are the same string here.
- */
-export function normalize(value: string): string {
-    return value
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .toLowerCase()
-        .replace(PUNCTUATION, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-/**
- * {@link normalize} with any parenthesised suffix removed, so
- * `Song (2011 Remaster)` and `Song - Live` compare equal to `Song`.
- *
- * This is where re-issues are caught. A provider's catalog is full of
- * remasters and deluxe editions, and MusicBrainz holds the recording under its
- * plain name, so an exact-only comparison misses most of a real library.
- */
-export function baseForm(value: string): string {
-    return normalize(value.replace(PARENTHETICAL, ' ').split(/\s+[-–—]\s+/)[0] ?? value);
 }
 
 /** Every way an artist is named on a credit: the credited name and the artist's own. */

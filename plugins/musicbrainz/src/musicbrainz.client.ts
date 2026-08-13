@@ -1,4 +1,5 @@
 import {
+    configBaseUrl,
     PluginError,
     jsonBody,
     pluginCodeForStatus as sharedCodeForStatus,
@@ -84,7 +85,7 @@ export class MusicBrainzClient {
         baseUrl: string,
         contactEmail: string,
     ) {
-        this.baseUrl = baseUrl.replace(/\/+$/, '');
+        this.baseUrl = configBaseUrl(baseUrl);
         this.userAgent = `deadair-musicbrainz/${PLUGIN_VERSION} ( mailto:${contactEmail} )`;
     }
 

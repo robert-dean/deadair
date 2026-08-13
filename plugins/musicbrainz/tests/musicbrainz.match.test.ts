@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TrackRef } from '@deadair/plugin-sdk';
+import { baseForm, normalize, type TrackRef } from '@deadair/plugin-sdk';
 
 import {
     albumSearchTitle,
-    baseForm,
     buildRecordingQuery,
     escapeLucene,
     joinCredits,
-    normalize,
     scoreCandidate,
     selectByIsrc,
     selectRecording,

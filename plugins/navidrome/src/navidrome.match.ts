@@ -1,3 +1,5 @@
+import { baseForm, normalize } from '@deadair/plugin-sdk';
+
 import type { SubsonicChild } from './navidrome.types.js';
 
 /**
@@ -12,38 +14,6 @@ import type { SubsonicChild } from './navidrome.types.js';
  * host records a miss on a short clock and asks again in a week, whereas a
  * confident mismatch is stored for ninety days and read out on air.
  */
-
-/** Punctuation, which the two sides spell differently often enough to matter. */
-const PUNCTUATION = /[^\p{L}\p{N}\s]/gu;
-
-/** A parenthesised or bracketed suffix: `(2011 Remaster)`, `[Live]`. */
-const PARENTHETICAL = /[([{][^)\]}]*[)\]}]/g;
-
-/**
- * Comparison form: lowercased, unaccented, stripped of punctuation, whitespace
- * collapsed. `Beyoncé` and `Beyonce`, `Mr. Brightside` and `Mr Brightside` are
- * the same string here.
- */
-export function normalize(value: string): string {
-    return value
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .toLowerCase()
-        .replace(PUNCTUATION, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-/**
- * {@link normalize} with a parenthesised or dashed suffix removed, so
- * `Roads (2011 Remaster)` and `Roads - Live` compare equal to `Roads`.
- *
- * A personal library is full of these. The tags on a rip say what the pressing
- * said, and the same song appears three times under three decorations.
- */
-export function baseForm(value: string): string {
-    return normalize(value.replace(PARENTHETICAL, ' ').split(/\s+[-–—]\s+/)[0] ?? value);
-}
 
 /** How well a candidate agrees with what was asked for. */
 type Agreement = 'exact' | 'base' | 'none';

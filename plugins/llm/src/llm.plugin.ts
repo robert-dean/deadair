@@ -1,4 +1,6 @@
 import {
+    configBaseUrl,
+    configString,
     jsonBody,
     Plugin,
     PluginError,
@@ -56,8 +58,8 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
-        this.baseUrl = trimSlashes(typeof config.baseUrl === 'string' ? config.baseUrl : '');
-        this.model = nonEmpty(config.model) ?? '';
+        this.baseUrl = configBaseUrl(config.baseUrl);
+        this.model = configString(config.model) ?? '';
         this.temperature = typeof config.temperature === 'number' ? config.temperature : undefined;
         this.models = typeof config.models === 'string' ? config.models : '';
         this.apiKey = await this.host.secrets.get('apiKey');
@@ -217,7 +219,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         const provider = this.provider;
         if (provider === undefined) throw new PluginError('the model plugin has no server URL configured').withCode('config');
 
-        const model = nonEmpty(request.model) ?? this.model;
+        const model = configString(request.model) ?? this.model;
         if (model.length === 0) throw new PluginError('the model plugin has no model configured and none was asked for').withCode('config');
 
         if (request.messages.length === 0) throw new PluginError('a generation needs at least one message').withCode('config');
@@ -404,12 +406,3 @@ function toFinishReason(reason: string): LlmFinishReason {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const nonEmpty = (value: unknown): string | undefined => {
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    return trimmed.length === 0 ? undefined : trimmed;
-};
-
-/** Base URLs are concatenated with a path in two places, so the trailing slash goes here once. */
-const trimSlashes = (value: string): string => value.trim().replace(/\/+$/, '');

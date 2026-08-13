@@ -1,4 +1,5 @@
 import {
+    configString,
     Plugin,
     type GetPlaylistTracksOptions,
     type ListPlaylistsOptions,
@@ -83,12 +84,12 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
-        this.clientId = typeof config.clientId === 'string' && config.clientId.length > 0 ? config.clientId : undefined;
-        this.deviceName = typeof config.deviceName === 'string' && config.deviceName.length > 0 ? config.deviceName : undefined;
+        this.clientId = configString(config.clientId);
+        this.deviceName = configString(config.deviceName);
 
         // The operator's registered redirect URI wins; the host-owned endpoint
         // is the fallback for an installation that never filled the field in.
-        const configuredRedirect = typeof config.redirectUri === 'string' && config.redirectUri.length > 0 ? config.redirectUri : undefined;
+        const configuredRedirect = configString(config.redirectUri);
         // Held in a local as well as on the instance: `this.host` is a getter,
         // and TypeScript drops what it knew about every other property across
         // the call, so reading `this.redirectUri` back would be `string |

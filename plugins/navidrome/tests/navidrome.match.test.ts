@@ -4,7 +4,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { baseForm, normalize, selectSong } from '../src/navidrome.match.js';
+import { baseForm, normalize } from '@deadair/plugin-sdk';
+
+import { selectSong } from '../src/navidrome.match.js';
 
 const ref = { artist: 'Portishead', title: 'Roads', album: 'Dummy' };
 

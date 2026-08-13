@@ -1,4 +1,5 @@
 import {
+    configBaseUrl,
     PluginError,
     jsonBody,
     pluginCodeForStatus as sharedCodeForStatus,
@@ -104,7 +105,7 @@ export class SubsonicClient {
         baseUrl: string,
         private readonly auth: SubsonicAuth,
     ) {
-        this.baseUrl = baseUrl.replace(/\/+$/, '');
+        this.baseUrl = configBaseUrl(baseUrl);
     }
 
     /**

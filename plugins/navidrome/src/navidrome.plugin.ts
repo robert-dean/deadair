@@ -1,4 +1,6 @@
 import {
+    baseForm,
+    normalize,
     Plugin,
     PluginError,
     type AlbumEnrichment,
@@ -30,7 +32,7 @@ import {
     MAX_PAGE_SIZE,
     type NavidromeConfig,
 } from './navidrome.manifest.js';
-import { baseForm, normalize, selectSong } from './navidrome.match.js';
+import { selectSong } from './navidrome.match.js';
 import type {
     AlbumResponse,
     ArtistInfoResponse,

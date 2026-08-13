@@ -9,10 +9,9 @@
  * put guesses in front of the DJ under the name of the canonical source.
  */
 
-import type { AlbumEnrichment, ExternalId, ExternalLink, TrackEnrichment, TrackRef } from '@deadair/plugin-sdk';
+import { baseForm, type AlbumEnrichment, type ExternalId, type ExternalLink, type TrackEnrichment, type TrackRef } from '@deadair/plugin-sdk';
 
 import { COVER_ART_ORIGIN, MUSICBRAINZ_WEB_ORIGIN } from './musicbrainz.manifest.js';
-import { baseForm } from './musicbrainz.match.js';
 import type { MusicBrainzRecording, MusicBrainzRelease, MusicBrainzReleaseGroup, MusicBrainzTag } from './musicbrainz.types.js';
 
 /** Enough genres to characterise a track, few enough to say out loud. */

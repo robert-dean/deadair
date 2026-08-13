@@ -4,6 +4,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { EnrichmentReadService } from '#modules/enrichment/enrichment.read.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
@@ -61,6 +62,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly segments: SegmentRepository,
         private readonly history: ScriptHistoryRepository,
         private readonly writers: BreakWriterRegistry,
+        private readonly enrichment: EnrichmentReadService,
         private readonly activity: ActivityRecorder,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
@@ -121,6 +123,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // schedule, so by now this job is the only thing that could say what time it is writing
         // about — and asking the clock again here would answer with now, a quarter of an hour early.
         const clock = segment.airsAt === undefined ? undefined : roughTime(segment.airsAt, stationZone(this.config));
+
+        // After the claim, so a job that was merely early does no work at all, and for EVERY break
+        // rather than only when a model might use them: what the station knows about a record is a
+        // property of the moment, not of whichever binding takes it, and reading `llm.breakWriter`
+        // here would make the substrate depend on a setting.
+        await this.attachFacts(segmentId, neighbours);
 
         const result = await this.writers.write({
             kind: segment.kind,
@@ -196,6 +204,33 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                     declined: declined.map(attempt => ({ writer: attempt.writer, outcome: attempt.outcome, durationMs: attempt.durationMs })),
                 },
             });
+        }
+    }
+
+    /**
+     * Put whatever the station knows about these two records onto them, in place.
+     *
+     * Best-effort in the same sense `remember` below is: a fact is what makes a break better and
+     * never what makes it possible, so a read that fails costs the facts and the break is written
+     * without them. The floor writer never wanted them in the first place.
+     *
+     * The rotation is the segment id, which is stable for this break and different for the next
+     * one: an artist who comes round twice in an evening gets a different sentence the second time
+     * without anything having to remember the first.
+     */
+    private async attachFacts(segmentId: string, neighbours: Neighbours): Promise<void> {
+        const sides = [neighbours.previous, neighbours.next].filter((side): side is Neighbour => side !== undefined);
+        const trackIds = sides.map(side => side.track.trackId).filter((trackId): trackId is string => trackId !== undefined);
+        if (trackIds.length === 0) return;
+
+        try {
+            const facts = await this.enrichment.factsForTracks(trackIds, rotationOf(segmentId));
+            for (const side of sides) {
+                const found = side.track.trackId === undefined ? undefined : facts.get(side.track.trackId);
+                if (found !== undefined && found.length > 0) side.track = { ...side.track, facts: found };
+            }
+        } catch (error) {
+            this.logger.warn(`director: could not read what the station knows about these records (${errorText(error)})`);
         }
     }
 
@@ -315,6 +350,20 @@ function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | un
         ...(previous === undefined ? {} : { previous }),
         ...(next === undefined ? {} : { next }),
     };
+}
+
+/**
+ * Which fact a break starts at, from the one thing about it that is stable and its own.
+ *
+ * Not a random and not the clock: a break re-offered after a lost job has to be shown the same
+ * record in the same words, or the retry becomes a second opinion. Any cheap spread over the id
+ * will do — what matters is only that two breaks about the same artist rarely land on the same
+ * number.
+ */
+function rotationOf(segmentId: string): number {
+    let hash = 0;
+    for (const character of segmentId) hash = (hash * 31 + character.charCodeAt(0)) % 0xffff;
+    return hash;
 }
 
 /** A record beside a break, and WHICH LINE of the order it is. */

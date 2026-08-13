@@ -37,16 +37,27 @@ export interface BreakTrack {
     /**
      * The catalog track this is, when the catalog holds it.
      *
-     * Nothing reads it yet, and it is here so that something can. Everything a writer might one day
-     * want to be interesting ABOUT — `track_enrichment`, the album, the artist, what the analyzer
-     * measured — hangs off this one id, and a binding written against two bare strings is one that
-     * has to be reshaped the day any of it arrives. Absent for a record the catalog does not hold.
-     *
-     * When those facts do arrive they belong IN this request, fetched by the caller, never by a
-     * writer reaching into a repository: that is what keeps a writer a pure function of what it was
-     * told, which is what makes it testable and what lets every binding see the same substrate.
+     * Everything a writer might want to be interesting ABOUT — the enrichment tables, the album,
+     * the artist, what the analyzer measured — hangs off this one id. {@link facts} is the first
+     * of that to arrive; the rest still has somewhere to arrive at. Absent for a record the catalog
+     * does not hold.
      */
     trackId?: string;
+    /**
+     * Short true things about this record, already chosen for this break.
+     *
+     * Fetched by the CALLER and never by a writer reaching into a repository, which is what keeps a
+     * writer a pure function of what it was told: that is what makes it testable, and what lets
+     * every binding see the same substrate rather than each one deciding for itself what it is
+     * allowed to know.
+     *
+     * Already whole sentences, already capped in number and length, already rotated so a record
+     * played twice in an evening does not produce the same line — all of that is
+     * `EnrichmentReadService.factsForTracks`, because it is one decision and no writer should be
+     * making it again. Absent, or empty, is the ordinary case: on a station that has enriched
+     * nothing, every break is this.
+     */
+    facts?: readonly string[];
 }
 
 /** What a writer is told before it writes. */

@@ -12,11 +12,12 @@ import type { ScriptWrite } from '../../../src/modules/render/script.history.rep
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
-const track = (title: string, artist: string): RundownTrack => ({
+const track = (title: string, artist: string, trackId?: string): RundownTrack => ({
     pluginId: 'deadair.spotify',
     externalId: title,
     title,
     artists: [artist],
+    ...(trackId === undefined ? {} : { trackId }),
 });
 
 const planned = (overrides: Partial<Segment> = {}): Segment =>
@@ -30,7 +31,18 @@ const lineupWithBreak = async (segmentId = 'seg-1'): Promise<StationLineup> => {
     return lineup;
 };
 
-function harness(options: { segment?: Segment; lineup?: StationLineup; written?: unknown; wrote?: boolean; historyThrows?: boolean } = {}) {
+function harness(
+    options: {
+        segment?: Segment;
+        lineup?: StationLineup;
+        written?: unknown;
+        wrote?: boolean;
+        historyThrows?: boolean;
+        /** What the station knows about the records either side, keyed by track id. */
+        facts?: Map<string, string[]>;
+        factsThrow?: boolean;
+    } = {},
+) {
     const segments = {
         claimForWrite: vi.fn(async () => ('segment' in options ? options.segment : planned())),
         recentScripts: vi.fn(async () => []),
@@ -47,6 +59,11 @@ function harness(options: { segment?: Segment; lineup?: StationLineup; written?:
         attempts: [{ writer, outcome: 'written', written: { script, label }, durationMs: 1 }],
     });
     const writers = { write: vi.fn(async () => options.written ?? wrote('talking', 'Talk break: one into two', 'deterministic')) };
+    const enrichment = {
+        factsForTracks: vi.fn(async (_ids: readonly string[], _rotate?: number) =>
+            options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : (options.facts ?? new Map<string, string[]>()),
+        ),
+    };
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((_: string, fallback: string) => fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -58,6 +75,7 @@ function harness(options: { segment?: Segment; lineup?: StationLineup; written?:
         segments as never,
         history as never,
         writers as never,
+        enrichment as never,
         activity as never,
         jobs as never,
         config as never,
@@ -66,7 +84,7 @@ function harness(options: { segment?: Segment; lineup?: StationLineup; written?:
         logger as never,
     );
 
-    return { job, segments, lineups, history, writers, jobs, logger, activity };
+    return { job, segments, lineups, history, writers, enrichment, jobs, logger, activity };
 }
 
 describe('WriteBreakJob', () => {
@@ -207,6 +225,101 @@ describe('WriteBreakJob', () => {
                 next: { title: 'Pink Moon', artist: 'Nick Drake' },
             }),
         );
+    });
+
+    describe('what the station knows about the records', () => {
+        /** The same rotation, with both records catalogued, so there is something to look up. */
+        const withIds = (segmentId = 'seg-1'): StationLineup => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn', 'track-a'), track('Pink Moon', 'Nick Drake', 'track-b')]);
+            lineup.insertSegments([{ segmentId, atIndex: 1 }]);
+            return lineup;
+        };
+
+        it('puts the facts on both records before anything is asked to write', async () => {
+            const { job, writers, enrichment } = harness({
+                lineup: withIds(),
+                facts: new Map([
+                    ['track-a', ['John Martyn was born in New Malden in 1948.']],
+                    ['track-b', ['Nick Drake: English singer-songwriter.']],
+                ]),
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number));
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    previous: {
+                        title: 'Solid Air',
+                        artist: 'John Martyn',
+                        trackId: 'track-a',
+                        facts: ['John Martyn was born in New Malden in 1948.'],
+                    },
+                    next: { title: 'Pink Moon', artist: 'Nick Drake', trackId: 'track-b', facts: ['Nick Drake: English singer-songwriter.'] },
+                }),
+            );
+        });
+
+        it('leaves a record the read had nothing for exactly as it was', async () => {
+            const { job, writers } = harness({ lineup: withIds(), facts: new Map([['track-a', ['Born in New Malden in 1948.']]]) });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ next: { title: 'Pink Moon', artist: 'Nick Drake', trackId: 'track-b' } }),
+            );
+        });
+
+        it('asks nothing about records the catalog does not hold', async () => {
+            // Every record on a station playing straight from a provider's playlist, before
+            // anything has been ingested. Two neighbours with no ids is not a query worth making.
+            const { job, enrichment } = harness({ lineup: await lineupWithBreak() });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(enrichment.factsForTracks).not.toHaveBeenCalled();
+        });
+
+        it('writes the break anyway when the facts cannot be read', async () => {
+            // A fact makes a break better and never makes it possible. The floor writer never
+            // wanted them, and the model has the two records either way.
+            const { job, segments, jobs, writers, logger } = harness({ lineup: withIds(), factsThrow: true });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.not.objectContaining({ previous: expect.objectContaining({ facts: expect.anything() }) }),
+            );
+            expect(segments.writeScript).toHaveBeenCalled();
+            expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
+            expect(logger.warn).toHaveBeenCalledOnce();
+        });
+
+        it('keeps the facts a writer was shown on the record of the write', async () => {
+            // A break that said nothing interesting and a break that was TOLD nothing interesting
+            // read identically from the script, and the tables cannot answer it afterwards.
+            const { job, history } = harness({ lineup: withIds(), facts: new Map([['track-a', ['Born in New Malden in 1948.']]]) });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(history.recordAll.mock.calls[0]?.[0]?.[0]).toMatchObject({
+                previous: { title: 'Solid Air', facts: ['Born in New Malden in 1948.'] },
+            });
+        });
+
+        it('asks for the same facts on a retry, so a re-offered break is written from the same notes', async () => {
+            const first = harness({ lineup: withIds() });
+            await first.job.run({ segmentId: 'seg-1' });
+            const second = harness({ lineup: withIds() });
+            await second.job.run({ segmentId: 'seg-1' });
+            const other = harness({ lineup: withIds('seg-2'), segment: planned({ id: 'seg-2' }) });
+            await other.job.run({ segmentId: 'seg-2' });
+
+            const rotation = (call: typeof first) => call.enrichment.factsForTracks.mock.calls[0]![1];
+            expect(rotation(second)).toBe(rotation(first));
+            expect(rotation(other)).not.toBe(rotation(first));
+        });
     });
 
     it('records the reason on the row when the writer has nothing to say', async () => {

@@ -29,6 +29,16 @@ import { toJsonb } from '#modules/data/jsonb.js';
 export interface HistoryTrack {
     title: string;
     artist: string;
+    /**
+     * The facts it was shown, when it was shown any.
+     *
+     * Kept because a break that said nothing interesting and a break that was TOLD nothing
+     * interesting look identical from the script alone, and the enrichment tables cannot answer it
+     * afterwards: what was chosen depends on the rotation, and what was stored may have changed
+     * since. Unlike `prompt`, this stays on every row rather than waiting for `llm.captureWrites`,
+     * because it is two short sentences rather than a whole conversation.
+     */
+    facts?: readonly string[];
 }
 
 /** Whether there are words, and if not, which way it went wrong. */

@@ -38,6 +38,17 @@ interface Options {
     staleStreamConfig?: StreamConfigWarning[];
     /** What the audio service answers for a binding: bytes, or nothing it could get. */
     trackAudio?: ServedAudio;
+    /** Whether the station has been stood down, and what it airs against. Both read per poll. */
+    active?: boolean;
+    airMode?: 'audience' | 'always';
+    /** Whether the rundown has anything left to air, which is half of the on-air condition. */
+    hasProgramme?: boolean;
+    /**
+     * Whether Icecast has ever answered with a count. Default true, because most of
+     * these tests are about something else and a stats endpoint that never answered is a
+     * fault in its own right.
+     */
+    audienceAnswered?: boolean;
 }
 
 const item = { id: 'item-1', pluginId: 'deadair.spotify', externalId: 'trk_1', title: 'A Track', artists: ['An Artist'], durationMs: 200_000 };
@@ -50,11 +61,13 @@ function build(options: Options = {}) {
         nowPlaying: vi.fn(() => undefined),
         upcoming: vi.fn(() => [] as unknown[]),
         queuedCount: vi.fn(() => 0),
+        hasProgramme: vi.fn(() => options.hasProgramme ?? true),
     } as unknown as Rundown;
 
     const pusher = {
         reconcile: vi.fn(async () => {}),
         skipCurrent: vi.fn(async () => options.skipLands ?? true),
+        health: () => ({}),
     } as unknown as PlayoutPusher;
 
     const control = {
@@ -69,6 +82,9 @@ function build(options: Options = {}) {
             if (options.importError) throw options.importError;
             return { active: true, airMode: 'audience' as const, remaining: 0 };
         }),
+        // Read on every status poll: whether the station was stood down is the one fact
+        // the silence diagnosis cannot get from memory.
+        getAir: vi.fn(async () => ({ active: options.active ?? true, airMode: options.airMode ?? ('audience' as const), remaining: 0 })),
     } as unknown as DirectorConsoleService;
 
     // Deliberately always resolves an address, even when the stream is down: that is
@@ -91,6 +107,14 @@ function build(options: Options = {}) {
         listenerCount: () => options.listeners ?? 0,
         hasAudience: () => (options.listeners ?? 0) > 0,
         noteArrival: vi.fn(),
+        // Answering by default, because an Icecast that has never answered is a fault and
+        // most of these tests are about something else. No `readAt` at all is how "it has
+        // never answered" is spelled, which is exactly the shape the real one has.
+        reading: () => ({
+            count: options.listeners ?? 0,
+            hasAudience: (options.listeners ?? 0) > 0,
+            ...(options.audienceAnswered === false ? {} : { readAt: Date.now() }),
+        }),
     } as unknown as AudienceWatch;
 
     // Where a record's audio comes from. Disk, hold, provider and every failure between them are
@@ -176,6 +200,57 @@ describe('PlayoutService.getStatus', () => {
 
         expect(status.streamUp).toBe(true);
         expect(status.onAir).toBe(false);
+    });
+
+    describe('the silence diagnosis it carries', () => {
+        // The ordering is covered where it lives, in `silence.diagnosis.test.ts`. What
+        // matters here is only that the snapshot is gathered from the right places: a
+        // reading assembled from the wrong sources would be confidently wrong and there
+        // would be nothing else in the response to contradict it.
+
+        it('says a working station is airing', async () => {
+            const { service } = build({ listeners: 2 });
+
+            const { silence } = await service.getStatus();
+
+            expect(silence.audible).toBe(true);
+            expect(silence.cause).toBe('airing');
+        });
+
+        it('names the gate rather than leaving the console to infer it', async () => {
+            const { service } = build({ streamUp: false });
+
+            expect((await service.getStatus()).silence.cause).toBe('streamUnreachable');
+        });
+
+        it('reads whether the station was stood down from the director, not from the transport', async () => {
+            // The one fact in the snapshot that is not in memory, and the reason the poll
+            // is worth a row read: "nothing to air" and "somebody stopped it" are the two
+            // most common quiet stations and they want opposite responses.
+            const { service, director } = build({ active: false, listeners: 1 });
+
+            expect((await service.getStatus()).silence.cause).toBe('stoodDown');
+            expect(director.getAir).toHaveBeenCalled();
+        });
+
+        it('tells an Icecast that never answered from an empty room', async () => {
+            // The pair this whole reading exists for. Same listener count, same `audience`
+            // false, and only one of them is a station that will wait forever.
+            const empty = build({ listeners: 0 });
+            const blind = build({ listeners: 0, audienceAnswered: false });
+
+            expect((await empty.service.getStatus()).silence.cause).toBe('noAudience');
+            expect((await blind.service.getStatus()).silence.cause).toBe('audienceUnknown');
+        });
+
+        it('reports the gates it ruled out alongside the one that blocked', async () => {
+            const { service } = build({ streamUp: false });
+
+            const { silence } = await service.getStatus();
+
+            expect(silence.checks).toHaveLength(9);
+            expect(silence.checks.filter(check => check.state === 'ok').length).toBeGreaterThan(0);
+        });
     });
 
     it('caps how much of the running order it carries', async () => {

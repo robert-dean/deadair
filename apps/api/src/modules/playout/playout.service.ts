@@ -11,6 +11,7 @@ import { PlayoutControlClient } from './liquidsoap.control.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
 import { PlayoutPusher, RECONCILE_TICK_MS } from './playout.pusher.js';
 import { Rundown, type RundownItem } from './rundown.js';
+import { diagnose } from './silence.diagnosis.js';
 import type {
     PlayoutAiredQuery,
     PlayoutItem,
@@ -18,6 +19,8 @@ import type {
     PlayoutPlaylistInput,
     PlayoutStarveQuery,
     PlayoutStatus,
+    SilenceCause,
+    StationSilence,
 } from './types/playout.types.js';
 
 /**
@@ -113,6 +116,7 @@ export class PlayoutService {
         // copy that drifts. A PATH, not a URL: `stream.icecastHost` names Icecast as the
         // app's containers see it, which is not an address a browser can reach.
         const { mount } = await this.stream.settings();
+        const silence = await this.diagnoseSilence();
 
         return {
             mountPath: mount,
@@ -149,8 +153,76 @@ export class PlayoutService {
             // listener is being refused by a container holding secrets from before the
             // last render.
             staleStreamConfig: this.staleness.warnings(),
+            // The one field composed from all the others' sources rather than reported from
+            // one of its own. Every field above answers for a single gate, which is why a
+            // console reading them alone had to guess: `onAir` false with `audience` false
+            // is a station waiting for a listener, unless Icecast stopped answering, in
+            // which case it is a station that will wait forever.
+            silence,
         };
     }
+
+    /**
+     * Compose every gate into one answer, and say so once when it changes.
+     *
+     * The gathering is all of it: the ordering lives in `diagnose`, which is a pure
+     * function precisely so this method can be the boring half.
+     *
+     * `getAir` is the only database read here, and it is the one fact that is not in
+     * memory: whether the station was stood down. Worth a row read per poll because
+     * without it "nothing to air" cannot be told from "somebody stopped it", which are
+     * the two most common reasons for a quiet station and want opposite responses.
+     */
+    private async diagnoseSilence(): Promise<StationSilence> {
+        const now = Date.now();
+        const air = await this.director.getAir();
+        const health = this.pusher.health(now);
+        const audience = this.audience.reading();
+        const starvedSince = this.control.starvedSince();
+
+        const silence = diagnose({
+            now,
+            ...(health.stalledForMs === undefined ? {} : { reconcileStalledForMs: health.stalledForMs }),
+            ...(health.failure === undefined ? {} : { reconcileFailure: health.failure }),
+            streamUp: this.control.isUp(),
+            driving: this.control.isOnAir(),
+            staleConfig: this.staleness.warnings(),
+            active: air.active,
+            hasProgramme: this.rundown.hasProgramme(),
+            airMode: air.airMode,
+            listeners: audience.count,
+            audience: audience.hasAudience,
+            ...(audience.readAt === undefined ? {} : { sinceAudienceAnswerMs: now - audience.readAt }),
+            ...(starvedSince === undefined ? {} : { starvedForMs: now - starvedSince }),
+        });
+
+        this.announceSilence(silence);
+        return silence;
+    }
+
+    /**
+     * Log the cause, once, when it changes.
+     *
+     * The console polls this twice a second between them, so the only thing worth
+     * writing down is the EDGE — the same treatment `StreamConfigWatch` gives its own
+     * warnings, and for the same reason. Until the activity feed lands this line is the
+     * only trace of a silence that outlives the process, which is what makes "why was
+     * the station quiet at 3am" answerable at all.
+     *
+     * The state is static rather than per-instance because this service is scoped per
+     * request: an instance field would be a fresh `undefined` on every poll and every
+     * single one of them would look like a change.
+     */
+    private announceSilence(silence: StationSilence): void {
+        if (silence.cause === PlayoutService.lastCause) return;
+        PlayoutService.lastCause = silence.cause;
+
+        if (silence.audible) this.logger.info('playout: the station is airing');
+        else this.logger.info(`playout: the station is silent (${silence.cause}): ${silence.detail}`);
+    }
+
+    /** See {@link announceSilence}. One process, one station, one last-said cause. */
+    private static lastCause?: SilenceCause;
 
     /**
      * Play a plugin playlist: build the running order from it and go on air.

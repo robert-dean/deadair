@@ -48,8 +48,33 @@ export interface StreamConfigWarning {
 }
 
 /**
+ * Which gate is keeping the station quiet, or `airing` when none of them is. Ordered by cause: a
+ * stalled transport loop makes every reading under it stale, so it is ruled out first
+ * generated from [SilenceCause](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L44)
+ */
+export type SilenceCause =
+    | 'airing'
+    | 'transportStalled'
+    | 'streamUnreachable'
+    | 'configNotAdopted'
+    | 'stoodDown'
+    | 'noProgramme'
+    | 'audienceUnknown'
+    | 'noAudience'
+    | 'notDriving'
+    | 'starved';
+
+/**
+ * How one gate is doing. `waiting` is its own state rather than a mild fault, because a station
+ * idling for want of a listener and a station that cannot reach its stream are both silent and only
+ * one of them is something to go and fix
+ * generated from [SilenceState](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L60)
+ */
+export type SilenceState = 'ok' | 'waiting' | 'fault';
+
+/**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L54)
+ * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L90)
  */
 export interface PlayoutAiredQuery {
     /** The id the app put on the pushed uri's `annotate:` metadata */
@@ -58,7 +83,7 @@ export interface PlayoutAiredQuery {
 
 /**
  * Which way a listener went
- * generated from [PlayoutListenerQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L58)
+ * generated from [PlayoutListenerQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L94)
  */
 export interface PlayoutListenerQuery {
     event: 'add' | 'remove';
@@ -66,7 +91,7 @@ export interface PlayoutListenerQuery {
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L62)
+ * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L98)
  */
 export interface PlayoutStarveQuery {
     /** `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again */
@@ -88,8 +113,36 @@ export interface PlayoutNowPlaying {
 }
 
 /**
+ * One gate's answer about itself
+ * generated from [SilenceCheck](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L62)
+ */
+export interface SilenceCheck {
+    /** Never `airing`, which is the absence of a blocking gate rather than a gate */
+    code: SilenceCause;
+    state: SilenceState;
+    /** What this gate is doing right now, whether or not it is the one blocking */
+    detail: string;
+    /** What would clear it, where there is something an operator can actually do */
+    remedy?: string;
+}
+
+/**
+ * Why the station cannot be heard, as one answer
+ * generated from [StationSilence](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L69)
+ */
+export interface StationSilence {
+    /** Whether the station believes its programme is reaching the mount. NOT whether anybody is hearing it: a station can be audible with no listeners in `always` mode, and can have listeners while airing the local bed */
+    audible: boolean;
+    cause: SilenceCause;
+    detail: string;
+    remedy?: string;
+    /** Every gate, in the order they are judged, so a console can say what it ruled out. A `configNotAdopted` fault appears here and is never the cause, because a station can air perfectly well while it is true */
+    checks: SilenceCheck[];
+}
+
+/**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L42)
+ * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L77)
  */
 export interface PlayoutStatus {
     /** Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds */
@@ -109,4 +162,6 @@ export interface PlayoutStatus {
     audience: boolean;
     /** Containers running config the app has since replaced. Empty is the ordinary state, and so is empty for anything the app has no evidence about: a warning here has never been a guess */
     staleStreamConfig: StreamConfigWarning[];
+    /** Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest */
+    silence: StationSilence;
 }

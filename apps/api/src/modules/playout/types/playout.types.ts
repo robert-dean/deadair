@@ -53,8 +53,36 @@ export const StreamConfigWarning = z.strictObject({
 export type StreamConfigWarning = z.infer<typeof StreamConfigWarning>;
 
 /**
+ * Which gate is keeping the station quiet, or `airing` when none of them is. Ordered by cause: a
+ * stalled transport loop makes every reading under it stale, so it is ruled out first
+ * generated from [SilenceCause](file://./../../../../data/contracts/playout/playout.types.ck#L44)
+ */
+export const SilenceCause = z.enum([
+    'airing',
+    'transportStalled',
+    'streamUnreachable',
+    'configNotAdopted',
+    'stoodDown',
+    'noProgramme',
+    'audienceUnknown',
+    'noAudience',
+    'notDriving',
+    'starved',
+]);
+export type SilenceCause = z.infer<typeof SilenceCause>;
+
+/**
+ * How one gate is doing. `waiting` is its own state rather than a mild fault, because a station
+ * idling for want of a listener and a station that cannot reach its stream are both silent and only
+ * one of them is something to go and fix
+ * generated from [SilenceState](file://./../../../../data/contracts/playout/playout.types.ck#L60)
+ */
+export const SilenceState = z.enum(['ok', 'waiting', 'fault']);
+export type SilenceState = z.infer<typeof SilenceState>;
+
+/**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L54)
+ * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L90)
  */
 export const PlayoutAiredQuery = z.strictObject({
     item: z.string().min(1).max(100).describe("The id the app put on the pushed uri's `annotate:` metadata"),
@@ -63,7 +91,7 @@ export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
  * Which way a listener went
- * generated from [PlayoutListenerQuery](file://./../../../../data/contracts/playout/playout.types.ck#L58)
+ * generated from [PlayoutListenerQuery](file://./../../../../data/contracts/playout/playout.types.ck#L94)
  */
 export const PlayoutListenerQuery = z.strictObject({
     event: z.enum(['add', 'remove']),
@@ -72,7 +100,7 @@ export type PlayoutListenerQuery = z.infer<typeof PlayoutListenerQuery>;
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L62)
+ * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L98)
  */
 export const PlayoutStarveQuery = z.strictObject({
     state: z
@@ -107,8 +135,41 @@ export const PlayoutNowPlaying = z.strictObject({
 export type PlayoutNowPlaying = z.infer<typeof PlayoutNowPlaying>;
 
 /**
+ * One gate's answer about itself
+ * generated from [SilenceCheck](file://./../../../../data/contracts/playout/playout.types.ck#L62)
+ */
+export const SilenceCheck = z.strictObject({
+    code: SilenceCause.describe('Never `airing`, which is the absence of a blocking gate rather than a gate'),
+    state: SilenceState,
+    detail: z.string().min(1).max(1000).describe('What this gate is doing right now, whether or not it is the one blocking'),
+    remedy: z.string().max(500).optional().describe('What would clear it, where there is something an operator can actually do'),
+});
+export type SilenceCheck = z.infer<typeof SilenceCheck>;
+
+/**
+ * Why the station cannot be heard, as one answer
+ * generated from [StationSilence](file://./../../../../data/contracts/playout/playout.types.ck#L69)
+ */
+export const StationSilence = z.strictObject({
+    audible: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'Whether the station believes its programme is reaching the mount. NOT whether anybody is hearing it: a station can be audible with no listeners in `always` mode, and can have listeners while airing the local bed',
+        ),
+    cause: SilenceCause,
+    detail: z.string().min(1).max(1000),
+    remedy: z.string().max(500).optional(),
+    checks: z
+        .array(SilenceCheck)
+        .describe(
+            'Every gate, in the order they are judged, so a console can say what it ruled out. A `configNotAdopted` fault appears here and is never the cause, because a station can air perfectly well while it is true',
+        ),
+});
+export type StationSilence = z.infer<typeof StationSilence>;
+
+/**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../data/contracts/playout/playout.types.ck#L42)
+ * generated from [PlayoutStatus](file://./../../../../data/contracts/playout/playout.types.ck#L77)
  */
 export const PlayoutStatus = z.strictObject({
     streamUp: z
@@ -146,5 +207,8 @@ export const PlayoutStatus = z.strictObject({
         .describe(
             'Containers running config the app has since replaced. Empty is the ordinary state, and so is empty for anything the app has no evidence about: a warning here has never been a guess',
         ),
+    silence: StationSilence.describe(
+        'Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest',
+    ),
 });
 export type PlayoutStatus = z.infer<typeof PlayoutStatus>;

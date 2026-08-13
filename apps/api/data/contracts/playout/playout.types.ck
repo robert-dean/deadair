@@ -39,6 +39,41 @@ contract StreamConfigWarning: {
     restart: string(min=1, max=200) # The exact command that adopts the new config, which is the only thing that does
 }
 
+# Which gate is keeping the station quiet, or `airing` when none of them is. Ordered by cause: a
+# stalled transport loop makes every reading under it stale, so it is ruled out first
+contract SilenceCause: enum(
+    airing,
+    transportStalled,
+    streamUnreachable,
+    configNotAdopted,
+    stoodDown,
+    noProgramme,
+    audienceUnknown,
+    noAudience,
+    notDriving,
+    starved
+)
+
+# How one gate is doing. `waiting` is its own state rather than a mild fault, because a station
+# idling for want of a listener and a station that cannot reach its stream are both silent and only
+# one of them is something to go and fix
+contract SilenceState: enum(ok, waiting, fault)
+
+contract SilenceCheck: { # One gate's answer about itself
+    code: SilenceCause # Never `airing`, which is the absence of a blocking gate rather than a gate
+    state: SilenceState
+    detail: string(min=1, max=1000) # What this gate is doing right now, whether or not it is the one blocking
+    remedy?: string(max=500) # What would clear it, where there is something an operator can actually do
+}
+
+contract StationSilence: { # Why the station cannot be heard, as one answer
+    audible: boolean # Whether the station believes its programme is reaching the mount. NOT whether anybody is hearing it: a station can be audible with no listeners in `always` mode, and can have listeners while airing the local bed
+    cause: SilenceCause
+    detail: string(min=1, max=1000)
+    remedy?: string(max=500)
+    checks: array(SilenceCheck) # Every gate, in the order they are judged, so a console can say what it ruled out. A `configNotAdopted` fault appears here and is never the cause, because a station can air perfectly well while it is true
+}
+
 contract PlayoutStatus: { # The station's transport, as one reading
     streamUp: boolean # Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds
     onAir: boolean # Whether the station is actually broadcasting. deadair holds the mount on a lease it renews only while it has a programme, so a reachable stream with nothing to play is up and NOT on air: it is connected, and airing silence
@@ -49,6 +84,7 @@ contract PlayoutStatus: { # The station's transport, as one reading
     listeners: int(min=0) # How many clients Icecast has attached to the mount. Zero both for "nobody is listening" and for an Icecast that is not answering, which `audience` is where to tell apart
     audience: boolean # Whether the station counts as having an audience, which lingers for a minute past the last listener so a reconnecting player does not cut the broadcast
     staleStreamConfig: array(StreamConfigWarning) # Containers running config the app has since replaced. Empty is the ordinary state, and so is empty for anything the app has no evidence about: a warning here has never been a guess
+    silence: StationSilence # Which gate is keeping the station quiet, composed from every one of them rather than inferred from the fields above. `streamUp`, `onAir`, `audience` and `queuedCount` each answer for one gate and a console reading them alone has to guess at the rest
 }
 
 contract PlayoutAiredQuery: { # Which rundown item Liquidsoap has just started playing

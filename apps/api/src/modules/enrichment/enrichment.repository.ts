@@ -91,6 +91,27 @@ export interface StoredProviderPayload {
     expiresAt?: DateTime;
 }
 
+/** One provider's payload, as the fact read hands it over: everything else about the row is noise. */
+export interface FactPayload {
+    provider: string;
+    data: unknown;
+}
+
+/**
+ * Everything stored that could hold a fact about one track, kept at the level it was stored at.
+ *
+ * Three levels rather than one merged list, because they are not equally interesting: what is known
+ * about the recording beats what is known about the record it came on, which beats what is known
+ * about whoever made it. Collapsing them here would throw that ordering away before the caller
+ * could use it.
+ */
+export interface TrackFactPayloads {
+    trackId: string;
+    track: FactPayload[];
+    album: FactPayload[];
+    artist: FactPayload[];
+}
+
 /** What the merged enrichment is allowed to write onto the canonical rows. */
 export interface TrackPromotion {
     /** MusicBrainz recording id. Written once and never revised. */
@@ -646,6 +667,69 @@ export class EnrichmentRepository extends DataRepository {
             .execute();
 
         return storedPayloads(rows);
+    }
+
+    /**
+     * Every payload stored about a handful of tracks, their records and their artists, for the one
+     * field a talk break wants out of them.
+     *
+     * Inner joins throughout, which is the whole difference from {@link findTrackEnrichment} above:
+     * that one owes its caller a 404 and so has to tell "no such track" apart from "nothing stored
+     * yet", while this one is asked by a writer that treats both as the same thing — nothing to say.
+     * A track with no album, an album nothing was fetched for, an artist the walk has not reached:
+     * all of them are simply absent from the answer.
+     *
+     * `provider` and `data` only. A fact about 1985 does not go stale, so the TTL, the fetch time
+     * and the provider's own ref are all noise here; the provider comes back because it is what the
+     * caller ranks the payloads by.
+     */
+    async findFactPayloadsForTracks(trackIds: readonly string[]): Promise<TrackFactPayloads[]> {
+        if (trackIds.length === 0) return [];
+        const ids = [...trackIds];
+
+        const [track, album, artist] = await Promise.all([
+            this.db
+                .selectFrom('deadair.tracks as t')
+                .innerJoin('deadair.trackEnrichment as te', 'te.trackId', 't.id')
+                .where('t.id', 'in', ids)
+                .where('t.mergedIntoId', 'is', null)
+                .select(['t.id as trackId', 'te.provider', 'te.data'])
+                .execute(),
+            this.db
+                .selectFrom('deadair.tracks as t')
+                .innerJoin('deadair.albums as al', 'al.id', 't.albumId')
+                .innerJoin('deadair.albumEnrichment as ale', 'ale.albumId', 'al.id')
+                .where('t.id', 'in', ids)
+                .where('t.mergedIntoId', 'is', null)
+                .where('al.mergedIntoId', 'is', null)
+                .select(['t.id as trackId', 'ale.provider', 'ale.data'])
+                .execute(),
+            this.db
+                .selectFrom('deadair.tracks as t')
+                .innerJoin('deadair.artists as a', 'a.id', 't.artistId')
+                .innerJoin('deadair.artistEnrichment as ae', 'ae.artistId', 'a.id')
+                .where('t.id', 'in', ids)
+                .where('t.mergedIntoId', 'is', null)
+                .where('a.mergedIntoId', 'is', null)
+                .select(['t.id as trackId', 'ae.provider', 'ae.data'])
+                .execute(),
+        ]);
+
+        const byTrack = new Map<string, TrackFactPayloads>();
+        const at = (trackId: string): TrackFactPayloads => {
+            const existing = byTrack.get(trackId);
+            if (existing) return existing;
+
+            const fresh: TrackFactPayloads = { trackId, track: [], album: [], artist: [] };
+            byTrack.set(trackId, fresh);
+            return fresh;
+        };
+
+        for (const row of track) at(row.trackId).track.push({ provider: row.provider, data: row.data });
+        for (const row of album) at(row.trackId).album.push({ provider: row.provider, data: row.data });
+        for (const row of artist) at(row.trackId).artist.push({ provider: row.provider, data: row.data });
+
+        return [...byTrack.values()];
     }
 
     /** Cover art for an album that has none. The same "fill the gap, never overwrite" rule. */

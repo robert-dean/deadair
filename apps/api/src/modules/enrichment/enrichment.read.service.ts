@@ -12,8 +12,75 @@ import {
     sanitizeEnrichment,
     withoutPerProviderFields,
 } from './enrichment.merge.js';
-import { EnrichmentRepository, type StoredProviderPayload } from './enrichment.repository.js';
+import { EnrichmentRepository, type FactPayload, type StoredProviderPayload } from './enrichment.repository.js';
 import { EnrichmentService } from './enrichment.service.js';
+
+/**
+ * How many facts one record contributes to a talk break.
+ *
+ * A break is one sentence of about forty words (`DEFAULT_MAX_WORDS`), and it usually sits between
+ * two records — so two each is already four lines of notes for a model that will use one of them.
+ * The cost of more is not the tokens, it is the wait: the model writer gives up after
+ * `MAX_WAIT_MS` and lets the station's own phrasings write instead, and a longer prompt is a
+ * slower answer.
+ */
+export const MAX_BREAK_FACTS = 2;
+
+/**
+ * How long a fact may be before it is dropped rather than trimmed.
+ *
+ * The same rule the MusicBrainz plugin writes them under: half a sentence is worse than no
+ * sentence when the thing on the other end is a mouth. The sanitizer's own cap is 2,000
+ * characters, which is a bound on what may be STORED and far too long to put in front of a model.
+ */
+export const MAX_FACT_CHARS = 200;
+
+/**
+ * Live plugin priority, with anything no longer installed sorting last rather than being dropped.
+ *
+ * Shared by the console read and the fact read so the two cannot rank the same two payloads
+ * differently.
+ */
+const byProviderRank = (order: string[]) => {
+    const rank = new Map(order.map((provider, index) => [provider, index]));
+    return (left: { provider: string }, right: { provider: string }): number =>
+        (rank.get(left.provider) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.provider) ?? Number.MAX_SAFE_INTEGER) ||
+        left.provider.localeCompare(right.provider);
+};
+
+/**
+ * Which of a record's facts this particular break gets.
+ *
+ * The list arrives in preference order (the recording's own facts, then its record's, then its
+ * artist's) and this decides where in that order to start. **The rotation is what stops a station
+ * saying the same sentence about the same artist every time they come round**, and it is a
+ * caller's number rather than a clock or a random so that the whole function stays pinnable by a
+ * test.
+ *
+ * Nothing here has to fill the budget. A record with one usable fact contributes one, and a record
+ * whose only fact was too long to say contributes none, which is an ordinary outcome rather than a
+ * gap to pad — the writers all have phrasings that say nothing about the record at all.
+ */
+export function chooseFacts(facts: readonly string[], rotate = 0): string[] {
+    const kept: string[] = [];
+    const seen = new Set<string>();
+
+    for (const fact of facts) {
+        const line = fact.trim();
+        // Whole facts only. A fact this long is a biography that arrived in the wrong field.
+        if (line.length === 0 || line.length > MAX_FACT_CHARS) continue;
+
+        const marker = line.toLowerCase();
+        if (seen.has(marker)) continue;
+        seen.add(marker);
+        kept.push(line);
+    }
+
+    if (kept.length === 0) return [];
+
+    const from = ((rotate % kept.length) + kept.length) % kept.length;
+    return [...kept.slice(from), ...kept.slice(0, from)].slice(0, MAX_BREAK_FACTS);
+}
 
 /**
  * One stored payload once it has been sanitized, before it is shaped for the wire.
@@ -45,6 +112,12 @@ interface ReadSource<T> {
  * re-merged with the same functions the write path used, in the same live
  * plugin-priority order, so the console cannot end up telling a different story
  * from the one promotion told the canonical columns.
+ *
+ * Its second caller is not the console at all: {@link factsForTracks} is what
+ * puts a sentence about a record in front of the model that writes the talk
+ * break. It is here rather than in `director/` for exactly the reason above —
+ * a second reader of these tables is fine, and a second *interpretation* of
+ * them is how the station ends up saying something the console denies.
  */
 @Injectable()
 export class EnrichmentReadService {
@@ -87,6 +160,57 @@ export class EnrichmentReadService {
     }
 
     /**
+     * The short true things the station knows about some records, keyed by track id.
+     *
+     * What a talk break is shown about the records it sits between. Everything the console read
+     * above carries — provenance, staleness, the miss rows, the fields nothing has a name for — is
+     * dropped here, because a writer wants sentences and has no use for the rest.
+     *
+     * Preference order is the recording's own facts, then its record's, then its artist's: what is
+     * known about this take of this song beats what is known about the album it came on, which
+     * beats what is known about whoever made it. Within a level it is the same live plugin
+     * priority the console reads under, and the same sanitize-and-merge, so a fact this hands a
+     * model is one the enrichment panel would show for the same track.
+     *
+     * `rotate` is variety, not paging. See {@link chooseFacts}.
+     *
+     * Only tracks with something to say appear in the answer. Absent is the ordinary case: on a
+     * fresh install nothing has been enriched at all, and a station with no facts talks perfectly
+     * well.
+     */
+    async factsForTracks(trackIds: readonly string[], rotate = 0): Promise<Map<string, string[]>> {
+        const facts = new Map<string, string[]>();
+        if (trackIds.length === 0) return facts;
+
+        const stored = await this.enrichmentRepository.findFactPayloadsForTracks([...new Set(trackIds)]);
+
+        for (const row of stored) {
+            const chosen = chooseFacts(
+                [
+                    ...(mergeEnrichment(this.ranked(row.track, this.enrichmentService.providerIds()).map(data => sanitizeEnrichment(data))).facts ??
+                        []),
+                    ...(mergeAlbumEnrichment(
+                        this.ranked(row.album, this.enrichmentService.albumProviderIds()).map(data => sanitizeAlbumEnrichment(data)),
+                    ).facts ?? []),
+                    ...(mergeArtistEnrichment(
+                        this.ranked(row.artist, this.enrichmentService.artistProviderIds()).map(data => sanitizeArtistEnrichment(data)),
+                    ).facts ?? []),
+                ],
+                rotate,
+            );
+
+            if (chosen.length > 0) facts.set(row.trackId, chosen);
+        }
+
+        return facts;
+    }
+
+    /** One level's payloads in plugin-priority order, which is the order the merge has to see them in. */
+    private ranked(payloads: FactPayload[], order: string[]): unknown[] {
+        return [...payloads].sort(byProviderRank(order)).map(payload => payload.data);
+    }
+
+    /**
      * Stored rows to wire sources, in the order the merge has to see them.
      *
      * Sanitizing again on the way out is not defensive theatre. `data` is a
@@ -108,7 +232,6 @@ export class EnrichmentReadService {
      * {@link withoutPerProviderFields}.
      */
     private read<T extends object>(stored: StoredProviderPayload[], order: string[], sanitize: (value: unknown) => T): ReadSource<T>[] {
-        const rank = new Map(order.map((provider, index) => [provider, index]));
         const now = DateTime.now();
 
         return stored
@@ -131,10 +254,6 @@ export class EnrichmentReadService {
                     data,
                 };
             })
-            .sort(
-                (left, right) =>
-                    (rank.get(left.provider) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.provider) ?? Number.MAX_SAFE_INTEGER) ||
-                    left.provider.localeCompare(right.provider),
-            );
+            .sort(byProviderRank(order));
     }
 }

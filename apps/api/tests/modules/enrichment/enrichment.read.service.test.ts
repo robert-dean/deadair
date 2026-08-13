@@ -6,8 +6,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 
-import { EnrichmentReadService } from '../../../src/modules/enrichment/enrichment.read.service.js';
-import type { EnrichmentRepository, StoredProviderPayload } from '../../../src/modules/enrichment/enrichment.repository.js';
+import { EnrichmentReadService, MAX_FACT_CHARS } from '../../../src/modules/enrichment/enrichment.read.service.js';
+import type { EnrichmentRepository, StoredProviderPayload, TrackFactPayloads } from '../../../src/modules/enrichment/enrichment.repository.js';
 import type { EnrichmentService } from '../../../src/modules/enrichment/enrichment.service.js';
 
 const TRACK_ID = '11111111-1111-4111-8111-111111111111';
@@ -41,11 +41,12 @@ function payload(provider: string, data: unknown, overrides: Partial<StoredProvi
 }
 
 /** The repository as a canned answer. `undefined` is its "no such row" signal. */
-function fakeRepository(rows: Record<string, StoredProviderPayload[] | undefined>) {
+function fakeRepository(rows: Record<string, StoredProviderPayload[] | undefined>, facts: TrackFactPayloads[] = []) {
     return {
         findTrackEnrichment: vi.fn(async () => rows.track),
         findArtistEnrichment: vi.fn(async () => rows.artist),
         findAlbumEnrichment: vi.fn(async () => rows.album),
+        findFactPayloadsForTracks: vi.fn(async () => facts),
     } as unknown as EnrichmentRepository;
 }
 
@@ -60,6 +61,15 @@ function fakeService(order: string[]) {
 
 const service = (rows: Record<string, StoredProviderPayload[] | undefined>, order: string[] = [MUSICBRAINZ, OTHER]) =>
     new EnrichmentReadService(fakeRepository(rows), fakeService(order));
+
+/** One track's stored payloads, in the shape {@link EnrichmentRepository.findFactPayloadsForTracks} answers. */
+function factRows(levels: Partial<Record<'track' | 'album' | 'artist', unknown[]>>, trackId = TRACK_ID): TrackFactPayloads[] {
+    const at = (level: 'track' | 'album' | 'artist') => (levels[level] ?? []).map(data => ({ provider: MUSICBRAINZ, data }));
+    return [{ trackId, track: at('track'), album: at('album'), artist: at('artist') }];
+}
+
+const factReader = (facts: TrackFactPayloads[], order: string[] = [MUSICBRAINZ, OTHER]) =>
+    new EnrichmentReadService(fakeRepository({}, facts), fakeService(order));
 
 describe('EnrichmentReadService', () => {
     it('gives a scalar to the higher-priority provider and accumulates the lists across both', async () => {
@@ -183,7 +193,11 @@ describe('EnrichmentReadService', () => {
             album: [payload(MUSICBRAINZ, { label: 'Go! Beat' })],
         });
 
-        for (const detail of [await read.getTrackEnrichment(TRACK_ID), await read.getArtistEnrichment(ARTIST_ID), await read.getAlbumEnrichment(ALBUM_ID)]) {
+        for (const detail of [
+            await read.getTrackEnrichment(TRACK_ID),
+            await read.getArtistEnrichment(ARTIST_ID),
+            await read.getAlbumEnrichment(ALBUM_ID),
+        ]) {
             expect(detail.sources[0]?.providerRef).toBe(`${MUSICBRAINZ}:ref`);
             expect(detail.sources[0]?.data).not.toHaveProperty('providerRef');
             expect(detail.merged).not.toHaveProperty('providerRef');
@@ -207,5 +221,70 @@ describe('EnrichmentReadService', () => {
 
         await expect(read.getArtistEnrichment(ARTIST_ID)).rejects.toMatchObject({ statusCode: 404 });
         await expect(read.getAlbumEnrichment(ALBUM_ID)).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    // What a talk break is shown. Everything the console read carries is dropped: a writer wants
+    // sentences and has no use for provenance, staleness or the fields nothing has a name for.
+    describe('facts for a break', () => {
+        it('takes the recording’s own facts ahead of its record’s, and its record’s ahead of its artist’s', async () => {
+            const read = factReader(
+                factRows({
+                    track: [{ facts: ['Recorded in one take.'] }],
+                    album: [{ facts: ['The record was cut at Abbey Road.'] }],
+                    artist: [{ facts: ['Portishead formed in Bristol in 1991.'] }],
+                }),
+            );
+
+            await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(
+                new Map([[TRACK_ID, ['Recorded in one take.', 'The record was cut at Abbey Road.']]]),
+            );
+        });
+
+        it('says the same thing once, however many levels and providers claimed it', async () => {
+            const read = factReader([
+                {
+                    trackId: TRACK_ID,
+                    track: [{ provider: MUSICBRAINZ, data: { facts: ['Formed in Bristol in 1991.'] } }],
+                    album: [],
+                    artist: [
+                        { provider: MUSICBRAINZ, data: { facts: ['formed in bristol in 1991.'] } },
+                        { provider: OTHER, data: { facts: ['Formed in Bristol in 1991.', 'Their second record went gold.'] } },
+                    ],
+                },
+            ]);
+
+            await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(
+                new Map([[TRACK_ID, ['Formed in Bristol in 1991.', 'Their second record went gold.']]]),
+            );
+        });
+
+        it('drops a fact too long to say rather than cutting it in half', async () => {
+            const read = factReader(factRows({ artist: [{ facts: ['x'.repeat(MAX_FACT_CHARS + 1), 'Formed in Bristol in 1991.'] }] }));
+
+            await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(new Map([[TRACK_ID, ['Formed in Bristol in 1991.']]]));
+        });
+
+        it('starts at a different fact for a different rotation, so a record played twice does not say the same thing', async () => {
+            const facts = factRows({ artist: [{ facts: ['One.', 'Two.', 'Three.'] }] });
+
+            await expect(factReader(facts).factsForTracks([TRACK_ID], 0)).resolves.toEqual(new Map([[TRACK_ID, ['One.', 'Two.']]]));
+            await expect(factReader(facts).factsForTracks([TRACK_ID], 2)).resolves.toEqual(new Map([[TRACK_ID, ['Three.', 'One.']]]));
+            // A rotation past the end wraps rather than emptying the answer.
+            await expect(factReader(facts).factsForTracks([TRACK_ID], 7)).resolves.toEqual(new Map([[TRACK_ID, ['Two.', 'Three.']]]));
+        });
+
+        it('leaves out a track with nothing to say, rather than answering with an empty list', async () => {
+            const read = factReader(factRows({ track: [{ genres: ['trip hop'] }] }));
+
+            await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(new Map());
+        });
+
+        it('asks nothing of the database when there are no tracks to ask about', async () => {
+            const repository = fakeRepository({}, []);
+            const read = new EnrichmentReadService(repository, fakeService([MUSICBRAINZ]));
+
+            await expect(read.factsForTracks([])).resolves.toEqual(new Map());
+            expect(repository.findFactPayloadsForTracks).not.toHaveBeenCalled();
+        });
     });
 });

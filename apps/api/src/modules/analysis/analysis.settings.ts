@@ -9,7 +9,7 @@
  */
 
 import type { AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { selectSolePlugin } from '#modules/plugins/plugin.selection.js';
+import { explainNoPlugin, selectSolePlugin } from '#modules/plugins/plugin.selection.js';
 
 /** The `deadair.settings` key. Dot-keyed, like every other setting. */
 export const ANALYSIS_PLUGIN_KEY = 'analysis.pluginId';
@@ -64,14 +64,11 @@ export function selectAnalysisPlugin(candidates: readonly AnalysisPlugin[], conf
  * nothing about a station with no analyzer looks wrong from the outside.
  */
 export function explainNoAnalyzer(candidates: readonly AnalysisPlugin[], configured: string | undefined): string {
-    const wanted = configured?.trim();
-    if (wanted !== undefined && wanted.length > 0) {
-        return `${ANALYSIS_PLUGIN_KEY} names "${wanted}", which is not an active plugin that can measure audio`;
-    }
-    if (candidates.length === 0) return 'no active plugin can measure audio; install and enable an analyzer plugin';
-
-    const ids = candidates.map(candidate => candidate.record.id).join(', ');
-    return `several plugins can measure audio (${ids}); set ${ANALYSIS_PLUGIN_KEY} to choose one`;
+    return explainNoPlugin(candidates, configured, {
+        key: ANALYSIS_PLUGIN_KEY,
+        can: 'measure audio',
+        remedy: 'install and enable an analyzer plugin',
+    });
 }
 
 /**

@@ -12,6 +12,7 @@
  */
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { resolveRetentionDays } from '#modules/shared/retention.js';
 
 /** The `deadair.settings` keys. Dot-keyed, like every other setting. */
 export const SCRIPT_HISTORY_KEYS = {
@@ -40,11 +41,7 @@ export const SCRIPT_HISTORY_DEFAULTS = {
  * so every uncertain reading has to fall the safe way.
  */
 export function resolveHistoryRetentionDays(config: AppConfig): number {
-    const raw = config.get(SCRIPT_HISTORY_KEYS.retentionDays, SCRIPT_HISTORY_DEFAULTS.retentionDays);
-    const days = typeof raw === 'number' ? raw : Number.parseInt(String(raw), 10);
-
-    if (!Number.isFinite(days) || days <= 0) return 0;
-    return Math.floor(days);
+    return resolveRetentionDays(config, SCRIPT_HISTORY_KEYS.retentionDays, SCRIPT_HISTORY_DEFAULTS.retentionDays);
 }
 
 /** Whether a model's prompt and raw answer are kept alongside the words it produced. */

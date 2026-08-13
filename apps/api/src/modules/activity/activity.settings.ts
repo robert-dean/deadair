@@ -12,6 +12,7 @@
  */
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { resolveRetentionDays } from '#modules/shared/retention.js';
 
 /** The `deadair.settings` key. Dot-keyed, like every other setting. */
 export const ACTIVITY_KEYS = {
@@ -40,9 +41,5 @@ export const ACTIVITY_DEFAULTS = {
  * number's only use is deciding what to DELETE, so every uncertain reading has to fall the safe way.
  */
 export function resolveActivityRetentionDays(config: AppConfig): number {
-    const raw = config.get(ACTIVITY_KEYS.retentionDays, ACTIVITY_DEFAULTS.retentionDays);
-    const days = typeof raw === 'number' ? raw : Number.parseInt(String(raw), 10);
-
-    if (!Number.isFinite(days) || days <= 0) return 0;
-    return Math.floor(days);
+    return resolveRetentionDays(config, ACTIVITY_KEYS.retentionDays, ACTIVITY_DEFAULTS.retentionDays);
 }

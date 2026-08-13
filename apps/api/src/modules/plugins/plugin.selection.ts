@@ -77,7 +77,7 @@ export const byPluginId = (left: SelectablePlugin, right: SelectablePlugin): num
  *    quietly using a different one because that one is disabled is how a station
  *    ends up wrong with nothing in the log to explain it.
  *
- * The caller reports the reason. See the `explainNo*` beside each setting.
+ * The caller reports the reason, through {@link explainNoPlugin}.
  */
 export function selectSolePlugin<TPlugin extends SelectablePlugin>(
     candidates: readonly TPlugin[],
@@ -87,4 +87,43 @@ export function selectSolePlugin<TPlugin extends SelectablePlugin>(
     if (wanted !== undefined && wanted.length > 0) return candidates.find(candidate => candidate.record.id === wanted);
 
     return candidates.length === 1 ? candidates[0] : undefined;
+}
+
+/** The words that make a refusal specific to one capability. */
+export interface CapabilityWording {
+    /** The `deadair.settings` key that names the plugin, quoted back at the operator. */
+    key: string;
+    /** What the plugin would do, as a verb phrase: `measure audio`, `produce words`, `speak`. */
+    can: string;
+    /** What to do about having none. Follows "no active plugin can &lt;can&gt;; ". */
+    remedy: string;
+}
+
+/**
+ * Why {@link selectSolePlugin} answered `undefined`, in a sentence an operator
+ * can act on.
+ *
+ * Separate from the selection because there are three distinct failure modes and
+ * only one `undefined`: nothing installed, several installed with none chosen,
+ * and a chosen one that is not running. Which of the three it was decides what
+ * the operator does next, so it cannot be left as "no plugin".
+ *
+ * Three capabilities wrote this out identically. Only the wording differs, and
+ * only in the three places {@link CapabilityWording} names — the branches, their
+ * order, and the id list are the same argument every time.
+ *
+ * Note the middle sentence is deliberately not a fault in any of them. A station
+ * with no model plugin writes its breaks deterministically and a station with no
+ * analyzer still plays records, so "nothing installed" is an ordinary state that
+ * happens to be worth explaining.
+ */
+export function explainNoPlugin(candidates: readonly SelectablePlugin[], configured: string | undefined, wording: CapabilityWording): string {
+    const wanted = configured?.trim();
+    if (wanted !== undefined && wanted.length > 0) {
+        return `${wording.key} names "${wanted}", which is not an active plugin that can ${wording.can}`;
+    }
+    if (candidates.length === 0) return `no active plugin can ${wording.can}; ${wording.remedy}`;
+
+    const ids = candidates.map(candidate => candidate.record.id).join(', ');
+    return `several plugins can ${wording.can} (${ids}); set ${wording.key} to choose one`;
 }

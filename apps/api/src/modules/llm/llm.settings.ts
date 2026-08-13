@@ -16,7 +16,7 @@
  */
 
 import type { LlmPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { selectSolePlugin } from '#modules/plugins/plugin.selection.js';
+import { explainNoPlugin, selectSolePlugin } from '#modules/plugins/plugin.selection.js';
 
 /** The `deadair.settings` key. Dot-keyed, like every other setting. */
 export const LLM_PLUGIN_KEY = 'llm.pluginId';
@@ -45,12 +45,9 @@ export function selectLlmPlugin(candidates: readonly LlmPlugin[], configured: st
  * a station that works.
  */
 export function explainNoGenerator(candidates: readonly LlmPlugin[], configured: string | undefined): string {
-    const wanted = configured?.trim();
-    if (wanted !== undefined && wanted.length > 0) {
-        return `${LLM_PLUGIN_KEY} names "${wanted}", which is not an active plugin that can produce words`;
-    }
-    if (candidates.length === 0) return 'no active plugin can produce words; install and enable one to let a model write';
-
-    const ids = candidates.map(candidate => candidate.record.id).join(', ');
-    return `several plugins can produce words (${ids}); set ${LLM_PLUGIN_KEY} to choose one`;
+    return explainNoPlugin(candidates, configured, {
+        key: LLM_PLUGIN_KEY,
+        can: 'produce words',
+        remedy: 'install and enable one to let a model write',
+    });
 }

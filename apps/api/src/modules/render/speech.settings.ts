@@ -13,7 +13,7 @@
  */
 
 import type { SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { selectSolePlugin } from '#modules/plugins/plugin.selection.js';
+import { explainNoPlugin, selectSolePlugin } from '#modules/plugins/plugin.selection.js';
 
 /** The `deadair.settings` key. Dot-keyed, like every other setting. */
 export const SPEECH_PLUGIN_KEY = 'render.speechPluginId';
@@ -38,12 +38,9 @@ export function selectSpeechPlugin(candidates: readonly SpeechPlugin[], configur
  * is not running. Told apart here so a job can log which, and a route can say which.
  */
 export function explainNoSpeaker(candidates: readonly SpeechPlugin[], configured: string | undefined): string {
-    const wanted = configured?.trim();
-    if (wanted !== undefined && wanted.length > 0) {
-        return `${SPEECH_PLUGIN_KEY} names "${wanted}", which is not an active plugin that can speak`;
-    }
-    if (candidates.length === 0) return 'no active plugin can speak; install and enable a TTS plugin';
-
-    const ids = candidates.map(candidate => candidate.record.id).join(', ');
-    return `several plugins can speak (${ids}); set ${SPEECH_PLUGIN_KEY} to choose one`;
+    return explainNoPlugin(candidates, configured, {
+        key: SPEECH_PLUGIN_KEY,
+        can: 'speak',
+        remedy: 'install and enable a TTS plugin',
+    });
 }

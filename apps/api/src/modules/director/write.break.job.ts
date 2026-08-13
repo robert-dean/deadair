@@ -1,10 +1,10 @@
-import { Container, Injectable, ScopedContainer } from 'injectkit';
-import { Job, JobContext } from '@maroonedsoftware/jobbroker';
+import { Container, Injectable } from 'injectkit';
+import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
-import { overrideJobActor } from '#modules/jobs/job.authorization.js';
+import { PlainJob } from '#modules/jobs/plain.job.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -44,8 +44,7 @@ export interface WriteBreakPayload {
  *
  * A plain `Job` rather than a `TransactionalJob`, following `ExtendLineupJob` and
  * `RenderSegmentJob`: the writes are one row each and a model binding later will be slow enough that
- * pinning a runtime-pool connection across it would be a real cost. Because it is not transactional,
- * the actor has to be installed here.
+ * pinning a runtime-pool connection across it would be a real cost.
  *
  * ## Why it re-reads the running order
  *
@@ -55,7 +54,7 @@ export interface WriteBreakPayload {
  * a listener can catch it out in. Reading the order now costs one query and is always current.
  */
 @Injectable()
-export class WriteBreakJob implements Job<WriteBreakPayload> {
+export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     constructor(
         private readonly order: StationLineupRepository,
         private readonly segments: SegmentRepository,
@@ -64,17 +63,14 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
         private readonly activity: ActivityRecorder,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
-        private readonly context: JobContext,
-        // `Container` resolves to the container doing the resolving, which for a job is the runner's
-        // per-execution scope. `ScopedContainer` is a type alias, not a token, so it can only be the
-        // cast — same as ExtendLineupJob.
-        private readonly container: Container,
-        private readonly logger: Logger,
-    ) {}
+        context: JobContext,
+        container: Container,
+        logger: Logger,
+    ) {
+        super(context, container, logger);
+    }
 
-    async run(payload?: WriteBreakPayload): Promise<void> {
-        overrideJobActor(this.container as ScopedContainer, this.context);
-
+    protected async execute(payload?: WriteBreakPayload): Promise<void> {
         if (!payload?.segmentId) {
             // A caller's bug rather than a station fault: this job is only ever sent.
             this.logger.warn('director: a break write was sent with nothing to write', { job: this.context.id });

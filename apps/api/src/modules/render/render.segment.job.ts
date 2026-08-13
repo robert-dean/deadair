@@ -1,7 +1,7 @@
-import { Container, Injectable, ScopedContainer } from 'injectkit';
-import { Job, JobContext } from '@maroonedsoftware/jobbroker';
+import { Container, Injectable } from 'injectkit';
+import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
-import { overrideJobActor } from '#modules/jobs/job.authorization.js';
+import { PlainJob } from '#modules/jobs/plain.job.js';
 import { SegmentRepository } from './segment.repository.js';
 import { SpeechService } from './speech.service.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -31,8 +31,7 @@ export interface RenderSegmentPayload {
  *
  * A plain `Job` and not a `TransactionalJob`, following `ExtendLineupJob` and `EnrichmentJob`:
  * wrapping it would pin a runtime-pool connection for the length of a synthesis, which is seconds
- * of somebody else's compute, and the writes at either end are one row each. Because it is not
- * transactional, the actor has to be installed here.
+ * of somebody else's compute, and the writes at either end are one row each.
  *
  * ## Why nothing waits on this
  *
@@ -46,21 +45,18 @@ export interface RenderSegmentPayload {
  * and stops rather than paying twice for the same audio.
  */
 @Injectable()
-export class RenderSegmentJob implements Job<RenderSegmentPayload> {
+export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
     constructor(
         private readonly segments: SegmentRepository,
         private readonly speech: SpeechService,
-        private readonly context: JobContext,
-        // `Container` resolves to the container doing the resolving, which for a job is the
-        // runner's per-execution scope. `ScopedContainer` is a type alias, not a token, so it can
-        // only be the cast — same as ExtendLineupJob.
-        private readonly container: Container,
-        private readonly logger: Logger,
-    ) {}
+        context: JobContext,
+        container: Container,
+        logger: Logger,
+    ) {
+        super(context, container, logger);
+    }
 
-    async run(payload?: RenderSegmentPayload, signal?: AbortSignal): Promise<void> {
-        overrideJobActor(this.container as ScopedContainer, this.context);
-
+    protected async execute(payload?: RenderSegmentPayload, signal?: AbortSignal): Promise<void> {
         if (!payload?.segmentId) {
             // A caller's bug rather than a station fault: this job is only ever sent, never
             // scheduled, so there is no payload-less run that means anything.

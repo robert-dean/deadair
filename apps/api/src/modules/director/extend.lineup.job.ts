@@ -1,8 +1,8 @@
-import { Container, Injectable, ScopedContainer } from 'injectkit';
-import { Job, JobContext } from '@maroonedsoftware/jobbroker';
+import { Container, Injectable } from 'injectkit';
+import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { overrideJobActor } from '#modules/jobs/job.authorization.js';
+import { PlainJob } from '#modules/jobs/plain.job.js';
 import { DirectorService } from './director.service.js';
 import { isTrackItem, type StationLineupItem } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
@@ -42,8 +42,7 @@ export interface ExtendLineupPayload {
  *
  * A plain `Job` and not a `TransactionalJob`, following `CatalogSyncJob` and
  * `EnrichmentJob`: wrapping it would pin a runtime-pool connection for the whole
- * run, and the only write at the end is one row. Because it is not
- * transactional, the actor has to be installed here.
+ * run, and the only write at the end is one row.
  *
  * Safe to retry. Appending is additive, and every rule is re-read at run time, so
  * a second attempt filters against the history as it stands rather than as it
@@ -54,7 +53,7 @@ export interface ExtendLineupPayload {
  * succeeded.
  */
 @Injectable()
-export class ExtendLineupJob implements Job<ExtendLineupPayload> {
+export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
     constructor(
         private readonly order: StationLineupRepository,
         private readonly generator: SetGenerator,
@@ -63,17 +62,14 @@ export class ExtendLineupJob implements Job<ExtendLineupPayload> {
         // the one object that is actually airing the lineup it just extended.
         private readonly director: DirectorService,
         private readonly config: AppConfig,
-        private readonly context: JobContext,
-        // `Container` resolves to the container doing the resolving, which for a job
-        // is the runner's per-execution scope. `ScopedContainer` is a type alias, not
-        // a token, so it can only be the cast — same as CatalogSyncJob.
-        private readonly container: Container,
-        private readonly logger: Logger,
-    ) {}
+        context: JobContext,
+        container: Container,
+        logger: Logger,
+    ) {
+        super(context, container, logger);
+    }
 
-    async run(payload?: ExtendLineupPayload, signal?: AbortSignal): Promise<void> {
-        overrideJobActor(this.container as ScopedContainer, this.context);
-
+    protected async execute(payload?: ExtendLineupPayload, signal?: AbortSignal): Promise<void> {
         // Read for its RULES and for what it already holds, never to write it: the append at the
         // end goes through the director, which is the one thing that may. A copy read here going
         // stale while the generator runs is exactly why this cannot be the writer.

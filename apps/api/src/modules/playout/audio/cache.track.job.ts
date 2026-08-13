@@ -1,7 +1,7 @@
-import { Container, Injectable, ScopedContainer } from 'injectkit';
-import { Job, JobContext } from '@maroonedsoftware/jobbroker';
+import { Container, Injectable } from 'injectkit';
+import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
-import { overrideJobActor } from '#modules/jobs/job.authorization.js';
+import { PlainJob } from '#modules/jobs/plain.job.js';
 import { TrackAudioService } from './track.audio.service.js';
 
 export interface CacheTrackPayload {
@@ -26,8 +26,7 @@ export interface CacheTrackPayload {
  *
  * A plain `Job` rather than a `TransactionalJob`, for the reason `ArtCacheJob` gives: a fetch of tens
  * of megabytes in the middle of a transaction would pin a runtime-pool connection and hold one
- * snapshot open for its whole length, and the writes at either end are one row each. Because it is
- * not transactional, the actor has to be installed here.
+ * snapshot open for its whole length, and the writes at either end are one row each.
  *
  * ## Why nothing waits on this
  *
@@ -40,20 +39,17 @@ export interface CacheTrackPayload {
  * arriving mid-download waits on the first rather than starting another.
  */
 @Injectable()
-export class CacheTrackJob implements Job<CacheTrackPayload> {
+export class CacheTrackJob extends PlainJob<CacheTrackPayload> {
     constructor(
         private readonly audio: TrackAudioService,
-        private readonly context: JobContext,
-        // `Container` resolves to the container doing the resolving, which for a job is the runner's
-        // per-execution scope. `ScopedContainer` is a type alias, not a token, so it can only be the
-        // cast — same as RenderSegmentJob.
-        private readonly container: Container,
-        private readonly logger: Logger,
-    ) {}
+        context: JobContext,
+        container: Container,
+        logger: Logger,
+    ) {
+        super(context, container, logger);
+    }
 
-    async run(payload?: CacheTrackPayload, signal?: AbortSignal): Promise<void> {
-        overrideJobActor(this.container as ScopedContainer, this.context);
-
+    protected async execute(payload?: CacheTrackPayload, signal?: AbortSignal): Promise<void> {
         if (!payload?.sourceId) {
             // A caller's bug rather than a station fault: this job is only ever sent, never
             // scheduled, so there is no payload-less run that means anything.

@@ -1,7 +1,8 @@
-import { Container, Injectable, ScopedContainer } from 'injectkit';
-import { Job, JobContext } from '@maroonedsoftware/jobbroker';
+import { Container, Injectable } from 'injectkit';
+import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
-import { overrideJobActor } from '#modules/jobs/job.authorization.js';
+import { PlainJob } from '#modules/jobs/plain.job.js';
+import { withRunBudget } from '#modules/jobs/run.budget.js';
 import { AnalysisService } from './analysis.service.js';
 
 /**
@@ -61,45 +62,28 @@ export interface AnalysisPayload {
  * download and decode in the middle of each step, and wrapping it would pin a
  * runtime-pool connection and hold one snapshot open for the length of it. Each
  * track settles on its own.
- *
- * Because it is not transactional, the actor has to be installed here; nothing
- * else in a plain job's scope does it.
  */
 @Injectable()
-export class AnalysisJob implements Job<AnalysisPayload> {
+export class AnalysisJob extends PlainJob<AnalysisPayload> {
     constructor(
         private readonly analysis: AnalysisService,
-        private readonly context: JobContext,
-        // `Container` resolves to the container doing the resolving, which for a
-        // job is the runner's per-execution scope. `ScopedContainer` is a type
-        // alias, not a token, so it can only be the cast — same as EnrichmentJob.
-        private readonly container: Container,
-        private readonly logger: Logger,
-    ) {}
+        context: JobContext,
+        container: Container,
+        logger: Logger,
+    ) {
+        super(context, container, logger);
+    }
 
-    async run(payload?: AnalysisPayload, signal?: AbortSignal): Promise<void> {
-        overrideJobActor(this.container as ScopedContainer, this.context);
+    protected async execute(payload?: AnalysisPayload, signal?: AbortSignal): Promise<void> {
         const limit = payload?.limit ?? BATCH_SIZE;
 
-        // A plain controller on a plain timer rather than `AbortSignal.timeout`,
-        // for the reason `plugin.invocation.deadline.ts` gives: that one's timer
-        // is unref'd and invisible to fake timers, which would make the budget
-        // untestable.
-        const budget = new AbortController();
-        const timer = setTimeout(() => budget.abort(), RUN_BUDGET_MS);
-        const stop = signal ? AbortSignal.any([signal, budget.signal]) : budget.signal;
+        const { result: summary, outOfTime } = await withRunBudget(RUN_BUDGET_MS, signal, stop => this.analysis.analysePending(limit, stop));
 
-        try {
-            const summary = await this.analysis.analysePending(limit, stop);
-
-            // Quiet when there was nothing to do. Once a library is measured this
-            // is every run, and a station that has finished should not say so
-            // every half hour.
-            if (summary.scanned > 0) {
-                this.logger.info('analysis pass', { job: this.context.id, ...summary, outOfTime: budget.signal.aborted });
-            }
-        } finally {
-            clearTimeout(timer);
+        // Quiet when there was nothing to do. Once a library is measured this
+        // is every run, and a station that has finished should not say so
+        // every half hour.
+        if (summary.scanned > 0) {
+            this.logger.info('analysis pass', { job: this.context.id, ...summary, outOfTime });
         }
     }
 }

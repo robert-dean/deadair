@@ -1,7 +1,7 @@
-import { Container, Injectable, ScopedContainer } from 'injectkit';
-import { Job, JobContext } from '@maroonedsoftware/jobbroker';
+import { Container, Injectable } from 'injectkit';
+import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
-import { overrideJobActor } from '#modules/jobs/job.authorization.js';
+import { PlainJob } from '#modules/jobs/plain.job.js';
 import { ArtCacheService } from './art.cache.service.js';
 import { ArtRepository } from './art.repository.js';
 
@@ -35,26 +35,20 @@ export interface ArtCachePayload {
  * `EnrichmentJob` are: a walk with network in the middle of it would pin a runtime-pool connection
  * and hold one snapshot open for its whole length. Each URL settles on its own, and every write on
  * this path is idempotent, so overlapping runs cost duplicated work rather than a wrong row.
- *
- * Because it is not transactional, the actor has to be installed here; nothing else in a plain
- * job's scope does it.
  */
 @Injectable()
-export class ArtCacheJob implements Job<ArtCachePayload> {
+export class ArtCacheJob extends PlainJob<ArtCachePayload> {
     constructor(
         private readonly artCache: ArtCacheService,
         private readonly artRepository: ArtRepository,
-        private readonly context: JobContext,
-        // `Container` resolves to the container doing the resolving, which for a job is the
-        // runner's per-execution scope. `ScopedContainer` is a type alias, not a token, so it can
-        // only be the cast — same as CatalogSyncJob.
-        private readonly container: Container,
-        private readonly logger: Logger,
-    ) {}
+        context: JobContext,
+        container: Container,
+        logger: Logger,
+    ) {
+        super(context, container, logger);
+    }
 
-    async run(payload?: ArtCachePayload, signal?: AbortSignal): Promise<void> {
-        overrideJobActor(this.container as ScopedContainer, this.context);
-
+    protected async execute(payload?: ArtCachePayload, signal?: AbortSignal): Promise<void> {
         const pending = await this.artRepository.listPendingSourceUrls(payload?.limit ?? BATCH_SIZE);
         if (pending.length === 0) return;
 

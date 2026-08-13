@@ -236,12 +236,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
-        key: ROTATION_KEYS.breakEveryItems,
-        label: 'Records between breaks',
+        key: ROTATION_KEYS.breakEveryMinutes,
+        label: 'Minutes between breaks',
         type: 'number',
-        default: DEFAULT_RULES.breakEveryItems,
+        default: DEFAULT_RULES.breakEveryMinutes,
         dependsOn: ROTATION_KEYS.breaks,
-        help: 'Four is about a quarter of an hour, which is around as long as a station can go without saying its own name before it sounds like a playlist. Records are counted, not items, so a second kind of break does not push the next ident back.',
+        help: 'Fifteen is around as long as a station can go without saying its own name before it sounds like a playlist. Each sort of break keeps its own spacing, so a news bulletin does not push the next ident back.',
     },
     {
         group: 'rotation',

@@ -34,11 +34,15 @@ class StubResolver extends TrackResolver {
     }
 }
 
+/** Break spacing is minutes of airtime, so a fixture record needs a length to be spaced against. */
+const TRACK_MINUTES = 5;
+
 const track = (externalId: string): RundownTrack => ({
     pluginId: 'deadair.spotify',
     externalId,
     title: `Track ${externalId}`,
     artists: ['An Artist'],
+    durationMs: TRACK_MINUTES * 60_000,
 });
 
 interface Options {
@@ -956,7 +960,7 @@ describe('DirectorService planting breaks', () => {
         // The whole point of the rules becoming settings: this is the first one an operator can
         // change and hear the difference, with no redeploy and no restart.
         const { director, lineup, station, seed } = build({ items: Array.from({ length: 20 }, (_, index) => `t${index}`) });
-        station.set(ROTATION_KEYS.breakEveryItems, '2');
+        station.set(ROTATION_KEYS.breakEveryMinutes, String(2 * TRACK_MINUTES));
         await seed();
 
         await director.start();
@@ -966,8 +970,8 @@ describe('DirectorService planting breaks', () => {
             .all()
             .flatMap((item, index) => (item.kind === 'segment' ? [index] : []))
             .slice(0, 2);
-        // Two records between breaks rather than the default four, so the first two planted slots
-        // are three apart rather than five.
+        // Ten minutes between breaks — two records here — rather than the default quarter of an
+        // hour, so the first two planted slots are three apart rather than four.
         expect(spacing[1]! - spacing[0]!).toBe(3);
     });
 

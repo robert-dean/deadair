@@ -27,8 +27,20 @@ export interface ResolvedRules {
     autoExtend: boolean;
     /** Whether the station may put its own segments into this lineup. */
     breaks: boolean;
-    /** Records between one segment and the next. `0` is the same as `breaks: false`. */
-    breakEveryItems: number;
+    /**
+     * Minutes of airtime between one break and the next OF THE SAME KIND. `0` is `breaks: false`.
+     *
+     * Minutes rather than records, which is what this counted until it was measured. Four records
+     * was always a stand-in for a quarter of an hour and was never a good one: at this catalog's
+     * average it is closer to eighteen minutes, and on a station of long album cuts it would be
+     * half an hour. The help text has claimed "about a quarter of an hour" the whole time, so the
+     * unit was already the one an operator was thinking in.
+     *
+     * Per KIND, which is the other half. A news bulletin at nine says nothing about when the DJ
+     * should next name the station, so each rule counts only its own breaks and treats every other
+     * one as ordinary airtime.
+     */
+    breakEveryMinutes: number;
     /**
      * Whether one record may be blended into the next.
      *
@@ -65,10 +77,11 @@ export const DEFAULT_RULES: ResolvedRules = {
     maxPerArtist: 2,
     autoExtend: true,
     breaks: true,
-    // Four records is around a quarter of an hour, which is about as long as a station can go
-    // without identifying itself before it stops sounding like a station and starts sounding like a
-    // playlist. Erring long: a break every other record is a novelty that wears out in an afternoon.
-    breakEveryItems: 4,
+    // A quarter of an hour, which is about as long as a station can go without identifying itself
+    // before it stops sounding like a station and starts sounding like a playlist. Erring long: a
+    // break every few minutes is a novelty that wears out in an afternoon. This is the number the
+    // setting's help has always claimed; it is only now the number the code actually uses.
+    breakEveryMinutes: 15,
     // ON. It was held off on the belief that a blend puts `on_air_elapsed` -- which every DJ break
     // is timed against -- ahead of the audience. Measured, it does not: the counter is a wall clock
     // zeroed at the instant the record becomes audible, and a cross moves the source pointer rather
@@ -92,7 +105,7 @@ export const ROTATION_KEYS = {
     maxPerArtist: 'rotation.maxPerArtist',
     autoExtend: 'rotation.autoExtend',
     breaks: 'rotation.breaks',
-    breakEveryItems: 'rotation.breakEveryItems',
+    breakEveryMinutes: 'rotation.breakEveryMinutes',
     crossfade: 'rotation.crossfade',
 } as const;
 
@@ -100,7 +113,7 @@ export const ROTATION_KEYS = {
  * The station's rules as the operator has them set, falling back per field.
  *
  * Per field rather than all-or-nothing: an operator who has only ever changed
- * `breakEveryItems` keeps the reasoning behind every other default rather than
+ * `breakEveryMinutes` keeps the reasoning behind every other default rather than
  * getting zeroes for the ones they never touched.
  *
  * A stored value that is not a number is ignored rather than propagated. These
@@ -121,7 +134,7 @@ export function stationRules(config: AppConfig): ResolvedRules {
         maxPerArtist: number(ROTATION_KEYS.maxPerArtist, DEFAULT_RULES.maxPerArtist),
         autoExtend: boolean(ROTATION_KEYS.autoExtend, DEFAULT_RULES.autoExtend),
         breaks: boolean(ROTATION_KEYS.breaks, DEFAULT_RULES.breaks),
-        breakEveryItems: number(ROTATION_KEYS.breakEveryItems, DEFAULT_RULES.breakEveryItems),
+        breakEveryMinutes: number(ROTATION_KEYS.breakEveryMinutes, DEFAULT_RULES.breakEveryMinutes),
         crossfade: boolean(ROTATION_KEYS.crossfade, DEFAULT_RULES.crossfade),
     };
 }
@@ -133,7 +146,7 @@ const NO_RULES: ResolvedRules = {
     maxPerArtist: 0,
     autoExtend: false,
     breaks: false,
-    breakEveryItems: 0,
+    breakEveryMinutes: 0,
     crossfade: false,
 };
 
@@ -179,7 +192,7 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         maxPerArtist: overrides?.maxPerArtist ?? base.maxPerArtist,
         autoExtend: overrides?.autoExtend ?? base.autoExtend,
         breaks: overrides?.breaks ?? base.breaks,
-        breakEveryItems: overrides?.breakEveryItems ?? base.breakEveryItems,
+        breakEveryMinutes: overrides?.breakEveryMinutes ?? base.breakEveryMinutes,
         crossfade: overrides?.crossfade ?? base.crossfade,
     };
 };

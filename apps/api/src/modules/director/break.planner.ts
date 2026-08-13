@@ -4,7 +4,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
-import type { StationLineup, StationLineupItem } from './station.lineup.js';
+import { isTrackItem, type StationLineup, type StationLineupItem, type StationLineupSegmentItem } from './station.lineup.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
 
@@ -51,28 +51,52 @@ export const PLANT_AHEAD = 4;
  * for a write and a render to finish, which is generous against a model answering at a couple of
  * tokens a second and still cuts the horizon from about an hour to about fifteen minutes.
  *
- * Measured in ITEMS, so it scales with the break interval rather than against it: at the default
- * four records between breaks the window holds two, and at one it holds up to eight. That is
- * correct — a station told to talk after every record is asking for that much — and it is
- * deliberately not capped per pass, because a claim makes a duplicate send free, renders queue like
- * any other job, and a model is serialised by `LlmGate` however many are asked for.
+ * Measured in ITEMS, deliberately, while the spacing beside it is measured in minutes. This is a
+ * bound on how much WORK may be in flight, and the work is one write and one render per break
+ * regardless of how long the records between them run — so items is the unit that actually
+ * describes it, and a station of long album cuts would otherwise have a write window covering
+ * fewer breaks than a station of short ones for no reason.
+ *
+ * It scales with the break interval rather than against it: at the default quarter of an hour the
+ * window holds two or three breaks, and at a break every few minutes it holds up to eight. That is
+ * correct — a station told to talk that often is asking for that much — and it is deliberately not
+ * capped per pass, because a claim makes a duplicate send free, renders queue like any other job,
+ * and a model is serialised by `LlmGate` however many are asked for.
  */
 export const WRITE_AHEAD = 8;
 
 /**
+ * How long an unmeasured record is assumed to run when spacing is being decided.
+ *
+ * **The one place this file deliberately disagrees with `air.clock.ts`,** which counts everything
+ * unknown as zero so that a boundary is never projected later than it really is. The two rules want
+ * opposite things from a guess. An anchored break must never land EARLY, because "just after nine"
+ * said at four minutes to is a lie no phrasing can absorb, so there a missing duration contributes
+ * nothing and the break slides late. Spacing only wants to be roughly right, and a run of records
+ * that each counted zero would mean a station that never reached its interval and never talked at
+ * all — which is far worse than a break arriving two minutes off.
+ *
+ * Four and a half minutes, which is what this catalog actually averages. Nothing is measured off
+ * the library at runtime: a constant that is close is worth more than a query on every boundary,
+ * and every record the station owns carries a real duration anyway, so this is reached for only by
+ * something newly discovered and not yet ingested.
+ */
+const NOMINAL_TRACK_MS = 270_000;
+
+/**
  * The station putting its own segments into a lineup.
  *
- * The rule is one break every `breakEveryItems` RECORDS. Segments do not count
- * toward that spacing, which matters once there is more than one kind of them: a
- * news bulletin dropped in by something else should not push the next ident back
- * an hour, because the listener is counting songs since they last heard the
- * station's name, not items since they last heard a voice.
+ * The rule is one break every `breakEveryMinutes` of airtime, counted PER KIND. A rule looks back
+ * for the last break of its own sort and treats every other segment as ordinary airtime, so a news
+ * bulletin at nine says nothing about when the DJ should next name the station and vice versa. That
+ * is simpler than one shared clock rather than more complicated: it makes "what does a foreign
+ * break do to somebody else's spacing" a question with no meaning.
  *
- * Idempotent by construction rather than by a guard. It counts the distance since
- * the last segment ALREADY in the order, so a second pass over a lineup it has
- * just planted into finds every gap short and plants nothing. That is what makes
- * it safe to call from the director's commit pass, which runs on every track
- * boundary.
+ * Idempotent by construction rather than by a guard. It measures from the last break of its kind
+ * ALREADY in the order, so a second pass over a lineup it has just planted into finds every gap
+ * short and plants nothing. **Nothing here remembers anything between passes** — the order is the
+ * memory — which is what makes it safe to call from the director's commit pass on every track
+ * boundary, and what keeps two passes racing each other from producing two breaks.
  *
  * Scoped, like the repositories it reads: it is called from a job's scope and
  * from the scope the director opens per unit of work.
@@ -106,9 +130,9 @@ export class BreakPlanner {
      * the director exactly like one that was never rendered.
      */
     async plant(lineup: StationLineup, rules: ResolvedRules): Promise<number> {
-        if (!rules.breaks || rules.breakEveryItems <= 0) return 0;
+        if (!rules.breaks || rules.breakEveryMinutes <= 0) return 0;
 
-        const positions = placementsFor(lineup.all(), lineup.committedThrough(), rules.breakEveryItems);
+        const positions = placementsFor(lineup.all(), lineup.committedThrough(), rules.breakEveryMinutes * 60_000, isStationBreak);
         if (positions.length === 0) return 0;
 
         // Both halves of being able to say something of the station's own: words to say, and a voice
@@ -286,36 +310,56 @@ interface Placement {
 }
 
 /**
- * Where breaks belong in an order that already has some.
+ * Whether a segment is one of the station's own breaks, for the purposes of spacing.
  *
- * Walks forward from the cursor counting records, and marks a slot whenever the
- * count reaches the spacing. A segment already in the order resets the count
- * rather than being counted, which is what makes this idempotent: run it twice
- * and the second walk sees the breaks the first one planted.
+ * An ident and a talk break are one rule rather than two: they alternate, they do the same job —
+ * telling a listener what they are listening to — and a station that counted them separately would
+ * say its own name twice as often as asked. Everything else is somebody else's rule.
  *
- * The count starts from the last segment at or before the cursor rather than
- * from zero. Starting at zero would put a break `breakEveryItems` records after
- * whatever the station happens to be playing, so an app restarted mid-rotation
- * would talk again immediately after having just talked.
+ * **A segment with no kind counts here**, because an order written before the running order carried
+ * one holds nothing but the station's own breaks. Guessing the other way would have the station
+ * talk over the top of breaks it had already planted, once, on the first pass after an upgrade.
+ */
+const isStationBreak = (item: StationLineupSegmentItem): boolean =>
+    item.segmentKind === undefined || item.segmentKind === IDENT_KIND || item.segmentKind === TALK_BREAK_KIND;
+
+/**
+ * Where breaks of ONE kind belong in an order that already has some.
+ *
+ * Walks forward from the cursor accumulating airtime, and marks a slot whenever it reaches the
+ * spacing. A break this rule owns resets the accumulator rather than adding to it, which is what
+ * makes this idempotent: run it twice and the second walk sees what the first one planted. A break
+ * belonging to some OTHER rule is neither — it adds its own length (nothing, since no segment has
+ * ever been measured) and leaves the count alone, so a bulletin cannot push the next ident back.
+ *
+ * The count starts from the last break of this kind at or before the cursor rather than from zero.
+ * Starting at zero would put a break a full interval after whatever the station happens to be
+ * playing, so an app restarted mid-rotation would talk again immediately after having just talked.
  *
  * Returns indices into the order as it stands, which is what
- * {@link Lineup.insertSegments} expects.
+ * {@link StationLineup.insertSegments} expects.
  */
-function placementsFor(items: readonly StationLineupItem[], cursor: number, every: number): number[] {
-    let since = recordsSinceLastSegment(items, cursor);
+function placementsFor(
+    items: readonly StationLineupItem[],
+    cursor: number,
+    everyMs: number,
+    counts: (item: StationLineupSegmentItem) => boolean,
+): number[] {
+    let since = elapsedSinceLastOfKind(items, cursor, counts);
     const placements: number[] = [];
 
     for (let index = cursor; index < items.length; index++) {
-        if (items[index]!.kind === 'segment') {
+        const item = items[index]!;
+        if (item.kind === 'segment' && counts(item)) {
             since = 0;
             continue;
         }
 
-        since += 1;
-        if (since < every) continue;
+        since += spacingLengthOf(item);
+        if (since < everyMs) continue;
 
         // After this record, not before it: the slot is the boundary the listener reaches once they
-        // have heard `every` of them.
+        // have heard `everyMs` of programme.
         const at = index + 1;
 
         // Never at the very end of the order, where a break would air after the last record rather
@@ -340,14 +384,44 @@ function placementsFor(items: readonly StationLineupItem[], cursor: number, ever
     return placements;
 }
 
-/** How many records the station has played since it last said anything. */
-function recordsSinceLastSegment(items: readonly StationLineupItem[], cursor: number): number {
-    let count = 0;
-    for (let index = cursor - 1; index >= 0; index--) {
-        if (items[index]!.kind === 'segment') return count;
-        count += 1;
+/**
+ * How much airtime has passed since the station last aired a break of this kind.
+ *
+ * Walks back over what has already been heard, so nothing here is projected: these items aired and
+ * their lengths are whatever the catalog said they were. A break of another kind is walked straight
+ * past, which is the backwards half of the same rule the forward walk applies.
+ */
+function elapsedSinceLastOfKind(
+    items: readonly StationLineupItem[],
+    cursor: number,
+    counts: (item: StationLineupSegmentItem) => boolean,
+): number {
+    let elapsed = 0;
+    for (let index = Math.min(cursor, items.length) - 1; index >= 0; index--) {
+        const item = items[index]!;
+        if (item.kind === 'segment' && counts(item)) return elapsed;
+        elapsed += spacingLengthOf(item);
     }
-    return count;
+    return elapsed;
+}
+
+/**
+ * How much of the clock an item spends, for spacing.
+ *
+ * Deliberately NOT `air.clock.ts`'s answer. See {@link NOMINAL_TRACK_MS}: a record nobody measured
+ * counts as an average one here and as nothing there, because a spacing rule would rather be
+ * roughly right than certainly late and an anchored one would rather be late than early.
+ *
+ * A segment counts as nothing, which is the one thing both agree on: nothing has ever measured one,
+ * and an ident is a few seconds against an interval of a quarter of an hour.
+ */
+function spacingLengthOf(item: StationLineupItem): number {
+    if (!isTrackItem(item)) return 0;
+
+    const { durationMs, cueInMs, cueOutMs } = item.track;
+    if (cueOutMs !== undefined) return Math.max(0, cueOutMs - (cueInMs ?? 0));
+
+    return durationMs === undefined ? NOMINAL_TRACK_MS : Math.max(0, durationMs - (cueInMs ?? 0));
 }
 
 /**

@@ -79,7 +79,7 @@ describe('resolveRules', () => {
             // undoing the work, which is the same argument the 0007 migration makes about a
             // feature's segues, one step weaker.
             breaks: false,
-            breakEveryItems: 0,
+            breakEveryMinutes: 0,
             // Same argument, one step further: somebody decided where these records stop
             // and start, and overlapping two of them overrules that decision.
             crossfade: false,
@@ -131,11 +131,11 @@ describe('resolveRules', () => {
     it('takes the station settings as a rotation baseline, under the lineup', () => {
         // Precedence, tightest last. An operator sets the station's own rules once; a lineup that
         // wants something different still says so for itself.
-        const station = { ...DEFAULT_RULES, breakEveryItems: 2, repeatWindowDays: 7 };
+        const station = { ...DEFAULT_RULES, breakEveryMinutes: 2, repeatWindowDays: 7 };
 
         const rules = resolveRules('rotation', { repeatWindowDays: 1 }, station);
 
-        expect(rules.breakEveryItems).toBe(2);
+        expect(rules.breakEveryMinutes).toBe(2);
         expect(rules.repeatWindowDays).toBe(1);
     });
 
@@ -157,9 +157,9 @@ describe('stationRules', () => {
     it('takes only the fields an operator has actually set', () => {
         // Per field, not all-or-nothing: somebody who only ever changed how often the station says
         // its name keeps the reasoning behind everything else.
-        const { config } = settingsConfig({ [ROTATION_KEYS.breakEveryItems]: '2' });
+        const { config } = settingsConfig({ [ROTATION_KEYS.breakEveryMinutes]: '2' });
 
-        expect(stationRules(config)).toEqual({ ...DEFAULT_RULES, breakEveryItems: 2 });
+        expect(stationRules(config)).toEqual({ ...DEFAULT_RULES, breakEveryMinutes: 2 });
     });
 
     it('reads zero as zero rather than as unset', () => {

@@ -14,11 +14,22 @@ import type { PlannedSegment, Segment, SegmentRepository } from '../../../src/mo
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
+/**
+ * How long every record in these fixtures runs.
+ *
+ * Spacing is minutes of airtime now, so a case that wants to say "a break every four records" says
+ * `4 * TRACK_MINUTES` and stays readable as the count it is really about. Five is round and is not
+ * the planner's own fallback for an unmeasured record, so a test that accidentally dropped the
+ * duration would come out at a different interval rather than silently agreeing.
+ */
+const TRACK_MINUTES = 5;
+
 const track = (externalId: string): RundownTrack => ({
     pluginId: 'deadair.spotify',
     externalId,
     title: `Track ${externalId}`,
     artists: ['An Artist'],
+    durationMs: TRACK_MINUTES * 60_000,
 });
 
 const ident = (id: string): Segment => ({ id, kind: 'ident', state: 'ready', label: `Ident ${id}`, source: 'library' });
@@ -89,7 +100,7 @@ describe('BreakPlanner', () => {
         const { planner } = build();
         const lineup = await lineupOf(20);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         // After the 4th, 8th, 12th and 16th record, with each earlier break shifting the ones
         // behind it by one. Nothing lands after the last record: a break there airs into whatever
@@ -104,12 +115,12 @@ describe('BreakPlanner', () => {
     it('does not plant a break back into a slot the operator has just cleared', async () => {
         const { planner } = build();
         const lineup = await lineupOf(20);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         const removed = lineup.all()[9]!;
         expect(lineup.remove(removed.id)).toEqual({ ok: true });
 
-        expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
+        expect(await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }))).toBe(0);
         expect(segmentsAt(lineup)).toEqual([4, 9, 14, 19]);
         expect(lineup.all()[9]!.state).toBe('removed');
     });
@@ -118,10 +129,10 @@ describe('BreakPlanner', () => {
     it('plants nothing on a second pass over an order it has just planted into', async () => {
         const { planner } = build();
         const lineup = await lineupOf(20);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
         const after = segmentsAt(lineup);
 
-        expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
+        expect(await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }))).toBe(0);
         expect(segmentsAt(lineup)).toEqual(after);
     });
 
@@ -134,7 +145,7 @@ describe('BreakPlanner', () => {
         lineup.insertSegment('seg-old', 3);
         hand(lineup, 6);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         // Two records have aired since that break, so the next one is due two records further on
         // rather than four — but that slot is inside the window about to be handed over, so it
@@ -149,7 +160,7 @@ describe('BreakPlanner', () => {
         const lineup = await lineupOf(12);
         lineup.insertSegment('seg-other', 2);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         // Records at 0 and 1, the segment at 2, then records at 3,4,5,6. Four RECORDS after the
         // segment ends at index 6, so the next break goes at 7. Counting the segment itself would
@@ -157,11 +168,42 @@ describe('BreakPlanner', () => {
         expect(segmentsAt(lineup)).toContain(7);
     });
 
+    // Spacing is per kind, which is the whole reason the order carries one. These two are the same
+    // assertion from both sides, and getting either wrong is inaudible until an hour has gone by
+    // with the station never naming itself, or naming itself twice as often as asked.
+    it('does not let a break of another kind reset the station rule', async () => {
+        const { planner } = build();
+        const lineup = await lineupOf(12);
+        // A bulletin two records in. It is the station talking, but it is not the station saying
+        // which station it is, so the listener is no better off knowing what they are listening to.
+        lineup.insertSegment('news-1', 2, undefined, 'news');
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
+
+        // Four records of airtime from the top, so the first station break falls after the record
+        // at index 4 — the bulletin having cost it nothing. If the bulletin had reset the count it
+        // would be two records further on, at 7.
+        expect(segmentsAt(lineup)).toContain(5);
+        expect(segmentsAt(lineup)).not.toContain(7);
+    });
+
+    it('counts a break with no kind as the station, because that is all an older order holds', async () => {
+        const { planner } = build();
+        const lineup = await lineupOf(12);
+        lineup.insertSegment('seg-old', 2);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
+
+        // The unlabelled break DOES reset it, so the next one is four records past index 2.
+        expect(segmentsAt(lineup)).toContain(7);
+        expect(segmentsAt(lineup)).not.toContain(5);
+    });
+
     it('never plants into what the director is about to hand over', async () => {
         const { planner } = build();
         const lineup = await lineupOf(20, 8);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 1 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 1 * TRACK_MINUTES }));
 
         for (const index of segmentsAt(lineup)) expect(index).toBeGreaterThanOrEqual(8 + PLANT_AHEAD);
     });
@@ -179,7 +221,7 @@ describe('BreakPlanner', () => {
         const { planner } = build();
         const lineup = await lineupOf(20);
 
-        expect(await planner.plant(lineup, rules({ breakEveryItems: 0 }))).toBe(0);
+        expect(await planner.plant(lineup, rules({ breakEveryMinutes: 0 }))).toBe(0);
     });
 
     // The ordinary case on the commit path is a lineup whose breaks are already in place, and it
@@ -188,7 +230,7 @@ describe('BreakPlanner', () => {
         const { planner, listReady } = build();
         const lineup = await lineupOf(2);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         expect(listReady).not.toHaveBeenCalled();
     });
@@ -198,7 +240,7 @@ describe('BreakPlanner', () => {
         const { planner } = build({ idents: [] });
         const lineup = await lineupOf(20);
 
-        expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
+        expect(await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }))).toBe(0);
         expect(segmentsAt(lineup)).toEqual([]);
     });
 
@@ -207,7 +249,7 @@ describe('BreakPlanner', () => {
         const { planner } = build({ idents: [ident('a'), ident('b')] });
         const lineup = await lineupOf(20);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         const used = lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentId] : []));
         for (let index = 1; index < used.length; index++) expect(used[index]).not.toBe(used[index - 1]);
@@ -217,7 +259,7 @@ describe('BreakPlanner', () => {
         const { planner } = build({ idents: [ident('only')] });
         const lineup = await lineupOf(12);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         expect(lineup.all().filter(item => item.kind === 'segment')).not.toHaveLength(0);
     });
@@ -227,7 +269,7 @@ describe('BreakPlanner', () => {
         const lineup = await lineupOf(20);
         const insert = vi.spyOn(lineup, 'insertSegments');
 
-        const planted = await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        const planted = await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         // Four breaks, one edit. Applying them one at a time would make every placement after
         // the first mean something different from what the walk computed, since each insert
@@ -246,7 +288,7 @@ describe('BreakPlanner writing its own breaks', () => {
         const { planner, plan, send } = build({ canWrite: true });
         const lineup = await lineupOf(12);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak' }));
         // Planted with no words in it: `ripen` asks for them once the slot is near, and the job
@@ -259,7 +301,7 @@ describe('BreakPlanner writing its own breaks', () => {
         const { planner } = build({ canWrite: true });
         const lineup = await lineupOf(20);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         const written = lineup.all().flatMap(item => (item.kind === 'segment' && item.segmentId.startsWith('planned-') ? [item.segmentId] : []));
         expect(new Set(written).size).toBe(written.length);
@@ -270,10 +312,10 @@ describe('BreakPlanner writing its own breaks', () => {
     it('plants nothing on a second pass, even though the first pass wrote no scripts', async () => {
         const { planner, plan } = build({ canWrite: true });
         const lineup = await lineupOf(12);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
         const planted = plan.mock.calls.length;
 
-        expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
+        expect(await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }))).toBe(0);
         expect(plan).toHaveBeenCalledTimes(planted);
     });
 
@@ -281,7 +323,7 @@ describe('BreakPlanner writing its own breaks', () => {
         const { planner, plan, listReady, send } = build({ canWrite: false });
         const lineup = await lineupOf(12);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         expect(listReady).toHaveBeenCalledWith('ident');
         expect(plan).not.toHaveBeenCalled();
@@ -294,7 +336,7 @@ describe('BreakPlanner writing its own breaks', () => {
         const { planner, plan, listReady } = build({ canWrite: true, speaker: false });
         const lineup = await lineupOf(12);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         expect(listReady).toHaveBeenCalledWith('ident');
         expect(plan).not.toHaveBeenCalled();
@@ -306,7 +348,7 @@ describe('BreakPlanner writing its own breaks', () => {
         // A stale revision is what a commit or an operator edit landing mid-walk looks like here.
         vi.spyOn(lineup, 'insertSegments').mockResolvedValue({ ok: false, reason: 'stale' } as never);
 
-        expect(await planner.plant(lineup, rules({ breakEveryItems: 4 }))).toBe(0);
+        expect(await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }))).toBe(0);
         expect(markFailed).toHaveBeenCalledWith('planned-1', expect.stringContaining('moved'), 'planned');
         expect(send).not.toHaveBeenCalled();
     });
@@ -323,7 +365,7 @@ describe('BreakPlanner alternating what a break is', () => {
         const { planner } = build({ canWrite: true, idents: [ident('a'), ident('b')] });
         const lineup = await lineupOf(20);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         expect(kindsPlanted(lineup)).toEqual(['talkbreak', 'ident', 'talkbreak', 'ident']);
     });
@@ -334,9 +376,9 @@ describe('BreakPlanner alternating what a break is', () => {
         const { planner } = build({ canWrite: true });
         const lineup = await lineupOf(20);
         // One break at a time, the way the commit pass plants as the cursor advances.
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
         hand(lineup, 6);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         const kinds = kindsPlanted(lineup);
         for (let index = 1; index < kinds.length; index++) expect(kinds[index]).not.toBe(kinds[index - 1]);
@@ -346,7 +388,7 @@ describe('BreakPlanner alternating what a break is', () => {
         const { planner } = build({ canWrite: true, idents: [] });
         const lineup = await lineupOf(20);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         expect(new Set(kindsPlanted(lineup))).toEqual(new Set(['talkbreak']));
     });
@@ -355,7 +397,7 @@ describe('BreakPlanner alternating what a break is', () => {
         const { planner } = build({ canWrite: false, idents: [ident('a'), ident('b')] });
         const lineup = await lineupOf(20);
 
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         expect(new Set(kindsPlanted(lineup))).toEqual(new Set(['ident']));
     });
@@ -373,7 +415,7 @@ describe('BreakPlanner.ripen', () => {
     it('asks for the words of a break inside the window', async () => {
         const { planner, send } = build({ canWrite: true });
         const lineup = await lineupOf(12);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         await planner.ripen(lineup);
 
@@ -385,7 +427,7 @@ describe('BreakPlanner.ripen', () => {
         // pays for the words of the near ones only.
         const { planner, send } = build({ canWrite: true, idents: [] });
         const lineup = await lineupOf(40);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         await planner.ripen(lineup);
 
@@ -400,7 +442,7 @@ describe('BreakPlanner.ripen', () => {
         // being in memory, would be wrong after every restart in the direction that loses breaks.
         const { planner, send } = build({ canWrite: true });
         const lineup = await lineupOf(12);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         await planner.ripen(lineup);
         await planner.ripen(lineup);
@@ -411,7 +453,7 @@ describe('BreakPlanner.ripen', () => {
     it('does not ask again for a break somebody is already writing', async () => {
         const { planner, send, known } = build({ canWrite: true });
         const lineup = await lineupOf(12);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
         await planner.ripen(lineup);
         known.set('planned-1', { ...known.get('planned-1')!, state: 'writing' });
 
@@ -423,7 +465,7 @@ describe('BreakPlanner.ripen', () => {
     it.each(['writing', 'written', 'rendering', 'ready', 'failed'] as const)('asks for nothing when the break is already %s', async state => {
         const { planner, send, known } = build({ canWrite: true });
         const lineup = await lineupOf(12);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
         for (const [id, segment] of known) if (id.startsWith('planned-')) known.set(id, { ...segment, state });
 
         expect(await planner.ripen(lineup)).toBe(0);
@@ -443,7 +485,7 @@ describe('BreakPlanner.ripen', () => {
     it('measures the window from the cursor, so it moves with the broadcast', async () => {
         const { planner, send } = build({ canWrite: true, idents: [] });
         const lineup = await lineupOf(40);
-        await planner.plant(lineup, rules({ breakEveryItems: 4 }));
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
         await planner.ripen(lineup);
         const before = new Set(asked(send));
 
@@ -464,8 +506,8 @@ describe('BreakPlanner.ripen', () => {
         const rarely = build({ canWrite: true, idents: [] });
         const busy = await lineupOf(40);
         const quiet = await lineupOf(40);
-        await often.planner.plant(busy, rules({ breakEveryItems: 1 }));
-        await rarely.planner.plant(quiet, rules({ breakEveryItems: 4 }));
+        await often.planner.plant(busy, rules({ breakEveryMinutes: 1 * TRACK_MINUTES }));
+        await rarely.planner.plant(quiet, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }));
 
         await often.planner.ripen(busy);
         await rarely.planner.ripen(quiet);

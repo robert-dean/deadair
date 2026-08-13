@@ -11,7 +11,7 @@ import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/r
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { inScope } from '#modules/shared/scoped.work.js';
-import { BreakPlanner } from './break.planner.js';
+import { BreakPlanner, type AirClock } from './break.planner.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { resolveRules, stationRules, type ResolvedRules } from './rotation.rules.js';
@@ -699,7 +699,7 @@ export class DirectorService {
             await inScope(this.container, async scope => {
                 const planner = scope.get(BreakPlanner);
 
-                const planted = await planner.plant(lineup, rules);
+                const planted = await planner.plant(lineup, rules, this.airClock(lineup));
 
                 // Written THROUGH rather than soon, and only on a pass that planted something.
                 // What is about to be asked for is the words of breaks in this order, and the job
@@ -720,6 +720,35 @@ export class DirectorService {
         } catch (error) {
             this.logger.warn(`director: could not plan breaks for the running order (${errorText(error)})`);
         }
+    }
+
+    /**
+     * Where the station is against the wall clock, for anything scheduled against a time.
+     *
+     * Anchored to the item ON AIR and its own start, rather than to the first planned one: the
+     * player is holding several items already, and their lengths are in the order, so projecting
+     * from the airing item's start is the only anchor that accounts for what has been handed over
+     * but not yet heard. Anchoring at the cursor instead would put every boundary two or three
+     * records early.
+     *
+     * Deliberately NOT built from `nowPlaying().remainingMs`. That reading comes from the decoder,
+     * `rundown.ts` says plainly that nothing schedules against it, and this is not the exception
+     * that proves it: a jumpy reading would shift every boundary behind it, whereas `startedAt` is
+     * observed once and never moves.
+     *
+     * Falls back to now at the cursor, which is what a station that has just gone on air looks
+     * like. That is honest rather than defensive: nothing is airing, so nothing is late.
+     */
+    private airClock(lineup: StationLineup): AirClock {
+        const now = Date.now();
+        const playing = this.rundown.nowPlaying();
+
+        if (playing !== undefined) {
+            const from = lineup.all().findIndex(item => item.id === playing.item.id);
+            if (from >= 0) return { now, anchorAt: playing.startedAt, from };
+        }
+
+        return { now, anchorAt: now, from: lineup.committedThrough() };
     }
 
     /**

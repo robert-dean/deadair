@@ -1,6 +1,10 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
+import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
+import { isAnchored, nextOccurrence, stationBands } from './clock.bands.js';
+import { roughTime, stationZone } from './clock.words.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
@@ -108,6 +112,7 @@ export class BreakPlanner {
         private readonly writers: BreakWriterRegistry,
         private readonly speech: SpeechService,
         private readonly jobs: PgBossJobBroker,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -129,11 +134,11 @@ export class BreakPlanner {
      * the slow half is deferred, and a break that is never written is skipped by
      * the director exactly like one that was never rendered.
      */
-    async plant(lineup: StationLineup, rules: ResolvedRules): Promise<number> {
-        if (!rules.breaks || rules.breakEveryMinutes <= 0) return 0;
+    async plant(lineup: StationLineup, rules: ResolvedRules, clock: AirClock): Promise<number> {
+        if (!rules.breaks) return 0;
 
-        const positions = placementsFor(lineup.all(), lineup.committedThrough(), rules.breakEveryMinutes * 60_000, isStationBreak);
-        if (positions.length === 0) return 0;
+        const wanted = this.slotsFor(lineup, rules, clock);
+        if (wanted.length === 0) return 0;
 
         // Both halves of being able to say something of the station's own: words to say, and a voice
         // to say them in. Without a speaker a written break could never be rendered and would be
@@ -141,7 +146,7 @@ export class BreakPlanner {
         const canWrite = this.writers.canWrite(TALK_BREAK_KIND) && this.speech.speaker() !== undefined;
         const idents = await this.segments.listReady(IDENT_KIND);
 
-        if (!canWrite && idents.length === 0) {
+        if (!canWrite && idents.length === 0 && wanted.every(slot => slot.band === undefined)) {
             // Not a fault, and deliberately not a warning: a station with no idents recorded and
             // nothing able to write its own is an ordinary state, and it plays records. Said once
             // per pass at info, because an operator wondering why the station never says its own
@@ -150,7 +155,7 @@ export class BreakPlanner {
             return 0;
         }
 
-        const placements = await this.fill(positions, idents, canWrite, await this.lastKindBefore(lineup, positions[0]!));
+        const placements = await this.fill(wanted, idents, canWrite, await this.lastKindBefore(lineup, wanted[0]!.atIndex));
         if (placements.length === 0) return 0;
 
         const result = lineup.insertSegments(placements.map(({ segmentId, atIndex, kind }) => ({ segmentId, atIndex, segmentKind: kind })));
@@ -170,6 +175,105 @@ export class BreakPlanner {
         // pays for the words fifteen minutes ahead.
         this.logger.info('director: planted breaks into the running order', { count: placements.length, written: canWrite });
         return placements.length;
+    }
+
+    /**
+     * Every slot the order is missing a break in, in the order the rules are allowed to claim them.
+     *
+     * ## Precedence is evaluation order
+     *
+     * Anchored rules first, then the operator's interval rules in the order they wrote them, then
+     * the station's own spacing last as the floor. That is the same shape `BreakWriterRegistry` and
+     * `SetGeneratorChain` already settle preference with, and it means an operator reorders lines
+     * rather than learning a priority field.
+     *
+     * The one part that is NOT operator-ordered is anchored-before-spacing, and it is not a
+     * judgement about importance: an anchored rule is the only one that cannot move. A spacing rule
+     * asked to talk every fifteen minutes is equally right at fourteen or sixteen, so it can give
+     * up a boundary and take the next one. A bulletin at nine cannot be at ten past.
+     *
+     * ## Nothing here remembers anything
+     *
+     * Every rule is recomputed from the order as it stands, so two passes racing produce the same
+     * answer and a restart changes nothing. `taken` lives for the length of this call only, and its
+     * job is stopping two rules claiming one boundary in a single pass — across passes that is the
+     * order's own business, because by then the break is really in it.
+     */
+    private slotsFor(lineup: StationLineup, rules: ResolvedRules, clock: AirClock): Slot[] {
+        const items = lineup.all();
+        const cursor = lineup.committedThrough();
+        const { bands, rejected } = stationBands(this.config);
+
+        for (const line of rejected) {
+            // Quoted, and at info rather than warn: a half-typed schedule is somebody editing, not
+            // a fault. It is said every pass because the alternative is a rule that silently does
+            // nothing and an operator with nowhere to look.
+            this.logger.info('director: a line of the station clock could not be read and was ignored', { line });
+        }
+
+        const zone = stationZone(this.config);
+        const projected = projectAirTimes(items, clock.anchorAt, clock.from);
+        const taken = new Set<number>();
+        const slots: Slot[] = [];
+
+        const claim = (atIndex: number, band?: string): void => {
+            if (taken.has(atIndex)) return;
+            taken.add(atIndex);
+            slots.push({ atIndex, ...(band === undefined ? {} : { band }) });
+        };
+
+        // ── anchored ───────────────────────────────────────────────────────────
+        for (const band of bands) {
+            if (!isAnchored(band)) continue;
+
+            const target = nextOccurrence(band, clock.now, zone);
+            const at = nextBoundaryAtOrAfter(projected, target, cursor + PLANT_AHEAD);
+
+            // The order does not reach that far yet. Not a failure and not worth a log: the tail is
+            // topped up continuously and a later pass asks again against a longer order.
+            if (at === undefined) continue;
+
+            // At or after the target is necessary and not sufficient. The first reachable boundary
+            // can be a long way past it — the whole gap between here and it may already be inside
+            // the window the player is holding, so the earliest slot the station can still program
+            // is half an hour after the bulletin was due. A break that late is not a late bulletin,
+            // it is the wrong one, and airing it would have the station say half past at ten.
+            //
+            // The bound is the phrasing's own: a band may take a boundary for exactly as long as
+            // the words for that time would still be true. That is the same window the director
+            // checks at hand-over, so a break cannot be planted into a slot the check would then
+            // throw it out of.
+            if (projected[at]! >= roughTime(target, zone).validUntil) {
+                this.logger.info('director: a slot on the station clock came round with no boundary near enough to use', {
+                    kind: band.kind,
+                    at: new Date(target).toISOString(),
+                });
+                continue;
+            }
+
+            // Already a break here. Left alone rather than doubled, exactly as the spacing walk
+            // leaves one alone — and correct even when it is somebody else's kind, because two
+            // breaks in one gap is worse than a bulletin the DJ introduced.
+            if (items[at]!.kind === 'segment') continue;
+
+            claim(at, band.kind);
+        }
+
+        // ── the operator's own intervals ───────────────────────────────────────
+        for (const band of bands) {
+            if (isAnchored(band)) continue;
+
+            const counts = (item: StationLineupSegmentItem): boolean => item.segmentKind === band.kind;
+            for (const at of placementsFor(items, cursor, band.everyMs, counts, sameKind(slots, band.kind))) claim(at, band.kind);
+        }
+
+        // ── the station's own, last, because the floor goes last ───────────────
+        if (rules.breakEveryMinutes > 0) {
+            const pending = new Set(slots.filter(slot => slot.band === undefined || isStationKind(slot.band)).map(slot => slot.atIndex));
+            for (const at of placementsFor(items, cursor, rules.breakEveryMinutes * 60_000, isStationBreak, pending)) claim(at);
+        }
+
+        return slots.sort((left, right) => left.atIndex - right.atIndex);
     }
 
     /**
@@ -231,19 +335,25 @@ export class BreakPlanner {
      * gets talk breaks at every slot, and one with no speaker gets idents at every slot. Neither
      * needs a branch anywhere else, and neither is worth skipping a break over.
      */
-    private async fill(
-        positions: readonly number[],
-        idents: readonly Segment[],
-        canWrite: boolean,
-        lastKind: string | undefined,
-    ): Promise<Placement[]> {
+    private async fill(wanted: readonly Slot[], idents: readonly Segment[], canWrite: boolean, lastKind: string | undefined): Promise<Placement[]> {
         const placements: Placement[] = [];
         let previousKind = lastKind;
         // Chosen per slot rather than once per pass, so two idents planted together are two
         // different recordings where the library has them.
         let previousIdent: string | undefined;
+        // Read at most once per kind, and only for a kind a band actually asked for, so a station
+        // with no schedule pays nothing for this.
+        const shelved = new Map<string, readonly Segment[]>();
 
-        for (const atIndex of positions) {
+        for (const { atIndex, band } of wanted) {
+            if (band !== undefined && !isStationKind(band)) {
+                const planted = await this.fillBand(band, atIndex, shelved);
+                if (planted !== undefined) placements.push(planted);
+                // The alternation is deliberately NOT advanced. A bulletin is not the station
+                // naming itself, so it is not the station's turn at anything.
+                continue;
+            }
+
             const write = canWrite && (previousKind !== TALK_BREAK_KIND || idents.length === 0);
 
             if (write) {
@@ -262,6 +372,36 @@ export class BreakPlanner {
         }
 
         return placements;
+    }
+
+    /**
+     * One slot an operator's band asked for, filled with a break of the kind it named.
+     *
+     * Two ways to fill it and they are tried in the order that costs least: something that can
+     * WRITE this kind gets a `planned` row exactly as a talk break does, and otherwise a recording
+     * of that kind off the shelf. Answering `undefined` — nothing can write it and the library
+     * holds none — is an ordinary outcome and says so once, because a station whose schedule names
+     * `news` before anything can produce news is a station mid-setup rather than a broken one.
+     *
+     * Nothing here validates the kind against a list. `segments.kind` is free text on purpose, so a
+     * station that wants sponsor spots writes `:20 sponsor`, drops the recordings in the inbox, and
+     * needs no migration and no code.
+     */
+    private async fillBand(kind: string, atIndex: number, shelved: Map<string, readonly Segment[]>): Promise<Placement | undefined> {
+        if (this.writers.canWrite(kind) && this.speech.speaker() !== undefined) {
+            const segment = await this.segments.plan({ kind, label: labelFor(kind) });
+            return { segmentId: segment.id, atIndex, kind, written: true };
+        }
+
+        if (!shelved.has(kind)) shelved.set(kind, await this.segments.listReady(kind));
+        const available = shelved.get(kind) ?? [];
+
+        if (available.length === 0) {
+            this.logger.info('director: the station clock asks for a break nothing can produce', { kind });
+            return undefined;
+        }
+
+        return { segmentId: choose(available, undefined).id, atIndex, kind, written: false };
     }
 
     /**
@@ -300,6 +440,33 @@ export class BreakPlanner {
     }
 }
 
+/**
+ * Where the station is against the wall clock, as the caller sees it.
+ *
+ * Handed in rather than read here, because the transport is the thing that knows when the item on
+ * air started and the module edge runs playout <- director. `anchorAt` is when the item at `from`
+ * began; everything after it is projected.
+ *
+ * Note what is deliberately absent: the decoder's `remainingMs`. `rundown.ts` says nothing
+ * schedules against it and this is not the exception — a jumpy reading would move every boundary
+ * behind it, and `startedAt` plus the order's own durations is a steadier answer to the same
+ * question.
+ */
+export interface AirClock {
+    /** Now, as epoch millis. What a band's next occurrence is measured from. */
+    now: number;
+    /** When the item at {@link from} started, or now when nothing is airing. */
+    anchorAt: number;
+    /** The index {@link anchorAt} describes. */
+    from: number;
+}
+
+/** A boundary a rule claimed, and which rule claimed it. `band` absent is the station's own. */
+interface Slot {
+    atIndex: number;
+    band?: string;
+}
+
 /** One break, and where it goes. `written` distinguishes a row to write from an ident off the shelf. */
 interface Placement {
     segmentId: string;
@@ -320,8 +487,16 @@ interface Placement {
  * one holds nothing but the station's own breaks. Guessing the other way would have the station
  * talk over the top of breaks it had already planted, once, on the first pass after an upgrade.
  */
-const isStationBreak = (item: StationLineupSegmentItem): boolean =>
-    item.segmentKind === undefined || item.segmentKind === IDENT_KIND || item.segmentKind === TALK_BREAK_KIND;
+const isStationKind = (kind: string): boolean => kind === IDENT_KIND || kind === TALK_BREAK_KIND;
+
+const isStationBreak = (item: StationLineupSegmentItem): boolean => item.segmentKind === undefined || isStationKind(item.segmentKind);
+
+/** The slots this pass claimed for a kind, so a later rule for the same kind can see them. */
+const sameKind = (slots: readonly Slot[], kind: string): Set<number> =>
+    new Set(slots.filter(slot => slot.band === kind).map(slot => slot.atIndex));
+
+/** What the console calls a break of a kind nothing has named yet. */
+const labelFor = (kind: string): string => `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
 
 /**
  * Where breaks of ONE kind belong in an order that already has some.
@@ -344,11 +519,19 @@ function placementsFor(
     cursor: number,
     everyMs: number,
     counts: (item: StationLineupSegmentItem) => boolean,
+    // Boundaries where a break of this kind has already been claimed THIS PASS by a rule that ran
+    // earlier — an anchored bulletin, say, against an interval rule for the same kind. They are not
+    // in the order yet, so the walk would otherwise plant a second one a moment later and the two
+    // would air back to back.
+    pending: ReadonlySet<number> = new Set(),
 ): number[] {
     let since = elapsedSinceLastOfKind(items, cursor, counts);
     const placements: number[] = [];
 
     for (let index = cursor; index < items.length; index++) {
+        // A claimed slot sits BEFORE the item at this index, so it counts before the item does.
+        if (pending.has(index)) since = 0;
+
         const item = items[index]!;
         if (item.kind === 'segment' && counts(item)) {
             since = 0;

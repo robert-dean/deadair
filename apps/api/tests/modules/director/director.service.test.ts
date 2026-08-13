@@ -113,6 +113,9 @@ function build(options: Options = {}) {
         { canWrite: () => false } as never,
         { speaker: () => undefined } as never,
         { send: vi.fn(async () => {}) } as never,
+        // The same config the director gets, so a clock band set in a test reaches the planner the
+        // way it reaches it in the app: one settings layer, read by both.
+        station.config,
         logger,
     );
 

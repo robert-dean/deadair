@@ -325,6 +325,17 @@ function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | un
                 continue;
             }
 
+            // A record nobody will hear is not a neighbour. It matters most on the FORWARD side and
+            // most of all on a rewrite: this job is re-offered precisely because the record a break
+            // promised was taken out of the order, so reading the line anyway would have it promise
+            // the same dead record a second time. Backwards it is the same rule for the same
+            // reason — a back-announce of a record that never played is the worse half of the same
+            // mistake — and the walk simply carries on to the record that did.
+            if (item.state === 'unavailable' || item.state === 'skipped' || item.state === 'removed') {
+                if (adjacentOnly) return undefined;
+                continue;
+            }
+
             return {
                 itemId: item.id,
                 track: {

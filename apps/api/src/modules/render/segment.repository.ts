@@ -443,6 +443,51 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * Un-write the breaks that promised a record which is no longer going to air.
+     *
+     * A break saying "coming up, X" is a statement about the future baked into audio that cannot be
+     * re-cut, and the station already refuses to air one whose promise has stopped being true. This
+     * is the half before that: if the promise breaks EARLY enough — a copy benched at the commit
+     * pass rather than at the slot — the words can simply be written again, and a break that says
+     * something true is worth more than a boundary of silence.
+     *
+     * Back to `planned` with the script, the label, the writer and both claims cleared, which is
+     * precisely the state a freshly planted break is in — so `BreakPlanner.ripen` re-offers it on
+     * the next pass and `WriteBreakJob` writes it against the order as it now stands. **Nothing
+     * here needs a deadline.** If the rewrite lands before the slot, the break airs with correct
+     * words; if it does not, the segment is not `ready` when its turn comes and the director skips
+     * it, which is the rule that has always kept a slow writer from costing the station silence.
+     *
+     * `writing` and `rendering` are deliberately left alone: both are a job's claim, and resetting
+     * a row underneath one would have it finish into a state its caller no longer owns. A
+     * `rendering` break whose promise broke is still caught at hand-over by the claim check, which
+     * is where it would have been caught anyway.
+     *
+     * @returns the ids actually reopened, which is what an operator is told about.
+     */
+    async reopenClaims(itemIds: readonly string[]): Promise<string[]> {
+        if (itemIds.length === 0) return [];
+
+        const rows = await this.db
+            .updateTable('deadair.segments')
+            .set({
+                state: 'planned',
+                script: null,
+                writer: null,
+                claimsItemId: null,
+                claimsTimeFrom: null,
+                claimsTimeUntil: null,
+            })
+            .where('claimsItemId', 'in', [...itemIds])
+            .where('state', 'in', ['planned', 'written', 'ready'])
+            .returning('id')
+            .execute();
+
+        for (const row of rows) await this.record(row.id, 'written', 'planned', 'the record it promised is no longer going to air');
+        return rows.map(row => row.id);
+    }
+
+    /**
      * Take a segment for rendering, if it is still there to be taken.
      *
      * A conditional update rather than a read followed by a write, so two runs of the job cannot

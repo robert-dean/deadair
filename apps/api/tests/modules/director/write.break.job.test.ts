@@ -367,6 +367,34 @@ describe('WriteBreakJob', () => {
             expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.not.objectContaining({ claimsItemId: expect.anything() }));
         });
 
+        it('does not promise a record that has been taken out of the order', async () => {
+            // The rewrite case, and the reason this job is re-offered at all: the break is being
+            // written again precisely because the record it promised will not air, so reading that
+            // line anyway would have it promise the same dead record a second time.
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            lineup.markUnavailable(lineup.all()[2]!.id);
+            const { job, writers } = harness({ lineup });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ next: expect.anything() }));
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }));
+        });
+
+        it('back-announces past a record that never played, to the one that did', async () => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake'), track('River Man', 'Nick Drake')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 2 }]);
+            lineup.markUnavailable(lineup.all()[1]!.id);
+            const { job, writers } = harness({ lineup });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: expect.objectContaining({ title: 'Solid Air' }) }));
+        });
+
         it('does not offer the next record across another segment', async () => {
             // The least trustworthy promise there is: an intervening segment is the region an
             // operator is most likely to edit, and it may itself air or be skipped. Withholding the

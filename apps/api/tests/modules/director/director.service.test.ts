@@ -68,6 +68,13 @@ interface Options {
      * a track missing from its answer is one no provider will serve.
      */
     servable?: string[];
+    /**
+     * Which segment promised which line, as `[itemId, segmentId]` pairs.
+     *
+     * Stands in for `segments.claims_item_id`: the repository answers with the breaks whose promise
+     * named one of the lines being taken out.
+     */
+    claimedBy?: [string, string][];
 }
 
 function build(options: Options = {}) {
@@ -138,6 +145,11 @@ function build(options: Options = {}) {
         findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
         findById: vi.fn(async (id: string) => library.get(id)),
         markFailed: vi.fn(async () => {}),
+        // Answers with what it was asked to reopen, which is what the real one returns: the rows it
+        // actually moved back to `planned`.
+        reopenClaims: vi.fn(async (itemIds: readonly string[]) =>
+            (options.claimedBy ?? []).filter(([item]) => itemIds.includes(item)).map(([, segment]) => segment),
+        ),
     };
     const segments = segmentStub as unknown as SegmentRepository;
 
@@ -315,6 +327,48 @@ describe('DirectorService committing', () => {
             expect(activity.record).toHaveBeenCalledWith(
                 expect.objectContaining({ kind: 'item.unavailable', data: expect.objectContaining({ trackId: 'track-b' }) }),
             );
+        });
+
+        it('offers a break that promised it the chance to be written again', async () => {
+            // "Coming up, X" is baked into audio that cannot be re-cut, so a break naming a record
+            // that has just come out of the order has two futures: dropped at hand-over by the
+            // claim check, or written again before its slot. This asks for the second.
+            const { director, segmentStub, activity, seedCatalogued, lineup } = build({
+                items: ['a', 'b', 'c'],
+                servable: ['track-a', 'track-c'],
+            });
+            await seedCatalogued();
+            const doomed = lineup.all()[1]!.id;
+            segmentStub.reopenClaims.mockImplementation(async (itemIds: readonly string[]) => (itemIds.includes(doomed) ? ['seg-1'] : []));
+
+            await director.start();
+            await new Promise(resolve => setImmediate(resolve));
+
+            expect(segmentStub.reopenClaims).toHaveBeenCalledWith([doomed]);
+            expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'break.rewriting', data: { segmentIds: ['seg-1'] } }));
+        });
+
+        it('says nothing when no break had promised it', async () => {
+            const { director, activity, seedCatalogued } = build({ items: ['a', 'b'], servable: ['track-a'] });
+            await seedCatalogued();
+
+            await director.start();
+            await new Promise(resolve => setImmediate(resolve));
+
+            expect(activity.record).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'break.rewriting' }));
+        });
+
+        it('takes the record out even when the break cannot be re-offered', async () => {
+            // Best-effort by design: the break is no worse off than it was a moment ago, and a
+            // failure here must not cost the pass that was taking a dead record out of the order.
+            const { director, segmentStub, lineup, seedCatalogued } = build({ items: ['a', 'b', 'c'], servable: ['track-a', 'track-c'] });
+            await seedCatalogued();
+            segmentStub.reopenClaims.mockRejectedValue(new Error('the segments table is gone'));
+
+            await director.start();
+            await new Promise(resolve => setImmediate(resolve));
+
+            expect(lineup.all()[1]?.state).toBe('unavailable');
         });
 
         it('asks about a batch once, and asks nothing at all about records the catalog does not hold', async () => {

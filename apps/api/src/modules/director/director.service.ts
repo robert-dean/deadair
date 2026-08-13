@@ -641,6 +641,11 @@ export class DirectorService {
 
                 // The order moved, so a refill decision made a moment ago is stale.
                 this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
+                // A break may have promised one of the records that just came out. Sent rather
+                // than awaited, and after the mutations, because the promise is already broken —
+                // the claim check would drop the break at hand-over either way — and this is only
+                // the attempt to have something true to say instead. See `reopenPromises`.
+                void this.reopenPromises(prepared.unavailable);
                 // Throttled. Nobody is waiting on this, and both ways of being late fail the same
                 // direction: the record says less has been committed than has, so the recovery
                 // replays rather than skips. For a station whose order is read back at boot,
@@ -955,6 +960,44 @@ export class DirectorService {
         // changes, alongside the epoch it would otherwise outlive.
         this.pendingVoice = pending;
         return { items: playable, skipped, unavailable };
+    }
+
+    /**
+     * Give a break whose promise just broke a chance to say something true instead.
+     *
+     * The words of "coming up, X" are baked into audio that cannot be re-cut, so a break naming a
+     * record that has just been taken out of the order has exactly two futures: it is dropped at
+     * hand-over by the claim check, or it is written again before its slot arrives. This asks for
+     * the second, and the first is what happens if it does not land in time — no deadline, no
+     * timer, and no new rule, because a segment that is not `ready` when its turn comes is already
+     * skipped rather than waited for.
+     *
+     * Best-effort throughout, and the `catch` is the point: the break is no worse off than it was
+     * a moment ago, so a failure here must never cost the pass that was taking a dead record out of
+     * the running order.
+     */
+    private async reopenPromises(itemIds: readonly string[]): Promise<void> {
+        if (itemIds.length === 0) return;
+
+        try {
+            const reopened = await inScope(this.container, async scope => scope.get(SegmentRepository).reopenClaims(itemIds));
+            if (reopened.length === 0) return;
+
+            this.logger.info('director: a break promised a record that will not air, so it will be written again', {
+                segments: reopened,
+            });
+            void this.activity.record({
+                module: 'director',
+                kind: 'break.rewriting',
+                detail:
+                    reopened.length === 1
+                        ? 'A break promised a record that will not air, so it is being written again.'
+                        : `${reopened.length} breaks promised records that will not air, so they are being written again.`,
+                data: { segmentIds: reopened },
+            });
+        } catch (error) {
+            this.logger.warn(`director: could not re-offer a break whose promise broke (${errorText(error)})`);
+        }
     }
 
     /** Prepare these items and mark whatever the station will pass over. */

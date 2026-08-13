@@ -4,6 +4,7 @@ import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
 import { DEFAULT_TRACK_CACHE, TRACK_CACHE_KEY } from '#modules/playout/audio/track.cache.settings.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
+import { CLOCK_KEYS } from '#modules/director/clock.words.js';
 import { MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
@@ -78,6 +79,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         help: 'Who the station says it is when a phrasing asks for a name. Leave empty and the phrasings that use one simply are not used; every other one still is.',
+    },
+    {
+        group: 'station',
+        key: CLOCK_KEYS.timezone,
+        label: 'Where the station is',
+        type: 'string',
+        default: '',
+        help: "An IANA zone name such as Europe/London or America/New_York, which is what the station reads the clock in when it says the time. A station is a place and its listeners are in it, so this is deliberately not the server's zone. Leave empty to use whatever this machine is set to.",
     },
     {
         group: 'station',

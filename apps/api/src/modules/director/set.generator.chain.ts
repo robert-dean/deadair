@@ -1,4 +1,5 @@
 import { Logger } from '@maroonedsoftware/logger';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 
@@ -39,6 +40,12 @@ export class SetGeneratorChain extends SetGenerator {
 
     constructor(
         private readonly generators: readonly SetGenerator[],
+        // The activity feed, recorded from HERE rather than from `ExtendLineupJob` where the other
+        // refill logging lives, because this is the only place the attribution exists: `generate`
+        // answers with picks and a `TrackPick` does not carry the generator that named it, so the
+        // job can see how many records arrived and never which binding found them. Carrying it up
+        // would mean widening the `SetGenerator` return type for one reader.
+        private readonly activity: ActivityRecorder,
         private readonly logger: Logger,
     ) {
         super();
@@ -65,11 +72,14 @@ export class SetGeneratorChain extends SetGenerator {
         // places it can be judged against something real. Growing an artist set here would undo
         // that one generator at a time.
         const avoidSongKeys = new Set(inputs.avoidSongKeys ?? []);
+        /** Who named how many, in the order they were asked. The feed's half of the answer. */
+        const named: { generator: string; kept: number }[] = [];
 
         for (const generator of this.generators) {
             const missing = inputs.count - chosen.length;
             if (missing <= 0) break;
 
+            const before = chosen.length;
             const picks = await this.ask(generator, { ...inputs, count: missing, avoidSongKeys });
 
             let repeated = 0;
@@ -88,6 +98,11 @@ export class SetGeneratorChain extends SetGenerator {
                 avoidSongKeys.add(song);
                 chosen.push(pick);
             }
+
+            // KEPT rather than named: a generator that answered with fifteen records the order
+            // already holds contributed nothing, and the feed should say so rather than crediting it
+            // with fifteen. `repeated` above is why the two numbers differ.
+            named.push({ generator: generator.name, kept: chosen.length - before });
 
             if (picks.length > 0) {
                 // `repeated` is the number worth having and it is not a curiosity. A generator that
@@ -116,7 +131,38 @@ export class SetGeneratorChain extends SetGenerator {
             // permanently, and the caller already treats a short answer as ordinary.
             this.logger.debug('director: the chain came up short', { asked: inputs.count, named: chosen.length });
         }
+
+        this.announce(inputs.count, chosen.length, named);
         return chosen;
+    }
+
+    /**
+     * Tell the feed who chose this batch.
+     *
+     * Only where more than one generator was asked, or where the whole chain came up short. A
+     * station with one generator installed produces the same line every refill, which is the
+     * fastest way to make a feed unreadable, and the interesting fact is precisely the one a single
+     * binding cannot produce: that something was asked, contributed part of the batch or none of
+     * it, and the floor finished the rest.
+     *
+     * A short chain IS worth saying even from one generator, because a station quietly running
+     * fifteen-minute hours is a library that has run dry rather than a station programming itself.
+     */
+    private announce(asked: number, chosen: number, named: readonly { generator: string; kept: number }[]): void {
+        const short = chosen < asked;
+        if (named.length < 2 && !short) return;
+
+        const words = named.map(entry => `${entry.generator} named ${entry.kept}`).join(', ');
+        void this.activity.record({
+            module: 'director',
+            kind: 'set.generated',
+            // Not a fault: the chain topping up is the design working, and a library smaller than
+            // the station's appetite is an ordinary state rather than something to go and fix.
+            detail: short
+                ? `The station asked for ${asked} records and found ${chosen}: ${words}.`
+                : `The station chose ${chosen} records: ${words}.`,
+            data: { asked, chosen, named: [...named] },
+        });
     }
 
     /** One generator's turn, with every way of failing flattened to "it named nothing". */

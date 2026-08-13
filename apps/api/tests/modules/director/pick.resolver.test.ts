@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
+import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 
 import { DISCOVER_KEY, MAX_DISCOVERIES, PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import type { ProviderTrackLookup } from '../../../src/modules/director/provider.track.lookup.js';
@@ -19,6 +20,9 @@ import type { TracksRepository } from '../../../src/modules/catalog/tracks.repos
 import type { AnalysisRepository, StoredAnalysis } from '../../../src/modules/analysis/analysis.repository.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+
+/** The feed's write side. A discovery is the one thing here that reaches it; see its own case below. */
+const activity = { record: vi.fn(async () => undefined) } as unknown as ActivityRecorder;
 
 /**
  * Rules that suppress nothing, which is what every test about RESOLUTION wants.
@@ -139,7 +143,7 @@ function build(options: Options = {}) {
     const config = { get: (key: string, fallback: unknown) => values[key] ?? fallback } as unknown as AppConfig;
 
     return {
-        resolver: new PickResolver(candidates, tracks, analysis, history, lookup, ingest, config, logger),
+        resolver: new PickResolver(candidates, tracks, analysis, history, lookup, ingest, activity, config, logger),
         candidates,
         tracks,
         analysis,
@@ -368,7 +372,10 @@ describe('PickResolver discovering a record at a provider', () => {
         });
         find.mockRejectedValueOnce(new Error('the provider is down'));
 
-        const resolved = await resolve(resolver, [{ title: 'Dopesmoker', artist: 'Sleep' }, { title: 'A', artist: 'One', trackId: 'track-1' }]);
+        const resolved = await resolve(resolver, [
+            { title: 'Dopesmoker', artist: 'Sleep' },
+            { title: 'A', artist: 'One', trackId: 'track-1' },
+        ]);
 
         expect(resolved.map(track => track.trackId)).toEqual(['track-1']);
     });

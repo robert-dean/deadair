@@ -299,4 +299,8 @@ function fromLines(answer: string): TrackPick[] {
 }
 
 /** Strip the quotes a model puts round a title, of any of the four kinds it might reach for. */
-const unquote = (value: string): string => value.trim().replace(/^["'“‘]|["'”’]$/g, '').trim();
+const unquote = (value: string): string =>
+    value
+        .trim()
+        .replace(/^["'“‘]|["'”’]$/g, '')
+        .trim();

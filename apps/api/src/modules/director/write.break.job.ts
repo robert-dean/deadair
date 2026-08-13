@@ -3,6 +3,7 @@ import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { overrideJobActor } from '#modules/jobs/job.authorization.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
@@ -59,6 +60,7 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
         private readonly segments: SegmentRepository,
         private readonly history: ScriptHistoryRepository,
         private readonly writers: BreakWriterRegistry,
+        private readonly activity: ActivityRecorder,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
         private readonly context: JobContext,
@@ -168,6 +170,28 @@ export class WriteBreakJob implements Job<WriteBreakPayload> {
             // records who won and says nothing about who was asked first.
             ...(result.attempts.length > 1 ? { declined: result.attempts.slice(0, -1).map(attempt => attempt.reason) } : {}),
         });
+
+        // Only the fall-through reaches the feed, for the same reason only a declining attempt
+        // reaches the log line above: a break the first writer produced is the ordinary case and a
+        // line per break would bury everything else. What is worth keeping is the pair of facts the
+        // registry exists to answer with — that a writer was asked and declined, and that the floor
+        // covered for it — because the second alone reads as a station that never had a model.
+        //
+        // `segments.writer` says who won and cannot say who was asked, which is why this is not
+        // derivable from the row afterwards.
+        if (result.attempts.length > 1) {
+            const declined = result.attempts.slice(0, -1);
+            void this.activity.record({
+                module: 'render',
+                kind: 'break.degraded',
+                detail: `A break fell through to the ${result.writer} writer: ${declined.map(attempt => `${attempt.writer} ${attempt.reason ?? 'said nothing'}`).join('; ')}.`,
+                data: {
+                    segmentId,
+                    wrote: result.writer,
+                    declined: declined.map(attempt => ({ writer: attempt.writer, outcome: attempt.outcome, durationMs: attempt.durationMs })),
+                },
+            });
+        }
     }
 
     /**

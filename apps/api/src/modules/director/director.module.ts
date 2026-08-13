@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { BreakPlanner } from './break.planner.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
@@ -52,7 +53,11 @@ export const DirectorModule: ServerKitModule = {
                     // The model first and the catalog draw last, which is the whole of how they are
                     // ranked. Everything the model can do wrong is topped up by the entry below it,
                     // and the entry below it cannot fail.
-                    new SetGeneratorChain([container.get(ModelSetGenerator), container.get(CatalogSetGenerator)], container.get(Logger)),
+                    new SetGeneratorChain(
+                        [container.get(ModelSetGenerator), container.get(CatalogSetGenerator)],
+                        container.get(ActivityRecorder),
+                        container.get(Logger),
+                    ),
             )
             .asScoped();
         // The rung under the resolver: a record the catalog has never seen, found at a provider and

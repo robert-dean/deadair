@@ -34,7 +34,7 @@ interface Options {
 }
 
 /** An empty side of the operator's taste: nothing said, and nothing hidden behind a limit. */
-const nothing = <T,>(): { shown: T[]; total: number } => ({ shown: [], total: 0 });
+const nothing = <T>(): { shown: T[]; total: number } => ({ shown: [], total: 0 });
 
 function build(options: Options = {}) {
     const converse = vi.fn(async (): Promise<LlmConversation> => {

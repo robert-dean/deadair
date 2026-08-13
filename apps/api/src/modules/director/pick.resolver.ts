@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AnalysisRepository, type StoredAnalysis } from '#modules/analysis/analysis.repository.js';
 import { CatalogResolverService } from '#modules/catalog/ingest/catalog.resolver.service.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
@@ -217,6 +218,7 @@ export class PickResolver {
         private readonly history: PlayHistoryRepository,
         private readonly lookup: ProviderTrackLookup,
         private readonly ingest: CatalogResolverService,
+        private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -428,6 +430,16 @@ export class PickResolver {
                 // Whether the station had the WORK already and only lacked this copy, which is a
                 // different fact about the library from having never heard of it at all.
                 created: result.created,
+            });
+            // The station changing its own library without having been asked to, which is the one
+            // thing here an operator might want to have known about afterwards. The names come from
+            // the PICK rather than from the provider's row, because a strict match is what let this
+            // through and the words the station chose with are the ones worth reading back.
+            void this.activity.record({
+                module: 'catalog',
+                kind: 'track.discovered',
+                detail: `${pick.title} by ${pick.artist} was not in the library, so the station took it in from a provider to play it.`,
+                data: { pluginId: found.pluginId, trackId: result.trackId, created: result.created },
             });
             return result.trackId;
         } catch (error) {

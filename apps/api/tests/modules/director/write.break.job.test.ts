@@ -50,12 +50,15 @@ function harness(options: { segment?: Segment; lineup?: StationLineup; written?:
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((_: string, fallback: string) => fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+    // The feed's write side. Only a break that fell through to a second writer reaches it.
+    const activity = { record: vi.fn(async (_event: Record<string, unknown>) => undefined) };
 
     const job = new WriteBreakJob(
         lineups as never,
         segments as never,
         history as never,
         writers as never,
+        activity as never,
         jobs as never,
         config as never,
         { id: 'job-1' } as never,
@@ -63,7 +66,7 @@ function harness(options: { segment?: Segment; lineup?: StationLineup; written?:
         logger as never,
     );
 
-    return { job, segments, lineups, history, writers, jobs, logger };
+    return { job, segments, lineups, history, writers, jobs, logger, activity };
 }
 
 describe('WriteBreakJob', () => {
@@ -122,6 +125,27 @@ describe('WriteBreakJob', () => {
             expect(written).toHaveLength(2);
             expect(written[0]).toMatchObject({ writer: 'a-model', outcome: 'failed', reason: 'out of budget', durationMs: 41 });
             expect(written[1]).toMatchObject({ writer: 'deterministic', outcome: 'written', script: 'That was Solid Air.' });
+        });
+
+        it('tells the feed a break degraded, and says nothing when one did not', async () => {
+            // The two facts the registry answers with every attempt for: that a writer was asked and
+            // declined, and that the floor covered. `segments.writer` records who won and cannot say
+            // who was asked, so this is not derivable from the row afterwards.
+            const fell = harness({ lineup: await lineupWithBreak(), written: degraded });
+            await fell.job.run({ segmentId: 'seg-1' });
+
+            expect(fell.activity.record).toHaveBeenCalledOnce();
+            expect(fell.activity.record.mock.calls[0]![0]).toMatchObject({
+                module: 'render',
+                kind: 'break.degraded',
+                data: { wrote: 'deterministic' },
+            });
+
+            // The ordinary case. A line per break would bury everything else in the feed.
+            const clean = harness({ lineup: await lineupWithBreak() });
+            await clean.job.run({ segmentId: 'seg-1' });
+
+            expect(clean.activity.record).not.toHaveBeenCalled();
         });
 
         it('keeps the records the break was written against', async () => {

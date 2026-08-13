@@ -23,7 +23,26 @@
 # down but never back up and glitches at the end of the voice
 # (savonet/liquidsoap#3714).
 
-settings.log.level.set(3)
+# Level and destination, both env-driven, because the only way to see what this process is doing
+# has been `docker logs` — which needs a socket the app deliberately does not have, and which an
+# operator on Docker Desktop cannot read from a script either. The shim already writes to
+# /streamlogs; this puts the engine's own log beside it, where the app's rotating logs and the
+# shim's are, so all three can be read on one timeline.
+#
+# Level 3, and 4 is a thing to raise deliberately and lower again: at 4 the harbor logs every
+# header of every control call, and that endpoint is polled continuously, so it wrote a megabyte a
+# minute against an ordinary station. It was worth every byte once — it is what showed two app
+# processes presenting two DIFFERENT bridge secrets to this port, one of them twenty times a second,
+# which no amount of reading either side could have established. Set LOG_LEVEL in radio.env; no edit
+# here, and no rebuild.
+#
+# stdout stays on: `docker logs` is still the right answer for anyone who has the socket, and the
+# file is an addition rather than a redirect.
+settings.log.level.set(int_of_string(environment.get("LOG_LEVEL", default="3")))
+settings.log.stdout.set(true)
+settings.log.file.set(true)
+settings.log.file.append.set(true)
+settings.log.file.path.set(environment.get("LOG_FILE", default="/streamlogs/liquidsoap.log"))
 
 # The image runs as root so the bundled helpers can write their logs. Liquidsoap's init refuses
 # root by default; allow it for this local/personal container.

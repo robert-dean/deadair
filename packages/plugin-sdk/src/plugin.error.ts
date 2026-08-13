@@ -272,3 +272,18 @@ export function toPluginError(error: unknown, fallback: PluginErrorCode = 'inter
     const message = error instanceof Error ? error.message : String(error);
     return new PluginError(message, { cause: error }).withCode(fallback);
 }
+
+/**
+ * A caught `unknown` as a sentence, for a message a person reads.
+ *
+ * `catch` binds `unknown`, so every plugin reporting a failure narrows it before
+ * it can say anything — five sites here did, four of them inline. The fallback
+ * is not padding: a rejected fetch, a thrown string and an aborted signal all
+ * arrive here and only some of them are `Error`.
+ *
+ * This is NOT error handling and is not a substitute for {@link toPluginError}.
+ * It produces a string for a log line or a `testConnection` result, deliberately
+ * losing the code, the cause and the retry advice. Anything deciding what to DO
+ * about a failure wants the error itself.
+ */
+export const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));

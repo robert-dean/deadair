@@ -1,6 +1,8 @@
 import {
-    configString,
     Plugin,
+    PluginError,
+    configString,
+    errorText,
     type GetPlaylistTracksOptions,
     type ListPlaylistsOptions,
     type MusicProviderPluginInstance,
@@ -10,7 +12,6 @@ import {
     type ProviderStream,
     type ProviderTrack,
     type SearchTracksOptions,
-    PluginError,
 } from '@deadair/plugin-sdk';
 import { SpotifyApi } from '@spotify/web-api-ts-sdk';
 
@@ -33,11 +34,6 @@ const DEVICE_ID_CACHE_TTL_MS = 60_000;
 
 /** Surfaced when a steer call 404s and there is no device left to fall back on. */
 const NO_ACTIVE_DEVICE_MESSAGE = 'no active Spotify device; open Spotify or start the go-librespot bridge';
-
-function errorText(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    return String(error);
-}
 
 /** Maps a batch of Spotify items to `ProviderTrack`s, dropping the ones `mapTrack` can't use (nulls, episodes). */
 function toProviderTracks(tracks: Parameters<typeof mapTrack>[0][]): ProviderTrack[] {

@@ -1,8 +1,9 @@
 import {
-    baseForm,
-    normalize,
     Plugin,
     PluginError,
+    baseForm,
+    errorText,
+    normalize,
     type AlbumEnrichment,
     type AlbumRef,
     type ArtistEnrichment,
@@ -112,7 +113,7 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
             const server = [body.type, body.serverVersion].filter(part => part).join(' ');
             return { ok: true, message: server ? `Connected to ${server}.` : 'Connected.' };
         } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            return { ok: false, message: errorText(error) };
         }
     }
 

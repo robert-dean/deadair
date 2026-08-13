@@ -1,9 +1,10 @@
 import {
-    configBaseUrl,
-    configString,
-    jsonBody,
     Plugin,
     PluginError,
+    configBaseUrl,
+    configString,
+    errorText,
+    jsonBody,
     type LlmFinishReason,
     type LlmHandle,
     type LlmModelInfo,
@@ -111,7 +112,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         try {
             models = await this.fetchModels();
         } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            return { ok: false, message: errorText(error) };
         }
 
         if (models.length === 0) {
@@ -153,7 +154,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         try {
             ids = await this.fetchModels();
         } catch (error) {
-            this.host.logger.debug('llm could not suggest models', { error: error instanceof Error ? error.message : String(error) });
+            this.host.logger.debug('llm could not suggest models', { error: errorText(error) });
             return {};
         }
 
@@ -180,7 +181,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         try {
             discovered = await this.fetchModels();
         } catch (error) {
-            this.host.logger.debug('llm could not list models', { error: error instanceof Error ? error.message : String(error) });
+            this.host.logger.debug('llm could not list models', { error: errorText(error) });
             discovered = [];
         }
 

@@ -14,6 +14,7 @@ import { DirectorService } from '../../../src/modules/director/director.service.
 import { StationLineup, type StationLineupMode, type StationLineupOnEnd } from '../../../src/modules/director/station.lineup.js';
 import { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
+import { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
 import { StationAirRepository, type StationAir } from '../../../src/modules/director/station.air.repository.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import { ROTATION_KEYS } from '../../../src/modules/director/rotation.rules.js';
@@ -45,6 +46,9 @@ const track = (externalId: string): RundownTrack => ({
     durationMs: TRACK_MINUTES * 60_000,
 });
 
+/** A record the CATALOG holds, which is the only kind whose copies can be judged before its slot. */
+const catalogued = (externalId: string): RundownTrack => ({ ...track(externalId), trackId: `track-${externalId}` });
+
 interface Options {
     air?: Partial<StationAir>;
     items?: string[];
@@ -56,6 +60,14 @@ interface Options {
     segments?: Partial<Segment>[];
     /** The station has never been given anything to play. */
     noOrder?: boolean;
+    /**
+     * Track ids the catalog can still serve a copy of.
+     *
+     * `undefined` means every one of them, which is the ordinary station. A test naming a subset is
+     * staging a benched copy: `CandidatesRepository.bindingsFor` excludes `missing_at` outright, so
+     * a track missing from its answer is one no provider will serve.
+     */
+    servable?: string[];
 }
 
 function build(options: Options = {}) {
@@ -129,6 +141,17 @@ function build(options: Options = {}) {
     };
     const segments = segmentStub as unknown as SegmentRepository;
 
+    const candidates = {
+        bindingsFor: vi.fn(
+            async (trackIds: readonly string[]) =>
+                new Map(
+                    trackIds
+                        .filter(trackId => options.servable === undefined || options.servable.includes(trackId))
+                        .map(trackId => [trackId, { trackId, pluginId: 'deadair.spotify', externalId: trackId }]),
+                ),
+        ),
+    } as unknown as CandidatesRepository;
+
     const scope = {
         get: vi.fn((token: unknown) =>
             token === StationLineupRepository
@@ -139,7 +162,9 @@ function build(options: Options = {}) {
                     ? segments
                     : token === BreakPlanner
                       ? breaks
-                      : history,
+                      : token === CandidatesRepository
+                        ? candidates
+                        : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -167,6 +192,7 @@ function build(options: Options = {}) {
         lineups,
         breaks,
         segmentStub,
+        candidates,
         lineup,
         saved: () => saved,
         jobs,
@@ -175,6 +201,8 @@ function build(options: Options = {}) {
         audience,
         activity,
         seed: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(track)),
+        /** The same, with every record catalogued, so its copies can be judged before its slot. */
+        seedCatalogued: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(catalogued)),
         setAir: (next: StationAir | undefined) => {
             air = next;
         },
@@ -261,6 +289,44 @@ describe('DirectorService committing', () => {
         await director.start();
 
         expect(rundown.upcoming()).toHaveLength(0);
+    });
+
+    // A copy that fails to serve four times is benched, and every reader excludes on that from the
+    // moment it happens. Without this the line sat in the order looking fine until the transport
+    // reached it and could not resolve a URL — several minutes during which the station was still
+    // planning around a record it could no longer play, and still allowed to promise it in a break.
+    describe('a record whose copies have all been benched', () => {
+        it('comes out of the running order at the commit pass rather than at its slot', async () => {
+            const { director, lineup, rundown, seedCatalogued } = build({ items: ['a', 'b', 'c'], servable: ['track-a', 'track-c'] });
+            await seedCatalogued();
+
+            await director.start();
+
+            expect(lineup.all()[1]?.state).toBe('unavailable');
+            expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a', 'c']);
+        });
+
+        it('says so on the feed, because the station is narrowing its own rotation', async () => {
+            const { director, activity, seedCatalogued } = build({ items: ['a', 'b'], servable: ['track-a'] });
+            await seedCatalogued();
+
+            await director.start();
+
+            expect(activity.record).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'item.unavailable', data: expect.objectContaining({ trackId: 'track-b' }) }),
+            );
+        });
+
+        it('asks about a batch once, and asks nothing at all about records the catalog does not hold', async () => {
+            // A pick straight from a provider playlist has no `trackId` and no binding row to be
+            // missing, so there is nothing to judge and it answers for itself at hand-over.
+            const { director, candidates, seed } = build({ items: ['a', 'b', 'c'] });
+            await seed();
+
+            await director.start();
+
+            expect(candidates.bindingsFor).not.toHaveBeenCalled();
+        });
     });
 
     it('commits nothing when nothing is on air', async () => {

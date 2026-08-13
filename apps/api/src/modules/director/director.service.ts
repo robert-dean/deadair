@@ -12,6 +12,7 @@ import { SegmentRepository, type Segment } from '#modules/render/segment.reposit
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { BreakPlanner, type AirClock } from './break.planner.js';
+import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { resolveRules, stationRules, type ResolvedRules } from './rotation.rules.js';
@@ -636,6 +637,7 @@ export class DirectorService {
             if (prepared) {
                 this.rundown.prepare(prepared.items);
                 for (const itemId of prepared.skipped) lineup.markSkipped(itemId);
+                for (const itemId of prepared.unavailable) lineup.markUnavailable(itemId);
 
                 // The order moved, so a refill decision made a moment ago is stale.
                 this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
@@ -768,15 +770,34 @@ export class DirectorService {
      * One read for the whole batch rather than one per item, because a commit
      * pass runs on every track boundary and the lead is only three items.
      */
-    private async toPlayerItems(items: readonly StationLineupItem[]): Promise<{ items: RundownItem[]; skipped: string[] }> {
+    private async toPlayerItems(items: readonly StationLineupItem[]): Promise<{ items: RundownItem[]; skipped: string[]; unavailable: string[] }> {
         const wanted = items.filter(item => item.kind === 'segment').map(item => item.segmentId);
         const segments =
             wanted.length === 0
                 ? new Map<string, Segment>()
                 : await inScope(this.container, async scope => scope.get(SegmentRepository).findByIds(wanted));
 
+        // Which of these records the station can still get hold of, asked ONCE for the batch.
+        //
+        // Read here rather than left to the hand-over because the answer changes underneath a
+        // running order: a copy that fails to serve four times is benched by `TrackAudioService`,
+        // every reader excludes on `missing_at` from that moment, and the line sits in the order
+        // looking perfectly fine until the transport reaches it and cannot resolve a URL. That is
+        // several minutes during which the station is still planning around a record it can no
+        // longer play — and, worse, still allowed to promise it in a talk break.
+        //
+        // Only a record the CATALOG holds can be judged: a pick straight from a provider playlist
+        // has no `trackId` and no binding row to be missing, so it is left alone and answers for
+        // itself at hand-over.
+        const catalogued = items.flatMap(item => (item.kind === 'track' && item.track.trackId !== undefined ? [item.track.trackId] : []));
+        const bindings =
+            catalogued.length === 0
+                ? new Set<string>()
+                : new Set((await inScope(this.container, async scope => scope.get(CandidatesRepository).bindingsFor(catalogued))).keys());
+
         const playable: RundownItem[] = [];
         const skipped: string[] = [];
+        const unavailable: string[] = [];
         // A talk-over waiting for a record to attach itself to. It may have arrived in an earlier
         // batch: see the field's own note.
         let pending = this.pendingVoice;
@@ -784,6 +805,28 @@ export class DirectorService {
 
         for (const item of items) {
             if (item.kind === 'track') {
+                // Nothing the station can play, and known before the slot rather than at it. The
+                // line comes out of the running order now, which is what gives a break promising
+                // it time to be rewritten — and, failing that, what makes the claim check at
+                // hand-over drop the break rather than air a promise about a record nobody will
+                // hear. See `nextTrackAfter`, which passes over an unavailable line.
+                if (item.track.trackId !== undefined && !bindings.has(item.track.trackId)) {
+                    this.logger.info('director: taking a record out of the order because no copy of it will serve', {
+                        item: item.id,
+                        track: item.track.trackId,
+                        title: item.track.title,
+                    });
+                    void this.activity.record({
+                        module: 'director',
+                        kind: 'item.unavailable',
+                        severity: 'fault',
+                        detail: `"${item.track.title}" was taken out of the running order: every copy of it has been benched.`,
+                        data: { itemId: item.id, trackId: item.track.trackId },
+                    });
+                    unavailable.push(item.id);
+                    continue;
+                }
+
                 // The order's own id, carried through unchanged. It rides the annotation into
                 // Liquidsoap and comes back on its readings, which is what lets a restarted
                 // process name the record a listener is in the middle of.
@@ -911,7 +954,7 @@ export class DirectorService {
         // discarding it would silently lose that many breaks. It is cleared wherever the plan
         // changes, alongside the epoch it would otherwise outlive.
         this.pendingVoice = pending;
-        return { items: playable, skipped };
+        return { items: playable, skipped, unavailable };
     }
 
     /** Prepare these items and mark whatever the station will pass over. */
@@ -919,6 +962,7 @@ export class DirectorService {
         const prepared = await this.toPlayerItems(items);
         this.rundown.prepare(prepared.items);
         for (const itemId of prepared.skipped) this.lineup?.markSkipped(itemId);
+        for (const itemId of prepared.unavailable) this.lineup?.markUnavailable(itemId);
     }
 
     /**

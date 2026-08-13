@@ -2,7 +2,9 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
+import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
@@ -52,8 +54,23 @@ export class DirectorConsoleService {
         // Scoped, so a send commits with the request's own transaction rather than
         // ahead of it. See JobsModule for why the request path takes this one.
         private readonly jobs: JobBroker,
+        // Who is asking. This is the one surface where the station's own decisions and a person's
+        // are told apart, which is what `station_events.actor_id` is for.
+        private readonly context: AuthorizationContext,
+        private readonly activity: ActivityRecorder,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * The actor to stamp on an event, when there is one.
+     *
+     * A user id or nothing. Every route here is behind `platform.manage`, so in practice there is
+     * always a user; the `undefined` arm is for a system actor reaching the same method, which is
+     * how a job would look if one ever called it.
+     */
+    private actor(): string | undefined {
+        return this.context.actor.kind === 'user' ? this.context.actor.actorId : undefined;
+    }
 
     /**
      * What is on air right now.
@@ -112,6 +129,16 @@ export class DirectorConsoleService {
         await this.settings.set(AIR_MODE_KEY, input.airMode);
 
         this.logger.info('director: changed what puts the station on air', { airMode: input.airMode });
+        void this.activity.record({
+            module: 'director',
+            kind: 'airMode.set',
+            detail:
+                input.airMode === 'audience'
+                    ? 'The station was set to air only while somebody is listening.'
+                    : 'The station was set to air whether or not anybody is listening.',
+            data: { airMode: input.airMode },
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
+        });
         return { ...(await this.getAir()), airMode: input.airMode };
     }
 
@@ -191,6 +218,17 @@ export class DirectorConsoleService {
     /** Add tracks to what is on air now, rather than waiting for it to run short. */
     async extendOrder(input: ExtendStationInput): Promise<void> {
         await this.jobs.send('director.extend_lineup', { ...(input.count === undefined ? {} : { count: input.count }) });
+
+        // The ASK, not the outcome. What the refill actually found is the chain's own event, minutes
+        // later and with no actor on it, so recording both is what tells "nobody asked for more
+        // records" apart from "somebody did and the generators came up short".
+        void this.activity.record({
+            module: 'director',
+            kind: 'order.extended',
+            detail: 'An operator asked for more records.',
+            ...(input.count === undefined ? {} : { data: { count: input.count } }),
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
+        });
     }
 
     /** Shuffle everything on air that has not been handed to the player. */
@@ -241,6 +279,17 @@ export class DirectorConsoleService {
     private async editOrder(edit: OrderEdit): Promise<StationOrder> {
         this.director.invalidate();
         this.require(await this.director.applyEdit(edit));
+
+        // After {@link require}, so a refused edit writes nothing: the feed says what happened to
+        // the station and a 422 did not happen to it. One place for all four edits, because they
+        // arrive through one funnel and a per-method call would drift the moment a fifth is added.
+        void this.activity.record({
+            module: 'director',
+            kind: `order.${edit.kind}`,
+            detail: describeEdit(edit),
+            data: { ...edit },
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
+        });
         return await this.getOrder();
     }
 
@@ -376,3 +425,22 @@ const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undef
     ...(item.over === undefined ? {} : { overAtMs: item.over.atMs }),
     ...(segment?.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
 });
+
+/**
+ * One edit, in the words an operator would use for it.
+ *
+ * Deliberately says what it did to the STATION rather than to a list, which is the same rule the
+ * `/onair` page's copy follows: a shuffle here is heard by every listener within a few records.
+ */
+function describeEdit(edit: OrderEdit): string {
+    switch (edit.kind) {
+        case 'shuffle':
+            return 'An operator shuffled everything the player is not already holding.';
+        case 'move':
+            return 'An operator moved an item in the running order.';
+        case 'remove':
+            return 'An operator dropped an item before it could play.';
+        case 'insertSegment':
+            return 'An operator put a break into the running order.';
+    }
+}

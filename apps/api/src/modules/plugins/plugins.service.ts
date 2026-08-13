@@ -3,7 +3,9 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type ConfigFieldOption, type PluginManifest } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
+import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { safeChannel } from '#src/logging/rotating.log.store.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginConfigService, type PluginConfigReadModel } from './plugin.config.service.js';
@@ -142,8 +144,29 @@ export class PluginsService {
         private readonly accessControl: AccessControlService,
         private readonly pluginLog: PluginLog,
         private readonly afterCommit: AfterCommit,
+        // Who is asking, and the feed to say so on. Every write here is an operator's decision
+        // about what the station can reach, which is exactly what `station_events.actor_id` is for.
+        private readonly context: AuthorizationContext,
+        private readonly activity: ActivityRecorder,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * Note an operator's decision about a plugin.
+     *
+     * Deliberately carries the plugin's ID and NOTHING it holds: a plugin's config is credentials
+     * more often than not, and the feed has no redaction pass. See the rule in `ActivityRecorder`.
+     */
+    private note(id: string, kind: string, detail: string): void {
+        const actorId = this.context.actor.kind === 'user' ? this.context.actor.actorId : undefined;
+        void this.activity.record({
+            module: 'plugins',
+            kind,
+            detail,
+            data: { pluginId: id },
+            ...(actorId === undefined ? {} : { actorId }),
+        });
+    }
 
     /**
      * Reinitializes the plugin once this request's transaction has committed, and
@@ -215,6 +238,9 @@ export class PluginsService {
         await this.validateSubmission(manifest, body.config);
         await this.pluginConfigService.saveConfig(id, manifest.configFields, body.config);
         this.reinitAfterCommit(id);
+        // Which plugin was reconfigured, never WHAT was set: half of a plugin's config is
+        // credentials, and unlike the log store this table has no redaction pass.
+        this.note(id, 'plugin.configured', `An operator changed the ${id} plugin's settings.`);
 
         return this.detailOf(record);
     }
@@ -320,6 +346,7 @@ export class PluginsService {
         // run now — which means the detail below reports the status the reload
         // actually produced.
         await this.pluginLifecycleManager.reinitPlugin(id);
+        this.note(id, 'plugin.reloaded', `An operator reloaded the ${id} plugin.`);
         return this.detailOf(record);
     }
 
@@ -521,6 +548,13 @@ export class PluginsService {
         // written — enabling a plugin used to read back the old `false` and do
         // nothing at all, quietly, with a 200.
         this.reinitAfterCommit(record.id);
+        // What the station can reach changed, which is the plugin event most worth having: a
+        // capability going away explains a symptom somewhere else entirely, hours later.
+        this.note(
+            record.id,
+            enabled ? 'plugin.enabled' : 'plugin.disabled',
+            `An operator ${enabled ? 'enabled' : 'disabled'} the ${record.id} plugin.`,
+        );
         return this.detailOf(record);
     }
 

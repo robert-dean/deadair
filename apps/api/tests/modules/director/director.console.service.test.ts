@@ -91,8 +91,14 @@ function build(options: Options = {}) {
     const settings = { set: vi.fn(async () => {}) } as unknown as SettingsService;
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as JobBroker;
 
+    // A signed-in operator by default, because every route on this service is behind
+    // `platform.manage` and the actor stamp is most of what its events are for.
+    const context = { actor: { kind: 'user', sessionToken: '', actorId: 'actor-1' } } as never;
+    const activity = { record: vi.fn(async (_event: Record<string, unknown>) => undefined) };
+
     return {
-        service: new DirectorConsoleService(air, director, playlists, tracks, segments, settings, jobs, logger),
+        service: new DirectorConsoleService(air, director, playlists, tracks, segments, settings, jobs, context, activity as never, logger),
+        activity,
         segments,
         settings,
         air,
@@ -319,6 +325,31 @@ describe('DirectorConsoleService editing the running order', () => {
         expect(director.invalidate).toHaveBeenCalled();
         expect(director.applyEdit).toHaveBeenCalledWith({ kind: 'shuffle' });
         expect(result.items).toHaveLength(3);
+    });
+
+    it('records the edit against the operator who made it', async () => {
+        // The one surface where a person's decision and the station's own are told apart, which is
+        // what `station_events.actor_id` exists for.
+        const order = onAirWith(3);
+        const { service, activity } = build({ order });
+
+        await service.shuffleOrder();
+
+        expect(activity.record).toHaveBeenCalledOnce();
+        expect(activity.record.mock.calls[0]![0]).toMatchObject({
+            module: 'director',
+            kind: 'order.shuffle',
+            actorId: 'actor-1',
+        });
+    });
+
+    it('records nothing for an edit the director refused', async () => {
+        // A 422 did not happen to the station, so it does not belong in a feed that says what did.
+        const { service, activity } = build({ order: onAirWith(2) });
+
+        await expect(service.removeOrderItem('nope')).rejects.toThrow();
+
+        expect(activity.record).not.toHaveBeenCalled();
     });
 
     it('answers with the running order the edit produced', async () => {

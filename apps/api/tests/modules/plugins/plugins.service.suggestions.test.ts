@@ -46,6 +46,8 @@ function serviceWith(instance: Record<string, unknown> | undefined) {
         permissive(),
         stubPluginLog().log,
         new AfterCommit(),
+        { actor: { kind: 'system', sessionToken: '', source: 'test' } } as never,
+        { record: vi.fn(async () => undefined) } as never,
         { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
     );
 }

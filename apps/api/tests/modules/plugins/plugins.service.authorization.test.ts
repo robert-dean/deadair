@@ -190,6 +190,8 @@ function makeService(
         accessControl,
         stubPluginLog().log,
         afterCommit,
+        { actor: { kind: 'system', sessionToken: '', source: 'test' } } as never,
+        { record: vi.fn(async () => undefined) } as never,
         { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
     );
 

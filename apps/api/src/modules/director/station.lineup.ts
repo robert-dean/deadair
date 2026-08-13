@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { LiveOrder } from '#modules/playout/live.order.js';
+import type { AiringResult, LiveOrder } from '#modules/playout/live.order.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 
 /**
@@ -430,22 +430,28 @@ export class StationLineup implements LiveOrder {
      * Whatever was airing becomes `played`, which is the one honest moment to say so:
      * a record is heard until the next one starts.
      *
-     * @returns whether this order holds the item. False for an id from a session
-     *   before this process started, which must never be invented into the order.
+     * @returns what this did to the order, or `undefined` when the order does not hold the item —
+     *   an id from a session before this process started, which must never be invented into the
+     *   order. The COUNT is answered rather than kept, because the only caller that wants it is a
+     *   report and this class holds no opinion about who is listening.
      */
-    markAiring(itemId: string): boolean {
+    markAiring(itemId: string): AiringResult | undefined {
         const index = this.itemList.findIndex(item => item.id === itemId);
-        if (index < 0) return false;
+        if (index < 0) return undefined;
 
         const item = this.itemList[index]!;
-        if (item.state === 'airing') return true;
+        if (item.state === 'airing') return { passedOver: 0 };
 
+        let passedOver = 0;
         for (const earlier of this.itemList.slice(0, index)) {
             if (earlier.state === 'airing') earlier.state = 'played';
-            else if (earlier.state === 'handed' || earlier.state === 'planned') earlier.state = 'skipped';
+            else if (earlier.state === 'handed' || earlier.state === 'planned') {
+                earlier.state = 'skipped';
+                passedOver += 1;
+            }
         }
         item.state = 'airing';
-        return true;
+        return { passedOver };
     }
 
     /** This one is behind us. */

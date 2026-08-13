@@ -29,6 +29,20 @@ export interface LiveItem {
     state: LiveItemState;
 }
 
+/**
+ * What one item going on air did to everything ahead of it.
+ *
+ * `passedOver` is the number of items that had been committed and never aired: the player moved
+ * past them, which is the same observation whether the cause was a failed decode, an operator's
+ * skip or a push that never landed. Zero on an ordinary boundary, which is nearly every one.
+ *
+ * Declared here rather than beside the implementation for the reason {@link LiveOrder} is: the
+ * edge runs playout <- director, and this is part of what the transport asks for.
+ */
+export interface AiringResult {
+    passedOver: number;
+}
+
 export interface LiveOrder {
     /** Every item, in the order it will air. */
     all(): readonly LiveItem[];
@@ -37,8 +51,14 @@ export interface LiveOrder {
 
     /** Given to the player. A promise, not a fact. */
     markHanded(itemId: string): boolean;
-    /** The player says a listener is hearing it. Everything committed before it was passed over. */
-    markAiring(itemId: string): boolean;
+    /**
+     * The player says a listener is hearing it. Everything committed before it was passed over.
+     *
+     * Answers HOW MANY were passed over rather than just whether the order holds the item, because
+     * the catch-up is the one transition that can write off a dozen items at once and nothing else
+     * in the transport can see it happen. `undefined` for an id this order does not hold.
+     */
+    markAiring(itemId: string): AiringResult | undefined;
     /** Behind us. */
     markPlayed(itemId: string): boolean;
     /** The station will not be airing it: nothing could resolve it, or it has no audio. */

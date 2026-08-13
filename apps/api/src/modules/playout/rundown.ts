@@ -288,7 +288,7 @@ export class Rundown {
 
     private readonly changeListeners = new Set<() => void>();
     private readonly resetListeners = new Set<(standingDown: boolean) => void>();
-    private readonly airedListeners = new Set<(item: RundownItem) => void>();
+    private readonly airedListeners = new Set<(item: RundownItem, passedOver: number) => void>();
 
     constructor(
         private readonly resolver: TrackResolver,
@@ -598,9 +598,10 @@ export class Rundown {
      */
     markAired(id: string): boolean {
         if (this.airing?.id === id) return true;
-        if (!this.order?.markAiring(id)) return false;
+        const result = this.order?.markAiring(id);
+        if (result === undefined) return false;
 
-        this.setAiring(id);
+        this.setAiring(id, result.passedOver);
         this.emit();
         return true;
     }
@@ -676,7 +677,7 @@ export class Rundown {
      * the boundary, and the next item is being fetched behind it. A listener with
      * real work to do hands it off (a job, a bus publish) and returns.
      */
-    onAired(listener: (item: RundownItem) => void): () => void {
+    onAired(listener: (item: RundownItem, passedOver: number) => void): () => void {
         this.airedListeners.add(listener);
         return () => this.airedListeners.delete(listener);
     }
@@ -773,13 +774,13 @@ export class Rundown {
         return false;
     }
 
-    private setAiring(id: string): void {
+    private setAiring(id: string, passedOver = 0): void {
         this.airing = { id, startedAt: Date.now(), observedAt: Date.now() };
         this.unknownOnAir = undefined;
         this.servedAt.delete(id);
 
         const item = this.prepared.get(id);
-        if (item) this.announceAired(item);
+        if (item) this.announceAired(item, passedOver);
     }
 
     /**
@@ -790,10 +791,10 @@ export class Rundown {
      * subscriber throwing must not cost the others the event. The state has already
      * been committed by the time this runs.
      */
-    private announceAired(item: RundownItem): void {
+    private announceAired(item: RundownItem, passedOver: number): void {
         for (const listener of this.airedListeners) {
             try {
-                listener(item);
+                listener(item, passedOver);
             } catch (error) {
                 this.logger.warn(`rundown: an aired listener threw (${error instanceof Error ? error.message : String(error)})`);
             }

@@ -625,6 +625,43 @@ describe('DirectorService history', () => {
         expect(history.record).toHaveBeenCalledOnce();
         expect(vi.mocked(history.record).mock.calls[0]![0]!.item.externalId).toBe('a');
     });
+
+    it('reports a catch-up as ONE event, however many items it wrote off', async () => {
+        // Found by running it: a stream that dropped while the station was driving wrote off
+        // twenty items and the feed said nothing at all. One line per item would have been the
+        // other failure — twenty rows burying everything else on the page.
+        const { director, rundown, activity, seed } = build();
+        await seed();
+        await director.start();
+
+        // Three items handed over, and the player reports the THIRD: the two behind it were
+        // committed and never aired, which is exactly what a failed decode or a dropped stream
+        // looks like from here.
+        await rundown.next();
+        await rundown.next();
+        const third = await rundown.next();
+        rundown.markAired(third!.item.id);
+        await settle();
+
+        const record = activity.record as unknown as ReturnType<typeof vi.fn>;
+        const caughtUp = record.mock.calls.filter(call => call[0]?.kind === 'order.caughtUp');
+        expect(caughtUp).toHaveLength(1);
+        expect(caughtUp[0]![0]).toMatchObject({ severity: 'warn', data: { passedOver: 2 } });
+    });
+
+    it('says nothing about an ordinary boundary', async () => {
+        // Every track start would otherwise write a row saying nothing happened.
+        const { director, rundown, activity, seed } = build();
+        await seed();
+        await director.start();
+
+        const first = await rundown.next();
+        rundown.markAired(first!.item.id);
+        await settle();
+
+        const record = activity.record as unknown as ReturnType<typeof vi.fn>;
+        expect(record.mock.calls.filter(call => call[0]?.kind === 'order.caughtUp')).toHaveLength(0);
+    });
 });
 
 describe('DirectorService refilling', () => {

@@ -196,7 +196,7 @@ export class DirectorService {
         // hands its own work off to a job; queueing it behind a commit pass would delay play
         // history for no benefit and put a write nobody is waiting on in front of the decisions
         // that keep the station on air.
-        this.unsubscribes.push(this.rundown.onAired(item => this.remember(item)));
+        this.unsubscribes.push(this.rundown.onAired((item, passedOver) => this.remember(item, passedOver)));
         // A stand-down is the station being stopped, from wherever: the transport's
         // own Stop, or this class reaching the end of an order that says to stop. The
         // director has to hear it, or the next change event refills the running order
@@ -939,7 +939,27 @@ export class DirectorService {
      * tracks from being heard, and history that recorded it would suppress a song
      * before anybody had played it.
      */
-    private remember(item: RundownItem): void {
+    private remember(item: RundownItem, passedOver: number): void {
+        // ONE event for the whole catch-up, not one per item, and that is the difference between a
+        // line worth reading and twenty that bury the rest of the feed. The count is the fact: the
+        // player moved past everything committed behind it, and whether that was a failed decode,
+        // an operator's skip or a stream that dropped, the station lost that programming and
+        // nothing else says so. The per-item branch in `toPlayerItems` covers a DIFFERENT case — a
+        // break that was not ready when its slot came round — and was the only one covered until a
+        // run against the real station wrote off twenty items in silence.
+        //
+        // `warn` rather than `fault`: the station kept broadcasting and a listener heard the next
+        // record, which is not the same as the mount going quiet.
+        if (passedOver > 0) {
+            void this.activity.record({
+                module: 'director',
+                kind: 'order.caughtUp',
+                severity: 'warn',
+                detail: `The player moved on to ${item.title}, so ${passedOver === 1 ? 'one item that had been handed over' : `${passedOver} items that had been handed over`} never aired.`,
+                data: { passedOver, itemId: item.id },
+            });
+        }
+
         // The item's own state has already moved: the rundown marks it airing at the moment the
         // player says so, on the one shared order. This listener is only for what has to be
         // written DOWN about it.

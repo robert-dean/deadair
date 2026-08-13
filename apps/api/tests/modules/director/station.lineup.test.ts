@@ -94,7 +94,9 @@ describe('StationLineup and what the player has done', () => {
         const lineup = lineupWith(['a', 'b', 'c']);
         const [, second] = hand(lineup, 3);
 
-        expect(lineup.markAiring(second!.id)).toBe(true);
+        // The COUNT is the answer, because it is the only place the catch-up is visible: the
+        // states below say what happened and nothing says how much of it there was.
+        expect(lineup.markAiring(second!.id)).toEqual({ passedOver: 1 });
         expect(statesOf(lineup)).toEqual(['skipped', 'airing', 'handed']);
     });
 
@@ -115,7 +117,7 @@ describe('StationLineup and what the player has done', () => {
         // truthful to say about it.
         const lineup = lineupWith(['a']);
 
-        expect(lineup.markAiring('an-id-from-somewhere-else')).toBe(false);
+        expect(lineup.markAiring('an-id-from-somewhere-else')).toBeUndefined();
         expect(statesOf(lineup)).toEqual(['planned']);
     });
 
@@ -125,7 +127,9 @@ describe('StationLineup and what the player has done', () => {
         const [first] = hand(lineup, 2);
         lineup.markAiring(first!.id);
 
-        expect(lineup.markAiring(first!.id)).toBe(true);
+        // Nothing passed over the second time, or a repeated notify would report the same
+        // catch-up twice.
+        expect(lineup.markAiring(first!.id)).toEqual({ passedOver: 0 });
         expect(statesOf(lineup)).toEqual(['airing', 'handed']);
     });
 });

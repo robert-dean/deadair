@@ -485,3 +485,57 @@ describe('itemAnnotations: the blend', () => {
         expect(uri).toContain('liq_amplify="3 dB"');
     });
 });
+
+describe('PlayoutControlClient.starvedSince', () => {
+    // A gap on the mount is the one state the app cannot observe for itself: the
+    // reconcile loop looks every couple of seconds, so anything shorter never appears in
+    // a reading at all. Liquidsoap pushes it, and it is kept here because it is a fact
+    // about the player and because everything else that holds one is a singleton.
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+    const endpoint = {
+        resolve: async () => 'http://stream.test:8005',
+        secret: () => 'a-secret',
+        invalidate: vi.fn(),
+    } as unknown as LiquidsoapEndpoint;
+    const staleness = { noteLiquidsoap: vi.fn() } as unknown as StreamConfigWatch;
+    const client = () => new PlayoutControlClient(endpoint, staleness, logger);
+
+    it('is absent on a station that has never starved', () => {
+        expect(client().starvedSince()).toBeUndefined();
+    });
+
+    it('remembers when the gap opened', () => {
+        const control = client();
+        control.noteStarve(true, 1_000);
+
+        expect(control.starvedSince()).toBe(1_000);
+    });
+
+    it('keeps the original edge when the state is repeated', () => {
+        // The stream reports the state rather than strictly alternating edges, and what
+        // is worth reading is how long the mount has been on the bed rather than how long
+        // since the last message about it.
+        const control = client();
+        control.noteStarve(true, 1_000);
+        control.noteStarve(true, 9_000);
+
+        expect(control.starvedSince()).toBe(1_000);
+    });
+
+    it('clears on recovery', () => {
+        const control = client();
+        control.noteStarve(true, 1_000);
+        control.noteStarve(false, 4_000);
+
+        expect(control.starvedSince()).toBeUndefined();
+    });
+
+    it('reopens after a recovery', () => {
+        const control = client();
+        control.noteStarve(true, 1_000);
+        control.noteStarve(false, 4_000);
+        control.noteStarve(true, 8_000);
+
+        expect(control.starvedSince()).toBe(8_000);
+    });
+});

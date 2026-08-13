@@ -147,6 +147,78 @@ describe('AudienceWatch', () => {
         watch.stop();
     });
 
+    describe('the reading, and whether it is worth anything', () => {
+        // `listenerCount()` answers zero both for an empty room and for an Icecast that is
+        // not answering. The gate cannot tell them apart and must not — an app with no
+        // evidence anybody is there should not air — but in `audience` mode the second one
+        // is permanent silence, so the station has to be able to SAY which it is.
+
+        it('has never been read before Icecast answers', () => {
+            const { stats } = stubStats(undefined);
+            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
+
+            expect(watch.reading().readAt).toBeUndefined();
+        });
+
+        it('records when Icecast answered, including with nobody listening', async () => {
+            const { stats } = stubStats(0);
+            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
+
+            watch.start();
+            await tick(0);
+
+            // A reported zero is a real answer. This is the whole distinction: an empty
+            // room is evidence, and a failed request is not.
+            expect(watch.reading()).toEqual({ count: 0, hasAudience: false, readAt: Date.now() });
+            watch.stop();
+        });
+
+        it('stops moving when Icecast stops answering, while the count stands', async () => {
+            const { stats, answer } = stubStats(2);
+            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
+
+            watch.start();
+            await tick(0);
+            const answeredAt = watch.reading().readAt;
+
+            answer(undefined);
+            await tick(30_000);
+
+            expect(watch.reading().count).toBe(2);
+            expect(watch.reading().readAt).toBe(answeredAt);
+            watch.stop();
+        });
+
+        it('counts a pushed event as Icecast being alive', async () => {
+            // An event feed message, or a hook call Icecast is holding a listener's
+            // connection open for, is proof it is up whether or not a poll landed.
+            const { stats } = stubStats(undefined);
+            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
+
+            watch.start();
+            await tick(0);
+            expect(watch.reading().readAt).toBeUndefined();
+
+            watch.report(4);
+
+            expect(watch.reading().readAt).toBe(Date.now());
+            watch.stop();
+        });
+
+        it('counts an arrival as Icecast being alive too', async () => {
+            const { stats } = stubStats(undefined);
+            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
+
+            watch.start();
+            await tick(0);
+
+            watch.noteArrival(true);
+
+            expect(watch.reading().readAt).toBe(Date.now());
+            watch.stop();
+        });
+    });
+
     it('holds the gate open in `always` mode, with nobody listening', async () => {
         const { stats } = stubStats(0);
         const station = settingsConfig();

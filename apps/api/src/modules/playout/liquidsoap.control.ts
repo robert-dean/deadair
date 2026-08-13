@@ -126,6 +126,8 @@ export class PlayoutControlClient {
     private up = false;
     /** Whether the last reading said the station was on air. See {@link isOnAir}. */
     private onAir = false;
+    /** When the running order stopped producing, while it is still stopped. See {@link starvedSince}. */
+    private starvedAt?: number;
 
     constructor(
         private readonly endpoint: LiquidsoapEndpoint,
@@ -168,6 +170,36 @@ export class PlayoutControlClient {
      */
     isOnAir(): boolean {
         return this.onAir;
+    }
+
+    /**
+     * When the mount fell through to Liquidsoap's local bed, if it is still there.
+     *
+     * The only state here that the app cannot observe for itself: the reconcile loop
+     * looks every couple of seconds, so a gap shorter than that never appears in a
+     * reading at all. Liquidsoap pushes it instead, through
+     * `POST /playout/bridge/starve`.
+     *
+     * It lives on this class because a starve is a fact about what the PLAYER is
+     * doing, alongside {@link isUp} and {@link isOnAir}, and because those are all
+     * singletons while `PlayoutService` is scoped per request — a starve recorded
+     * there would be forgotten as soon as the request that heard about it ended.
+     */
+    starvedSince(): number | undefined {
+        return this.starvedAt;
+    }
+
+    /**
+     * The running order stopped producing audio, or started again.
+     *
+     * The leading edge does not overwrite an earlier one, so what is reported is how
+     * long the mount has been on the bed rather than how long since the last message
+     * about it. Liquidsoap repeats the state rather than sending strictly alternating
+     * edges.
+     */
+    noteStarve(starved: boolean, now = Date.now()): void {
+        if (!starved) this.starvedAt = undefined;
+        else this.starvedAt ??= now;
     }
 
     /** One reading of the queue, or `undefined` when the stream is not reachable. */

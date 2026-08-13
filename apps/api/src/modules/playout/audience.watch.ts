@@ -60,6 +60,17 @@ export class AudienceWatch {
     private count?: number;
     /** When the count was last non-zero, which is what {@link hasAudience} lingers on. */
     private lastHeardAt = 0;
+    /**
+     * When Icecast last actually told us a number. Undefined until it first does.
+     *
+     * Not the same fact as the poll's heartbeat, and the gap between them is the whole
+     * of what it is for: the heartbeat says the loop came round, this says there was an
+     * ANSWER. A zero the app inferred from a failed request and a zero Icecast reported
+     * are the same number and completely different evidence, and in `audience` mode the
+     * first one silences the station permanently — the gate opens on a reading that is
+     * never going to arrive. See {@link reading}.
+     */
+    private lastReadAt?: number;
     /** What {@link hasAudience} said at the previous evaluation, so an edge can be announced once. */
     private announced = false;
     private readonly listeners = new Set<(open: boolean) => void>();
@@ -152,6 +163,29 @@ export class AudienceWatch {
      */
     gateOpen(): boolean {
         return this.mode === 'always' || this.hasAudience();
+    }
+
+    /**
+     * The audience as one reading, including whether it is worth anything.
+     *
+     * `readAt` is the field the other two cannot supply. `listenerCount()` answers zero
+     * both for an empty room and for an Icecast that is not answering, which is
+     * documented on {@link IcecastStatsClient.listeners} as a distinction worth keeping
+     * and then thrown away here, because a console cannot render "unknown". This keeps
+     * it: absent means Icecast has never answered since the app started, and a stale
+     * value means it has stopped.
+     *
+     * Nothing acts on it. The gate is deliberately unchanged — an app that cannot see
+     * Icecast has no evidence anybody is there, and airing on the strength of a failed
+     * request would be worse than staying quiet. What this buys is the station being
+     * able to SAY that is what happened.
+     */
+    reading(): { count: number; hasAudience: boolean; readAt?: number } {
+        return {
+            count: this.listenerCount(),
+            hasAudience: this.hasAudience(),
+            ...(this.lastReadAt === undefined ? {} : { readAt: this.lastReadAt }),
+        };
     }
 
     /**
@@ -260,6 +294,12 @@ export class AudienceWatch {
         const before = this.count;
         this.count = Math.max(0, count);
         if (this.count > 0) this.lastHeardAt = Date.now();
+        // Every path into here carries a number from something that knows one: a poll
+        // Icecast answered, an event feed message, or a hook call Icecast is holding a
+        // listener's connection open for. All three are proof it is alive, which is why
+        // this is stamped in the one place they meet rather than at each of them. The
+        // failed poll does not come through here at all; it calls `settle` directly.
+        this.lastReadAt = Date.now();
 
         if (before !== this.count) {
             this.logger.debug(`audience: ${this.count} listening on ${this.stats.mountPath()}`);

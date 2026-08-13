@@ -319,6 +319,11 @@ export class PlayoutService {
      * prefix middleware has already refused anything that did not present one.
      */
     noteStarve(query: PlayoutStarveQuery): void {
+        // Recorded on the control client rather than here, because this service is scoped
+        // per request: a gap remembered on it would be forgotten the moment the request
+        // that heard about it ended, which is a millisecond after it arrived.
+        this.control.noteStarve(query.state === 'starved');
+
         if (query.state === 'starved') {
             this.logger.debug('playout: the running order stopped producing while on air; the mount has fallen through to the local bed', {
                 playingForMs: query.forMs,

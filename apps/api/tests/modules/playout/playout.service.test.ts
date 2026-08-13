@@ -60,6 +60,8 @@ function build(options: Options = {}) {
     const control = {
         isUp: vi.fn(() => options.streamUp ?? true),
         isOnAir: vi.fn(() => options.onAir ?? true),
+        noteStarve: vi.fn(),
+        starvedSince: vi.fn(() => undefined),
     } as unknown as PlayoutControlClient;
 
     const director = {
@@ -101,6 +103,7 @@ function build(options: Options = {}) {
         rundown,
         pusher,
         director,
+        control,
     };
 }
 
@@ -301,6 +304,19 @@ describe('PlayoutService.noteStarve', () => {
         service.noteStarve({ state: 'starved', forMs: 180_000 });
 
         expect(pusher.reconcile).toHaveBeenCalledOnce();
+    });
+
+    it('records the edge somewhere that outlives the request', () => {
+        // This service is scoped per request, so a gap remembered on it would be forgotten
+        // a millisecond after it arrived. The control client holds it because it is a fact
+        // about the player and because it is the singleton that already holds the others.
+        const { service, control } = build();
+
+        service.noteStarve({ state: 'starved', forMs: 0 });
+        expect(control.noteStarve).toHaveBeenCalledWith(true);
+
+        service.noteStarve({ state: 'recovered', forMs: 3_000 });
+        expect(control.noteStarve).toHaveBeenLastCalledWith(false);
     });
 
     it('does not push on a recovery, which is already the state it wanted', () => {

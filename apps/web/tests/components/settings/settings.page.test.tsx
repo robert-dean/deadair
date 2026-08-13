@@ -32,7 +32,7 @@ const SETTINGS: StationSettings = {
     descriptors: [
         { group: 'station', key: 'stream.title', label: 'Station name', type: 'string', default: 'Deadair' },
         { group: 'station', key: 'stream.sourcePassword', label: 'Icecast source password', type: 'secret' },
-        { group: 'rotation', key: 'rotation.breakEveryItems', label: 'Records between breaks', type: 'number', default: 4 },
+        { group: 'rotation', key: 'rotation.breakEveryMinutes', label: 'Minutes between breaks', type: 'number', default: 15 },
         {
             group: 'playout',
             key: 'playout.airMode',
@@ -45,7 +45,7 @@ const SETTINGS: StationSettings = {
             ],
         },
     ],
-    values: { 'stream.title': 'Old FM', 'rotation.breakEveryItems': 4, 'playout.airMode': 'audience' },
+    values: { 'stream.title': 'Old FM', 'rotation.breakEveryMinutes': 15, 'playout.airMode': 'audience' },
     configured: { 'stream.sourcePassword': true },
 };
 
@@ -60,7 +60,7 @@ describe('SettingsPage', () => {
         expect(await screen.findByRole('heading', { name: 'Station' })).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: 'Rotation' })).toBeInTheDocument();
         expect(screen.getByLabelText('Station name')).toHaveValue('Old FM');
-        expect(screen.getByLabelText('Records between breaks')).toHaveValue('4');
+        expect(screen.getByLabelText('Minutes between breaks')).toHaveValue('15');
     });
 
     it('never puts a stored secret on the screen', async () => {
@@ -81,7 +81,7 @@ describe('SettingsPage', () => {
         getSettings.mockResolvedValue(settingsOf());
         updateSettings.mockResolvedValue(settingsOf());
         render(<SettingsPage />);
-        await screen.findByLabelText('Records between breaks');
+        await screen.findByLabelText('Minutes between breaks');
 
         await userEvent.setup().click(screen.getByRole('button', { name: 'Save rotation' }));
 
@@ -89,7 +89,7 @@ describe('SettingsPage', () => {
             expect(updateSettings).toHaveBeenCalledTimes(1);
         });
         const sent = (updateSettings.mock.calls[0]?.[0] as { values: Record<string, unknown> }).values;
-        expect(Object.keys(sent)).toEqual(['rotation.breakEveryItems']);
+        expect(Object.keys(sent)).toEqual(['rotation.breakEveryMinutes']);
     });
 
     it('leaves an untouched secret out of the submission entirely', async () => {

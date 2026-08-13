@@ -689,7 +689,7 @@ real record are independent failures and a single instruction covering both gets
   behind its own primed buffer.
 - **Break kinds become a rule.** `BREAK_KIND` in `break.planner.ts` is the constant `'ident'`, with a
   comment saying so. Once a talk break can be written, which slot gets which kind is a decision, and
-  it belongs beside `breakEveryItems` rather than in the planner.
+  it belongs beside `breakEveryMinutes` rather than in the planner.
 - **Rotation rules as settings.** `DEFAULT_RULES` is a constant with good reasoning attached and no
   way for an operator to touch it. Already noted in
   [director-and-lineups.md](director-and-lineups.md); repeated here because entries 1, 2 and 5 all

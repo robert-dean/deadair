@@ -25,9 +25,10 @@ and is nonetheless the wrong tool for "not this one".
 `BreakPlanner.plant` runs on the director's commit pass, which runs on every track boundary. Its
 idempotence is positional and nothing else: `placementsFor` in
 [break.planner.ts](../../apps/api/src/modules/director/break.planner.ts) walks forward from the
-cursor counting records since the last segment ALREADY in the order, and marks a slot wherever the
-count reaches `breakEveryItems`. That is what makes a second pass over an order it has just planted
-into find every gap short and plant nothing.
+cursor accumulating the airtime since the last break OF THIS KIND already in the order — every other
+segment counts as ordinary programme, exactly like a record — and marks a slot wherever that total
+reaches `breakEveryMinutes`. That is what makes a second pass over an order it has just planted into
+find every gap short and plant nothing.
 
 `StationLineup.remove` splices the item out and leaves no trace of it
 ([station.lineup.ts:530](../../apps/api/src/modules/director/station.lineup.ts:530)). So the walk
@@ -110,18 +111,22 @@ expiry. An operator turns it off for an album and the station never says its own
 they remember. Every property below follows from that one: the operator's standing preference is
 left untouched, and the quiet ends by itself.
 
-### Records, not minutes
+### Records, not the wall clock
 
-The line above offers both. Records wins, and the audience gate is why: in `audience` mode a station
-nobody is connected to is silent on purpose, so a wall-clock hour spent with no listeners burns the
-whole suppression in silence and the operator comes back to a talking station. A count of records
-only advances while somebody is hearing them.
+The line above offers both. What the audience gate rules out is the CLOCK: in `audience` mode a
+station nobody is connected to is silent on purpose, so a wall-clock hour spent with no listeners
+burns the whole suppression in silence and the operator comes back to a talking station. A count of
+records only advances while somebody is hearing them, which is why it was chosen.
 
-It is also the grain everything else here is cut on. `breakEveryItems` counts records and
-`BreakPlanner` says why: the listener is counting songs since they last heard the station's name,
-not minutes. A suppression counted in minutes and a spacing counted in records would need
-reconciling at the one place they meet. The console can still SAY "about twenty minutes" from the
-order's own durations, because saying it is presentation and storing it is a second unit.
+**The grain argument this once rested on has moved, and it is worth knowing which way.** Spacing was
+counted in records when this was written, so records were also what everything else here was cut on.
+It is now `breakEveryMinutes`, and the minutes it counts are AIRTIME — the durations of the items in
+the order, never the wall clock — so the property that rules out an hour of silence is one both
+units have, and the audience gate no longer decides between them. What is left is the reconciliation
+this paragraph wanted to avoid: a suppression in records beside a spacing in minutes has to be
+converted at the one place they meet, which is the walk that lifts the quiet. Whoever builds this
+should count both in the same unit, and the planner's is the one with a setting behind it. The
+console can still SAY either from the order's own durations, because saying it is presentation.
 
 ### Where it lives: `deadair.station_air`
 
@@ -150,8 +155,12 @@ already writes a row per record, and it may fail as harmlessly as play history d
 
 Three behaviours, and only the first is obvious.
 
-1. **`plant` returns early.** One more clause beside `if (!rules.breaks || rules.breakEveryItems <=
-   0)`. Cheap, and by itself not enough.
+1. **`plant` returns early.** One more clause beside `if (!rules.breaks)`. Note that the interval
+   itself is no longer part of that guard — `breakEveryMinutes <= 0` now only stands the station's
+   own spacing down inside `slotsFor`, and leaves the operator's clock bands planting on their own
+   schedule — so a quiet spell has to be checked where breaks are turned off wholesale rather than
+   where the floor's interval is read, or an anchored bulletin will air through it. Cheap, and by
+   itself not enough.
 2. **It retires the breaks already planted in the tail.** Planting runs to the end of the order, so
    at the moment quiet is asked for there are already three or four breaks laid out across the next
    hour. Without this, "no breaks for the next ten records" is not heard until the tail runs out,

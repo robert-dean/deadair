@@ -81,9 +81,10 @@ Read this part before designing against it. All of it is built and verified on t
   depends on: it is why a renderer that is slow, broken, or not yet written cannot cost the station
   silence. A skipped segment does not even cost the running order its lead — the commit pass
   coalesces the wake it fires and refills within the same pass.
-- **The station plants its own breaks**, one ident every `breakEveryItems` records
-  (`rotation.rules.ts`), from the refill job and from the reactor. It counts records rather than
-  items, so a second kind of segment does not push the next ident back.
+- **The station plants its own breaks**, one ident every `breakEveryMinutes` of airtime
+  (`rotation.rules.ts`, fifteen by default), from the refill job and from the reactor. The spacing is
+  kept PER KIND: a rule looks back for the last break of its own sort and treats every other segment
+  as ordinary airtime, so a second kind of segment does not push the next ident back.
 - **The DJ can talk OVER a record.** `radio.liq` holds a second `request.queue` and an armed cue; the
   app says what to say and against which item, and the script picks the instant. Intro cues only.
 - **The segment audio route** is `GET /segments/{id}/audio`, anonymous, serving one declared mime.

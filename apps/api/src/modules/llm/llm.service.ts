@@ -11,6 +11,7 @@ import {
     type LlmUsage,
 } from '@deadair/plugin-sdk';
 import { asLlmPlugin, type LlmPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { LlmGate } from './llm.gate.js';
@@ -149,12 +150,7 @@ export class LlmService {
 
     /** Every plugin that could produce words right now, in a stable order. */
     generators(): LlmPlugin[] {
-        const plugins: LlmPlugin[] = [];
-        for (const record of this.pluginRegistry.list()) {
-            const plugin = asLlmPlugin(record);
-            if (plugin) plugins.push(plugin);
-        }
-        return plugins.sort((left, right) => left.record.id.localeCompare(right.record.id));
+        return pluginsWith(this.pluginRegistry.list(), asLlmPlugin).sort(byPluginId);
     }
 
     /**

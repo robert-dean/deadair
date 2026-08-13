@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PluginError, type SpeechHandle, type SpeechRequest, type SpeechVoice } from '@deadair/plugin-sdk';
 import { asSpeechPlugin, type SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -86,12 +87,7 @@ export class SpeechService {
 
     /** Every plugin that could speak right now, in a stable order. */
     speakers(): SpeechPlugin[] {
-        const plugins: SpeechPlugin[] = [];
-        for (const record of this.pluginRegistry.list()) {
-            const plugin = asSpeechPlugin(record);
-            if (plugin) plugins.push(plugin);
-        }
-        return plugins.sort((left, right) => left.record.id.localeCompare(right.record.id));
+        return pluginsWith(this.pluginRegistry.list(), asSpeechPlugin).sort(byPluginId);
     }
 
     /**

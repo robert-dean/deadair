@@ -1,5 +1,7 @@
+import type { PluginRecord } from './types/plugin.record.js';
+
 /**
- * Choosing the ONE plugin for a job, out of the ones that could do it.
+ * Finding the plugins that could do a job, and choosing the ONE that will.
  *
  * Some capabilities fan out and merge (enrichment asks everything and reconciles
  * the answers). Others have exactly one answer, and asking two is not a merge:
@@ -17,6 +19,47 @@
 interface SelectablePlugin {
     record: { id: string };
 }
+
+/**
+ * The plugins that can do a thing, out of the ones installed.
+ *
+ * Every capability has an `as*Plugin` view in `plugin.capabilities.ts` that
+ * answers `undefined` for a record that cannot do the job — not enabled, not
+ * loaded, or simply a plugin for something else. Collecting the ones that can
+ * was then written out six times, each a `for` loop over the registry pushing
+ * into an array declared a line above it.
+ *
+ * Records rather than the registry itself, so a caller can narrow first: a sync
+ * asked to run one plugin passes `[registry.get(id)]`, and the `undefined` that
+ * comes back for an unknown id is skipped here rather than guarded there.
+ *
+ * ```ts
+ * pluginsWith(this.registry.list(), asSpeechPlugin).sort(byPluginId);
+ * ```
+ *
+ * @param records - Installed plugin records. `undefined` entries are skipped.
+ * @param as - The capability view. Anything it declines is left out.
+ */
+export function pluginsWith<TPlugin>(records: Iterable<PluginRecord | undefined>, as: (record: PluginRecord) => TPlugin | undefined): TPlugin[] {
+    const found: TPlugin[] = [];
+    for (const record of records) {
+        if (!record) continue;
+        const plugin = as(record);
+        if (plugin) found.push(plugin);
+    }
+    return found;
+}
+
+/**
+ * A stable order for a list of plugins, so the same station answers the same way
+ * twice.
+ *
+ * Installation order is whatever the disk scan found, which is not a thing an
+ * operator chose and not a thing that stays put. Where a capability has its own
+ * precedence — enrichment's `priority` — this is the tiebreak under it rather
+ * than the whole comparator.
+ */
+export const byPluginId = (left: SelectablePlugin, right: SelectablePlugin): number => left.record.id.localeCompare(right.record.id);
 
 /**
  * The plugin to use, out of the ones that currently can.

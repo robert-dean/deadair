@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION, type AnalysisRef } from '@deadair/plugin-sdk';
 import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { TrackAudioResolver } from '#modules/playout/providers/track.audio.resolver.js';
@@ -90,10 +91,7 @@ export class AnalysisService {
      * and you have not picked" are different sentences and different fixes.
      */
     candidates(): AnalysisPlugin[] {
-        return this.registry
-            .list()
-            .map(record => asAnalysisPlugin(record))
-            .filter((plugin): plugin is AnalysisPlugin => plugin !== undefined);
+        return pluginsWith(this.registry.list(), asAnalysisPlugin);
     }
 
     /**

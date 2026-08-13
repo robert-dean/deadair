@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import type { ProviderTrack } from '@deadair/plugin-sdk';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
 import { asCatalogPlugin, type CatalogPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -167,11 +168,6 @@ export class ProviderTrackLookup {
 
     /** Every plugin that can be asked for a track by name right now. */
     private searchable(): CatalogPlugin[] {
-        const searchable: CatalogPlugin[] = [];
-        for (const record of this.pluginRegistry.list()) {
-            const catalog = asCatalogPlugin(record);
-            if (catalog?.searchesTracks === true) searchable.push(catalog);
-        }
-        return searchable;
+        return pluginsWith(this.pluginRegistry.list(), asCatalogPlugin).filter(catalog => catalog.searchesTracks === true);
     }
 }

@@ -3,6 +3,7 @@ import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import type { ProviderPlaylist, ProviderTrack } from '@deadair/plugin-sdk';
 import { asCatalogPlugin, type CatalogPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { CatalogResolverService } from './catalog.resolver.service.js';
@@ -299,14 +300,7 @@ export class CatalogSyncService {
 
     /** Active, catalog-capable plugins, optionally narrowed to one id. */
     private catalogPlugins(pluginId?: string): CatalogPlugin[] {
-        const records = pluginId ? [this.pluginRegistry.get(pluginId)] : this.pluginRegistry.list();
-        const candidates: CatalogPlugin[] = [];
-        for (const record of records) {
-            if (!record) continue;
-            const catalog = asCatalogPlugin(record);
-            if (catalog) candidates.push(catalog);
-        }
-        return candidates;
+        return pluginsWith(pluginId ? [this.pluginRegistry.get(pluginId)] : this.pluginRegistry.list(), asCatalogPlugin);
     }
 
     private counts(summary: PluginSyncSummary): Record<string, number> {

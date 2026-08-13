@@ -11,6 +11,7 @@ import {
     type TrackRef,
 } from '@deadair/plugin-sdk';
 import { asEnrichmentPlugin, type EnrichmentPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import {
@@ -327,12 +328,9 @@ export class EnrichmentService {
      * about who is running.
      */
     providers(): EnrichmentPlugin[] {
-        const plugins: EnrichmentPlugin[] = [];
-        for (const record of this.pluginRegistry.list()) {
-            const plugin = asEnrichmentPlugin(record);
-            if (plugin) plugins.push(plugin);
-        }
-        return plugins.sort((left, right) => left.priority - right.priority || left.record.id.localeCompare(right.record.id));
+        return pluginsWith(this.pluginRegistry.list(), asEnrichmentPlugin).sort(
+            (left, right) => left.priority - right.priority || byPluginId(left, right),
+        );
     }
 
     /** The ids of {@link providers}, which is what the catalog stores as `provider`. */

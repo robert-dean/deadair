@@ -3,8 +3,8 @@
 // required default model asked for a name there was no way to find out. What replaces it is
 // "save the address, press Test, read the names, come back", and every claim below is a step of it.
 
-import { describe, expect, it, vi } from 'vitest';
-import type { PluginHost } from '@deadair/plugin-sdk';
+import { describe, expect, it } from 'vitest';
+import { createFakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { LlmPlugin } from '../src/llm.plugin.js';
 
@@ -17,10 +17,9 @@ interface HostOptions {
 }
 
 function hostFor(options: HostOptions = {}) {
-    const calls: string[] = [];
+    const host = createFakePluginHost();
 
-    const fetch = vi.fn(async (url: string) => {
-        calls.push(url);
+    host.setFetchImpl(async (url: string) => {
         if (options.unreachable === true) throw new Error('connect ECONNREFUSED');
         if (options.status !== undefined && options.status !== 200) {
             return new Response('nope', { status: options.status });
@@ -29,15 +28,9 @@ function hostFor(options: HostOptions = {}) {
         return new Response(JSON.stringify({ data }), { status: 200, headers: { 'content-type': 'application/json' } });
     });
 
-    const host = {
-        fetch,
-        config: { get: async () => options.config ?? {} },
-        secrets: { get: async () => undefined },
-        logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-        signal: new AbortController().signal,
-    } as unknown as PluginHost;
+    host.seedConfig(options.config ?? {});
 
-    return { host, calls };
+    return { host, calls: host.calls };
 }
 
 /** A loaded plugin, which is the only state any of this is meaningful in. */
@@ -79,7 +72,7 @@ describe('listing models', () => {
         await plugin.listModels();
         await plugin.listModels();
 
-        expect(calls.filter(url => url.endsWith('/models'))).toHaveLength(1);
+        expect(calls.filter(call => call.url.endsWith('/models'))).toHaveLength(1);
     });
 
     it('answers from config rather than throwing when the server cannot be reached', async () => {
@@ -203,7 +196,7 @@ describe('suggesting what the form should offer', () => {
         await plugin.suggestConfigOptions();
         await plugin.listModels();
 
-        expect(calls.filter(url => url.endsWith('/models'))).toHaveLength(1);
+        expect(calls.filter(call => call.url.endsWith('/models'))).toHaveLength(1);
     });
 });
 

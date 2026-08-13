@@ -15,7 +15,7 @@ import type { TrackRef } from '@deadair/plugin-sdk';
 import { MusicBrainzPlugin } from '../src/musicbrainz.plugin.js';
 import { musicbrainzManifest, LISTENBRAINZ_BUCKET, LISTENBRAINZ_RATE_PER_SECOND } from '../src/musicbrainz.manifest.js';
 import { coverArtUrl, lookupKey, mapListenBrainz, resultKey, tagNames, toLookupQuery } from '../src/listenbrainz.mapping.js';
-import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from './fake.plugin.host.js';
+import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 const RECORDING_MBID = 'e97f805a-ab48-4c52-855e-07049142113d';
 const ARTIST_MBID = '8f6bd1e4-fbe1-4f50-aa9b-94c450ec0f11';

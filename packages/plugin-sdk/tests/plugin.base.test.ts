@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { Plugin } from '../src/plugin.base.js';
 import { isPluginError, type PluginError } from '../src/plugin.error.js';
 import type { PluginHost } from '../src/plugin.host.js';
+import { createFakePluginHost } from '../src/testing/index.js';
 
-const fakeHost = () => ({ logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } }) as unknown as PluginHost;
+const fakeHost = (): PluginHost => createFakePluginHost();
 
 class Recording extends Plugin {
     readonly order: string[] = [];

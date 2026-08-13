@@ -1,17 +1,23 @@
-import { describe, expect, it, vi } from 'vitest';
-import { isPluginError, type HostFetchInit, type PluginHost } from '@deadair/plugin-sdk';
+import { describe, expect, it } from 'vitest';
+import { isPluginError, type HostFetchInit } from '@deadair/plugin-sdk';
+import { createFakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { hostFetch } from '../src/llm.fetch.js';
 
-/** A host whose fetch records what it was handed. Nothing else here is exercised. */
+/**
+ * A host whose fetch records what it was handed. Nothing else here is
+ * exercised. Recorded locally rather than off `host.calls`: several
+ * assertions below want `init.signal`, which `RecordedFetchCall` leaves out.
+ */
 function hostWithSpy() {
     const calls: { url: string; init: HostFetchInit | undefined }[] = [];
-    const fetchSpy = vi.fn(async (url: string, init?: HostFetchInit) => {
+    const host = createFakePluginHost();
+    host.setFetchImpl(async (url: string, init?: HostFetchInit) => {
         calls.push({ url, init });
         return new Response('{}', { status: 200 });
     });
 
-    return { host: { fetch: fetchSpy } as unknown as PluginHost, calls };
+    return { host, calls };
 }
 
 describe('hostFetch', () => {

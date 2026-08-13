@@ -1,6 +1,22 @@
 import { vi } from 'vitest';
 
-import type { HostFetchInit, HostFetchMethod, PluginHost } from '@deadair/plugin-sdk';
+import type { HostFetchInit, HostFetchMethod, PluginHost, ProviderStream } from '../index.js';
+
+/**
+ * Shipped from the SDK rather than copied into each plugin, which three of them
+ * were doing — two of those carrying a comment saying the copy was deliberate
+ * because plugins do not depend on each other.
+ *
+ * That reasoning held for the copies and does not hold for this: every plugin
+ * already depends on the SDK, and `PluginHost` is the SDK's own contract, so its
+ * test double belongs beside the interface it doubles. A plugin importing this
+ * gains no dependency on any other plugin. It also means a host method added to
+ * the contract turns up in one fake rather than being added to three and
+ * forgotten in the other three.
+ *
+ * Reached as `@deadair/plugin-sdk/testing`, which is kept out of the runtime
+ * entry so nothing ships a dependency on vitest.
+ */
 
 /** One `host.fetch` call, recorded with only the fields tests care about. */
 export interface RecordedFetchCall {
@@ -42,6 +58,8 @@ export interface FakePluginHost extends PluginHost {
     seedTokens(tokens: Record<string, string>): void;
     /** Read the oauth vault directly, bypassing `host.oauth.getTokens`. */
     getVaultTokens(): Record<string, string> | undefined;
+    /** Set what `host.trackFetcher.serve()` answers with; `undefined` means "this station has no fetcher". */
+    seedFetchedTrack(stream: ProviderStream | undefined): void;
 }
 
 /**
@@ -62,8 +80,16 @@ export interface FakeResponseInit {
     status?: number;
     statusText?: string;
     headers?: Record<string, string>;
-    /** Text for a JSON or error reply, bytes for a binary one. */
-    body?: string | Uint8Array;
+    /**
+     * Text for a JSON or error reply, bytes for a binary one.
+     *
+     * `Uint8Array<ArrayBuffer>` rather than a bare `Uint8Array`: the DOM lib's
+     * `BodyInit` accepts a view over a real `ArrayBuffer`, and the unparameterized
+     * form widens to `ArrayBufferLike`, which includes `SharedArrayBuffer` and is
+     * not something `Response` will take. `new Uint8Array([...])` already has the
+     * narrow type, so no test has to say so.
+     */
+    body?: string | Uint8Array<ArrayBuffer>;
     url?: string;
 }
 
@@ -96,6 +122,7 @@ export function createFakePluginHost(): FakePluginHost {
     const secretsData = new Map<string, string>();
     let tokens: Record<string, string> | undefined;
     let remainingMs = DEFAULT_REMAINING_MS;
+    let fetchedTrack: ProviderStream | undefined = { url: 'http://127.0.0.1:3679/track/song-1?t=signed', expiresAt: 1_893_456_000_000 };
 
     const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
         calls.push({ url, method: init?.method, headers: init?.headers, body: init?.body });
@@ -132,6 +159,7 @@ export function createFakePluginHost(): FakePluginHost {
             getTokens: vi.fn(async () => tokens),
         },
         events: { emit: vi.fn() },
+        trackFetcher: { serve: vi.fn(async () => fetchedTrack) },
         calls,
         seedRemainingMs(ms) {
             remainingMs = ms;
@@ -162,6 +190,9 @@ export function createFakePluginHost(): FakePluginHost {
         },
         getVaultTokens() {
             return tokens;
+        },
+        seedFetchedTrack(stream) {
+            fetchedTrack = stream;
         },
     };
 

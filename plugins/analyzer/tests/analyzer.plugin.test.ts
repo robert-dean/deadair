@@ -7,8 +7,9 @@
 // exact claim the flag exists to stop anyone making, since the host never sees the bytes and cannot
 // check it. Neither has a safe default, so both absences are faults.
 
-import { describe, expect, it, vi } from 'vitest';
-import { isPluginError, type HostFetchInit, type PluginError, type PluginHost } from '@deadair/plugin-sdk';
+import { describe, expect, it } from 'vitest';
+import { isPluginError, type HostFetchInit, type PluginError } from '@deadair/plugin-sdk';
+import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { AnalyzerPlugin } from '../src/analyzer.plugin.js';
 import { ANALYZE_TIMEOUT_MS } from '../src/analyzer.manifest.js';
@@ -39,9 +40,14 @@ interface FakeHostOptions {
 }
 
 function fakeHost(options: FakeHostOptions = {}) {
+    // Recorded locally rather than read off `host.calls`: a test below asserts
+    // `timeoutMs`, which `RecordedFetchCall` deliberately leaves out and the
+    // shared fake has no reason to carry for every plugin.
     const calls: { url: string; init?: HostFetchInit }[] = [];
 
-    const fetch = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
+    const host: FakePluginHost = createFakePluginHost();
+
+    host.setFetchImpl(async (url: string, init?: HostFetchInit): Promise<Response> => {
         calls.push({ url, init });
 
         const chosen = url.endsWith('/analyze') ? options.analyze : options.health;
@@ -54,20 +60,9 @@ function fakeHost(options: FakeHostOptions = {}) {
         });
     });
 
-    const host = {
-        logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-        fetch,
-        signal: new AbortController().signal,
-        remainingMs: () => ANALYZE_TIMEOUT_MS,
-        storage: {} as PluginHost['storage'],
-        secrets: { get: vi.fn(async () => undefined) },
-        config: { get: vi.fn(async () => ({ baseUrl: BASE_URL, ...options.config })) },
-        oauth: {} as PluginHost['oauth'],
-        events: {} as PluginHost['events'],
-        trackFetcher: {} as PluginHost['trackFetcher'],
-    } as unknown as PluginHost;
+    host.seedConfig({ baseUrl: BASE_URL, ...options.config });
 
-    return { host, fetch, calls };
+    return { host, calls };
 }
 
 async function started(options: FakeHostOptions = {}) {

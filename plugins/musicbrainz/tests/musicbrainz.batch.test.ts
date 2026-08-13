@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { TrackRef } from '@deadair/plugin-sdk';
 
 import { MusicBrainzPlugin } from '../src/musicbrainz.plugin.js';
-import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from './fake.plugin.host.js';
+import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 /** Five tracks off one record, as the walk hands them over: clustered, with ISRCs. */
 const dummy: TrackRef[] = [

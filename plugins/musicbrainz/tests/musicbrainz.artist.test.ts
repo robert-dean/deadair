@@ -5,7 +5,7 @@ import type { TrackRef } from '@deadair/plugin-sdk';
 import { artistFacts, mapArtist, wikidataId } from '../src/musicbrainz.artist.js';
 import { MusicBrainzPlugin } from '../src/musicbrainz.plugin.js';
 import type { MusicBrainzArtist } from '../src/musicbrainz.types.js';
-import { createFakePluginHost, type FakePluginHost } from './fake.plugin.host.js';
+import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 const ref: TrackRef = { artist: 'Portishead', title: 'Glory Box', album: 'Dummy' };
 

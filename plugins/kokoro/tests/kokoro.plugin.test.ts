@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
-import { isPluginError, type HostFetchInit, type PluginError, type PluginHost } from '@deadair/plugin-sdk';
+import { describe, expect, it } from 'vitest';
+import { isPluginError, type PluginError } from '@deadair/plugin-sdk';
+import { createFakePluginHost, type FakePluginHost, type RecordedFetchCall } from '@deadair/plugin-sdk/testing';
 
 import { KokoroPlugin } from '../src/kokoro.plugin.js';
 
@@ -28,14 +29,13 @@ interface FakeHostOptions {
 }
 
 function fakeHost(options: FakeHostOptions = {}) {
-    const calls: { url: string; init?: HostFetchInit }[] = [];
     // Every body this fake hands out, so a test can assert the plugin let go of
     // one it was never going to read.
     const cancelled: string[] = [];
 
-    const fetch = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
-        calls.push({ url, init });
+    const host: FakePluginHost = createFakePluginHost();
 
+    host.setFetchImpl(async (url: string): Promise<Response> => {
         if (url.endsWith('/audio/speech')) {
             const status = options.speakStatus ?? 200;
             const ok = status >= 200 && status < 300;
@@ -59,20 +59,10 @@ function fakeHost(options: FakeHostOptions = {}) {
         });
     });
 
-    const host = {
-        logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-        fetch,
-        signal: new AbortController().signal,
-        remainingMs: () => 30_000,
-        storage: {} as PluginHost['storage'],
-        secrets: { get: vi.fn(async () => options.apiKey) },
-        config: { get: vi.fn(async () => ({ baseUrl: BASE_URL, ...options.config })) },
-        oauth: {} as PluginHost['oauth'],
-        events: {} as PluginHost['events'],
-        trackFetcher: {} as PluginHost['trackFetcher'],
-    } as unknown as PluginHost;
+    if (options.apiKey !== undefined) host.seedSecret('apiKey', options.apiKey);
+    host.seedConfig({ baseUrl: BASE_URL, ...options.config });
 
-    return { host, fetch, calls, cancelled };
+    return { host, calls: host.calls, cancelled };
 }
 
 async function started(options: FakeHostOptions = {}) {
@@ -90,9 +80,9 @@ async function drain(audio: ReadableStream<Uint8Array>): Promise<Buffer> {
 }
 
 /** The body of the `/audio/speech` call, parsed. */
-const speechRequest = (calls: { url: string; init?: HostFetchInit }[]): Record<string, unknown> => {
+const speechRequest = (calls: RecordedFetchCall[]): Record<string, unknown> => {
     const call = calls.find(candidate => candidate.url.endsWith('/audio/speech'));
-    return JSON.parse((call?.init?.body as string) ?? '{}') as Record<string, unknown>;
+    return JSON.parse(call?.body ?? '{}') as Record<string, unknown>;
 };
 
 async function rejectionCode(promise: Promise<unknown>): Promise<string> {
@@ -115,7 +105,7 @@ describe('KokoroPlugin.speak', () => {
         const speech = calls.find(call => call.url.endsWith('/audio/speech'));
         expect(speech).toBeDefined();
         expect(speech!.url).toBe(`${BASE_URL}/audio/speech`);
-        expect(speech!.init?.method).toBe('POST');
+        expect(speech!.method).toBe('POST');
         expect(speechRequest(calls)).toMatchObject({
             model: 'kokoro',
             input: 'You are listening to Deadair.',
@@ -207,7 +197,7 @@ describe('KokoroPlugin audio stream', () => {
         expect(await rejectionCode(drain(handle.audio))).toBe('upstream');
     });
 
-    it('has nothing to unwind on dispose, because the audio is the host\'s own body', async () => {
+    it("has nothing to unwind on dispose, because the audio is the host's own body", async () => {
         const { plugin } = await started();
         const handle = await plugin.speak({ text: 'hello' });
 

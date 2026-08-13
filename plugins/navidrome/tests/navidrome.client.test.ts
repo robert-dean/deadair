@@ -8,7 +8,7 @@ import { PluginError } from '@deadair/plugin-sdk';
 
 import { SubsonicAuth } from '../src/navidrome.auth.js';
 import { SubsonicClient, SubsonicRequestError, isNotFound } from '../src/navidrome.client.js';
-import { createFakePluginHost, type FakePluginHost } from './fake.plugin.host.js';
+import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 const BASE_URL = 'http://navidrome.test:4533';
 

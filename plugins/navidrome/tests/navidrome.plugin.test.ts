@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EVERYTHING_PLAYLIST_ID } from '../src/navidrome.manifest.js';
 import { NavidromePlugin } from '../src/navidrome.plugin.js';
-import { createFakePluginHost, type FakePluginHost } from './fake.plugin.host.js';
+import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 const BASE_URL = 'http://navidrome.test:4533';
 

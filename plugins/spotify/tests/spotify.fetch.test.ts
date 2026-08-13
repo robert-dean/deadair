@@ -4,7 +4,7 @@ import type { HostFetchInit } from '@deadair/plugin-sdk';
 
 import { REQUEST_TIMEOUT_MS } from '../src/spotify.manifest.js';
 import { createHostFetch, QUOTA_BACKOFF_MS, QUOTA_EXCEEDED_REASON, SpotifyRequestError, SpotifyResponseValidator } from '../src/spotify.fetch.js';
-import { createFakePluginHost, fakeHostFetchResponse } from './fake.plugin.host.js';
+import { createFakePluginHost, fakeHostFetchResponse } from '@deadair/plugin-sdk/testing';
 
 describe('createHostFetch', () => {
     it('passes method, headers (lowercased) and body through to host.fetch, with the bearer attached', async () => {

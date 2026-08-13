@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SpotifyPlugin, spotifyManifest } from '../src/spotify.plugin.js';
-import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from './fake.plugin.host.js';
+import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 const CLIENT_ID = 'client-abc';
 const REDIRECT_URI = 'https://example.test/callback';

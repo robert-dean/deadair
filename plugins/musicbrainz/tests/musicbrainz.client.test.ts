@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { MusicBrainzClient, MusicBrainzRequestError } from '../src/musicbrainz.client.js';
-import { createFakePluginHost, type FakePluginHost } from './fake.plugin.host.js';
+import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 let host: FakePluginHost;
 let client: MusicBrainzClient;

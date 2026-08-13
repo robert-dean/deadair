@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SPOTIFY_SCOPES, TOKEN_EXPIRY_SKEW_MS } from '../src/spotify.manifest.js';
 import { HostVaultAuthStrategy } from '../src/spotify.auth.js';
-import { createFakePluginHost, fakeHostFetchResponse } from './fake.plugin.host.js';
+import { createFakePluginHost, fakeHostFetchResponse } from '@deadair/plugin-sdk/testing';
 
 function tokenResponse(overrides: Partial<Parameters<typeof fakeHostFetchResponse>[0]> = {}) {
     return fakeHostFetchResponse({

@@ -6,19 +6,35 @@
     "main": "./dist/index.js",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./testing": {
+            "types": "./dist/testing/index.d.ts",
+            "default": "./dist/testing/index.js"
+        }
+    },
     "license": "MIT",
     "files": [
         "dist/**"
     ],
     "scripts": {
-        "build": "tsup src/index.ts --format esm --sourcemap && tsc --emitDeclarationOnly --declaration",
+        "build": "tsup src/index.ts src/testing/index.ts --format esm --sourcemap && tsc --emitDeclarationOnly --declaration",
         "build:ci": "eslint --max-warnings=0 && pnpm run build",
         "lint": "eslint --fix",
         "format": "prettier --write . --ignore-path ../../.prettierignore",
         "test": "vitest run"
     },
     "peerDependencies": {
+        "vitest": "^4.0.0",
         "zod": "^4.0.0"
+    },
+    "peerDependenciesMeta": {
+        "vitest": {
+            "optional": true
+        }
     },
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",

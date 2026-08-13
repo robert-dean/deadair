@@ -1,5 +1,5 @@
 import { ServerKitModule } from '@maroonedsoftware/koa';
-import { DataModule } from './data/data.module.js';
+import { DataConnectionsModule, DataModule } from './data/data.module.js';
 import { CryptoModule } from './crypto/crypto.module.js';
 import { AuthenticationModule } from './authentication/authentication.module.js';
 import { PermissionsModule } from './permissions/permissions.module.js';
@@ -28,11 +28,16 @@ import { withBoundedShutdown } from './shared/shutdown.guard.js';
 // is a list of modules, spread in place. Add your app's domain modules after
 // this chassis set.
 //
-// SHUTDOWN runs in this same order, which is worth stating because it is the opposite of what a
-// dependency order usually implies: DataModule is first here, so the database and Redis are closed
-// while the loops below are still running. Every hook is bounded and isolated at the bottom of this
-// file for a related reason — see `withBoundedShutdown`, and note that the failure it prevents was
-// measured rather than imagined.
+// SHUTDOWN runs in this SAME order rather than in reverse, which is the one thing about this list
+// that surprises everybody, because a dependency order read forwards is a teardown order read
+// backwards. Two things follow from it, both of them load-bearing and both of them bugs that were
+// measured on this install rather than reasoned about:
+//
+//   - Nothing that others depend on may close in its own position. `DataConnectionsModule` at the
+//     end is the whole of that today: the pools have to outlive every module that writes during its
+//     own teardown.
+//   - No hook may cost the ones after it their teardown, or the process its exit. That is
+//     `withBoundedShutdown` at the bottom of this file.
 const ordered: ServerKitModule[] = [
     DataModule,
     CryptoModule,
@@ -101,9 +106,15 @@ const ordered: ServerKitModule[] = [
     // invoker. It also writes catalog rows, but through its own repository, so
     // it does not need CatalogModule.
     EnrichmentModule,
+    // Registers nothing and starts nothing: it exists to close the database and Redis at the END,
+    // because shutdown runs in this list's order and DataModule has to be at the front of it. With
+    // the close still up there, every module below tore down against a pool that had already gone —
+    // and the director's flush of the running order, which is a guarantee rather than a nicety, was
+    // lost on nine of the shutdowns in this install's log. See DataConnectionsModule.
+    DataConnectionsModule,
     // Must stay last: its shutdown hook closes the process-level RotatingLogStore,
     // and every other module's shutdown logging has to be flushed through
-    // FileTeeLogger before that happens.
+    // FileTeeLogger before that happens — including the two lines directly above.
     LoggingModule,
 ];
 

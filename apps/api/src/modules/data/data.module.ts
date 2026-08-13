@@ -111,6 +111,33 @@ export const DataModule: ServerKitModule = {
         // read as one nobody registered.
         registry.register(Heartbeat).useClass(Heartbeat).asSingleton();
     },
+};
+
+/**
+ * Closing the pools, which is deliberately NOT part of {@link DataModule}.
+ *
+ * ServerKit walks one list for both directions, so shutdown runs in registration order — and
+ * registration order is a DEPENDENCY order, which is exactly backwards for teardown. `DataModule`
+ * has to be first, so its shutdown was first too: the database and Redis closed while every module
+ * that depends on them was still running, and each of those then tore down against a pool that had
+ * already gone.
+ *
+ * That is not hypothetical. `DirectorService` writes the running order down on shutdown — the
+ * guarantee is that a graceful stop flushes what memory holds — and it logged
+ * `could not write the running order down (driver has already been destroyed)` on nine of the
+ * shutdowns in this install's log. The write was lost every one of those times, silently as far as
+ * anything but that line was concerned.
+ *
+ * So the REGISTRATION stays first and the CLOSE moves to the end of the list, one place ahead of
+ * `LoggingModule`, which still has to be last so this module's own two lines are flushed. Nothing
+ * else changes: same container, same instances, same order for setup, start and ready.
+ *
+ * Anything else that must outlive the modules using it belongs here rather than in a shutdown hook
+ * of its own — which is the general form of the bug above, and the reason this is a named seam
+ * instead of two lines moved into `LoggingModule`.
+ */
+export const DataConnectionsModule: ServerKitModule = {
+    name: 'Connections',
     shutdown: async (container: Container) => {
         const logger = container.get(Logger);
 

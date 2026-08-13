@@ -770,6 +770,16 @@ export class DirectorService {
                     // longer holds. Distinguishable in a log, and the same outcome either way.
                     state: segment?.state ?? 'gone',
                 });
+                // The station reaching a break and passing over it. `segment_events` says the
+                // segment failed to render, which is a different fact and often minutes earlier;
+                // this is the moment it cost the broadcast something. Not a fault: skipping rather
+                // than waiting is exactly what keeps a broken renderer from silencing the station.
+                void this.activity.record({
+                    module: 'director',
+                    kind: 'item.skipped',
+                    detail: `A break was passed over at its slot because it is ${segment?.state ?? 'no longer in the library'}.`,
+                    data: { segmentId: item.segmentId, state: segment?.state ?? 'gone' },
+                });
                 skipped.push(item.id);
                 continue;
             }
@@ -794,6 +804,16 @@ export class DirectorService {
                     // `nothing` for a break at the end of an order that has since lost its tail: the
                     // promise is equally unkeepable, and equally not worth airing.
                     next: actuallyNext?.id ?? 'nothing',
+                });
+                // Worth its own kind rather than folding into `item.skipped`: an operator who
+                // shuffled the order and then noticed the station stopped talking is looking at the
+                // consequence of their own edit, and "the break named a record that no longer plays
+                // next" is the only sentence that says so.
+                void this.activity.record({
+                    module: 'director',
+                    kind: 'break.claimStale',
+                    detail: 'A break was dropped because the record it named is no longer what plays next.',
+                    data: { segmentId: item.segmentId, claimed: promised, next: actuallyNext?.id ?? 'nothing' },
                 });
                 skipped.push(item.id);
                 continue;

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Container } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PluginTrackResolver } from '../providers/plugin.resolver.js';
 import { TrackAudioRepository, type SourceAudio } from './track.audio.repository.js';
@@ -332,6 +333,21 @@ export class TrackAudioService {
                 track: source.externalId,
                 attempts: source.attempts + 1,
                 reason,
+            });
+
+            // Inside the `markBindingMissing` guard, so the feed carries the moment a copy was
+            // written off and not every later request that finds it already benched. This is the
+            // station narrowing its own rotation without being asked, which nothing else surfaces:
+            // the symptom otherwise arrives weeks later as "that album stopped playing".
+            //
+            // `reason` is the station's own summary of why the fetch failed, never the upstream's
+            // body — see the rule in `ActivityRecorder`.
+            void scope.get(ActivityRecorder).record({
+                module: 'catalog',
+                kind: 'binding.benched',
+                severity: 'fault',
+                detail: `A copy of a record stopped serving after ${source.attempts + 1} attempts, so the station will not offer it again until a sync sees it: ${reason}`,
+                data: { pluginId: source.pluginId, externalId: source.externalId, attempts: source.attempts + 1 },
             });
         } catch (error) {
             this.logger.warn('playout: could not write off a binding that will not serve', {

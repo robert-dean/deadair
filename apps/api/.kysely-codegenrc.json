@@ -28,7 +28,9 @@
             "deadair.station_lineup.on_end": "Generated<'extend' | 'repeat' | 'stop'>",
             "deadair.segments.state": "Generated<'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed'>",
             "deadair.segment_events.to_state": "'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed'",
-            "deadair.script_history.outcome": "'written' | 'declined' | 'failed'"
+            "deadair.script_history.outcome": "'written' | 'declined' | 'failed'",
+            "deadair.station_events.module": "'playout' | 'director' | 'render' | 'catalog' | 'plugins'",
+            "deadair.station_events.severity": "Generated<'info' | 'warn' | 'fault'>"
         }
     },
     "partitions": false,

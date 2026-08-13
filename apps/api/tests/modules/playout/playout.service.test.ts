@@ -17,8 +17,17 @@ import type { StreamService } from '../../../src/modules/stream/stream.service.j
 import type { StreamConfigWarning, StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import type { ServedAudio, TrackAudioService } from '../../../src/modules/playout/audio/track.audio.service.js';
+import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+
+/**
+ * The feed's write side, stubbed.
+ *
+ * Module-level like the logger, and for the same reason: what reaches it is asserted in the one
+ * test below that is about the edge rule, and every other test here is about something else.
+ */
+const activity = { record: vi.fn(async () => undefined) } as unknown as ActivityRecorder;
 
 const BRIDGE_SECRET = 'bridge-secret';
 
@@ -122,7 +131,7 @@ function build(options: Options = {}) {
     const trackAudio = { ensure: async () => options.trackAudio } as unknown as TrackAudioService;
 
     return {
-        service: new PlayoutService(rundown, pusher, director, endpoint, control, audience, stream, trackAudio, staleness, logger),
+        service: new PlayoutService(rundown, pusher, director, endpoint, control, audience, stream, trackAudio, staleness, activity, logger),
         audience,
         rundown,
         pusher,
@@ -437,6 +446,84 @@ describe('PlayoutService.noteStarve', () => {
         service.noteStarve({ state: 'recovered', forMs: 30_000 });
 
         expect(logger.warn).toHaveBeenCalledOnce();
+    });
+});
+
+/**
+ * What reaches the activity feed, which is a much smaller set than what reaches the reading.
+ *
+ * The one rule these are all about: a row is written on an EDGE and never on a poll. The console
+ * polls this service twice a second, so a producer that wrote per reading would turn the feed into
+ * a log file with a primary key.
+ */
+describe('PlayoutService: what reaches the activity feed', () => {
+    const recorded = () => activity.record as unknown as ReturnType<typeof vi.fn>;
+
+    beforeEach(() => recorded().mockClear());
+
+    it('writes a silence cause once when it changes, not once per poll', async () => {
+        // Two polls of the same station. The first may or may not be a change — the last-said
+        // cause is process-wide, exactly as it is in production — so it is the SECOND that is
+        // asserted on, which is the poll that must write nothing.
+        const { service } = build({ streamUp: false });
+
+        await service.getStatus();
+        recorded().mockClear();
+        await service.getStatus();
+
+        expect(recorded()).not.toHaveBeenCalled();
+    });
+
+    it('writes again when the cause actually changes', async () => {
+        await build({ streamUp: false }).service.getStatus();
+        recorded().mockClear();
+
+        await build({ listeners: 2 }).service.getStatus();
+
+        expect(recorded()).toHaveBeenCalledOnce();
+        expect(recorded().mock.calls[0]?.[0]).toMatchObject({ module: 'playout', kind: 'silence.cause', data: { cause: 'airing' } });
+    });
+
+    it('carries a station that is only waiting as `info`, not as a fault', async () => {
+        // The same argument the `ready` badge exists on: a station idling for want of a listener
+        // and one that cannot reach its stream are both silent, and a feed that painted them the
+        // same colour would undo it.
+        await build({ streamUp: false }).service.getStatus();
+        recorded().mockClear();
+
+        await build({ active: false, listeners: 0 }).service.getStatus();
+
+        expect(recorded().mock.calls[0]?.[0]).toMatchObject({ severity: 'info', data: { cause: 'stoodDown' } });
+    });
+
+    it('carries a gate that wants fixing as a fault', async () => {
+        await build({ listeners: 2 }).service.getStatus();
+        recorded().mockClear();
+
+        await build({ streamUp: false }).service.getStatus();
+
+        expect(recorded().mock.calls[0]?.[0]).toMatchObject({ severity: 'fault', data: { cause: 'streamUnreachable' } });
+    });
+
+    it('keeps the ordinary first-listener gap out of the feed entirely', () => {
+        // Measured at ~500ms on the running station and designed behaviour: the app queues
+        // nothing while the audience gate is shut. One line per listener arrival is the fastest
+        // way to make a feed unreadable.
+        const { service } = build();
+
+        service.noteStarve({ state: 'starved', forMs: 0 });
+        service.noteStarve({ state: 'recovered', forMs: 500 });
+
+        expect(recorded()).not.toHaveBeenCalled();
+    });
+
+    it('records a gap that outlived the loop meant to close it, on the recovery', () => {
+        const { service } = build();
+
+        service.noteStarve({ state: 'recovered', forMs: 30_000 });
+
+        expect(recorded()).toHaveBeenCalledOnce();
+        expect(recorded().mock.calls[0]?.[0]).toMatchObject({ module: 'playout', kind: 'gap', severity: 'fault', data: { gapMs: 30_000 } });
     });
 });
 

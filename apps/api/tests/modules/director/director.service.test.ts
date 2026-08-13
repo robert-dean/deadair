@@ -18,6 +18,7 @@ import { StationAirRepository, type StationAir } from '../../../src/modules/dire
 import { settingsConfig } from '../../utils/settings.config.js';
 import { ROTATION_KEYS } from '../../../src/modules/director/rotation.rules.js';
 import { AIR_MODE_KEY, type AirMode } from '../../../src/modules/playout/air.mode.js';
+import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
@@ -145,7 +146,9 @@ function build(options: Options = {}) {
     // director no longer tells it anything — it reads the same setting from the same config.
     const audience = {} as unknown as AudienceWatch;
 
-    const director = new DirectorService(rundown, audience, container, jobs as unknown as PgBossJobBroker, station.config, logger);
+    const activity = { record: vi.fn(async () => undefined) } as unknown as ActivityRecorder;
+
+    const director = new DirectorService(rundown, audience, container, jobs as unknown as PgBossJobBroker, activity, station.config, logger);
 
     return {
         director,
@@ -163,6 +166,7 @@ function build(options: Options = {}) {
         history,
         airRepository,
         audience,
+        activity,
         seed: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(track)),
         setAir: (next: StationAir | undefined) => {
             air = next;
@@ -542,6 +546,38 @@ describe('DirectorService standing down', () => {
         await new Promise(resolve => setImmediate(resolve));
 
         expect(airRepository.standDown).toHaveBeenCalled();
+    });
+
+    it('tells the activity feed once, on the edge', async () => {
+        // The stand-down path is idempotent and reached from two directions, so without the edge
+        // the feed would carry a line every time anything asked a stopped station to stop.
+        const { director, rundown, activity, seed } = build();
+        await seed();
+        await director.start();
+
+        rundown.reset();
+        await settle();
+        rundown.reset();
+        await settle();
+
+        const record = activity.record as unknown as ReturnType<typeof vi.fn>;
+        expect(record.mock.calls.filter(call => call[0]?.kind === 'air.off')).toHaveLength(1);
+    });
+
+    it('says nothing to the feed when the write did not land', async () => {
+        // The intent stands even when the row does not — the process stays off air — but a feed
+        // saying the station stopped while the station does not know it stopped is worse than a
+        // feed missing a line.
+        const { director, rundown, airRepository, activity, seed } = build();
+        await seed();
+        await director.start();
+        vi.mocked(airRepository.standDown).mockRejectedValueOnce(new Error('no connection'));
+
+        rundown.reset();
+        await settle();
+
+        const record = activity.record as unknown as ReturnType<typeof vi.fn>;
+        expect(record.mock.calls.filter(call => call[0]?.kind === 'air.off')).toHaveLength(0);
     });
 
     it('ignores a retraction, which is not a stand-down', async () => {

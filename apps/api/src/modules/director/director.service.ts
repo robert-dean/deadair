@@ -2,6 +2,7 @@ import { Container, Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { TrackCachePlanner } from '#modules/playout/audio/track.cache.planner.js';
@@ -127,6 +128,16 @@ export class DirectorService {
      */
     private standingDown = false;
     /**
+     * Whether the stand-down now in flight is one that took the station OFF air, as opposed to one
+     * asked of a station that was already off.
+     *
+     * Only the activity feed reads it, and only so that a stop pressed twice is one line. It has to
+     * be a field rather than a local because the two halves of a stand-down are deliberately split
+     * across the mailbox: the transition is visible in {@link beginStandDown} and the event is
+     * written after the durable half lands in {@link standDown}.
+     */
+    private standDownFromActive = false;
+    /**
      * Bumped wherever the plan this pass was computed against stops being the plan:
      * a stand-down, a new running order, an edit.
      *
@@ -168,6 +179,10 @@ export class DirectorService {
         // The singleton broker, which is what JobsModule documents for a non-request caller: it
         // resolves the root connection provider, and therefore pg-boss's own pool.
         private readonly jobs: PgBossJobBroker,
+        // The station going on and off air, for the console's activity feed. A singleton like this
+        // one, registered by a module below this one in `modules.ts`, which is safe because every
+        // module's setup runs before any module's ready.
+        private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -415,6 +430,14 @@ export class DirectorService {
         this.active = true;
 
         this.logger.info('director: put the station on air', { name: binding.name, items: tracks.length, source: binding.source });
+        // Voided, like every other event: the recorder never throws, and a broadcast starting must
+        // not wait on a row nothing reads to decide anything.
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.on',
+            detail: `The station went on air with ${binding.name || 'a new running order'}, ${tracks.length} ${tracks.length === 1 ? 'item' : 'items'} long.`,
+            data: { name: binding.name, items: tracks.length, source: binding.source, ...(binding.brief ? { brief: binding.brief } : {}) },
+        });
         await this.commit();
     }
 
@@ -929,6 +952,12 @@ export class DirectorService {
      * So the cancellation is synchronous and the durable write is queued behind it.
      */
     private beginStandDown(): void {
+        // The transition, caught at the only moment it is visible. `active` is false a line below
+        // and the durable half runs behind the mailbox, by which time nothing on this object still
+        // says the station was on air — so a feed reading it there would report a stop every time
+        // anything asked a stopped station to stop. `||=` rather than `=` because several of these
+        // can land before one durable write drains, and the first one is the edge.
+        this.standDownFromActive ||= this.active;
         this.epoch.bump();
         this.pendingVoice = undefined;
         this.active = false;
@@ -957,6 +986,20 @@ export class DirectorService {
             return;
         }
         this.standingDown = false;
+
+        // After the durable write rather than beside the intent: a stand-down whose row did not
+        // save returns above with the flag still set, so the attempt that lands is the one that
+        // says so. A feed reporting a stop the station does not know about is worse than a feed
+        // missing a line.
+        const wasActive = this.standDownFromActive;
+        this.standDownFromActive = false;
+        if (wasActive) {
+            void this.activity.record({
+                module: 'director',
+                kind: 'air.off',
+                detail: 'The station was stood down, so it is holding nothing and airing nothing.',
+            });
+        }
     }
 
     /**

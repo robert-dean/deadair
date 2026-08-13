@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { StreamConfigWatch } from '#modules/stream/stream.staleness.js';
@@ -96,6 +97,10 @@ export class PlayoutService {
         // polls and the card it draws is where an operator looks when nothing is being
         // heard — which is the exact symptom this warning explains.
         private readonly staleness: StreamConfigWatch,
+        // The durable half of the same sentence the logger gets below. Injected here rather than
+        // reached for at the call site because the edge this service already computes is the only
+        // place a silence is worth writing down.
+        private readonly activity: ActivityRecorder,
         private readonly logger: Logger,
     ) {}
 
@@ -201,13 +206,17 @@ export class PlayoutService {
     }
 
     /**
-     * Log the cause, once, when it changes.
+     * Say the cause, once, when it changes: to the log, and to the activity feed.
      *
      * The console polls this twice a second between them, so the only thing worth
      * writing down is the EDGE — the same treatment `StreamConfigWatch` gives its own
-     * warnings, and for the same reason. Until the activity feed lands this line is the
-     * only trace of a silence that outlives the process, which is what makes "why was
-     * the station quiet at 3am" answerable at all.
+     * warnings, and for the same reason. This is what makes "why was the station quiet
+     * at 3am" answerable at all: the diagnosis itself deliberately stores nothing,
+     * because a stored copy of a live gate is a second thing that can disagree with the
+     * gate, so the only durable trace of a silence is the moment it started.
+     *
+     * The row carries the diagnosis's OWN sentence rather than a second phrasing of the
+     * same fact, which is why `detail` is passed through untouched.
      *
      * The state is static rather than per-instance because this service is scoped per
      * request: an instance field would be a fresh `undefined` on every poll and every
@@ -219,6 +228,25 @@ export class PlayoutService {
 
         if (silence.audible) this.logger.info('playout: the station is airing');
         else this.logger.info(`playout: the station is silent (${silence.cause}): ${silence.detail}`);
+
+        // Severity comes from the gate that is blocking rather than from the silence itself,
+        // because `waiting` is not a fault: a station idling for want of a listener and one that
+        // cannot reach its stream are both silent and only one wants fixing. A feed that painted
+        // the first amber would undo the argument the `ready` badge exists on.
+        const blocking = silence.checks.find(check => check.code === silence.cause);
+        // Voided deliberately: the recorder never throws, and a poll must not wait on a row
+        // nothing reads to decide anything. See `ActivityRecorder`.
+        void this.activity.record({
+            module: 'playout',
+            kind: 'silence.cause',
+            severity: blocking?.state === 'fault' ? 'fault' : 'info',
+            detail: silence.audible ? 'The station is airing.' : silence.detail,
+            data: {
+                cause: silence.cause,
+                audible: silence.audible,
+                ...(blocking?.remedy === undefined ? {} : { remedy: blocking.remedy }),
+            },
+        });
     }
 
     /** See {@link announceSilence}. One process, one station, one last-said cause. */
@@ -409,6 +437,17 @@ export class PlayoutService {
         // that a starve cannot stay open forever waiting for something that will not happen.
         if (query.forMs > GAP_WARN_MS) {
             this.logger.warn('playout: the station aired the local bed instead of its running order', { gapMs: query.forMs });
+            // Only the long ones reach the feed, and only on the recovery, for exactly the reason
+            // the WARN is here rather than above: every first listener produces a designed ~500ms
+            // gap, and a feed carrying one line per arrival is a feed nobody reads. The duration is
+            // the fact, and it is not known until the gap closes.
+            void this.activity.record({
+                module: 'playout',
+                kind: 'gap',
+                severity: 'fault',
+                detail: `The station aired the local bed instead of its running order for ${Math.round(query.forMs / 1000)}s.`,
+                data: { gapMs: query.forMs },
+            });
             return;
         }
 

@@ -15,6 +15,7 @@ import { RenderModule } from './render/render.module.js';
 import { PlayoutModule } from './playout/playout.module.js';
 import { DirectorModule } from './director/director.module.js';
 import { NowPlayingModule } from './nowplaying/nowplaying.module.js';
+import { ActivityModule } from './activity/activity.module.js';
 import { EnrichmentModule } from './enrichment/enrichment.module.js';
 import { AnalysisModule } from './analysis/analysis.module.js';
 import { ArtModule } from './art/art.module.js';
@@ -83,6 +84,11 @@ export const modules: ServerKitModule[] = [
     // singleton rundown, and its lineups are built from catalog tracks and from
     // playlists read through the plugin host. Also after AnalysisModule, above.
     DirectorModule,
+    // After DirectorModule, which is the last module that produces events. The
+    // position matters less here than anywhere else in this list: it starts
+    // nothing and nothing resolves it during another module's start() or
+    // ready(), so the modules above may write events without a cycle.
+    ActivityModule,
     // After PluginsModule for the same reason as PlaylistsModule: it fans a
     // track out across every enrichment plugin through the registry and the
     // invoker. It also writes catalog rows, but through its own repository, so

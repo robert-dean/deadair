@@ -356,6 +356,17 @@ export interface DeadairStationAir {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairStationEvents {
+  actorId: string | null;
+  createdAt: Generated<DateTime>;
+  data: Json | null;
+  detail: string;
+  id: Generated<string>;
+  kind: string;
+  module: "playout" | "director" | "render" | "catalog" | "plugins";
+  severity: Generated<"info" | "warn" | "fault">;
+}
+
 export interface DeadairStationLineup {
   brief: Generated<string>;
   createdAt: Generated<DateTime>;
@@ -483,6 +494,7 @@ export interface DB {
   "deadair.segments": DeadairSegments;
   "deadair.settings": DeadairSettings;
   "deadair.stationAir": DeadairStationAir;
+  "deadair.stationEvents": DeadairStationEvents;
   "deadair.stationLineup": DeadairStationLineup;
   "deadair.trackAnalysis": DeadairTrackAnalysis;
   "deadair.trackAudio": DeadairTrackAudio;

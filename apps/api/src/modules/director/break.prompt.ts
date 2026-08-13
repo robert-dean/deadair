@@ -15,13 +15,18 @@
  * separately, because inventing a credit and mis-cueing a real record are independent failures and
  * one instruction covering both gets neither.
  *
- * ## Facts it does not have yet
+ * ## The notes, and the second failure they bring
  *
- * There is a section per record for what the station knows about it, and today it renders empty:
- * nothing fetches enrichment. It is shaped now so that filling it later is a paragraph rather than
- * a rewrite, and so the §9 rules can be written once to cover both cases — with no facts the model
- * has nothing to be concrete about and must not reach for any, and with facts it uses them without
- * turning them into a cue.
+ * A record now arrives with up to two short true sentences about it, chosen by the caller (see
+ * `BreakTrack.facts`). They make the §9 rules above MORE necessary rather than less: a model handed
+ * one real fact will happily hang a cue off it. They also bring a failure of their own, which is a
+ * model reading a note out as it stands — "Active as a recording artist from 1948 to 2025" is a
+ * real row here, and it is a database entry rather than something a person says. So the notes are
+ * offered as raw material for one line, in the station's own voice, droppable.
+ *
+ * That instruction is in the USER turn rather than the system one, because the failure does not
+ * exist for a station that has enriched nothing: with no notes there is nothing to read aloud
+ * badly, and a rule about them would be a rule about nothing.
  */
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
@@ -110,6 +115,20 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings): strin
         parts.push('You have not been told what plays next. Do not say what is coming up.');
     }
 
+    if (hasFacts(request)) {
+        // Only when there are notes, because the thing this guards against cannot happen without
+        // them. Two failures: reading a database line out as it stands ("Active as a recording
+        // artist from 1948 to 2025" is a real row in this install's enrichment), and treating a
+        // true fact as a licence to cue whatever it mentions. Working one in is WANTED rather than
+        // required — a break that used none of them is still a break, and one that used two is a
+        // listing.
+        parts.push(
+            'The notes are things the station knows to be true. They are raw material, not lines to read out: ' +
+                'work at most one of them in, in your own words, and leave out any that would sound like a database read aloud. ' +
+                'Anything a note mentions that is not one of the records above is background, never something to cue or play.',
+        );
+    }
+
     if (request.recent && request.recent.length > 0) {
         parts.push(
             ['You said these recently. Do not reuse their opening or their shape:', ...request.recent.map(script => `- ${script}`)].join('\n'),
@@ -138,13 +157,17 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings): strin
 /**
  * One record, as the model is shown it.
  *
- * Title and artist today. The `facts` line is where enrichment goes when it lands, which is why
- * this is a function rather than a template literal at the call site.
+ * "Notes" rather than "facts", because the rule in the system turn already calls them that and the
+ * two have to name the same thing for either to mean anything.
  */
 function describe(track: BreakTrack): string {
     const lines = [`- Title: ${track.title}`, `- Artist: ${track.artist}`];
+    if (track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
     return lines.join('\n');
 }
+
+/** Whether either record came with anything to say about it. */
+const hasFacts = (request: BreakWriteRequest): boolean => (request.previous?.facts?.length ?? 0) > 0 || (request.next?.facts?.length ?? 0) > 0;
 
 /** What a model's answer has to survive to become a script. */
 export interface AnswerGuard {

@@ -93,6 +93,47 @@ describe('breakPrompt', () => {
         expect(rules).not.toMatch(/your name is\s*[,.]/i);
         expect(rules).not.toMatch(/describes its presenter/i);
     });
+
+    describe('the notes', () => {
+        const withFacts = { ...previous, facts: ['John Martyn was born in New Malden in 1948.'] };
+
+        it('puts a record’s notes under that record and nowhere else', () => {
+            const said = user(breakPrompt({ kind: 'talkbreak', previous: withFacts, next }));
+
+            expect(said).toMatch(/Artist: John Martyn\n- Notes:\n {2}- John Martyn was born in New Malden in 1948\./);
+            // The record with nothing known about it is shown exactly as it was before.
+            expect(said).toMatch(/Artist: Nick Drake(\n\n|$)/);
+        });
+
+        it('says what the notes are for, so they are not read out as they stand', () => {
+            // The second failure the notes bring: a model handed "Active as a recording artist from
+            // 1948 to 2025" will say it, and that is a database entry rather than something a
+            // person says. Wanted rather than required, and never a licence to cue.
+            const said = user(breakPrompt({ kind: 'talkbreak', previous: withFacts }));
+
+            expect(said).toMatch(/raw material, not lines to read out/i);
+            expect(said).toMatch(/at most one/i);
+            expect(said).toMatch(/never something to cue or play/i);
+            // And it does NOT take back the cue the model is allowed to make: it was given the next
+            // record precisely so it could name it, and the caller withholds it when it may not.
+            expect(user(breakPrompt({ kind: 'talkbreak', previous: withFacts, next }))).not.toMatch(/do not say what is coming up/i);
+        });
+
+        it('says none of that for a station that knows nothing about either record', () => {
+            // Every break on a fresh install. A rule about notes that do not exist is a rule about
+            // nothing, and it costs the model tokens to read.
+            const said = user(breakPrompt({ kind: 'talkbreak', previous, next }));
+
+            expect(said).not.toMatch(/notes/i);
+            expect(said).not.toMatch(/raw material/i);
+        });
+
+        it('treats an empty list as nothing known, rather than as an empty heading', () => {
+            const said = user(breakPrompt({ kind: 'talkbreak', previous: { ...previous, facts: [] } }));
+
+            expect(said).not.toMatch(/notes/i);
+        });
+    });
 });
 
 describe('readAnswer', () => {

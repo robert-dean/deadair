@@ -4,7 +4,7 @@
 // behaviour — a Liquidsoap restart, a dropped push and an empty running order all
 // have to be non-events.
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
@@ -753,7 +753,16 @@ describe('PlayoutPusher.health', () => {
     // reports a station that is on air while the mount lease expires underneath it. Nothing
     // else in the reading can account for that, which is why it is measured here.
 
+    // The two cases below assert an exact zero, which is a claim about the beat and the read
+    // being the same moment rather than about how fast this machine is. On the real clock a
+    // loaded suite can put milliseconds between them and the assertion starts failing for a
+    // reason that has nothing to do with the loop, so they freeze the clock instead: both
+    // `Heartbeat.beat` and `PlayoutPusher.health` take `now`, and under fake timers they read
+    // the same one. The threshold is three reconcile passes and is not the thing to widen.
+    afterEach(() => vi.useRealTimers());
+
     it('reports a loop that completed a pass as not stalled', async () => {
+        vi.useFakeTimers();
         const heartbeat = new Heartbeat();
         const rundown = new Rundown(new StubResolver(), logger);
         seed(rundown, ['a'].map(track));
@@ -770,6 +779,7 @@ describe('PlayoutPusher.health', () => {
     it('counts an early return as a completed pass', async () => {
         // Most passes exit early — the stream is unreachable, the queue is already full,
         // nothing is planned. Every one of those is the loop going round.
+        vi.useFakeTimers();
         const heartbeat = new Heartbeat();
         const rundown = new Rundown(new StubResolver(), logger);
         const { control } = stubControl(undefined);

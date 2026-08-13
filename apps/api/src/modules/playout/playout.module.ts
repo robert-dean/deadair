@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StreamService } from '#modules/stream/stream.service.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 import { TrackAudioRepository } from './audio/track.audio.repository.js';
 import { TrackAudioService } from './audio/track.audio.service.js';
 import { TrackCachePlanner } from './audio/track.cache.planner.js';
@@ -124,16 +125,13 @@ export const PlayoutModule: ServerKitModule = {
         // seeded and written into radio.env. Pushed into the endpoint rather than read
         // per call: the reconcile loop runs every couple of seconds, and the secret sits
         // behind a scoped repository.
-        const scope = container.createScopedContainer();
-        try {
+        await inScope(container, async scope => {
             const { playoutBridgeSecret } = await scope.get(StreamService).settings();
             if (!playoutBridgeSecret) {
                 logger.warn('playout: no bridge secret; nothing can be handed to liquidsoap until one is seeded');
             }
             container.get(LiquidsoapEndpoint).useSecret(playoutBridgeSecret ?? '');
-        } finally {
-            await scope.disposeAsync();
-        }
+        });
 
         // Starts whether or not the stream is up: with nothing answering, the loop
         // simply probes and stays quiet, and a stack started later is picked up on

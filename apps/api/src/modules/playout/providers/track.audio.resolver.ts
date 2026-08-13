@@ -6,6 +6,7 @@ import { TrackResolver } from '../playout.capability.js';
 import { trackAudioUrl } from '../playout.urls.js';
 import type { RundownItem } from '../rundown.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 
 /**
  * Every record, as a URL on this machine.
@@ -62,16 +63,17 @@ export class TrackAudioResolver extends TrackResolver {
      * to any more.
      */
     async resolveBinding(pluginId: string, externalId: string): Promise<string | undefined> {
-        const scope = this.container.createScopedContainer();
         try {
-            const sourceId = await scope.get(TrackAudioRepository).findPlayableSourceId(pluginId, externalId);
+            return await inScope(this.container, async scope => {
+                const sourceId = await scope.get(TrackAudioRepository).findPlayableSourceId(pluginId, externalId);
 
-            // A segment (its `externalId` is a segment id, which is no binding), or a copy the catalog
-            // has written off. The next link answers for the first and nothing answers for the second,
-            // which is what skips it.
-            if (sourceId === undefined) return undefined;
+                // A segment (its `externalId` is a segment id, which is no binding), or a copy the catalog
+                // has written off. The next link answers for the first and nothing answers for the second,
+                // which is what skips it.
+                if (sourceId === undefined) return undefined;
 
-            return trackAudioUrl(this.baseUrl, sourceId);
+                return trackAudioUrl(this.baseUrl, sourceId);
+            });
         } catch (error) {
             // One item's worth of failure, handled the way the other links handle their own. There is
             // no provider link behind this one any more, so an item that fails here is skipped — which
@@ -82,8 +84,6 @@ export class TrackAudioResolver extends TrackResolver {
                 error: errorText(error),
             });
             return undefined;
-        } finally {
-            await scope.disposeAsync();
         }
     }
 }

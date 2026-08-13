@@ -13,6 +13,7 @@ import { PluginRegistry, firstWinsById } from './plugin.registry.js';
 import type { PluginRecord, PluginStatus } from './types/plugin.record.js';
 import { PluginLogLevel } from './types/plugins.types.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 
 /** Narrows a stored `log_level` column (free text) to a legal level, or `undefined` for anything else. */
 const toPluginLogLevel = (value: string | undefined): PluginLogLevel | undefined => {
@@ -47,28 +48,6 @@ export class PluginLifecycleManager {
         private readonly container: Container,
         private readonly pluginLog: PluginLog,
     ) {}
-
-    /**
-     * Runs one database read or write in a scope of its own.
-     *
-     * `PluginConfigService` and `PluginConfigRepository` are scoped and this is a
-     * singleton, so it cannot hold either: it would freeze whichever scope built
-     * it and keep using that scope's `Kysely` (a request's transaction, on the
-     * paths a route reaches this through) long after it was committed. InjectKit
-     * rejects the capture at `build()` now. See `PluginHostFactory.inScope`,
-     * which is the same helper for the same reason.
-     *
-     * The container is the root, because a singleton's dependencies are resolved
-     * from the root rather than from the scope that happened to build it.
-     */
-    private async inScope<T>(work: (scope: Container) => Promise<T>): Promise<T> {
-        const scope = this.container.createScopedContainer();
-        try {
-            return await work(scope);
-        } finally {
-            await scope.disposeAsync();
-        }
-    }
 
     /**
      * Scans the disk, replaces the registry contents, and folds the stored
@@ -206,7 +185,7 @@ export class PluginLifecycleManager {
     /** Stored config rows by plugin id. An unreachable database yields an empty map. */
     private async listConfigs(): Promise<Map<string, PluginConfigRecord>> {
         try {
-            const rows = await this.inScope(scope => scope.get(PluginConfigRepository).list());
+            const rows = await inScope(this.container, scope => scope.get(PluginConfigRepository).list());
             return new Map(rows.map(row => [row.pluginId, row]));
         } catch (error) {
             this.pluginLog.error('could not read plugin configuration', { error: serverkitErrorText(error) });
@@ -230,7 +209,7 @@ export class PluginLifecycleManager {
 
         let config: PluginConfigRecord | undefined;
         try {
-            config = await this.inScope(scope => scope.get(PluginConfigRepository).get(pluginId));
+            config = await inScope(this.container, scope => scope.get(PluginConfigRepository).get(pluginId));
         } catch (error) {
             this.pluginLog.for(pluginId).error('could not read plugin configuration', { error: serverkitErrorText(error) });
             return;
@@ -314,7 +293,7 @@ export class PluginLifecycleManager {
     private async validateConfig(manifest: PluginManifest, config: PluginConfigRecord): Promise<string | undefined> {
         let secrets: Record<string, string>;
         try {
-            secrets = await this.inScope(scope => scope.get(PluginConfigService).getSecrets(manifest.id));
+            secrets = await inScope(this.container, scope => scope.get(PluginConfigService).getSecrets(manifest.id));
         } catch (error) {
             return `stored secrets could not be decrypted: ${serverkitErrorText(error)}`;
         }
@@ -368,7 +347,7 @@ export class PluginLifecycleManager {
     private async setStatus(pluginId: string, status: PluginStatus, error?: string): Promise<void> {
         this.pluginRegistry.setStatus(pluginId, status, error);
         try {
-            await this.inScope(scope => scope.get(PluginConfigService).setStatus(pluginId, status, error));
+            await inScope(this.container, scope => scope.get(PluginConfigService).setStatus(pluginId, status, error));
         } catch (writeError) {
             this.pluginLog.for(pluginId).warn('could not persist plugin status', { status, error: serverkitErrorText(writeError) });
         }

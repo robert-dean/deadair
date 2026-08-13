@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { StreamService } from '#modules/stream/stream.service.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 import { NowPlayingService } from './nowplaying.service.js';
 
 /**
@@ -27,12 +28,9 @@ export const NowPlayingModule: ServerKitModule = {
         // Read once, the same way PlayoutModule reads the bridge secret: this is on a
         // route a device may poll every few seconds, and the settings sit behind a
         // scoped repository.
-        const scope = container.createScopedContainer();
-        try {
+        await inScope(container, async scope => {
             const { title } = await scope.get(StreamService).settings();
             container.get(NowPlayingService).useStationName(title);
-        } finally {
-            await scope.disposeAsync();
-        }
+        });
     },
 };

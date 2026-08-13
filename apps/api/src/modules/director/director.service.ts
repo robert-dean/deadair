@@ -10,6 +10,7 @@ import { Epoch } from '#modules/shared/epoch.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 import { BreakPlanner } from './break.planner.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -311,7 +312,7 @@ export class DirectorService {
         const air = await this.readAir(true);
         this.active = air?.active ?? false;
 
-        this.lineup = await this.inScope(async scope => scope.get(StationLineupRepository).load());
+        this.lineup = await inScope(this.container, async scope => scope.get(StationLineupRepository).load());
         if (!this.lineup) return;
 
         // The transport drives the order directly from here on. It owns each item's transport
@@ -425,7 +426,7 @@ export class DirectorService {
         this.rundown.attach(lineup);
         await this.persist();
 
-        await this.inScope(async scope => scope.get(StationAirRepository).goOnAir());
+        await inScope(this.container, async scope => scope.get(StationAirRepository).goOnAir());
         this.standingDown = false;
         this.airReadAt = 0;
         this.active = true;
@@ -519,7 +520,7 @@ export class DirectorService {
         if (stillWanted) return;
 
         try {
-            await this.inScope(async scope => {
+            await inScope(this.container, async scope => {
                 const segments = scope.get(SegmentRepository);
                 const segment = await segments.findById(item.segmentId);
                 if (segment === undefined || segment.state === 'ready' || segment.state === 'failed') return;
@@ -672,7 +673,7 @@ export class DirectorService {
      */
     private async ripenTrackCache(lineup: StationLineup): Promise<void> {
         try {
-            await this.inScope(scope => scope.get(TrackCachePlanner).ripen(lineup));
+            await inScope(this.container, scope => scope.get(TrackCachePlanner).ripen(lineup));
         } catch (error) {
             this.logger.warn(`director: could not fetch a record ahead of its slot (${errorText(error)})`);
         }
@@ -694,7 +695,7 @@ export class DirectorService {
      */
     private async plantBreaks(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
         try {
-            await this.inScope(async scope => {
+            await inScope(this.container, async scope => {
                 const planner = scope.get(BreakPlanner);
 
                 const planted = await planner.plant(lineup, rules);
@@ -740,7 +741,9 @@ export class DirectorService {
     private async toPlayerItems(items: readonly StationLineupItem[]): Promise<{ items: RundownItem[]; skipped: string[] }> {
         const wanted = items.filter(item => item.kind === 'segment').map(item => item.segmentId);
         const segments =
-            wanted.length === 0 ? new Map<string, Segment>() : await this.inScope(async scope => scope.get(SegmentRepository).findByIds(wanted));
+            wanted.length === 0
+                ? new Map<string, Segment>()
+                : await inScope(this.container, async scope => scope.get(SegmentRepository).findByIds(wanted));
 
         const playable: RundownItem[] = [];
         const skipped: string[] = [];
@@ -973,7 +976,7 @@ export class DirectorService {
 
         const source = this.lineup?.source ?? 'director';
 
-        void this.inScope(async scope => scope.get(PlayHistoryRepository).record({ item, source })).catch(error =>
+        void inScope(this.container, async scope => scope.get(PlayHistoryRepository).record({ item, source })).catch(error =>
             // One lost row costs a little accuracy in the repeat window. Nothing about
             // the broadcast depends on it, and the boundary must not be held up.
             this.logger.warn(`director: could not record what aired (${errorText(error)})`),
@@ -1014,7 +1017,7 @@ export class DirectorService {
         this.beginStandDown();
 
         try {
-            await this.inScope(async scope => scope.get(StationAirRepository).standDown());
+            await inScope(this.container, async scope => scope.get(StationAirRepository).standDown());
             // What the player was holding was retracted with it, and the states saying so are
             // worth keeping: they are what a console draws as the running order this station
             // stopped part-way through.
@@ -1096,7 +1099,7 @@ export class DirectorService {
             this.persistTimer = undefined;
         }
         lineup.trimPast();
-        await this.inScope(async scope => scope.get(StationLineupRepository).save(lineup.toSnapshot()));
+        await inScope(this.container, async scope => scope.get(StationLineupRepository).save(lineup.toSnapshot()));
     }
 
     /**
@@ -1112,24 +1115,8 @@ export class DirectorService {
     private async readAir(force = false): Promise<StationAir | undefined> {
         if (!force && this.active && Date.now() - this.airReadAt < AIR_TTL_MS) return this.air;
 
-        this.air = await this.inScope(async scope => scope.get(StationAirRepository).get(MAIN_SLOT));
+        this.air = await inScope(this.container, async scope => scope.get(StationAirRepository).get(MAIN_SLOT));
         this.airReadAt = Date.now();
         return this.air;
-    }
-
-    /**
-     * Run one unit of database work in its own scope.
-     *
-     * This is a singleton and the repositories are scoped, so there is no ambient
-     * request to borrow a connection from. Each call opens and disposes its own,
-     * which is what `PlayoutModule.ready` does for the same reason.
-     */
-    private async inScope<T>(work: (scope: Container) => Promise<T>): Promise<T> {
-        const scope = this.container.createScopedContainer();
-        try {
-            return await work(scope);
-        } finally {
-            await scope.disposeAsync();
-        }
     }
 }

@@ -7,6 +7,7 @@ import { TrackResolver } from '../playout.capability.js';
 import type { RundownItem } from '../rundown.js';
 import { segmentAudioUrl } from '../playout.urls.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 
 /**
  * The station's own audio: a segment it can play, as a URL the player can fetch.
@@ -45,20 +46,21 @@ export class SegmentTrackResolver extends TrackResolver {
 
         // Its own scope, like everything else the transport does off the request path: this runs
         // on the pusher's loop, which has no ambient request to borrow a connection from.
-        const scope = this.container.createScopedContainer();
         try {
-            const segment = await scope.get(SegmentRepository).findById(item.externalId);
-            if (segment?.state !== 'ready' || segment.audioChecksum === undefined) {
-                // Reachable when a segment is re-recorded or deleted between the director's commit
-                // and the hand-over, which is a window of whole tracks rather than milliseconds.
-                this.logger.warn('playout: a committed segment has no audio to play; skipping it', {
-                    segment: item.externalId,
-                    state: segment?.state ?? 'gone',
-                });
-                return undefined;
-            }
+            return await inScope(this.container, async scope => {
+                const segment = await scope.get(SegmentRepository).findById(item.externalId);
+                if (segment?.state !== 'ready' || segment.audioChecksum === undefined) {
+                    // Reachable when a segment is re-recorded or deleted between the director's commit
+                    // and the hand-over, which is a window of whole tracks rather than milliseconds.
+                    this.logger.warn('playout: a committed segment has no audio to play; skipping it', {
+                        segment: item.externalId,
+                        state: segment?.state ?? 'gone',
+                    });
+                    return undefined;
+                }
 
-            return segmentAudioUrl(this.baseUrl, segment.id);
+                return segmentAudioUrl(this.baseUrl, segment.id);
+            });
         } catch (error) {
             // One item's worth of failure, handled the way the plugin resolver handles its own:
             // the running order carries on without this line.
@@ -67,8 +69,6 @@ export class SegmentTrackResolver extends TrackResolver {
                 error: errorText(error),
             });
             return undefined;
-        } finally {
-            await scope.disposeAsync();
         }
     }
 }

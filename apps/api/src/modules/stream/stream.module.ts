@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { AppConfig, AppConfigStore } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { inScope } from '#modules/shared/scoped.work.js';
 import { IcecastEventFeed } from './icecast.eventfeed.client.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SpotifyShimClient } from './spotify.shim.client.js';
@@ -59,8 +60,7 @@ export const StreamModule: ServerKitModule = {
         // A scope of its own: the service and its dependencies are scoped, and this
         // runs outside any request. Disposed at the end so its instances are released
         // rather than living for the process.
-        const scope = container.createScopedContainer();
-        try {
+        await inScope(container, async scope => {
             const stream = scope.get(StreamService);
 
             if (await stream.ensureSecrets()) {
@@ -98,9 +98,7 @@ export const StreamModule: ServerKitModule = {
             // has two containers holding the old ones, and nobody has to open a console
             // for that to be worth saying.
             container.get(StreamConfigWatch).start();
-        } finally {
-            await scope.disposeAsync();
-        }
+        });
     },
 
     shutdown: async (container: Container) => {

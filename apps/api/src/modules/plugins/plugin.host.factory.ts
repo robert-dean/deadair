@@ -23,6 +23,7 @@ import { PluginLog } from './plugin.log.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 
 export { PLUGIN_OAUTH_SECRET_KEY, OAUTH_SECRET_FIELD } from './plugin.oauth.secret.js';
 
@@ -536,33 +537,11 @@ export class PluginHostFactory {
         private readonly spotifyShimClient: SpotifyShimClient,
     ) {}
 
-    /**
-     * Runs one database-touching capability call in a scope of its own.
-     *
-     * `PluginConfigService` and `PluginStorageRepository` are scoped, and this
-     * factory is a singleton, so it cannot hold either: a singleton that injects
-     * a scoped service freezes one scope's instance and keeps using it after
-     * that scope (and the transaction its `Kysely` was overridden with) is gone.
-     * InjectKit rejects that at `build()` now, which is how the capture below
-     * was found; before the check it was `Transaction is already committed`
-     * thrown into whichever plugin happened to read its own config.
-     *
-     * A scope per call and not per host, because a host outlives every
-     * invocation made through it: the plugin that fetches a token at boot is the
-     * same object that refreshes one an hour later.
-     *
-     * The container is the root: this is a singleton, so InjectKit resolves its
-     * dependencies (`Container` included) from the root rather than from
-     * whichever scope happened to build it.
-     */
-    private async inScope<T>(work: (scope: Container) => Promise<T>): Promise<T> {
-        const scope = this.container.createScopedContainer();
-        try {
-            return await work(scope);
-        } finally {
-            await scope.disposeAsync();
-        }
-    }
+    // `PluginConfigService` and `PluginStorageRepository` are scoped, so every capability call
+    // below opens its own scope (see `#modules/shared/scoped.work.js`). InjectKit's rejection of
+    // a captured scoped instance at `build()` is how that used to surface: before the check, it
+    // was `Transaction is already committed` thrown into whichever plugin happened to read its
+    // own config.
 
     /** One host per plugin. Cheap: the only per-host state is its rate limiters. */
     createHost(manifest: PluginManifest): PluginHost {
@@ -627,7 +606,7 @@ export class PluginHostFactory {
 
         let resolved: Promise<NetworkEntry[]> | undefined;
         return () => {
-            resolved ??= this.inScope(scope => scope.get(PluginConfigService).getConfig(manifest.id)).then(config => {
+            resolved ??= inScope(this.container, scope => scope.get(PluginConfigService).getConfig(manifest.id)).then(config => {
                 const entries = normalizeNetwork(declared, config);
                 // An entry that resolved to nothing is a setting the operator
                 // has not filled in (or filled in wrongly), and the symptom is
@@ -658,19 +637,19 @@ export class PluginHostFactory {
         return {
             get: async key => {
                 guard();
-                return this.inScope(scope => scope.get(PluginStorageRepository).get(manifest.id, key));
+                return inScope(this.container, scope => scope.get(PluginStorageRepository).get(manifest.id, key));
             },
             set: async (key, value) => {
                 guard();
-                await this.inScope(scope => scope.get(PluginStorageRepository).set(manifest.id, key, value));
+                await inScope(this.container, scope => scope.get(PluginStorageRepository).set(manifest.id, key, value));
             },
             delete: async key => {
                 guard();
-                await this.inScope(scope => scope.get(PluginStorageRepository).delete(manifest.id, key));
+                await inScope(this.container, scope => scope.get(PluginStorageRepository).delete(manifest.id, key));
             },
             list: async prefix => {
                 guard();
-                return this.inScope(scope => scope.get(PluginStorageRepository).listKeys(manifest.id, prefix));
+                return inScope(this.container, scope => scope.get(PluginStorageRepository).listKeys(manifest.id, prefix));
             },
         };
     }
@@ -707,7 +686,7 @@ export class PluginHostFactory {
     private createSecrets(manifest: PluginManifest): PluginSecrets {
         return {
             get: async key => {
-                const secrets = await this.inScope(scope => scope.get(PluginConfigService).getSecrets(manifest.id));
+                const secrets = await inScope(this.container, scope => scope.get(PluginConfigService).getSecrets(manifest.id));
                 return secrets[key];
             },
         };
@@ -715,7 +694,7 @@ export class PluginHostFactory {
 
     private createConfig(manifest: PluginManifest): PluginConfigAccess {
         return {
-            get: async () => this.inScope(scope => scope.get(PluginConfigService).getConfig(manifest.id)),
+            get: async () => inScope(this.container, scope => scope.get(PluginConfigService).getConfig(manifest.id)),
         };
     }
 
@@ -755,7 +734,7 @@ export class PluginHostFactory {
                 // deliberate: saveConfig rebuilds the whole `config` object from
                 // the descriptors it is given, so omitting them would blank the
                 // plugin's operator-entered settings on every token refresh.
-                await this.inScope(scope =>
+                await inScope(this.container, scope =>
                     scope.get(PluginConfigService).saveConfig(manifest.id, [...manifest.configFields, OAUTH_SECRET_FIELD], {
                         [PLUGIN_OAUTH_SECRET_KEY]: JSON.stringify(flat),
                     }),
@@ -763,7 +742,7 @@ export class PluginHostFactory {
             },
             getTokens: async () => {
                 guard();
-                const secrets = await this.inScope(scope => scope.get(PluginConfigService).getSecrets(manifest.id));
+                const secrets = await inScope(this.container, scope => scope.get(PluginConfigService).getSecrets(manifest.id));
                 const raw = secrets[PLUGIN_OAUTH_SECRET_KEY];
                 if (raw === undefined) return undefined;
                 try {

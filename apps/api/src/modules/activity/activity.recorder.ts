@@ -2,6 +2,7 @@ import { Container, Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { StationEventsRepository, type StationEvent } from './station.events.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 
 /**
  * The write side of the activity feed.
@@ -47,30 +48,28 @@ import { errorText } from '#modules/shared/error.text.js';
  * ## Why it opens its own scope
  *
  * This is a singleton and repositories are scoped, so there is no ambient request to borrow a
- * connection from — the same position `DirectorService.inScope` is in, and the same answer. It is
- * also the right answer where there IS a request: an event is a fact about a moment that has already
- * passed, so it should not join a caller's transaction and disappear if that transaction rolls back.
+ * connection from — see `#modules/shared/scoped.work.js`. It is also the right answer where there IS
+ * a request: an event is a fact about a moment that has already passed, so it should not join a
+ * caller's transaction and disappear if that transaction rolls back.
  */
 @Injectable()
 export class ActivityRecorder {
     constructor(
         // The ROOT container. InjectKit resolves a singleton's dependencies from the root rather
         // than from whichever scope built it, which is what keeps the scope opened below from being
-        // the child of a request scope that has already been disposed. Same reasoning as
-        // `DirectorService`, in more detail there.
+        // the child of a request scope that has already been disposed. See `#modules/shared/scoped.work.js`.
         private readonly container: Container,
         private readonly logger: Logger,
     ) {}
 
     /** Write one down. Resolves whether or not it landed; see the class note. */
     async record(event: StationEvent): Promise<void> {
-        const scope = this.container.createScopedContainer();
         try {
-            await scope.get(StationEventsRepository).append(event);
+            await inScope(this.container, async scope => {
+                await scope.get(StationEventsRepository).append(event);
+            });
         } catch (error) {
             this.logger.warn(`activity: could not record ${event.module}/${event.kind} (${errorText(error)})`);
-        } finally {
-            await scope.disposeAsync();
         }
     }
 }

@@ -5,6 +5,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PluginTrackResolver } from '../providers/plugin.resolver.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 import { TrackAudioRepository, type SourceAudio } from './track.audio.repository.js';
 import { TRACK_CONTENT_TYPES, TRACK_SOURCE_TYPES, TrackContentType, TrackExtension, TrackStore } from './track.store.js';
 import { trackCacheEnabled } from './track.cache.settings.js';
@@ -211,13 +212,7 @@ export class TrackAudioService {
 
     /** {@link ensure}'s body, minus the de-duplication that wraps it. */
     private async locate(sourceId: string, signal?: AbortSignal): Promise<ServedAudio | undefined> {
-        const scope = this.container.createScopedContainer();
-        let source: SourceAudio | undefined;
-        try {
-            source = await scope.get(TrackAudioRepository).findForSource(sourceId);
-        } finally {
-            await scope.disposeAsync();
-        }
+        const source = await inScope(this.container, scope => scope.get(TrackAudioRepository).findForSource(sourceId));
 
         // Not a binding the catalog holds. A stale URL, or a source row deleted since the running order
         // was built.
@@ -322,32 +317,33 @@ export class TrackAudioService {
      * request that has already answered.
      */
     private async bench(source: SourceAudio, reason: string): Promise<void> {
-        const scope = this.container.createScopedContainer();
         try {
-            // Already benched, by an earlier failure or by ingest noticing the same thing: say nothing
-            // rather than repeating a line an operator has already seen.
-            if (!(await scope.get(TracksRepository).markBindingMissing(source.pluginId, source.externalId))) return;
+            await inScope(this.container, async scope => {
+                // Already benched, by an earlier failure or by ingest noticing the same thing: say nothing
+                // rather than repeating a line an operator has already seen.
+                if (!(await scope.get(TracksRepository).markBindingMissing(source.pluginId, source.externalId))) return;
 
-            this.logger.warn('playout: giving up on a copy of a record; the catalog will stop offering it', {
-                plugin: source.pluginId,
-                track: source.externalId,
-                attempts: source.attempts + 1,
-                reason,
-            });
+                this.logger.warn('playout: giving up on a copy of a record; the catalog will stop offering it', {
+                    plugin: source.pluginId,
+                    track: source.externalId,
+                    attempts: source.attempts + 1,
+                    reason,
+                });
 
-            // Inside the `markBindingMissing` guard, so the feed carries the moment a copy was
-            // written off and not every later request that finds it already benched. This is the
-            // station narrowing its own rotation without being asked, which nothing else surfaces:
-            // the symptom otherwise arrives weeks later as "that album stopped playing".
-            //
-            // `reason` is the station's own summary of why the fetch failed, never the upstream's
-            // body — see the rule in `ActivityRecorder`.
-            void scope.get(ActivityRecorder).record({
-                module: 'catalog',
-                kind: 'binding.benched',
-                severity: 'fault',
-                detail: `A copy of a record stopped serving after ${source.attempts + 1} attempts, so the station will not offer it again until a sync sees it: ${reason}`,
-                data: { pluginId: source.pluginId, externalId: source.externalId, attempts: source.attempts + 1 },
+                // Inside the `markBindingMissing` guard, so the feed carries the moment a copy was
+                // written off and not every later request that finds it already benched. This is the
+                // station narrowing its own rotation without being asked, which nothing else surfaces:
+                // the symptom otherwise arrives weeks later as "that album stopped playing".
+                //
+                // `reason` is the station's own summary of why the fetch failed, never the upstream's
+                // body — see the rule in `ActivityRecorder`.
+                void scope.get(ActivityRecorder).record({
+                    module: 'catalog',
+                    kind: 'binding.benched',
+                    severity: 'fault',
+                    detail: `A copy of a record stopped serving after ${source.attempts + 1} attempts, so the station will not offer it again until a sync sees it: ${reason}`,
+                    data: { pluginId: source.pluginId, externalId: source.externalId, attempts: source.attempts + 1 },
+                });
             });
         } catch (error) {
             this.logger.warn('playout: could not write off a binding that will not serve', {
@@ -355,8 +351,6 @@ export class TrackAudioService {
                 track: source.externalId,
                 error: errorText(error),
             });
-        } finally {
-            await scope.disposeAsync();
         }
     }
 
@@ -474,12 +468,7 @@ export class TrackAudioService {
 
     /** One scope, one repository, one statement. This is a singleton, so it cannot hold either. */
     private async inScope(use: (repository: TrackAudioRepository) => Promise<void>): Promise<void> {
-        const scope = this.container.createScopedContainer();
-        try {
-            await use(scope.get(TrackAudioRepository));
-        } finally {
-            await scope.disposeAsync();
-        }
+        return inScope(this.container, scope => use(scope.get(TrackAudioRepository)));
     }
 }
 

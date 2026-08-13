@@ -604,6 +604,38 @@ Four decisions carry it, and three of them are the same decision looked at from 
   to phrase them; the other two hold facts that were never written for a reader, and `activity.feed.ts`
   writes those. Composing them in the `union all` would put station copy inside a repository.
 
+### What writes to it
+
+Every producer is an edge that already existed and already had a log line; none of them is a new loop.
+The transport's own (`silence.cause` on a cause change, `gap` on a recovery long enough to have
+mattered), the director's (`air.on`/`air.off`, `set.generated`, `order.caughtUp`, `item.skipped`,
+`break.claimStale`), the render path's (`break.degraded`), the catalog's (`binding.benched`,
+`track.discovered`), and the two operator surfaces (`order.*`, `airMode.set`, `plugin.*`). Only the
+last group stamps `station_events.actor_id`: everything else is the station acting on its own.
+
+Three of them were decided against the alternative that looks obvious:
+
+- **A catch-up is ONE event carrying a count.** `StationLineup.markAiring` answers how many items it
+  passed over, because that number exists nowhere else — the states say what happened and nothing says
+  how much of it there was. The first version of the feed covered only the narrow case, a break that
+  was not ready when its slot came round, and a dropped stream then wrote off twenty committed items
+  in silence. Twenty rows would have been the opposite mistake, and the same argument every producer
+  here is written under.
+- **A refill is reported by the chain, not the job.** `ExtendLineupJob` can see how many records
+  arrived and never which binding found them, because a `TrackPick` does not carry its generator.
+  `SetGeneratorChain` credits what was KEPT rather than what was named, says nothing when a single
+  generator filled the batch alone, and speaks up for a SHORT batch even from one — a library that has
+  run dry is invisible from the running order.
+- **A break reaches the feed only when it fell through.** The registry answers with every attempt
+  precisely so that a model declining and the floor covering are two facts, and `segments.writer`
+  records who won and cannot say who was asked.
+
+And one rule that is not about volume: **the feed carries the station's own sentences and never a
+third party's text.** Nothing here is redacted, which is safe only while every `detail` is written by
+app code from facts the app controls. An upstream error body, a provider's response or a plugin's
+message must be summarized in the station's words, with the verbatim text left in the log — which is
+also the line between this and `PluginLog`, below.
+
 `apps/api/scripts/activity.smoke.ts` is what covers the union, for the reason `rating.smoke.ts` covers
 `effectiveRating`: the interesting half is SQL. It walks the real feed a page at a time and checks the
 three properties that make it a feed rather than three lists — descending order, no row twice, no row

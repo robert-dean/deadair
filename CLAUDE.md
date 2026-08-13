@@ -348,6 +348,20 @@ continuously, and the id is half of it because a stand-down and the poll behind 
 millisecond. `apps/api/scripts/activity.smoke.ts` is what covers the union, since the interesting
 part is SQL.
 
+**What writes to it, and the two rules learned by running it.** Beyond the transport's own edges
+(`silence.cause`, `gap`) the producers are the director (`air.on`/`air.off`, `order.caughtUp`,
+`item.skipped`, `break.claimStale`, `set.generated`), the render path (`break.degraded`), the catalog
+(`binding.benched`, `track.discovered`) and the two operator surfaces (`order.*`, `airMode.set`,
+`plugin.*`), which are the only ones that stamp `station_events.actor_id`. **A catch-up is ONE event
+carrying a count, not one per item.** `StationLineup.markAiring` answers how many it passed over
+because that number exists nowhere else, and the first version of the feed reported only the narrow
+case — a break not ready when its slot came round — so a dropped stream wrote off twenty committed
+items in silence. Twenty rows would have been the opposite mistake. **The feed carries the station's
+own sentences and never a third party's text**: nothing here is redacted, which is safe only while
+every `detail` is written by app code, so an upstream body, a provider's response or a plugin's
+message must be summarized rather than quoted. That is also the line between this and `PluginLog`,
+which scrubs tokens and sits on `platform.manage` precisely because plugin output goes through it.
+
 **Zero listeners and an Icecast that stopped answering are the same number and opposite facts.**
 `IcecastStatsClient.listeners()` returns `undefined` for "could not read" and documents that as
 deliberately not `0`; `AudienceWatch` used to discard it, so a dead stats endpoint read as an empty

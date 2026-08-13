@@ -109,6 +109,13 @@ export class PlayoutPusher {
      * the next item begins a boundary with nothing on the other side of it.
      */
     private previousBlendMs = 0;
+    /**
+     * The foreign on-air item this loop has already taken the player back from.
+     *
+     * Held so the reclaim happens once per stranger rather than every pass; see {@link reclaim}
+     * for why flushing again would drop this station's own top-up.
+     */
+    private reclaimedFor?: string;
 
     constructor(
         private readonly rundown: Rundown,
@@ -294,6 +301,11 @@ export class PlayoutPusher {
             // it, a release that did not land, a mode changed while nothing was running.
             if (!onAir && (await this.handBack(reading))) return;
 
+            // On air and airing somebody else's plan: take the player back before deciding what
+            // to hand it, since the depth below is counted off a queue that would otherwise be
+            // holding an hour of it.
+            const current = (onAir ? await this.reclaim(reading) : undefined) ?? reading;
+
             // Whichever of the two says the player is holding MORE.
             //
             // `queued` counts pending requests and the ones the prefetch has resolved,
@@ -304,7 +316,7 @@ export class PlayoutPusher {
             // about requests this process never pushed — a Liquidsoap that outlived an
             // app restart is still holding those, and pushing on top of them would
             // stack the queue deeper than the lead.
-            const held = Math.max(this.rundown.servedCount(), reading.queued);
+            const held = Math.max(this.rundown.servedCount(), current.queued);
             // How deep to hand over: the player's full lead while the station is on air,
             // and one warm item while it is not.
             const target = onAir ? LEAD : WARM_LEAD;
@@ -432,6 +444,84 @@ export class PlayoutPusher {
         this.rundown.reconcile(released);
         this.logger.info('playout: nobody is listening; taking back what the player was holding');
         return true;
+    }
+
+    /**
+     * Drop a queue this process never pushed, once, when the player is airing somebody else's plan.
+     *
+     * Liquidsoap outlives the app. An API that dies without standing down leaves its pushes in the
+     * player's queue, they still resolve, and Liquidsoap airs them in turn — so the mount plays an
+     * hour-old running order while the console shows the current one and the two never converge.
+     * Measured exactly that way: the mount announcing a talk break and a record from a plan that
+     * ended forty minutes earlier, against a lineup row that had not moved since the restart.
+     *
+     * Nothing already in the loop could correct it, and both of the reasons are deliberate. The
+     * top-up counts the player's real depth (see the `held` line) precisely so it does not stack on
+     * top of a queue it did not push, so a deep stale one means it pushes nothing at all; and
+     * `Rundown.reconcile` stands its own clock down over an item it cannot speak for, so the
+     * position stops advancing. Each is right on its own and together they wait out the backlog.
+     *
+     * ## Two signals, because the earliest moment does not look foreign
+     *
+     * A stranger ON AIR is the obvious one. The other is the player holding more requests than this
+     * process handed it, which is what a restart actually looks like from the first pass: the item
+     * on air is usually still in the persisted order, so it is adopted quite correctly, and the dead
+     * plan is the part waiting BEHIND it. Without the second signal the reclaim waits for the
+     * backlog to reach the air, which is several records of the wrong station.
+     *
+     * ## Once per foreign item, which is what stops it eating its own work
+     *
+     * `flush` drops what is QUEUED and leaves what is on air alone, so the stranger keeps playing
+     * and is still the reason to reclaim on the next pass — by which time the queue behind it is
+     * this station's own top-up. Flushing again there would drop the running order every two
+     * seconds and starve the player. So the id is remembered, and it is forgotten the moment the
+     * player names something this order holds, which leaves a second orphan later free to be
+     * reclaimed in its turn.
+     *
+     * The stranger is not cut. A `skip` would end it mid-record, and what a listener hears then is
+     * a record chopped off for an operator's convenience, whereas what they hear this way is one
+     * record that was not planned, followed by the station. The armed cue goes with the queue: it
+     * belongs to a boundary in the dead plan and would otherwise fire over the first record of this
+     * one, which is the same reasoning `onReset` clears it under.
+     *
+     * @returns the reading the flush answered with, so the caller counts the depth it produced
+     *   rather than the one it replaced. `undefined` when nothing was reclaimed.
+     */
+    private async reclaim(reading: QueueStatus): Promise<QueueStatus | undefined> {
+        const foreign = this.rundown.foreignOnAir();
+        // The player holding MORE than this process handed it. The second signal, and the one that
+        // catches the incident earliest: at boot the item on air is usually one the persisted order
+        // still holds, so it is adopted and nothing looks foreign at all, while the queue BEHIND it
+        // is a dead plan waiting its turn. There is no id to compare — the reading counts requests
+        // and does not name them — so the count is the whole of the evidence, and it is enough: the
+        // only way the player holds more than it was handed is that somebody else handed it.
+        const excess = reading.queued > this.rundown.servedCount();
+
+        if (foreign === undefined && !excess) {
+            this.reclaimedFor = undefined;
+            return undefined;
+        }
+        // Nothing queued to take back. A stranger on air with an empty queue behind it is one
+        // record, and it ends on its own.
+        if (reading.queued === 0) return undefined;
+        // Already taken back for this stranger, and nothing has arrived since that this process did
+        // not push. Flushing again here is what would eat its own top-up, every two seconds.
+        if (foreign !== undefined && this.reclaimedFor === foreign && !excess) return undefined;
+
+        const flushed = await this.control.flush();
+        if (!flushed) return undefined;
+
+        this.reclaimedFor = foreign;
+        void this.control.clearVoice().catch(() => undefined);
+        // Reconciled again, because the flush is what makes the running order's memory of what it
+        // handed over wrong: every item that was queued behind the stranger is back to be offered.
+        this.rundown.reconcile(flushed);
+        this.logger.warn(
+            foreign === undefined
+                ? `playout: the player was holding ${reading.queued} requests this process did not hand it, so they were dropped`
+                : `playout: the player was airing item ${foreign}, which this running order does not hold, so ${reading.queued} queued behind it were dropped`,
+        );
+        return flushed;
     }
 
     /**

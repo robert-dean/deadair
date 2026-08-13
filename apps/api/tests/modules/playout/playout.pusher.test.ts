@@ -198,15 +198,14 @@ describe('PlayoutPusher.reconcile', () => {
         expect(pushed).toHaveLength(0);
     });
 
-    it('does not stack on top of requests it never pushed', async () => {
-        // A Liquidsoap that outlived an app restart is still holding items this process
-        // knows nothing about. Counting only its own hand-overs would push a full lead
-        // on top of those and leave the queue deeper than intended.
-        const { pusher, pushed } = setup(['a', 'b', 'c', 'd'], { queued: PLAYOUT_LEAD - 1, ready: true, onAir: 'from-a-previous-session' });
+    it('does not stack on top of what it is already holding', async () => {
+        // Counting only its own hand-overs would push a full lead on top of a queue the
+        // reading says is already deep, and leave the player deeper than intended.
+        const { pusher, pushed } = setup(['a', 'b', 'c', 'd'], { queued: PLAYOUT_LEAD, ready: true, onAir: 'whatever' });
 
         await pusher.reconcile();
 
-        expect(pushed).toHaveLength(1);
+        expect(pushed).toHaveLength(0);
     });
 
     it('does not push again for an item the player is still fetching', async () => {
@@ -433,6 +432,115 @@ describe('PlayoutPusher.reconcile', () => {
         await pusher.reconcile();
 
         expect(spy.releaseOnAir).not.toHaveBeenCalled();
+    });
+});
+
+// Measured on the running station: an API killed without standing down leaves its pushes in the
+// player, they still resolve, and Liquidsoap airs that dead plan in turn — the mount announcing a
+// talk break and a record from a running order that ended forty minutes earlier, while the console
+// showed the current one. Neither guard in the loop could correct it: the top-up defers to a depth
+// it did not create, and the rundown stands its own clock down over an item it cannot speak for.
+describe('PlayoutPusher and a player holding somebody else’s plan', () => {
+    /** A control whose flush actually empties the queue, which is the half the reclaim turns on. */
+    function reclaimable(reading: QueueStatus) {
+        const pushed: string[] = [];
+        const control = {
+            reading,
+            status: vi.fn(async () => control.reading),
+            assertOnAir: vi.fn(async () => control.reading),
+            releaseOnAir: vi.fn(async () => control.reading),
+            push: vi.fn(async (uri: string) => {
+                pushed.push(uri);
+                return true;
+            }),
+            flush: vi.fn(async () => {
+                control.reading = { ...control.reading, queued: 0 };
+                return control.reading;
+            }),
+            skip: vi.fn(async () => control.reading),
+            announce: vi.fn(async () => true),
+            armVoice: vi.fn(async () => true),
+            clearVoice: vi.fn(async () => true),
+        };
+        return { control, pushed };
+    }
+
+    function station(ids: string[], reading: QueueStatus) {
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = seed(rundown, ids.map(track));
+        const { control, pushed } = reclaimable(reading);
+        const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience().audience, config, new Heartbeat(), logger);
+        return { rundown, order, pusher, control, pushed };
+    }
+
+    it('drops a queue it never handed over, even while the item on air is one it can speak for', async () => {
+        // The first pass after a restart, which is the earliest this is catchable and the one that
+        // looks least wrong: the item on air IS in the persisted order, so it is adopted quite
+        // correctly, and the dead plan is the part waiting behind it.
+        const { order, pusher, control, pushed } = station(['a', 'b', 'c', 'd'], { queued: 3, ready: true });
+        control.reading = { ...control.reading, onAir: order.all()[0]!.id };
+
+        await pusher.reconcile();
+
+        expect(control.flush).toHaveBeenCalledOnce();
+        // And it fills the lead in the same pass, off the depth the flush produced rather than the
+        // one it replaced — otherwise the station is silent until the next tick.
+        expect(pushed).toHaveLength(PLAYOUT_LEAD);
+    });
+
+    it('drops the queue behind a record from a running order it does not hold', async () => {
+        const { pusher, control } = station(['a', 'b', 'c'], { queued: 2, ready: true, onAir: 'from-a-previous-session' });
+
+        await pusher.reconcile();
+
+        expect(control.flush).toHaveBeenCalledOnce();
+    });
+
+    it('reclaims once per stranger, rather than eating its own top-up every pass', async () => {
+        // `flush` leaves what is ON AIR alone, so the stranger is still playing on the next pass and
+        // still the reason to reclaim — by which time everything queued is this station's own.
+        // Flushing again there would drop the running order every couple of seconds forever.
+        const { pusher, control, pushed } = station(['a', 'b', 'c', 'd'], { queued: 2, ready: true, onAir: 'from-a-previous-session' });
+
+        await pusher.reconcile();
+        const filled = pushed.length;
+        control.reading = { ...control.reading, queued: filled };
+        await pusher.reconcile();
+        await pusher.reconcile();
+
+        expect(control.flush).toHaveBeenCalledOnce();
+        expect(pushed).toHaveLength(filled);
+    });
+
+    it('leaves the stranger playing rather than cutting it off mid-record', async () => {
+        // What a listener hears this way is one record that was not planned, then the station. A
+        // skip would make it one record chopped in half.
+        const { pusher, control } = station(['a', 'b'], { queued: 2, ready: true, onAir: 'from-a-previous-session' });
+
+        await pusher.reconcile();
+
+        expect(control.skip).not.toHaveBeenCalled();
+    });
+
+    it('clears an armed cue with the queue it belonged to', async () => {
+        // The cue was armed against a boundary in the dead plan, and left armed it fires over the
+        // first record of this one.
+        const { pusher, control } = station(['a', 'b'], { queued: 2, ready: true, onAir: 'from-a-previous-session' });
+
+        await pusher.reconcile();
+
+        expect(control.clearVoice).toHaveBeenCalled();
+    });
+
+    it('says nothing to a player whose queue is its own', async () => {
+        const { pusher, control } = station(['a', 'b', 'c', 'd'], { queued: 0, ready: false });
+
+        await pusher.reconcile();
+        // Everything queued now is what that pass handed over.
+        control.reading = { ...control.reading, queued: PLAYOUT_LEAD, ready: true };
+        await pusher.reconcile();
+
+        expect(control.flush).not.toHaveBeenCalled();
     });
 });
 

@@ -639,6 +639,22 @@ export class Rundown {
         this.forgetSpentPrepared();
     }
 
+    /**
+     * The item the player says is airing that this running order does not hold at all.
+     *
+     * Set by the last {@link reconcile}, and narrower than "not airing what we expected": an id
+     * this order holds but has dropped is OURS and answers `undefined`, because that is a boundary
+     * mid-flight rather than a stranger. What is left is audio from a plan this process never made
+     * — a Liquidsoap that outlived the app that pushed into it being the way it happens.
+     *
+     * Exposed because the rundown can only ever stand its own clock down over this, and standing
+     * down is not enough: everything QUEUED behind that item is from the same dead plan and will
+     * air in turn. Only the pusher can take the player back. See `PlayoutPusher.reclaim`.
+     */
+    foreignOnAir(): string | undefined {
+        return this.unknownOnAir;
+    }
+
     /** Subscribe to running-order changes. Returns the unsubscribe. */
     onChange(listener: () => void): () => void {
         this.changeListeners.add(listener);

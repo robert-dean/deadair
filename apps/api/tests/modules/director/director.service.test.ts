@@ -900,6 +900,58 @@ describe('DirectorService committing segments', () => {
         });
     });
 
+    // The same guard in the other dimension. A break saying "it's just after nine" is overtaken by
+    // the clock the way one saying "coming up, X" is overtaken by an edit, and the words are equally
+    // un-recuttable once rendered.
+    describe('and the time a break claimed', () => {
+        /** A ready break whose words are only true inside a window. */
+        const timed = async (claimsTime: { from: number; until: number }) => {
+            const harness = build({ items: ['a', 'b'], segments: [] });
+            await harness.seed();
+            harness.lineup.insertSegment('seg-1', 1);
+
+            const segment = { id: 'seg-1', kind: 'talkbreak', state: 'ready', label: 'Time check', source: 'render', claimsTime };
+            harness.segmentStub.findByIds = vi.fn(async (ids: readonly string[]) =>
+                ids.includes('seg-1') ? new Map([['seg-1', segment as never]]) : new Map(),
+            );
+
+            return harness;
+        };
+
+        it('airs a break whose words are still true of the time', async () => {
+            const { director, rundown } = await timed({ from: Date.now() - 60_000, until: Date.now() + 300_000 });
+
+            await director.start();
+            await settle();
+
+            expect(rundown.upcoming().some(item => item.externalId === 'seg-1')).toBe(true);
+        });
+
+        it('drops a break whose time has passed', async () => {
+            // The order ran slow, or an operator shuffled it: the slot arrives after "just after
+            // nine" stopped being true. Saying it anyway is the error a listener remembers.
+            const { director, rundown } = await timed({ from: Date.now() - 900_000, until: Date.now() - 60_000 });
+
+            await director.start();
+            await settle();
+
+            expect(rundown.upcoming().every(item => item.externalId !== 'seg-1')).toBe(true);
+            // And the order keeps its lead, through the same branch every other skip takes.
+            expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a', 'b']);
+        });
+
+        it('drops a break that arrives before its words are true', async () => {
+            // The other end, and the one the projection is built to avoid: reaching the slot EARLY
+            // means saying "just after nine" before nine.
+            const { director, rundown } = await timed({ from: Date.now() + 300_000, until: Date.now() + 600_000 });
+
+            await director.start();
+            await settle();
+
+            expect(rundown.upcoming().every(item => item.externalId !== 'seg-1')).toBe(true);
+        });
+    });
+
     // Play history steers what plays NEXT: the repeat window and the artist cooldown are both
     // reads of it. A row for an ident would have the station suppressing its own idents.
     it('keeps a segment out of play history when it airs', async () => {

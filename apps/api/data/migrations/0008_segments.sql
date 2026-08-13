@@ -109,7 +109,42 @@ create table deadair.segments (
     -- the words named is the one at that position. Not a foreign key, because the running order is
     -- one jsonb document rather than rows — the check is a comparison in the director, and a stale
     -- id simply fails it, which is the safe direction.
-    claims_item_id text
+    claims_item_id text,
+    -- The instant this break was PLACED for, when a rule on the station clock placed it.
+    --
+    -- Written by the planner and read by the writer, which is the whole of why it is a column
+    -- rather than a job argument. The words are asked for on a later pass than the one that planted
+    -- the break — `ripen` re-offers whatever is still planned on every boundary, and it does not
+    -- recompute the schedule — so the target has to travel on the row or the writer has nothing to
+    -- say the time from. Null for a break planted by ordinary spacing, which is not about a time
+    -- and has none to name.
+    --
+    -- The TARGET rather than the projection. A boundary is at or after the time asked for, and
+    -- which one it turned out to be is a fact about the running order that will have changed again
+    -- by the time anybody speaks; what the operator asked for does not change.
+    airs_at timestamptz,
+    -- The window this break's words stay true in.
+    --
+    -- The sibling of `claims_item_id`, and the same argument in a different dimension: that column
+    -- exists because a break naming the next RECORD can be overtaken by an edit, and these exist
+    -- because a break naming the TIME can be overtaken by the clock. Both are statements baked into
+    -- audio that cannot be re-cut, and both are therefore written down and checked at hand-over
+    -- rather than re-resolved.
+    --
+    -- Two columns rather than a range because the two ends are read separately and a range would
+    -- need its own operator class on a column nothing will ever index. Both null together: a break
+    -- that named no time makes no claim about when it airs, which is most of them.
+    --
+    -- The bounds come from the PHRASING, not from a constant. "Just after nine" is good for a few
+    -- minutes and "coming up to half past" stops being true at half past, so how long a wording
+    -- lasts is a fact about that wording — see `clock.words.ts`, which answers with the words and
+    -- their window together so the two cannot disagree.
+    claims_time_from timestamptz,
+    claims_time_until timestamptz,
+    constraint segments_claims_time_check check (
+        (claims_time_from is null) = (claims_time_until is null)
+        and (claims_time_until is null or claims_time_until > claims_time_from)
+    )
 );
 select deadair.add_updated_at_trigger('deadair.segments');
 

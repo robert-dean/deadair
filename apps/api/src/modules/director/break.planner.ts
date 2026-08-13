@@ -216,10 +216,10 @@ export class BreakPlanner {
         const taken = new Set<number>();
         const slots: Slot[] = [];
 
-        const claim = (atIndex: number, band?: string): void => {
+        const claim = (atIndex: number, band?: string, airsAt?: number): void => {
             if (taken.has(atIndex)) return;
             taken.add(atIndex);
-            slots.push({ atIndex, ...(band === undefined ? {} : { band }) });
+            slots.push({ atIndex, ...(band === undefined ? {} : { band }), ...(airsAt === undefined ? {} : { airsAt }) });
         };
 
         // ── anchored ───────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ export class BreakPlanner {
             // breaks in one gap is worse than a bulletin the DJ introduced.
             if (items[at]!.kind === 'segment') continue;
 
-            claim(at, band.kind);
+            claim(at, band.kind, target);
         }
 
         // ── the operator's own intervals ───────────────────────────────────────
@@ -345,9 +345,9 @@ export class BreakPlanner {
         // with no schedule pays nothing for this.
         const shelved = new Map<string, readonly Segment[]>();
 
-        for (const { atIndex, band } of wanted) {
+        for (const { atIndex, band, airsAt } of wanted) {
             if (band !== undefined && !isStationKind(band)) {
-                const planted = await this.fillBand(band, atIndex, shelved);
+                const planted = await this.fillBand(band, atIndex, shelved, airsAt);
                 if (planted !== undefined) placements.push(planted);
                 // The alternation is deliberately NOT advanced. A bulletin is not the station
                 // naming itself, so it is not the station's turn at anything.
@@ -387,9 +387,17 @@ export class BreakPlanner {
      * station that wants sponsor spots writes `:20 sponsor`, drops the recordings in the inbox, and
      * needs no migration and no code.
      */
-    private async fillBand(kind: string, atIndex: number, shelved: Map<string, readonly Segment[]>): Promise<Placement | undefined> {
+    private async fillBand(
+        kind: string,
+        atIndex: number,
+        shelved: Map<string, readonly Segment[]>,
+        airsAt: number | undefined,
+    ): Promise<Placement | undefined> {
         if (this.writers.canWrite(kind) && this.speech.speaker() !== undefined) {
-            const segment = await this.segments.plan({ kind, label: labelFor(kind) });
+            // `airsAt` travels on the row rather than in the write job's payload, because the words
+            // are asked for on a LATER pass than this one and nothing recomputes the schedule in
+            // between: `ripen` re-offers whatever is still planned and knows nothing about bands.
+            const segment = await this.segments.plan({ kind, label: labelFor(kind), ...(airsAt === undefined ? {} : { airsAt }) });
             return { segmentId: segment.id, atIndex, kind, written: true };
         }
 
@@ -465,6 +473,14 @@ export interface AirClock {
 interface Slot {
     atIndex: number;
     band?: string;
+    /**
+     * The time this slot was claimed FOR, for an anchored rule.
+     *
+     * The target rather than the boundary's projected time. What the operator asked for is stable;
+     * which boundary it landed on is a fact about a running order that will have moved again before
+     * anybody speaks.
+     */
+    airsAt?: number;
 }
 
 /** One break, and where it goes. `written` distinguishes a row to write from an ident off the shelf. */

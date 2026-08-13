@@ -54,6 +54,22 @@ export interface Segment {
      * forward claim has to be written down rather than re-derived.
      */
     claimsItemId?: string;
+    /**
+     * When this break was PLACED for, as epoch millis, for one placed by a rule on the station
+     * clock.
+     *
+     * Written by the planner and read by the writer, because the words are asked for on a later
+     * pass than the one that planted the break and nothing recomputes the schedule in between.
+     * Absent for a break planted by ordinary spacing, which is not about a time.
+     */
+    airsAt?: number;
+    /**
+     * The window these words stay true in, for a break that named a time.
+     *
+     * Checked at hand-over and the break dropped when it no longer holds, exactly as
+     * {@link claimsItemId} is. Both ends together or neither.
+     */
+    claimsTime?: { from: number; until: number };
 }
 
 /**
@@ -92,6 +108,8 @@ export interface PlannedSegment {
     writer?: string;
     /** A note for the birth event, when there is one worth keeping. */
     reason?: string;
+    /** When a rule on the station clock placed this. See {@link Segment.airsAt}. */
+    airsAt?: number;
 }
 
 /** What the renderer writes back when it worked. */
@@ -129,6 +147,9 @@ interface SegmentRow {
     voice: string | null;
     writer: string | null;
     claimsItemId: string | null;
+    airsAt: DateTime | null;
+    claimsTimeFrom: DateTime | null;
+    claimsTimeUntil: DateTime | null;
 }
 
 const SEGMENT_COLUMNS = [
@@ -146,10 +167,35 @@ const SEGMENT_COLUMNS = [
     'voice',
     'writer',
     'claimsItemId',
+    'airsAt',
+    'claimsTimeFrom',
+    'claimsTimeUntil',
 ] as const;
+
+/**
+ * Epoch millis as something the column will take.
+ *
+ * Through SQL rather than as a value, which is what every other timestamptz write in this codebase
+ * does (`missingAt`, `expiresAt`) and sidesteps the `DateTime`-versus-`Date` question above
+ * entirely: Postgres is handed a number and does the conversion itself.
+ */
+const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;
 
 /** What the library scan writes, and what the repository recognises as an import. */
 export const LIBRARY_SOURCE = 'library';
+
+/**
+ * A timestamp column as epoch millis.
+ *
+ * The generated types call every `timestamptz` a luxon `DateTime` and the pg driver hands back a
+ * JS `Date`, which is a mismatch that predates this and is not resolved here. Both are handled
+ * rather than one bet on, because picking either alone is a crash or a lie and the codegen mapping
+ * is a setting somebody may change.
+ */
+function millisOf(value: DateTime | null): number | undefined {
+    if (value == null) return undefined;
+    return value instanceof Date ? value.getTime() : value.toMillis();
+}
 
 /**
  * Rows read back as `undefined` rather than `null` (see the note in CLAUDE.md), so every optional
@@ -175,6 +221,10 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.voice == null ? {} : { voice: row.voice }),
         ...(row.writer == null ? {} : { writer: row.writer }),
         ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),
+        ...(millisOf(row.airsAt) === undefined ? {} : { airsAt: millisOf(row.airsAt)! }),
+        ...(millisOf(row.claimsTimeFrom) === undefined || millisOf(row.claimsTimeUntil) === undefined
+            ? {}
+            : { claimsTime: { from: millisOf(row.claimsTimeFrom)!, until: millisOf(row.claimsTimeUntil)! } }),
     };
 }
 
@@ -300,6 +350,7 @@ export class SegmentRepository extends DataRepository {
                 script: planned.script ?? null,
                 voice: planned.voice ?? null,
                 writer: planned.writer ?? null,
+                airsAt: planned.airsAt === undefined ? null : instant(planned.airsAt),
                 source: RENDER_SOURCE,
                 state,
             })
@@ -355,7 +406,10 @@ export class SegmentRepository extends DataRepository {
      *
      * @returns whether this caller still held the claim.
      */
-    async writeScript(id: string, written: { script: string; label: string; writer: string; claimsItemId?: string }): Promise<boolean> {
+    async writeScript(
+        id: string,
+        written: { script: string; label: string; writer: string; claimsItemId?: string; claimsTime?: { from: number; until: number } },
+    ): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.segments')
             .set({
@@ -367,6 +421,12 @@ export class SegmentRepository extends DataRepository {
                 // the script makes, and one outliving a rewrite would be a promise about a
                 // sentence that is no longer there. Null clears it for the same reason.
                 claimsItemId: written.claimsItemId ?? null,
+                // The same argument in the other dimension: a break naming a TIME is overtaken by
+                // the clock the way one naming the next record is overtaken by an edit. Written
+                // with the words because the window comes from the phrasing, and cleared with them
+                // for the same reason.
+                claimsTimeFrom: written.claimsTime === undefined ? null : instant(written.claimsTime.from),
+                claimsTimeUntil: written.claimsTime === undefined ? null : instant(written.claimsTime.until),
             })
             .where('id', '=', id)
             .where('state', '=', 'writing')

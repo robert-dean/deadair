@@ -853,6 +853,33 @@ export class DirectorService {
                 continue;
             }
 
+            // The same check in the other dimension. A break that named a TIME — "it's just after
+            // nine" — is overtaken by the clock exactly as one naming the next record is overtaken
+            // by an edit, and for the same underlying reason: the words were chosen minutes ago and
+            // the audio they were rendered into cannot be re-cut. An operator shuffling the order,
+            // a run of skipped items, a record that took longer to fetch than the projection
+            // assumed: any of them can push a break past the window its phrasing is true in.
+            //
+            // The window comes from the phrasing rather than from a constant, so a break saying
+            // something vague is allowed to drift further than one saying something precise. See
+            // `clock.words.ts`, which answers with the words and their window together.
+            const claimed = segment.claimsTime;
+            if (claimed !== undefined && (Date.now() < claimed.from || Date.now() >= claimed.until)) {
+                this.logger.info('director: dropping a break whose words are no longer true of the time', {
+                    segment: item.segmentId,
+                    from: new Date(claimed.from).toISOString(),
+                    until: new Date(claimed.until).toISOString(),
+                });
+                void this.activity.record({
+                    module: 'director',
+                    kind: 'break.claimStale',
+                    detail: 'A break was dropped because the time it named has passed.',
+                    data: { segmentId: item.segmentId, from: claimed.from, until: claimed.until },
+                });
+                skipped.push(item.id);
+                continue;
+            }
+
             // A talk-over is not an item the player is handed and never becomes one: it is heard
             // ALONGSIDE the record that follows it rather than in the gap before it, so it rides
             // on that record and the pusher arms it as the record is handed over.

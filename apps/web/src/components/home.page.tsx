@@ -14,7 +14,7 @@ export function HomePage() {
             <Group gap="sm">
                 <Title order={1}>deadair</Title>
                 {playout.data ? (
-                    <OnAirBadge status={playout.data} />
+                    <OnAirBadge silence={playout.data.silence} />
                 ) : (
                     // Not "off air": nothing has been heard from the station yet, and
                     // guessing either way is the one thing a tally light must not do.

@@ -40,11 +40,20 @@ export function hasTransportToShow(status: PlayoutStatus | undefined): status is
     if (!status) return false;
     // A container holding replaced config shows even on an idle station, and has to:
     // it is the reason an operator's next attempt to go on air will fail, and the bar
-    // is the only place that says so.
+    // is the only place that says so. It is deliberately not the station's `cause` —
+    // it never is one, because a station can air perfectly well while it is true.
     if (status.staleStreamConfig.length > 0) return true;
 
-    const idle = !status.nowPlaying && status.queuedCount === 0;
-    return !idle || !status.streamUp;
+    // Anything the station has something to say about. `stoodDown` is the one silence
+    // that is not worth a permanent strip: an operator who pressed Stop knows why it is
+    // quiet, and a bar that stayed up to tell them would be one more thing to read on
+    // every page.
+    if (!status.silence.audible) return status.silence.cause !== 'stoodDown';
+
+    // Airing, so show it while there is anything to show. The pair cannot both be empty
+    // on a station the API calls audible, and checking anyway costs nothing: the bar is
+    // laid out from this answer before the reading behind it is drawn.
+    return status.nowPlaying !== undefined || status.queuedCount > 0;
 }
 
 /**
@@ -69,12 +78,8 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
     const stop = useStopPlayout();
     const setAirMode = useSetAirMode();
 
-    const { streamUp, nowPlaying, upNext, queuedCount, mountPath, listeners, audience } = status;
+    const { streamUp, nowPlaying, upNext, queuedCount, mountPath, listeners, silence } = status;
     const idle = !nowPlaying && queuedCount === 0;
-    // Loaded, reachable, and silent because nobody is there. Worth its own line: it
-    // is the resting state of an audience-gated station, and "Starting…" under it
-    // reads as something that has gone wrong.
-    const waitingForListener = !idle && streamUp && !status.onAir && !audience;
 
     // Only when the decoder actually reported a position. A progress bar that
     // extrapolated from a start time would be a moving, confident lie.
@@ -121,14 +126,14 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                             </>
                         ) : (
                             <Text size="sm" c="dimmed">
-                                {/* Queued but not airing, which is three different things: nobody has
-                                    tuned in yet, the player is still fetching what it was handed, or
-                                    nothing can start at all. */}
-                                {!streamUp
-                                    ? 'The stream is not reachable, so nothing can go to air.'
-                                    : waitingForListener
-                                      ? 'Ready: waiting for a listener.'
-                                      : 'Starting…'}
+                                {/* Nothing on air, which is half a dozen different things and used to
+                                    be guessed at from three fields. The station composes every gate
+                                    and hands over the sentence, so this reads it rather than
+                                    re-deriving a worse version of it.
+
+                                    `Starting…` is what is left: audible, and the player has not named
+                                    an item yet, which is the couple of seconds a fetch takes. */}
+                                {silence.audible ? 'Starting…' : silence.detail}
                             </Text>
                         )}
                     </Stack>
@@ -210,7 +215,7 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                             <StaleConfigAlert warnings={status.staleStreamConfig} />
                             <TransportQueue upNext={upNext} queuedCount={queuedCount} />
                             <Group gap="xs" mt="auto">
-                                <OnAirBadge status={status} />
+                                <OnAirBadge silence={status.silence} />
                                 <Text size="xs" c="dimmed" ff="monospace">
                                     {mountPath}
                                 </Text>

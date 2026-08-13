@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { HomePage } from '../../src/components/home.page';
-import { playoutStatus } from '../utils/playout.fixture';
+import { playoutStatus, stationSilence } from '../utils/playout.fixture';
 import { render, screen, waitFor } from '../utils/render';
 
 const getPlayoutStatus = vi.fn();
@@ -41,15 +41,16 @@ describe('HomePage', () => {
 
     it('stays off air when the stream is reachable but nothing is driving it', async () => {
         // The state the lease creates, and the one worth being unambiguous about: a
-        // healthy Liquidsoap with no programme is connected and airing silence.
-        getPlayoutStatus.mockResolvedValue(playoutStatus({ streamUp: true, onAir: false }));
+        // healthy Liquidsoap with no programme is connected and airing silence. Which of
+        // the several ways that happens is the station's answer now, not the badge's.
+        getPlayoutStatus.mockResolvedValue(playoutStatus({ streamUp: true, onAir: false, silence: stationSilence('stoodDown') }));
         render(<HomePage />);
 
         expect(await screen.findByText('off air')).toBeInTheDocument();
     });
 
     it('distinguishes an unreachable stream from an idle one', async () => {
-        getPlayoutStatus.mockResolvedValue(playoutStatus({ streamUp: false, onAir: false }));
+        getPlayoutStatus.mockResolvedValue(playoutStatus({ streamUp: false, onAir: false, silence: stationSilence('streamUnreachable') }));
         render(<HomePage />);
 
         await waitFor(() => {

@@ -1,70 +1,80 @@
 import { Badge, Tooltip } from '@mantine/core';
-import type { PlayoutStatus } from '@deadair/sdk';
+import type { SilenceCause, StationSilence } from '@deadair/sdk';
 
 export interface OnAirBadgeProps {
-    status: PlayoutStatus;
+    silence: StationSilence;
 }
 
 /**
  * The tally light: is this station broadcasting right now?
  *
- * Four states, because there are four, and the ones worth telling apart are the
- * ones that look alike. The stream being REACHABLE is not the station being ON
- * AIR: deadair holds the mount on a lease it renews only while it has a
- * programme and somebody to hear it, so a perfectly healthy Liquidsoap with a
- * full running order is up, connected, and airing silence to an empty room.
- * Collapsing that into one light is how an operator ends up believing they are
- * broadcasting when they are not, or reading a working station as a broken one.
+ * It used to work the answer out here, from `streamUp`, `onAir`, `audience` and
+ * `queuedCount`. That was three partial inferences across this file and
+ * `transport.bar.tsx`, and none of them could tell apart the pair that matters
+ * most: an empty room and an Icecast that stopped answering are the same
+ * listener count, and in `audience` mode the second one is permanent silence.
+ * The station names its own cause now, and this only draws it.
  *
- * "Ready" is the state this console had no word for. It is not a fault and it is
- * not off: the station is loaded, the stream is up, and the only thing missing
- * is a listener. Saying so is the difference between a console that looks broken
- * and one that is waiting.
+ * The states worth keeping visually distinct are the ones that look alike. The
+ * stream being REACHABLE is not the station being ON AIR, and neither of those
+ * is "ready", which is the state this console had no word for: loaded, up, and
+ * waiting for a listener. It is not a fault and it is not off, and saying so is
+ * the difference between a console that looks broken and one that is waiting.
  *
  * Red for on air, which is the one convention every studio already shares.
  */
-export function OnAirBadge({ status }: OnAirBadgeProps) {
-    if (!status.streamUp) {
+export function OnAirBadge({ silence }: OnAirBadgeProps) {
+    if (silence.audible) {
         return (
-            <Tooltip label="Liquidsoap's control API is not answering, so nothing can go to air whatever is queued">
-                <Badge variant="light" color="yellow">
-                    stream unreachable
+            <Tooltip label={silence.detail}>
+                <Badge variant="filled" color="red">
+                    on air
                 </Badge>
             </Tooltip>
         );
     }
 
-    if (!status.onAir) {
-        // Something to play and nobody to play it to: the ordinary resting state of an
-        // audience-gated station, and the one an operator must not read as a failure.
-        const waiting = !status.audience && (status.queuedCount > 0 || !!status.nowPlaying);
-        if (waiting) {
-            return (
-                <Tooltip label="The station is loaded and the stream is up. It goes on air the moment somebody starts listening">
-                    <Badge variant="light" color="blue">
-                        ready
-                    </Badge>
-                </Tooltip>
-            );
-        }
-
-        return (
-            <Tooltip label="The stream is reachable, but deadair is not driving it: the mount is connected and airing silence">
-                <Badge variant="light" color="gray">
-                    off air
-                </Badge>
-            </Tooltip>
-        );
-    }
-
+    const blocking = silence.checks.find(check => check.code === silence.cause);
     return (
-        <Tooltip label="deadair is holding the mount and its programme is going out">
-            <Badge variant="filled" color="red">
-                on air
+        <Tooltip multiline w={340} label={silence.detail}>
+            <Badge variant="light" color={blocking?.state === 'waiting' ? WAITING_COLOURS[silence.cause] : 'yellow'}>
+                {LABELS[silence.cause]}
             </Badge>
         </Tooltip>
     );
 }
+
+/**
+ * Two words per gate, for a badge that sits under every page.
+ *
+ * The SENTENCE comes from the station rather than from here, and this is only its
+ * label — which is why there is no wording in this file that could disagree with
+ * what the tooltip says.
+ */
+const LABELS: Record<SilenceCause, string> = {
+    airing: 'on air',
+    transportStalled: 'transport stalled',
+    streamUnreachable: 'stream unreachable',
+    configNotAdopted: 'config not adopted',
+    stoodDown: 'off air',
+    noProgramme: 'nothing to air',
+    audienceUnknown: 'audience unknown',
+    noAudience: 'ready',
+    notDriving: 'not driving',
+    starved: 'off the running order',
+};
+
+/**
+ * The two states that are not faults, and must not be drawn as one.
+ *
+ * Blue for waiting on a listener, because it is the resting state of an
+ * audience-gated station and the operator has nothing to do about it. Grey for
+ * stood down, because they did it on purpose.
+ */
+const WAITING_COLOURS: Partial<Record<SilenceCause, string>> = {
+    noAudience: 'blue',
+    stoodDown: 'gray',
+};
 
 /**
  * How many people are listening, as a line of text.

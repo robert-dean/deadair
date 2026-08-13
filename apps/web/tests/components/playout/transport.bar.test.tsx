@@ -9,7 +9,7 @@ import { userEvent } from '@testing-library/user-event';
 import type { StreamConfigWarning } from '@deadair/sdk';
 
 import { hasTransportToShow, TransportBar } from '../../../src/components/playout/transport.bar';
-import { playoutItem, playoutStatus } from '../../utils/playout.fixture';
+import { playoutItem, playoutStatus, stationSilence } from '../../utils/playout.fixture';
 import { render, screen } from '../../utils/render';
 
 const skip = vi.fn();
@@ -35,7 +35,11 @@ describe('hasTransportToShow', () => {
 
     it('speaks up when the stream is unreachable, even with nothing queued', () => {
         // "Nothing is playing" and "nothing CAN play" look identical otherwise.
-        expect(hasTransportToShow(playoutStatus({ nowPlaying: undefined, upNext: [], queuedCount: 0, streamUp: false }))).toBe(true);
+        expect(
+            hasTransportToShow(
+                playoutStatus({ nowPlaying: undefined, upNext: [], queuedCount: 0, streamUp: false, silence: stationSilence('streamUnreachable') }),
+            ),
+        ).toBe(true);
     });
 
     it('is false before the first reading has arrived', () => {
@@ -83,9 +87,11 @@ describe('TransportBar', () => {
     });
 
     it('says why nothing is airing when the stream cannot be reached', () => {
-        renderBar(playoutStatus({ streamUp: false, nowPlaying: undefined }));
+        // The sentence is the station's, not the console's: this reads `silence.detail`
+        // rather than re-deriving a second wording that could disagree with it.
+        renderBar(playoutStatus({ streamUp: false, nowPlaying: undefined, silence: stationSilence('streamUnreachable') }));
 
-        expect(screen.getByText('The stream is not reachable, so nothing can go to air.')).toBeInTheDocument();
+        expect(screen.getByText(/control API is not answering/)).toBeInTheDocument();
         expect(screen.getByLabelText('Skip this track')).toBeDisabled();
     });
 
@@ -194,16 +200,25 @@ describe('TransportBar', () => {
     it('explains a silent station that is merely waiting for a listener', async () => {
         // The resting state of an audience-gated station. "Starting…" here reads as
         // something stuck, and sends an operator looking for a fault that is not there.
-        renderBar(playoutStatus({ nowPlaying: undefined, onAir: false, audience: false, listeners: 0 }));
+        renderBar(playoutStatus({ nowPlaying: undefined, onAir: false, audience: false, listeners: 0, silence: stationSilence('noAudience') }));
 
-        expect(screen.getByText('Ready: waiting for a listener.')).toBeInTheDocument();
+        expect(screen.getByText(/goes on air the moment somebody starts listening/)).toBeInTheDocument();
     });
 
     it('still says the stream is unreachable ahead of anything about listeners', () => {
         // An audience cannot be the explanation when nothing could air for anyone.
-        renderBar(playoutStatus({ nowPlaying: undefined, streamUp: false, onAir: false, audience: false, listeners: 0 }));
+        renderBar(
+            playoutStatus({
+                nowPlaying: undefined,
+                streamUp: false,
+                onAir: false,
+                audience: false,
+                listeners: 0,
+                silence: stationSilence('streamUnreachable'),
+            }),
+        );
 
-        expect(screen.getByText('The stream is not reachable, so nothing can go to air.')).toBeInTheDocument();
+        expect(screen.getByText(/control API is not answering/)).toBeInTheDocument();
     });
 
     it('changes what puts the station on air', async () => {

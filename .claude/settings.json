@@ -44,7 +44,6 @@
             "Bash(docker compose down)",
             "Bash(docker compose down *)",
             "Bash(docker compose restart *)",
-
             "Bash(ls:*)",
             "Bash(cat:*)",
             "Bash(head:*)",
@@ -60,14 +59,12 @@
             "Bash(awk:*)",
             "Bash(jq:*)",
             "Bash(lsof:*)",
-
             "Bash(git status:*)",
             "Bash(git diff:*)",
             "Bash(git log:*)",
             "Bash(git show:*)",
             "Bash(git branch:*)",
             "Bash(git stash list:*)",
-
             "Bash(pnpm run:*)",
             "Bash(pnpm --filter:*)",
             "Bash(pnpm turbo:*)",
@@ -76,12 +73,10 @@
             "Bash(npx tsc:*)",
             "Bash(npx vitest:*)",
             "Bash(npx eslint:*)",
-
             "Bash(node_modules/.bin/tsc --noEmit:*)",
             "Bash(./node_modules/.bin/tsc --noEmit:*)",
             "Bash(../../node_modules/.bin/tsc --noEmit:*)",
             "Bash(/Users/robert/Projects/deadair/node_modules/.bin/tsc --noEmit:*)",
-
             "Bash(curl -s -m * http://127.0.0.1:*)",
             "Bash(curl -s -m * http://localhost:*)"
         ]

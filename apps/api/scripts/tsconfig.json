@@ -1,7 +1,16 @@
 {
+    // The dev scripts, type-checked but never built. `pnpm typecheck` runs this after the
+    // tests config, which is what stops these rotting: they drive real services through
+    // real constructors, so a signature change in `src/` breaks them exactly as it breaks
+    // a caller — and until this was wired up, silently, because nothing ever compiled them.
     "extends": "../tsconfig.json",
     "compilerOptions": {
-        "rootDir": "..",
+        // The workspace root, widening the `src` the build config pins. `rootDir` only
+        // constrains where inputs may live, which is a rule about EMIT, and there is none
+        // here — inherited unchanged it rejects this folder outright, and even pointed at
+        // `apps/api` it rejects `verify.speech.ts` importing the kokoro plugin, which is
+        // the deliberate point of that script.
+        "rootDir": "../../..",
         "noEmit": true,
         "paths": {
             "#src/*": ["../src/*"],

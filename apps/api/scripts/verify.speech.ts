@@ -22,8 +22,9 @@ import type { PluginManifest, SpeechPluginInstance } from '@deadair/plugin-sdk';
 
 import { KokoroPlugin, kokoroManifest } from '../../../plugins/kokoro/src/kokoro.plugin.js';
 import { PluginHostFactory, PluginHostFactoryOptions } from '../src/modules/plugins/plugin.host.factory.js';
+import type { Container } from 'injectkit';
 import type { PluginConfigService } from '../src/modules/plugins/plugin.config.service.js';
-import type { PluginStorageRepository } from '../src/modules/plugins/plugin.storage.repository.js';
+import { PluginStorageRepository } from '../src/modules/plugins/plugin.storage.repository.js';
 import { SegmentStore } from '../src/modules/render/segment.store.js';
 
 /**
@@ -42,11 +43,41 @@ const consoleLogger = {
 
 const config = { baseUrl: BASE_URL, model: 'kokoro', format: 'mp3', defaultVoice: 'af_heart', voices: 'host = af_bella' };
 
+/**
+ * A container holding just the two scoped services the host resolves.
+ *
+ * The factory takes the ROOT container rather than the services themselves, because it is
+ * a singleton and both of those are scoped: holding either would freeze one scope's
+ * instance and keep using it after the transaction behind it was gone. So it opens a
+ * scope per call, and this hands back the same stubs from every one of them.
+ *
+ * Nothing here touches Postgres. Speech is the one capability that needs no storage, so
+ * the repository is a stub that answers empty rather than a real one over a pool this
+ * script would otherwise have to build.
+ */
+const pluginConfig = { getConfig: async () => config, getSecrets: async () => ({}) } as unknown as PluginConfigService;
+const pluginStorage = {
+    get: async () => undefined,
+    set: async () => {},
+    delete: async () => {},
+    listKeys: async () => [],
+} as unknown as PluginStorageRepository;
+
+const container = {
+    createScopedContainer: () => ({
+        get: (token: unknown) => (token === PluginStorageRepository ? pluginStorage : pluginConfig),
+        disposeAsync: async () => {},
+    }),
+} as unknown as Container;
+
 const factory = new PluginHostFactory(
     new PluginHostFactoryOptions('http://localhost:3333'),
-    { getConfig: async () => config, getSecrets: async () => ({}) } as unknown as PluginConfigService,
-    {} as unknown as PluginStorageRepository,
+    container,
     { for: () => consoleLogger } as never,
+    {
+        // Never reached: the shim client is how a spotify host fetches audio, and this script
+        // only ever builds a speech host.
+    } as never,
 );
 
 const root = await mkdtemp(join(tmpdir(), 'deadair-verify-speech-'));

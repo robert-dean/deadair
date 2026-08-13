@@ -32,6 +32,7 @@ import { ArtistsService } from '../src/modules/catalog/artists.service.js';
 import { AlbumsService } from '../src/modules/catalog/albums.service.js';
 import { TracksService } from '../src/modules/catalog/tracks.service.js';
 import { CandidatesRepository } from '../src/modules/director/candidates.repository.js';
+import { artistKey, songKey } from '../src/modules/director/rotation.keys.js';
 import { weightOf } from '../src/modules/director/rotation.rules.js';
 
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
@@ -110,7 +111,11 @@ try {
     const liked = await tracksService.rateTrack(track.trackId, { rating: 'liked' });
     check('the answer carries the new opinion', liked.rating, 'liked');
     check('the answer is the whole track, joined', typeof liked.artistName === 'string' && liked.id === track.trackId, true);
-    check('the column moved', (await db.selectFrom('deadair.tracks').select('rating').where('id', '=', track.trackId).executeTakeFirstOrThrow()).rating, 1);
+    check(
+        'the column moved',
+        (await db.selectFrom('deadair.tracks').select('rating').where('id', '=', track.trackId).executeTakeFirstOrThrow()).rating,
+        1,
+    );
     check('updated_at advanced through the trigger', (await stamp('tracks', track.trackId)) > before, true);
 
     const listed = await tracksService.listTracks({ page: 0, pageSize: 100, sort: 'asc', search: track.title });
@@ -146,12 +151,7 @@ try {
     }
 
     // A merged row is never read out, so it is never rated either.
-    const merged = await db
-        .selectFrom('deadair.tracks')
-        .select('id')
-        .where('mergedIntoId', 'is not', null)
-        .limit(1)
-        .executeTakeFirst();
+    const merged = await db.selectFrom('deadair.tracks').select('id').where('mergedIntoId', 'is not', null).limit(1).executeTakeFirst();
     check(
         'a merged row is not rated',
         merged === undefined ? 'none in this catalog to try' : await tracks.setRating(merged.id, 1),
@@ -185,7 +185,11 @@ try {
     const weight = async () => {
         for (let attempt = 0; attempt < 15; attempt += 1) {
             const hit = (await candidates.sample(SAMPLE_ATTEMPT)).find(candidate => candidate.trackId === track.trackId);
-            if (hit) return weightOf(hit);
+            // Keyed the way `CatalogSetGenerator` keys the same draw, rather than cast past the
+            // type. `weightOf` reads only the rating today, and the keys are what every other rule
+            // in that file judges a candidate on — so a script that faked them would be exercising
+            // a candidate the generator could not produce.
+            if (hit) return weightOf({ songKey: songKey(hit.title, [hit.artist]), artistKey: artistKey([hit.artist]), rating: hit.rating });
         }
         return 'not offered';
     };

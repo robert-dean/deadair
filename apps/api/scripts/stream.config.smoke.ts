@@ -9,56 +9,78 @@
  * Seeding is idempotent and is what the app would do on its next boot anyway.
  *
  *   node --import @swc-node/register/esm-register ./scripts/stream.config.smoke.ts
+ *
+ * It drives `StreamService` rather than calling `writeStreamConfig` itself. That is not
+ * tidiness: it used to build the playout half of the render by hand, which meant it was
+ * a SECOND opinion about what the containers should be told — and by the time anyone
+ * looked it had drifted four fields behind the real one and no longer compiled. The
+ * point of the script is to render what the app renders, so it has to go through the
+ * thing that renders it.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AppConfigBuilder, AppConfigResolverEnv, AppConfigSourceDotenv } from '@maroonedsoftware/appconfig';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
-import { Kysely } from 'kysely';
+import { Kysely, PostgresDialect } from 'kysely';
 import { KyselyPool, KyselyDefaultPlugins, KyselyPgTypeOverrides } from '@maroonedsoftware/kysely';
+import type { Logger } from '@maroonedsoftware/logger';
 import type { DB } from '../src/modules/data/db.js';
+import { settingsConfigSource } from '../src/server/settings.config.source.js';
 import { SettingsRepository } from '../src/modules/settings/settings.repository.js';
-import { ensureStreamSecrets, resolveStreamSettings } from '../src/modules/stream/stream.settings.js';
-import { defaultStreamAssetsDir, defaultStreamConfigDir, writeStreamConfig } from '../src/modules/stream/stream.config.js';
-import { playoutAiredUrl, resolvePlayoutBaseUrl } from '../src/modules/playout/playout.urls.js';
+import { defaultStreamConfigDir } from '../src/modules/stream/stream.config.js';
+import { StreamService } from '../src/modules/stream/stream.service.js';
+import { StreamConfigWatch } from '../src/modules/stream/stream.staleness.js';
+import { IcecastStatsClient } from '../src/modules/stream/icecast.stats.client.js';
 
-const config = await new AppConfigBuilder()
+const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
+// No prefix of its own: `StreamService` already writes `stream: …` into every line it logs.
+const loud = { info: console.log, warn: console.warn, error: console.error, debug: () => {} } as unknown as Logger;
+
+// Two steps, the way `setup.server.ts` does it. `deadair.settings` is a LAYER of the
+// app's config and `resolveStreamSettings` reads the stream values straight off it, so a
+// dotenv-only config here would render the DEFAULT mount and title over the operator's.
+const boot = await new AppConfigBuilder()
     .addSource(new AppConfigSourceDotenv(undefined, { groupSeparator: '__' }))
     .addResolver(new AppConfigResolverEnv())
     .buildSnapshot();
 
+const store = await new AppConfigBuilder()
+    .addSource(new AppConfigSourceDotenv(undefined, { groupSeparator: '__' }))
+    .addSource(settingsConfigSource(boot, quiet))
+    .addResolver(new AppConfigResolverEnv())
+    .buildStore(quiet);
+const config = store.toLiveConfig();
+
 const pool = new KyselyPool({
-    host: config.get('DATABASE_HOST', ''),
-    port: config.get('DATABASE_PORT', 55432),
-    user: config.get('DATABASE_USER', ''),
-    password: config.get('DATABASE_PASSWORD', ''),
-    database: config.get('DATABASE_NAME', ''),
+    host: boot.get('DATABASE_HOST', ''),
+    port: boot.get('DATABASE_PORT', 55432),
+    user: boot.get('DATABASE_USER', ''),
+    password: boot.get('DATABASE_PASSWORD', ''),
+    database: boot.get('DATABASE_NAME', ''),
     types: KyselyPgTypeOverrides,
 });
-const db = new Kysely<DB>({ dialect: new (await import('kysely')).PostgresDialect({ pool }), plugins: [...KyselyDefaultPlugins] });
+const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }), plugins: [...KyselyDefaultPlugins] });
 
-const repository = new SettingsRepository(db);
-const encryption = new EncryptionProvider(Buffer.from(config.get('KMS_LOCAL_ROOT_KEY', ''), 'hex'));
+const encryption = new EncryptionProvider(Buffer.from(boot.get('KMS_LOCAL_ROOT_KEY', ''), 'hex'));
+// The staleness watch is fed by a render and consulted by nothing here. It is a
+// constructor argument rather than an optional one because the app has exactly one and a
+// second would be a second answer to disagree with; this process just gives it a real one.
+const staleness = new StreamConfigWatch(new IcecastStatsClient(config, quiet), quiet);
+const stream = new StreamService(new SettingsRepository(db), encryption, config, staleness, loud);
 
-const seeded = await ensureStreamSecrets(repository, encryption);
-console.log(seeded ? 'seeded missing stream secrets' : 'stream secrets already set');
+if (await stream.ensureSecrets()) {
+    // The same reload `StreamModule.ready` does, for the same reason and only on the same
+    // condition: everything below reads the settings through the CONFIG, whose settings
+    // layer was loaded before that seed happened. Without it a fresh station renders both
+    // containers' configs with no passwords in them.
+    await store.reload();
+    console.log('seeded the missing stream secrets; restart icecast and liquidsoap once to adopt them');
+} else {
+    console.log('stream secrets already set');
+}
 
-const settings = await resolveStreamSettings(repository, encryption);
+const wrote = await stream.materialize();
 const configDir = config.get('STREAM_CONFIG_DIR', defaultStreamConfigDir());
-
-const wrote = writeStreamConfig({
-    settings,
-    playout: {
-        playoutAiredUrl: playoutAiredUrl(resolvePlayoutBaseUrl(config)),
-        playoutBridgeSecret: settings.playoutBridgeSecret ?? '',
-        talkOverTracks: true,
-        duckGainDb: -12,
-        duckFadeMs: 300,
-    },
-    assetsDir: config.get('STREAM_ASSETS_DIR', defaultStreamAssetsDir()),
-    configDir,
-    log: message => console.log(`stream: ${message}`),
-});
 
 if (wrote) {
     // Secrets are redacted: this prints to a terminal and, often enough, into a log.
@@ -69,6 +91,11 @@ if (wrote) {
     for (const line of readFileSync(join(configDir, 'icecast.xml'), 'utf8').split('\n')) {
         if (/<(hostname|mount-name|stream-name|genre|stream-url)>/.test(line)) console.log(line.trim());
     }
+} else {
+    console.log(`\nnothing changed; ${configDir} already holds this render`);
 }
 
 await db.destroy();
+// The settings source holds a `LISTEN` on its own connection, so the process does not end
+// on its own. Nothing here is worth draining, and the render is already on disk.
+process.exit(0);

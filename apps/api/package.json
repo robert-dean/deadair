@@ -18,7 +18,9 @@
         "migrate:down:all": "./scripts/rollbackall.sh",
         "migrate:create": "dbmate -d ./data/migrations new",
         "lint": "eslint --fix",
-        "typecheck": "tsc --noEmit -p tsconfig.tests.json",
+        "typecheck": "pnpm typecheck:tests && pnpm typecheck:scripts",
+        "typecheck:tests": "tsc --noEmit -p tsconfig.tests.json",
+        "typecheck:scripts": "tsc --noEmit -p scripts/tsconfig.json",
         "format": "prettier --write . --ignore-path ../../.prettierignore",
         "test": "vitest run"
     },

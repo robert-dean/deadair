@@ -3,7 +3,7 @@
 // be on an older radio.liq that reports less — and every field this gets wrong is a
 // confident lie about what the listener is hearing.
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import { parseReading, PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
@@ -90,6 +90,12 @@ describe('PlayoutControlClient.isUp', () => {
         return new PlayoutControlClient(pinnedEndpoint, staleness, logger);
     };
 
+    // The endpoint is shared by every case here, so its calls are too. The timeout cases below
+    // assert on what was NOT invalidated, which without this reads whatever an earlier case did.
+    beforeEach(() => {
+        vi.mocked(pinnedEndpoint.invalidate).mockClear();
+    });
+
     it('is false before anything has been heard from', () => {
         const client = new PlayoutControlClient(pinnedEndpoint, staleness, logger);
 
@@ -126,6 +132,105 @@ describe('PlayoutControlClient.isUp', () => {
         try {
             expect(await client.status()).toBeUndefined();
             expect(client.isUp()).toBe(true);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    /**
+     * A timeout is a BUSY engine, not a dead one, and the difference is the whole reason the
+     * station used to go quiet for twenty seconds at a time. Measured against the real container:
+     * the harbor dispatches at a p50 of 192ms and a peak of 1.6s while playing nothing, so a call
+     * going over budget says the engine is working, not that it has gone away.
+     */
+    const timeout = () => Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' });
+
+    it('stays up through a single timeout, and keeps the address it had', async () => {
+        // What this used to cost: `up` went false, the address was dropped, the next call had to
+        // re-probe, and nothing renewed the lease while it did — so a slow answer became a mount
+        // falling through to the local bed.
+        const client = clientWith(async () => {
+            throw timeout();
+        });
+        try {
+            await client.status();
+
+            expect(client.isUp()).toBe(false);
+            expect(pinnedEndpoint.invalidate).not.toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps a station that answered once up through a slow call', async () => {
+        let slow = false;
+        const client = clientWith(async () => {
+            if (slow) throw timeout();
+            return new Response(JSON.stringify({ queued: 0, ready: false }), { status: 200 });
+        });
+        try {
+            await client.status();
+            expect(client.isUp()).toBe(true);
+
+            slow = true;
+            await client.status();
+            expect(client.isUp()).toBe(true);
+            expect(pinnedEndpoint.invalidate).not.toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('gives up after a run of them, so a hung engine does not read as healthy forever', async () => {
+        const client = clientWith(async () => {
+            throw timeout();
+        });
+        try {
+            await client.status();
+            await client.status();
+            expect(client.isUp()).toBe(false);
+
+            await client.status();
+            expect(pinnedEndpoint.invalidate).toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('forgets the run as soon as anything answers', async () => {
+        // Two slow calls and a good one is a busy engine, not a failing one. Without the reset,
+        // timeouts spread over an hour would eventually add up to a stream declared dead.
+        let slow = true;
+        const client = clientWith(async () => {
+            if (slow) throw timeout();
+            return new Response(JSON.stringify({ queued: 0, ready: false }), { status: 200 });
+        });
+        try {
+            await client.status();
+            await client.status();
+            slow = false;
+            await client.status();
+            slow = true;
+            await client.status();
+            await client.status();
+
+            expect(pinnedEndpoint.invalidate).not.toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('goes down at once when the connection is refused, which is a real absence', async () => {
+        // The case the invalidate was written for, and the one it must keep: a refused socket
+        // fails in milliseconds and means the container is gone, not busy.
+        const client = clientWith(async () => {
+            throw new Error('connect ECONNREFUSED');
+        });
+        try {
+            await client.status();
+
+            expect(client.isUp()).toBe(false);
+            expect(pinnedEndpoint.invalidate).toHaveBeenCalled();
         } finally {
             vi.unstubAllGlobals();
         }

@@ -15,8 +15,18 @@ import { Logger } from '@maroonedsoftware/logger';
  * next probe with no app restart.
  */
 
-/** Both candidates are local: a live one answers in milliseconds, a dead one fails at once. */
-const PROBE_TIMEOUT_MS = 500;
+/**
+ * How long a candidate has to answer the probe.
+ *
+ * It used to be 500ms, on the assumption that "a live one answers in milliseconds". Measured
+ * against the real container while it played nothing, the harbor's p90 is 739ms and its peak is
+ * 1.64s — so **7.5% of probes against a perfectly healthy stream failed** (3 of 40), and every one
+ * of those left the app believing nothing was there to air through.
+ *
+ * Two seconds is past the measured peak with room for the load the idle measurement did not have.
+ * It costs a slow first boot against a stream that genuinely is not up, which happens once.
+ */
+const PROBE_TIMEOUT_MS = 2000;
 
 /** The harbor port the control endpoints share with the `dj` mount. */
 const DEFAULT_HARBOR_PORT = '8005';
@@ -95,12 +105,25 @@ export class LiquidsoapEndpoint {
 
         // With no secret every candidate answers 401, so a probe could only mislead.
         if (this.bridgeSecret) {
-            for (const candidate of candidates) {
-                if (!(await reachable(candidate, this.bridgeSecret))) continue;
-                this.resolved = candidate;
+            // CONCURRENTLY, and that is the fix for an ordering that cannot be right in both
+            // places. `liquidsoap:8005` is the only address that works in compose and does not
+            // resolve at all from a host `pnpm dev`; `127.0.0.1:8005` is the exact opposite. Tried
+            // in sequence, every probe in one of the two environments spends its whole budget on a
+            // name that was never going to answer before reaching the one that does — and the app
+            // re-probes after any failed call, so that cost is paid over and over.
+            //
+            // Asked together, a probe costs ONE timeout rather than the sum of them, and neither
+            // environment is the penalised one. The preference below is still the declared order
+            // rather than whoever answers first: they are asked at once, and if both somehow
+            // answer, the first candidate wins the way it always did.
+            const answers = await Promise.all(candidates.map(candidate => reachable(candidate, this.bridgeSecret)));
+            const found = candidates.find((_, index) => answers[index]);
+
+            if (found !== undefined) {
+                this.resolved = found;
                 this.reportedMissing = false;
-                this.logger.info(`liquidsoap: playout control found at ${candidate}`);
-                return candidate;
+                this.logger.info(`liquidsoap: playout control found at ${found}`);
+                return found;
             }
         }
 

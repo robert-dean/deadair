@@ -14,8 +14,33 @@ import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
  * instead of retrying an address that has gone away.
  */
 
-/** Local calls against an in-memory queue; a live Liquidsoap answers in milliseconds. */
-const CONTROL_TIMEOUT_MS = 2000;
+/**
+ * How long one control call may take before it is abandoned.
+ *
+ * It used to be 2s, under the comment "a live Liquidsoap answers in milliseconds". It does not.
+ * Measured against the real container on the cheapest path there is — an unauthenticated 401, which
+ * touches neither the queue nor the reading — while the station played nothing: p50 192ms, p90
+ * 739ms, max 1.64s. The harbor accepts the connection in 0.3ms and then dispatches the handler on
+ * the same scheduler that runs the audio, so the latency is the engine's rather than the network's
+ * and it gets worse exactly when the station is busiest.
+ *
+ * Four seconds is about twenty times the measured median and comfortably past the idle peak, and it
+ * has a hard ceiling: it MUST stay below {@link CONTROL_TTL_S}, or a renewal still in flight would
+ * outlive the lease it was sent to renew and the caller would be waiting on an answer that can no
+ * longer keep the station on air.
+ */
+const CONTROL_TIMEOUT_MS = 4000;
+
+/**
+ * Consecutive timeouts before the stream is called down.
+ *
+ * One timeout is a busy engine. A run of them is a Liquidsoap that accepts connections and never
+ * answers, which is indistinguishable from a dead one from here and must not read as healthy
+ * forever. Three at {@link CONTROL_TIMEOUT_MS} is longer than the lease, so the mount has already
+ * dropped by the time this trips: what it decides is what the console SAYS, not what the station
+ * does.
+ */
+const TIMEOUT_TOLERANCE = 3;
 
 /**
  * How long one {@link PlayoutControlClient.assertOnAir} keeps the station on air,
@@ -128,6 +153,8 @@ export class PlayoutControlClient {
     private onAir = false;
     /** When the running order stopped producing, while it is still stopped. See {@link starvedSince}. */
     private starvedAt?: number;
+    /** Consecutive timed-out calls. Reset by anything that answers. See the catch in {@link call}. */
+    private timeouts = 0;
 
     constructor(
         private readonly endpoint: LiquidsoapEndpoint,
@@ -365,20 +392,57 @@ export class PlayoutControlClient {
                 // said the stream was unreachable would send the operator looking for
                 // the wrong fault.
                 this.up = true;
+                this.timeouts = 0;
                 this.logger.warn(`liquidsoap: ${method} ${path} answered ${response.status}`);
                 return undefined;
             }
             this.up = true;
+            this.timeouts = 0;
             return (await response.json()) as unknown;
         } catch (error) {
-            // Unreachable, timed out, or a body that is not JSON: the stream may have
-            // restarted, so drop the cached address and let the next call re-probe.
+            this.logger.warn(`liquidsoap: ${method} ${path} failed (${errorText(error)})`);
+
+            // A TIMEOUT is not a dead stream, and treating it as one is what turned a slow
+            // response into a silent station. Measured against the real container: the harbor
+            // accepts instantly (0.3ms) and then dispatches the handler at a p50 of 192ms, a p90
+            // of 739ms and a peak of 1.6s while playing NOTHING, because it is served by the same
+            // scheduler as the audio. Under load it goes past any budget worth setting.
+            //
+            // What that used to cost: one slow call marked the stream down and dropped the cached
+            // address, the next call had to re-probe, the probe spent its budget on a candidate
+            // that cannot resolve here, and nothing renewed the lease meanwhile. `CONTROL_TTL_S`
+            // is 6s and the observed recovery gaps were 8 to 18 — so the mount fell through to
+            // Liquidsoap's local bed, the running order stopped being consumed, and every item
+            // already handed over was written off when the player finally moved. Seventy of these
+            // in five days of logs.
+            //
+            // So a timeout leaves `up` and the address alone and lets the next tick try again.
+            // A REFUSED connection still means gone: that is the case the invalidate was written
+            // for, and it fails in milliseconds rather than burning a budget.
+            if (isTimeout(error)) {
+                this.timeouts += 1;
+                // Unless they keep coming. A Liquidsoap that accepts connections and never answers
+                // would otherwise read as up forever, which is the failure this branch would
+                // introduce if it stopped here. Three consecutive is past the lease either way, so
+                // by now the mount has dropped and the only question is what the console says.
+                if (this.timeouts < TIMEOUT_TOLERANCE) return undefined;
+            }
+
+            this.timeouts = 0;
             this.up = false;
             this.endpoint.invalidate();
-            this.logger.warn(`liquidsoap: ${method} ${path} failed (${errorText(error)})`);
             return undefined;
         }
     }
+}
+
+/**
+ * `AbortSignal.timeout` rejects with a `TimeoutError`; a refused or unresolvable host rejects with
+ * a `TypeError` from undici. Read off `name` rather than with `instanceof`, because the platform
+ * throws a `DOMException` here and the two are not the same class across every runtime this runs on.
+ */
+function isTimeout(error: unknown): boolean {
+    return error instanceof Error && error.name === 'TimeoutError';
 }
 
 /**

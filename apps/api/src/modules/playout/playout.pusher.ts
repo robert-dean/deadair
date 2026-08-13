@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { annotateUri, blendOutOf, itemAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
 import { TARGET_LUFS_KEY, resolveTargetLufs } from './gain.js';
@@ -89,6 +90,15 @@ export class PlayoutPusher {
     /** One reconcile at a time: `next()` emits a change, which would otherwise re-enter here. */
     private busy = false;
     /**
+     * What the last pass threw, cleared by the next one that does not.
+     *
+     * Deliberately here rather than in {@link Heartbeat}: a loop that threw and came
+     * round again is still ALIVE, which is all the heartbeat measures, and folding the
+     * two together would leave a reader unable to tell a loop that stopped from one
+     * that is failing every pass. Those are two faults with two different fixes.
+     */
+    private lastFailure?: { at: number; message: string };
+    /**
      * The blend stamped on the LAST boundary handed over, so the next item can carry
      * the same number as its start buffer.
      *
@@ -104,8 +114,25 @@ export class PlayoutPusher {
         private readonly control: PlayoutControlClient,
         private readonly audience: AudienceWatch,
         private readonly config: AppConfig,
+        private readonly heartbeat: Heartbeat,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * Whether this loop is still going round, and what it last complained about.
+     *
+     * Read by the silence diagnosis, and the reason it can be: `PlayoutControlClient`
+     * sets `isUp` and `isOnAir` from the calls made in here, so a loop that has stopped
+     * leaves both frozen at whatever they last said and every other reading looks fine
+     * while the mount lease expires.
+     */
+    health(now = Date.now()): { stalledForMs?: number; failure?: { at: number; message: string } } {
+        const stalledForMs = this.heartbeat.stalledFor(HEARTBEATS.playoutReconcile, now);
+        return {
+            ...(stalledForMs === undefined ? {} : { stalledForMs }),
+            ...(this.lastFailure === undefined ? {} : { failure: this.lastFailure }),
+        };
+    }
 
     /**
      * The station's target level, as the setting currently stands.
@@ -170,6 +197,7 @@ export class PlayoutPusher {
             }),
         );
 
+        this.heartbeat.register(HEARTBEATS.playoutReconcile);
         this.timer = setInterval(() => this.tick(), RECONCILE_TICK_MS);
         this.timer.unref?.();
         this.logger.info(`playout: pushing the rundown to liquidsoap (lead ${LEAD}, reconciling every ${RECONCILE_TICK_MS}ms)`);
@@ -179,6 +207,9 @@ export class PlayoutPusher {
     stop(): void {
         if (this.timer) clearInterval(this.timer);
         this.timer = undefined;
+        // Stopped on purpose, so it should not be reported as a loop that died. A
+        // shutdown is the only caller.
+        this.heartbeat.forget(HEARTBEATS.playoutReconcile);
         for (const unsubscribe of this.unsubscribes.splice(0)) unsubscribe();
     }
 
@@ -223,6 +254,11 @@ export class PlayoutPusher {
         if (this.busy) return;
         this.busy = true;
 
+        // Whether this pass got all the way round, which is not the same as it having
+        // done anything: the several early returns below are completed passes, and the
+        // only exit that is not is a throw. Beating in the `finally` without this would
+        // report a loop that fails instantly on every tick as a healthy one.
+        let threw = false;
         try {
             // Renewing the lease IS the reading: `radio.liq` answers /control/onair
             // with the same reading as /control/status, so holding the station on air
@@ -332,8 +368,18 @@ export class PlayoutPusher {
                     return;
                 }
             }
+        } catch (error) {
+            threw = true;
+            this.lastFailure = { at: Date.now(), message: error instanceof Error ? error.message : String(error) };
+            throw error;
         } finally {
             this.busy = false;
+            if (!threw) {
+                this.heartbeat.beat(HEARTBEATS.playoutReconcile);
+                // Cleared by a pass that worked, so what a reader sees is always the
+                // failure the loop is CURRENTLY suffering rather than the last one it ever hit.
+                this.lastFailure = undefined;
+            }
         }
     }
 

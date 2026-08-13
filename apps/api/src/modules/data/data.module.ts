@@ -1,5 +1,6 @@
 import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { Heartbeat } from '#modules/shared/heartbeat.js';
 import { AfterCommit } from './after.commit.js';
 import { DB } from './db.js';
 import { Kysely, type LogEvent } from 'kysely';
@@ -102,6 +103,14 @@ export const DataModule: ServerKitModule = {
         // waits on is this request's, opened and committed by
         // `audit.context.middleware`, which is also the only thing that runs it.
         registry.register(AfterCommit).useClass(AfterCommit).asScoped();
+
+        // Which of the station's timer loops are still going round. Nothing to do with
+        // data, and it is registered here anyway because this is the chassis module and
+        // it has to be in front of everyone: the earliest loop is JobsModule's and the
+        // reader is PlayoutModule's, which are six modules apart. A singleton, obviously
+        // — a per-request copy would be a per-request empty map, so every loop would
+        // read as one nobody registered.
+        registry.register(Heartbeat).useClass(Heartbeat).asSingleton();
     },
     shutdown: async (container: Container) => {
         const logger = container.get(Logger);

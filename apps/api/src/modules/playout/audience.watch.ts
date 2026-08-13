@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { IcecastStatsClient } from '#modules/stream/icecast.stats.client.js';
 import { IcecastEventFeed } from '#modules/stream/icecast.eventfeed.client.js';
+import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from './air.mode.js';
 
 /**
@@ -71,6 +72,7 @@ export class AudienceWatch {
         private readonly stats: IcecastStatsClient,
         private readonly feed: IcecastEventFeed,
         private readonly config: AppConfig,
+        private readonly heartbeat: Heartbeat,
         private readonly logger: Logger,
     ) {}
 
@@ -94,6 +96,7 @@ export class AudienceWatch {
     start(): void {
         if (this.timer) return;
 
+        this.heartbeat.register(HEARTBEATS.audiencePoll);
         this.timer = setInterval(() => void this.poll(), AUDIENCE_POLL_MS);
         this.timer.unref?.();
         void this.poll();
@@ -107,6 +110,7 @@ export class AudienceWatch {
     /** Stop watching. The last reading is kept, and stops being refreshed. */
     stop(): void {
         this.feed.stop();
+        this.heartbeat.forget(HEARTBEATS.audiencePoll);
         if (this.timer) clearInterval(this.timer);
         this.timer = undefined;
         if (this.refresh) clearTimeout(this.refresh);
@@ -236,6 +240,11 @@ export class AudienceWatch {
             this.logger.warn(`audience: could not read the listener count (${message(error)})`);
         } finally {
             this.polling = false;
+            // The loop came round, which is a different fact from Icecast having answered:
+            // a poll that failed still beats here, and whether there was an ANSWER is what
+            // `lastReadAt` is for. Conflating them would report a dead stats endpoint as a
+            // dead app.
+            this.heartbeat.beat(HEARTBEATS.audiencePoll);
         }
     }
 

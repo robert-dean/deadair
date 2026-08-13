@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
+import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
 import { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import { Rundown, type RundownItem, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { StationLineup, isTrackItem } from '../../../src/modules/director/station.lineup.js';
@@ -153,7 +154,7 @@ async function onAirStation(ids: string[]) {
     const rundown = new Rundown(new StubResolver(), logger);
     seed(rundown, ids.map(track));
     const { control, pushed } = scriptedControl();
-    const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience().audience, config, logger);
+    const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience().audience, config, new Heartbeat(), logger);
 
     // Hand the first item over…
     await pusher.reconcile();
@@ -172,7 +173,7 @@ function setup(ids: string[], reading: QueueStatus | undefined, options: { pushL
     seed(rundown, ids.map(track));
     const { control, pushed, spy } = stubControl(reading, options);
     const gate = stubAudience(options.audience ?? true);
-    return { rundown, pusher: new PlayoutPusher(rundown, control, gate.audience, config, logger), pushed, spy, gate };
+    return { rundown, pusher: new PlayoutPusher(rundown, control, gate.audience, config, new Heartbeat(), logger), pushed, spy, gate };
 }
 
 describe('PlayoutPusher.reconcile', () => {
@@ -547,7 +548,7 @@ describe('PlayoutPusher pushing across a change underneath it', () => {
         } as unknown as PlayoutControlClient;
 
         const audience = { gateOpen: () => open, onChange: () => () => {} } as unknown as AudienceWatch;
-        const pusher = new PlayoutPusher(rundown, control, audience, config, logger);
+        const pusher = new PlayoutPusher(rundown, control, audience, config, new Heartbeat(), logger);
 
         return { pusher, pushed, rundown, close: () => (open = false) };
     };
@@ -604,7 +605,11 @@ describe('PlayoutPusher arming a talk-over', () => {
         };
         const audience = { gateOpen: () => true, onChange: () => () => {} } as unknown as AudienceWatch;
 
-        return { pusher: new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, audience, config, logger), control, rundown };
+        return {
+            pusher: new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, audience, config, new Heartbeat(), logger),
+            control,
+            rundown,
+        };
     };
 
     it('arms the cue against the item it rides on', async () => {
@@ -667,7 +672,7 @@ describe('PlayoutPusher: the blend', () => {
         seed(rundown, tracks);
         rundown.setCrossfade(crossfade);
         const { control, pushed } = stubControl({ queued: 0, ready: false });
-        return { rundown, pusher: new PlayoutPusher(rundown, control, stubAudience().audience, config, logger), pushed };
+        return { rundown, pusher: new PlayoutPusher(rundown, control, stubAudience().audience, config, new Heartbeat(), logger), pushed };
     }
 
     it('sizes each stamp from the record that actually follows', async () => {
@@ -739,5 +744,93 @@ describe('PlayoutPusher: the blend', () => {
 
         expect(blend(pushed[0]!)).toBe(HARD_JOIN);
         expect(blend(pushed[1]!)).toBe(HARD_JOIN);
+    });
+});
+
+describe('PlayoutPusher.health', () => {
+    // `PlayoutControlClient` sets `isUp` and `isOnAir` from the calls this loop makes, so a
+    // loop that has stopped leaves both frozen at whatever they last said and the console
+    // reports a station that is on air while the mount lease expires underneath it. Nothing
+    // else in the reading can account for that, which is why it is measured here.
+
+    it('reports a loop that completed a pass as not stalled', async () => {
+        const heartbeat = new Heartbeat();
+        const rundown = new Rundown(new StubResolver(), logger);
+        seed(rundown, ['a'].map(track));
+        const { control } = stubControl({ queued: 0, ready: false });
+        const pusher = new PlayoutPusher(rundown, control, stubAudience().audience, config, heartbeat, logger);
+
+        pusher.start();
+        await pusher.reconcile();
+
+        expect(pusher.health().stalledForMs).toBe(0);
+        pusher.stop();
+    });
+
+    it('counts an early return as a completed pass', async () => {
+        // Most passes exit early — the stream is unreachable, the queue is already full,
+        // nothing is planned. Every one of those is the loop going round.
+        const heartbeat = new Heartbeat();
+        const rundown = new Rundown(new StubResolver(), logger);
+        const { control } = stubControl(undefined);
+        const pusher = new PlayoutPusher(rundown, control, stubAudience().audience, config, heartbeat, logger);
+
+        pusher.start();
+        await pusher.reconcile();
+
+        expect(pusher.health().stalledForMs).toBe(0);
+        pusher.stop();
+    });
+
+    it('does not beat for a pass that threw, and quotes what it threw', async () => {
+        // A loop that fails instantly on every tick would otherwise report as a healthy
+        // one, which is the failure mode this whole reading exists to catch.
+        const heartbeat = new Heartbeat();
+        const rundown = new Rundown(new StubResolver(), logger);
+        const control = {
+            status: () => Promise.reject(new Error('socket hang up')),
+            assertOnAir: () => Promise.reject(new Error('socket hang up')),
+        } as unknown as PlayoutControlClient;
+        const pusher = new PlayoutPusher(rundown, control, stubAudience().audience, config, heartbeat, logger);
+
+        heartbeat.register('playout.reconcile', Date.now() - 60_000);
+        await expect(pusher.reconcile()).rejects.toThrow('socket hang up');
+
+        const health = pusher.health();
+        expect(health.stalledForMs).toBeGreaterThan(30_000);
+        expect(health.failure?.message).toBe('socket hang up');
+    });
+
+    it('clears the failure once a pass works again', async () => {
+        const heartbeat = new Heartbeat();
+        const rundown = new Rundown(new StubResolver(), logger);
+        let fail = true;
+        const control = {
+            status: () => (fail ? Promise.reject(new Error('socket hang up')) : Promise.resolve(undefined)),
+            assertOnAir: () => (fail ? Promise.reject(new Error('socket hang up')) : Promise.resolve(undefined)),
+        } as unknown as PlayoutControlClient;
+        const pusher = new PlayoutPusher(rundown, control, stubAudience().audience, config, heartbeat, logger);
+
+        await expect(pusher.reconcile()).rejects.toThrow('socket hang up');
+        fail = false;
+        await pusher.reconcile();
+
+        expect(pusher.health().failure).toBeUndefined();
+    });
+
+    it('reports nothing for a loop that was never started', () => {
+        // A loop nobody registered is a question about this code rather than about the
+        // station, so it must not read as a fault.
+        const { pusher } = setup(['a'], { queued: 0, ready: false });
+
+        expect(pusher.health().stalledForMs).toBeUndefined();
+    });
+
+    it('stops reporting on a loop that was stopped on purpose', () => {
+        const { pusher } = setup(['a'], { queued: 0, ready: false });
+        pusher.start();
+        pusher.stop();
+
+        expect(pusher.health().stalledForMs).toBeUndefined();
     });
 });

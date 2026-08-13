@@ -28,6 +28,21 @@ import { StationEventsRepository, type StationEvent } from './station.events.rep
  * already did exactly that for its log line, and the recorder rides that same edge rather than
  * adding a second opinion about when a thing is worth saying.
  *
+ * ## The feed carries the station's own sentences, never a third party's text
+ *
+ * Nothing here is redacted, and that is safe only for as long as this rule holds. `detail` and
+ * `data` are written by app code from facts the app controls, so there is nothing to scrub. The log
+ * store makes the opposite bet: it scrubs meta keys matching token/secret/password and bearer
+ * tokens inside values, precisely because a plugin's own output goes through it — which is also why
+ * `GET /plugins/{id}/logs` sits on a `platform.manage` floor while `GET /activity` sits on
+ * `platform.view`.
+ *
+ * So an upstream error body, a provider's response, a plugin's message or anything else the station
+ * did not write itself must NOT be put in an event. It would land unscrubbed in a table a
+ * view-only reader can page through, where the identical string in a log would be redacted and
+ * gated. Summarize it in the station's own words and leave the verbatim text in the log, which is
+ * where somebody debugging it will look anyway.
+ *
  * ## Why it opens its own scope
  *
  * This is a singleton and repositories are scoped, so there is no ambient request to borrow a

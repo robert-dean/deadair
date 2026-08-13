@@ -564,6 +564,20 @@ describe('DirectorService standing down', () => {
         expect(record.mock.calls.filter(call => call[0]?.kind === 'air.off')).toHaveLength(1);
     });
 
+    it('says it in the log as well, which is what still works when the database does not', async () => {
+        const { director, rundown, seed } = build();
+        await seed();
+        await director.start();
+
+        rundown.reset();
+        await settle();
+
+        const said = (logger.info as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(call =>
+            String(call[0]).includes('stood the station down'),
+        );
+        expect(said).toHaveLength(1);
+    });
+
     it('says nothing to the feed when the write did not land', async () => {
         // The intent stands even when the row does not — the process stays off air — but a feed
         // saying the station stopped while the station does not know it stopped is worse than a

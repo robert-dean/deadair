@@ -994,6 +994,10 @@ export class DirectorService {
         const wasActive = this.standDownFromActive;
         this.standDownFromActive = false;
         if (wasActive) {
+            // Both media, like every other station-level edge: the log line is what is still
+            // greppable when the database is the thing that is broken, and it is the only record
+            // at all once the feed has been swept. `putOnAir` says the same thing the same way.
+            this.logger.info('director: stood the station down');
             void this.activity.record({
                 module: 'director',
                 kind: 'air.off',

@@ -68,20 +68,27 @@ export type StationLineupOnEnd = 'extend' | 'repeat' | 'stop';
  *
  * `skipped` and `removed` are both "this will not be heard", and they are two arms
  * rather than one because they are opposite facts about the station. `skipped` is
- * the station reaching an item and passing over it: a segment with no audio, a
- * record nothing could resolve, a push the player never took. `removed` is an
- * operator cutting one before its turn came. Merging them costs three things — a
- * console that can only describe a removal as one of the ways an item goes wrong,
- * a {@link committedThrough} reduced to guessing which is which from adjacency,
- * and an activity feed that reports an operator's edit as a fault on the page whose
- * whole job is naming why the station is silent.
+ * the station reaching an item and passing over it: a segment with no audio, a push
+ * the player never took. `removed` is an operator cutting one before its turn came.
+ * Merging them costs three things — a console that can only describe a removal as one
+ * of the ways an item goes wrong, a {@link committedThrough} reduced to guessing which
+ * is which from adjacency, and an activity feed that reports an operator's edit as a
+ * fault on the page whose whole job is naming why the station is silent.
+ *
+ * `unavailable` is the third of them, and it earns its place on the same argument: the
+ * station could not obtain the AUDIO for a record. It is the only one of the three an
+ * operator can do anything about, because it names a copy rather than a decision — the
+ * provider answered 502 four times, or every binding is benched — and folding it into
+ * `skipped` leaves the one actionable case indistinguishable from a break that was not
+ * ready in time. It is otherwise `skipped` in every respect that matters to position:
+ * terminal, past, and no reason to hold the broadcast up.
  *
  * The local-audio arms the decision doc sketches (`resolved`, `warming`, `ready`)
  * are not here because nothing warms audio yet. When they land they are new arms on
  * this union rather than new fields, which is the point of one list of stateful
  * items.
  */
-export type StationLineupItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped' | 'removed';
+export type StationLineupItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped' | 'unavailable' | 'removed';
 
 /**
  * What is common to every item.
@@ -238,7 +245,8 @@ const refuse = (reason: EditRefusal, message: string): EditResult => ({ ok: fals
 export const MAX_PLAYED_KEPT = 20;
 
 /** The states an item is in once it is no longer this broadcast's to decide about. */
-const isPast = (state: StationLineupItemState): boolean => state === 'played' || state === 'skipped' || state === 'removed';
+const isPast = (state: StationLineupItemState): boolean =>
+    state === 'played' || state === 'skipped' || state === 'unavailable' || state === 'removed';
 
 export class StationLineup implements LiveOrder {
     private itemList: StationLineupItem[];
@@ -385,7 +393,10 @@ export class StationLineup implements LiveOrder {
      *
      * Skips anything that is not a record, and anything already spent. A break promising "coming
      * up, X" is promising the next RECORD a listener will hear, so a segment between the two does
-     * not falsify it, and neither does a line that has already been skipped.
+     * not falsify it, and neither does a line that has already been skipped or turned out to have
+     * no audio. **A record marked `unavailable` is passed over here for the same reason a skipped
+     * one is, and that is what makes a break promising it fail its claim check** rather than airing
+     * a promise about a record the station has already given up on.
      *
      * `undefined` for a line the order does not hold, and for one with no record after it at all.
      * Both make a claim uncheckable, which the caller treats the same way it treats a broken one.
@@ -396,7 +407,7 @@ export class StationLineup implements LiveOrder {
 
         for (let index = at + 1; index < this.itemList.length; index++) {
             const item = this.itemList[index]!;
-            if (item.kind === 'track' && item.state !== 'skipped') return item;
+            if (item.kind === 'track' && item.state !== 'skipped' && item.state !== 'unavailable') return item;
         }
         return undefined;
     }
@@ -496,6 +507,21 @@ export class StationLineup implements LiveOrder {
      */
     markSkipped(itemId: string): boolean {
         return this.transition(itemId, 'planned', 'skipped') || this.transition(itemId, 'handed', 'skipped');
+    }
+
+    /**
+     * The station cannot get hold of this record's audio.
+     *
+     * Terminal for the same reason {@link markSkipped} is, and separate from it because an operator
+     * can act on this one: nothing could resolve a URL, or every copy has been benched for failing
+     * to serve. What they see is a record that did not air with the reason attached to it, instead
+     * of one more yellow badge meaning any of four things.
+     *
+     * Takes a `handed` item too, because the transport discovers this at the moment it tries to
+     * hand one over — the resolve is what fails — and by then the item is already claimed.
+     */
+    markUnavailable(itemId: string): boolean {
+        return this.transition(itemId, 'planned', 'unavailable') || this.transition(itemId, 'handed', 'unavailable');
     }
 
     /**

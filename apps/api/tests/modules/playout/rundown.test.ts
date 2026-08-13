@@ -117,6 +117,21 @@ describe('Rundown hand-over', () => {
         expect((await rundown.next())?.item.externalId).toBe('b');
     });
 
+    it('calls a record it cannot resolve unavailable, not skipped', async () => {
+        // The one terminal state an operator can act on: nothing here was a decision the station
+        // made, it is a copy that would not serve. Folding it into `skipped` leaves it looking like
+        // a break that missed its slot.
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b'].map(track));
+        const rundown = new Rundown(new StubResolver(new Set(['a'])), logger);
+        rundown.attach(order);
+        prepareAll(rundown, order);
+
+        await rundown.next();
+
+        expect(order.all()[0]?.state).toBe('unavailable');
+    });
+
     it('runs out rather than repeating itself', async () => {
         const rundown = rundownWith(['a']);
         await rundown.next();

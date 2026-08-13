@@ -526,8 +526,14 @@ export class Rundown {
             }
 
             if (!url) {
-                this.logger.warn(`rundown: cannot resolve '${item.title}' (${item.pluginId}:${item.externalId}) — skipping it`);
-                this.order?.markSkipped(item.id);
+                // `unavailable` rather than `skipped`: nothing here is a decision the station made.
+                // The resolver answers with nothing when every copy of the record is benched or the
+                // provider will not serve one, which is a fact about the COPY and the one thing on
+                // this page an operator can go and fix.
+                this.logger.warn(
+                    `rundown: cannot resolve '${item.title}' (${item.pluginId}:${item.externalId}) — it has no audio the station can reach`,
+                );
+                this.order?.markUnavailable(item.id);
                 continue;
             }
 
@@ -866,7 +872,7 @@ export class Rundown {
     /** Forget the playable form of everything the station is done with. */
     private forgetSpentPrepared(): void {
         for (const item of this.order?.all() ?? []) {
-            if (item.state === 'played' || item.state === 'skipped') {
+            if (item.state === 'played' || item.state === 'skipped' || item.state === 'unavailable') {
                 this.prepared.delete(item.id);
                 this.handOvers.delete(item.id);
             }

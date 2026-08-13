@@ -23,10 +23,10 @@ export const StationOnEnd = z.enum(['extend', 'repeat', 'stop']);
 export type StationOnEnd = z.infer<typeof StationOnEnd>;
 
 /**
- * Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around. `skipped` is the station passing over an item it reached; `removed` is an operator taking one out before its turn, and the two are different facts on a page that has to say why the station is silent
+ * Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around. The three terminal states that are not `played` are three different facts on a page that has to say why the station is silent: `skipped` is the station passing over an item it reached, `removed` is an operator taking one out before its turn, and `unavailable` is a record the station could not obtain the audio for — the only one of the three an operator can act on, since it names a copy rather than a decision
  * generated from [StationItemState](file://./../../../../data/contracts/director/director.types.ck#L29)
  */
-export const StationItemState = z.enum(['planned', 'handed', 'airing', 'played', 'skipped', 'removed']);
+export const StationItemState = z.enum(['planned', 'handed', 'airing', 'played', 'skipped', 'unavailable', 'removed']);
 export type StationItemState = z.infer<typeof StationItemState>;
 
 /**

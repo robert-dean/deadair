@@ -100,7 +100,7 @@ export class StationLineupRepository extends DataRepository {
 }
 
 /** The states an item may legally come back in. Anything else is a row nobody here wrote. */
-const STATES = new Set<string>(['planned', 'handed', 'airing', 'played', 'skipped', 'removed']);
+const STATES = new Set<string>(['planned', 'handed', 'airing', 'played', 'skipped', 'unavailable', 'removed']);
 
 /**
  * Read an order back out of jsonb.

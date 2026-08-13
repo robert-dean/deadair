@@ -68,6 +68,14 @@ const STATE_LABEL: Record<StationItemState, { label: string; colour: string; hin
         colour: 'yellow',
         hint: 'The station passed over this one: a segment with no audio, or an item the player never started.',
     },
+    // Split out of `skipped` because it is the only one of these an operator can act on. A skip is
+    // the station making a decision it was designed to make; this is a record it could not get hold
+    // of, which means a copy that would not serve — and the fix is out there, not in here.
+    unavailable: {
+        label: 'unavailable',
+        colour: 'orange',
+        hint: 'The station could not get the audio for this record, so it was passed over. Its copy is benched until a sync sees it again — check the record in the catalog to see which provider is refusing it.',
+    },
     // Its own state rather than a shade of `skipped`, because it is the opposite fact: nothing
     // went wrong here. Grey rather than yellow for the same reason.
     removed: {

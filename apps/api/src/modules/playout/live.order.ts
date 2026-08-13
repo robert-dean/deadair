@@ -21,7 +21,7 @@
  * What the transport does with it is what it does with any item that is not `planned` —
  * nothing.
  */
-export type LiveItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped' | 'removed';
+export type LiveItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped' | 'unavailable' | 'removed';
 
 /** One item, as the transport sees it: an id and where it has got to. */
 export interface LiveItem {
@@ -61,8 +61,16 @@ export interface LiveOrder {
     markAiring(itemId: string): AiringResult | undefined;
     /** Behind us. */
     markPlayed(itemId: string): boolean;
-    /** The station will not be airing it: nothing could resolve it, or it has no audio. */
+    /** The station will not be airing it: a segment with no audio, or a push the player never took. */
     markSkipped(itemId: string): boolean;
+    /**
+     * The station could not get hold of this record's audio at all.
+     *
+     * Split from {@link markSkipped} because it is the one an operator can act on: it names a copy
+     * that would not serve rather than a decision the station made. The transport is where it is
+     * discovered, since resolving is what fails.
+     */
+    markUnavailable(itemId: string): boolean;
 
     /**
      * Take back items handed over and then retracted, so they are offered again.

@@ -256,6 +256,66 @@ describe('StationLineup editing', () => {
         expect(lineup.insertSegment('ident', 1)).toMatchObject({ ok: false, reason: 'already-aired' });
     });
 
+    it('counts a record with no audio as part of the head, exactly like a skipped one', () => {
+        // `unavailable` is a different FACT from `skipped` — an operator can act on it — and the
+        // same position: the station reached the item and moved past it, so everything in front of
+        // it has been committed.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        const handed = hand(lineup, 2);
+
+        expect(lineup.markUnavailable(handed[1]!.id)).toBe(true);
+        expect(lineup.all()[1]?.state).toBe('unavailable');
+        expect(lineup.committedThrough()).toBe(2);
+    });
+
+    it('marks a record unavailable from planned as well as from handed', () => {
+        // Both, because the two callers reach it at different moments: the transport discovers it
+        // resolving an item it has already claimed, and a benched copy is noticed while the line is
+        // still only planned.
+        const lineup = lineupWith(['a', 'b']);
+        const [first] = hand(lineup, 1);
+
+        expect(lineup.markUnavailable(first!.id)).toBe(true);
+        expect(lineup.markUnavailable(lineup.all()[1]!.id)).toBe(true);
+        expect(lineup.all().map(item => item.state)).toEqual(['unavailable', 'unavailable']);
+    });
+
+    it('is terminal: a record that could not be got hold of is not offered again', () => {
+        // The same rule that makes `skipped` terminal. A state the director would retry is the
+        // wait that skipping exists to avoid, by another name.
+        const lineup = lineupWith(['a', 'b']);
+        const [first] = hand(lineup, 1);
+        lineup.markUnavailable(first!.id);
+
+        expect(lineup.reclaimAll()).toBe(0);
+        expect(lineup.all()[0]?.state).toBe('unavailable');
+    });
+
+    it('passes over an unavailable record when it says what plays next', () => {
+        // What makes a break's forward claim fail rather than air: "coming up, X" is a promise
+        // about the next record a listener will HEAR, and one the station cannot obtain is not it.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 1);
+        const breakLine = lineup.all()[1]!;
+        const promised = lineup.all()[2]!;
+
+        expect(lineup.nextTrackAfter(breakLine.id)?.id).toBe(promised.id);
+
+        lineup.markUnavailable(promised.id);
+
+        expect(lineup.nextTrackAfter(breakLine.id)?.id).toBe(lineup.all()[3]!.id);
+    });
+
+    it('ages an unavailable record out of the order like any other spent line', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        const [first] = hand(lineup, 1);
+        lineup.markUnavailable(first!.id);
+
+        lineup.trimPast(0);
+
+        expect(idsOf(lineup.all())).toEqual(['b', 'c']);
+    });
+
     it('says which refusal is which, because a console has to tell someone at the desk', () => {
         const lineup = lineupWith(['a']);
 

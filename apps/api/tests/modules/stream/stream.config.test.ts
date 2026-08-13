@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { writeStreamConfig, type StreamPlayoutConfig } from '../../../src/modules/stream/stream.config.js';
+import { defaultStreamAssetsDir, writeStreamConfig, type StreamPlayoutConfig } from '../../../src/modules/stream/stream.config.js';
 import type { StreamSettings } from '../../../src/modules/stream/stream.settings.js';
 
 const TEMPLATE = `<icecast>
@@ -141,6 +141,33 @@ describe('writeStreamConfig', () => {
         writeStreamConfig({ settings: settings({ title: 'Rock & Roll <Radio>' }), playout: playout(), assetsDir, configDir });
 
         expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).toContain('<stream-name>Rock &amp; Roll &lt;Radio&gt;</stream-name>');
+    });
+
+    it('gives the mount the source credential, which is what authorises a metadata update', () => {
+        // Measured on Icecast 2.5.0: a mount-scoped admin command is authorised against the
+        // MOUNT's own username and password, and the global <source-password> is not a
+        // substitute — it lets a source connect and nothing more. Without these,
+        // /admin/metadata answered 401 to the source credential and to the admin one alike, and
+        // for an MP3 mount that endpoint IS the metadata path, so every label the station pushed
+        // was accepted by Liquidsoap and then silently dropped.
+        //
+        // Asserted against the same value as <source-password> rather than a literal: they are
+        // one credential written twice, and the whole failure was them not matching.
+        //
+        // Rendered from the SHIPPED template rather than this file's fixture, which is the only
+        // version of this test worth having: what broke was the artifact Icecast actually reads,
+        // and a fixture that agrees with itself would have gone on passing throughout.
+        const { configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir: defaultStreamAssetsDir(), configDir });
+
+        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
+        const sourcePassword = /<source-password>(.*?)<\/source-password>/.exec(xml)?.[1];
+
+        expect(sourcePassword).toBeTruthy();
+        // `source` is Liquidsoap's own default for output.icecast's `user`, which radio.liq does
+        // not override. The two halves of that pair are here and there.
+        expect(xml).toContain('<username>source</username>');
+        expect(xml).toContain(`<password>${sourcePassword}</password>`);
     });
 
     it('renders the listener hooks with the secret as basic credentials, never in the URL', () => {

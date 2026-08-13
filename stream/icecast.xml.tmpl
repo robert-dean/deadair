@@ -45,6 +45,24 @@
   <!-- The public voice stream. When Liquidsoap isn't connected, listeners are
        moved to the fallback so the mount is never a dead connection. -->
   <mount type="normal">
+    <!-- The SAME credential as <source-password> above, stated again here because a mount-scoped
+         admin command is authorised against the mount's own username and password, and a mount
+         that declares none has nothing to authorise against. The global source password is not a
+         substitute: it lets a source CONNECT and nothing more.
+
+         What that cost while this was missing, measured on 2.5.0: /admin/metadata answered 401 to
+         the source credential AND to the admin one, so every ICY metadata update Liquidsoap made
+         was refused. For an MP3 mount that update IS the metadata path — there is no in-band one
+         for a source client — so the app's own labelling endpoint (POST /control/metadata, which
+         exists because this graph has two switches that move mid-track and drop a label emitted
+         while another branch is selected) returned 200 from Liquidsoap and then silently changed
+         nothing on the mount. A listener's player showed whatever it had last been told, which on
+         a station that had just come back on air mid-record was a track that was no longer playing.
+
+         `source` is Liquidsoap's own default for output.icecast's `user`, which radio.liq does not
+         override. The two have to match: this is the other half of that pair. -->
+    <username>source</username>
+    <password>{{SOURCE_PASSWORD}}</password>
     <mount-name>{{MOUNT}}</mount-name>
     <stream-name>{{STREAM_NAME}}</stream-name>
     <stream-description>{{STREAM_DESCRIPTION}}</stream-description>

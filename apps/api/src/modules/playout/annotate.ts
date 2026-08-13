@@ -68,9 +68,17 @@ export interface AnnotationContext {
  * `title`, `artist` and `album` are Liquidsoap's own metadata names, not ours:
  * `output.icecast` builds the ICY stream title out of what the source is
  * playing, so setting them here is what puts the track in a listener's player.
- * That is also why this is the labelling path rather than Icecast's admin API —
- * the label travels with the item, so it changes on the boundary itself and
- * needs no second credential to push it.
+ * That is also why this is the labelling path: the label travels with the item,
+ * so it changes on the boundary itself rather than being pushed after the fact.
+ *
+ * **It does not avoid Icecast's admin API, and an earlier version of this note
+ * claimed it did.** On an MP3 mount there is no in-band metadata path for a
+ * source client at all: whatever Liquidsoap is told, it delivers by calling
+ * `/admin/metadata`, which is authorised against the MOUNT's own credentials.
+ * That endpoint answered 401 on this station until `icecast.xml.tmpl` gave the
+ * mount a `<username>`/`<password>` — see the comment there — and the symptom
+ * was one this file would never have been suspected of: labels accepted and
+ * silently dropped, while the annotations here were correct throughout.
  *
  * Empty values are left out rather than sent blank: an `artist=""` overwrites
  * whatever the file's own tags said with nothing, and for a local library those

@@ -45,6 +45,12 @@
   <!-- The public voice stream. When Liquidsoap isn't connected, listeners are
        moved to the fallback so the mount is never a dead connection. -->
   <mount type="normal">
+    <!-- Matches <source-password> above, and has to: a mount-scoped admin command is authorised
+         against the mount's own credentials, so without these /admin/metadata answers 401 and every
+         ICY metadata update is refused. See the same block in icecast.xml.tmpl for the whole of it;
+         this file is the boot fallback and has to agree with what the app renders. -->
+    <username>source</username>
+    <password>devsource</password>
     <mount-name>/live.mp3</mount-name>
     <stream-name>Deadair</stream-name>
     <stream-description></stream-description>

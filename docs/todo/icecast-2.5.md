@@ -81,6 +81,33 @@ The 2.4-era metadata note in `annotate.ts` is corrected: 2.5 reports `display-ti
 drops `title` entirely, and neither version ever splits out an `artist`. 2.5 also keeps a `playlist`
 of recent titles on the mount, which is a lossy echo of what the rundown already knows.
 
+## Mount-scoped admin commands need MOUNT credentials
+
+Measured on this 2.5.0 build, against the running container:
+
+| Request | `admin:<adminPassword>` | `source:<sourcePassword>` |
+| --- | --- | --- |
+| `/admin/stats`, `/admin/stats.xml`, `/admin/publicstats.json`, `/admin/` | 200 | — |
+| `/admin/metadata?mount=…`, `/admin/listclients?mount=…` | **401** | **401** |
+
+The split is exactly general versus mount-scoped, and the global `<source-password>` is not what
+authorises the second group: it lets a source CONNECT and nothing more. Adding `<username>source</username>`
+and `<password>` (the same value) to the `<mount>` block turned `/admin/metadata` from 401 into 200
+with no other change, verified end to end by pushing a label through `POST /control/metadata` and
+watching `display-title` move on `/status-json.xsl`.
+
+This mattered more than a missing admin convenience. **On an MP3 mount there is no in-band metadata
+path for a source client** — Liquidsoap delivers every ICY update by calling `/admin/metadata` — so
+until the mount carried credentials, the station's own labelling endpoint returned 200 from
+Liquidsoap and then changed nothing, on every call it had ever made. The visible symptom was a
+player showing a track that was no longer playing, which reads as a now-playing bug and is not one.
+
+Note the docs are ahead of the build here: upstream's admin interface page still says mount-scoped
+commands take "either the `<admin-username>` and `<admin-password>` … or the username and password
+specified for that mountpoint". On this build the admin credential does NOT work for them, only the
+mount's own. The 2.5 role system that presumably explains it is not in the published docs at all,
+which is why the table above is measured rather than cited.
+
 ## What is left
 
 **1. The anonymous role, if it is ever wanted.** A station could render

@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository } from '#modules/data/data.repository.js';
+import { failureBackoff } from '#modules/data/failure.backoff.js';
 import { TrackExtension, isTrackExtension } from './track.store.js';
 
 /**
@@ -234,10 +235,7 @@ export class TrackAudioRepository extends DataRepository {
      * by a lock nobody takes any more would only ever be wrong.
      */
     async recordFailure(sourceId: string, error: string, baseRetryMs: number, maxRetryMs: number): Promise<void> {
-        // Cast both bounds: `least()` over two untyped bind parameters resolves to text, and
-        // `make_interval(secs => text)` is not a function that exists.
-        const baseSecs = sql<number>`${baseRetryMs / 1000}::double precision`;
-        const maxSecs = sql<number>`${maxRetryMs / 1000}::double precision`;
+        const retry = failureBackoff('deadair.track_audio.attempts', baseRetryMs, maxRetryMs);
 
         await this.db
             .insertInto('deadair.trackAudio')
@@ -245,18 +243,13 @@ export class TrackAudioRepository extends DataRepository {
                 sourceId,
                 attempts: 1,
                 lastError: error,
-                nextAttemptAt: sql<never>`now() + make_interval(secs => least(${baseSecs}, ${maxSecs}))`,
+                nextAttemptAt: retry.first,
             })
             .onConflict(oc =>
                 oc.column('sourceId').doUpdateSet(eb => ({
                     attempts: eb('deadair.trackAudio.attempts', '+', 1),
                     lastError: error,
-                    // Doubling off the row's own count rather than off a value read a moment ago, so
-                    // two failures racing cannot both write the same delay from the same stale number.
-                    // `attempts` is the PRE-bump value inside this expression, hence no -1.
-                    nextAttemptAt: sql<never>`now() + make_interval(
-                        secs => least(${baseSecs} * power(2, deadair.track_audio.attempts), ${maxSecs})
-                    )`,
+                    nextAttemptAt: retry.again,
                 })),
             )
             .execute();

@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
+import { failureBackoff } from '../data/failure.backoff.js';
 import { ArtExtension, isArtExtension } from './art.store.js';
 
 /**
@@ -108,15 +109,10 @@ export class ArtRepository extends DataRepository {
      * seen from one that 404s every time, and a dead cover would be re-fetched on every pass
      * forever.
      *
-     * The backoff doubles per attempt up to `maxRetryMs`, computed in SQL off the row's own
-     * `attempts` so it needs no read first and two concurrent failures cannot both write the same
-     * delay from the same stale count.
+     * The backoff is {@link failureBackoff}'s, which explains why it is computed in SQL.
      */
     async recordFailure(sourceUrl: string, error: string, baseRetryMs: number, maxRetryMs: number): Promise<void> {
-        // Cast both bounds: `least()` over two untyped bind parameters resolves to text, and
-        // `make_interval(secs => text)` is not a function that exists.
-        const baseSecs = sql<number>`${baseRetryMs / 1000}::double precision`;
-        const maxSecs = sql<number>`${maxRetryMs / 1000}::double precision`;
+        const retry = failureBackoff('deadair.art_assets.attempts', baseRetryMs, maxRetryMs);
 
         await this.db
             .insertInto('deadair.artAssets')
@@ -124,15 +120,13 @@ export class ArtRepository extends DataRepository {
                 sourceUrl,
                 attempts: 1,
                 lastError: error,
-                nextAttemptAt: sql<never>`now() + make_interval(secs => least(${baseSecs}, ${maxSecs}))`,
+                nextAttemptAt: retry.first,
             })
             .onConflict(oc =>
                 oc.column('sourceUrl').doUpdateSet(eb => ({
                     attempts: eb('deadair.artAssets.attempts', '+', 1),
                     lastError: error,
-                    nextAttemptAt: sql<never>`now() + make_interval(
-                        secs => least(${baseSecs} * power(2, deadair.art_assets.attempts), ${maxSecs})
-                    )`,
+                    nextAttemptAt: retry.again,
                 })),
             )
             .execute();

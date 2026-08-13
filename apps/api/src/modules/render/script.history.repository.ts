@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository } from '#modules/data/data.repository.js';
+import { toJsonb } from '#modules/data/jsonb.js';
 
 /**
  * Everything the station ever wrote, including the attempts that came to nothing.
@@ -129,9 +130,6 @@ function toEntry(row: ScriptHistoryRow): ScriptHistoryEntry {
     };
 }
 
-/** `undefined` stays out of the column entirely; anything else is stored as jsonb. */
-const json = (value: unknown): never | null => (value === undefined ? null : (JSON.stringify(value) as unknown as never));
-
 @Injectable()
 export class ScriptHistoryRepository extends DataRepository {
     /** Write down one attempt. */
@@ -146,13 +144,13 @@ export class ScriptHistoryRepository extends DataRepository {
                 writer: write.writer,
                 model: write.model ?? null,
                 source: write.source ?? null,
-                previous: json(write.previous),
-                next: json(write.next),
+                previous: toJsonb(write.previous),
+                next: toJsonb(write.next),
                 outcome: write.outcome,
                 reason: write.reason ?? null,
-                usage: json(write.usage),
+                usage: toJsonb(write.usage),
                 durationMs: write.durationMs ?? null,
-                prompt: json(write.prompt),
+                prompt: toJsonb(write.prompt),
                 raw: write.raw ?? null,
             })
             .execute();

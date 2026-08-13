@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository } from '#modules/data/data.repository.js';
+import { toJsonb } from '#modules/data/jsonb.js';
 
 /**
  * The moments the station changed, when nothing else wrote them down: `deadair.station_events`.
@@ -54,9 +55,6 @@ export interface StationEventEntry extends StationEvent {
     at: DateTime;
 }
 
-/** `undefined` stays out of the column entirely; anything else is stored as jsonb. */
-const json = (value: unknown): never | null => (value === undefined ? null : (JSON.stringify(value) as unknown as never));
-
 @Injectable()
 export class StationEventsRepository extends DataRepository {
     /** Write one down. */
@@ -68,7 +66,7 @@ export class StationEventsRepository extends DataRepository {
                 kind: event.kind,
                 severity: event.severity ?? 'info',
                 detail: event.detail,
-                data: json(event.data),
+                data: toJsonb(event.data),
                 actorId: event.actorId ?? null,
             })
             .execute();

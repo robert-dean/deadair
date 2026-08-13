@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { DataRepository } from '#modules/data/data.repository.js';
+import { toJsonb } from '#modules/data/jsonb.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import {
     StationLineup,
@@ -81,8 +82,8 @@ export class StationLineupRepository extends DataRepository {
             source: snapshot.source,
             sourcePluginId: snapshot.sourcePluginId ?? null,
             sourcePlaylistId: snapshot.sourcePlaylistId ?? null,
-            rules: jsonb(snapshot.rules),
-            items: jsonb(snapshot.items),
+            rules: toJsonb(snapshot.rules),
+            items: toJsonb(snapshot.items),
         };
 
         await this.db
@@ -97,9 +98,6 @@ export class StationLineupRepository extends DataRepository {
         await this.db.deleteFrom('deadair.stationLineup').where('stationKey', '=', stationKey).execute();
     }
 }
-
-/** Kysely wants a string for a jsonb column; the generated type says otherwise. */
-const jsonb = (value: unknown): never | null => (value === undefined ? null : (JSON.stringify(value) as unknown as never));
 
 /** The states an item may legally come back in. Anything else is a row nobody here wrote. */
 const STATES = new Set<string>(['planned', 'handed', 'airing', 'played', 'skipped', 'removed']);

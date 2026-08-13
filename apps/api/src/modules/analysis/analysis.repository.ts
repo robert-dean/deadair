@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import type { TrackAnalysis, TrackCuePoints } from '@deadair/plugin-sdk';
 import { DataRepository } from '../data/data.repository.js';
+import { toJsonb } from '../data/jsonb.js';
 
 /**
  * How long a track that could not be measured waits before anything tries again.
@@ -145,7 +146,7 @@ export class AnalysisRepository extends DataRepository {
             trackId,
             analyzerPluginId,
             analyzer: result.analyzer ?? null,
-            data: JSON.stringify(result.data) as unknown as never,
+            data: toJsonb(result.data),
             schemaVersion: result.schemaVersion,
             complete: result.complete,
             analyzedAt: sql<never>`now()`,
@@ -177,7 +178,7 @@ export class AnalysisRepository extends DataRepository {
             analyzer: null,
             // Not the previous measurement: see above. `{}` also cannot be mistaken
             // for cue points by a reader that skipped the `complete` check.
-            data: JSON.stringify({}) as unknown as never,
+            data: toJsonb({}),
             schemaVersion: 0,
             complete: false,
             analyzedAt: null,

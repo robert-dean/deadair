@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import { DateTime } from 'luxon';
 import { DataRepository } from '../data/data.repository.js';
+import { toJsonb } from '../data/jsonb.js';
 
 /** A canonical track, in the shape the enrichment fan-out needs to ask about it. */
 export interface EnrichableTrack {
@@ -267,7 +268,7 @@ export class EnrichmentRepository extends DataRepository {
             trackId,
             provider,
             providerRef: providerRef ?? null,
-            data: JSON.stringify(data) as unknown as never,
+            data: toJsonb(data),
             fetchedAt: sql<never>`now()`,
             expiresAt: sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`,
         };
@@ -298,7 +299,7 @@ export class EnrichmentRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.trackEnrichment')
-            .values({ trackId, provider, providerRef: null, data: '{}' as unknown as never, fetchedAt: sql<never>`now()`, expiresAt })
+            .values({ trackId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt })
             .onConflict(oc => oc.columns(['trackId', 'provider']).doUpdateSet({ expiresAt }))
             .execute();
     }
@@ -309,7 +310,7 @@ export class EnrichmentRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.artistEnrichment')
-            .values({ artistId, provider, providerRef: null, data: '{}' as unknown as never, fetchedAt: sql<never>`now()`, expiresAt })
+            .values({ artistId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt })
             .onConflict(oc => oc.columns(['artistId', 'provider']).doUpdateSet({ expiresAt }))
             .execute();
     }
@@ -320,7 +321,7 @@ export class EnrichmentRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.albumEnrichment')
-            .values({ albumId, provider, providerRef: null, data: '{}' as unknown as never, fetchedAt: sql<never>`now()`, expiresAt })
+            .values({ albumId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt })
             .onConflict(oc => oc.columns(['albumId', 'provider']).doUpdateSet({ expiresAt }))
             .execute();
     }
@@ -434,7 +435,7 @@ export class EnrichmentRepository extends DataRepository {
             artistId,
             provider,
             providerRef: providerRef ?? null,
-            data: JSON.stringify(data) as unknown as never,
+            data: toJsonb(data),
             fetchedAt: sql<never>`now()`,
             expiresAt: sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`,
         };
@@ -525,7 +526,7 @@ export class EnrichmentRepository extends DataRepository {
             albumId,
             provider,
             providerRef: providerRef ?? null,
-            data: JSON.stringify(data) as unknown as never,
+            data: toJsonb(data),
             fetchedAt: sql<never>`now()`,
             expiresAt: sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`,
         };

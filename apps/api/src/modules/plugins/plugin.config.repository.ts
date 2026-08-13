@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { DateTime } from 'luxon';
 import { DataRepository } from '../data/data.repository.js';
+import { toJsonb } from '../data/jsonb.js';
 
 type PluginLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -98,8 +99,8 @@ export class PluginConfigRepository extends DataRepository {
     private toColumns(patch: PluginConfigPatch): PluginConfigColumns {
         const columns: PluginConfigColumns = {};
         if (patch.enabled !== undefined) columns.enabled = patch.enabled;
-        if (patch.config !== undefined) columns.config = this.toJsonb(patch.config);
-        if (patch.secrets !== undefined) columns.secrets = this.toJsonb(patch.secrets);
+        if (patch.config !== undefined) columns.config = toJsonb(patch.config);
+        if (patch.secrets !== undefined) columns.secrets = toJsonb(patch.secrets);
         if (patch.status !== undefined) columns.status = patch.status;
         if (patch.lastError !== undefined) columns.lastError = patch.lastError;
         if (patch.logLevel !== undefined) columns.logLevel = patch.logLevel;
@@ -128,11 +129,6 @@ export class PluginConfigRepository extends DataRepository {
             createdAt: row.createdAt,
             updatedAt: row.updatedAt,
         };
-    }
-
-    /** jsonb columns are typed as `Json` by kysely-codegen; pg wants the serialized form. */
-    private toJsonb(value: unknown): null {
-        return JSON.stringify(value) as unknown as null;
     }
 
     private asRecord(value: unknown): Record<string, unknown> {

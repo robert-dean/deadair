@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import type { ProviderTrack } from '@deadair/plugin-sdk';
 import { DataRepository } from '../../data/data.repository.js';
 import { DB } from '../../data/db.js';
+import { toJsonb } from '../../data/jsonb.js';
 import { normalizeKey } from '../catalog.keys.js';
 
 /**
@@ -316,7 +317,7 @@ export class CatalogResolverRepository extends DataRepository {
         const seen = {
             durationMs: track.durationMs ?? null,
             isrc: track.isrc ?? null,
-            raw: this.toJsonb(track),
+            raw: toJsonb(track),
             lastSeenAt: sql<never>`now()`,
             missingAt: null,
         };
@@ -498,10 +499,5 @@ export class CatalogResolverRepository extends DataRepository {
 
         this.logger.error('merge chain did not terminate', { table, from: row.id, stoppedAt: current.id, hops: MAX_MERGE_HOPS });
         return current.id;
-    }
-
-    /** jsonb columns are typed as `Json` by kysely-codegen; pg wants the serialized form. */
-    private toJsonb(value: unknown): null {
-        return JSON.stringify(value) as unknown as null;
     }
 }

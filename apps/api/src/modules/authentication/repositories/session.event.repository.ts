@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { DataRepository } from '#src/modules/data/data.repository.js';
+import { toJsonb } from '#modules/data/jsonb.js';
 
 export type SessionEventType = 'created' | 'refreshed' | 'revoked' | 'expired' | 'step_up' | 'validation_failed';
 
@@ -23,7 +24,7 @@ export class SessionEventRepository extends DataRepository {
                 eventType: event.eventType,
                 ip: event.ip ?? null,
                 userAgent: event.userAgent ?? null,
-                metadata: event.metadata ? (JSON.stringify(event.metadata) as unknown as null) : null,
+                metadata: event.metadata ? toJsonb(event.metadata) : null,
             })
             .execute();
     }

@@ -1,4 +1,4 @@
-import { PluginError, jsonBody, type PluginErrorCode, type PluginHost } from '@deadair/plugin-sdk';
+import { PluginError, jsonBody, pluginCodeForStatus as sharedCodeForStatus, type PluginErrorCode, type PluginHost } from '@deadair/plugin-sdk';
 
 import { LISTENBRAINZ_ORIGIN, PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './musicbrainz.manifest.js';
 import type { ListenBrainzLookupQuery, ListenBrainzLookupResult, ListenBrainzRecordingMetadataResponse } from './listenbrainz.types.js';
@@ -26,12 +26,8 @@ export const METADATA_BATCH_SIZE = 50;
  * saying so beats a generic authentication failure they cannot act on.
  */
 function pluginCodeForStatus(status: number): PluginErrorCode {
-    if (status === 400) return 'config';
-    if (status === 401 || status === 403) return 'config';
-    if (status === 404) return 'not_found';
-    if (status === 429) return 'rate_limited';
-    if (status >= 500) return 'unavailable';
-    return 'upstream';
+    if (status === 400 || status === 401 || status === 403) return 'config';
+    return sharedCodeForStatus(status);
 }
 
 /** A non-2xx from ListenBrainz, carrying the status so the caller can branch on it. */

@@ -1,4 +1,12 @@
-import { PluginError, jsonBody, type PluginErrorCode, type PluginHost } from '@deadair/plugin-sdk';
+import {
+    PluginError,
+    jsonBody,
+    pluginCodeForStatus as sharedCodeForStatus,
+    truncateUpstreamMessage,
+    upstreamDetail,
+    type PluginErrorCode,
+    type PluginHost,
+} from '@deadair/plugin-sdk';
 
 import type { SubsonicAuth } from './navidrome.auth.js';
 import { REQUEST_TIMEOUT_MS } from './navidrome.manifest.js';
@@ -34,16 +42,13 @@ function pluginCodeForSubsonic(code: number | undefined): PluginErrorCode {
 /** HTTP failures, which are the ones Subsonic never got to answer. */
 function pluginCodeForStatus(status: number): PluginErrorCode {
     if (status === 401 || status === 403) return 'config';
-    if (status === 404) return 'not_found';
-    if (status === 429) return 'rate_limited';
-    if (status >= 500) return 'unavailable';
-    return 'upstream';
+    return sharedCodeForStatus(status);
 }
 
 /** An upstream's sentence, truncated: it ends up in a log line and on a settings card. */
 const reason = (message: string | undefined): string | undefined => {
     if (!message) return undefined;
-    return message.length > 200 ? `${message.slice(0, 200)}…` : message;
+    return truncateUpstreamMessage(message);
 };
 
 /**
@@ -134,7 +139,7 @@ export class SubsonicClient {
         });
 
         if (!response.ok) {
-            const detail = [`HTTP ${response.status}`, response.statusText].filter(part => part).join(' ');
+            const detail = upstreamDetail(response.status, response.statusText);
             throw new SubsonicRequestError(`Navidrome request failed: ${detail}`, { status: response.status });
         }
 

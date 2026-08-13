@@ -1,4 +1,14 @@
-import { PluginError, jsonBody, type PluginErrorCode, type PluginHost } from '@deadair/plugin-sdk';
+import {
+    PluginError,
+    jsonBody,
+    pluginCodeForStatus as sharedCodeForStatus,
+    retryAfterMs,
+    truncateUpstreamMessage,
+    upstreamDetail,
+    upstreamField,
+    type PluginErrorCode,
+    type PluginHost,
+} from '@deadair/plugin-sdk';
 
 import { PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './musicbrainz.manifest.js';
 import type { MusicBrainzErrorResponse } from './musicbrainz.types.js';
@@ -19,19 +29,8 @@ import type { MusicBrainzErrorResponse } from './musicbrainz.types.js';
  */
 function pluginCodeForStatus(status: number, hasRetryAfter: boolean): PluginErrorCode {
     if (status === 400) return 'config';
-    if (status === 404) return 'not_found';
-    if (status === 429) return 'rate_limited';
     if (status === 503) return hasRetryAfter ? 'rate_limited' : 'unavailable';
-    if (status >= 500) return 'unavailable';
-    return 'upstream';
-}
-
-/** `Retry-After` in whole seconds, which is the only form MusicBrainz sends. */
-function retryAfterMs(header: string | undefined): number | undefined {
-    if (header === undefined) return undefined;
-    const seconds = Number(header.trim());
-    if (!Number.isFinite(seconds) || seconds < 0) return undefined;
-    return seconds * 1000;
+    return sharedCodeForStatus(status);
 }
 
 /**
@@ -41,15 +40,8 @@ function retryAfterMs(header: string | undefined): number | undefined {
  * line and on the settings card.
  */
 function upstreamReason(body: string): string | undefined {
-    let message: unknown;
-    try {
-        message = (JSON.parse(body) as MusicBrainzErrorResponse).error;
-    } catch {
-        return undefined;
-    }
-
-    if (typeof message !== 'string' || message.length === 0) return undefined;
-    return message.length > 200 ? `${message.slice(0, 200)}…` : message;
+    const message = upstreamField(body, parsed => (parsed as MusicBrainzErrorResponse).error);
+    return message === undefined ? undefined : truncateUpstreamMessage(message);
 }
 
 /**
@@ -116,8 +108,8 @@ export class MusicBrainzClient {
         });
 
         if (!response.ok) {
-            const retryMs = retryAfterMs(response.headers.get('retry-after') ?? undefined);
-            const detail = [`HTTP ${response.status}`, response.statusText, upstreamReason(await response.text())].filter(part => part).join(' ');
+            const retryMs = retryAfterMs(response.headers.get('retry-after'));
+            const detail = upstreamDetail(response.status, response.statusText, upstreamReason(await response.text()));
             throw new MusicBrainzRequestError(response.status, `MusicBrainz request failed: ${detail}`, retryMs);
         }
 

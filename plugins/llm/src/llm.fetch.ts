@@ -1,4 +1,4 @@
-import { PluginError, type HostFetchInit, type HostFetchMethod, type PluginHost } from '@deadair/plugin-sdk';
+import { PluginError, headersToRecord, hostFetchMethod, type HostFetchInit, type HostFetchMethod, type PluginHost } from '@deadair/plugin-sdk';
 
 /**
  * `host.fetch` in the shape the AI SDK wants.
@@ -23,8 +23,6 @@ import { PluginError, type HostFetchInit, type HostFetchMethod, type PluginHost 
  * Failing loudly means a provider that starts doing either is a clear error on
  * the first call rather than a subtly dropped body.
  */
-
-const METHODS = new Set<string>(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD']);
 
 /**
  * A `fetch` the AI SDK can be handed, backed by the host's.
@@ -54,10 +52,11 @@ function toHostInit(init: RequestInit | undefined): HostFetchInit {
 
     if (init.method !== undefined) {
         const method = init.method.toUpperCase();
-        if (!METHODS.has(method)) {
+        const match = hostFetchMethod(method);
+        if (!match) {
             throw new PluginError(`the model provider asked for HTTP ${method}, which the host fetch does not offer`).withCode('internal');
         }
-        hostInit.method = method as HostFetchMethod;
+        hostInit.method = match;
     }
 
     const headers = toHeaderRecord(init.headers);
@@ -92,10 +91,7 @@ function toHeaderRecord(headers: HeadersInit | undefined): Record<string, string
     const record: Record<string, string> = {};
 
     if (headers instanceof Headers) {
-        headers.forEach((value, name) => {
-            record[name] = value;
-        });
-        return record;
+        return headersToRecord(headers);
     }
 
     if (Array.isArray(headers)) {

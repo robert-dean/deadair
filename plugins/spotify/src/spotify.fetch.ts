@@ -1,25 +1,22 @@
-import { PluginError, type PluginErrorCode } from '@deadair/plugin-sdk';
+import {
+    PluginError,
+    headersToRecord,
+    hostFetchMethod,
+    pluginCodeForStatus as sharedCodeForStatus,
+    retryAfterMs,
+    truncateUpstreamMessage,
+    upstreamField,
+    type PluginErrorCode,
+} from '@deadair/plugin-sdk';
 import type { HostFetchInit, HostFetchMethod, PluginHost } from '@deadair/plugin-sdk';
 import type { IValidateResponses, RequestImplementation } from '@spotify/web-api-ts-sdk';
 
 import { REQUEST_TIMEOUT_MS } from './spotify.manifest.js';
 
-const HOST_FETCH_METHODS: readonly HostFetchMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'];
-
 function toHostFetchMethod(method: string | undefined): HostFetchMethod {
-    const upper = (method ?? 'GET').toUpperCase();
-    const match = HOST_FETCH_METHODS.find(candidate => candidate === upper);
+    const match = hostFetchMethod(method);
     if (!match) throw new Error(`Spotify fetch bridge received an unsupported method: ${method}`);
     return match;
-}
-
-/** Lowercases header names, which is the shape `HostFetchInit.headers` takes. */
-function headersToRecord(headers: Headers): Record<string, string> {
-    const record: Record<string, string> = {};
-    headers.forEach((value, key) => {
-        record[key.toLowerCase()] = value;
-    });
-    return record;
 }
 
 /**
@@ -45,10 +42,7 @@ function headersToRecord(headers: Headers): Record<string, string> {
 function pluginCodeForStatus(status: number): PluginErrorCode {
     if (status === 401) return 'auth';
     if (status === 403) return 'forbidden';
-    if (status === 404) return 'not_found';
-    if (status === 429) return 'rate_limited';
-    if (status >= 500) return 'unavailable';
-    return 'upstream';
+    return sharedCodeForStatus(status);
 }
 
 /**
@@ -61,17 +55,8 @@ function pluginCodeForStatus(status: number): PluginErrorCode {
  * ends up in a log line and on the settings card.
  */
 function upstreamReason(body: string | undefined): string | undefined {
-    if (!body) return undefined;
-
-    let message: unknown;
-    try {
-        message = (JSON.parse(body) as { error?: { message?: unknown } }).error?.message;
-    } catch {
-        return undefined;
-    }
-
-    if (typeof message !== 'string' || message.length === 0) return undefined;
-    return message.length > 200 ? `${message.slice(0, 200)}…` : message;
+    const message = upstreamField(body, parsed => (parsed as { error?: { message?: unknown } }).error?.message);
+    return message === undefined ? undefined : truncateUpstreamMessage(message);
 }
 
 /**
@@ -84,16 +69,7 @@ function upstreamReason(body: string | undefined): string | undefined {
  * failed parse must read as "said nothing" rather than throw inside a validator.
  */
 function upstreamCause(body: string | undefined): string | undefined {
-    if (!body) return undefined;
-
-    let reason: unknown;
-    try {
-        reason = (JSON.parse(body) as { error?: { reason?: unknown } }).error?.reason;
-    } catch {
-        return undefined;
-    }
-
-    return typeof reason === 'string' && reason.length > 0 ? reason : undefined;
+    return upstreamField(body, parsed => (parsed as { error?: { reason?: unknown } }).error?.reason);
 }
 
 /** The `error.reason` Spotify sends on a 429 when the app's allowance is spent rather than its burst. */
@@ -110,20 +86,6 @@ export const QUOTA_EXCEEDED_REASON = 'QUOTA_EXCEEDED';
  * operator to look at the app's allowance.
  */
 export const QUOTA_BACKOFF_MS = 30 * 60_000;
-
-/**
- * Spotify sends `Retry-After` in whole seconds on a 429.
- *
- * Only the seconds form is read: the HTTP-date form is legal but Spotify does
- * not send it, and guessing wrong here would tell the host to sit out a wait
- * that was never asked for. Anything unparseable means "no advice given".
- */
-function retryAfterMs(header: string | null): number | undefined {
-    if (header === null) return undefined;
-    const seconds = Number(header.trim());
-    if (!Number.isFinite(seconds) || seconds < 0) return undefined;
-    return seconds * 1000;
-}
 
 /**
  * Thrown by {@link SpotifyResponseValidator} in place of the SDK's bare

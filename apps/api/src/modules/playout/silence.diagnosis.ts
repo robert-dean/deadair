@@ -184,7 +184,9 @@ const STARVE_AFTER_MS = RECONCILE_TICK_MS;
  * that has a different reason is how a real warning stops being believed.
  */
 export function diagnose(facts: StationFacts): StationSilence {
-    const checks = [
+    // The gates that stand on their own: each one is true or false about the station
+    // without reference to any of the others.
+    const independent = [
         transportStalled(facts),
         streamUnreachable(facts),
         configNotAdopted(facts),
@@ -192,9 +194,15 @@ export function diagnose(facts: StationFacts): StationSilence {
         noProgramme(facts),
         audienceUnknown(facts),
         noAudience(facts),
-        notDriving(facts),
-        starved(facts),
     ];
+
+    // `notDriving` is the RESIDUE, and does not stand on its own: "the station is not
+    // holding the mount" is a fault only when nothing above accounts for it, and is the
+    // correct behaviour otherwise. Measured against the running station, which is how
+    // this was found: with nobody listening it reported "there is a programme, an
+    // audience and a reachable stream" underneath the gate saying there was no audience.
+    const explained = independent.some(check => check.state !== 'ok' && check.code !== 'configNotAdopted');
+    const checks = [...independent, notDriving(facts, explained ? blockedBy(independent) : undefined), starved(facts)];
 
     const blocking = checks.find(check => check.state !== 'ok' && check.code !== 'configNotAdopted');
     if (!blocking) {
@@ -366,9 +374,23 @@ function noAudience(facts: StationFacts): SilenceCheck {
  * The residue, and worth its own line precisely because nothing else accounts for
  * it: there is a programme, there is an audience, the stream answers, and the
  * lease is not being held.
+ *
+ * `explainedBy` is what stops it being a lie the rest of the time. The lease is
+ * SUPPOSED to be dropped while a gate above is shut — that is the dead-man switch
+ * and the audience gate doing their jobs — so a station with no listeners is not
+ * driving on purpose, and reporting that as a fault would put a red mark next to
+ * correct behaviour on every idle station.
  */
-function notDriving(facts: StationFacts): SilenceCheck {
+function notDriving(facts: StationFacts, explainedBy: SilenceCause | undefined): SilenceCheck {
     if (facts.driving) return { code: 'notDriving', state: 'ok', detail: 'deadair is holding the mount.' };
+
+    if (explainedBy !== undefined) {
+        return {
+            code: 'notDriving',
+            state: 'ok',
+            detail: 'The mount is not being held, which is correct while something above is keeping the station off air.',
+        };
+    }
 
     return {
         code: 'notDriving',
@@ -376,6 +398,11 @@ function notDriving(facts: StationFacts): SilenceCheck {
         detail: 'There is a programme, an audience and a reachable stream, and deadair is still not holding the mount.',
         remedy: 'Check the API log for what the last renewal answered.',
     };
+}
+
+/** The first gate that is actually blocking, for a check that has to know whether one is. */
+function blockedBy(checks: readonly SilenceCheck[]): SilenceCause | undefined {
+    return checks.find(check => check.state !== 'ok' && check.code !== 'configNotAdopted')?.code;
 }
 
 /**

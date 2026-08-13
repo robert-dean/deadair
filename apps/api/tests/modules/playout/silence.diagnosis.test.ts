@@ -171,3 +171,54 @@ describe('diagnose', () => {
         expect(diagnose(airing({ active: false, hasProgramme: false })).cause).toBe('stoodDown');
     });
 });
+
+describe('the residue check', () => {
+    // `notDriving` is the only gate that does not stand on its own. Dropping the lease is
+    // what the dead-man switch and the audience gate are FOR, so a station with nobody
+    // listening is not driving on purpose — and reporting that as a fault puts a red mark
+    // next to correct behaviour on every idle station. Found on the running station, where
+    // it claimed "there is a programme, an audience and a reachable stream" directly under
+    // the gate saying there was no audience.
+
+    const idle = (over: Partial<StationFacts> = {}): StationFacts => ({
+        now: 1_000_000,
+        streamUp: true,
+        driving: false,
+        staleConfig: [],
+        active: true,
+        hasProgramme: true,
+        airMode: 'audience',
+        listeners: 0,
+        audience: false,
+        sinceAudienceAnswerMs: 1_000,
+        ...over,
+    });
+
+    it('does not call a dropped lease a fault when a gate above explains it', () => {
+        const answer = diagnose(idle());
+
+        expect(answer.cause).toBe('noAudience');
+        expect(answer.checks.find(check => check.code === 'notDriving')?.state).toBe('ok');
+    });
+
+    it('does not claim there is an audience when there is not', () => {
+        const check = diagnose(idle()).checks.find(candidate => candidate.code === 'notDriving');
+
+        expect(check?.detail).not.toContain('an audience');
+    });
+
+    it('is still a fault when nothing else accounts for it', () => {
+        const answer = diagnose(idle({ listeners: 2, audience: true }));
+
+        expect(answer.cause).toBe('notDriving');
+        expect(answer.checks.find(check => check.code === 'notDriving')?.state).toBe('fault');
+    });
+
+    it('is not excused by a stale config, which never blocks anything', () => {
+        // Otherwise the one fault that is deliberately never a cause would silence the one
+        // check that only fires when nothing else explains the silence.
+        const answer = diagnose(idle({ listeners: 2, audience: true, staleConfig: stale }));
+
+        expect(answer.cause).toBe('notDriving');
+    });
+});

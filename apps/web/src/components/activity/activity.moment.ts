@@ -1,5 +1,6 @@
 const TIME = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const FULL = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
 /**
  * When something happened, to the second.
@@ -23,10 +24,22 @@ export function formatMomentFull(iso: string | undefined): string {
     return date === undefined ? '' : FULL.format(date);
 }
 
-/** The calendar day, so the list can say where one day ends and the next begins. */
+/**
+ * The calendar day, for deciding where one day ends and the next begins.
+ *
+ * `toDateString` rather than a formatted label, because this is compared and never shown: two
+ * entries are on the same day or they are not, and a locale format that happened to omit the year
+ * would make last August look like this one.
+ */
 export function dayOf(iso: string | undefined): string {
     const date = parse(iso);
     return date === undefined ? '' : date.toDateString();
+}
+
+/** The same day as a heading. The year is left off: a feed swept at 90 days cannot span one. */
+export function formatDay(iso: string | undefined): string {
+    const date = parse(iso);
+    return date === undefined ? '' : DAY.format(date);
 }
 
 function parse(iso: string | undefined): Date | undefined {

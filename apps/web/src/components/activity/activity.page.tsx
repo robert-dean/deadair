@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Alert, Badge, Button, Card, Group, SegmentedControl, Skeleton, Stack, Text, Title, Tooltip } from '@mantine/core';
 import type { ActivityEntry, ActivityModule, ActivitySeverity } from '@deadair/sdk';
 
 import { useActivity } from '../../api/activity.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { dayOf, formatMoment, formatMomentFull } from './activity.moment';
+import { dayOf, formatDay, formatMoment, formatMomentFull } from './activity.moment';
 
 /** The filter chips, and the order an operator meets them: what airs first, what makes it after. */
 const MODULES: { value: ActivityModule | 'all'; label: string }[] = [
@@ -106,14 +106,18 @@ export function ActivityPage() {
             {entries.length > 0 ? (
                 <Card withBorder padding={0} radius="sm">
                     <Stack gap={0}>
-                        {entries.map((entry, index) => (
-                            <ActivityLine
-                                key={entry.id}
-                                entry={entry}
-                                first={index === 0}
-                                startsDay={dayOf(entry.at) !== dayOf(entries[index - 1]?.at)}
-                            />
-                        ))}
+                        {entries.map((entry, index) => {
+                            // The time column carries no date, so without this a list spanning
+                            // midnight reads as one very long evening.
+                            const startsDay = dayOf(entry.at) !== dayOf(entries[index - 1]?.at);
+
+                            return (
+                                <Fragment key={entry.id}>
+                                    {startsDay ? <DayHeading at={entry.at} first={index === 0} /> : undefined}
+                                    <ActivityLine entry={entry} first={index === 0 && !startsDay} />
+                                </Fragment>
+                            );
+                        })}
                     </Stack>
                 </Card>
             ) : undefined}
@@ -129,14 +133,30 @@ export function ActivityPage() {
     );
 }
 
+/** Where one day ends and the next begins. A row of its own, so it reads as a break rather than as a second timestamp on the line under it. */
+function DayHeading({ at, first }: { at: string; first: boolean }) {
+    return (
+        <Group
+            px="md"
+            py={6}
+            style={theme => ({
+                borderTop: first ? undefined : `1px solid ${theme.colors.dark[4]}`,
+                background: 'var(--mantine-color-dark-6)',
+            })}
+        >
+            <Text size="xs" fw={600} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
+                {formatDay(at)}
+            </Text>
+        </Group>
+    );
+}
+
 interface ActivityLineProps {
     entry: ActivityEntry;
     first: boolean;
-    /** Whether this line is the first of its calendar day, which is where the date is worth saying. */
-    startsDay: boolean;
 }
 
-function ActivityLine({ entry, first, startsDay }: ActivityLineProps) {
+function ActivityLine({ entry, first }: ActivityLineProps) {
     const painted = entry.severity !== 'info';
 
     return (
@@ -158,16 +178,9 @@ function ActivityLine({ entry, first, startsDay }: ActivityLineProps) {
                 {entry.module}
             </Badge>
 
-            <Stack gap={2} style={{ minWidth: 0 }}>
-                {startsDay && !first ? (
-                    <Text size="xs" c="dimmed">
-                        {formatMomentFull(entry.at)}
-                    </Text>
-                ) : undefined}
-                <Text size="sm" c={painted ? (entry.severity === 'fault' ? 'red' : 'yellow') : undefined}>
-                    {entry.detail}
-                </Text>
-            </Stack>
+            <Text size="sm" c={painted ? (entry.severity === 'fault' ? 'red' : 'yellow') : undefined} style={{ minWidth: 0 }}>
+                {entry.detail}
+            </Text>
         </Group>
     );
 }

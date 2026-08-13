@@ -214,6 +214,48 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     });
 });
 
+// A break the station clock placed should say what time it is, and must claim exactly as long as
+// its wording is good for. Getting the claim wrong in either direction is inaudible from here: too
+// wide and the station says "just after nine" at twenty past, too narrow and a perfectly good break
+// is dropped for a promise it never made.
+describe('TalkBreakWriter and the time', () => {
+    const clock = { words: 'just after nine', validFrom: 1_000, validUntil: 500_000 };
+
+    it('says the time when the clock placed the break, and claims its window', async () => {
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', clock });
+
+        expect(written?.script).toContain('just after nine');
+        expect(written?.claimsTime).toEqual({ from: 1_000, until: 500_000 });
+    });
+
+    it('never says the time for an ordinary break, and claims nothing', async () => {
+        // Nothing had to be written to keep the clock phrasing out: `{{clock.rough}}` cannot be
+        // filled without a time, so the phrasing simply does not apply.
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair' });
+
+        expect(written?.script).not.toContain('just after');
+        expect(written?.claimsTime).toBeUndefined();
+    });
+
+    it('still writes a break when no phrasing mentions the time, and claims nothing', async () => {
+        // Preferred, not required. A slot that produced nothing is a slot the station is silent in,
+        // which is worse than a break that does not happen to say the hour.
+        const timeless = build({ 'rotation.breakTemplates': 'That was {{previous.title}}.' });
+        const written = await timeless.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', clock });
+
+        expect(written?.script).toBe('That was Solid Air.');
+        expect(written?.claimsTime).toBeUndefined();
+    });
+
+    it('claims nothing when the phrasing it picked left the time out', async () => {
+        // Two phrasings fit and only one names the hour. Whichever is chosen, the claim has to
+        // describe what was actually said — the same rule `claimsNext` follows.
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', clock });
+
+        expect(written?.script.includes('just after nine')).toBe(written?.claimsTime !== undefined);
+    });
+});
+
 describe('spoken', () => {
     it.each([
         ['Solid Air (2005 Remaster)', 'Solid Air'],

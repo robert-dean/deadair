@@ -27,6 +27,8 @@
  * implementation's imports, exactly like {@link SetGenerator}.
  */
 
+import type { RoughTime } from './clock.words.js';
+
 /** A record, as a writer sees one. */
 export interface BreakTrack {
     title: string;
@@ -70,6 +72,14 @@ export interface BreakWriteRequest {
      * to avoid repeating a signature line, which is why it is scripts and not template names.
      */
     recent?: readonly string[];
+    /**
+     * What time this break was placed for, as words and as the window they stay true in.
+     *
+     * Present only for a break a rule on the station clock put down. A writer is free to ignore it
+     * — most breaks have nothing to do with the hour — but one that USES it must say so through
+     * {@link WrittenBreak.claimsTime}, or the words will outlive their own truth.
+     */
+    clock?: RoughTime;
 }
 
 /** What a writer produces. */
@@ -90,6 +100,18 @@ export interface WrittenBreak {
      * not be thrown away later for a promise it never made.
      */
     claimsNext?: boolean;
+    /**
+     * The window these words stay true in, for a writer that said what time it was.
+     *
+     * The sibling of {@link claimsNext} and answered for the same reason: only the writer knows
+     * what it actually said. A phrasing that mentioned no time makes no claim about when it airs,
+     * and stamping one anyway would have the director drop a break for a promise it never made.
+     *
+     * Taken straight from {@link BreakWriteRequest.clock} rather than recomputed, so the words and
+     * their expiry cannot drift apart. The director checks it at hand-over; see
+     * `segments.claims_time_from`.
+     */
+    claimsTime?: { from: number; until: number };
 }
 
 /**

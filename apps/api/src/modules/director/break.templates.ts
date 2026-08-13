@@ -49,6 +49,14 @@ export interface TemplateInputs {
     station?: string;
     /** What the station calls its presenter, from `station.djName`. */
     dj?: string;
+    /**
+     * The time, as words, for a break a rule on the station clock placed.
+     *
+     * Absent for an ordinary break, which is most of them, and a phrasing naming it is then simply
+     * not used — no branch needed, because a placeholder that cannot be filled already means a
+     * template that does not apply.
+     */
+    clock?: string;
 }
 
 /** One template, rendered. */
@@ -91,6 +99,10 @@ export const DEFAULT_TEMPLATES: readonly string[] = [
     // offered only where there is none — see `saysPrevious` and the rule in `usable`.
     'Coming up next, {{next.title}}, from {{next.artist}}.',
     "Here's {{next.artist}} with {{next.title}}.",
+    // The one that knows what time it is, and the only one that names {{clock.rough}} — so it is
+    // offered only to a break a rule on the station clock placed, and is simply not rendered for
+    // any other. Both halves optional, as with the station-name phrasing above.
+    "It's {{clock.rough}}, and this is {{station.name}}.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Coming up, {{next.artist}}, {{next.title}}.]]",
 ];
 
 /**
@@ -119,6 +131,10 @@ const VALUES: Record<string, Resolver> = {
     ...trackFields('next'),
     'station.name': inputs => inputs.station,
     'dj.name': inputs => inputs.dj,
+    // Deliberately not in SPOKEN_VALUES below: "just after nine" is not a title and has no
+    // catalogue furniture to strip. The filter there excludes it already, by naming the two
+    // prefixes that ARE read as titles, so this needs nothing.
+    'clock.rough': inputs => inputs.clock,
 };
 
 /** Which placeholders are read out loud, and so go through {@link spoken}. */

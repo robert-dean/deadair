@@ -9,6 +9,7 @@ import { ScriptHistoryRepository } from '#modules/render/script.history.reposito
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import type { BreakTrack } from './break.writer.js';
+import { roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
@@ -115,8 +116,15 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             return;
         }
 
+        // Off the ROW rather than recomputed. The band that placed this break stamped what it was
+        // placed for; `ripen` re-offers whatever is still planned and knows nothing about the
+        // schedule, so by now this job is the only thing that could say what time it is writing
+        // about — and asking the clock again here would answer with now, a quarter of an hour early.
+        const clock = segment.airsAt === undefined ? undefined : roughTime(segment.airsAt, stationZone(this.config));
+
         const result = await this.writers.write({
             kind: segment.kind,
+            ...(clock === undefined ? {} : { clock }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),

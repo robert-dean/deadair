@@ -87,6 +87,7 @@ export class TalkBreakWriter extends BreakWriter {
             ...(request.next === undefined ? {} : { next: request.next }),
             ...(request.station === undefined ? {} : { station: request.station }),
             ...(dj.length === 0 ? {} : { dj }),
+            ...(request.clock === undefined ? {} : { clock: request.clock.words }),
         };
 
         // Read per break rather than held: `deadair.settings` is a layer of the config, so an
@@ -101,12 +102,32 @@ export class TalkBreakWriter extends BreakWriter {
         // inventing one is how a station ends up announcing a record it did not play.
         if (fits.length === 0) return undefined;
 
-        const chosen = choose(fits, request.recent ?? []);
+        // A break the station clock placed at nine o'clock should say so. Preferred rather than
+        // required: an operator whose phrasings all ignore the time still gets a break, because a
+        // slot that produced nothing is a slot the station is silent in. Nothing is needed to keep
+        // a clock phrasing OUT of an ordinary break — `{{clock.rough}}` is unfillable without a
+        // time, so `usable` has already dropped it.
+        const words = request.clock?.words;
+        const saysTime = (script: string): boolean => words !== undefined && script.includes(words);
+        const timed = fits.filter(one => saysTime(one.script));
+        const offered = timed.length > 0 ? timed : fits;
+
+        const chosen = choose(offered, request.recent ?? []);
         this.lastTemplate = chosen.template;
         // `saysNext` rather than "there was a next record": a phrasing whose intro was an optional
         // chunk that got dropped promised nothing, and a break that promised nothing must not be
         // dropped later for a promise it never made.
-        return { script: chosen.script, label: labelFor(inputs), claimsNext: chosen.saysNext };
+        return {
+            script: chosen.script,
+            label: labelFor(inputs),
+            claimsNext: chosen.saysNext,
+            // Only when the words actually carry the time, for the reason `claimsNext` is answered
+            // rather than assumed: the writer is the only thing that knows what it said, and a
+            // break dropped later for a claim it never made is a break lost for nothing.
+            ...(request.clock !== undefined && saysTime(chosen.script)
+                ? { claimsTime: { from: request.clock.validFrom, until: request.clock.validUntil } }
+                : {}),
+        };
     }
 
     /**

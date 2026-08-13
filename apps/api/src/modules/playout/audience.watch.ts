@@ -23,8 +23,14 @@ import { AIR_MODE_KEY, parseAirMode, type AirMode } from './air.mode.js';
  * a dropped push harmless.
  */
 
-/** How often Icecast is asked. Cheap and local; the whole document is a few hundred bytes. */
-const AUDIENCE_POLL_MS = 5_000;
+/**
+ * How often Icecast is asked. Cheap and local; the whole document is a few hundred bytes.
+ *
+ * Exported because it is also the yardstick for how long Icecast has to go quiet before its
+ * silence stops being evidence about the audience: see `silence.diagnosis.ts`, which counts
+ * polls rather than inventing a second number that could drift away from this one.
+ */
+export const AUDIENCE_POLL_MS = 5_000;
 
 /**
  * How long the last listener counts as still being there.

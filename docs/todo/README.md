@@ -20,7 +20,7 @@ Two rules for this directory:
 | --- | --- |
 | [dj-voice.md](dj-voice.md) | **Both pieces built 2026-08-12.** What stood between a station that plays segments and one with a DJ. The TTS, the `llm` capability, the deterministic writer, the operator's own phrasings and the model binding are all in. Kept for the smaller things it leaves behind: cue visibility, segment duration, a console for segments, and play history for what the station SAID |
 | [director-and-lineups.md](director-and-lineups.md) | Segments, an LLM DJ, live provider search, the daypart schedule, station permissions, plugins that programme the station, push destinations, rotation rules as settings, palette steering, the station console page |
-| [station-intelligence.md](station-intelligence.md) | The layer above the rules. **§1, the LLM DJ, built 2026-08-12**; **§8's silence half built 2026-08-13**, with the five load-bearing calls written up there and a `Heartbeat` primitive under it; §3/§4 before both; **§2 deliberately deferred** against its own ordering claim, with the reasoning kept for the day the model stops being self-hosted. What is left: never-play rules and the freshness bubble, genre and era correctness, listener signal, and the activity feed that is §8's other half |
+| [station-intelligence.md](station-intelligence.md) | The layer above the rules. **§1, the LLM DJ, built 2026-08-12**; **§8 built in full 2026-08-13**, both the silence diagnosis and the activity feed, with the load-bearing calls of each written up there and a `Heartbeat` primitive under the first; §3/§4 before both; **§2 deliberately deferred** against its own ordering claim, with the reasoning kept for the day the model stops being self-hosted. What is left: never-play rules and the freshness bubble, genre and era correctness, and listener signal |
 | [station-moment.md](station-moment.md) | The clock, the calendar and the weather as one resolver both the selector and the writers read: an operator-editable mood vocabulary, the day's lean, occasions, and why mood-biased selection is blocked and mood-flavoured talk is not |
 | [tool-plugins.md](tool-plugins.md) | A `tool` capability so a plugin can be something the model calls mid-sentence (weather, news, RSS), and which tools are host-side sources instead |
 | [chart-discovery.md](chart-discovery.md) | A `charts` capability so an operator can point the station at the week's hits, and the three seams it drops into (a tool the DJ can call, a generator that needs no model, chart history as patter). Small now only because `PickResolver` already ingests a name the library has never held — plus which chart services actually answer without auth, and why Billboard is a name to reach rather than the first plugin |
@@ -66,25 +66,20 @@ no pass. What is left, in order:
    rather than two: the model, the operator's own phrasings, and the station's five underneath both.
    The floor stopped being code and became a setting. See [dj-voice.md](dj-voice.md) for what
    shipped and the four things that came with it that were not on this list.
-4. **The activity feed** over the segment transitions the writers produce, which is why those
-   transitions are recorded as facts while they are written rather than afterwards. **Still the whole
-   of what is left on this list**, and in a better position than it assumed: `segment_events` carries
-   a row per stage (`planned → writing → written → rendering → ready`) and `deadair.script_history`
-   one per write attempt, with the writer, the model, the token counts and the duration. It really is
-   a transport over rows that already exist.
+4. ~~**The activity feed** over the segment transitions the writers produce.~~ **Built 2026-08-13**,
+   with its other half, the silence diagnosis, a few hours ahead of it. It really was a transport
+   over rows that already exist: `GET /activity` unions `segment_events` and `play_history` where
+   they are and adds one table of its own, `station_events`, for the facts that happen to the station
+   as a whole and had no row anywhere — the silence cause changing, an air toggle, a gap that
+   outlived the loop meant to close it. "Why was the station silent at 3am" is the question the
+   diagnosis cannot answer and this one now does. See
+   [station-intelligence.md](station-intelligence.md) §8 for the four decisions holding it up, and
+   note the one thing it deliberately does not carry: plugin call logs, which stay behind
+   `platform.manage` because plugin output can contain a token.
 
-   **Its other half went first, 2026-08-13.** [station-intelligence.md](station-intelligence.md) §8
-   pairs the feed with the thing it is actually for — one answer to "why can't I hear anything" — and
-   that half is built: nine gates composed in causal order, carried on the transport reading the
-   console already polls, drawn as two words in the strip and a full panel on `/onair`. It changes
-   what is left here in one specific way. **The feed now has a producer waiting for it**: a cause
-   CHANGE is an event worth a row where a cause STATE is not, and until the feed exists that
-   transition is logged on the edge and dies with the process. "Why was the station silent at 3am" is
-   the question the diagnosis cannot answer and this one can.
-
-Everything else in the table is deferred behind item 4 unless something specific pulls it forward —
-and [listening-loop.md](listening-loop.md) still competes with it rather than queueing behind it,
-for the reason at the bottom of this file.
+This list is done. What comes next is whatever the table above makes the case for, and
+[listening-loop.md](listening-loop.md) is still the one competing on its own terms rather than
+queueing behind anything, for the reason at the bottom of this file.
 
 **Landed since, 2026-08-11**, and none of it was on this list: the measurement layer under item 2.
 `analysis/` is a sidecar, `plugins/analyzer` the adapter, `analysis` a capability of its own rather
@@ -99,8 +94,8 @@ desk, which is where the station is audible and nowhere else. Replacing a stream
 being audible on a phone and in a car too, and that is infrastructure rather than app code. See
 [listening-loop.md](listening-loop.md). It competed with item 1 rather than slotting behind it: the
 writer makes the station worth listening to, reachability makes it possible to, and which comes first
-depends on whether the next week of listening happens at the desk or not. With items 1 to 3 built,
-that question is now between it and the activity feed.
+depends on whether the next week of listening happens at the desk or not. With every item on that
+list built, it is no longer competing with anything.
 
 **Landed with item 3, 2026-08-12, and none of it was on this list.** Four things, because the writer
 turned out to sit on plumbing that was not there:

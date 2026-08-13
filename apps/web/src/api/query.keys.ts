@@ -57,6 +57,16 @@ export const queryKeys = {
         status: () => ['playout', 'status'] as const,
     },
     /**
+     * What the station has been doing. Keyed on the filter, not on the page: the pages of one
+     * filtered feed live inside a single infinite query, and a filter change is a different feed
+     * rather than a stale one. `'all'` stands in for an absent filter so the key stays a tuple of
+     * literals.
+     */
+    activity: {
+        feed: (filter: { module?: string; minSeverity?: string }) =>
+            ['activity', 'feed', filter.module ?? 'all', filter.minSeverity ?? 'all'] as const,
+    },
+    /**
      * The station's programming, as opposed to `playout`, which is what the player was actually
      * handed. There is one running order and the director owns it; the transport is what has become
      * of the head of it.

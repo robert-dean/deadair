@@ -83,6 +83,13 @@ export function RootLayout() {
                             <Anchor component={Link} to="/onair" size="sm">
                                 On air
                             </Anchor>
+                            {/* Beside On air rather than over with Plugins: it answers the
+                                question an operator arrives with when the station is not doing
+                                what they expected, which is the same question On air answers
+                                about right now. */}
+                            <Anchor component={Link} to="/activity" size="sm">
+                                Activity
+                            </Anchor>
                             <Anchor component={Link} to="/catalog" size="sm">
                                 Catalog
                             </Anchor>

@@ -520,8 +520,7 @@ Feeding this into rotation is a weight in the existing draw, not a new mechanism
 The logging chassis is better than what is built on it. Two surfaces close that gap, and the second
 one matters more than it sounds:
 
-- **An activity feed**: what aired, what was picked and why it was picked, what a plugin was asked
-  and what it answered, what a render did. Structured lines, filterable by module.
+- ~~**An activity feed**~~ **Built 2026-08-13.** See below.
 - ~~**A diagnosis of silence.**~~ **Built 2026-08-13.** See below.
 
 The general rule: every gate that can silence the station should be able to say, in one line, that
@@ -570,8 +569,8 @@ unable to tell a loop that stopped from one failing every pass. Two of the five 
 station was stood down, which is the only fact not in memory). Memory is the authority for what the
 station is doing now, and a stored copy of a live gate is a second thing that can disagree with the
 gate. What WOULD want storage is "why was the station silent at 3am", which no live reading can
-answer — that is the activity feed's, and until it lands the cause is logged on the EDGE, keyed the
-way `StreamConfigWatch` keys its warnings so a two-second poll cannot fill the log.
+answer — that is the activity feed's, and it is now written there on the EDGE, keyed the way
+`StreamConfigWatch` keys its warnings so a two-second poll cannot fill the table.
 
 **What it deliberately does not cover.** Degradation: records skipped after failed hand-overs,
 segments that never reached `ready`, a provider benching bindings. A break that missed is not the
@@ -579,6 +578,43 @@ question this answers, and a gate list that mixed the two would stop being an an
 hear nothing". `apps/api/scripts/silence.smoke.ts` drives the whole chain against the real Icecast
 and Liquidsoap; `--blind` points the stats client at a closed port, which exercises `audienceUnknown`
 without stopping a container and is therefore safe against a station that is on air.
+
+### The activity feed, as built
+
+`GET /activity`, `platform.view`, drawn at `/activity` in the console: one time-ordered list, filtered
+by module and by a severity floor, paged by a keyset cursor.
+
+Four decisions carry it, and three of them are the same decision looked at from different sides.
+
+- **It is a UNION of three tables and owns one.** `station_events` is new and holds what happens to
+  the station as a whole; `segment_events` and `play_history` are read where they already are.
+  Copying either would give those facts a second writer, and a fact with two writers is two things
+  that can disagree with no way to tell which one lied. `script_history` is deliberately not a fourth
+  source: a break already appears through its segment rows, and one row per write ATTEMPT would
+  report one break as four lines. It is the DETAIL behind a segment entry, which is the obvious next
+  slice and is not built.
+- **Producers write on edges, never on polls.** The console polls the transport twice a second. The
+  same discipline that keeps `announceSilence` from filling the log is what keeps this from being a
+  log file with a primary key, and it is why the designed sub-second gap every first listener
+  produces is kept out of the feed entirely while a recovery long enough to have mattered is not.
+- **`ActivityRecorder` never throws**, and every caller `void`s it. Nothing reads a row here to
+  decide anything, so a lost row is a gap in a feed; a thrown one would be the station losing the
+  silence, the air toggle or the recovery the event was describing.
+- **The sentences live outside the SQL.** `station_events` rows arrive already phrased by whoever had
+  to phrase them; the other two hold facts that were never written for a reader, and `activity.feed.ts`
+  writes those. Composing them in the `union all` would put station copy inside a repository.
+
+`apps/api/scripts/activity.smoke.ts` is what covers the union, for the reason `rating.smoke.ts` covers
+`effectiveRating`: the interesting half is SQL. It walks the real feed a page at a time and checks the
+three properties that make it a feed rather than three lists — descending order, no row twice, no row
+skipped at a page boundary — and `--write` appends one station event and removes it again, which is
+the only way to exercise the third source on an install that has not been silent yet.
+
+**What it deliberately does not carry.** Plugin call logs, which §8 asked for above: those are
+`PluginLog`, behind `GET /plugins/{id}/logs` on a `platform.manage` floor precisely because plugin
+output is whatever a plugin chose to write and a careless one can put a token in a line. Folding
+them into a `platform.view` feed would quietly undo that. Linking out to a plugin's own log viewer
+from a feed entry is the right shape, and is not built.
 
 ## 9. The writer, and what it must not be allowed to do
 

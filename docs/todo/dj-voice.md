@@ -302,9 +302,10 @@ Transitions are recorded as facts, per correction 4: `deadair.segment_events`, p
 saying what decided the words. The activity feed is now a transport over rows that exist.
 
 **What was left, in order:** listen for a week → [crossfades](crossfades.md) → the model as writer
-two → the activity feed. **The first three are done as of 2026-08-12**, so what is left of that line
-is the activity feed. And separately, [listening-loop.md](listening-loop.md), which is what makes any
-of it audible away from the desk.
+two → the activity feed. **All four are done**, the first three as of 2026-08-12 and the feed on
+2026-08-13, and it did turn out to be a transport over rows that exist: `GET /activity` unions
+`segment_events` and `play_history` where they already are. What is left of this line is separately
+[listening-loop.md](listening-loop.md), which is what makes any of it audible away from the desk.
 
 ## Piece two: something decides what to say
 

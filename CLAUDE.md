@@ -324,8 +324,29 @@ perfectly well to somebody who connected before the config was replaced. And `no
 RESIDUE: dropping the lease is what the dead-man switch and the audience gate are FOR, so it is a
 fault only when nothing above accounts for it. Nothing is stored; the one database read is
 `station_air`, because whether an operator stood the station down is the only fact not in memory. A
-cause CHANGE is logged on the edge, keyed like `StreamConfigWatch`'s warnings, and that line is the
-only trace outliving the process until the activity feed lands.
+cause CHANGE is logged on the edge, keyed like `StreamConfigWatch`'s warnings, and it is written to
+`deadair.station_events` on the same edge, which is what makes "why was the station quiet at 3am"
+answerable at all.
+
+**The activity feed is a union of three tables and owns only one of them.** `GET /activity` reads
+`deadair.station_events` (the station's own moments: a silence cause changing, an air toggle, a gap
+that outlived the loop meant to close it), `segment_events` (a break's journey, written since
+migration 0008 precisely so a feed could be a transport over rows that exist) and `play_history`
+(what aired). **Neither of the two existing tables is copied**, because a fact with two writers is
+two things that can disagree and no reader can tell which one lied; `script_history` is not a fourth
+source either, since a break already appears through its segment rows and one row per write ATTEMPT
+would report one break as four lines. Three rules hold it up. **Producers write on EDGES**: the
+console polls the transport twice a second, so a row per reading would make this a log file with a
+primary key, which is also why the ordinary sub-second first-listener gap is kept out entirely and
+only a recovery long enough to have mattered is recorded. **`ActivityRecorder` never throws** and
+every caller `void`s it, because nothing reads a row here to decide anything and a failed insert
+must never cost the station the thing it was describing. And **the sentences are written outside the
+SQL** (`activity.feed.ts`), because two of the three sources hold facts that were never phrased for
+a reader and composing them inside a `union all` would put station copy where nobody would find it.
+The cursor is a keyset over `(created_at, id)` rather than an offset: rows arrive at the head
+continuously, and the id is half of it because a stand-down and the poll behind it land in the same
+millisecond. `apps/api/scripts/activity.smoke.ts` is what covers the union, since the interesting
+part is SQL.
 
 **Zero listeners and an Icecast that stopped answering are the same number and opposite facts.**
 `IcecastStatsClient.listeners()` returns `undefined` for "could not read" and documents that as

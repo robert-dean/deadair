@@ -26,8 +26,9 @@ points at that file. Checked against the tree on 2026-08-11.
     - scoped since: `youtube-music.md` splits it into a catalog half that is ordinary plugin code
       and an audio half that is a second track fetcher and a sidecar
 - [ ] add foley, sounds, etc (especially useful for "callers" so you hear background noise like a dog barking)
-- [ ] console/logs/activity feed — scoped in `station-intelligence.md` §8, which pairs it with the
-      thing it is actually for: one page that names why the station is silent
+- [x] console/logs/activity feed — built 2026-08-13, with the silence diagnosis it was paired with
+      in `station-intelligence.md` §8. `GET /activity` unions `station_events`, `segment_events` and
+      `play_history`; the console draws it at `/activity`
 - [~] offer multiple LLM options (chatgtp, claude, ect) along with models — half done: `llm` is a
       capability and `plugins/llm` speaks the OpenAI-compatible protocol, so one plugin covers a
       local server and a hosted one. The MODEL is a per-call parameter, deliberately

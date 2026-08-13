@@ -201,6 +201,18 @@ export class PlayoutControlClient {
     }
 
     /**
+     * Since when the stream has been answering and refusing our bridge secret.
+     *
+     * Passed straight through from the endpoint, which is the only thing that ever sees a status
+     * code: every call here goes through {@link call}, which has already collapsed the response to
+     * a body or `undefined` by the time anything else could look. `undefined` means the secret is
+     * accepted or nothing is answering, which are told apart by {@link isUp}.
+     */
+    deniedSince(): number | undefined {
+        return this.endpoint.deniedSinceMs();
+    }
+
+    /**
      * When the mount fell through to Liquidsoap's local bed, if it is still there.
      *
      * The only state here that the app cannot observe for itself: the reconcile loop

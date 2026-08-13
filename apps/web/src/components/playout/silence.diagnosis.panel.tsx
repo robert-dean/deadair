@@ -128,6 +128,7 @@ function Remedy({ remedy }: { remedy: string }) {
 const TITLES: Record<SilenceCause, string> = {
     airing: 'On air',
     transportStalled: 'The transport loop has stopped',
+    controlDenied: 'The stream is refusing the bridge secret',
     streamUnreachable: 'The stream is not reachable',
     configNotAdopted: 'A container is running config that was replaced',
     stoodDown: 'The station was stood down',

@@ -38,13 +38,14 @@ describe('diagnose', () => {
         // The panel says what it ruled out, which is most of what makes it worth opening.
         const answer = diagnose(airing({ streamUp: false }));
 
-        expect(answer.checks).toHaveLength(9);
+        expect(answer.checks).toHaveLength(10);
         expect(answer.checks.filter(check => check.state !== 'ok')).toHaveLength(1);
     });
 
     describe('each gate names itself', () => {
         const cases: [string, Partial<StationFacts>][] = [
             ['transportStalled', { reconcileStalledForMs: 60_000 }],
+            ['controlDenied', { streamUp: false, controlDeniedForMs: 30_000 }],
             ['streamUnreachable', { streamUp: false }],
             ['stoodDown', { active: false }],
             ['noProgramme', { hasProgramme: false }],
@@ -101,6 +102,37 @@ describe('diagnose', () => {
 
         it('tolerates one dropped poll', () => {
             expect(diagnose(airing({ sinceAudienceAnswerMs: 6_000 })).cause).toBe('airing');
+        });
+    });
+
+    describe('a refused bridge secret', () => {
+        // The other pair this file exists for. A stream that is not there and a stream that
+        // will not take our secret fail every call identically, so `streamUp` is false for
+        // both — and only one of them names its own fix.
+
+        it('outranks the stream being unreachable, which is what it looks like from every call', () => {
+            const answer = diagnose(airing({ streamUp: false, controlDeniedForMs: 30_000 }));
+
+            expect(answer.cause).toBe('controlDenied');
+            expect(answer.checks.find(check => check.code === 'controlDenied')?.state).toBe('fault');
+        });
+
+        it('carries what to do about it, because waiting never clears it', () => {
+            // The container reads `radio.env` once at boot, so the two ends do not converge
+            // on their own however long the app keeps trying.
+            const check = diagnose(airing({ streamUp: false, controlDeniedForMs: 30_000 })).checks.find(
+                candidate => candidate.code === 'controlDenied',
+            );
+
+            expect(check?.remedy?.length).toBeGreaterThan(0);
+        });
+
+        it('says nothing when the secret is being accepted', () => {
+            expect(diagnose(airing()).checks.find(check => check.code === 'controlDenied')?.state).toBe('ok');
+        });
+
+        it('is still below a stalled loop, which sets the reading it stands on', () => {
+            expect(diagnose(airing({ reconcileStalledForMs: 60_000, streamUp: false, controlDeniedForMs: 30_000 })).cause).toBe('transportStalled');
         });
     });
 

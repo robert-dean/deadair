@@ -54,6 +54,7 @@ export function OnAirBadge({ silence }: OnAirBadgeProps) {
 const LABELS: Record<SilenceCause, string> = {
     airing: 'on air',
     transportStalled: 'transport stalled',
+    controlDenied: 'stream refusing us',
     streamUnreachable: 'stream unreachable',
     configNotAdopted: 'config not adopted',
     stoodDown: 'off air',

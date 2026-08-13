@@ -32,6 +32,18 @@ const answering = (...alive: string[]) => {
     return { impl: impl as unknown as typeof fetch, asked };
 };
 
+/** Answers 401 at whichever candidates are named: a live engine refusing our secret. */
+const refusing = (...alive: string[]) => {
+    const asked: string[] = [];
+    const impl = vi.fn(async (url: string | URL) => {
+        const target = String(url);
+        asked.push(target);
+        if (!alive.some(base => target.startsWith(base))) throw new Error('connect ECONNREFUSED');
+        return new Response('unauthorized', { status: 401 });
+    });
+    return { impl: impl as unknown as typeof fetch, asked };
+};
+
 const [COMPOSE, LOOPBACK] = controlCandidates('8005') as [string, string];
 
 describe('LiquidsoapEndpoint.resolve', () => {
@@ -92,6 +104,40 @@ describe('LiquidsoapEndpoint.resolve', () => {
 
             expect(await endpoint.resolve()).toBeUndefined();
             expect(await endpoint.resolve()).toBeUndefined();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not probe again inside the backoff window, whatever calls it', async () => {
+        // What this cost when it was missing: the probe is reached from every call, so a
+        // process that could not authenticate re-probed as fast as it was asked — measured at
+        // twenty requests a second into a harbor that then could not answer anybody else.
+        const { impl, asked } = answering();
+        vi.stubGlobal('fetch', impl);
+        try {
+            const endpoint = build();
+
+            await endpoint.resolve();
+            await endpoint.resolve();
+            await endpoint.resolve();
+
+            expect(asked).toHaveLength(2);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('probes again once the window is past, so a stream coming up is still found', async () => {
+        const { impl, asked } = answering();
+        vi.stubGlobal('fetch', impl);
+        try {
+            const endpoint = build();
+
+            await endpoint.resolve();
+            await endpoint.resolve(Date.now() + 10_000);
+
+            expect(asked).toHaveLength(4);
         } finally {
             vi.unstubAllGlobals();
         }

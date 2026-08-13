@@ -44,6 +44,7 @@ contract StreamConfigWarning: {
 contract SilenceCause: enum(
     airing,
     transportStalled,
+    controlDenied,
     streamUnreachable,
     configNotAdopted,
     stoodDown,

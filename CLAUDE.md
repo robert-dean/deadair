@@ -311,7 +311,7 @@ change in `radio.liq`. The console's own
 `StreamMonitor` plays the mount, so an operator listening in the browser is an audience.
 
 **Every gate that can silence the station says so, in ONE ordered answer.** `silence.diagnosis.ts` is
-nine gates over a `StationFacts` snapshot, pure so the precedence can be tested without a stack, and
+ten gates over a `StationFacts` snapshot, pure so the precedence can be tested without a stack, and
 `PlayoutStatus.silence` carries the verdict on the reading the console already polls — so the badge,
 the strip and the `/onair` panel read one answer instead of the three partial inferences they each
 used to derive. **The ordering is causal**: a stalled reconcile loop ranks above `streamUp` and

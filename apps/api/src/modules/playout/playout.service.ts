@@ -184,12 +184,14 @@ export class PlayoutService {
         const health = this.pusher.health(now);
         const audience = this.audience.reading();
         const starvedSince = this.control.starvedSince();
+        const deniedSince = this.control.deniedSince();
 
         const silence = diagnose({
             now,
             ...(health.stalledForMs === undefined ? {} : { reconcileStalledForMs: health.stalledForMs }),
             ...(health.failure === undefined ? {} : { reconcileFailure: health.failure }),
             streamUp: this.control.isUp(),
+            ...(deniedSince === undefined ? {} : { controlDeniedForMs: now - deniedSince }),
             driving: this.control.isOnAir(),
             staleConfig: this.staleness.warnings(),
             active: air.active,

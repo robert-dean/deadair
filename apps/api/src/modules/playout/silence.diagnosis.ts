@@ -45,6 +45,7 @@ import type { StreamConfigWarning } from '#modules/stream/stream.staleness.js';
 export type SilenceCause =
     | 'airing'
     | 'transportStalled'
+    | 'controlDenied'
     | 'streamUnreachable'
     | 'configNotAdopted'
     | 'stoodDown'
@@ -114,6 +115,14 @@ export interface StationFacts {
     /** The last thing a reconcile pass threw, if it has thrown since it last succeeded. */
     reconcileFailure?: { at: number; message: string };
     streamUp: boolean;
+    /**
+     * How long the control API has been answering and refusing the app's bridge secret.
+     *
+     * `undefined` is the ordinary state and covers two different ones deliberately: the secret is
+     * accepted, or nothing answered at all. Only the check below it can tell those apart, and it
+     * does not need to — a stream that is not there is `streamUnreachable`'s question.
+     */
+    controlDeniedForMs?: number;
     /** Whether the last reading said deadair is holding the mount. */
     driving: boolean;
     staleConfig: readonly StreamConfigWarning[];
@@ -188,6 +197,7 @@ export function diagnose(facts: StationFacts): StationSilence {
     // without reference to any of the others.
     const independent = [
         transportStalled(facts),
+        controlDenied(facts),
         streamUnreachable(facts),
         configNotAdopted(facts),
         stoodDown(facts),
@@ -246,6 +256,31 @@ function transportStalled(facts: StationFacts): SilenceCheck {
             `The lease expires ${CONTROL_TTL_S}s after the last renewal, so the station is off air, and nothing below this can be trusted: ` +
             `every reading under it is set by calls this loop makes.${failure}`,
         remedy: 'Restart the API.',
+    };
+}
+
+/**
+ * Liquidsoap is answering and refusing the app's bridge secret.
+ *
+ * ABOVE `streamUnreachable`, and that placement is the whole point of the check. Every call fails
+ * either way, so `streamUp` is false for both — and reported as "the control API is not answering"
+ * this sends an operator to look at a container that is running perfectly well, while the actual
+ * fault is a value in a file. It is also the one silence here that no amount of waiting clears:
+ * the two ends of the bridge do not converge on their own, because the container reads `radio.env`
+ * once at boot.
+ */
+function controlDenied(facts: StationFacts): SilenceCheck {
+    if (facts.controlDeniedForMs === undefined) {
+        return { code: 'controlDenied', state: 'ok', detail: "The stream is accepting the app's bridge secret." };
+    }
+
+    return {
+        code: 'controlDenied',
+        state: 'fault',
+        detail:
+            `Liquidsoap has been answering and refusing this app's bridge secret for ${seconds(facts.controlDeniedForMs)}. ` +
+            'The stream is running; nothing can be handed to it until the two ends of the bridge hold the same secret.',
+        remedy: "Restart the liquidsoap container so it adopts the rendered radio.env, and check that its PLAYOUT_BRIDGE_SECRET matches the station's stored setting.",
     };
 }
 

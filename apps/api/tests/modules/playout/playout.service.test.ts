@@ -58,6 +58,8 @@ interface Options {
      * fault in its own right.
      */
     audienceAnswered?: boolean;
+    /** When the stream started refusing the app's bridge secret, if it is refusing it. */
+    deniedSince?: number;
 }
 
 const item = { id: 'item-1', pluginId: 'deadair.spotify', externalId: 'trk_1', title: 'A Track', artists: ['An Artist'], durationMs: 200_000 };
@@ -84,6 +86,7 @@ function build(options: Options = {}) {
         isOnAir: vi.fn(() => options.onAir ?? true),
         noteStarve: vi.fn(),
         starvedSince: vi.fn(() => undefined),
+        deniedSince: vi.fn(() => options.deniedSince),
     } as unknown as PlayoutControlClient;
 
     const director = {
@@ -232,6 +235,15 @@ describe('PlayoutService.getStatus', () => {
             expect((await service.getStatus()).silence.cause).toBe('streamUnreachable');
         });
 
+        it('takes the refused secret from the control client, so it is not read as a stream that is down', async () => {
+            // The two look identical from here: every call fails and `isUp` is false either
+            // way. The client is the only thing that saw a status code, so if the snapshot
+            // does not carry its answer the operator is sent at the wrong container.
+            const { service } = build({ streamUp: false, deniedSince: Date.now() - 30_000 });
+
+            expect((await service.getStatus()).silence.cause).toBe('controlDenied');
+        });
+
         it('reads whether the station was stood down from the director, not from the transport', async () => {
             // The one fact in the snapshot that is not in memory, and the reason the poll
             // is worth a row read: "nothing to air" and "somebody stopped it" are the two
@@ -257,7 +269,7 @@ describe('PlayoutService.getStatus', () => {
 
             const { silence } = await service.getStatus();
 
-            expect(silence.checks).toHaveLength(9);
+            expect(silence.checks).toHaveLength(10);
             expect(silence.checks.filter(check => check.state === 'ok').length).toBeGreaterThan(0);
         });
     });

@@ -313,7 +313,7 @@ export class PlayoutService {
     }
 
     /**
-     * Drop the running order and go off air.
+     * Go off air, leaving the running order where it is.
      *
      * Ends the broadcast rather than the running order: what is on air stops too,
      * at once. deadair holds the mount on a lease it has to keep renewing, and a
@@ -324,7 +324,7 @@ export class PlayoutService {
     async stop(): Promise<PlayoutStatus> {
         // The reset listener in the pusher is what hands the mount back.
         this.rundown.reset();
-        this.logger.info('playout: standing down; the running order is dropped and the mount goes quiet');
+        this.logger.info('playout: standing down; the mount goes quiet and the running order is reclaimed for a resume');
         return this.getStatus();
     }
 

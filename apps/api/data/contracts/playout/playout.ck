@@ -77,7 +77,7 @@ operation /playout/start: {
 }
 
 operation /playout/stop: {
-    post: { # Stands the station down: drops the running order, stops what is on air, and hands the mount back. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
+    post: { # Stands the station down: stops what is on air at once and hands the mount back. The running order is LEFT as it is, so `/playout/start` can pick it up where this stopped it. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
         name: Stop playout
         service: PlayoutService.stop
         security: {

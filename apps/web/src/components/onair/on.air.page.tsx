@@ -166,24 +166,30 @@ export function OnAirPage() {
 
             {order.isPending ? <Skeleton height={280} radius="sm" /> : undefined}
 
+            {/* Two ways on air, and this one is first because it needs nothing prepared.
+                Outside the empty state on purpose: Stop leaves the running order alone so that
+                Start can resume it, so an operator who had been on air once could never get back
+                to this box. Briefing the station is a command like Shuffle or Stop, available
+                whenever the operator wants it, and it says which of the two things it is doing. */}
+            {loaded ? <BriefTheStation replacing={items.length > 0} /> : undefined}
+
+            {/* The other way on, and it stays in the empty state: pointing an operator at a
+                playlist is an answer to having nothing on, where an operator who already has a
+                running order has the playlists page a click away in the nav. */}
             {nothingOn ? (
-                <Stack gap="md">
-                    {/* Two ways on air, and this one is first because it needs nothing prepared. */}
-                    <BriefTheStation />
-                    <Card withBorder padding="xl" radius="sm">
-                        <Stack gap="xs" align="flex-start">
-                            <Text size="sm" c="dimmed">
-                                Or start from a playlist. It is READ at the moment the station goes on air rather than copied, so there is nothing to
-                                prepare first and nothing of yours is written into.
-                            </Text>
-                            {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
-                                the router's own types, and with them the check that `params` matches. */}
-                            <Anchor renderRoot={props => <Link to="/playlists" {...props} />} size="sm">
-                                Browse playlists
-                            </Anchor>
-                        </Stack>
-                    </Card>
-                </Stack>
+                <Card withBorder padding="xl" radius="sm">
+                    <Stack gap="xs" align="flex-start">
+                        <Text size="sm" c="dimmed">
+                            Or start from a playlist. It is READ at the moment the station goes on air rather than copied, so there is nothing to
+                            prepare first and nothing of yours is written into.
+                        </Text>
+                        {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
+                            the router's own types, and with them the check that `params` matches. */}
+                        <Anchor renderRoot={props => <Link to="/playlists" {...props} />} size="sm">
+                            Browse playlists
+                        </Anchor>
+                    </Stack>
+                </Card>
             ) : undefined}
 
             {items.length > 0 ? (

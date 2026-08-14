@@ -267,6 +267,21 @@ describe('OnAirPage', () => {
         expect(screen.getByText('Browse playlists')).toBeInTheDocument();
     });
 
+    it('still offers a brief with a running order up, and says it replaces one', async () => {
+        // The box used to live inside the empty state, and Stop does not empty the running order:
+        // it stands the station down and leaves the order for a resume. So an operator who had ever
+        // been on air could not reach this again without dropping every item by hand.
+        getTheRunningOrder.mockResolvedValue(order());
+        getStationAir.mockResolvedValue(stationAir({ active: false }));
+
+        render(<OnAirPage />);
+
+        expect(await screen.findByText('Tell the station what to play')).toBeInTheDocument();
+        expect(screen.getByText(/starts a new broadcast/)).toBeInTheDocument();
+        // The playlist card stays behind: it answers having nothing on, and the nav already has it.
+        expect(screen.queryByText('Browse playlists')).not.toBeInTheDocument();
+    });
+
     it('shows the brief that is still steering a broadcast', async () => {
         // It is not a label: every refill for the rest of this broadcast is programmed against it,
         // so an operator wondering why the station keeps choosing what it chooses is looking at

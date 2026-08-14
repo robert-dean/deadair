@@ -71,6 +71,14 @@ function writeStatus(queryClient: QueryClient, status: PlayoutStatus): void {
 export function followTransport(queryClient: QueryClient, status: PlayoutStatus): void {
     writeStatus(queryClient, status);
 
+    // The running order moved too, and none of these answers carries it. A skip advances an item's
+    // state, a playlist replaces the whole order, and Stop stands the station down while LEAVING the
+    // order in place for Start to resume — so the page that draws it has to look again. Without this
+    // the console kept the order it had read up to five seconds earlier and drew a stood-down station
+    // as though nothing had happened.
+    void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.director.air() });
+
     for (const timer of followUps.splice(0)) clearTimeout(timer);
     followUps = FOLLOW_UP_MS.map(delay =>
         setTimeout(() => {
@@ -101,7 +109,6 @@ export function useSkipCurrent() {
     });
 }
 
-/** Drops the running order. What is on air finishes; the mount falls back to the local bed. */
 /**
  * Start the station again on the running order it was stopped on.
  *
@@ -119,6 +126,13 @@ export function useStartPlayout() {
     });
 }
 
+/**
+ * Stands the station down: what is on air stops and the mount goes quiet.
+ *
+ * It does NOT drop the running order, which is what makes {@link useStartPlayout} able to pick it up
+ * where it stopped. Anything drawing an empty-station state has to read the order rather than infer
+ * one from the station being off.
+ */
 export function useStopPlayout() {
     const queryClient = useQueryClient();
     return useMutation({

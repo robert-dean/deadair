@@ -20,8 +20,27 @@ import { apiErrorMessage } from '../../api/sdk.error';
  * because this component cannot tell the difference between that being off and a model that answered
  * badly — what an operator sees either way is the station's own rotation, which is the designed
  * degradation rather than a failure to report. The help text names the setting instead.
+ *
+ * **Drawn whether or not there is already a running order**, which it was not to begin with: it sat
+ * inside the empty-state block, and since Stop leaves the running order alone for Start to resume,
+ * an operator who had ever been on air could not reach it again without emptying the order by hand.
+ * `putOnAir` replaces the order and mints a new broadcast regardless of what is on, so the only thing
+ * the two cases needed to differ in was saying so — {@link BriefTheStationProps.replacing}.
  */
-export function BriefTheStation() {
+export interface BriefTheStationProps {
+    /**
+     * Whether there is a running order this would throw away.
+     *
+     * Only the copy: the request is the same one either way, since a brief always starts a new
+     * broadcast rather than re-steering the one that is running.
+     */
+    replacing?: boolean;
+}
+
+export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
+    // Deliberately not seeded from the order's current brief. That would read as editing the brief
+    // in place, and there is no such command: what this sends mints a NEW broadcast and drops
+    // everything queued, so an empty box is the honest shape of it.
     const [brief, setBrief] = useState('');
     const onAir = usePutStationOnAir();
 
@@ -44,6 +63,11 @@ export function BriefTheStation() {
                     It programmes itself against this, from your own library first and from your providers when the library cannot fill it. A record
                     it does not own yet is fetched and kept. What you like and dislike is taken into account either way.
                 </Text>
+                {replacing ? (
+                    <Text size="sm" c="orange.4">
+                        This starts a new broadcast: everything still to come below is dropped, and what is playing stops.
+                    </Text>
+                ) : undefined}
                 <Group gap="sm" wrap="nowrap" w="100%">
                     <TextInput
                         flex={1}
@@ -57,17 +81,17 @@ export function BriefTheStation() {
                         }}
                     />
                     <Tooltip
-                        label={failure ?? 'Puts the station on air and starts programming against this. Every listener hears the result.'}
+                        label={
+                            failure ??
+                            (replacing
+                                ? 'Replaces the running order and starts programming against this. Every listener hears the result at once.'
+                                : 'Puts the station on air and starts programming against this. Every listener hears the result.')
+                        }
                         color={failure ? 'red' : undefined}
                         multiline
                         maw={320}
                     >
-                        <Button
-                            color={failure ? 'red' : undefined}
-                            loading={onAir.isPending}
-                            disabled={asked.length === 0}
-                            onClick={start}
-                        >
+                        <Button color={failure ? 'red' : undefined} loading={onAir.isPending} disabled={asked.length === 0} onClick={start}>
                             Go on air
                         </Button>
                     </Tooltip>

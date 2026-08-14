@@ -17,11 +17,15 @@ vi.mock('../../src/api/client', () => ({
 
 let queryClient: QueryClient;
 let refetch: ReturnType<typeof vi.spyOn>;
+let invalidate: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
     vi.useFakeTimers();
     queryClient = new QueryClient();
     refetch = vi.spyOn(queryClient, 'refetchQueries').mockResolvedValue(undefined);
+    // Stubbed rather than left real, because the genuine `invalidateQueries` refetches whatever it
+    // marked and would land in the spy above as a transport read that never happened.
+    invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -60,6 +64,16 @@ describe('followTransport', () => {
         // Nothing keeps firing: the ordinary interval owns the station from here.
         vi.advanceTimersByTime(30_000);
         expect(refetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('drops what it knows of the running order, which the answer does not carry', () => {
+        // Stop is the case that made this necessary: it stands the station down and deliberately
+        // LEAVES the running order in place for a resume, so nothing in the status says the order
+        // changed and the console went on drawing the one it read up to five seconds earlier.
+        followTransport(queryClient, playoutStatus());
+
+        expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.director.order() });
+        expect(invalidate).toHaveBeenCalledWith({ queryKey: queryKeys.director.air() });
     });
 
     it('replaces the previous schedule rather than stacking on it', () => {

@@ -618,6 +618,15 @@ export class DirectorService {
         // and never once say what station it is.
         await this.plantBreaks(lineup, rules);
 
+        // BEFORE committing, which is a reversal of where this used to sit. It ran after the
+        // hand-over on the argument that the items taken this pass are past the cursor by then, so
+        // the window it read held only records that had NOT been handed over — true, and exactly
+        // the wrong shape once a record's audio has to be here before it may be committed. The
+        // warm window now leads the commit window (`CACHE_AHEAD` against `COMMIT_LEAD`), so asking
+        // for audio first means this pass's fetches are aimed several boundaries ahead of what it
+        // is about to commit rather than at it.
+        await this.ripenTrackCache(lineup);
+
         const held = this.rundown.upcoming().length;
         if (held < COMMIT_LEAD) {
             // ── gather ──────────────────────────────────────────────────────────────
@@ -670,11 +679,6 @@ export class DirectorService {
             }
         }
 
-        // AFTER the hand-over, deliberately the opposite way round from `plantBreaks`. The items taken
-        // above are past the cursor by now, so the window this reads holds the records that have NOT
-        // been handed over — which are the only ones a fetch made now can still be in time for.
-        await this.ripenTrackCache(lineup);
-
         if (lineup.isExhausted()) {
             await this.finish(lineup, rules);
             return;
@@ -686,14 +690,16 @@ export class DirectorService {
     /**
      * Get the audio of the next few records in hand before their slots arrive.
      *
-     * An optimisation and nothing more, which is what makes it safe here: every record is playable
-     * without it, because the route the player fetches records through pulls from the provider itself
-     * when the station has not got the bytes yet. What this buys is that the pull happens while the
-     * records ahead of it are playing rather than inside the request Liquidsoap is waiting on.
+     * Runs BEFORE the commit block, and its window leads it: the point is that a record's bytes are
+     * here several boundaries before its slot, so the pull never happens inside the request
+     * Liquidsoap is waiting on.
      *
-     * Failures are swallowed exactly as {@link plantBreaks}'s are, and for a stronger version of the
-     * same reason: the records either side play regardless, so a planner that cannot read its rows must
-     * not take down the pass that keeps the running order full.
+     * Failures are still swallowed, exactly as {@link plantBreaks}'s are, but the reason has narrowed
+     * and is worth stating precisely. It used to be that the records either side play regardless. That
+     * is no longer true of the record this failed to fetch — a record with no local audio is one the
+     * commit pass declines to commit. What is still true is that a planner that cannot read its rows
+     * must not take down the pass that keeps the running order full, and that a fetch missed on this
+     * pass is retried on the next one, which is a boundary away.
      */
     private async ripenTrackCache(lineup: StationLineup): Promise<void> {
         try {

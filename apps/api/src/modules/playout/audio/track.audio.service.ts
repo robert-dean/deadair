@@ -66,10 +66,17 @@ const MISSING_AFTER_ATTEMPTS = 4;
  * them exhausting Spotify's audio-key quota and taking the station off air — so the window is a few
  * records of lead, not an hour of it.
  *
- * Three, against a `COMMIT_LEAD` of 3: the window reaches exactly as far as the items the director has
- * not handed over yet, so a record is fetched while the ones ahead of it play and never while it is
- * being handed over. A record whose fetch does not finish in time is not lost — the request the player
- * makes fetches it — which is what keeps warming an optimisation rather than a dependency.
+ * **It LEADS the commit window rather than matching it**, which is the whole point and is a reversal of
+ * what this said before. At three against a `COMMIT_LEAD` of three, the two windows were the same items:
+ * a record's fetch started at the same pass that handed it over, so the first play of every record was a
+ * provider round trip inside the request Liquidsoap was waiting on, and warming could only ever be an
+ * optimisation. Six means a record is fetched several boundaries before its slot, which is what lets the
+ * director REFUSE to commit one whose audio is not here yet — see `DirectorService.commit`. The lead is
+ * the margin in which an upstream that will not serve can be discovered early enough to route around.
+ *
+ * It is deliberately not much larger than that. Every fetch is a whole record off a rate-limited
+ * credential, and `docs/todo/provider-audio-failures.md` records a burst of them exhausting Spotify's
+ * audio-key quota and taking the station off air. Six is a few records of lead, not an hour of it.
  *
  * A constant like `PLANT_AHEAD` and `WRITE_AHEAD` beside it, for the same reason those are:
  * `playout.trackCache` is the decision an operator has, and this is a number tied to the commit lead.
@@ -80,7 +87,7 @@ const MISSING_AFTER_ATTEMPTS = 4;
  * loads fine under vitest and throws `Cannot access 'CACHE_AHEAD' before initialization` under Node's
  * ESM loader. Which it did, on the first boot after it was written.
  */
-export const CACHE_AHEAD = 3;
+export const CACHE_AHEAD = 6;
 
 /**
  * How much just-fetched audio to keep in memory for a station that is keeping nothing on disk.

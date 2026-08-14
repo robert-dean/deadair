@@ -60,21 +60,24 @@ const build = (states: SourceAudio[], options: { fetching?: string[]; error?: Er
 };
 
 describe('TrackCachePlanner.ripen', () => {
-    it('asks for the nearest record that is not here yet', async () => {
+    it('asks for the nearest records that are not here yet, nearest first', async () => {
         const { planner, send } = build([state(1), state(2), state(3)]);
 
-        expect(await planner.ripen(lineupOf([trackItem(1), trackItem(2), trackItem(3)]))).toBe(1);
-        expect(send).toHaveBeenCalledExactlyOnceWith('playout.cache_track', { sourceId: 'source-1' });
+        expect(await planner.ripen(lineupOf([trackItem(1), trackItem(2), trackItem(3)]))).toBe(2);
+        expect(send).toHaveBeenNthCalledWith(1, 'playout.cache_track', { sourceId: 'source-1' });
+        expect(send).toHaveBeenNthCalledWith(2, 'playout.cache_track', { sourceId: 'source-2' });
     });
 
-    // One per pass, and the pass runs on every rundown change. That plus in-flight de-duplication is
-    // what turns a window of three into a trickle instead of a burst on a rate-limited credential.
-    it('asks for one record per pass however many are missing', async () => {
+    // Two per pass, and the pass runs on every rundown change. That plus in-flight de-duplication is
+    // what turns a window of six into a trickle instead of a burst on a rate-limited credential. It
+    // is two rather than one because the window now LEADS the commit lead and the director declines
+    // to commit a record whose audio is missing, so a cold order has to fill faster than it drains.
+    it('asks for no more than two records per pass however many are missing', async () => {
         const { planner, send } = build([state(1), state(2), state(3)]);
 
         await planner.ripen(lineupOf([trackItem(1), trackItem(2), trackItem(3)]));
 
-        expect(send).toHaveBeenCalledTimes(1);
+        expect(send).toHaveBeenCalledTimes(2);
     });
 
     it('starts at the cursor rather than at the top of the order', async () => {

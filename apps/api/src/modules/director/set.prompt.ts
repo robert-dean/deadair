@@ -118,6 +118,15 @@ function systemPrompt(settings: SetPromptSettings): string {
         // already owned, already measured and cost nothing to play; a provider record costs a
         // lookup and a download. Both air, so this is about cost and not about permission.
         '- Search the library FIRST. Use search_catalog when the library cannot fill what you were asked for.',
+        // The rule that decides whether a brief is served at all, and the one thing here the model's
+        // own knowledge is FOR. A search is text against titles and artist names, so the operator's
+        // words go in and records with those words in the title come out: "jazz club hits" returned
+        // five obscure records literally titled "Jazz Club" and nothing a jazz club has ever played.
+        // The grounding rule is untouched by this and worth being explicit about — knowing that a
+        // brief implies Bill Evans is knowledge, naming a record because a search returned it is
+        // provenance, and only the second one is what may be answered with.
+        '- A brief describes a STYLE, not a search term. Searching for the operator’s own words finds records with those words in the title, which is almost never what they meant.',
+        '- Work out for yourself which artists and which records fit the brief, then search for THOSE by name. Search for artists more than for genres.',
         // Two live runs pulled this rule in opposite directions and it now states the condition
         // rather than a number of searches, which is what satisfies both.
         //

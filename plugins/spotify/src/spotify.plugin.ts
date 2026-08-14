@@ -21,9 +21,11 @@ import {
     clampLimit,
     clampSearchLimit,
     clampSearchOffset,
+    clampSearchTotal,
     mapPlaybackState,
     mapPlaylist,
     mapTrack,
+    SEARCH_OFFSET_MAX,
     type SpotifyPlaylistedItem,
 } from './spotify.mapping.js';
 
@@ -145,10 +147,44 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      * since February 2026 while the paged endpoints below still take 50, and it
      * is the one call here that always sends a limit rather than inheriting
      * Spotify's (which dropped to 5 in the same round).
+     *
+     * That ceiling is per REQUEST, and this pages to meet what the caller asked
+     * for. It made one request for as long as it existed, which was correct
+     * while the cap was 50 and quietly became a trim when it fell to 10: a
+     * caller asking for 25 got 10, and a short answer is also what a genuinely
+     * thin search looks like, so nothing downstream could tell the two apart.
+     * The station's own reason to care is that `CatalogSearchTool` feeds a model
+     * asked to name two dozen distinct records, and a model shown ten pads the
+     * answer with repeats.
+     *
+     * Bounded three ways, because paging an API this plugin is careful about the
+     * rate limit of should never be open-ended: {@link clampSearchTotal} caps how
+     * many can be asked for at all, a page shorter than requested means the
+     * search is exhausted and stops it, and {@link SEARCH_OFFSET_MAX} is the
+     * window Spotify itself will page over.
      */
     async searchTracks(query: string, options?: SearchTracksOptions): Promise<ProviderTrack[]> {
-        const results = await this.getApi().search(query, ['track'], undefined, clampSearchLimit(options?.limit), clampSearchOffset(options?.offset));
-        return toProviderTracks(results.tracks.items);
+        const wanted = clampSearchTotal(options?.limit);
+        let offset = clampSearchOffset(options?.offset) ?? 0;
+
+        const tracks: ProviderTrack[] = [];
+        while (tracks.length < wanted && offset <= SEARCH_OFFSET_MAX) {
+            const page = clampSearchLimit(wanted - tracks.length);
+            const results = await this.getApi().search(query, ['track'], undefined, page, offset);
+            const items = results.tracks.items;
+
+            tracks.push(...toProviderTracks(items));
+            // Both of these count what SPOTIFY returned rather than what mapped,
+            // because paging is about its cursor and mapping is a filter on top
+            // of it. Advancing by the mapped count would re-read whatever it
+            // dropped, and a short page of mapped tracks is not an exhausted
+            // search — a full page holding two items `mapTrack` cannot use would
+            // read as one, and the search would stop with records still to come.
+            if (items.length < page) break;
+            offset += items.length;
+        }
+
+        return tracks.slice(0, wanted);
     }
 
     async getTrack(trackId: string): Promise<ProviderTrack | undefined> {

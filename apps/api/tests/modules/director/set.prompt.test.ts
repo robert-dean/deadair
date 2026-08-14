@@ -35,6 +35,20 @@ describe('setPrompt', () => {
         expect(system).toMatch(/when the library cannot fill/);
     });
 
+    it('says a brief is a style to expand rather than a query to run', () => {
+        // A search is text against titles and artist names, so passing the operator's words straight
+        // through returns records with those words in the title: "jazz club hits" found five obscure
+        // records literally titled "Jazz Club". Expanding the brief is the one thing here the model's
+        // own knowledge is for, and it does not touch the grounding rule — knowing a brief implies
+        // Bill Evans is knowledge, naming a record a search returned is provenance.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }));
+
+        expect(system).toMatch(/A brief describes a STYLE, not a search term/);
+        expect(system).toMatch(/search for THOSE by name/);
+        // The rule it must not be read as loosening.
+        expect(system).toMatch(/Never name a record from your own knowledge/);
+    });
+
     it('bounds the searching by what it is for rather than by a number of searches', () => {
         // Two live runs pulled this in opposite directions. "Search several times" with no ceiling
         // had the model spend every round searching and never answer; "three or four times, then

@@ -72,11 +72,12 @@ is the field the writers already read.
 - **`rotation.discover` off makes the generator inert**, because a chart pick is almost never in the
   library. That is a legitimate operator choice, but silence would read as a broken plugin. Decline
   loudly and once, the way `llm.breakWriter` being off is just the first binding declining early.
-- **`MAX_DISCOVERIES` is counted as attempts and is a constant.** A fifteen-track batch drawn from a
-  chart will spend the whole budget in one refill, which is the opposite of the case it was sized
-  for (a model naming one or two records the library happens not to hold). It wants to be a function
-  of the batch before anything schedules from a chart, and the cap it protects is real: every miss
-  searches every provider.
+- ~~**`MAX_DISCOVERIES` is counted as attempts and is a constant.**~~ **Done, 2026-08-15**, forced by
+  the model generator hitting it first: a briefed refill needs a lookup for every pick, so a flat
+  eight against a batch of twenty-four dropped two thirds of them without asking a provider. It is
+  now `discoveryCap(picks)` — one per pick, floored at `MIN_DISCOVERIES` and ceilinged at
+  `MAX_DISCOVERIES` — so this prerequisite is already met. The cap it protects is still real: every
+  miss searches every provider.
 - **Registration order is preference order, and the catalog stays last.** The chain tops up rather
   than falling through, so the chart generator names what it can and the floor finishes the rest —
   which is also the answer to "what happens when the chart service is down".

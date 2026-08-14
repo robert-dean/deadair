@@ -187,7 +187,18 @@ const SEARCH_LIMIT_MAX = 10;
 const SEARCH_LIMIT_DEFAULT = SEARCH_LIMIT_MAX;
 
 /** Search stops paging at 1000, unlike `/me/playlists`, which goes to 100,000. */
-const SEARCH_OFFSET_MAX = 1000;
+export const SEARCH_OFFSET_MAX = 1000;
+
+/**
+ * The most records one {@link MusicProviderCatalog.searchTracks} call will collect, across pages.
+ *
+ * A bound on the paging rather than on the answer. `SEARCH_LIMIT_MAX` being 10 means a caller asking
+ * for 25 costs three round trips, and without a ceiling here a caller asking for 500 would quietly
+ * spend fifty — on an API whose rate limit is the one thing this plugin is most careful about. Fifty
+ * is twice the deepest ask the station actually makes (`CatalogSearchTool.MAX_RESULTS`), so it is a
+ * runaway guard rather than a working limit.
+ */
+const SEARCH_TOTAL_MAX = 50;
 
 /**
  * {@link clampLimit} for `GET /search`, which since February 2026 caps `limit` at
@@ -208,4 +219,21 @@ export function clampSearchLimit(limit: number | undefined): MaxInt<50> {
 export function clampSearchOffset(offset: number | undefined): number | undefined {
     if (offset === undefined) return undefined;
     return Math.min(SEARCH_OFFSET_MAX, Math.max(0, Math.trunc(offset)));
+}
+
+/**
+ * How many records a search should collect in TOTAL, across however many requests that takes.
+ *
+ * The companion to {@link clampSearchLimit} and not a replacement for it: that one is what a single
+ * request may ask Spotify for, this is what the caller asked the plugin for. They were the same
+ * number for as long as `searchTracks` made one request, and the consequence was that a caller
+ * asking for 25 was silently answered with 10 — with nothing in the result saying it had been
+ * trimmed, since a short page is also what a genuinely thin search looks like.
+ *
+ * Undefined means {@link SEARCH_LIMIT_MAX}: one request, which is what a caller that named no limit
+ * used to get and the cheapest thing to do for one that does not care.
+ */
+export function clampSearchTotal(limit: number | undefined): number {
+    if (limit === undefined) return SEARCH_LIMIT_MAX;
+    return Math.min(SEARCH_TOTAL_MAX, Math.max(1, Math.trunc(limit)));
 }

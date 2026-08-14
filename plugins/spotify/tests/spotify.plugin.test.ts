@@ -17,6 +17,9 @@ function apiResponse(body: unknown, overrides: Partial<Parameters<typeof fakeHos
     return fakeHostFetchResponse({ body: JSON.stringify(body), url: 'https://api.spotify.com/v1/', ...overrides });
 }
 
+/** One search result `mapTrack` can use, for the paging tests where only the count matters. */
+const searchHit = (id: string) => ({ id, name: `Song ${id}`, artists: [{ name: 'Artist' }] });
+
 /** Seeds a host with config and a healthy, non-expiring token, then inits a plugin against it. */
 async function initedPlugin(host: FakePluginHost, config: Record<string, unknown> = {}): Promise<SpotifyPlugin> {
     host.seedConfig({ clientId: CLIENT_ID, redirectUri: REDIRECT_URI, ...config });
@@ -233,6 +236,75 @@ describe('SpotifyPlugin', () => {
             await plugin.searchTracks('song one', { offset: 5000 });
 
             expect(host.calls[0].url).toContain('offset=1000');
+        });
+
+        it('searchTracks pages to meet a limit above the per-request ceiling', async () => {
+            // Search caps `limit` at 10 per request, so one request could only ever answer 10 of a
+            // 25-record ask — and a short answer is also what a genuinely thin search looks like, so
+            // nothing downstream could tell the trim from the truth. The station's own reason to
+            // care: `CatalogSearchTool` feeds a model asked to name two dozen DISTINCT records, and
+            // a model shown ten pads the answer with repeats that are then discarded.
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            const page = (from: number) =>
+                apiResponse({
+                    tracks: { items: Array.from({ length: 10 }, (_, index) => searchHit(`track-${from + index}`)) },
+                });
+            host.queueResponse(page(0));
+            host.queueResponse(page(10));
+            host.queueResponse(page(20));
+
+            const results = await plugin.searchTracks('jazz', { limit: 25 });
+
+            expect(results).toHaveLength(25);
+            expect(host.calls).toHaveLength(3);
+            // The last request asks only for what is still missing rather than a full page.
+            expect(host.calls[2].url).toContain('limit=5');
+            expect(host.calls[1].url).toContain('offset=10');
+        });
+
+        it('searchTracks stops on a short page rather than paging to the limit', async () => {
+            // A query with four matches must cost one request, not three.
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ tracks: { items: [searchHit('track-1'), searchHit('track-2')] } }));
+
+            const results = await plugin.searchTracks('something obscure', { limit: 25 });
+
+            expect(results).toHaveLength(2);
+            expect(host.calls).toHaveLength(1);
+        });
+
+        it('searchTracks pages by what Spotify returned, not by what mapped', async () => {
+            // Paging is about Spotify's cursor and mapping is a filter on top of it. A full page
+            // holding items `mapTrack` cannot use would otherwise read as an exhausted search and
+            // stop with records still to come — and the offset would re-read whatever it dropped.
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(
+                apiResponse({ tracks: { items: [...Array.from({ length: 8 }, (_, i) => searchHit(`t${i}`)), null, { id: 'no-name' }] } }),
+            );
+            host.queueResponse(apiResponse({ tracks: { items: [searchHit('t8')] } }));
+
+            const results = await plugin.searchTracks('jazz', { limit: 20 });
+
+            expect(host.calls).toHaveLength(2);
+            expect(host.calls[1].url).toContain('offset=10');
+            expect(results).toHaveLength(9);
+        });
+
+        it('searchTracks bounds how deep one call may page', async () => {
+            // Paging an API this plugin is careful about the rate limit of is never open-ended.
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            for (let index = 0; index < 10; index += 1) {
+                host.queueResponse(apiResponse({ tracks: { items: Array.from({ length: 10 }, (_, i) => searchHit(`t${index}-${i}`)) } }));
+            }
+
+            const results = await plugin.searchTracks('jazz', { limit: 500 });
+
+            expect(results).toHaveLength(50);
+            expect(host.calls).toHaveLength(5);
         });
 
         it('getTrack returns the mapped track on success', async () => {

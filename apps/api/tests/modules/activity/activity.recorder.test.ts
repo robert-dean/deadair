@@ -8,6 +8,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 
 import { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 import { StationEventsRepository, type StationEvent } from '../../../src/modules/activity/station.events.repository.js';
+import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const event: StationEvent = { module: 'playout', kind: 'silence.cause', detail: 'The station is airing.' };
 
@@ -17,7 +18,7 @@ function build(append: () => Promise<void> = async () => {}) {
     const container = { createScopedContainer: vi.fn(() => scope) } as unknown as Container;
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
-    return { recorder: new ActivityRecorder(container, logger), repository, scope, logger };
+    return { recorder: new ActivityRecorder(container, new StationIdentity(), logger), repository, scope, logger };
 }
 
 describe('ActivityRecorder', () => {
@@ -27,7 +28,7 @@ describe('ActivityRecorder', () => {
         await recorder.record(event);
 
         expect(scope.get).toHaveBeenCalledWith(StationEventsRepository);
-        expect(repository.append).toHaveBeenCalledWith(event);
+        expect(repository.append).toHaveBeenCalledWith(event, { stationKey: 'main' });
     });
 
     it('swallows a failed write and says so at warn', async () => {

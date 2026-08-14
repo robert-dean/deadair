@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { StationEventsRepository, type StationEvent } from './station.events.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 
 /**
  * The write side of the activity feed.
@@ -59,14 +60,25 @@ export class ActivityRecorder {
         // than from whichever scope built it, which is what keeps the scope opened below from being
         // the child of a request scope that has already been disposed. See `#modules/shared/scoped.work.js`.
         private readonly container: Container,
+        // Stamped here rather than asked of every caller. A producer knows what happened; whether
+        // there was a broadcast on at the time is a fact about the station, and half the producers
+        // here (a plugin reloading, a config being adopted) have no way to know it.
+        private readonly identity: StationIdentity,
         private readonly logger: Logger,
     ) {}
 
     /** Write one down. Resolves whether or not it landed; see the class note. */
     async record(event: StationEvent): Promise<void> {
         try {
+            const broadcastId = this.identity.current();
             await inScope(this.container, async scope => {
-                await scope.get(StationEventsRepository).append(event);
+                await scope.get(StationEventsRepository).append(event, {
+                    stationKey: this.identity.stationKey,
+                    // Read at the moment of the call, not at the moment of the insert: a
+                    // stand-down between the two would otherwise file the event that describes it
+                    // under nothing, or worse, under the broadcast that started next.
+                    ...(broadcastId === undefined ? {} : { broadcastId }),
+                });
             });
         } catch (error) {
             this.logger.warn(`activity: could not record ${event.module}/${event.kind} (${errorText(error)})`);

@@ -7,6 +7,7 @@ import { AIR_MODE_KEY, parseAirMode, type AirMode } from '#modules/playout/air.m
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { TrackCachePlanner } from '#modules/playout/audio/track.cache.planner.js';
 import { Epoch } from '#modules/shared/epoch.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
@@ -186,6 +187,10 @@ export class DirectorService {
         // one, registered by a module below this one in `modules.ts`, which is safe because every
         // module's setup runs before any module's ready.
         private readonly activity: ActivityRecorder,
+        // Which broadcast is on, published for everything that writes a row while it runs. The
+        // director is the only writer of it, because it is the only thing that starts and ends a
+        // broadcast; `render`, `catalog` and `activity` read it without knowing this class exists.
+        private readonly identity: StationIdentity,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -316,6 +321,10 @@ export class DirectorService {
         this.lineup = await inScope(this.container, async scope => scope.get(StationLineupRepository).load());
         if (!this.lineup) return;
 
+        // The SAME broadcast, not a new one: the row carried its id, so a restart mid-programme
+        // files what happens next under the show that was already running.
+        this.identity.began(this.lineup.broadcastId);
+
         // The transport drives the order directly from here on. It owns each item's transport
         // state and this class owns the order; there is no second copy for the two to disagree
         // about, which is what step 8 of the decision bought.
@@ -420,10 +429,17 @@ export class DirectorService {
         // listener off mid-record.
         this.rundown.retract();
 
-        const lineup = this.lineup ?? new StationLineup(binding);
-        lineup.rebind(binding);
+        // A NEW running order object, not the old one rebound. It used to be reused, which was
+        // harmless while the only things on it were a binding and a list — both of which were
+        // replaced immediately below — and stopped being harmless the moment it carried a broadcast
+        // id: reusing the object would keep the previous broadcast's identity, and everything
+        // written for the next hour would be filed under the programme that had just come off.
+        const lineup = new StationLineup(binding);
         lineup.replaceFrom(tracks);
         this.lineup = lineup;
+        // Published before anything can write a row against this broadcast, which includes the
+        // `air.on` event a few lines below: a broadcast starting is itself part of the broadcast.
+        this.identity.began(lineup.broadcastId);
         this.rundown.attach(lineup);
         await this.persist();
 
@@ -1119,8 +1135,18 @@ export class DirectorService {
         if (isRenderItem(item)) return;
 
         const source = this.lineup?.source ?? 'director';
+        // Off the running order rather than the shared holder, because this one CAN say which
+        // broadcast without asking: the record that just aired came out of this order.
+        const broadcastId = this.lineup?.broadcastId;
 
-        void inScope(this.container, async scope => scope.get(PlayHistoryRepository).record({ item, source })).catch(error =>
+        void inScope(this.container, async scope =>
+            scope.get(PlayHistoryRepository).record({
+                item,
+                source,
+                stationKey: this.identity.stationKey,
+                ...(broadcastId === undefined ? {} : { broadcastId }),
+            }),
+        ).catch(error =>
             // One lost row costs a little accuracy in the repeat window. Nothing about
             // the broadcast depends on it, and the boundary must not be held up.
             this.logger.warn(`director: could not record what aired (${errorText(error)})`),
@@ -1152,6 +1178,10 @@ export class DirectorService {
         this.extendSent = false;
         this.airReadAt = 0;
         this.standingDown = true;
+        // Nothing written from here on belongs to a broadcast, because there is not one on.
+        // Deliberately not left set for the stand-down's own activity row: an operator stopping
+        // the station is a fact about the station, not part of the programme they stopped.
+        this.identity.ended();
     }
 
     /** Remember that the station is off, so a restart stays off. */

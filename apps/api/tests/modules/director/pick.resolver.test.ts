@@ -18,6 +18,7 @@ import { DEFAULT_RULES, type ResolvedRules } from '../../../src/modules/director
 import type { TrackPick } from '../../../src/modules/director/set.generator.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { AnalysisRepository, StoredAnalysis } from '../../../src/modules/analysis/analysis.repository.js';
+import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -143,7 +144,7 @@ function build(options: Options = {}) {
     const config = { get: (key: string, fallback: unknown) => values[key] ?? fallback } as unknown as AppConfig;
 
     return {
-        resolver: new PickResolver(candidates, tracks, analysis, history, lookup, ingest, activity, config, logger),
+        resolver: new PickResolver(candidates, tracks, analysis, history, lookup, ingest, activity, new StationIdentity(), config, logger),
         candidates,
         tracks,
         analysis,
@@ -481,8 +482,8 @@ describe('PickResolver rules', () => {
 
         await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }], rules());
 
-        expect(history.songKeysSince).toHaveBeenCalledWith(0);
-        expect(history.artistKeysSince).toHaveBeenCalledWith(0);
+        expect(history.songKeysSince).toHaveBeenCalledWith(0, 'main');
+        expect(history.artistKeysSince).toHaveBeenCalledWith(0, 'main');
     });
 
     it('caps how many of one artist a batch may carry', async () => {

@@ -444,6 +444,8 @@ describe('StationLineup snapshots', () => {
         hand(lineup, 1);
 
         expect(lineup.toSnapshot()).toEqual({
+            // Minted by the constructor: a running order and the broadcast it is are one thing.
+            broadcastId: expect.any(String),
             name: 'Afternoons',
             mode: 'rotation',
             onEnd: 'extend',

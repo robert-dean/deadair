@@ -34,6 +34,19 @@ create table deadair.station_lineup (
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now() check (updated_at >= created_at),
     station_key text primary key default 'main',
+    -- WHICH broadcast this is: re-minted every time the station is put on air, and stamped on
+    -- everything that happens while it runs (`play_history`, `segment_events`, `script_history`,
+    -- `station_events`). It is what makes "what aired during last night's show" a question with an
+    -- answer, where before there was only a wall clock.
+    --
+    -- An id, not a library. Nothing looks a broadcast UP, nothing points at a stored order, and no
+    -- row anywhere is a lineup that is not this one — so the rule in `on-air-ownership.md` that a
+    -- lineup is consumed rather than kept is untouched. What it identifies is a SPAN, not an object.
+    --
+    -- "Broadcast" rather than "programme" because that is the word the code already uses for exactly
+    -- this span: `rundown.ts` ends the broadcast, `station.lineup.ts` speaks of the broadcast in
+    -- progress, while `hasProgramme()` means "has anything at all to air".
+    broadcast_id uuid not null default gen_random_uuid(),
     -- What the operator is told is on: "Discover Weekly, from Spotify". A label for this
     -- broadcast rather than the identity of a stored object, which is why nothing looks a
     -- row up by it.
@@ -121,6 +134,14 @@ select deadair.add_updated_at_trigger('deadair.station_air');
 create table deadair.play_history (
     created_at timestamptz not null default now(),
     id uuid not null default gen_random_uuid() primary key,
+    -- Which station aired it, matching `station_lineup.station_key` and `station_air.slot`. Here
+    -- from the first migration rather than added when a second station exists, because this is the
+    -- table a repeat window and an artist cooldown are read from: keying it later would mean one
+    -- station's rotation quietly answering with another station's memory until the migration ran.
+    station_key text not null default 'main',
+    -- Which broadcast aired it. Null for a row written outside one, which today means nothing and
+    -- tomorrow might mean a scheduler or a second writer.
+    broadcast_id uuid,
     -- The canonical track, when the catalog holds one. Null for anything aired straight from
     -- a provider, and set null rather than cascade on delete: the fact that it aired is not
     -- undone by the catalog forgetting the row.
@@ -139,10 +160,13 @@ create table deadair.play_history (
 );
 
 -- The three reads: the log itself, the repeat window, the artist cooldown. The two keyed
--- indexes carry `aired_at` so the window predicate is answered from the index alone.
-create index play_history_aired_at_idx on deadair.play_history (aired_at desc);
-create index play_history_song_idx on deadair.play_history (song_key, aired_at desc);
-create index play_history_artist_idx on deadair.play_history (artist_key, aired_at desc);
+-- indexes carry `aired_at` so the window predicate is answered from the index alone, and all
+-- three lead with `station_key` because every one of those questions is asked of one station.
+create index play_history_aired_at_idx on deadair.play_history (station_key, aired_at desc);
+create index play_history_song_idx on deadair.play_history (station_key, song_key, aired_at desc);
+create index play_history_artist_idx on deadair.play_history (station_key, artist_key, aired_at desc);
+-- The fourth read, which is new: everything one broadcast aired, in order.
+create index play_history_broadcast_idx on deadair.play_history (broadcast_id, aired_at desc);
 
 -- migrate:down
 

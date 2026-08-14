@@ -214,6 +214,25 @@ through before its caller is answered, everything the transport does rides a thr
 graceful shutdown flushes. `station_air` says only whether the station is driving. Every writer
 posts a command to `DirectorService`; nothing else may write it.
 
+**A broadcast has an IDENTITY, and everything written while it runs carries it.**
+`station_lineup.broadcast_id` is minted when a running order is built and kept for as long as it
+airs, so `play_history`, `segment_events`, `script_history` and `station_events` can all answer "what
+happened during last night's show" rather than only "what happened between these two timestamps". It
+is an id and not a library: nothing looks a broadcast up and no row is a running order that is not
+the live one, so the rule that a lineup is consumed rather than kept is untouched. Two consequences
+are load-bearing. `putOnAir` builds a **new** `StationLineup` rather than rebinding the old one,
+because reusing the object would keep the previous broadcast's identity and file the next hour under
+a programme that has already ended; `rebind` therefore cannot change it, and says so. And the id is
+read back by `StationLineupRepository.load`, so a restart mid-programme resumes the same broadcast
+instead of starting a second one halfway through. `StationIdentity`
+(`modules/shared/station.identity.ts`) is how anything outside the director reaches it — the director
+is its only writer, and `undefined` means genuinely no broadcast (a library scan, a plugin reload, an
+operator's setting change), which those writers must store as null rather than reaching for whichever
+broadcast was last on. The same file holds `stationKey`, which is on every station-owned table from
+the first migration: `play_history`'s three indexes lead with it because a repeat window and an
+artist cooldown are per-station questions, and the activity feed filters inside each arm of its union
+rather than over the result, so each arm keeps its own index.
+
 **The order also carries the operator's BRIEF, and that is why it is on the row rather than in a job
 payload.** `station_lineup.brief` is what they asked for in their own words ("heavy metal hits"), as
 distinct from `name`, which is only a label. It rides the running order because `onEnd: 'extend'`

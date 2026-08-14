@@ -43,13 +43,17 @@ export class StationLineupRepository extends DataRepository {
     async load(stationKey = MAIN_STATION): Promise<StationLineup | undefined> {
         const row = await this.db
             .selectFrom('deadair.stationLineup')
-            .select(['name', 'brief', 'mode', 'onEnd', 'source', 'sourcePluginId', 'sourcePlaylistId', 'items', 'rules'])
+            .select(['broadcastId', 'name', 'brief', 'mode', 'onEnd', 'source', 'sourcePluginId', 'sourcePlaylistId', 'items', 'rules'])
             .where('stationKey', '=', stationKey)
             .executeTakeFirst();
         if (!row) return undefined;
 
         return new StationLineup(
             {
+                // Read back rather than left to the constructor's mint, which is what makes a
+                // restart resume the broadcast that was already running instead of starting a
+                // second one halfway through it.
+                broadcastId: row.broadcastId,
                 name: row.name,
                 // Empty reads as absent rather than as an empty instruction, so the column's
                 // default and a station that was never briefed are the same thing everywhere above.
@@ -75,6 +79,11 @@ export class StationLineupRepository extends DataRepository {
      */
     async save(snapshot: StationLineupSnapshot, stationKey = MAIN_STATION): Promise<void> {
         const values = {
+            // Written on every save rather than only on the first, because `putOnAir` replacing the
+            // running order is a NEW broadcast in the same row: the upsert below updates, so a
+            // broadcast id left out of the update set would leave the previous one in place and
+            // every row stamped after it would name a broadcast that is no longer on.
+            broadcastId: snapshot.broadcastId,
             name: snapshot.name,
             brief: snapshot.brief ?? '',
             mode: snapshot.mode,

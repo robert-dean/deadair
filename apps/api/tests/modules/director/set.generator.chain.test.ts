@@ -13,6 +13,7 @@ import { CatalogSetGenerator } from '../../../src/modules/director/catalog.set.g
 import { ModelSetGenerator } from '../../../src/modules/director/model.set.generator.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -183,7 +184,7 @@ describe('SetGeneratorChain with the real bindings', () => {
             artistKeysSince: vi.fn(async () => new Set<string>()),
         } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[1];
 
-        return new CatalogSetGenerator(candidates, history);
+        return new CatalogSetGenerator(candidates, history, new StationIdentity());
     }
 
     /** The model binding as an operator who never turned it on has it. */

@@ -11,7 +11,12 @@ import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 
 import { DirectorService } from '../../../src/modules/director/director.service.js';
-import { StationLineup, type StationLineupMode, type StationLineupOnEnd } from '../../../src/modules/director/station.lineup.js';
+import {
+    StationLineup,
+    type StationLineupMode,
+    type StationLineupOnEnd,
+    type StationLineupSnapshot,
+} from '../../../src/modules/director/station.lineup.js';
 import { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
@@ -26,6 +31,7 @@ import { TrackResolver } from '../../../src/modules/playout/playout.capability.j
 import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
+import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -96,10 +102,15 @@ function build(options: Options = {}) {
     // The record, not the authority: the director holds the order and writes it here. The fake
     // hands back the same instance so a test can assert on what was written by reading it.
     const saved: number[] = [];
+    // The snapshots as they were written, which is the only way to see a running order the director
+    // REPLACED: `putOnAir` builds a new `StationLineup` (a new broadcast is a new object), so the
+    // instance handed back by `load` above stops being the one on air the moment it is called.
+    const snapshots: StationLineupSnapshot[] = [];
     const lineups = {
         load: vi.fn(async () => (options.noOrder ? undefined : lineup)),
-        save: vi.fn(async () => {
-            saved.push(lineup.size());
+        save: vi.fn(async (snapshot: StationLineupSnapshot) => {
+            snapshots.push(snapshot);
+            saved.push(snapshot.items.length);
         }),
     } as unknown as StationLineupRepository;
 
@@ -192,7 +203,7 @@ function build(options: Options = {}) {
 
     const activity = { record: vi.fn(async () => undefined) } as unknown as ActivityRecorder;
 
-    const director = new DirectorService(rundown, audience, container, jobs as unknown as PgBossJobBroker, activity, station.config, logger);
+    const director = new DirectorService(rundown, audience, container, jobs as unknown as PgBossJobBroker, activity, new StationIdentity(), station.config, logger);
 
     return {
         director,
@@ -202,6 +213,7 @@ function build(options: Options = {}) {
         scope,
         rundown,
         lineups,
+        snapshots,
         breaks,
         segmentStub,
         candidates,
@@ -865,7 +877,7 @@ describe('DirectorService at the end of a lineup', () => {
 
 describe('DirectorService going on air', () => {
     it('replaces the running order with what it was handed, and retracts the old one', async () => {
-        const { director, rundown, lineup, seed } = build();
+        const { director, rundown, seed, snapshots } = build();
         await seed();
         await director.start();
         expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
@@ -880,8 +892,32 @@ describe('DirectorService going on air', () => {
         // the retraction, and it is why a change of lineup used to leak three records into the
         // new show.
         expect(idsOf(rundown.upcoming())).toEqual(['x', 'y']);
-        expect(lineup.all().map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y']);
+        expect(snapshots.at(-1)?.items.map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y']);
         expect(director.status().name).toBe('Something else');
+    });
+
+    it('starts a NEW broadcast, so what aired before it is not filed under what is on now', async () => {
+        // The whole point of the id: `play_history`, `segment_events`, `script_history` and
+        // `station_events` are all stamped with it, so a running order that kept the previous
+        // broadcast's identity would file an evening's rows under a show that had already ended.
+        const { director, lineup, seed, snapshots } = build();
+        await seed();
+        await director.start();
+
+        // Off the seeded order, which is the one the director loaded: nothing has been persisted
+        // yet on a boot that changed nothing, and the throttle means that is the ordinary case.
+        const before = lineup.toSnapshot().broadcastId;
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x'), track('y')],
+        });
+
+        const after = snapshots.at(-1)?.broadcastId;
+        expect(before).toBeDefined();
+        expect(after).toBeDefined();
+        expect(after).not.toBe(before);
     });
 
     it('switches the station on, so a restart comes back to it', async () => {
@@ -1223,7 +1259,7 @@ describe('DirectorService committing across a change underneath it', () => {
         // Bug 1, and the reason `invalidate` is synchronous. A pass suspended in a segment lookup
         // has already decided what to commit; a command queued behind it arrives too late to stop
         // it, and the records it appends land inside the programme that has just replaced them.
-        const { director, rundown, lineup, segmentStub, seed } = build({
+        const { director, rundown, lineup, segmentStub, seed, snapshots } = build({
             items: ['a', 'b', 'c'],
             segments: [{ id: 'seg-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],
         });
@@ -1263,7 +1299,7 @@ describe('DirectorService committing across a change underneath it', () => {
         // its own guard and appends the OLD records behind these, which is a quarter of an hour
         // of a show the operator has just taken off air.
         expect(idsOf(rundown.upcoming())).toEqual(['x', 'y']);
-        expect(lineup.all().map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y']);
+        expect(snapshots.at(-1)?.items.map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y']);
     });
 
     it('marks nothing when the work before the hand-over fails', async () => {

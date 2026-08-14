@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 import { ActivityRepository } from './activity.repository.js';
 import { encodeCursor, toEntry } from './activity.feed.js';
 import type { ActivityPage, ActivityQuery } from './types/activity.types.js';
@@ -15,12 +16,16 @@ const DEFAULT_LIMIT = 50;
  */
 @Injectable()
 export class ActivityService {
-    constructor(private readonly activity: ActivityRepository) {}
+    constructor(
+        private readonly activity: ActivityRepository,
+        private readonly identity: StationIdentity,
+    ) {}
 
     async readActivity(query: ActivityQuery): Promise<ActivityPage> {
         const limit = query.limit ?? DEFAULT_LIMIT;
 
         const rows = await this.activity.page({
+            stationKey: this.identity.stationKey,
             limit,
             ...(query.before === undefined ? {} : { before: query.before }),
             ...(query.module === undefined ? {} : { module: query.module }),

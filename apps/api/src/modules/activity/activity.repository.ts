@@ -35,6 +35,8 @@ import type { ActivityModule, ActivitySeverity } from './types/activity.types.js
 
 /** What the console asked for. */
 export interface ActivityPageQuery {
+    /** Whose feed this is. Applied inside each arm of the union, not over the result. */
+    stationKey: string;
     limit: number;
     before?: string;
     module?: ActivityModule;
@@ -87,6 +89,10 @@ export class ActivityRepository extends DataRepository {
                     null::text as segment_id,
                     null::text as track_id
                 from deadair.station_events e
+                -- Inside each arm rather than once over the union, which is what lets each of the
+                -- three use its own station-leading index. Filtering outside would read every
+                -- station's rows and throw most of them away after sorting them.
+                where e.station_key = ${query.stationKey}
 
                 union all
 
@@ -106,6 +112,7 @@ export class ActivityRepository extends DataRepository {
                     null
                 from deadair.segment_events v
                 join deadair.segments s on s.id = v.segment_id
+                where v.station_key = ${query.stationKey}
 
                 union all
 
@@ -122,6 +129,7 @@ export class ActivityRepository extends DataRepository {
                     null,
                     h.track_id::text
                 from deadair.play_history h
+                where h.station_key = ${query.stationKey}
             ) feed
             where ${query.module === undefined ? sql`true` : sql`module = ${query.module}`}
               and severity = any(${sql.val(severities)}::text[])

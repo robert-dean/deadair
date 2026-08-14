@@ -11,6 +11,7 @@ import type { CandidatesRepository, CandidateTrack } from '../../../src/modules/
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import { DEFAULT_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
+import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const candidate = (title: string, artist: string, rating = 0): CandidateTrack => ({
     trackId: `id-${artist}-${title}`,
@@ -36,7 +37,7 @@ function build(options: Options = {}) {
         artistKeysSince: vi.fn(async (minutes: number) => (minutes > 0 ? (options.artistKeys ?? new Set()) : new Set())),
     } as unknown as PlayHistoryRepository;
 
-    return { generator: new CatalogSetGenerator(candidates, history), candidates, history };
+    return { generator: new CatalogSetGenerator(candidates, history, new StationIdentity()), candidates, history };
 }
 
 const rotation = resolveRules('rotation');
@@ -75,8 +76,8 @@ describe('CatalogSetGenerator', () => {
 
         await generator.generate({ count: 1, rules: resolveRules('setlist') });
 
-        expect(history.songKeysSince).toHaveBeenCalledWith(0);
-        expect(history.artistKeysSince).toHaveBeenCalledWith(0);
+        expect(history.songKeysSince).toHaveBeenCalledWith(0, 'main');
+        expect(history.artistKeysSince).toHaveBeenCalledWith(0, 'main');
     });
 
     it('honours what the caller says the lineup already holds', async () => {

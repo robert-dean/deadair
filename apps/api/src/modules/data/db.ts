@@ -245,12 +245,14 @@ export interface DeadairPlayHistory {
   airedAt: Generated<DateTime>;
   artistKey: string;
   artists: string;
+  broadcastId: string | null;
   createdAt: Generated<DateTime>;
   externalId: string;
   id: Generated<string>;
   pluginId: string;
   songKey: string;
   source: Generated<string>;
+  stationKey: Generated<string>;
   title: string;
   trackId: string | null;
 }
@@ -295,6 +297,7 @@ export interface DeadairPluginStorage {
 }
 
 export interface DeadairScriptHistory {
+  broadcastId: string | null;
   createdAt: Generated<DateTime>;
   durationMs: number | null;
   id: Generated<string>;
@@ -310,16 +313,19 @@ export interface DeadairScriptHistory {
   script: string | null;
   segmentId: string | null;
   source: string | null;
+  stationKey: Generated<string>;
   usage: Json | null;
   writer: string;
 }
 
 export interface DeadairSegmentEvents {
+  broadcastId: string | null;
   createdAt: Generated<DateTime>;
   fromState: string | null;
   id: Generated<string>;
   reason: string | null;
   segmentId: string;
+  stationKey: Generated<string>;
   toState: "planned" | "writing" | "written" | "rendering" | "ready" | "failed";
 }
 
@@ -340,6 +346,7 @@ export interface DeadairSegments {
   source: Generated<string>;
   sourcePath: string | null;
   state: Generated<"planned" | "writing" | "written" | "rendering" | "ready" | "failed">;
+  stationKey: Generated<string>;
   updatedAt: Generated<DateTime>;
   voice: string | null;
   writer: string | null;
@@ -361,6 +368,7 @@ export interface DeadairStationAir {
 
 export interface DeadairStationEvents {
   actorId: string | null;
+  broadcastId: string | null;
   createdAt: Generated<DateTime>;
   data: Json | null;
   detail: string;
@@ -368,10 +376,12 @@ export interface DeadairStationEvents {
   kind: string;
   module: "playout" | "director" | "render" | "catalog" | "plugins";
   severity: Generated<"info" | "warn" | "fault">;
+  stationKey: Generated<string>;
 }
 
 export interface DeadairStationLineup {
   brief: Generated<string>;
+  broadcastId: Generated<string>;
   createdAt: Generated<DateTime>;
   items: Generated<Json>;
   mode: Generated<"rotation" | "setlist" | "feature">;

@@ -1,7 +1,8 @@
 import { Injectable } from 'injectkit';
-import { sql } from 'kysely';
+import { Kysely, sql } from 'kysely';
 import type { DateTime } from 'luxon';
-import { DataRepository } from '#modules/data/data.repository.js';
+import { DataRepository, type DB } from '#modules/data/data.repository.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 import { isSegmentExtension, type SegmentExtension } from './segment.store.js';
 
 /**
@@ -249,6 +250,22 @@ function toSegment(row: SegmentRow): Segment {
  */
 @Injectable()
 export class SegmentRepository extends DataRepository {
+    /**
+     * Injected rather than passed in, unlike `PlayHistoryRepository` and `StationEventsRepository`,
+     * which take theirs as arguments.
+     *
+     * The difference is who the callers are. Those two have one caller each, holding the identity
+     * already. This one is written to from nine places across two jobs, a library scan and the
+     * console, none of which has any other reason to know what a broadcast is — so asking each of
+     * them for it would put the station's identity into nine signatures to reach one column.
+     */
+    constructor(
+        db: Kysely<DB>,
+        private readonly identity: StationIdentity,
+    ) {
+        super(db);
+    }
+
     /** One segment, whatever state it is in. */
     async findById(id: string): Promise<Segment | undefined> {
         const row = await this.db.selectFrom('deadair.segments').select(SEGMENT_COLUMNS).where('id', '=', id).executeTakeFirst();
@@ -349,6 +366,7 @@ export class SegmentRepository extends DataRepository {
         const row = await this.db
             .insertInto('deadair.segments')
             .values({
+                stationKey: this.identity.stationKey,
                 kind: planned.kind,
                 label: planned.label,
                 script: planned.script ?? null,
@@ -606,7 +624,18 @@ export class SegmentRepository extends DataRepository {
         try {
             await this.db
                 .insertInto('deadair.segmentEvents')
-                .values({ segmentId, fromState: from ?? null, toState: to, reason: reason ?? null })
+                .values({
+                    stationKey: this.identity.stationKey,
+                    // Which broadcast this transition happened during, which the segment row itself
+                    // cannot say: an ident is a library row that outlives every broadcast it plays
+                    // in. Null for a transition outside one — a library scan, or a re-render an
+                    // operator asked for while the station was stood down.
+                    broadcastId: this.identity.current() ?? null,
+                    segmentId,
+                    fromState: from ?? null,
+                    toState: to,
+                    reason: reason ?? null,
+                })
                 .execute();
         } catch {
             // Deliberately silent, and deliberately not the app logger: this is reached from a job
@@ -648,6 +677,7 @@ export class SegmentRepository extends DataRepository {
         const row = await this.db
             .insertInto('deadair.segments')
             .values({
+                stationKey: this.identity.stationKey,
                 kind: imported.kind,
                 label: imported.label,
                 source: LIBRARY_SOURCE,

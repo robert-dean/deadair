@@ -20,6 +20,13 @@ create table deadair.segments (
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now() check (updated_at >= created_at),
     id uuid not null default gen_random_uuid() primary key,
+    -- Whose library this is. Present for the same reason `station_key` is on every other station
+    -- table, and stopping there deliberately: there is NO broadcast_id here, unlike on the event
+    -- tables below. An ident is a thing the station can say, it legitimately sits at three slots in
+    -- one hour and in every broadcast after that, so a column naming one broadcast would be a lie
+    -- by its second play. What happens to a segment DURING a broadcast is `segment_events`, and
+    -- that is where the broadcast is named.
+    station_key text not null default 'main',
     -- What sort of element this is: 'ident', 'stinger', 'talkbreak', 'news'. Text rather than an
     -- enum for the reason `track_sources.plugin_id` and `lineups.source` are: a station that
     -- wants sponsor spots must not need a migration to have them.
@@ -181,6 +188,12 @@ create index segments_ready_idx on deadair.segments (kind, created_at) where sta
 create table deadair.segment_events (
     created_at timestamptz not null default now(),
     id uuid not null default gen_random_uuid() primary key,
+    station_key text not null default 'main',
+    -- WHICH broadcast this happened during, which `segments` itself cannot hold: the segment is a
+    -- library row that outlives any one of them, and this is the moment it was written, rendered or
+    -- degraded. Null for a transition outside a broadcast — a library scan, a re-render an operator
+    -- asked for while the station was stood down.
+    broadcast_id uuid,
     -- Cascade, unlike `play_history.track_id`. That one is set null because a record having aired
     -- is true whether or not the catalog still knows the track; this is different, because an event
     -- describes a segment's own life and means nothing once the segment is gone.
@@ -198,7 +211,7 @@ create table deadair.segment_events (
 
 -- The two reads: one segment's story, and the station's most recent activity across all of them.
 create index segment_events_segment_idx on deadair.segment_events (segment_id, created_at);
-create index segment_events_recent_idx on deadair.segment_events (created_at desc);
+create index segment_events_recent_idx on deadair.segment_events (station_key, created_at desc);
 
 -- Everything the station ever wrote, including the attempts that came to nothing.
 --
@@ -219,6 +232,11 @@ create index segment_events_recent_idx on deadair.segment_events (created_at des
 create table deadair.script_history (
     created_at timestamptz not null default now(),
     id uuid not null default gen_random_uuid() primary key,
+    station_key text not null default 'main',
+    -- Which broadcast the station was writing for. Denormalised like everything else here, and for
+    -- the same reason: this table exists to outlive the segment, so the broadcast has to be a value
+    -- on the row rather than something reachable through a reference that may already be null.
+    broadcast_id uuid,
     -- Set null rather than cascade, unlike `segment_events.segment_id`. That table describes a
     -- segment's own life and means nothing once the segment is gone; this one exists PRECISELY to
     -- outlive it, which is why everything below is denormalised enough to stand on its own.
@@ -259,7 +277,10 @@ create table deadair.script_history (
 );
 
 -- The two reads: the station's recent writing, and one segment's. The first is also what the
--- retention sweep deletes by, which is why `created_at` leads it.
+-- retention sweep deletes by, which is why `created_at` leads it — and why `station_key` was NOT
+-- put in front of it when the key was added: `pruneOlderThanDays` deletes across every station at
+-- once (retention is one setting, not one per station), so a leading station key would cost the one
+-- statement in the module that touches the whole table its index.
 create index script_history_recent_idx on deadair.script_history (created_at desc);
 create index script_history_segment_idx on deadair.script_history (segment_id, created_at) where segment_id is not null;
 

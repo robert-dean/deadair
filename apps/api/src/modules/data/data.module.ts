@@ -1,6 +1,7 @@
 import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { Heartbeat } from '#modules/shared/heartbeat.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 import { AfterCommit } from './after.commit.js';
 import { DB } from './db.js';
 import { Kysely, type LogEvent } from 'kysely';
@@ -110,6 +111,13 @@ export const DataModule: ServerKitModule = {
         // — a per-request copy would be a per-request empty map, so every loop would
         // read as one nobody registered.
         registry.register(Heartbeat).useClass(Heartbeat).asSingleton();
+
+        // Which station, and which broadcast, the rows being written belong to. Registered here for
+        // the same reason as the heartbeat above: the writer is the director, near the end of the
+        // list, and the readers are in `render`, `catalog` and `activity`, all of them in front of
+        // it. A singleton because there is one station airing one broadcast at a time, and a
+        // per-request copy would answer `undefined` to every job that asked.
+        registry.register(StationIdentity).useClass(StationIdentity).asSingleton();
     },
 };
 

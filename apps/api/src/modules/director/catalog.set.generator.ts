@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 import { CandidatesRepository, type CandidateTrack } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { artistKey, songKey } from './rotation.keys.js';
@@ -34,6 +35,7 @@ export class CatalogSetGenerator extends SetGenerator {
     constructor(
         private readonly candidates: CandidatesRepository,
         private readonly history: PlayHistoryRepository,
+        private readonly identity: StationIdentity,
     ) {
         super();
     }
@@ -46,8 +48,8 @@ export class CatalogSetGenerator extends SetGenerator {
         // they move: a refill that ran a minute ago has itself changed the answer.
         // A disabled rule costs no query at all — see the repository.
         const [songKeys, artistKeys] = await Promise.all([
-            this.history.songKeysSince(rules.repeatWindowDays),
-            this.history.artistKeysSince(rules.artistCooldownMinutes),
+            this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
+            this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
         ]);
 
         const recent = {

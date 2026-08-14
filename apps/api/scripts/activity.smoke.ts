@@ -28,6 +28,7 @@ import type { DB } from '../src/modules/data/db.js';
 import { ActivityRepository } from '../src/modules/activity/activity.repository.js';
 import { ActivityService } from '../src/modules/activity/activity.service.js';
 import { StationEventsRepository } from '../src/modules/activity/station.events.repository.js';
+import { StationIdentity } from '../src/modules/shared/station.identity.js';
 import { encodeCursor } from '../src/modules/activity/activity.feed.js';
 
 /** Append a station event and take it away again, so the third source is not empty. */
@@ -54,7 +55,8 @@ const pool = new KyselyPool({
 });
 const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }), plugins: [...KyselyDefaultPlugins] });
 
-const service = new ActivityService(new ActivityRepository(db));
+const identity = new StationIdentity();
+const service = new ActivityService(new ActivityRepository(db), identity);
 const events = new StationEventsRepository(db);
 
 let failures = 0;
@@ -137,7 +139,7 @@ async function filters(): Promise<void> {
 /** The third source, on an install that has not been silent since the table was made. */
 async function withAnEvent(): Promise<void> {
     const detail = 'A smoke test wrote this and is about to take it away.';
-    await events.append({ module: 'playout', kind: 'smoke.test', detail, data: { smoke: true } });
+    await events.append({ module: 'playout', kind: 'smoke.test', detail, data: { smoke: true } }, { stationKey: identity.stationKey });
 
     try {
         const head = await service.readActivity({ limit: 1 });

@@ -15,6 +15,7 @@ import { artistKey, songKey } from './rotation.keys.js';
 import { applyRules, spaceArtists, type ResolvedRules, type RotationCandidate } from './rotation.rules.js';
 import type { TrackPick } from './set.generator.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 
 /**
  * Whether the station may play records it does not own yet.
@@ -220,6 +221,7 @@ export class PickResolver {
         private readonly lookup: ProviderTrackLookup,
         private readonly ingest: CatalogResolverService,
         private readonly activity: ActivityRecorder,
+        private readonly identity: StationIdentity,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -310,8 +312,8 @@ export class PickResolver {
     private async judge(identified: readonly Identified[], rules: ResolvedRules): Promise<Identified[]> {
         const [ratings, songKeys, artistKeys] = await Promise.all([
             this.candidates.ratingsFor(identified.map(entry => entry.trackId)),
-            this.history.songKeysSince(rules.repeatWindowDays),
-            this.history.artistKeysSince(rules.artistCooldownMinutes),
+            this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
+            this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
         ]);
 
         const judged = identified.map(entry => {

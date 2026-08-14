@@ -1,8 +1,9 @@
 import { Injectable } from 'injectkit';
-import { sql } from 'kysely';
+import { Kysely, sql } from 'kysely';
 import type { DateTime } from 'luxon';
-import { DataRepository } from '#modules/data/data.repository.js';
+import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 
 /**
  * Everything the station ever wrote, including the attempts that came to nothing.
@@ -142,11 +143,24 @@ function toEntry(row: ScriptHistoryRow): ScriptHistoryEntry {
 
 @Injectable()
 export class ScriptHistoryRepository extends DataRepository {
+    /** Injected for the reason `SegmentRepository` spells out: the writers here are jobs. */
+    constructor(
+        db: Kysely<DB>,
+        private readonly identity: StationIdentity,
+    ) {
+        super(db);
+    }
+
     /** Write down one attempt. */
     async record(write: ScriptWrite): Promise<void> {
         await this.db
             .insertInto('deadair.scriptHistory')
             .values({
+                stationKey: this.identity.stationKey,
+                // Denormalised like everything else on this row, and for the same reason: the table
+                // outlives the segment, so the broadcast has to be a value here rather than
+                // something reachable through a reference that may already be null.
+                broadcastId: this.identity.current() ?? null,
                 segmentId: write.segmentId ?? null,
                 kind: write.kind,
                 label: write.label ?? null,

@@ -55,13 +55,28 @@ export interface StationEventEntry extends StationEvent {
     at: DateTime;
 }
 
+/** Which station wrote it, and which broadcast it happened during, if any. */
+export interface StationEventOrigin {
+    stationKey: string;
+    /** Absent for everything that happens between broadcasts, which is a lot of this table. */
+    broadcastId?: string;
+}
+
 @Injectable()
 export class StationEventsRepository extends DataRepository {
-    /** Write one down. */
-    async append(event: StationEvent): Promise<void> {
+    /**
+     * Write one down.
+     *
+     * The origin is passed in rather than read here, because a repository is scoped to a request
+     * and the station's identity is not: see {@link ActivityRecorder}, which is the one caller and
+     * holds it.
+     */
+    async append(event: StationEvent, origin: StationEventOrigin): Promise<void> {
         await this.db
             .insertInto('deadair.stationEvents')
             .values({
+                stationKey: origin.stationKey,
+                broadcastId: origin.broadcastId ?? null,
                 module: event.module,
                 kind: event.kind,
                 severity: event.severity ?? 'info',

@@ -25,6 +25,13 @@
 create table deadair.station_events (
     created_at timestamptz not null default now(),
     id uuid not null default gen_random_uuid() primary key,
+    station_key text not null default 'main',
+    -- Which broadcast this happened during, where it happened during one. Nullable and OFTEN null,
+    -- unlike the other tables carrying it: a plugin being reloaded, a config being adopted and an
+    -- operator changing a setting are all things that happen to the station rather than inside a
+    -- broadcast, and stamping them with whichever one happened to be on air would make the column
+    -- lie exactly where a reader would trust it most.
+    broadcast_id uuid,
     -- Which part of the station is talking. The console's filter, and the only axis the feed slices
     -- on, because "show me just the playout" is the question an operator actually has. Constrained
     -- rather than free text so the filter cannot silently miss a typo'd producer; nothing has
@@ -52,13 +59,14 @@ create table deadair.station_events (
     actor_id uuid references deadair.actors (id) on delete set null
 );
 
--- The feed's own read: newest first, across everything.
-create index station_events_recent_idx on deadair.station_events (created_at desc);
+-- The feed's own read: newest first, for one station. `id` is in it because the feed's cursor is a
+-- keyset over `(created_at, id)` — a stand-down and the poll behind it land in the same millisecond.
+create index station_events_recent_idx on deadair.station_events (station_key, created_at desc, id desc);
 
 -- The same read with the console's filter applied. Separate rather than relying on the index above,
 -- because a station whose playout is quiet for a day would otherwise scan every render event to find
 -- the handful the operator asked for.
-create index station_events_module_idx on deadair.station_events (module, created_at desc);
+create index station_events_module_idx on deadair.station_events (station_key, module, created_at desc, id desc);
 
 -- migrate:down
 

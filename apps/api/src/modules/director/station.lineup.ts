@@ -191,6 +191,20 @@ export interface StationLineupRules {
 
 /** Everything about the running order except the items: what the row says it is. */
 export interface StationLineupBinding {
+    /**
+     * WHICH broadcast this is, as opposed to {@link name}, which is only what it is called.
+     *
+     * Minted when a running order is built and kept for as long as it airs, so everything written
+     * while it runs — what aired, what the station said, why it went quiet — can be asked for by
+     * the broadcast rather than by the clock. Absent here means "a new one", and the constructor
+     * mints it; the repository passes the stored value back so a restart resumes the same broadcast
+     * rather than starting a second one halfway through.
+     *
+     * It identifies a SPAN, not an object. Nothing looks a broadcast up and no row anywhere is a
+     * running order that is not this one, so the rule that a lineup is consumed rather than kept is
+     * untouched by having a name for it.
+     */
+    broadcastId?: string;
     /** What the operator is told is on. A label for this broadcast, not an identity. */
     name: string;
     /**
@@ -214,8 +228,15 @@ export interface StationLineupBinding {
     rules?: StationLineupRules;
 }
 
-/** The running order as it is stored: one document per station. */
+/**
+ * The running order as it is stored: one document per station.
+ *
+ * `broadcastId` is required here where it is optional on the binding, which is the difference
+ * between asking for a running order and having one: a snapshot comes off a live {@link StationLineup},
+ * which has already minted it.
+ */
 export interface StationLineupSnapshot extends StationLineupBinding {
+    broadcastId: string;
     items: StationLineupItem[];
 }
 
@@ -250,15 +271,25 @@ const isPast = (state: StationLineupItemState): boolean =>
 
 export class StationLineup implements LiveOrder {
     private itemList: StationLineupItem[];
+    private readonly broadcast: string;
 
     constructor(
         private binding: StationLineupBinding,
         items: StationLineupItem[] = [],
     ) {
         this.itemList = items;
+        // Minted HERE rather than at each call site, so building a running order and starting a
+        // broadcast are the same act and cannot come apart. A binding that already carries one is
+        // a row being read back, which is the same broadcast continuing.
+        this.broadcast = binding.broadcastId ?? randomUUID();
     }
 
     // ── identity ───────────────────────────────────────────────────────────────
+
+    /** Which broadcast this is. Stamped on everything written while it airs. */
+    get broadcastId(): string {
+        return this.broadcast;
+    }
 
     get name(): string {
         return this.binding.name;
@@ -441,7 +472,7 @@ export class StationLineup implements LiveOrder {
 
     /** The row as it should be stored. */
     toSnapshot(): StationLineupSnapshot {
-        return { ...this.binding, items: [...this.itemList] };
+        return { ...this.binding, broadcastId: this.broadcast, items: [...this.itemList] };
     }
 
     // ── what the player has done ───────────────────────────────────────────────
@@ -574,7 +605,13 @@ export class StationLineup implements LiveOrder {
         this.itemList = tracks.map(toItem);
     }
 
-    /** Point at somewhere else to pull more from, and relabel. */
+    /**
+     * Point at somewhere else to pull more from, and relabel.
+     *
+     * It does NOT change {@link broadcastId}, and cannot: the broadcast is minted with the object.
+     * Anything that means "a different programme is on now" builds a new running order rather than
+     * rebinding this one, which is what `putOnAir` does.
+     */
     rebind(binding: StationLineupBinding): void {
         this.binding = binding;
     }

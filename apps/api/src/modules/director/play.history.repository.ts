@@ -10,6 +10,16 @@ export interface PlayHistoryEntry {
     item: RundownItem;
     /** What put it in the running order: `director`, `import`, later a request. */
     source: string;
+    /** Which station aired it. Every read below is scoped to it: a repeat window is per station. */
+    stationKey: string;
+    /**
+     * Which broadcast aired it.
+     *
+     * Absent should not happen in practice — something aired, so a broadcast was on — but it is
+     * optional rather than required because this is a history table and refusing to record what a
+     * listener demonstrably heard, over a missing label, would be the wrong way round.
+     */
+    broadcastId?: string;
 }
 
 /**
@@ -54,6 +64,8 @@ export class PlayHistoryRepository extends DataRepository {
         await this.db
             .insertInto('deadair.playHistory')
             .values({
+                stationKey: entry.stationKey,
+                broadcastId: entry.broadcastId ?? null,
                 trackId: item.trackId ?? null,
                 pluginId: item.pluginId,
                 externalId: item.externalId,
@@ -80,13 +92,17 @@ export class PlayHistoryRepository extends DataRepository {
      * a disabled rule free rather than a branch at every call site. It is also
      * the honest answer: nothing is suppressed.
      */
-    async songKeysSince(days: number): Promise<Set<string>> {
+    async songKeysSince(days: number, stationKey: string): Promise<Set<string>> {
         if (days <= 0) return new Set();
 
         const rows = await this.db
             .selectFrom('deadair.playHistory')
             .select('songKey')
             .distinct()
+            // Scoped to the station, and the index leads with it. A repeat window is an argument
+            // about what THIS station has been playing; answering it from every station's history
+            // would have one station's rotation suppressed by another's.
+            .where('stationKey', '=', stationKey)
             // Literal interval rather than a bound parameter: `$1::interval` cannot be
             // multiplied by a plain number in a way every driver agrees on, and the value
             // is an integer this code produced, never operator input.
@@ -97,20 +113,27 @@ export class PlayHistoryRepository extends DataRepository {
     }
 
     /** Artists aired within the last `minutes` — the cooldown. `0` disables it, as above. */
-    async artistKeysSince(minutes: number): Promise<Set<string>> {
+    async artistKeysSince(minutes: number, stationKey: string): Promise<Set<string>> {
         if (minutes <= 0) return new Set();
 
         const rows = await this.db
             .selectFrom('deadair.playHistory')
             .select('artistKey')
             .distinct()
+            .where('stationKey', '=', stationKey)
             .where('airedAt', '>', sql<DateTime>`now() - ${sql.lit(`${Math.floor(minutes)} minutes`)}::interval`)
             .execute();
 
         return new Set(rows.map(row => row.artistKey));
     }
 
-    /** Drop anything older than the retention window. */
+    /**
+     * Drop anything older than the retention window.
+     *
+     * Deliberately NOT scoped to a station, unlike the two reads above: retention is one number for
+     * the install, and a sweep that ran per station would leave every other station's rows to
+     * whichever station happened to be airing.
+     */
     async prune(days = RETENTION_DAYS): Promise<number> {
         const result = await this.db
             .deleteFrom('deadair.playHistory')

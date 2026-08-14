@@ -313,13 +313,14 @@ export class PlayoutService {
      *
      * **The only way audio for a record reaches anything**, and the reason the transport hands out one
      * URL per item rather than choosing between the station's and the provider's. Whether the station
-     * already holds these bytes is not this route's question:
-     * {@link TrackAudioService.ensure} reads the file, the in-memory hold or the provider, in that
-     * order, and answers with bytes either way.
+     * already holds these bytes is not this route's question: {@link TrackAudioService.ensure} reads
+     * the file, a fetch already running, or the provider, in that order, and answers with bytes
+     * either way.
      *
-     * It does not consult `playout.trackCache` either, because that setting decides whether a fetched
-     * record is KEPT rather than whether it can be served. Off, this route still answers 200 — from a
-     * fetch it makes now.
+     * In the ordinary case the bytes are already here, because the director will not commit a record
+     * whose audio is not — but this route deliberately does not ASSUME that. A URL handed to the
+     * player has to keep working, and a record can legitimately arrive here cold: an item still
+     * airing across a restart, or one an operator moved to the head of the order.
      *
      * A 404 is therefore a real absence: no such binding, or a provider that would not serve it. The
      * player skips the item, which is the same outcome an unresolvable item has always had.

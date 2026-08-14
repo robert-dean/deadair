@@ -24,8 +24,8 @@ import { Rundown } from './rundown.js';
  * Where the station's own copies of records are written when `TRACKS_DIR` is unset. Beside
  * `media/art`, and gitignored with it.
  *
- * A path the process needs rather than a decision an operator makes from the console, which is why it
- * is env and `playout.trackCache` is a setting.
+ * A path the process needs before there is a database to read a setting out of, which is why it is
+ * env, exactly like `ART_DIR` and `SEGMENT_DIR` beside it.
  */
 const DEFAULT_TRACKS_DIR = './media/tracks';
 
@@ -65,15 +65,13 @@ export const PlayoutModule: ServerKitModule = {
         registry.register(PluginTrackResolver).useClass(PluginTrackResolver).asSingleton();
 
         // SINGLETON, and that is load-bearing rather than incidental: it de-duplicates fetches in an
-        // in-process map and holds a few just-fetched records in memory for a station keeping nothing
-        // on disk. A scoped copy would hold neither, so two requests for one record would download it
-        // twice and every warm would be thrown away the moment its job finished. It takes the root
-        // container and opens its own scope per call for the repository, like the resolvers do.
+        // in-process map, so a scoped copy would download the same record twice for two requests that
+        // arrived together and would throw the de-duplication away the moment a job finished. It takes
+        // the root container and opens its own scope per call for the repository, like the resolvers do.
         registry
             .register(TrackAudioService)
             .useFactory(
-                container =>
-                    new TrackAudioService(container, container.get(TrackStore), container.get(PluginTrackResolver), config, container.get(Logger)),
+                container => new TrackAudioService(container, container.get(TrackStore), container.get(PluginTrackResolver), container.get(Logger)),
             )
             .asSingleton();
 

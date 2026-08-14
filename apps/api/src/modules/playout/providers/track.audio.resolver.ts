@@ -22,13 +22,6 @@ import { inScope } from '#modules/shared/scoped.work.js';
  * fetchable only from where it was minted for, so which link answered decided whether the URL worked,
  * silently, per deployment.
  *
- * ## Why it does not read `playout.trackCache`
- *
- * Because the setting is about KEEPING audio, not about serving it. With it off this resolver answers
- * exactly the same URL and the route still serves the record — fetched live, held briefly in memory,
- * never written to disk. A resolver that consulted the switch would be back to deciding which of two
- * paths an item takes.
- *
  * ## Why it guards on the catalog rather than on the cache
  *
  * `playable and missing_at is null`: whether the bytes are local is no longer a question worth asking

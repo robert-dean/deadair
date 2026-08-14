@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
@@ -161,6 +161,25 @@ export class ContentStore<Ext extends string> {
         if (!CHECKSUM_PATTERN.test(checksum) || !this.isExtension(ext)) return undefined;
 
         return await readFile(this.pathFor(checksum, ext)).catch(() => undefined);
+    }
+
+    /**
+     * Whether the file is there, without reading it.
+     *
+     * For a caller that wants to know if something is IN HAND rather than to serve it: the playout
+     * commit pass asks this of every record in its window on every pass, and reading a few tens of
+     * megabytes to answer a yes-or-no question would be a strange way to save a provider round trip.
+     *
+     * Declines on a malformed checksum or extension exactly as {@link read} does, and for the same
+     * reason: both halves come from a database row, and a row that is not what it claims means "no
+     * file", never an exception thrown at a loop that was only asking.
+     */
+    async exists(checksum: string, ext: string): Promise<boolean> {
+        if (!CHECKSUM_PATTERN.test(checksum) || !this.isExtension(ext)) return false;
+
+        return await access(this.pathFor(checksum, ext))
+            .then(() => true)
+            .catch(() => false);
     }
 
     /** Absolute path for a checksum. Throws rather than guessing if either half is not what it claims. */

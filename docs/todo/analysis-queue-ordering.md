@@ -10,8 +10,9 @@ The question is the right one and its premise is worth taking apart, because two
 it assumes are not true of this tree and the third is true of something the walk does not do yet.
 
 > **Update, 2026-08-12: there is a cache now, and half of "the version where analysis is free" is
-> real.** `deadair.track_audio` keeps a copy of every record the station plays (`playout.trackCache`,
-> on by default), and `AnalysisService.resolveAudio` asks `CachedTrackResolver` before the provider.
+> real.** `deadair.track_audio` keeps a copy of every record the station plays (unconditionally since
+> 2026-08-14, when the `playout.trackCache` switch was removed), and `AnalysisService.resolveAudio`
+> asks `CachedTrackResolver` before the provider.
 > So for anything the station has aired, a measurement is a local read and costs no provider fetch at
 > all — `BATCH_SIZE` and `TRACK_PACE_MS` still bound the walk, but they are only spending anything on
 > records that have never been played. The premise below that "there is no cache to ride on" is
@@ -30,7 +31,7 @@ it assumes are not true of this tree and the third is true of something the walk
 > a cached record from an uncached one at all: it resolves the same URL for both and the fetch behind
 > that URL happens if it needs to. So "measure only what we have already got" is not a choice anyone
 > can make any more, and it does not need to be — measuring a record the station has never played
-> fetches it once, and with `playout.trackCache` on that fetch is also the copy the play will use.
+> fetches it once, and that fetch is also the copy the play will use.
 >
 > What that leaves genuinely open is only the ORDER of the walk (`play_history` rather than
 > `created_at`), telling `unfetchable` from `undecodable`, and the `missing_at` feedback loop. The

@@ -262,7 +262,7 @@ from a shared library and the same row is legitimately at three slots in an hour
 **The player fetches every record from the app, and the app is the only thing that fetches a provider.**
 `TrackAudioResolver` answers `/playout/audio/{sourceId}` for any binding that is `playable and
 missing_at is null` — one URL, on this machine, whether or not the bytes are here yet — and
-`TrackAudioService.ensure` behind that route reads the file, the in-memory hold, a fetch already
+`TrackAudioService.ensure` behind that route reads the file, a fetch already
 running, or the provider, in that order. `deadair.track_audio` says what is on disk under `TRACKS_DIR`
 for a BINDING (`track_sources.id`, since two copies of one record within a provider are two files) and
 the bytes live in a `ContentStore` beside art and segments. **There is deliberately no provider link in
@@ -270,18 +270,22 @@ the resolver chain**: a provider URL is fetchable only from wherever it was mint
 sometimes handed one to the player was deciding, silently and per deployment, whether the URL worked at
 all — which is why `SpotifyShimClient` now has ONE address (`SPOTIFY_SHIM_CONTROL_URL`, with
 `SPOTIFY_SHIM_URL` kept only as a fallback) and why a signed shim URL is valid anywhere, the token
-covering the track id and the expiry rather than the host. **`playout.trackCache` decides whether a
-fetched record is KEPT, not whether it can be played**: off, everything still airs and the bytes go to a
-bounded in-memory hold instead of disk, existing files are left alone, and the bookkeeping half of the
-row is written either way. Four things are load-bearing: over the cap or under the floor **serves and
-stores nothing**, because a truncated record airing is worse than an item the player skips; every
-failure is a row with a doubling backoff rather than a throw; `attempts` counts CONSECUTIVE failures,
-which is why `recordSuccess` resets it (with the cache off there is no checksum to tell a healthy
-binding from a failing one, so without the reset a working catalogue would look progressively dead); and
-de-duplication is an in-process map covering the LOOKUP as well as the download, because the read that
-decides whether to fetch is itself a round trip. `TrackCachePlanner.ripen` warms `CACHE_AHEAD` items past
-the cursor off the director's commit pass — **after** the commit rather than before it, unlike
-`plantBreaks`, because the items handed over this pass are past the cursor by then — one fetch per pass,
+covering the track id and the expiry rather than the host. **Every fetched record is KEPT**, and the
+`playout.trackCache` switch that used to make that optional is gone: its off state meant the station
+neither served from the cache nor filled it, which stopped being expressible once a record may not be
+committed until its audio is here — a station keeping nothing would have nothing ready and would never
+commit. A/B-ing a suspected bad file is done by deleting the file, since `locate` treats a row whose
+file is missing as a re-fetch and repairs the row. The bill is that `TRACKS_DIR` grows without bound;
+see `docs/todo/track-cache-eviction.md`. Four things are load-bearing: over the cap or under the floor
+**serves and stores nothing**, because a truncated record airing is worse than an item the player
+skips; every failure is a row with a doubling backoff rather than a throw; `attempts` counts
+CONSECUTIVE failures, which is why `recordSuccess` resets it (a record fetched forty times and refused
+four has an intermittent upstream, not a copy to write off); and de-duplication is an in-process map
+covering the LOOKUP as well as the download, because the read that decides whether to fetch is itself a
+round trip. `TrackCachePlanner.ripen` warms `CACHE_AHEAD` items past the cursor off the director's
+commit pass — **before** the commit rather than after it, which is a reversal: the old ordering was
+argued from the items handed over this pass being past the cursor by then, and the window now LEADS the
+commit lead so that a record's bytes are here several boundaries before its slot. Two fetches per pass,
 and it is the only place the backoff is read (a request for bytes something is waiting on ignores it).
 `CACHE_AHEAD` lives in `track.audio.service.ts` rather than in the planner that owns the window, for the
 reason `TRACK_PACE_MS` lives in `AnalysisService`: the planner imports the service, and the cycle the

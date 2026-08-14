@@ -199,26 +199,32 @@ export class TrackAudioRepository extends DataRepository {
     /**
      * Records that a fetch worked, and what it produced.
      *
-     * **Resets `attempts` to zero**, which is what makes that column mean CONSECUTIVE failures. It has
-     * to: a station keeping nothing (`playout.trackCache` off) never writes a checksum, so without the
-     * reset a perfectly healthy binding's attempt count would climb on every successful fetch until
-     * whatever reads it decides the binding is dead. Clears `last_error` and the backoff for the same
-     * reason — a binding that failed twice and then worked is simply working, and a table left reading
-     * as broken is one nobody can diagnose from.
+     * **Resets `attempts` to zero**, which is what makes that column mean CONSECUTIVE failures: a
+     * count that only climbed would have whatever reads it eventually decide a working binding is
+     * dead. Clears `last_error` and the backoff for the same reason — a binding that failed twice and
+     * then worked is simply working, and a table left reading as broken is one nobody can diagnose
+     * from.
      *
-     * `bytes` absent means the fetch worked and the station is not keeping it: the bookkeeping is
-     * written exactly the same way, and the columns describing a file on disk are left alone rather
-     * than nulled. Nulling them would throw away a copy an operator had before turning the switch off.
+     * `bytes` is required, which it was not while a station could be told to keep nothing. It is not
+     * optional any more because a fetch that produced no file is not a success anything may act on:
+     * the director reads this row's checksum to decide a record may be committed.
      */
-    async recordSuccess(sourceId: string, bytes?: TrackAudioBytes): Promise<void> {
-        const cleared = { attempts: 0, lastError: null, nextAttemptAt: null, fetchedAt: sql<never>`now()` };
-        const kept =
-            bytes === undefined ? {} : { checksum: bytes.checksum, ext: bytes.ext, contentType: bytes.contentType, byteSize: bytes.byteSize };
+    async recordSuccess(sourceId: string, bytes: TrackAudioBytes): Promise<void> {
+        const values = {
+            attempts: 0,
+            lastError: null,
+            nextAttemptAt: null,
+            fetchedAt: sql<never>`now()`,
+            checksum: bytes.checksum,
+            ext: bytes.ext,
+            contentType: bytes.contentType,
+            byteSize: bytes.byteSize,
+        };
 
         await this.db
             .insertInto('deadair.trackAudio')
-            .values({ sourceId, ...cleared, ...kept })
-            .onConflict(oc => oc.column('sourceId').doUpdateSet({ ...cleared, ...kept }))
+            .values({ sourceId, ...values })
+            .onConflict(oc => oc.column('sourceId').doUpdateSet(values))
             .execute();
     }
 

@@ -1,6 +1,4 @@
-import { createHash } from 'node:crypto';
 import { Container } from 'injectkit';
-import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
@@ -8,7 +6,6 @@ import { PluginTrackResolver } from '../providers/plugin.resolver.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { TrackAudioRepository, type SourceAudio } from './track.audio.repository.js';
 import { TRACK_CONTENT_TYPES, TRACK_SOURCE_TYPES, TrackContentType, TrackExtension, TrackStore } from './track.store.js';
-import { trackCacheEnabled } from './track.cache.settings.js';
 
 /**
  * How long one record may take to arrive.
@@ -52,9 +49,9 @@ const MAX_RETRY_MS = 24 * 60 * 60 * 1000;
  * all evening.
  *
  * It counts CONSECUTIVE failures rather than total attempts, which is `recordSuccess` resetting the
- * counter. That reset is load-bearing here and not bookkeeping: with `playout.trackCache` off there is
- * never a checksum to tell a healthy binding from a failing one, so a count that only ever climbed
- * would eventually bench a perfectly good catalogue, one record at a time, silently.
+ * counter. A count that only ever climbed would eventually bench a perfectly good catalogue, one
+ * record at a time, silently — a record fetched successfully forty times and refused four is a record
+ * with an intermittent upstream, not a copy to write off.
  */
 const MISSING_AFTER_ATTEMPTS = 4;
 
@@ -78,8 +75,8 @@ const MISSING_AFTER_ATTEMPTS = 4;
  * credential, and `docs/todo/provider-audio-failures.md` records a burst of them exhausting Spotify's
  * audio-key quota and taking the station off air. Six is a few records of lead, not an hour of it.
  *
- * A constant like `PLANT_AHEAD` and `WRITE_AHEAD` beside it, for the same reason those are:
- * `playout.trackCache` is the decision an operator has, and this is a number tied to the commit lead.
+ * A constant like `PLANT_AHEAD` and `WRITE_AHEAD` beside it, and for the same reason those are: it is
+ * a number tied to the commit lead rather than a decision anybody would make from a console.
  *
  * It lives HERE rather than in `TrackCachePlanner`, which owns the window and reads backwards — and is
  * deliberate, exactly as `TRACK_PACE_MS` living in `AnalysisService` rather than in its job is. The
@@ -88,20 +85,6 @@ const MISSING_AFTER_ATTEMPTS = 4;
  * ESM loader. Which it did, on the first boot after it was written.
  */
 export const CACHE_AHEAD = 6;
-
-/**
- * How much just-fetched audio to keep in memory for a station that is keeping nothing on disk.
- *
- * Bounded two ways on purpose. The entry count is what makes it a hold rather than a cache — it is
- * meant to carry a record from the ripener's fetch to the request a minute later, nothing longer. It is
- * derived from {@link CACHE_AHEAD} plus room for the record currently airing, so the window the ripener
- * fills and the hold that has to survive until those slots arrive cannot drift apart.
- *
- * The BYTE cap is the one that actually protects the process: at {@link MAX_TRACK_BYTES} even a handful
- * of entries is hundreds of megabytes resident, which a lossless catalogue would reach immediately.
- */
-const HOLD_MAX_ENTRIES = CACHE_AHEAD + 2;
-const HOLD_MAX_BYTES = 96 * 1024 * 1024;
 
 /** Audio ready to hand to a caller, however it was come by. */
 export interface ServedAudio {
@@ -152,14 +135,20 @@ const errorText = (error: unknown): string => {
  * `/playout/audio/{sourceId}`, this is what serves it, and **the app is the only thing in the system
  * that ever fetches a provider**. One path, one vantage point, one place a failure is recorded.
  *
- * ## What `playout.trackCache` decides, and what it does not
+ * ## A fetched record is always kept
  *
- * It decides whether a fetched record is KEPT, not whether it is available. Off, the station still
- * plays everything and still pre-fetches ahead of the cursor; the bytes go into a small bounded hold
- * in memory instead of `TRACKS_DIR`, and are gone shortly after. On, they are written
- * content-addressed and every later play is a local read. Either way the bookkeeping half of
- * `track_audio` — attempts, the last error, the backoff — is written, because a provider refusing a
- * binding is a fact worth keeping whether or not the station is hoarding audio.
+ * There used to be a `playout.trackCache` switch: off meant the station neither served from the cache
+ * nor filled it, and the bytes went to a small bounded hold in memory instead of `TRACKS_DIR`. It is
+ * gone, and the reason is that its off state stopped being expressible. A record may not be committed
+ * to the running order until its audio is on this machine ({@link readyFor}), so a station keeping
+ * nothing would have nothing ready and would never commit anything at all.
+ *
+ * What the switch was actually used for — A/B-ing a suspected bad cached file — is served better by
+ * deleting the file: {@link locate} already treats a row claiming bytes the disk does not have as a
+ * re-fetch, and repairs the row on the way through.
+ *
+ * The cost is that `TRACKS_DIR` grows without bound until eviction lands. See
+ * `docs/todo/track-cache-eviction.md`, which is the follow-on and is deliberately not this change.
  *
  * ## De-duplication is in-process, and that is deliberate
  *
@@ -174,11 +163,6 @@ export class TrackAudioService {
     /** Fetches in flight, by source id. The value is shared: everybody waiting gets the same bytes. */
     private readonly inFlight = new Map<string, Promise<ServedAudio | undefined>>();
 
-    /** Just-fetched audio for a station keeping nothing. Insertion-ordered, so the oldest is first. */
-    private readonly hold = new Map<string, ServedAudio>();
-
-    private holdBytes = 0;
-
     constructor(
         // The ROOT container: this is a singleton, so its scoped dependencies have to be resolved per
         // call rather than injected. The same reasoning `SegmentTrackResolver` spells out — it is
@@ -187,12 +171,11 @@ export class TrackAudioService {
         private readonly container: Container,
         private readonly store: TrackStore,
         private readonly resolver: PluginTrackResolver,
-        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
     /**
-     * A record's audio: from disk, from the hold, from a fetch already running, or from the provider.
+     * A record's audio: from disk, from a fetch already running, or from the provider.
      *
      * `undefined` means there is nothing to play — no such binding, or a provider that would not serve
      * it — and the caller turns that into a 404, which the player treats as an item to skip.
@@ -236,9 +219,6 @@ export class TrackAudioService {
             this.logger.warn('playout: a cached record is missing its file; fetching it again', { source: sourceId });
         }
 
-        const held = this.hold.get(sourceId);
-        if (held !== undefined) return held;
-
         return this.fetchAndKeep(source, signal);
     }
 
@@ -246,10 +226,9 @@ export class TrackAudioService {
      * Get a record's audio in hand before anything asks for it, and answer nothing.
      *
      * What the ripener's job calls. Identical to {@link ensure} in every respect except that the bytes
-     * are dropped: with the cache on they are on disk by the time this resolves, and with it off they
-     * are in the hold, so either way the request that follows a minute later is served without a
-     * provider round trip. Never throws — a warm that fails leaves the same recorded failure a live
-     * request would, and the live request will try again.
+     * are dropped: they are on disk by the time this resolves, so the request that follows a minute
+     * later is served without a provider round trip. Never throws — a warm that fails leaves the same
+     * recorded failure a live request would, and the live request will try again.
      */
     async warm(sourceId: string, signal?: AbortSignal): Promise<boolean> {
         const served = await this.ensure(sourceId, signal).catch(error => {
@@ -272,6 +251,42 @@ export class TrackAudioService {
     }
 
     /**
+     * Which of these bindings the station already has the audio for, by source id.
+     *
+     * The question the director's commit pass asks of its window, and it is asked HERE rather than
+     * worked out by the caller from a `track_audio` row, because what "here" means is this class's
+     * business: today it is a checksum on the row plus the file actually being on disk, and a caller
+     * that only read the row would call a record ready whose file an operator had deleted.
+     *
+     * One query for the whole window and a `stat` per candidate. The stat is worth it for exactly
+     * that case: {@link locate} repairs a row claiming bytes the disk has not got by re-fetching, but
+     * it does that INSIDE the request the player is waiting on, which is the round trip this whole
+     * arrangement exists to keep off the air path.
+     *
+     * A binding the catalog has written off is absent from the query rather than reported unready,
+     * which is the same answer as far as this is concerned: not something to commit.
+     */
+    async readyFor(bindings: readonly { pluginId: string; externalId: string }[]): Promise<Set<string>> {
+        if (bindings.length === 0) return new Set();
+
+        const states = await inScope(this.container, scope => scope.get(TrackAudioRepository).findForBindings(bindings));
+        const ready = await Promise.all(
+            states.map(async state =>
+                state.checksum !== undefined && state.ext !== undefined && (await this.store.exists(state.checksum, state.ext))
+                    ? state.sourceId
+                    : undefined,
+            ),
+        );
+
+        return new Set(ready.filter((sourceId): sourceId is string => sourceId !== undefined));
+    }
+
+    /** Whether this one binding's audio is on this machine. {@link readyFor} for a single record. */
+    async has(pluginId: string, externalId: string): Promise<boolean> {
+        return (await this.readyFor([{ pluginId, externalId }])).size > 0;
+    }
+
+    /**
      * The provider fetch, plus whatever the station does with the result.
      *
      * Every failure is recorded and none escapes as a rejection: a binding the provider will not serve
@@ -279,13 +294,11 @@ export class TrackAudioService {
      * and the row is what makes the ripener back off and what Phase 4's bench reads.
      */
     private async fetchAndKeep(source: SourceAudio, signal?: AbortSignal): Promise<ServedAudio | undefined> {
-        const keeping = trackCacheEnabled(this.config);
-
         try {
             const fetched = await this.download(source, signal);
-            const served: ServedAudio = keeping ? await this.keep(source, fetched) : this.holdOnto(source.sourceId, fetched);
+            const served = await this.keep(source, fetched);
 
-            await this.record(source.sourceId, served, fetched, keeping);
+            await this.record(source.sourceId, served, fetched);
 
             return served;
         } catch (error) {
@@ -376,44 +389,20 @@ export class TrackAudioService {
     }
 
     /**
-     * Put the bytes in the bounded hold and answer what to serve.
+     * The bookkeeping half: what was fetched, and that the fetch worked.
      *
-     * The checksum is computed here rather than by the store, because the store is not involved: the
-     * ETag has to be as real with the cache off as with it on, or a conditional GET would revalidate
-     * against nothing.
+     * It used to be written with or without the bytes, because the bytes were optional. They are not
+     * any more, so this always carries the checksum — and `recordSuccess` resetting `attempts` is
+     * what makes that column mean CONSECUTIVE failures.
      */
-    private holdOnto(sourceId: string, fetched: FetchedAudio): ServedAudio {
-        const served: ServedAudio = {
-            contentType: TRACK_CONTENT_TYPES[fetched.ext],
-            body: fetched.body,
-            checksum: createHash('sha256').update(fetched.body).digest('hex'),
-        };
-
-        this.hold.set(sourceId, served);
-        this.holdBytes += served.body.byteLength;
-
-        // Oldest first, until both bounds are satisfied. `Map` iterates in insertion order, so the
-        // first key is the least recently fetched.
-        while (this.hold.size > HOLD_MAX_ENTRIES || this.holdBytes > HOLD_MAX_BYTES) {
-            const oldest = this.hold.keys().next();
-            if (oldest.done === true || oldest.value === sourceId) break;
-
-            this.holdBytes -= this.hold.get(oldest.value)?.body.byteLength ?? 0;
-            this.hold.delete(oldest.value);
-        }
-
-        return served;
-    }
-
-    /** The bookkeeping half, written whether or not the bytes were kept. */
-    private async record(sourceId: string, served: ServedAudio, fetched: FetchedAudio, keeping: boolean): Promise<void> {
+    private async record(sourceId: string, served: ServedAudio, fetched: FetchedAudio): Promise<void> {
         await this.inScope(repository =>
-            repository.recordSuccess(
-                sourceId,
-                keeping
-                    ? { checksum: served.checksum, ext: fetched.ext, contentType: fetched.contentType, byteSize: fetched.body.byteLength }
-                    : undefined,
-            ),
+            repository.recordSuccess(sourceId, {
+                checksum: served.checksum,
+                ext: fetched.ext,
+                contentType: fetched.contentType,
+                byteSize: fetched.body.byteLength,
+            }),
         );
     }
 

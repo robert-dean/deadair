@@ -1,12 +1,11 @@
-// The one place audio for a record comes from, so this file is where the four sources have to be told
-// apart: the file on disk, the in-memory hold, a fetch already running, and the provider. Two of them
-// only exist because the station may be keeping nothing — the switch decides what happens to bytes
-// AFTER they arrive, never whether the record can be played.
+// The one place audio for a record comes from, so this file is where the three sources have to be told
+// apart: the file on disk, a fetch already running, and the provider. There used to be a fourth, an
+// in-memory hold for a station told to keep nothing, and it went with `playout.trackCache`: a record
+// may not be committed until its audio is HERE, so a station keeping nothing would never commit.
 
 import { readdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Container } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAX_TRACK_BYTES, TrackAudioService } from '../../../../src/modules/playout/audio/track.audio.service.js';
 import { TrackAudioRepository, type SourceAudio } from '../../../../src/modules/playout/audio/track.audio.repository.js';
 import { TrackStore } from '../../../../src/modules/playout/audio/track.store.js';
-import { TRACK_CACHE_KEY } from '../../../../src/modules/playout/audio/track.cache.settings.js';
 import type { PluginTrackResolver } from '../../../../src/modules/playout/providers/plugin.resolver.js';
 import { TracksRepository } from '../../../../src/modules/catalog/tracks.repository.js';
 
@@ -45,12 +43,14 @@ afterEach(async () => {
 /**
  * A service over a real store and a fake everything-else.
  *
- * `keeping` is `playout.trackCache`: on means fetched bytes are written under TRACKS_DIR, off means
- * they go into the in-memory hold. No default on `source`, because "the catalog does not know this
- * binding" is one of the cases here and a default would quietly turn it into the happy path.
+ * No default on `source`, because "the catalog does not know this binding" is one of the cases here
+ * and a default would quietly turn it into the happy path.
  */
-const build = (options: { source: SourceAudio | undefined; keeping?: boolean; url?: string }) => {
+const build = (options: { source: SourceAudio | undefined; url?: string }) => {
     const findForSource = vi.fn(async () => options.source);
+    // The bulk read `readyFor` goes through. Defaults to answering with whatever `source` is, since
+    // the window and the single binding are the same record in every test here that uses both.
+    const findForBindings = vi.fn(async () => (options.source === undefined ? [] : [options.source]));
     const recordSuccess = vi.fn(async () => {});
     const recordFailure = vi.fn(async () => {});
     const markBindingMissing = vi.fn(async () => true);
@@ -60,7 +60,7 @@ const build = (options: { source: SourceAudio | undefined; keeping?: boolean; ur
         createScopedContainer: () => ({
             get: (token: unknown) =>
                 token === TrackAudioRepository
-                    ? { findForSource, recordSuccess, recordFailure }
+                    ? { findForSource, findForBindings, recordSuccess, recordFailure }
                     : token === TracksRepository
                       ? { markBindingMissing }
                       : undefined,
@@ -71,13 +71,10 @@ const build = (options: { source: SourceAudio | undefined; keeping?: boolean; ur
     const resolveBinding = vi.fn(async () => options.url ?? AUDIO_URL);
     const resolver = { resolveBinding } as unknown as PluginTrackResolver;
 
-    const config = {
-        get: (key: string, fallback: unknown) => (key === TRACK_CACHE_KEY ? String(options.keeping ?? true) : fallback),
-    } as unknown as AppConfig;
-
     return {
-        service: new TrackAudioService(container, store, resolver, config, logger),
+        service: new TrackAudioService(container, store, resolver, logger),
         findForSource,
+        findForBindings,
         recordSuccess,
         recordFailure,
         markBindingMissing,
@@ -101,6 +98,51 @@ const filesOnDisk = async (): Promise<string[]> => {
 
     return entries.filter(entry => entry.isFile()).map(entry => entry.name);
 };
+
+// What the director's commit pass asks before it will commit a record: is the audio HERE. The two
+// halves are deliberately both required — a row saying there is a file, and a file.
+describe('TrackAudioService.readyFor', () => {
+    const WANTED = [{ pluginId: 'deadair.spotify', externalId: 'track-42' }];
+
+    it('answers with a binding whose file is on disk', async () => {
+        const checksum = await store.write(RECORD, 'ogg');
+        const { service } = build({ source: { ...BINDING, checksum, ext: 'ogg' } });
+
+        expect(await service.readyFor(WANTED)).toEqual(new Set([SOURCE_ID]));
+    });
+
+    // The case a caller reading the row itself would get wrong, and the reason this lives on the
+    // service rather than in the director: `locate` repairs a row like this by re-fetching, but it
+    // does it inside the request the player is waiting on.
+    it('does not answer with a row whose file has been deleted', async () => {
+        const checksum = await store.write(RECORD, 'ogg');
+        await rm(store.pathFor(checksum, 'ogg'));
+        const { service } = build({ source: { ...BINDING, checksum, ext: 'ogg' } });
+
+        expect(await service.readyFor(WANTED)).toEqual(new Set());
+    });
+
+    it('does not answer with a binding nothing has ever fetched', async () => {
+        const { service } = build({ source: BINDING });
+
+        expect(await service.readyFor(WANTED)).toEqual(new Set());
+    });
+
+    // A benched binding is absent from the query rather than reported unready, which is the same
+    // answer here: not something to commit.
+    it('answers emptily for a window the catalog has nothing for', async () => {
+        const { service } = build({ source: undefined });
+
+        expect(await service.readyFor(WANTED)).toEqual(new Set());
+    });
+
+    it('asks nothing at all for an empty window', async () => {
+        const { service, findForBindings } = build({ source: BINDING });
+
+        expect(await service.readyFor([])).toEqual(new Set());
+        expect(findForBindings).not.toHaveBeenCalled();
+    });
+});
 
 describe('TrackAudioService.ensure', () => {
     it('serves the file when the station already holds the record', async () => {
@@ -137,46 +179,6 @@ describe('TrackAudioService.ensure', () => {
         await service.ensure(SOURCE_ID);
 
         expect(recordSuccess).toHaveBeenCalledWith(SOURCE_ID, expect.objectContaining({ ext: 'flac', contentType: 'audio/x-flac' }));
-    });
-
-    describe('with playout.trackCache off', () => {
-        it('serves the record without writing anything to disk', async () => {
-            const { service, recordSuccess } = build({ source: BINDING, keeping: false });
-            respondWith(RECORD, { contentType: 'audio/ogg' });
-
-            const served = await service.ensure(SOURCE_ID);
-
-            expect(served?.body).toEqual(RECORD);
-            expect(await filesOnDisk()).toEqual([]);
-            // The bookkeeping half is still written: a fetch that worked has to clear the backoff and
-            // the attempt count whether or not the bytes were kept.
-            expect(recordSuccess).toHaveBeenCalledWith(SOURCE_ID, undefined);
-        });
-
-        // What makes "preload" still mean something with the switch off: the ripener's fetch is what
-        // the request a minute later is served from.
-        it('serves a held record without asking the provider again', async () => {
-            const { service, resolveBinding } = build({ source: BINDING, keeping: false });
-            respondWith(RECORD, { contentType: 'audio/ogg' });
-
-            await service.warm(SOURCE_ID);
-            const served = await service.ensure(SOURCE_ID);
-
-            expect(served?.body).toEqual(RECORD);
-            expect(resolveBinding).toHaveBeenCalledTimes(1);
-        });
-
-        // An ETag has to be real with the switch off too, or a conditional GET revalidates against
-        // nothing. The hold hashes the bytes itself, since no store did it.
-        it('answers with a checksum of the bytes it is holding', async () => {
-            const onDisk = await store.write(RECORD, 'ogg');
-            const { service } = build({ source: BINDING, keeping: false });
-            respondWith(RECORD, { contentType: 'audio/ogg' });
-
-            const served = await service.ensure(SOURCE_ID);
-
-            expect(served?.checksum).toBe(onDisk);
-        });
     });
 
     // Two things wanting one record at once: a MAX_HAND_OVERS retry landing mid-download, or the
@@ -321,15 +323,14 @@ describe('benching a binding that will not serve', () => {
         expect(markBindingMissing).toHaveBeenCalled();
     });
 
-    // The failure mode with teeth: with the cache off there is no checksum to distinguish a healthy
-    // binding from a failing one, so a fetch that WORKS has to clear the count or a working catalogue
-    // benches itself one record at a time.
+    // The failure mode with teeth: `attempts` has to mean CONSECUTIVE failures, so a binding three
+    // failures deep that then WORKS must not be one failure away from being benched for good.
     it('resets nothing itself, but records a success that does', async () => {
-        const { service, recordSuccess, markBindingMissing } = build({ source: failing(3), keeping: false });
+        const { service, recordSuccess, markBindingMissing } = build({ source: failing(3) });
         respondWith(RECORD, { contentType: 'audio/ogg' });
 
         expect(await service.ensure(SOURCE_ID)).toBeDefined();
-        expect(recordSuccess).toHaveBeenCalledWith(SOURCE_ID, undefined);
+        expect(recordSuccess).toHaveBeenCalledWith(SOURCE_ID, expect.objectContaining({ ext: 'ogg' }));
         expect(markBindingMissing).not.toHaveBeenCalled();
     });
 

@@ -358,15 +358,9 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: MODEL_WRITER_KEYS.enabled,
         help: "Per call rather than plugin config, so a big model for a show and a small one for a link is expressible. Leave empty for the plugin's own default.",
     },
-    {
-        group: 'llm',
-        key: MODEL_WRITER_KEYS.persona,
-        label: 'Who the station sounds like',
-        type: 'text',
-        default: '',
-        dependsOn: MODEL_WRITER_KEYS.enabled,
-        help: 'A line or two in your own words, handed to the model as the voice to write in. It cannot loosen the rules the station always sends: never name a record it was not given, and be certain or say nothing.',
-    },
+    // Who the station sounds like was a setting here and is now a row in `deadair.personas`, with
+    // its own page: a character has to reach the phrasings and the voice as well as the prompt, and
+    // a `ConfigField` describes one row of a form rather than a list an operator switches between.
     {
         group: 'llm',
         key: MODEL_GENERATOR_KEYS.enabled,
@@ -427,7 +421,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Pause after a downloaded track (ms)',
         type: 'number',
         default: DEFAULT_ANALYSIS_PROVIDER_PACE_MS,
-        help: 'Measuring a track the station does not already hold is a full download through the same account it plays on, and a burst of them can trip a provider\'s own rate limit. This is the gap the walk leaves after one of those before starting the next.',
+        help: "Measuring a track the station does not already hold is a full download through the same account it plays on, and a burst of them can trip a provider's own rate limit. This is the gap the walk leaves after one of those before starting the next.",
     },
     {
         group: 'analysis',
@@ -435,7 +429,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Pause after an already-local track (ms)',
         type: 'number',
         default: DEFAULT_ANALYSIS_LOCAL_PACE_MS,
-        help: "A record the station has already kept costs no provider request to measure, so this can be far shorter than the download pause above — but it is not free: it is still disk and decode time on whatever machine is running the analyzer. Set to 0 to measure the local half of the library flat out.",
+        help: 'A record the station has already kept costs no provider request to measure, so this can be far shorter than the download pause above — but it is not free: it is still disk and decode time on whatever machine is running the analyzer. Set to 0 to measure the local half of the library flat out.',
     },
 
     // ── secrets ────────────────────────────────────────────────────────────────

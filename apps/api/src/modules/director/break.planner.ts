@@ -537,8 +537,7 @@ const isStationKind = (kind: string): boolean => kind === IDENT_KIND || kind ===
 const isStationBreak = (item: StationLineupSegmentItem): boolean => item.segmentKind === undefined || isStationKind(item.segmentKind);
 
 /** The slots this pass claimed for a kind, so a later rule for the same kind can see them. */
-const sameKind = (slots: readonly Slot[], kind: string): Set<number> =>
-    new Set(slots.filter(slot => slot.band === kind).map(slot => slot.atIndex));
+const sameKind = (slots: readonly Slot[], kind: string): Set<number> => new Set(slots.filter(slot => slot.band === kind).map(slot => slot.atIndex));
 
 /** What the console calls a break of a kind nothing has named yet. */
 const labelFor = (kind: string): string => `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
@@ -619,11 +618,7 @@ function placementsFor(
  * their lengths are whatever the catalog said they were. A break of another kind is walked straight
  * past, which is the backwards half of the same rule the forward walk applies.
  */
-function elapsedSinceLastOfKind(
-    items: readonly StationLineupItem[],
-    cursor: number,
-    counts: (item: StationLineupSegmentItem) => boolean,
-): number {
+function elapsedSinceLastOfKind(items: readonly StationLineupItem[], cursor: number, counts: (item: StationLineupSegmentItem) => boolean): number {
     let elapsed = 0;
     for (let index = Math.min(cursor, items.length) - 1; index >= 0; index--) {
         const item = items[index]!;

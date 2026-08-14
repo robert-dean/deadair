@@ -196,9 +196,7 @@ function build(options: Options = {}) {
     // the external ids that are here for the tests that are about the gate itself.
     const readyFor = vi.fn(async (bindings: readonly { pluginId: string; externalId: string }[]) => {
         const here = options.localAudio;
-        return new Set(
-            bindings.filter(binding => here === undefined || here.includes(binding.externalId)).map(binding => bindingKey(binding)),
-        );
+        return new Set(bindings.filter(binding => here === undefined || here.includes(binding.externalId)).map(binding => bindingKey(binding)));
     });
     const trackAudio = { readyFor } as unknown as TrackAudioService;
 
@@ -247,7 +245,16 @@ function build(options: Options = {}) {
 
     const activity = { record: vi.fn(async () => undefined) } as unknown as ActivityRecorder;
 
-    const director = new DirectorService(rundown, audience, container, jobs as unknown as PgBossJobBroker, activity, new StationIdentity(), station.config, logger);
+    const director = new DirectorService(
+        rundown,
+        audience,
+        container,
+        jobs as unknown as PgBossJobBroker,
+        activity,
+        new StationIdentity(),
+        station.config,
+        logger,
+    );
 
     return {
         director,
@@ -331,15 +338,13 @@ describe('DirectorService thinning the order before the slot arrives', () => {
 
     // `unavailable` rather than `skipped`, because those are opposite facts on a page explaining a
     // gap: this one names a copy nothing will serve, which is the one an operator can act on.
-    it('says so on the feed, in the station\'s own words', async () => {
+    it("says so on the feed, in the station's own words", async () => {
         const { director, activity, seed } = build({ items: ['a', 'b'], unfetchable: ['b'] });
         await seed();
 
         await director.start();
 
-        expect(activity.record).toHaveBeenCalledWith(
-            expect.objectContaining({ module: 'director', kind: 'item.unavailable', severity: 'warn' }),
-        );
+        expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ module: 'director', kind: 'item.unavailable', severity: 'warn' }));
     });
 
     it('leaves the order alone when everything can be fetched', async () => {

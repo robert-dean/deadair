@@ -79,12 +79,34 @@ describe('breakPrompt', () => {
 
     it('carries the station, the presenter and the persona when they are set', () => {
         const rules = system(
-            breakPrompt({ kind: 'talkbreak', previous }, { station: 'Deadair', dj: 'Sam', persona: 'Dry, never smug, no exclamation marks.' }),
+            breakPrompt(
+                { kind: 'talkbreak', previous },
+                { station: 'Deadair', dj: 'Sam', persona: { style: 'a dry crate-digger', quirks: ['Never smug'], catchphrases: ['Worth the dig'] } },
+            ),
         );
 
         expect(rules).toContain('Deadair');
         expect(rules).toContain('Sam');
-        expect(rules).toContain('Dry, never smug');
+        expect(rules).toContain('a dry crate-digger');
+        expect(rules).toContain('Never smug');
+        expect(rules).toContain('Worth the dig');
+    });
+
+    it('replaces the station-voice role sentence rather than saying both', () => {
+        // A model handed "you are the voice of a radio station" AND "you are a pirate captain"
+        // hedges between them. The persona takes the slot; it does not queue behind it.
+        const rules = system(breakPrompt({ kind: 'talkbreak', previous }, { persona: { style: 'a pirate captain' } }));
+
+        expect(rules).toContain('You are a pirate captain');
+        expect(rules).not.toContain('You are the voice of a radio station');
+    });
+
+    it('restates the dialect AFTER the content rules, which is the whole reason it exists', () => {
+        // The failure is caused by the rules: a host reads seven careful instructions about naming
+        // records accurately and answers them in careful, plain English.
+        const rules = system(breakPrompt({ kind: 'talkbreak', previous }, { persona: { style: 'a pirate captain', diction: ['Ye for you'] } }));
+
+        expect(rules.indexOf('Plain English is wrong here')).toBeGreaterThan(rules.indexOf('Only ever refer to the records listed below'));
     });
 
     it('says nothing about a presenter or a persona nobody has set', () => {
@@ -133,6 +155,27 @@ describe('breakPrompt', () => {
 
             expect(said).not.toMatch(/notes/i);
         });
+    });
+});
+
+describe('readAnswer, against a persona', () => {
+    const pirate = { dictionMarkers: ['ye', 'aye', 'matey', "in'", 'hearty'] };
+
+    it('declines a good line that came back in plain English', () => {
+        // The one failure a sheet's diction is asked for, and the one a model handed a page of
+        // content rules actually makes. The floor underneath speaks in the same character, so
+        // declining costs the station nothing.
+        expect(readAnswer('That was Solid Air, from John Martyn.', { persona: pirate })).toBeUndefined();
+    });
+
+    it('takes one that stayed in dialect', () => {
+        const script = "Aye, ye just heard Solid Air, and there be more comin'.";
+
+        expect(readAnswer(script, { persona: pirate })).toBe(script);
+    });
+
+    it('accepts anything from a sheet that named no markers, which made no checkable claim', () => {
+        expect(readAnswer('That was Solid Air.', { persona: { diction: ['Ye for you'] } })).toBe('That was Solid Air.');
     });
 });
 

@@ -72,11 +72,17 @@ export const BUDGET_MS = 120_000;
  */
 export const MAX_OUTPUT_TOKENS = 800;
 
-/** The `deadair.settings` keys this binding reads. */
+/**
+ * The `deadair.settings` keys this binding reads.
+ *
+ * There is no persona key here any more. Who the station sounds like was one free-text setting and
+ * is now a row in `deadair.personas`, read by the caller and handed over on the request — because a
+ * character has to reach the phrasings and the voice as well as the prompt, and a setting could only
+ * ever reach the prompt.
+ */
 export const MODEL_WRITER_KEYS = {
     enabled: 'llm.breakWriter',
     model: 'llm.breakModel',
-    persona: 'llm.breakPersona',
 } as const;
 
 @Injectable()
@@ -115,8 +121,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
         const model = this.config.get(MODEL_WRITER_KEYS.model, '').trim();
         const messages = breakPrompt(request, {
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            dj: this.config.get(TEMPLATE_KEYS.djName, ''),
-            persona: this.config.get(MODEL_WRITER_KEYS.persona, ''),
+            // The persona's own name where it has one, and the station's behind it. A persona that
+            // is a manner rather than a character has no reason to rename the presenter.
+            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
+            ...(request.persona === undefined ? {} : { persona: request.persona }),
         });
 
         const result = await this.llm.converse(
@@ -138,7 +146,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
             },
         );
 
-        const script = readAnswer(result.text, { maxWords: DEFAULT_MAX_WORDS });
+        const script = readAnswer(result.text, {
+            maxWords: DEFAULT_MAX_WORDS,
+            ...(request.persona === undefined ? {} : { persona: request.persona }),
+        });
 
         // Recorded whichever way it went, and BEFORE the answer is judged, so a model that produced
         // forty seconds of nothing leaves behind the same numbers as one that worked.
@@ -153,16 +164,20 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // whole arrangement exists to absorb. The registry turns it into the floor's sentence
             // and keeps the reason.
             //
-            // The two cases are told apart because they need different fixes and look identical
-            // from the row: a model that stopped at the token ceiling having said NOTHING spent its
-            // whole allowance thinking, which is a number to raise, while one that said too much is
-            // a prompt to tighten.
+            // The cases are told apart because they need different fixes and look identical from
+            // the row: a model that stopped at the token ceiling having said NOTHING spent its whole
+            // allowance thinking, which is a number to raise; one that said too much is a prompt to
+            // tighten; and one that wrote a perfectly good line in plain English when it was asked
+            // for a dialect is a sheet whose markers or diction want work, which is the only one of
+            // the three an operator can fix from the personas page.
             const words = result.text.trim().split(/\s+/).filter(Boolean).length;
             this.logger.info(
                 words === 0 && result.finishReason === 'length'
                     ? 'director: the model used its whole answer thinking and never spoke; raise the token ceiling'
-                    : 'director: the model wrote nothing the station could say',
-                { finish: result.finishReason, words, tokens: result.usage?.outputTokens },
+                    : outOfCharacter(request, result.text)
+                      ? 'director: the model wrote a line the station could say, but not in its own voice'
+                      : 'director: the model wrote nothing the station could say',
+                { finish: result.finishReason, words, tokens: result.usage?.outputTokens, persona: request.persona?.key },
             );
             return undefined;
         }
@@ -188,4 +203,17 @@ export class ModelTalkBreakWriter extends BreakWriter {
                 : {}),
         };
     }
+}
+
+/**
+ * Whether the guard's only complaint was the voice.
+ *
+ * Re-runs the guard without the persona: a script that survives that and not the full one was
+ * speakable and simply not in character. Cheap, and it exists so a log line can tell an operator
+ * which of three quite different things to go and change.
+ */
+function outOfCharacter(request: BreakWriteRequest, text: string): boolean {
+    if (request.persona === undefined) return false;
+
+    return readAnswer(text, { maxWords: DEFAULT_MAX_WORDS }) !== undefined;
 }

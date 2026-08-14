@@ -30,18 +30,31 @@
  */
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
+import { keepsCharacter, personaLines, personaVoiceReminder, type PersonaSheet } from '#modules/personas/persona.sheet.js';
 import type { BreakTrack, BreakWriteRequest } from './break.writer.js';
 
 /** How the station wants this break to sound, and how long it may run. */
 export interface PromptSettings {
     /** What the station calls itself, from `stream.title`. */
     station?: string;
-    /** What it calls its presenter, from `station.djName`. */
+    /** What it calls its presenter: the active persona's name, or `station.djName` behind it. */
     dj?: string;
-    /** The operator's own line about who the station sounds like, from `llm.breakPersona`. */
-    persona?: string;
+    /**
+     * Who the station is right now, from `deadair.personas`.
+     *
+     * The `style` completes "You are …" in place of the station's own sentence, and the sheet's
+     * facets are rendered between that and the rules. A station with no persona is unchanged, which
+     * is the state every fresh install is in until it picks one.
+     */
+    persona?: PersonaCharacter;
     /** The ceiling, in words. See {@link DEFAULT_MAX_WORDS}. */
     maxWords?: number;
+}
+
+/** The half of a persona a prompt uses: who they are, and how they speak. */
+export interface PersonaCharacter extends PersonaSheet {
+    /** Completes "You are …". */
+    style: string;
 }
 
 /**
@@ -74,12 +87,23 @@ export function breakPrompt(request: BreakWriteRequest, settings: PromptSettings
 function systemPrompt(settings: PromptSettings): string {
     const station = settings.station?.trim();
     const dj = settings.dj?.trim();
-    const persona = settings.persona?.trim();
+    const persona = settings.persona;
     const maxWords = settings.maxWords ?? DEFAULT_MAX_WORDS;
     const seconds = Math.round(maxWords / WORDS_PER_SECOND);
 
+    // A persona replaces the role sentence rather than being appended to it, because "you are the
+    // voice of a radio station" and "you are a pirate captain who runs one" are the same slot said
+    // twice, and a model handed both hedges between them.
+    const role =
+        persona === undefined
+            ? `You are the voice of a radio station${station ? ` called ${station}` : ''}${dj ? `, and your name is ${dj}` : ''}.`
+            : `You are ${persona.style}${station ? `, on a station called ${station}` : ''}${dj ? `, and your name is ${dj}` : ''}.`;
+
     const lines = [
-        `You are the voice of a radio station${station ? ` called ${station}` : ''}${dj ? `, and your name is ${dj}` : ''}.`,
+        role,
+        // The sheet sits between the role and the rules, which leaves the grounding discipline in
+        // the recency position it has always had.
+        ...(persona === undefined ? [] : personaLines(persona)),
         'You write one short spoken link between records. It is read aloud exactly as you write it.',
         '',
         'Rules:',
@@ -93,7 +117,11 @@ function systemPrompt(settings: PromptSettings): string {
         '- Do not greet the listener by name, promise anything you have not been told, or mention the time unless you are given it.',
     ];
 
-    if (persona) lines.push('', 'The station describes its presenter this way, and you should sound like it:', persona);
+    // AFTER the rules, and that position is the whole reason it exists. The failure it addresses is
+    // caused BY the rules: a host reads seven careful instructions about naming records accurately
+    // and answers them in careful, plain English. See `persona.sheet.ts`.
+    const reminder = persona === undefined ? undefined : personaVoiceReminder(persona);
+    if (reminder !== undefined) lines.push('', reminder);
 
     return lines.join('\n');
 }
@@ -172,6 +200,13 @@ const hasFacts = (request: BreakWriteRequest): boolean => (request.previous?.fac
 /** What a model's answer has to survive to become a script. */
 export interface AnswerGuard {
     maxWords?: number;
+    /**
+     * The character it was asked to write in, checked against what came back.
+     *
+     * Only the persona's `dictionMarkers` are read, and a sheet naming none makes no checkable claim
+     * and so passes everything. See {@link keepsCharacter}.
+     */
+    persona?: PersonaSheet;
 }
 
 /**
@@ -218,6 +253,12 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // floor's correct line, and a model that has run long has usually misunderstood the job rather
     // than merely overshot.
     if (script.split(/\s+/).length > maxWords) return undefined;
+
+    // A correct sentence in the wrong voice, which is the failure a persona's diction is asked for
+    // and the one a model handed a page of content rules actually makes. Declined rather than
+    // re-drafted: the floor underneath speaks in the same character, so the station gets an
+    // in-character line at once instead of paying for a second generation to maybe get one.
+    if (guard.persona !== undefined && !keepsCharacter(guard.persona, script)) return undefined;
 
     return script;
 }

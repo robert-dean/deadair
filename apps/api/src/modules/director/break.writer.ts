@@ -27,6 +27,7 @@
  * implementation's imports, exactly like {@link SetGenerator}.
  */
 
+import type { Persona } from '#modules/personas/persona.js';
 import type { RoughTime } from './clock.words.js';
 
 /** A record, as a writer sees one. */
@@ -74,6 +75,19 @@ export interface BreakWriteRequest {
     next?: BreakTrack;
     /** What the station calls itself, from `stream.title`. Absent when the operator has not said. */
     station?: string;
+    /**
+     * Who the station is right now.
+     *
+     * Read by the caller and handed over whole, like {@link BreakTrack.facts} and for the same
+     * reason: a writer stays a pure function of what it was told, and every binding sees the same
+     * character rather than each deciding for itself what it may know. Absent for a station that has
+     * chosen no persona, which is an ordinary state and not a fault.
+     *
+     * Every binding uses a different half of it — a model reads the sheet, the templates reader
+     * reads its phrasings and its on-air name — which is why the whole record travels rather than a
+     * per-writer projection of it.
+     */
+    persona?: Persona;
     /**
      * The last few things the station said, newest first.
      *

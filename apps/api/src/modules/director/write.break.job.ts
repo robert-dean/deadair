@@ -6,6 +6,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { EnrichmentReadService } from '#modules/enrichment/enrichment.read.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
+import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -63,6 +64,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly history: ScriptHistoryRepository,
         private readonly writers: BreakWriterRegistry,
         private readonly enrichment: EnrichmentReadService,
+        private readonly personas: PersonaRepository,
         private readonly activity: ActivityRecorder,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
@@ -130,6 +132,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // here would make the substrate depend on a setting.
         await this.attachFacts(segmentId, neighbours);
 
+        // `undefined` is an ordinary answer: a station that has chosen no persona writes exactly
+        // what it wrote before personas existed.
+        const persona = await this.personas.active();
+
         const result = await this.writers.write({
             kind: segment.kind,
             ...(clock === undefined ? {} : { clock }),
@@ -137,6 +143,11 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             recent: await this.segments.recentScripts(segment.kind, RECENT_WINDOW),
+            // Read here rather than held by any writer, for the reason the facts above are: the
+            // character the station is in is a property of the moment, and every binding uses a
+            // different half of it. Read per break, so an operator putting a different persona on
+            // air hears it on the next one rather than after a restart.
+            ...(persona === undefined ? {} : { persona }),
         });
 
         // Before the row is touched, and before any early return below, so an attempt is recorded

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { WriteBreakJob } from '../../../src/modules/director/write.break.job.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
+import type { Persona } from '../../../src/modules/personas/persona.js';
 import type { Segment } from '../../../src/modules/render/segment.repository.js';
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
 
@@ -41,6 +42,8 @@ function harness(
         /** What the station knows about the records either side, keyed by track id. */
         facts?: Map<string, string[]>;
         factsThrow?: boolean;
+        /** The persona on air, for the one test about handing it to the writers. */
+        persona?: Persona;
     } = {},
 ) {
     const segments = {
@@ -64,6 +67,9 @@ function harness(
             options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : (options.facts ?? new Map<string, string[]>()),
         ),
     };
+    // Who the station is right now. `undefined` unless a test asks otherwise, because a station
+    // that has chosen no persona is the state every assertion below was written against.
+    const personas = { active: vi.fn(async () => options.persona) };
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((_: string, fallback: string) => fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -76,6 +82,7 @@ function harness(
         history as never,
         writers as never,
         enrichment as never,
+        personas as never,
         activity as never,
         jobs as never,
         config as never,
@@ -84,7 +91,7 @@ function harness(
         logger as never,
     );
 
-    return { job, segments, lineups, history, writers, enrichment, jobs, logger, activity };
+    return { job, segments, lineups, history, writers, enrichment, personas, jobs, logger, activity };
 }
 
 describe('WriteBreakJob', () => {
@@ -99,6 +106,22 @@ describe('WriteBreakJob', () => {
             writer: 'deterministic',
         });
         expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
+    });
+
+    it('hands the writers whoever is on air, and nothing when nobody is', async () => {
+        // Read here rather than by any writer, for the reason the facts are: the character the
+        // station is in is a property of the moment, and each binding uses a different half of it.
+        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', active: true } as Persona;
+        const { job, writers } = harness({ lineup: await lineupWithBreak(), persona });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ persona }));
+
+        const bare = harness({ lineup: await lineupWithBreak() });
+        await bare.job.run({ segmentId: 'seg-1' });
+
+        expect(bare.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ persona: expect.anything() }));
     });
 
     it('records whichever writer actually spoke, rather than assuming', async () => {

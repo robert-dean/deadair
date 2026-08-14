@@ -71,21 +71,7 @@ export function stationZone(config: AppConfig): string {
  * Words rather than digits because these are spoken: a speech engine handed "9" may say "nine" and
  * may say "September", and which one is not worth finding out on air.
  */
-const HOURS: readonly string[] = [
-    'midnight',
-    'one',
-    'two',
-    'three',
-    'four',
-    'five',
-    'six',
-    'seven',
-    'eight',
-    'nine',
-    'ten',
-    'eleven',
-    'midday',
-];
+const HOURS: readonly string[] = ['midnight', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'midday'];
 
 /**
  * The phrasings, in minutes past the hour, each running until the next one starts.

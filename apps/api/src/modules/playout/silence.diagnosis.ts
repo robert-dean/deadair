@@ -132,13 +132,6 @@ export interface StationFacts {
     /** The gate's own answer, which lingers past the last listener. */
     audience: boolean;
     /**
-     * How long since Icecast last actually answered with a number.
-     *
-     * `undefined` means it never has since this process started, which is the WORSE
-     * reading rather than a neutral one: a count of zero that came from nowhere is
-     * not evidence of an empty room.
-     */
-    /**
      * How long the mount has been playing Liquidsoap's local bed instead of the
      * running order. `undefined` means it is not, which is the ordinary state.
      */

@@ -8,8 +8,8 @@
  * facts handed to it are the facts. Specifically:
  *
  * - that `AudienceWatch.reading()` moves `readAt` when Icecast answers and STOPS moving
- *   when it does not, which is the whole of the `audienceUnknown` gate and the thing
- *   that was silently wrong before it existed;
+ *   when it does not, which is what makes "zero listeners" and "nobody has answered"
+ *   two facts rather than one number;
  * - that `PlayoutControlClient` reaches the address this install actually has, so
  *   `streamUnreachable` means the stream and not the config;
  * - that the heartbeat a loop registers is readable by the thing that judges it.
@@ -20,9 +20,14 @@
  * Run from `apps/api`:
  *   node --import @swc-node/register/esm-register ./scripts/silence.smoke.ts
  *
- * Pass `--watch` to keep polling, which is how to see a gate change: run it, stop
- * Icecast, and watch `noAudience` become `audienceUnknown` about twenty seconds later
- * rather than sitting on `ready` forever.
+ * Pass `--watch` to keep polling, which is how to watch a reading go stale: run it,
+ * stop Icecast, and watch the `answered Ns ago` line climb while the gate itself holds
+ * whatever the last real answer was.
+ *
+ * That the gate HOLDS is the point, and it is why there is no longer an
+ * `audienceUnknown` cause to wait for. Only a positive reading moves the count, so an
+ * Icecast that dies while somebody is listening does not take the station off air —
+ * which is the opposite of what an unknown-audience gate did.
  */
 import { AppConfigBuilder, AppConfigResolverEnv, AppConfigSourceDotenv } from '@maroonedsoftware/appconfig';
 import { ConsoleLogger, type Logger } from '@maroonedsoftware/logger';
@@ -49,7 +54,7 @@ const WATCH = process.argv.includes('--watch');
 /**
  * Point the stats client at a closed port instead of the real Icecast.
  *
- * How to exercise `audienceUnknown` without stopping a container. The station's own
+ * How to starve the reading without stopping a container. The station's own
  * Icecast is untouched and this process is the only thing looking at the dead address,
  * so it is safe to run against a station that is on air — which stopping the container
  * is not.
@@ -119,12 +124,29 @@ const lineup = new StationLineupRepository(db);
 audience.start();
 
 /**
+ * What one pass has to say: the facts the gates read, plus how long ago Icecast
+ * last answered.
+ *
+ * The second is deliberately NOT on `StationFacts`. It used to be, as
+ * `sinceAudienceAnswerMs`, feeding an `audienceUnknown` gate that has since been
+ * removed — a failed poll now leaves the last count standing rather than reading
+ * as an empty room — and a field no gate reads has no business in the snapshot
+ * the gates are handed. It is still worth PRINTING, because a reading that has
+ * stopped moving is the whole thing `--blind` exists to show.
+ */
+interface Pass {
+    facts: StationFacts;
+    /** Absent means Icecast has not answered once since this process started. */
+    sinceAnswerMs?: number;
+}
+
+/**
  * One reading, assembled the way `PlayoutService.getStatus` assembles it.
  *
  * Two facts come from somewhere else than they do in the app, and both are called out
  * where they are read: this process has no rundown and no reconcile loop of its own.
  */
-async function snapshot(): Promise<StationFacts> {
+async function snapshot(): Promise<Pass> {
     const now = Date.now();
 
     // A real call, which is what makes `streamUp` mean the stream rather than the config:
@@ -135,7 +157,7 @@ async function snapshot(): Promise<StationFacts> {
     const order = await lineup.load();
     const reading = audience.reading();
 
-    return {
+    const facts: StationFacts = {
         now,
         // The API judges its own reconcile loop. This process does not have one, so the
         // heartbeat is registered and beaten here purely to prove the wiring reads back;
@@ -153,13 +175,14 @@ async function snapshot(): Promise<StationFacts> {
         airMode: parseAirMode(config.get(AIR_MODE_KEY, '')),
         listeners: reading.count,
         audience: reading.hasAudience,
-        ...(reading.readAt === undefined ? {} : { sinceAudienceAnswerMs: now - reading.readAt }),
         // Pushed by Liquidsoap to a route this process is not serving.
         ...(control.starvedSince() === undefined ? {} : { starvedForMs: now - (control.starvedSince() ?? 0) }),
     };
+
+    return { facts, ...(reading.readAt === undefined ? {} : { sinceAnswerMs: now - reading.readAt }) };
 }
 
-function report(facts: StationFacts): void {
+function report({ facts, sinceAnswerMs }: Pass): void {
     const silence = diagnose(facts);
 
     console.log(`\n${silence.audible ? '● AIRING' : '○ SILENT'}  ${silence.cause}`);
@@ -172,9 +195,8 @@ function report(facts: StationFacts): void {
         console.log(`  ${mark} ${check.code.padEnd(18)} ${check.detail}`);
     }
 
-    const answered = facts.sinceAudienceAnswerMs;
     console.log(
-        `\n  icecast: ${answered === undefined ? 'has never answered' : `answered ${Math.round(answered / 1000)}s ago`}` +
+        `\n  icecast: ${sinceAnswerMs === undefined ? 'has never answered' : `answered ${Math.round(sinceAnswerMs / 1000)}s ago`}` +
             `, ${facts.listeners} listening` +
             `  |  liquidsoap: ${facts.streamUp ? 'up' : 'unreachable'}${facts.driving ? ', driving' : ''}` +
             `  |  station: ${facts.active ? 'active' : 'stood down'}`,

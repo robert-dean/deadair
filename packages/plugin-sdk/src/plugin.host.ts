@@ -13,7 +13,7 @@
  * file: they go over HTTP to the track fetcher, so they stay asserted.
  */
 
-import type { MusicProviderStream, ProviderStream } from './capabilities/music.provider.js';
+import type { ProviderStream } from './capabilities/music.provider.js';
 
 /** Structured logging. Goes to the host's logger, tagged with the plugin id. */
 export interface PluginLogger {
@@ -125,8 +125,10 @@ export interface TrackFetchRequest {
  * process speaking a protocol the plugin does not. Spotify is the reason —
  * its tracks come off the CDN encrypted and are fetched by a separate binary
  * beside Liquidsoap. Without this, such a provider could not implement
- * {@link MusicProviderStream.resolveStreamUrl} at all, because there is no URL
- * for it to mint.
+ * `MusicProviderStream.resolveStreamUrl` at all, because there is no URL for it
+ * to mint. Named in backticks rather than linked: importing that type solely to
+ * make a doc reference clickable leaves an import nothing uses, which is a lint
+ * failure in a package whose gate is zero warnings.
  *
  * Do NOT reach for this when your provider's audio can simply be fetched. Mint
  * the URL yourself and keep your credentials to yourself, which is both simpler

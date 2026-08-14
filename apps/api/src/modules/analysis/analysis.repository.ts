@@ -69,16 +69,34 @@ export class AnalysisRepository extends DataRepository {
      * `missing_at is null` test is `CandidatesRepository.sample`'s, for the same
      * reason it has it.
      *
-     * The binding is chosen by `last_seen_at` rather than by the operator's
-     * provider order, which is what the director's `bindingsFor` takes. Nothing
-     * supplies that order yet — its only caller passes nothing — so honouring it
-     * here would be honouring an empty list, and the most recently seen copy is
-     * at least deterministic. Worth revisiting together if a preference setting
+     * The binding is chosen by whether its audio is already on this machine
+     * FIRST, then by `last_seen_at`, and never by the operator's provider order,
+     * which is what the director's `bindingsFor` takes. Nothing supplies that
+     * order yet — its only caller passes nothing — so honouring it here would be
+     * honouring an empty list. Worth revisiting together if a preference setting
      * ever lands: measuring one copy and airing another is the failure it would
      * prevent.
      *
-     * Ordered oldest-catalogued first so a run makes predictable progress through
-     * a library rather than revisiting whatever Postgres felt like returning.
+     * **A track whose bytes are already local is measured first, and the same
+     * fact picks its binding.** The batch size is small because measuring costs a
+     * full audio download through the credential playout shares (see
+     * `BATCH_SIZE`), and that bill is exactly zero for a copy `TrackAudioService`
+     * has already kept: `ensure` reads the file before it reaches for the
+     * provider. So the cheap half of the library is measured at no cost to
+     * playout, and the expensive half is left to the pace. The two orderings are
+     * one decision — preferring a local BINDING and then a local TRACK — because
+     * choosing the copy the station has already aired is also the copy whose cue
+     * points describe what a listener will hear.
+     *
+     * The `checksum is not null` test is what makes a row a cache hit rather than
+     * a remembered failure, matching every other reader of that table. It cannot
+     * check the FILE, which `TrackAudioService.readyFor` does, so a row whose file
+     * was deleted sorts to the front and then costs an ordinary re-fetch. That is
+     * the repair path working rather than a case to defend against here.
+     *
+     * Oldest-catalogued first within each half, so a run makes predictable
+     * progress through a library rather than revisiting whatever Postgres felt
+     * like returning.
      */
     async listTracksNeedingAnalysis(schemaVersion: number, limit: number): Promise<AnalysableTrack[]> {
         const rows = await sql<{
@@ -103,12 +121,13 @@ export class AnalysisRepository extends DataRepository {
               -- with three copies is one row here rather than three units of work
               -- measuring the same recording.
               join lateral (
-                  select s.plugin_id, s.external_id, s.duration_ms
+                  select s.plugin_id, s.external_id, s.duration_ms, au.source_id is not null as is_local
                     from deadair.track_sources s
+                    left join deadair.track_audio au on au.source_id = s.id and au.checksum is not null
                    where s.track_id = t.id
                      and s.playable
                      and s.missing_at is null
-                   order by s.last_seen_at desc nulls last, s.created_at desc
+                   order by (au.source_id is not null) desc, s.last_seen_at desc nulls last, s.created_at desc
                    limit 1
               ) src on true
              where t.merged_into_id is null
@@ -117,7 +136,7 @@ export class AnalysisRepository extends DataRepository {
                    or (a.analyzed_at is not null and a.schema_version < ${schemaVersion})
                    or (a.failed_at is not null and a.failed_at < now() - make_interval(secs => ${ANALYSIS_RETRY_AFTER_MS / 1000}))
                )
-             order by t.created_at asc
+             order by src.is_local desc, t.created_at asc
              limit ${limit}
         `.execute(this.db);
 

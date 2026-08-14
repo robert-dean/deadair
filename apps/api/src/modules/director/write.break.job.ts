@@ -168,11 +168,20 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // LINE rather than the track: the same record can sit in an order twice, and what was
         // promised is the one at that position. See `segments.claims_item_id`.
         const claimsItemId = result.written.claimsNext === true ? neighbours.next?.itemId : undefined;
+
+        // The voice is offered only when the ROW has none. A segment planned by hand through
+        // `POST /segments` may name one, and that is an operator's explicit instruction rather than
+        // a default to recompute — while a break the station planted for itself should be spoken by
+        // whoever the station currently is. Decided here, with the words, so a persona swapped
+        // before the render cannot have this sentence read out by a different character.
+        const voice = segment.voice ?? persona?.voice;
         if (
             !(await this.segments.writeScript(segmentId, {
                 ...result.written,
                 writer: result.writer,
                 ...(claimsItemId === undefined ? {} : { claimsItemId }),
+                ...(persona === undefined ? {} : { personaId: persona.id }),
+                ...(voice === undefined ? {} : { voice }),
             }))
         ) {
             // The row moved out of `planned` while this was being written. Whoever moved it owns it.

@@ -124,6 +124,34 @@ describe('WriteBreakJob', () => {
         expect(bare.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ persona: expect.anything() }));
     });
 
+    it("speaks a planted break in the persona's voice, and leaves a hand-planned one alone", async () => {
+        // Written with the words rather than at render time, so a persona swapped in between cannot
+        // have this sentence read out by a different character.
+        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', voice: 'salt', active: true } as Persona;
+        const { job, segments } = harness({ lineup: await lineupWithBreak(), persona });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ voice: 'salt', personaId: 'p-1' }));
+
+        // A voice already on the row came from an operator through `POST /segments`, which is an
+        // instruction rather than a default.
+        const byHand = harness({ lineup: await lineupWithBreak(), persona, segment: planned({ voice: 'newsreader' }) });
+        await byHand.job.run({ segmentId: 'seg-1' });
+
+        expect(byHand.segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ voice: 'newsreader' }));
+    });
+
+    it('offers no voice at all when no persona is on air', async () => {
+        // Absent means leave the column alone, which is what keeps the speech plugin's own default
+        // the answer for a station that has chosen nothing.
+        const { job, segments } = harness({ lineup: await lineupWithBreak() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.not.objectContaining({ voice: expect.anything() }));
+    });
+
     it('records whichever writer actually spoke, rather than assuming', async () => {
         // The job cannot know: once a kind has more than one writer, the answer that came back has
         // been through however many declined before it. A constant here is the bug where every

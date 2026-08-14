@@ -430,7 +430,15 @@ export class SegmentRepository extends DataRepository {
      */
     async writeScript(
         id: string,
-        written: { script: string; label: string; writer: string; claimsItemId?: string; claimsTime?: { from: number; until: number } },
+        written: {
+            script: string;
+            label: string;
+            writer: string;
+            claimsItemId?: string;
+            claimsTime?: { from: number; until: number };
+            personaId?: string;
+            voice?: string;
+        },
     ): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.segments')
@@ -439,6 +447,17 @@ export class SegmentRepository extends DataRepository {
                 label: written.label,
                 writer: written.writer,
                 state: 'written',
+                // Who the station was when these words were decided. In the SAME statement as the
+                // words for the same reason the claims are: a persona swapped between the write and
+                // the render would otherwise file a pirate's sentence under the late-night host.
+                // Null when there was none, so a rewrite off air does not leave a stale character.
+                personaId: written.personaId ?? null,
+                // The voice is set only when one is OFFERED, which is the opposite of everything
+                // else here and deliberate. A segment planned by hand through `POST /segments` may
+                // name its own, and that is an explicit instruction from an operator rather than a
+                // default to be recomputed; the caller reads the row first and offers the persona's
+                // only when the row has none. Absent here therefore means leave it exactly alone.
+                ...(written.voice === undefined ? {} : { voice: written.voice }),
                 // Set together with the words, because it describes them: a claim is a statement
                 // the script makes, and one outliving a rewrite would be a promise about a
                 // sentence that is no longer there. Null clears it for the same reason.

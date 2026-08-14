@@ -4,7 +4,7 @@
     "type": "module",
     "main": "index.ts",
     "scripts": {
-        "dev": "NODE_ENV=development node --inspect --no-warnings --no-deprecation --import @swc-node/register/esm-register --enable-source-maps --watch --watch-preserve-output ./src/index.ts",
+        "dev": "NODE_ENV=development node scripts/dev.watch.mjs",
         "build": "NODE_OPTIONS=--max_old_space_size=8192 tsc",
         "build:data": "echo 'build:data orchestrated by turbo (migrate:up -> build:datatypes)'",
         "codegen": "echo 'codegen orchestrated by turbo (build:data + build:contracts + build:permissions)'",

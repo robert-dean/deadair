@@ -104,6 +104,16 @@ export class PluginHostFactoryOptions {
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * How much randomness is added to a rate-limit park.
+ *
+ * Small, and it exists only to break a tie: `rate-limiter-flexible` tells every caller rejected in
+ * one window the same time until that window refills, so without this they all wake together and
+ * race for the same points. A tenth of a second is enough to spread them and short enough that it
+ * cannot meaningfully lengthen a wait.
+ */
+const RATE_LIMIT_JITTER_MS = 100;
+
+/**
  * Hostname match against one allowlist entry. A leading `*.` matches any
  * subdomain but NOT the bare apex, so `*.example.com` cannot be used to smuggle
  * in `example.com` itself.
@@ -1056,22 +1066,30 @@ export class PluginHostFactory {
                 .withRetry(waitMs);
         };
 
-        try {
-            await limiter.consume(manifest.id, 1);
-            return;
-        } catch (rejection) {
-            const waitMs = rateLimitWaitMs(rejection);
-            if (waitMs === undefined) throw rejection;
-            if (waitMs >= deadlineAt - Date.now()) overQuota(waitMs);
-            await sleep(waitMs);
-        }
+        // Parked until there is headroom or until the budget runs out, which is what the note above
+        // has always claimed and what this did NOT do: it consumed, slept once, tried again, and
+        // then threw whatever the second attempt said, with no deadline check on that last throw.
+        //
+        // One sleep is enough for a single caller and is a thundering herd for several. Two calls
+        // rejected in the same window are told the same `msBeforeNext`, sleep the same span, wake
+        // together and race for the same refilled points — and the loser fails outright with most
+        // of its budget unspent. It showed up as `enrichment.enrichArtist` failing against a
+        // 5-per-second bucket while the enrichment walk and a lineup refill were both drawing on
+        // it, which is two sequential callers and should never have been over quota at all.
+        for (;;) {
+            try {
+                await limiter.consume(manifest.id, 1);
+                return;
+            } catch (rejection) {
+                const waitMs = rateLimitWaitMs(rejection);
+                if (waitMs === undefined) throw rejection;
+                if (waitMs >= deadlineAt - Date.now()) overQuota(waitMs);
 
-        try {
-            await limiter.consume(manifest.id, 1);
-        } catch (rejection) {
-            const waitMs = rateLimitWaitMs(rejection);
-            if (waitMs === undefined) throw rejection;
-            overQuota(waitMs);
+                // Jittered, because the collision above is what makes a second attempt necessary in
+                // the first place: waking two callers at the same instant re-runs the same race.
+                // Bounded at a tenth of a second so it cannot dominate a short wait.
+                await sleep(waitMs + Math.floor(Math.random() * RATE_LIMIT_JITTER_MS));
+            }
         }
     }
 

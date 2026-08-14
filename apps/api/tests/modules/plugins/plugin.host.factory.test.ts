@@ -254,6 +254,37 @@ describe('PluginHostFactory.createHost fetch', () => {
         expect(fetchMock).toHaveBeenCalledTimes(PLUGIN_FETCH_REQUESTS_PER_WINDOW + 1);
     });
 
+    it('parks EVERY contending caller rather than only the first', async () => {
+        // The bug this covers: the park used to be one sleep and one retry, so several callers
+        // rejected in the same window were told the same wait, slept the same span, woke together
+        // and raced for the same refilled points — and everyone who lost that race failed outright
+        // with most of their budget unspent. Two sequential subsystems sharing one bucket is the
+        // ordinary case (an enrichment walk and a lineup refill), and it should never be over quota.
+        //
+        // ONE per second against three callers, so the refill cannot satisfy them all at once. At
+        // the host's default of ten it could, which is why this needs a rated entry to reproduce.
+        vi.useFakeTimers();
+        const fetchMock = vi.fn().mockImplementation(async () => new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = factory().createHost(
+            manifest({ permissions: { network: [{ host: 'api.example.com', ratePerSecond: 1 }], storage: false, oauth: false } }),
+        );
+
+        await host.fetch('https://api.example.com/first');
+
+        const contending = Promise.allSettled([
+            host.fetch('https://api.example.com/a', { timeoutMs: 20_000 }),
+            host.fetch('https://api.example.com/b', { timeoutMs: 20_000 }),
+            host.fetch('https://api.example.com/c', { timeoutMs: 20_000 }),
+        ]);
+
+        await vi.advanceTimersByTimeAsync(10_000);
+        const answers = await contending;
+
+        expect(answers.map(answer => answer.status)).toEqual(['fulfilled', 'fulfilled', 'fulfilled']);
+        expect(fetchMock).toHaveBeenCalledTimes(4);
+    });
+
     it('rejects rather than parks when the wait would outlast the call budget', async () => {
         vi.useFakeTimers();
         const fetchMock = vi.fn().mockImplementation(async () => new Response('ok', { status: 200 }));

@@ -79,7 +79,9 @@ describe('what it offers', () => {
         const tool = await offered([fakeCatalog()]);
 
         expect(tool?.declaration.name).toBe('search_catalog');
-        expect(tool?.declaration.parameters).toMatchObject({ required: ['query'] });
+        // Nothing is required: a genre or a period is a complete search on its own, and the real
+        // rule — at least one of the four — is enforced in the runner, where it can be explained.
+        expect(tool?.declaration.parameters).toMatchObject({ required: [] });
     });
 
     it('says it reaches past what the station owns, and that those records can still be played', async () => {
@@ -234,14 +236,28 @@ describe('searching', () => {
         expect(options).not.toHaveProperty('yearFrom');
     });
 
-    it('refuses a query it cannot read, in terms the model can correct', async () => {
-        // Arguments arrive as the model produced them, so nothing here trusts a type. "I could not
-        // read your query" is something it can fix; an exception is not.
+    it('refuses a search with nothing to go on, in terms the model can correct', async () => {
+        // Arguments arrive as the model produced them, so nothing here trusts a type. "You gave me
+        // nothing to search on" is something it can fix; an exception is not.
         const tool = await offered([fakeCatalog()]);
 
         await expect(tool!.run({})).rejects.toThrow('query');
         await expect(tool!.run({ query: 42 })).rejects.toThrow('query');
         await expect(tool!.run({ query: '  ' })).rejects.toThrow('query');
+    });
+
+    it('takes a genre or a period as a whole search, with no query at all', async () => {
+        // A model found this out before the code did: told to narrow by genre rather than by words,
+        // it called this with only a genre, was refused, and got past the refusal by inventing the
+        // query `a` — which is not a no-op but a text match quietly steering what comes back.
+        const record = fakeCatalog({ tracks: [track('Blue in Green', 'Miles Davis')] });
+        const tool = await offered([record]);
+
+        const result = (await tool!.run({ genre: 'jazz', yearFrom: 1955 })) as { tracks: { title: string }[] };
+
+        expect(result.tracks.map(item => item.title)).toEqual(['Blue in Green']);
+        const searchTracks = (record.instance as unknown as { searchTracks: ReturnType<typeof vi.fn> }).searchTracks;
+        expect(searchTracks).toHaveBeenCalledWith('', expect.objectContaining({ genre: 'jazz', yearFrom: 1955 }));
     });
 
     it('survives a limit that is not a number', async () => {

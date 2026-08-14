@@ -117,7 +117,10 @@ export class CatalogSearchTool implements ToolSource {
                     parameters: {
                         type: 'object',
                         properties: {
-                            query: { type: 'string', description: 'A title, an artist, or both.' },
+                            query: {
+                                type: 'string',
+                                description: 'A title, an artist, or both. Leave it out to browse a genre or a period on its own.',
+                            },
                             // The three filters exist because `query` is matched against titles and
                             // artist names and nothing else, which is not a detail the model can be
                             // expected to infer: asked for "jazz club hits" it searched those words
@@ -133,7 +136,13 @@ export class CatalogSearchTool implements ToolSource {
                             yearTo: { type: 'number', description: 'Narrow to records released in or before this year.' },
                             limit: { type: 'number', description: `How many results, at most ${MAX_RESULTS}.` },
                         },
-                        required: ['query'],
+                        // Nothing is required, because a genre with no query is a legitimate search
+                        // and a MODEL FOUND THAT OUT before this did: told to narrow by genre rather
+                        // than by words, it called this with only a genre, was refused, and worked
+                        // around the refusal by passing the query `a` — which is not a no-op, it is
+                        // a text match that quietly steers what comes back. What the call actually
+                        // needs is one of the four, which `search` below enforces and says.
+                        required: [],
                         additionalProperties: false,
                     },
                 },
@@ -161,14 +170,16 @@ export class CatalogSearchTool implements ToolSource {
     /**
      * One search, across everything.
      *
-     * Arguments arrive as the model produced them, so nothing here trusts a type. A missing or
-     * non-string query is the model's mistake and is reported as one, because "I could not read
-     * your query" is something it can correct and an exception is not.
+     * Arguments arrive as the model produced them, so nothing here trusts a type. An empty call is
+     * the model's mistake and is reported as one, because "you gave me nothing to search on" is
+     * something it can correct and an exception is not.
+     *
+     * A query is no longer required on its own: a genre or a period is a complete search, and
+     * demanding words alongside one made a model that was narrowing correctly invent the filler
+     * query `a` to get past the refusal. What IS required is at least one of the four.
      */
     private async search(args: Record<string, unknown>): Promise<{ tracks: FoundTrack[]; searched: number }> {
-        const query = typeof args.query === 'string' ? args.query.trim() : '';
-        if (query.length === 0) throw new Error('a search needs a "query" string');
-
+        const query = readText(args.query) ?? '';
         const limit = clampLimit(args.limit);
         const catalogs = this.catalogs();
         // Passed through untranslated. Each plugin expresses these however its upstream does, and a
@@ -179,6 +190,10 @@ export class CatalogSearchTool implements ToolSource {
             ...(readYear(args.yearFrom) === undefined ? {} : { yearFrom: readYear(args.yearFrom)! }),
             ...(readYear(args.yearTo) === undefined ? {} : { yearTo: readYear(args.yearTo)! }),
         };
+
+        if (query.length === 0 && Object.keys(filters).length === 0) {
+            throw new Error('a search needs a "query" string, or a "genre" or a year to narrow by');
+        }
 
         const found: FoundTrack[] = [];
         for (const plugin of catalogs) {

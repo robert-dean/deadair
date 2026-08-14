@@ -255,6 +255,40 @@ describe('readPicks', () => {
         expect(readPicks('', 10)).toEqual([]);
     });
 
+    it('keeps every complete record when the model ran out of room mid-array', () => {
+        // The failure that cost a live run its whole answer. `JSON.parse` over the span from the
+        // first bracket to the last cannot read a truncated array at all, so the parse threw, the
+        // line reader got the raw JSON, and a real pick came out as
+        // `Single Version","artist":"Louis Armstrong"}, — {"title":"A Kiss To Build A Dream On`.
+        // Reading objects one at a time makes truncation cost the one record it interrupted.
+        const answer =
+            '[{"title": "A Kiss To Build A Dream On - Single Version", "artist": "Louis Armstrong"}, ' +
+            '{"title": "Alone Together", "artist": "Kenny Dorham"}, ' +
+            '{"title": "So What", "arti';
+
+        expect(readPicks(answer, 10)).toEqual([
+            { title: 'A Kiss To Build A Dream On - Single Version', artist: 'Louis Armstrong' },
+            { title: 'Alone Together', artist: 'Kenny Dorham' },
+        ]);
+    });
+
+    it('never hands JSON to the line reader, however little of it survived', () => {
+        // The other half of the same bug: scraping JSON as prose does not fail, it invents records,
+        // and each invention then costs a provider lookup.
+        expect(readPicks('[{"title": "So What - Alt', 10)).toEqual([]);
+    });
+
+    it('reads a title containing a brace or an escaped quote', () => {
+        // Why this scans rather than matching a regex: both are legal inside a JSON string and both
+        // appear in real titles.
+        const answer = '[{"title": "Say \\"Hello\\" {Reprise}", "artist": "One"}, {"title": "B", "artist": "Two"}]';
+
+        expect(readPicks(answer, 10)).toEqual([
+            { title: 'Say "Hello" {Reprise}', artist: 'One' },
+            { title: 'B', artist: 'Two' },
+        ]);
+    });
+
     it('does not read an empty array as a reason to try the line reader', () => {
         // An array of nothing usable is the model saying nothing, not an invitation to scrape
         // whatever prose surrounds it.

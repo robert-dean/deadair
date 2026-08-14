@@ -111,8 +111,17 @@ export const BUDGET_MS = 180_000;
  */
 export const MAX_TOOL_STEPS = 5;
 
-/** A ceiling on the answer, in tokens. Fifteen records of JSON is small; the headroom is reasoning. */
-export const MAX_OUTPUT_TOKENS = 2_000;
+/**
+ * A ceiling on the answer, in tokens. Two dozen records of JSON is small; the headroom is reasoning.
+ *
+ * **Raised from 2,000 once the searches started returning enough to programme from**, which is the
+ * ordering worth remembering: the ceiling was comfortable while a search answered ten rows and a
+ * model had little to weigh, and started truncating answers as soon as it had thirty and a brief it
+ * could act on. It bit hardest on the best runs. A truncated answer is no longer catastrophic —
+ * `readPicks` reads complete objects one at a time — but it still costs whatever the model had left
+ * to say, and the records it names last are the ones it thought hardest about.
+ */
+export const MAX_OUTPUT_TOKENS = 6_000;
 
 /**
  * How many of the operator's likes and dislikes, per kind, are read for the prompt.
@@ -208,6 +217,18 @@ export class ModelSetGenerator extends SetGenerator {
             finish: result.finishReason,
             ...(result.usage === undefined ? {} : { tokens: result.usage.totalTokens ?? result.usage.outputTokens }),
         });
+
+        // Said whether or not anything came back, because a run that answered SHORT because it ran
+        // out of room is the one failure here that looks exactly like a model with nothing to say.
+        // It cost a live run eleven jazz records and was diagnosable only by noticing that the two
+        // it did name were spelled like fragments of JSON.
+        if (result.finishReason === 'length') {
+            this.logger.warn('director: the model ran out of room before it finished answering; some of its choices were lost', {
+                asked: inputs.count,
+                named: picks.length,
+                limit: MAX_OUTPUT_TOKENS,
+            });
+        }
 
         if (picks.length === 0) {
             if (result.toolCallsMade === 0) {

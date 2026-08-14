@@ -26,6 +26,8 @@ interface Options {
     toolCallsMade?: number;
     /** A model that throws instead of answering. */
     fails?: boolean;
+    /** Why the model stopped. `length` is a run that used all its room before finishing. */
+    finishReason?: LlmConversation['finishReason'];
     settings?: Record<string, string>;
     /** What the operator has rated. Absent is a station nobody has said anything about. */
     taste?: Partial<StationTaste>;
@@ -43,7 +45,7 @@ function build(options: Options = {}) {
             text: options.text ?? '[]',
             toolCalls: [],
             toolCallsMade: options.toolCallsMade ?? 1,
-            finishReason: 'stop',
+            finishReason: options.finishReason ?? 'stop',
             usage: { totalTokens: 500 },
         };
     });
@@ -287,6 +289,18 @@ describe('ModelSetGenerator', () => {
         await generator.generate(inputs(5));
 
         expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('says so when the model ran out of room before it finished answering', async () => {
+        // The one failure here that looks exactly like a model with nothing to say. It cost a live
+        // run eleven jazz records and was diagnosable only by noticing that the two it did name were
+        // spelled like fragments of JSON.
+        vi.mocked(logger.warn).mockClear();
+        const { generator } = build({ enabled: true, text: picks(['A', 'One']), toolCallsMade: 2, finishReason: 'length' });
+
+        await generator.generate(inputs(5));
+
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/ran out of room/), expect.objectContaining({ named: 1 }));
     });
 
     it('lets a model failure reach the chain, which is what absorbs it', async () => {

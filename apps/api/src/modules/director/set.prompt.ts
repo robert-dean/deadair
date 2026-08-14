@@ -262,28 +262,44 @@ export function readPicks(text: string, max: number): TrackPick[] {
 }
 
 /**
- * The first JSON array in the answer, if it holds anything usable.
+ * Every complete JSON object in the answer, read one at a time.
  *
- * Located by bracket rather than by parsing the whole answer, because a model that wrote "Here you
- * go:" before the array produced a perfectly good array that `JSON.parse` will not touch.
- * `undefined` rather than `[]` on a miss, so the caller can tell "no array here" from "an array of
- * nothing usable" and only fall through to the line reader for the first.
+ * **Object by object rather than as one array, because the array is frequently unfinished.** This
+ * used to `JSON.parse` the span from the first `[` to the last `]`, which is correct for a whole
+ * answer and catastrophic for a truncated one: a model that hits its output ceiling mid-array leaves
+ * no closing bracket, the parse throws, and the caller fell through to {@link fromLines} — which
+ * applied a `Title - Artist` regex to raw JSON and split a title on the hyphen inside it. One live
+ * run answered with a dozen real records and was read as two, spelled
+ * `Single Version","artist":"Louis Armstrong"}, — {"title":"A Kiss To Build A Dream On`. The model
+ * had done the job; the parser destroyed it, and then spent a provider lookup on each piece of
+ * wreckage.
+ *
+ * Reading the objects independently makes truncation cost exactly the one record it interrupted.
+ * That matters more than it looks, because the ceiling is hit precisely on the good runs: a model
+ * that searched well has more to reason about and more to say.
+ *
+ * `undefined` only when there is no object at all, so the caller can tell "this is not JSON" from
+ * "this is JSON holding nothing usable" and falls through to the line reader for the first alone.
+ * Handing JSON to that reader is what produced the wreckage above.
  */
 function fromJson(answer: string): TrackPick[] | undefined {
-    const start = answer.indexOf('[');
-    const end = answer.lastIndexOf(']');
-    if (start < 0 || end <= start) return undefined;
-
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(answer.slice(start, end + 1));
-    } catch {
-        return undefined;
-    }
-    if (!Array.isArray(parsed)) return undefined;
+    const objects = jsonObjects(answer);
+    // A brace with no complete object behind it is still JSON — an answer truncated before its first
+    // record closes — and the line reader must not be let near it. `{` rather than `[` is the test
+    // on purpose: a numbered list mentioning `[remix]` is an ordinary answer this must still read,
+    // and one containing a brace is not.
+    if (objects.length === 0) return answer.includes('{') ? [] : undefined;
 
     const picks: TrackPick[] = [];
-    for (const entry of parsed) {
+    for (const span of objects) {
+        let entry: unknown;
+        try {
+            entry = JSON.parse(span);
+        } catch {
+            // One malformed object costs itself and nothing after it, which is the whole point of
+            // parsing them separately.
+            continue;
+        }
         if (typeof entry !== 'object' || entry === null) continue;
 
         const { title, artist } = entry as { title?: unknown; artist?: unknown };
@@ -293,6 +309,52 @@ function fromJson(answer: string): TrackPick[] | undefined {
         picks.push({ title: title.trim(), artist: artist.trim() });
     }
     return picks;
+}
+
+/**
+ * The complete `{...}` spans in a string, ignoring braces inside JSON strings.
+ *
+ * A scanner rather than a regex because a title legitimately contains a brace, a quote or an escaped
+ * quote, and because the LAST object is the one that matters here: it is where a truncated answer
+ * stops, and an unterminated span must be left out rather than half-read.
+ *
+ * Depth is tracked so a nested brace closes its own object rather than its parent's, which means
+ * what comes back is the OUTERMOST objects. That is right for the shape the prompt asks for — a flat
+ * array of `{title, artist}` — and is why an answer wrapped in `{"picks": [...]}` would read as one
+ * unusable object rather than as its contents. Nothing produces that shape, and the fix if anything
+ * ever does is to ask this for depth-1 spans, not to unwrap here.
+ */
+function jsonObjects(text: string): string[] {
+    const spans: string[] = [];
+    let depth = 0;
+    let start = -1;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = 0; index < text.length; index += 1) {
+        const character = text[index]!;
+
+        if (inString) {
+            if (escaped) escaped = false;
+            else if (character === '\\') escaped = true;
+            else if (character === '"') inString = false;
+            continue;
+        }
+
+        if (character === '"') inString = true;
+        else if (character === '{') {
+            if (depth === 0) start = index;
+            depth += 1;
+        } else if (character === '}' && depth > 0) {
+            depth -= 1;
+            if (depth === 0 && start >= 0) {
+                spans.push(text.slice(start, index + 1));
+                start = -1;
+            }
+        }
+    }
+
+    return spans;
 }
 
 /**

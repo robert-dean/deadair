@@ -269,8 +269,15 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
         const previous = readRef(ref.providerRef);
 
         try {
+            // Artist and title, NEVER the mbid, which is the opposite of what `enrichArtist`
+            // above does. `albums.mbid` is a MusicBrainz release-GROUP id by definition (the
+            // host promotes it under `musicbrainz-release-group`) and this endpoint indexes
+            // RELEASE mbids, so handing it one is a lookup that cannot succeed. Measured on
+            // this install: 2 hits in 432 albums that carried an mbid, against 7 in 86 that
+            // had none and fell through to the names.
             const response = await this.client.get<LastfmAlbumInfoResponse>('album.getInfo', {
-                ...(ref.mbid ? { mbid: ref.mbid } : { artist: previous?.artist ?? ref.artist, album: previous?.name ?? ref.name }),
+                artist: previous?.artist ?? ref.artist,
+                album: previous?.name ?? ref.name,
                 autocorrect: '1',
             });
 
@@ -594,14 +601,19 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
     /**
      * Whether a failure means "no such thing" rather than "something is wrong".
      *
-     * Error 6 is `invalid parameters` and is what this API answers for an artist
-     * or track it has never heard of, which on an enrichment walk is the ordinary
-     * case rather than a fault. Treating it as a failure would spend a breaker
-     * strike on every record the service does not know, and three of those
-     * quarantine the plugin.
+     * TWO shapes, because this API has two. Error 6 is `invalid parameters` and
+     * is what it answers for an artist or track it has never heard of. And
+     * `album.getInfo` answers a plain **HTTP 404** for a record it cannot find,
+     * with no error number at all in some responses.
+     *
+     * Recognising only the first cost 66 of 75 albums in one live enrichment
+     * pass: every ordinary miss reached the host as a failure, so it was logged
+     * as a fault AND no miss row was written — which means the walk re-asked the
+     * same 66 albums on every pass, forever, and could never converge.
      */
     private isNotFound(error: unknown): boolean {
-        return error instanceof LastfmRequestError && error.apiError === LASTFM_ERROR.invalidParameters;
+        if (!(error instanceof LastfmRequestError)) return false;
+        return error.apiError === LASTFM_ERROR.invalidParameters || error.status === 404;
     }
 }
 

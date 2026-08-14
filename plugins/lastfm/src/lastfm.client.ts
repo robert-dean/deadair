@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
     jsonBody,
+    tryJsonBody,
     PluginError,
     pluginCodeForStatus,
     retryAfterMs,
@@ -74,7 +75,12 @@ function codeForApiError(error: number): PluginErrorCode {
         case LASTFM_ERROR.authenticationFailed:
             return 'config';
         case LASTFM_ERROR.invalidParameters:
-            return 'internal';
+            // The service's catch-all. It means a malformed request AND "no such
+            // artist/track/album", which is far and away the commoner case on an
+            // enrichment walk — so `not_found` rather than `internal`, and the
+            // caller decides whether a miss is data. `isResourceScopedCode` keeps
+            // it off the host's breaker either way.
+            return 'not_found';
         case LASTFM_ERROR.rateLimit:
             return 'rate_limited';
         case LASTFM_ERROR.serviceOffline:
@@ -170,15 +176,28 @@ export class LastfmClient {
     /**
      * One response, with both ways it can be a failure checked.
      *
-     * The order matters: the HTTP status is checked first because a 5xx has no
-     * JSON body to read an error number out of, and the error number second
-     * because a 200 is not evidence of anything on this API.
+     * **The error number is read from a non-2xx body as well as from a 200's**,
+     * and that is not belt and braces. This API is inconsistent about which
+     * failures get an HTTP status: most arrive as 200 with `{"error":6}`, and
+     * `album.getInfo` answers a plain **404** for a record it cannot find. The
+     * first version of this method threw the body away on a non-2xx, so a
+     * perfectly ordinary "no such album" reached the host as an unexplained
+     * transport failure — which cost 66 albums out of 75 in one enrichment pass,
+     * every one of them logged as a fault, and none of them ever settling into a
+     * miss row. See {@link LastfmPlugin.isNotFound} for the other half.
+     *
+     * A body that is not JSON at all is the genuine transport failure this used
+     * to report for everything, and still reports.
      */
     private async read<T>(response: Response, method: string): Promise<T> {
         if (!response.ok) {
             const retryMs = retryAfterMs(response.headers.get('retry-after'));
-            const detail = upstreamDetail(response.status, response.statusText);
+            const said = await tryJsonBody<LastfmErrorResponse>(response);
+            const reason = said?.message === undefined ? undefined : truncateUpstreamMessage(said.message);
+            const detail = upstreamDetail(response.status, response.statusText, reason);
+
             throw new LastfmRequestError(response.status, `Last.fm ${method} failed: ${detail}`, {
+                ...(typeof said?.error === 'number' ? { apiError: said.error } : {}),
                 ...(retryMs === undefined ? {} : { retryMs }),
             });
         }

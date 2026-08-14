@@ -112,4 +112,9 @@ contract mode(strip) PluginOAuthCallbackQuery: {
     state?: string(max=400)
     error?: string(max=400)
     ubi?: string(max=400)
+    # What a desktop-style flow returns instead of `code`: the provider mints a token before the
+    # consent screen and hands the same one back, which the plugin exchanges for a session. Last.fm's
+    # auth works this way. Listed here because the route parses this query strictly, so an
+    # undeclared parameter is a 400 before any plugin code runs
+    token?: string(max=2048)
 }

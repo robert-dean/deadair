@@ -204,6 +204,21 @@ describe('PluginsService OAuth state enforcement', () => {
         expect(h.handleCallback).toHaveBeenCalledWith({ code: 'auth-code', state });
     });
 
+    it('hands a desktop-style flow its `token`, which is what it gets instead of a `code`', async () => {
+        // Some providers mint a token BEFORE the consent screen and hand the same one back rather
+        // than an authorization code. The state check is unchanged — it is still the only thing
+        // separating a real callback from one an attacker made a browser issue — and the parameter
+        // rides through to the plugin, which is the half that has to be declared: the route parses
+        // this query strictly, so an undeclared name is a 400 before any plugin code runs.
+        const h = harness();
+        const state = await authorize(h);
+
+        const result = await h.service.completeOAuthCallback(PLUGIN_ID, { token: 'desktop-token', state });
+
+        expect(result).toEqual({ pluginId: PLUGIN_ID, ok: true });
+        expect(h.handleCallback).toHaveBeenCalledWith({ token: 'desktop-token', state });
+    });
+
     it('rejects a forged callback that follows no authorization at all', async () => {
         const h = harness();
 

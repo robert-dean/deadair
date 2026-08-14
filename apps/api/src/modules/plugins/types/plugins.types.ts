@@ -77,6 +77,13 @@ export const PluginOAuthCallbackQuery = z.object({
     state: z.string().max(400).optional(),
     error: z.string().max(400).optional(),
     ubi: z.string().max(400).optional(),
+    token: z
+        .string()
+        .max(2048)
+        .optional()
+        .describe(
+            "What a desktop-style flow returns instead of `code`: the provider mints a token before the\nconsent screen and hands the same one back, which the plugin exchanges for a session. Last.fm's\nauth works this way. Listed here because the route parses this query strictly, so an\nundeclared parameter is a 400 before any plugin code runs",
+        ),
 });
 export type PluginOAuthCallbackQuery = z.infer<typeof PluginOAuthCallbackQuery>;
 

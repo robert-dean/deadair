@@ -108,7 +108,7 @@ describe('TrackAudioService.readyFor', () => {
         const checksum = await store.write(RECORD, 'ogg');
         const { service } = build({ source: { ...BINDING, checksum, ext: 'ogg' } });
 
-        expect(await service.readyFor(WANTED)).toEqual(new Set([SOURCE_ID]));
+        expect(await service.readyFor(WANTED)).toEqual(new Set(['deadair.spotify track-42']));
     });
 
     // The case a caller reading the row itself would get wrong, and the reason this lives on the

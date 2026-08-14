@@ -57,6 +57,10 @@ exists.
   cannot cancel**, so anything that must stop work in flight bumps the epoch synchronously and posts
   only the durable half; and **nothing runs a commit pass off the queue**, including the first one at
   boot.
+- `docs/decisions/bytes-before-air.md` for why a record is not committed until its audio is local,
+  why the gate cuts rather than filters, why a cold record is held where a cold segment is skipped,
+  and why it fails open. Read it before touching the commit pass, `TrackCachePlanner`, or the
+  relationship between `CACHE_AHEAD` and `COMMIT_LEAD`.
 - `docs/todo/` for work that was designed against the real tree and then deliberately deferred, and
   the seam each piece drops into. Read it before designing a station feature from scratch: the call
   may already have been made. It describes the current tree only.
@@ -258,6 +262,20 @@ because a cut says nothing about how far the broadcast has got and counting it w
 order in front of it; and `DirectorService.collectRemoved` retires the segment row behind the cut,
 leaving a `ready` row alone and leaving any id still elsewhere in the order alone, since idents come
 from a shared library and the same row is legitimately at three slots in an hour.
+
+**A record is COMMITTED only once its audio is on this machine.** `DirectorService.withLocalAudio`
+cuts the commit pass's candidates at the first record `TrackAudioService.readyFor` does not answer
+for, so Liquidsoap's resolve is a read from this app rather than a provider download inside the
+request it is waiting on — which is what produced the 2.16 seconds of digital silence in
+`docs/todo/provider-audio-failures.md`. Four things are load-bearing and `docs/decisions/bytes-before-air.md`
+argues each: it CUTS rather than filters, because filtering would commit the warm items and leave the
+cold one behind them, reordering an operator's sequence by which downloads finished first; a cold
+record is HELD rather than skipped, which is the exact opposite of the segment rule beside it (a break
+is disposable and a record is not); `readyFor` demands the row's checksum AND the file, since a row
+whose file was deleted is repaired by re-fetching on the air path; and it fails OPEN, because a gate
+that could not read its own answer would take the station off air within three items over a transient
+database fault. `order.waitingOnAudio` is on the feed for a station that has been unable to commit for
+`WAITING_ON_AUDIO_MS`, written once on the edge.
 
 **The player fetches every record from the app, and the app is the only thing that fetches a provider.**
 `TrackAudioResolver` answers `/playout/audio/{sourceId}` for any binding that is `playable and

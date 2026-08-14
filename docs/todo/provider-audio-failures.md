@@ -6,6 +6,13 @@ measurements below on the way.
 what it cannot fetch, which is correct, and the audible result is dead air. 13 of 581 catalog tracks
 are measured because the measurement pass hits the same wall.
 
+> **Update, 2026-08-14: the silence measured below is no longer reachable by this path.** A record is
+> not committed to the running order until its audio is on this machine
+> (`docs/decisions/bytes-before-air.md`), so a provider refusing a track is discovered while the
+> records ahead of it are still playing rather than at the boundary. The upstream problem is
+> unchanged and everything under "Where to look first" still stands — what changed is that its cost
+> is a thinner rotation instead of a gap on the mount.
+
 This is not a crossfade problem, an analyzer problem or a rundown problem, though it stops all three
 from being finished. Everything downstream is behaving exactly as designed; the audio simply does not
 arrive.

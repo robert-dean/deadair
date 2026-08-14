@@ -28,6 +28,7 @@ import type { ActivityRecorder } from '../../../src/modules/activity/activity.re
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
+import { TrackAudioService, bindingKey } from '../../../src/modules/playout/audio/track.audio.service.js';
 import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
@@ -74,6 +75,14 @@ interface Options {
      * a track missing from its answer is one no provider will serve.
      */
     servable?: string[];
+    /**
+     * External ids whose audio is already on this machine.
+     *
+     * `undefined` means all of them, which is the ordinary station once the ripener has run.
+     * Naming a subset is staging a cold record: the director will not commit one whose bytes are
+     * not here, and holds its slot rather than committing past it.
+     */
+    localAudio?: string[];
     /**
      * Which segment promised which line, as `[itemId, segmentId]` pairs.
      *
@@ -175,6 +184,17 @@ function build(options: Options = {}) {
         ),
     } as unknown as CandidatesRepository;
 
+    // Which records the station already has the audio for. Defaults to ALL of them, so the tests
+    // that are about something else are not silently exercising the cold path; `localAudio` names
+    // the external ids that are here for the tests that are about the gate itself.
+    const readyFor = vi.fn(async (bindings: readonly { pluginId: string; externalId: string }[]) => {
+        const here = options.localAudio;
+        return new Set(
+            bindings.filter(binding => here === undefined || here.includes(binding.externalId)).map(binding => bindingKey(binding)),
+        );
+    });
+    const trackAudio = { readyFor } as unknown as TrackAudioService;
+
     const scope = {
         get: vi.fn((token: unknown) =>
             token === StationLineupRepository
@@ -187,7 +207,9 @@ function build(options: Options = {}) {
                       ? breaks
                       : token === CandidatesRepository
                         ? candidates
-                        : history,
+                        : token === TrackAudioService
+                          ? trackAudio
+                          : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -212,6 +234,7 @@ function build(options: Options = {}) {
         createScope,
         scope,
         rundown,
+        readyFor,
         lineups,
         snapshots,
         breaks,
@@ -253,6 +276,66 @@ const wake = async (rundown: Rundown) => {
     await rundown.next();
     await settle();
 };
+
+describe('DirectorService committing only what it has the audio for', () => {
+    it('commits nothing while the next record is still being fetched', async () => {
+        // The precondition the whole shape exists for: Liquidsoap's resolve should be a read from
+        // this app, never a provider download inside the request it is waiting on.
+        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'], localAudio: [] });
+        await seed();
+
+        await director.start();
+
+        expect(rundown.upcoming()).toHaveLength(0);
+    });
+
+    // The load-bearing half. Filtering would commit 'b' and 'c' and leave 'a' behind them, so an
+    // operator's sequence would be rearranged by which downloads happened to finish first.
+    it('stops at the first record it has not got rather than committing past it', async () => {
+        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'], localAudio: ['b', 'c'] });
+        await seed();
+
+        await director.start();
+
+        expect(rundown.upcoming()).toHaveLength(0);
+    });
+
+    it('commits the head that is here and holds the slot of the record that is not', async () => {
+        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'], localAudio: ['a', 'b'] });
+        await seed();
+
+        await director.start();
+
+        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b']);
+    });
+
+    // A segment's readiness is `segments.state` and `toPlayerItems` SKIPS one that is not ready
+    // rather than waiting: a break is disposable and a record is not.
+    it('does not ask whether a segment has local audio', async () => {
+        const { director, lineup, readyFor, seed } = build({
+            items: ['a'],
+            segments: [{ id: 'seg-1', kind: 'ident', state: 'ready', label: 'Ident', audioChecksum: 'x', audioExt: 'mp3' }],
+        });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+
+        expect(readyFor).toHaveBeenCalledWith([{ pluginId: 'deadair.spotify', externalId: 'a' }]);
+    });
+
+    // An unreachable database must not take the station off air within three items. The pass falls
+    // back to what the tree did before the rule existed and lets the hand-over fetch.
+    it('commits without checking when it cannot tell what is here', async () => {
+        const { director, rundown, readyFor, seed } = build({ items: ['a', 'b', 'c'] });
+        readyFor.mockRejectedValue(new Error('the pool is gone'));
+        await seed();
+
+        await director.start();
+
+        expect(rundown.upcoming()).toHaveLength(3);
+    });
+});
 
 describe('DirectorService committing', () => {
     it('commits a few items and no more', async () => {

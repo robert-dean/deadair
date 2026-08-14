@@ -86,6 +86,21 @@ const MISSING_AFTER_ATTEMPTS = 4;
  */
 export const CACHE_AHEAD = 6;
 
+/** Which copy of a record: the pair that keys `deadair.track_sources`. */
+export interface TrackBinding {
+    pluginId: string;
+    externalId: string;
+}
+
+/**
+ * How a binding is named in the answer {@link TrackAudioService.readyFor} gives.
+ *
+ * The pair rather than `track_sources.id`, because the caller is the director holding running-order
+ * items, and an item carries the binding it was built from and has never seen a source id. Exported
+ * so the reader and the writer of that set cannot spell the key differently.
+ */
+export const bindingKey = (binding: TrackBinding): string => `${binding.pluginId} ${binding.externalId}`;
+
 /** Audio ready to hand to a caller, however it was come by. */
 export interface ServedAudio {
     contentType: TrackContentType;
@@ -266,24 +281,24 @@ export class TrackAudioService {
      * A binding the catalog has written off is absent from the query rather than reported unready,
      * which is the same answer as far as this is concerned: not something to commit.
      */
-    async readyFor(bindings: readonly { pluginId: string; externalId: string }[]): Promise<Set<string>> {
+    async readyFor(bindings: readonly TrackBinding[]): Promise<Set<string>> {
         if (bindings.length === 0) return new Set();
 
         const states = await inScope(this.container, scope => scope.get(TrackAudioRepository).findForBindings(bindings));
         const ready = await Promise.all(
             states.map(async state =>
                 state.checksum !== undefined && state.ext !== undefined && (await this.store.exists(state.checksum, state.ext))
-                    ? state.sourceId
+                    ? bindingKey(state)
                     : undefined,
             ),
         );
 
-        return new Set(ready.filter((sourceId): sourceId is string => sourceId !== undefined));
+        return new Set(ready.filter((key): key is string => key !== undefined));
     }
 
     /** Whether this one binding's audio is on this machine. {@link readyFor} for a single record. */
-    async has(pluginId: string, externalId: string): Promise<boolean> {
-        return (await this.readyFor([{ pluginId, externalId }])).size > 0;
+    async has(binding: TrackBinding): Promise<boolean> {
+        return (await this.readyFor([binding])).size > 0;
     }
 
     /**

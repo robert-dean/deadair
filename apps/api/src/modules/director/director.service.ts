@@ -6,6 +6,7 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { TrackCachePlanner } from '#modules/playout/audio/track.cache.planner.js';
+import { TrackAudioService, bindingKey } from '#modules/playout/audio/track.audio.service.js';
 import { Epoch } from '#modules/shared/epoch.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
@@ -18,7 +19,14 @@ import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { resolveRules, stationRules, type ResolvedRules } from './rotation.rules.js';
 import { MAIN_SLOT, StationAirRepository, type StationAir } from './station.air.repository.js';
-import { StationLineup, type EditResult, type StationLineupBinding, type StationLineupItem, type StationLineupSnapshot } from './station.lineup.js';
+import {
+    StationLineup,
+    isTrackItem,
+    type EditResult,
+    type StationLineupBinding,
+    type StationLineupItem,
+    type StationLineupSnapshot,
+} from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 
@@ -31,6 +39,17 @@ import { errorText } from '#modules/shared/error.text.js';
  * player's own lead full.
  */
 const COMMIT_LEAD = 3;
+
+/**
+ * How long the station may commit nothing for want of audio before it says so.
+ *
+ * Long enough that the ordinary case is silent: a record still downloading is seconds to most of a
+ * minute on a big file over a rate-limited credential, and a feed row per download would be noise.
+ * Short enough to arrive before the consequence does — the player is holding at most `COMMIT_LEAD`
+ * items, which is roughly ten minutes of music, so a minute of not committing is early enough to be
+ * a warning rather than a post-mortem.
+ */
+const WAITING_ON_AUDIO_MS = 60_000;
 
 /**
  * Commit the tail below this and a refill is sent.
@@ -165,6 +184,13 @@ export class DirectorService {
      */
     private pendingVoice?: { itemId: string; segmentId: string; atMs: number };
     private readonly unsubscribes: (() => void)[] = [];
+    /**
+     * Since when the commit window has held candidates and committed none of them, because none of
+     * their audio is here yet. Absent whenever the last pass committed something.
+     */
+    private waitingOnAudioSince?: number;
+    /** Whether the current wait has already been reported, so the feed carries one row and not one a second. */
+    private waitingOnAudioReported = false;
     /** A write the throttle owes. Set while a timer is pending; see {@link persistSoon}. */
     private persistTimer?: NodeJS.Timeout;
 
@@ -645,10 +671,9 @@ export class DirectorService {
             // change and a change asks for another pass — so a pass that simply offered the next
             // few planned items would prepare the same ones on every pass and never stop.
             const wanted = COMMIT_LEAD - held;
-            const taken = lineup
-                .nextPlanned(COMMIT_LEAD)
-                .filter(item => !this.rundown.isPrepared(item.id))
-                .slice(0, wanted);
+            const candidates = lineup.nextPlanned(COMMIT_LEAD).filter(item => !this.rundown.isPrepared(item.id));
+            const taken = (await this.withLocalAudio(candidates)).slice(0, wanted);
+            this.noteAudioWait(candidates.length > 0 && taken.length === 0);
             const prepared = taken.length === 0 ? undefined : await this.toPlayerItems(taken);
 
             // ── apply ───────────────────────────────────────────────────────────────
@@ -660,6 +685,10 @@ export class DirectorService {
             if (!this.epoch.isCurrent(token)) return;
 
             if (prepared) {
+                // Committing anything at all ends the wait, so a station that recovers stops saying
+                // it is stuck and the next stall is reported afresh.
+                this.waitingOnAudioSince = undefined;
+                this.waitingOnAudioReported = false;
                 this.rundown.prepare(prepared.items);
                 for (const itemId of prepared.skipped) lineup.markSkipped(itemId);
                 for (const itemId of prepared.unavailable) lineup.markUnavailable(itemId);
@@ -685,6 +714,81 @@ export class DirectorService {
         }
 
         await this.topUpIfShort(lineup, rules);
+    }
+
+    /**
+     * The head of a candidate list, cut at the first record whose audio is not on this machine.
+     *
+     * **The precondition the whole shape exists for.** A record is committed only once its bytes are
+     * here, so Liquidsoap's resolve is a read from this app rather than a provider download inside
+     * the request it is waiting on. See `docs/decisions/bytes-before-air.md`.
+     *
+     * It CUTS rather than filters, and that is the load-bearing half. Filtering would commit the warm
+     * items and leave the cold one behind them, which reorders the running order — an operator's
+     * sequence rearranged by which downloads happened to finish first, silently. Stopping at the
+     * first cold record holds its slot instead: the ripener is fetching several boundaries ahead, so
+     * the ordinary case is that the bytes land before the slot does, and the pass comes round again
+     * on the next rundown change.
+     *
+     * A segment passes straight through. Its readiness is its own `segments.state`, and
+     * {@link toPlayerItems} SKIPS one that is not ready rather than waiting for it — deliberately the
+     * opposite rule, because a break is disposable and a record is not.
+     *
+     * A record the catalog has never seen has no binding to be ready, so it passes through too and
+     * answers for itself at hand-over, exactly as it does for the bench check in
+     * {@link toPlayerItems}.
+     *
+     * Failing to READ readiness is not a reason to commit nothing: an unreachable database would
+     * otherwise take the station off air within three items. It answers with the candidates unchanged
+     * and lets the hand-over fetch, which is what the tree did before this rule existed.
+     */
+    private async withLocalAudio(candidates: readonly StationLineupItem[]): Promise<StationLineupItem[]> {
+        const bindings = candidates.filter(isTrackItem).map(item => ({ pluginId: item.track.pluginId, externalId: item.track.externalId }));
+        if (bindings.length === 0) return [...candidates];
+
+        const ready = await inScope(this.container, scope => scope.get(TrackAudioService).readyFor(bindings)).catch(error => {
+            this.logger.warn(`director: could not tell which records are already here, so committing without checking (${errorText(error)})`);
+            return undefined;
+        });
+        if (ready === undefined) return [...candidates];
+
+        const cut = candidates.findIndex(item => isTrackItem(item) && !ready.has(bindingKey(item.track)));
+
+        return cut === -1 ? [...candidates] : candidates.slice(0, cut);
+    }
+
+    /**
+     * Say once, on the edge, that the station has a running order it cannot commit from.
+     *
+     * On the EDGE and after a delay, per the feed's rule: the commit pass runs on every rundown
+     * change, so a row per pass would be a log file with a primary key. The delay is what tells the
+     * ordinary case — a record still downloading, which is most of a minute on a big file — from the
+     * one worth reporting, where the station has been unable to commit anything for long enough that
+     * the player is going to run dry.
+     *
+     * Cleared as soon as anything commits, so a station that recovers stops saying it.
+     */
+    private noteAudioWait(waiting: boolean): void {
+        if (!waiting) {
+            this.waitingOnAudioSince = undefined;
+            return;
+        }
+
+        const now = Date.now();
+        this.waitingOnAudioSince ??= now;
+        if (this.waitingOnAudioReported || now - this.waitingOnAudioSince < WAITING_ON_AUDIO_MS) return;
+
+        this.waitingOnAudioReported = true;
+        this.logger.warn('director: nothing in the running order has its audio yet, so the station is committing nothing');
+        void this.activity.record({
+            module: 'director',
+            kind: 'order.waitingOnAudio',
+            severity: 'warn',
+            detail:
+                `The station has a running order but none of the next items has its audio on this machine yet, ` +
+                `so nothing has been committed for ${Math.round((now - this.waitingOnAudioSince) / 1000)}s.`,
+            data: { waitingMs: now - this.waitingOnAudioSince },
+        });
     }
 
     /**

@@ -7,13 +7,19 @@ import { pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { TrackAudioResolver } from '#modules/playout/providers/track.audio.resolver.js';
+import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { AnalysisRepository, type AnalysableTrack } from './analysis.repository.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
+    ANALYSIS_LOCAL_PACE_KEY,
     ANALYSIS_PLUGIN_KEY,
+    ANALYSIS_PROVIDER_PACE_KEY,
     DEFAULT_ANALYSIS_CONCURRENCY,
+    DEFAULT_ANALYSIS_LOCAL_PACE_MS,
+    DEFAULT_ANALYSIS_PROVIDER_PACE_MS,
     explainNoAnalyzer,
     resolveAnalysisConcurrency,
+    resolveAnalysisPaceMs,
     selectAnalysisPlugin,
 } from './analysis.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -33,23 +39,15 @@ import { errorText } from '#modules/shared/error.text.js';
 export const ANALYZE_INVOKE_TIMEOUT_MS = 6 * 60_000;
 
 /**
- * How long to wait between tracks, so a run is a trickle rather than a burst.
+ * An override for one call, bypassing the settings this otherwise reads.
  *
- * `BATCH_SIZE` in `analysis.job.ts` bounds one run; this bounds the RATE inside
- * it, and the two are different protections. A provider's limiter counts requests
- * per interval, so five fetches in five seconds can trip what five in five
- * minutes does not — and the download itself is the expensive part, not the gap
- * after it.
- *
- * Charged after each track rather than before, so an empty queue costs nothing.
- *
- * It lives HERE rather than beside the batch size it partners, which reads
- * backwards and is deliberate: the job imports the service, so a constant the
- * service reads cannot live in the job. That cycle loads fine under vitest and
- * throws `Cannot access 'AnalysisService' before initialization` under Node's ESM
- * loader, which is a failure no unit test in this repo would have caught.
+ * The only caller that wants this is a test: the job never passes one, so a run always waits on
+ * whatever `analysis.providerPaceMs` and `analysis.localPaceMs` currently say.
  */
-export const TRACK_PACE_MS = 60_000;
+export interface AnalysisPaceOverride {
+    providerPaceMs?: number;
+    localPaceMs?: number;
+}
 
 /** What one pass did, for the job's log line. */
 export interface AnalysisPassSummary {
@@ -79,6 +77,10 @@ export class AnalysisService {
         // not got the record yet. The analyzer is a container of its own, so it wants a URL rather
         // than bytes in hand — and this URL works from anywhere that can reach the app.
         private readonly trackAudio: TrackAudioResolver,
+        // Asked once per track, BEFORE resolving that same track's URL, so the pace after it can tell
+        // a copy the station already keeps from one the analyzer is about to make it fetch. See
+        // `measureOne`.
+        private readonly audioService: TrackAudioService,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -118,6 +120,16 @@ export class AnalysisService {
         return resolveAnalysisConcurrency(this.config.get(ANALYSIS_CONCURRENCY_KEY, DEFAULT_ANALYSIS_CONCURRENCY));
     }
 
+    /** How long to wait after a track the walk had to fetch from a provider. See {@link resolveAnalysisPaceMs}. */
+    providerPaceMs(): number {
+        return resolveAnalysisPaceMs(this.config.get(ANALYSIS_PROVIDER_PACE_KEY, DEFAULT_ANALYSIS_PROVIDER_PACE_MS), DEFAULT_ANALYSIS_PROVIDER_PACE_MS);
+    }
+
+    /** How long to wait after a track whose audio was already on this machine. See {@link resolveAnalysisPaceMs}. */
+    localPaceMs(): number {
+        return resolveAnalysisPaceMs(this.config.get(ANALYSIS_LOCAL_PACE_KEY, DEFAULT_ANALYSIS_LOCAL_PACE_MS), DEFAULT_ANALYSIS_LOCAL_PACE_MS);
+    }
+
     /**
      * Measure as much of the outstanding queue as the budget allows.
      *
@@ -127,7 +139,7 @@ export class AnalysisService {
      * nothing reached is simply still outstanding, and there is always another
      * pass.
      */
-    async analysePending(limit: number, signal?: AbortSignal, paceMs = TRACK_PACE_MS): Promise<AnalysisPassSummary> {
+    async analysePending(limit: number, signal?: AbortSignal, pace: AnalysisPaceOverride = {}): Promise<AnalysisPassSummary> {
         const summary: AnalysisPassSummary = { scanned: 0, measured: 0, failed: 0, incomplete: 0 };
 
         const analyzer = this.analyzer();
@@ -135,6 +147,9 @@ export class AnalysisService {
 
         const tracks = await this.repository.listTracksNeedingAnalysis(ANALYSIS_SCHEMA_VERSION, limit);
         if (tracks.length === 0) return summary;
+
+        const providerPaceMs = pace.providerPaceMs ?? this.providerPaceMs();
+        const localPaceMs = pace.localPaceMs ?? this.localPaceMs();
 
         const queue = [...tracks];
         const width = Math.min(this.concurrency(), queue.length);
@@ -149,14 +164,16 @@ export class AnalysisService {
                     if (track === undefined) return;
 
                     summary.scanned += 1;
-                    await this.measureOne(analyzer, track, summary);
+                    const wasLocal = await this.measureOne(analyzer, track, summary);
 
-                    // Paced, because measuring a track is a FULL AUDIO DOWNLOAD
-                    // through the same credential the station plays on, and a
-                    // burst of them exhausted a provider's audio-key quota once
-                    // and took the station off air. Charged only when there is
-                    // more to do, so a short queue is not padded for nothing.
-                    if (queue.length > 0) await this.pause(paceMs, signal);
+                    // Paced, because measuring a track that is NOT already on this machine is a FULL
+                    // AUDIO DOWNLOAD through the same credential the station plays on, and a burst of
+                    // them exhausted a provider's audio-key quota once and took the station off air.
+                    // A track that was already local pays the gentler rate instead — still a pace
+                    // rather than nothing, because background analysis running flat out is still real
+                    // disk and decode work on a machine nobody asked to donate it. Charged only when
+                    // there is more to do, so a short queue is not padded for nothing.
+                    if (queue.length > 0) await this.pause(wasLocal ? localPaceMs : providerPaceMs, signal);
                 }
             }),
         );
@@ -190,9 +207,21 @@ export class AnalysisService {
      *
      * Never throws. Everything that can go wrong here is one track's problem,
      * and the pass around it has already paid for the others.
+     *
+     * @returns Whether this measurement needed no provider fetch, which is what the pause after it is
+     * chosen by. Answered `true` for a copy already on this machine AND for a track that never reached
+     * the analyzer at all — neither one made a request to a rate-limited upstream, so neither one owes
+     * that pace. Answered before the analyzer's own fetch runs, from what {@link TrackAudioService}
+     * already knows, because the analyzer's request happens inside a plugin call this service cannot
+     * see the inside of.
      */
-    private async measureOne(analyzer: AnalysisPlugin, track: AnalysableTrack, summary: AnalysisPassSummary): Promise<void> {
+    private async measureOne(analyzer: AnalysisPlugin, track: AnalysableTrack, summary: AnalysisPassSummary): Promise<boolean> {
         const pluginId = analyzer.record.id;
+
+        // Checked BEFORE resolving the same track's URL and BEFORE the analyzer ever asks for it. A
+        // failure here is read as "not local" rather than propagated: that is the pace-conservative
+        // answer, so a check this can never usefully retry does not cost the track its measurement.
+        const wasLocal = await this.audioService.has({ pluginId: track.pluginId, externalId: track.externalId }).catch(() => false);
 
         // Resolved here rather than by the analyzer, because a plugin cannot ask another plugin for
         // anything: the copy that can actually be served is a binding the catalog owns, and reaching
@@ -214,7 +243,8 @@ export class AnalysisService {
             // writing a failure would take it out of the queue for a day over
             // something that may be fixed in a minute.
             this.logger.debug('analysis: no audio url for a track', { track: track.trackId, provider: track.pluginId });
-            return;
+            // Nothing was fetched, so this is the cheap case regardless of `wasLocal`.
+            return true;
         }
 
         const ref: AnalysisRef = {
@@ -264,5 +294,7 @@ export class AnalysisService {
                 });
             });
         }
+
+        return wasLocal;
     }
 }

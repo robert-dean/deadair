@@ -24,17 +24,23 @@ import { AnalysisService } from './analysis.service.js';
  * So the constraint is not CPU and it is not the analyzer. It is that analysis
  * and playout share one upstream and one credential, and **playout wins every
  * time** — an unmeasured track plays perfectly well, and a station that cannot
- * fetch audio plays nothing at all. Five per run, paced by `TRACK_PACE_MS` in
- * `analysis.service.ts`, keeps the background work well under the foreground's
- * share. The pace lives over there rather than beside this constant because the
- * job imports the service, so the reverse would be a cycle.
+ * fetch audio plays nothing at all. Five per run, paced by `analysis.providerPaceMs`
+ * (see `AnalysisService.providerPaceMs`), keeps the background work well under the
+ * foreground's share. The pace lives over there rather than beside this constant
+ * because the job imports the service, so the reverse would be a cycle.
  *
  * A library is measured over days rather than in an afternoon, which is the right
  * trade: an unmeasured track plays perfectly well, and a station that cannot
  * fetch audio plays nothing at all.
  *
- * A local library has no such limit, and this will be worth revisiting per
- * provider once one exists. Until then the cautious number governs.
+ * **A local library has no such limit**, which used to just mean this constant
+ * would be worth revisiting per provider once one existed. It now means something
+ * sharper: a track whose audio `TrackAudioService` already holds pays no provider
+ * credential at all, and `AnalysisService.measureOne` knows which is which, so
+ * that half of the walk paces itself by `analysis.localPaceMs` instead — still
+ * paced, because background work saturating a shared machine without anyone
+ * asking for that is its own problem, but free to be far gentler than a number
+ * that exists to protect a rate-limited upstream.
  */
 const BATCH_SIZE = 5;
 

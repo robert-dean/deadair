@@ -79,10 +79,10 @@ const MISSING_AFTER_ATTEMPTS = 4;
  * a number tied to the commit lead rather than a decision anybody would make from a console.
  *
  * It lives HERE rather than in `TrackCachePlanner`, which owns the window and reads backwards — and is
- * deliberate, exactly as `TRACK_PACE_MS` living in `AnalysisService` rather than in its job is. The
- * planner imports this service, so a constant the service reads cannot live in the planner: that cycle
- * loads fine under vitest and throws `Cannot access 'CACHE_AHEAD' before initialization` under Node's
- * ESM loader. Which it did, on the first boot after it was written.
+ * deliberate, exactly as the analysis pace settings living in `AnalysisService` rather than in its job
+ * are. The planner imports this service, so a constant the service reads cannot live in the planner:
+ * that cycle loads fine under vitest and throws `Cannot access 'CACHE_AHEAD' before initialization`
+ * under Node's ESM loader. Which it did, on the first boot after it was written.
  */
 export const CACHE_AHEAD = 6;
 

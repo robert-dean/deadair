@@ -93,3 +93,50 @@ export function resolveAnalysisConcurrency(value: unknown): number {
 
     return Math.min(MAX_ANALYSIS_CONCURRENCY, Math.max(1, Math.floor(parsed)));
 }
+
+/**
+ * How long the walk waits after a track it reached a PROVIDER to measure.
+ *
+ * A full audio download through the credential the station plays on, so this is the same protection
+ * `CACHE_AHEAD` and `MAX_HAND_OVERS` exist for: a provider's limiter counts requests per interval, and a
+ * burst of them exhausted a provider's audio-key quota once and took the station off air. Sixty seconds
+ * until an operator says otherwise, which is deliberately cautious rather than tuned.
+ */
+export const ANALYSIS_PROVIDER_PACE_KEY = 'analysis.providerPaceMs';
+export const DEFAULT_ANALYSIS_PROVIDER_PACE_MS = 60_000;
+
+/**
+ * How long the walk waits after a track it did NOT need a provider for.
+ *
+ * A copy `TrackAudioService` has already kept costs the station's own disk and the analyzer's own
+ * decode, not a rate-limited credential, so this is free to be much shorter than the provider pace —
+ * but it is not zero by default. Analysis is background work an operator did not necessarily ask to
+ * run flat out, and a local library measured at full tilt is still real CPU on whatever machine is
+ * running Postgres, the app and the analyzer, possibly all three the same box. Five seconds is a
+ * courtesy default; an operator who wants the local half of a library measured by morning can lower
+ * it to zero, which is exactly as much consent as raising `analysis.concurrency` already asks for.
+ */
+export const ANALYSIS_LOCAL_PACE_KEY = 'analysis.localPaceMs';
+export const DEFAULT_ANALYSIS_LOCAL_PACE_MS = 5_000;
+
+/**
+ * The ceiling either pace may be set to, so a typo cannot park the walk for a day between tracks.
+ *
+ * Ten minutes, which is already an operator asking for something unusually gentle; nothing here
+ * argues for slower than that.
+ */
+export const MAX_ANALYSIS_PACE_MS = 10 * 60_000;
+
+/**
+ * Read a stored pace, or the default for whichever one it is.
+ *
+ * Clamped rather than validated-and-rejected, matching {@link resolveAnalysisConcurrency}: a setting
+ * that refuses to load should not stop the walk, and zero is a legal answer — an operator's explicit
+ * consent to run without a gap, which the floor of `Math.max(0, …)` does not stand in the way of.
+ */
+export function resolveAnalysisPaceMs(value: unknown, fallback: number): number {
+    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(parsed)) return fallback;
+
+    return Math.min(MAX_ANALYSIS_PACE_MS, Math.max(0, Math.floor(parsed)));
+}

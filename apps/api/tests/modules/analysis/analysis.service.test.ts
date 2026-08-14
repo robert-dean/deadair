@@ -41,11 +41,17 @@ interface HarnessOptions {
     configured?: string;
     /** `analysis.concurrency`. */
     concurrency?: number;
+    /** `analysis.providerPaceMs`. Zero by default, so an ordinary test does not wait on anything. */
+    providerPaceMs?: number;
+    /** `analysis.localPaceMs`. Zero by default, for the same reason. */
+    localPaceMs?: number;
     pending?: AnalysableTrack[];
     /** What `analyzeTrack` does. Default: a good measurement. */
     analyze?: (ref: { trackId: string }) => Promise<TrackAnalysis>;
     /** What the station's audio route answers for a binding. Default: a URL for everything. */
     resolveUrl?: (pluginId: string, externalId: string) => Promise<string | undefined>;
+    /** Whether `TrackAudioService.has` reports a binding as already on this machine. Default: no. */
+    hasLocalAudio?: (pluginId: string, externalId: string) => Promise<boolean>;
 }
 
 function build(options: HarnessOptions = {}) {
@@ -84,19 +90,35 @@ function build(options: HarnessOptions = {}) {
         resolveBinding: vi.fn(options.resolveUrl ?? (async () => 'http://station.test/playout/audio/source-1')),
     };
 
+    // What tells the walk a track needs no provider fetch. Not local by default, matching the
+    // provider-pace behaviour every test wrote against before locality existed.
+    const audioService = {
+        has: vi.fn(options.hasLocalAudio ?? (async () => false)),
+    };
+
     const config = {
         get: vi.fn((key: string, fallback: unknown) => {
             if (key === 'analysis.pluginId') return options.configured ?? '';
             if (key === 'analysis.concurrency') return options.concurrency ?? 1;
+            if (key === 'analysis.providerPaceMs') return options.providerPaceMs ?? 0;
+            if (key === 'analysis.localPaceMs') return options.localPaceMs ?? 0;
             return fallback;
         }),
     } as unknown as AppConfig;
 
     const logger = stubLogger();
 
-    const service = new AnalysisService(repository as never, registry as never, invoker as never, trackAudio as never, config, logger);
+    const service = new AnalysisService(
+        repository as never,
+        registry as never,
+        invoker as never,
+        trackAudio as never,
+        audioService as never,
+        config,
+        logger,
+    );
 
-    return { service, repository, registry, invoker, trackAudio, logger, analyzeTrack, recordAnalysis, recordFailure };
+    return { service, repository, registry, invoker, trackAudio, audioService, logger, analyzeTrack, recordAnalysis, recordFailure };
 }
 
 describe('choosing an analyzer', () => {
@@ -104,7 +126,7 @@ describe('choosing an analyzer', () => {
         // An ordinary state, not a fault: every track still plays, unmeasured.
         const { service, repository, logger } = build({ analyzers: [] });
 
-        expect(await service.analysePending(50, undefined, 0)).toEqual({ scanned: 0, measured: 0, failed: 0, incomplete: 0 });
+        expect(await service.analysePending(50, undefined)).toEqual({ scanned: 0, measured: 0, failed: 0, incomplete: 0 });
         expect(repository.listTracksNeedingAnalysis).not.toHaveBeenCalled();
         expect(logger.error).not.toHaveBeenCalled();
         expect(vi.mocked(logger.info).mock.calls[0]?.[1]).toMatchObject({ reason: expect.stringContaining('install and enable') });
@@ -113,7 +135,7 @@ describe('choosing an analyzer', () => {
     it('refuses to guess between several and says which they are', async () => {
         const { service, logger } = build({ analyzers: ['deadair.analyzer', 'other.analyzer'] });
 
-        expect((await service.analysePending(50, undefined, 0)).scanned).toBe(0);
+        expect((await service.analysePending(50, undefined)).scanned).toBe(0);
         expect(vi.mocked(logger.info).mock.calls[0]?.[1]).toMatchObject({
             reason: expect.stringContaining('deadair.analyzer, other.analyzer'),
         });
@@ -122,7 +144,7 @@ describe('choosing an analyzer', () => {
     it('does not fall back when the named analyzer is not running', async () => {
         const { service, logger } = build({ analyzers: ['deadair.analyzer'], configured: 'gone.analyzer' });
 
-        expect((await service.analysePending(50, undefined, 0)).scanned).toBe(0);
+        expect((await service.analysePending(50, undefined)).scanned).toBe(0);
         expect(vi.mocked(logger.info).mock.calls[0]?.[1]).toMatchObject({ reason: expect.stringContaining('gone.analyzer') });
     });
 });
@@ -130,7 +152,7 @@ describe('choosing an analyzer', () => {
 describe('measuring a track', () => {
     it('asks for the current schema version, so a stale row is picked up', async () => {
         const { service, repository } = build();
-        await service.analysePending(50, undefined, 0);
+        await service.analysePending(50, undefined);
 
         expect(repository.listTracksNeedingAnalysis).toHaveBeenCalledWith(ANALYSIS_SCHEMA_VERSION, 50);
     });
@@ -138,7 +160,7 @@ describe('measuring a track', () => {
     it('resolves the audio itself and hands the analyzer a url', async () => {
         // A plugin cannot ask another plugin for a stream URL, so this is the host's job.
         const { service, trackAudio, analyzeTrack } = build();
-        await service.analysePending(50, undefined, 0);
+        await service.analysePending(50, undefined);
 
         expect(trackAudio.resolveBinding).toHaveBeenCalledWith('deadair.spotify', 'spotify-1');
         expect(analyzeTrack).toHaveBeenCalledWith({
@@ -152,14 +174,14 @@ describe('measuring a track', () => {
     // provider re-encode putting the cue points out.
     it('measures through the station route rather than a provider url', async () => {
         const { service, analyzeTrack } = build();
-        await service.analysePending(50, undefined, 0);
+        await service.analysePending(50, undefined);
 
         expect(analyzeTrack).toHaveBeenCalledWith(expect.objectContaining({ audioUrl: expect.stringContaining('/playout/audio/') }));
     });
 
     it('stores the measurement against the analyzer that made it', async () => {
         const { service, recordAnalysis } = build();
-        const summary = await service.analysePending(50, undefined, 0);
+        const summary = await service.analysePending(50, undefined);
 
         expect(recordAnalysis).toHaveBeenCalledWith('track-1', 'deadair.analyzer', measurement());
         expect(summary).toEqual({ scanned: 1, measured: 1, failed: 0, incomplete: 0 });
@@ -169,7 +191,7 @@ describe('measuring a track', () => {
         // Stored and then ignored by every reader, so a station where this is common is doing
         // the work and getting nothing, with nothing else to say so.
         const { service, recordAnalysis, logger } = build({ analyze: async () => measurement({ complete: false }) });
-        const summary = await service.analysePending(50, undefined, 0);
+        const summary = await service.analysePending(50, undefined);
 
         expect(recordAnalysis).toHaveBeenCalled();
         expect(summary).toMatchObject({ measured: 1, incomplete: 1 });
@@ -185,7 +207,7 @@ describe('when a track cannot be measured', () => {
             },
         });
 
-        const summary = await service.analysePending(50, undefined, 0);
+        const summary = await service.analysePending(50, undefined);
 
         expect(recordAnalysis).not.toHaveBeenCalled();
         expect(recordFailure).toHaveBeenCalledWith('track-1', 'deadair.analyzer', expect.stringContaining('moov atom'));
@@ -197,7 +219,7 @@ describe('when a track cannot be measured', () => {
         // reloads. Writing a failure would take it out of the queue for a day over something
         // that may be fixed in a minute.
         const { service, recordFailure, analyzeTrack } = build({ resolveUrl: async () => undefined });
-        const summary = await service.analysePending(50, undefined, 0);
+        const summary = await service.analysePending(50, undefined);
 
         expect(recordFailure).not.toHaveBeenCalled();
         expect(analyzeTrack).not.toHaveBeenCalled();
@@ -211,7 +233,7 @@ describe('when a track cannot be measured', () => {
         });
         const { service } = build({ pending: [track(1), track(2), track(3)], analyze });
 
-        expect(await service.analysePending(50, undefined, 0)).toEqual({ scanned: 3, measured: 2, failed: 1, incomplete: 0 });
+        expect(await service.analysePending(50, undefined)).toEqual({ scanned: 3, measured: 2, failed: 1, incomplete: 0 });
     });
 
     it('survives a failure-write that itself fails, leaving the track outstanding', async () => {
@@ -223,7 +245,7 @@ describe('when a track cannot be measured', () => {
         recordFailure.mockRejectedValueOnce(new Error('database is gone'));
 
         // The same state it was in a moment ago, rather than an exception out of the pass.
-        await expect(service.analysePending(50, undefined, 0)).resolves.toMatchObject({ failed: 1 });
+        await expect(service.analysePending(50, undefined)).resolves.toMatchObject({ failed: 1 });
         expect(logger.error).toHaveBeenCalledWith('analysis: could not record a failure', expect.anything());
     });
 });
@@ -240,7 +262,7 @@ describe('the walk itself', () => {
         });
 
         const { service } = build({ pending: [track(1), track(2), track(3), track(4)], analyze });
-        await service.analysePending(50, undefined, 0);
+        await service.analysePending(50, undefined);
 
         expect(peak).toBe(1);
     });
@@ -257,7 +279,7 @@ describe('the walk itself', () => {
 
         const pending = Array.from({ length: 8 }, (_, index) => track(index));
         const { service } = build({ pending, concurrency: 3, analyze });
-        const summary = await service.analysePending(50, undefined, 0);
+        const summary = await service.analysePending(50, undefined);
 
         expect(peak).toBe(3);
         expect(summary.measured).toBe(8);
@@ -265,7 +287,7 @@ describe('the walk itself', () => {
 
     it('never opens more workers than there is work', async () => {
         const { service, analyzeTrack } = build({ pending: [track(1)], concurrency: 8 });
-        await service.analysePending(50, undefined, 0);
+        await service.analysePending(50, undefined);
 
         expect(analyzeTrack).toHaveBeenCalledTimes(1);
     });
@@ -280,7 +302,7 @@ describe('the walk itself', () => {
         });
 
         const { service } = build({ pending: [track(1), track(2), track(3)], analyze });
-        const summary = await service.analysePending(50, controller.signal, 0);
+        const summary = await service.analysePending(50, controller.signal);
 
         expect(summary.scanned).toBe(1);
         expect(summary.measured).toBe(1);
@@ -288,7 +310,7 @@ describe('the walk itself', () => {
 
     it('does no work at all when the signal is already aborted', async () => {
         const { service, analyzeTrack } = build({ pending: [track(1), track(2)] });
-        const summary = await service.analysePending(50, AbortSignal.abort(), 0);
+        const summary = await service.analysePending(50, AbortSignal.abort());
 
         expect(analyzeTrack).not.toHaveBeenCalled();
         expect(summary.scanned).toBe(0);
@@ -304,7 +326,7 @@ describe('pacing', () => {
         vi.useFakeTimers();
         try {
             const { service, analyzeTrack } = build({ pending: [track(1), track(2), track(3)] });
-            const run = service.analysePending(50, undefined, 60_000);
+            const run = service.analysePending(50, undefined, { providerPaceMs: 60_000, localPaceMs: 60_000 });
 
             await vi.advanceTimersByTimeAsync(0);
             expect(analyzeTrack).toHaveBeenCalledTimes(1);
@@ -325,7 +347,7 @@ describe('pacing', () => {
         vi.useFakeTimers();
         try {
             const { service } = build({ pending: [track(1)] });
-            const run = service.analysePending(50, undefined, 60_000);
+            const run = service.analysePending(50, undefined, { providerPaceMs: 60_000, localPaceMs: 60_000 });
 
             // One track, so there is nothing after it to be polite to.
             await vi.advanceTimersByTimeAsync(0);
@@ -340,7 +362,7 @@ describe('pacing', () => {
         try {
             const controller = new AbortController();
             const { service, analyzeTrack } = build({ pending: [track(1), track(2), track(3)] });
-            const run = service.analysePending(50, controller.signal, 60_000);
+            const run = service.analysePending(50, controller.signal, { providerPaceMs: 60_000, localPaceMs: 60_000 });
 
             await vi.advanceTimersByTimeAsync(0);
             controller.abort();
@@ -348,6 +370,92 @@ describe('pacing', () => {
 
             // The budget expiring must not leave the walk parked in a timer for a minute.
             expect(analyzeTrack).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('checks a track for local audio before resolving its url, with the binding rather than a source id', async () => {
+        const { service, audioService } = build();
+        await service.analysePending(50, undefined);
+
+        expect(audioService.has).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', externalId: 'spotify-1' });
+    });
+
+    it('paces a track already on this machine by the local rate, never the download one', async () => {
+        vi.useFakeTimers();
+        try {
+            const { service, analyzeTrack } = build({
+                pending: [track(1), track(2), track(3)],
+                hasLocalAudio: async () => true,
+                providerPaceMs: 60_000,
+                localPaceMs: 1_000,
+            });
+            const run = service.analysePending(50, undefined);
+
+            await vi.advanceTimersByTimeAsync(0);
+            expect(analyzeTrack).toHaveBeenCalledTimes(1);
+
+            // The download pace would still be waiting here; the local one is not.
+            await vi.advanceTimersByTimeAsync(1_000);
+            expect(analyzeTrack).toHaveBeenCalledTimes(2);
+
+            await vi.advanceTimersByTimeAsync(1_000);
+            expect(analyzeTrack).toHaveBeenCalledTimes(3);
+
+            await run;
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('does not charge the download pace for a track with no audio url, since nothing was fetched', async () => {
+        vi.useFakeTimers();
+        try {
+            const { service, analyzeTrack } = build({
+                pending: [track(1), track(2)],
+                resolveUrl: async () => undefined,
+                providerPaceMs: 60_000,
+                localPaceMs: 250,
+            });
+            const run = service.analysePending(50, undefined);
+
+            await vi.advanceTimersByTimeAsync(0);
+            // A skip is instant, so nothing has been "measured", but the walk still moved on to the
+            // next track after only the local pace rather than the download one.
+            await vi.advanceTimersByTimeAsync(250);
+
+            const summary = await run;
+            expect(summary).toMatchObject({ scanned: 2, measured: 0 });
+            expect(analyzeTrack).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('falls back to the download pace when the local-audio check itself fails', async () => {
+        // A caller that cannot tell must not assume the cheaper case: the pace this protects
+        // exists for a provider's limiter, and the safe default when the answer is unknown is
+        // the one that respects it.
+        vi.useFakeTimers();
+        try {
+            const { service, analyzeTrack } = build({
+                pending: [track(1), track(2)],
+                hasLocalAudio: async () => {
+                    throw new Error('boom');
+                },
+                providerPaceMs: 500,
+                localPaceMs: 60_000,
+            });
+            const run = service.analysePending(50, undefined);
+
+            await vi.advanceTimersByTimeAsync(0);
+            expect(analyzeTrack).toHaveBeenCalledTimes(1);
+
+            await vi.advanceTimersByTimeAsync(500);
+            expect(analyzeTrack).toHaveBeenCalledTimes(2);
+
+            await run;
         } finally {
             vi.useRealTimers();
         }

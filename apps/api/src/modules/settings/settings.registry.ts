@@ -10,7 +10,15 @@ import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/s
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
-import { ANALYSIS_CONCURRENCY_KEY, ANALYSIS_PLUGIN_KEY, DEFAULT_ANALYSIS_CONCURRENCY } from '#modules/analysis/analysis.settings.js';
+import {
+    ANALYSIS_CONCURRENCY_KEY,
+    ANALYSIS_LOCAL_PACE_KEY,
+    ANALYSIS_PLUGIN_KEY,
+    ANALYSIS_PROVIDER_PACE_KEY,
+    DEFAULT_ANALYSIS_CONCURRENCY,
+    DEFAULT_ANALYSIS_LOCAL_PACE_MS,
+    DEFAULT_ANALYSIS_PROVIDER_PACE_MS,
+} from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -412,6 +420,22 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_ANALYSIS_CONCURRENCY,
         help: "Raise this only alongside the analyzer's own worker count: above it the extra requests just queue there, below it its cores sit idle. Neither side can work the other out, because the analyzer may not be on this machine.",
+    },
+    {
+        group: 'analysis',
+        key: ANALYSIS_PROVIDER_PACE_KEY,
+        label: 'Pause after a downloaded track (ms)',
+        type: 'number',
+        default: DEFAULT_ANALYSIS_PROVIDER_PACE_MS,
+        help: 'Measuring a track the station does not already hold is a full download through the same account it plays on, and a burst of them can trip a provider\'s own rate limit. This is the gap the walk leaves after one of those before starting the next.',
+    },
+    {
+        group: 'analysis',
+        key: ANALYSIS_LOCAL_PACE_KEY,
+        label: 'Pause after an already-local track (ms)',
+        type: 'number',
+        default: DEFAULT_ANALYSIS_LOCAL_PACE_MS,
+        help: "A record the station has already kept costs no provider request to measure, so this can be far shorter than the download pause above — but it is not free: it is still disk and decode time on whatever machine is running the analyzer. Set to 0 to measure the local half of the library flat out.",
     },
 
     // ── secrets ────────────────────────────────────────────────────────────────

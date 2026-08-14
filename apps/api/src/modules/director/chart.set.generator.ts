@@ -55,9 +55,15 @@ export const CHART_GENERATOR_KEYS = {
 /**
  * Off, so that installing a chart plugin changes nothing until somebody asks.
  *
- * The same posture `llm.setGenerator` takes. An hour that is entirely this week's top forty is a
- * format some operators want and most do not, and a plugin that quietly started programming the
- * station on installation would be the wrong kind of surprise.
+ * The same posture `llm.setGenerator` takes, and deliberately NOT the one `DEFAULT_SIMILAR_MIX`
+ * takes beside it. A chart is a FORMAT: an hour of this week's top forty is a specific thing to
+ * sound like, most operators do not want it, and this is the one generator that all but ignores the
+ * brief — it reads it far enough to choose a chart and no further. Somebody installing a plugin for
+ * its tags should not find chart pop in their evening.
+ *
+ * Similarity is a bias rather than a format, which is why that one defaults on. The cost of this
+ * one being off is that the capability sits there doing nothing, which {@link ChartSetGenerator}
+ * says out loud rather than leaving to be discovered.
  */
 export const DEFAULT_CHART_MIX = 0;
 
@@ -85,6 +91,9 @@ export class ChartSetGenerator extends SetGenerator {
      */
     private warnedAboutDiscovery = false;
 
+    /** Whether the "installed but switched off" line has been said. Once per process, as above. */
+    private saidItWasInert = false;
+
     constructor(
         private readonly charts: ChartsService,
         private readonly config: AppConfig,
@@ -99,7 +108,10 @@ export class ChartSetGenerator extends SetGenerator {
         // Read per refill rather than held, so an operator turning the mix up gets it on the next
         // one. Cheap: `AppConfig` is a live view over a snapshot, not a query.
         const mix = readMix(this.config.get(CHART_GENERATOR_KEYS.mix, DEFAULT_CHART_MIX));
-        if (mix === 0) return [];
+        if (mix === 0) {
+            this.sayIfInert();
+            return [];
+        }
 
         if (!this.charts.hasCharts()) {
             this.logger.debug('director: the chart mix is set but no plugin can serve a chart');
@@ -183,6 +195,23 @@ export class ChartSetGenerator extends SetGenerator {
         }
 
         return charts[0]!.id;
+    }
+
+    /**
+     * Say, once, that a capability the operator installed is switched off here.
+     *
+     * This binding is off by DEFAULT, so on any station with a chart plugin installed this is the
+     * ordinary path — and that is exactly why it needs saying. The console lists `charts` as a live
+     * capability of an active plugin, and without this there is nothing anywhere connecting that to
+     * the reason no chart record ever airs.
+     *
+     * Only when something could actually have answered, so a station with no chart plugin stays
+     * silent about a setting that would do nothing for it either way.
+     */
+    private sayIfInert(): void {
+        if (this.saidItWasInert || !this.charts.hasCharts()) return;
+        this.saidItWasInert = true;
+        this.logger.info(`director: a chart plugin is installed but "${CHART_GENERATOR_KEYS.mix}" is 0, so the station is asking it for nothing`);
     }
 
     /**

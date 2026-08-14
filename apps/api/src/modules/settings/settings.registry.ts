@@ -225,7 +225,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'How much of each batch comes from a chart',
         type: 'number',
         default: DEFAULT_CHART_MIX,
-        help: 'A share between 0 and 1 of what the station is popular with other people rather than drawn from your library. 0 is off, which is what a station stays on until you change it. Needs a chart plugin installed, and needs "Play records the station does not own yet" on, because a chart names records your library almost certainly does not hold.',
+        help: 'A share between 0 and 1 of each hour taken from a published chart rather than drawn from your library. 0 by default: a chart is a format, and installing a plugin that can serve one should not decide what your station sounds like. Needs a chart plugin installed, and needs "Play records the station does not own yet" on, because a chart names records your library almost certainly does not hold.',
     },
     {
         group: 'rotation',
@@ -241,7 +241,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'How much of each batch comes from similar artists',
         type: 'number',
         default: DEFAULT_SIMILAR_MIX,
-        help: 'A share between 0 and 1 of what the station plays by acts that resemble the ones it has just played, rather than drawn from your library. This is how a station stops sounding like it owns two hundred songs. 0 is off. Needs a similarity plugin installed, and needs "Play records the station does not own yet" on, because the point of it is acts your library does not hold.',
+        help: 'A share between 0 and 1 of each hour taken from acts that resemble the ones just played, rather than drawn from your library. This is how a station stops sounding like it owns two hundred songs, so it is on by default — unlike the chart mix above, which is a format rather than a habit. 0 turns it off. Needs a similarity plugin installed, and needs "Play records the station does not own yet" on, because the point of it is acts your library does not hold.',
     },
     {
         group: 'rotation',

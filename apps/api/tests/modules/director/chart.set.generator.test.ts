@@ -81,6 +81,27 @@ describe('when it declines', () => {
         expect(fetchChart).not.toHaveBeenCalled();
     });
 
+    it('says once that an installed chart plugin is being asked for nothing', async () => {
+        // The trap this closes: the console lists `charts` as a live capability of an active plugin
+        // whether or not the station asks it for anything, and 0 is the DEFAULT here — so on any
+        // station with a chart plugin installed, silence would be the normal state.
+        const { generator, logger } = build({ settings: { [CHART_GENERATOR_KEYS.mix]: 0 } });
+
+        await generator.generate(inputs());
+        await generator.generate(inputs());
+
+        expect(logger.info).toHaveBeenCalledOnce();
+        expect(logger.info.mock.calls[0]![0]).toMatch(/rotation\.chartMix/);
+    });
+
+    it('stays silent about the mix when no plugin could have answered anyway', async () => {
+        const { generator, logger } = build({ settings: { [CHART_GENERATOR_KEYS.mix]: 0 }, hasCharts: false });
+
+        await generator.generate(inputs());
+
+        expect(logger.info).not.toHaveBeenCalled();
+    });
+
     it('declines quietly when no plugin can serve a chart', async () => {
         const { generator, fetchChart } = build({ hasCharts: false });
 

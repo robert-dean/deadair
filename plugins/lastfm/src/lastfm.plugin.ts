@@ -190,22 +190,51 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
                 return { ok: false, message: 'Last.fm answered, but not with an artist. Check the API key.' };
             }
 
-            // Reported together, because "connected" is not what an operator is
-            // really asking here: they want to know whether the half they just
-            // configured is doing anything.
-            if (!this.scrobbling) return { ok: true, message: 'Connected. Scrobbling is off, so nothing is being published.' };
-            if (!this.client.canSign) return { ok: true, message: 'Connected, but scrobbling needs the API secret as well as the key.' };
-
-            const session = await this.sessionKey();
-            if (!session) return { ok: true, message: 'Connected. Scrobbling is on, but no account is connected yet — use Connect above.' };
-
-            return { ok: true, message: `Connected, scrobbling to ${(await this.sessionUser()) ?? 'your account'}.` };
+            // Every capability, not just the connection. "Connected" is not what an
+            // operator is really asking: they want to know which of the four things
+            // this plugin declares is actually doing anything, and a capability that
+            // is installed and inert is otherwise invisible — the console lists it as
+            // live either way.
+            return { ok: true, message: `Connected. ${this.summarise(await this.scrobbleState())}` };
         } catch (error) {
             if (error instanceof LastfmRequestError && error.apiError === LASTFM_ERROR.invalidApiKey) {
                 return { ok: false, message: 'Last.fm rejected that API key.' };
             }
             return { ok: false, message: errorText(error) };
         }
+    }
+
+    /**
+     * Which of the four capabilities this installation will actually contribute.
+     *
+     * The gap it closes: the console lists `enrichment, charts, similarity, scrobble` for an active
+     * plugin whether or not any of them is switched on, so an operator who installs this for its
+     * tags has no way to learn that two of the four are sitting idle. One click on Test says so.
+     *
+     * **It reports what the PLUGIN offers, never what the station asks for**, and the distinction is
+     * real rather than pedantic: whether a chart or a neighbour reaches the air is decided by
+     * `rotation.chartMix` and `rotation.similarMix`, which are STATION settings this plugin cannot
+     * see — `host.config` is its own config and nothing else. So the honest thing to say is that
+     * they are ready and where the switch lives. The host says the other half, once, from the
+     * generators themselves.
+     */
+    private summarise(scrobbling: string): string {
+        const tags = this.includeTags
+            ? 'Tags, artist background and listener counts are on'
+            : 'Tags are off, so only background and links are collected';
+
+        return `${tags}. Charts and similar artists are ready — the station uses them only once the chart and similar-artist mixes are set in rotation settings. ${scrobbling}`;
+    }
+
+    /** The scrobbling half, which has three ways of being off and one of being on. */
+    private async scrobbleState(): Promise<string> {
+        if (!this.scrobbling) return 'Scrobbling is off, so nothing is being published.';
+        if (this.client?.canSign !== true) return 'Scrobbling is on but has no API secret to sign with, so nothing is being published.';
+
+        const session = await this.sessionKey();
+        if (!session) return 'Scrobbling is on, but no account is connected yet — use Connect above.';
+
+        return `Scrobbling to ${(await this.sessionUser()) ?? 'your account'}.`;
     }
 
     // ---------------------------------------------------------------- enrichment

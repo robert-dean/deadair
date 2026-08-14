@@ -37,11 +37,15 @@ import { errorText } from '#modules/shared/error.text.js';
  * the per-artist cap over every one of them, and looks up anything the library has never held. So
  * this inherits every rule by doing nothing, exactly as the chart binding does.
  *
- * ## Off by default, and inert without discovery
+ * ## On by default, and inert without discovery
  *
- * `rotation.similarMix` is 0 until an operator sets it. And the whole point is records the library
- * does not hold, so with `rotation.discover` off nearly everything this names is dropped a step
- * later — a legitimate choice that would otherwise read as a broken plugin, so it says so once.
+ * `rotation.similarMix` is 0.4 unless an operator says otherwise — see {@link DEFAULT_SIMILAR_MIX}
+ * for why this differs from the chart binding beside it. Set to 0 with a similarity plugin
+ * installed, it says so once rather than being a capability that silently does nothing.
+ *
+ * The whole point is records the library does not hold, so with `rotation.discover` off nearly
+ * everything this names is dropped a step later — a legitimate choice that would otherwise read as
+ * a broken plugin, so that gets said once too.
  */
 
 /** What `SetGenerator.name` reports for anything chosen here. */
@@ -53,8 +57,22 @@ export const SIMILAR_GENERATOR_KEYS = {
     mix: 'rotation.similarMix',
 } as const;
 
-/** Off, so that installing a similarity plugin changes no hour until somebody asks. */
-export const DEFAULT_SIMILAR_MIX = 0;
+/**
+ * ON by default, unlike {@link DEFAULT_CHART_MIX}, and the asymmetry is the whole argument.
+ *
+ * A chart is a FORMAT — "this week's top forty" is a specific thing to sound like, and installing a
+ * plugin for its tags should not put chart pop in an operator's evening. Similarity is a BIAS, and
+ * `docs/todo/station-intelligence.md` §5 already calls a station that only ever draws from its own
+ * library a structural defect: every individual choice is legal and the aggregate sounds like it
+ * owns two hundred songs. Reaching outward is the station working properly rather than a
+ * programming decision, which is the same reasoning `rotation.discover` defaults on under — off
+ * makes the path inert.
+ *
+ * It still tops up rather than replacing, the floor still cannot fail, and every pick is judged by
+ * the rules like any other. The price is that roughly this share of each refill is new to the
+ * library, so it costs a provider lookup and a download apiece.
+ */
+export const DEFAULT_SIMILAR_MIX = 0.4;
 
 /**
  * How many recently aired artists are used as starting points.
@@ -78,6 +96,9 @@ export class SimilarSetGenerator extends SetGenerator {
     /** Whether the "discovery is off" line has been said. Once per process; see the chart binding. */
     private warnedAboutDiscovery = false;
 
+    /** Whether the "installed but switched off" line has been said. Once per process, as above. */
+    private saidItWasInert = false;
+
     constructor(
         private readonly similarity: SimilarityService,
         private readonly history: PlayHistoryRepository,
@@ -92,7 +113,10 @@ export class SimilarSetGenerator extends SetGenerator {
         if (inputs.count <= 0) return [];
 
         const mix = readMix(this.config.get(SIMILAR_GENERATOR_KEYS.mix, DEFAULT_SIMILAR_MIX));
-        if (mix === 0) return [];
+        if (mix === 0) {
+            this.sayIfInert();
+            return [];
+        }
 
         // Both halves are required and they are different questions: something has to say who
         // resembles whom, and something has to turn a name into a record. A plugin that only does
@@ -186,6 +210,25 @@ export class SimilarSetGenerator extends SetGenerator {
             this.logger.warn(`director: could not read what has been playing (${errorText(error)})`);
             return [];
         }
+    }
+
+    /**
+     * Say, once, that a capability the operator installed is switched off here.
+     *
+     * The gap this closes: a plugin declaring `similarity` shows up as an active capability on the
+     * console with nothing anywhere saying the station is not asking it for anything. An operator
+     * who set the mix to 0 deliberately gets one line per process and never hears about it again;
+     * one who never knew the setting existed gets told where to look.
+     *
+     * Only when something could actually have answered, so a station with no similarity plugin
+     * stays silent about a setting that would do nothing for it either way.
+     */
+    private sayIfInert(): void {
+        if (this.saidItWasInert || !this.similarity.hasSimilarity()) return;
+        this.saidItWasInert = true;
+        this.logger.info(
+            `director: a similarity plugin is installed but "${SIMILAR_GENERATOR_KEYS.mix}" is 0, so the station is asking it for nothing`,
+        );
     }
 
     /** Whether a record outside the library can reach the air at all. Only decides whether to warn. */

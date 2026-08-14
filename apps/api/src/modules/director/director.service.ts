@@ -13,6 +13,8 @@ import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/r
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { inScope } from '#modules/shared/scoped.work.js';
+import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
+import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { BreakPlanner, type AirClock } from './break.planner.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
@@ -1354,6 +1356,34 @@ export class DirectorService {
             // the broadcast depends on it, and the boundary must not be held up.
             this.logger.warn(`director: could not record what aired (${errorText(error)})`),
         );
+
+        // The same edge, the same posture, and deliberately a separate call rather than a step
+        // inside the write above: the history row steers what the station plays next and this
+        // tells somebody else's service what it played, so one failing must not cost the other.
+        // Both are `void`ed because a track boundary is not a place to wait for a database.
+        void inScope(this.container, async scope => {
+            const scrobble = scope.get(ScrobbleService);
+            const play: ScrobblePlay = {
+                title: item.title,
+                // The LEAD artist, which is what a scrobbling service matches on. The whole credit
+                // line is in `play_history.artists` for a human to read and is the wrong thing to
+                // send.
+                artist: item.artists[0] ?? '',
+                ...(item.album === undefined ? {} : { album: item.album }),
+                ...(item.durationMs === undefined ? {} : { durationMs: item.durationMs }),
+                playedAt: Date.now(),
+            };
+            if (play.artist.length === 0) return;
+
+            // Announced before it is queued, because one is about now and the other is about
+            // later: a now-playing sent after a database round trip is already stale.
+            void scrobble.announceNowPlaying(play);
+            await scrobble.enqueue({
+                play,
+                stationKey: this.identity.stationKey,
+                ...(broadcastId === undefined ? {} : { broadcastId }),
+            });
+        }).catch(error => this.logger.warn(`director: could not queue what aired for scrobbling (${errorText(error)})`));
     }
 
     /**

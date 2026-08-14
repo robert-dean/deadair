@@ -318,6 +318,20 @@ export interface DeadairScriptHistory {
   writer: string;
 }
 
+export interface DeadairScrobbleQueue {
+  attempts: Generated<number>;
+  broadcastId: string | null;
+  createdAt: Generated<DateTime>;
+  eligibleAt: DateTime;
+  id: Generated<string>;
+  lastError: string | null;
+  nextAttemptAt: Generated<DateTime>;
+  payload: Json;
+  playedAt: DateTime;
+  pluginId: string;
+  stationKey: Generated<string>;
+}
+
 export interface DeadairSegmentEvents {
   broadcastId: string | null;
   createdAt: Generated<DateTime>;
@@ -503,6 +517,7 @@ export interface DB {
   "deadair.pluginConfigs": DeadairPluginConfigs;
   "deadair.pluginStorage": DeadairPluginStorage;
   "deadair.scriptHistory": DeadairScriptHistory;
+  "deadair.scrobbleQueue": DeadairScrobbleQueue;
   "deadair.segmentEvents": DeadairSegmentEvents;
   "deadair.segments": DeadairSegments;
   "deadair.settings": DeadairSettings;

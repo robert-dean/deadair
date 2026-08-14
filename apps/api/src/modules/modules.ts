@@ -12,6 +12,7 @@ import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { ChartsModule } from './charts/charts.module.js';
 import { SimilarityModule } from './similarity/similarity.module.js';
+import { ScrobbleModule } from './scrobble/scrobble.module.js';
 import { LlmModule } from './llm/llm.module.js';
 import { RenderModule } from './render/render.module.js';
 import { PlayoutModule } from './playout/playout.module.js';
@@ -73,6 +74,11 @@ const ordered: ServerKitModule[] = [
     // is popular, the other who sounds alike, and both answer in names that the pick
     // path judges.
     SimilarityModule,
+    // After PluginsModule, and before DirectorModule, which resolves it on the aired
+    // edge. Unlike its two neighbours above this one SENDS, so its queue is durable —
+    // but it still starts nothing: the queue fills on a track boundary and drains on
+    // a cron, and this module owns neither.
+    ScrobbleModule,
     // After PluginsModule for the same reason, and before RenderModule and
     // DirectorModule, which are the two that will ask a model for words. It owns
     // no loop and starts nothing: a generation happens because something asked.

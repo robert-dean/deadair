@@ -25,8 +25,15 @@ describe('the module list', () => {
 
     it('registers the data services before anything that resolves them', () => {
         // The other half, and the reason the close could not simply be moved: the REGISTRATION
-        // still has to be first, because everything below resolves what it registers.
-        expect(positionOf('Data')).toBe(0);
+        // still has to come before every module that resolves what it registers.
+        //
+        // Asserted as "the only thing in front of Data is Health" rather than as `positionOf('Data')
+        // === 0`, which is what this said until the liveness probe went in ahead of it. Health is
+        // the one module that may sit there and the exception is narrow: it depends on nothing,
+        // resolves nothing, and exists so a probe asking whether the process is up gets the true
+        // answer while everything below is still starting. A SECOND module appearing in front would
+        // be the bug this test is for, and `toBe(0)` could not tell the two apart — it just failed.
+        expect(names.slice(0, positionOf('Data'))).toEqual(['Health']);
     });
 
     it('keeps logging last, so the two lines the pool close writes are flushed', () => {

@@ -807,10 +807,53 @@ export class DirectorService {
      */
     private async ripenTrackCache(lineup: StationLineup): Promise<void> {
         try {
-            await inScope(this.container, scope => scope.get(TrackCachePlanner).ripen(lineup));
+            const { unfetchable } = await inScope(this.container, scope => scope.get(TrackCachePlanner).ripen(lineup));
+            this.thin(lineup, unfetchable);
         } catch (error) {
             this.logger.warn(`director: could not fetch a record ahead of its slot (${errorText(error)})`);
         }
+    }
+
+    /**
+     * Take records the station is not going to be able to play out of the order, while there is
+     * still time to replace them.
+     *
+     * This is the half that turns "silence at the boundary" into "rotation got thinner an hour ago".
+     * The same judgement already ran at the commit window — `toPlayerItems` drops a line whose every
+     * copy is benched — and running it over the WARM window instead is the whole difference: at the
+     * commit window the answer arrives with three items of notice, here it arrives with the whole
+     * warm lead, which is long enough for `topUpIfShort` to have asked the generator for more and got
+     * an answer.
+     *
+     * `markUnavailable` rather than `markSkipped`, because those are opposite facts on any page that
+     * has to explain a gap: this names a COPY nothing will serve, which is the one an operator can go
+     * and do something about. It also splices, reopens any break that promised the line
+     * ({@link reopenPromises}), and moves `remaining()`, which is what gets a refill sent.
+     */
+    private thin(lineup: StationLineup, unfetchable: readonly string[]): void {
+        const dropped = unfetchable.filter(itemId => lineup.markUnavailable(itemId));
+        if (dropped.length === 0) return;
+
+        for (const itemId of dropped) {
+            const item = lineup.find(itemId);
+            const title = item !== undefined && isTrackItem(item) ? item.track.title : itemId;
+
+            this.logger.warn('director: dropping a record from the order because its audio will not arrive in time', { item: itemId, title });
+            // The station's own summary, never the upstream's text: see `ActivityRecorder`.
+            void this.activity.record({
+                module: 'director',
+                kind: 'item.unavailable',
+                severity: 'warn',
+                detail: `"${title}" was taken out of the running order before its slot: the station cannot get hold of its audio.`,
+                data: { itemId },
+            });
+        }
+
+        // A refill decision made a moment ago is stale now that the order is shorter, and a break may
+        // have promised one of these. Both are exactly what the commit block does for the same marks.
+        this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
+        void this.reopenPromises(dropped);
+        this.persistSoon();
     }
 
     /**

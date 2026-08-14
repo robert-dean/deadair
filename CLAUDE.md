@@ -275,7 +275,14 @@ is disposable and a record is not); `readyFor` demands the row's checksum AND th
 whose file was deleted is repaired by re-fetching on the air path; and it fails OPEN, because a gate
 that could not read its own answer would take the station off air within three items over a transient
 database fault. `order.waitingOnAudio` is on the feed for a station that has been unable to commit for
-`WAITING_ON_AUDIO_MS`, written once on the edge.
+`WAITING_ON_AUDIO_MS`, written once on the edge. **The other half is that a record nothing will serve
+comes OUT of the order before its slot**: `TrackCachePlanner.ripen` answers with the window's
+unfetchable items — absent from `findForBindings` means every copy is benched, and a backoff that
+outlasts the item's own projected slot is a miss rather than a wait — and `DirectorService.thin`
+marks them `unavailable`, which splices, reopens any break that promised one, and moves `remaining()`
+so a refill is sent. The planner judges a backoff against a slot it projects from item durations plus
+`COMMITTED_LEAD_MS`, because the head of the warm window is not the record playing now and the planner
+cannot see how much of what is committed is left.
 
 **The player fetches every record from the app, and the app is the only thing that fetches a provider.**
 `TrackAudioResolver` answers `/playout/audio/{sourceId}` for any binding that is `playable and

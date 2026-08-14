@@ -13,6 +13,7 @@ import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { DirectorService } from '../../../src/modules/director/director.service.js';
 import {
     StationLineup,
+    isTrackItem,
     type StationLineupMode,
     type StationLineupOnEnd,
     type StationLineupSnapshot,
@@ -29,6 +30,7 @@ import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.
 import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown.js';
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
 import { TrackAudioService, bindingKey } from '../../../src/modules/playout/audio/track.audio.service.js';
+import { TrackCachePlanner } from '../../../src/modules/playout/audio/track.cache.planner.js';
 import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
@@ -83,6 +85,11 @@ interface Options {
      * not here, and holds its slot rather than committing past it.
      */
     localAudio?: string[];
+    /**
+     * External ids the ripener has given up on: every copy benched, or a backoff that outlasts the
+     * record's own slot. The director takes these out of the order before their slots arrive.
+     */
+    unfetchable?: string[];
     /**
      * Which segment promised which line, as `[itemId, segmentId]` pairs.
      *
@@ -195,6 +202,19 @@ function build(options: Options = {}) {
     });
     const trackAudio = { readyFor } as unknown as TrackAudioService;
 
+    // The ripener. It reads the warm window and answers with the records whose audio is not coming;
+    // the director is what acts on that, which is what these tests are about. `unfetchable` names
+    // external ids, mapped to item ids here so a test can say which record the provider has lost.
+    const ripen = vi.fn(async (order: StationLineup) => ({
+        asked: 0,
+        unfetchable: order
+            .all()
+            .filter(isTrackItem)
+            .filter(item => (options.unfetchable ?? []).includes(item.track.externalId))
+            .map(item => item.id),
+    }));
+    const cachePlanner = { ripen } as unknown as TrackCachePlanner;
+
     const scope = {
         get: vi.fn((token: unknown) =>
             token === StationLineupRepository
@@ -209,7 +229,9 @@ function build(options: Options = {}) {
                         ? candidates
                         : token === TrackAudioService
                           ? trackAudio
-                          : history,
+                          : token === TrackCachePlanner
+                            ? cachePlanner
+                            : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -276,6 +298,44 @@ const wake = async (rundown: Rundown) => {
     await rundown.next();
     await settle();
 };
+
+describe('DirectorService thinning the order before the slot arrives', () => {
+    // The half that turns "silence at the boundary" into "rotation got thinner an hour ago". The
+    // same judgement already ran at the commit window; running it over the WARM window is the whole
+    // difference, because there is still an order in front of it for a refill to fill the gap.
+    it('takes a record the ripener has given up on out of the order', async () => {
+        const { director, lineup, seed } = build({ items: ['a', 'b', 'c'], unfetchable: ['b'] });
+        await seed();
+
+        await director.start();
+
+        // Still `planned` either side of it: committing PREPARES the transport, and handing over is
+        // the transport's own act. What matters here is the middle one.
+        expect(lineup.all().map(item => item.state)).toEqual(['planned', 'unavailable', 'planned']);
+    });
+
+    // `unavailable` rather than `skipped`, because those are opposite facts on a page explaining a
+    // gap: this one names a copy nothing will serve, which is the one an operator can act on.
+    it('says so on the feed, in the station\'s own words', async () => {
+        const { director, activity, seed } = build({ items: ['a', 'b'], unfetchable: ['b'] });
+        await seed();
+
+        await director.start();
+
+        expect(activity.record).toHaveBeenCalledWith(
+            expect.objectContaining({ module: 'director', kind: 'item.unavailable', severity: 'warn' }),
+        );
+    });
+
+    it('leaves the order alone when everything can be fetched', async () => {
+        const { director, lineup, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+
+        await director.start();
+
+        expect(lineup.all().every(item => item.state !== 'unavailable')).toBe(true);
+    });
+});
 
 describe('DirectorService committing only what it has the audio for', () => {
     it('commits nothing while the next record is still being fetched', async () => {

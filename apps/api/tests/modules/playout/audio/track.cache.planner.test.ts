@@ -63,7 +63,7 @@ describe('TrackCachePlanner.ripen', () => {
     it('asks for the nearest records that are not here yet, nearest first', async () => {
         const { planner, send } = build([state(1), state(2), state(3)]);
 
-        expect(await planner.ripen(lineupOf([trackItem(1), trackItem(2), trackItem(3)]))).toBe(2);
+        expect(await planner.ripen(lineupOf([trackItem(1), trackItem(2), trackItem(3)]))).toMatchObject({ asked: 2 });
         expect(send).toHaveBeenNthCalledWith(1, 'playout.cache_track', { sourceId: 'source-1' });
         expect(send).toHaveBeenNthCalledWith(2, 'playout.cache_track', { sourceId: 'source-2' });
     });
@@ -140,18 +140,36 @@ describe('TrackCachePlanner.ripen', () => {
     });
 
     // Absent from the answer means the catalog has written the copy off (`missing_at`, or not
-    // playable). Nothing to fetch, and the resolver declines it at hand-over anyway.
-    it('does not ask for a binding the catalog no longer offers', async () => {
+    // playable). Nothing to fetch — and, since 2026-08-14, something to REPORT: the director takes
+    // the line out of the running order while there is still an hour of order in front of it.
+    it('reports a binding the catalog no longer offers as unfetchable', async () => {
         const { planner, send } = build([]);
 
-        expect(await planner.ripen(lineupOf([trackItem(1)]))).toBe(0);
+        expect(await planner.ripen(lineupOf([trackItem(1)]))).toEqual({ asked: 0, unfetchable: ['item-1'] });
         expect(send).not.toHaveBeenCalled();
+    });
+
+    // A backoff the record's own slot arrives before is a WAIT. The ladder doubles to a day, so one
+    // that outlasts the slot is a miss, and the two must not be confused: dropping a line over a
+    // five-minute backoff would thin the rotation for a blip.
+    it('leaves a record backing off within its own slot in the order', async () => {
+        const { planner } = build([state(1, { nextAttemptAt: DateTime.now().plus({ seconds: 30 }) })]);
+
+        const result = await planner.ripen(lineupOf([trackItem(1)]));
+
+        expect(result.unfetchable).toEqual([]);
+    });
+
+    it('reports a record whose backoff outlasts its slot as unfetchable', async () => {
+        const { planner } = build([state(1, { nextAttemptAt: DateTime.now().plus({ hours: 4 }) })]);
+
+        expect((await planner.ripen(lineupOf([trackItem(1)]))).unfetchable).toEqual(['item-1']);
     });
 
     it('reads nothing for a window holding no records', async () => {
         const { planner, findForBindings, send } = build([]);
 
-        expect(await planner.ripen(lineupOf([segmentItem(1), segmentItem(2)]))).toBe(0);
+        expect(await planner.ripen(lineupOf([segmentItem(1), segmentItem(2)]))).toEqual({ asked: 0, unfetchable: [] });
         expect(findForBindings).not.toHaveBeenCalled();
         expect(send).not.toHaveBeenCalled();
     });
@@ -159,7 +177,7 @@ describe('TrackCachePlanner.ripen', () => {
     it('says nothing when the whole window is already in hand', async () => {
         const { planner, send } = build([state(1, { checksum: 'a'.repeat(64), ext: 'ogg' })]);
 
-        expect(await planner.ripen(lineupOf([trackItem(1)]))).toBe(0);
+        expect(await planner.ripen(lineupOf([trackItem(1)]))).toEqual({ asked: 0, unfetchable: [] });
         expect(send).not.toHaveBeenCalled();
         expect(logger.info).not.toHaveBeenCalled();
     });

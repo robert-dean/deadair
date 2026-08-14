@@ -171,8 +171,9 @@ cannot fill answerable at all.
 
 **The operator can now say what an hour should be**, which is the other half of this entry that was
 never written down here because it did not exist: `station_lineup.brief`, free text, set when the
-station goes on air and re-read on every refill, in the user turn of `setPrompt` and beating
-`llm.setPersona` where the two disagree. Measured on the station's own `gpt-oss-radio`: asked for
+station goes on air and re-read on every refill, in the user turn of `setPrompt` and beating the
+active persona's `music` line where the two disagree (`llm.setPersona`, which it beat when this was
+written, is retired — see the personas section of CLAUDE.md). Measured on the station's own `gpt-oss-radio`: asked for
 "heavy metal hits" it named 23 of 24 in four searches and 85 seconds, `finish: 'stop'`, and four of
 those were records the library did not hold and Spotify did.
 

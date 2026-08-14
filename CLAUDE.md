@@ -26,8 +26,8 @@ stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends
 ```
 
 Current `apps/api` modules: `data`, `crypto`, `authentication`, `permissions`, `policy`, `jobs`,
-`art`, `catalog`, `onboarding`, `settings`, `stream`, `plugins`, `playlists`, `llm`, `render`,
-`playout`, `nowplaying`, `analysis`, `director`, `enrichment`, plus process-level `logging`.
+`art`, `catalog`, `onboarding`, `settings`, `stream`, `plugins`, `playlists`, `llm`, `personas`,
+`render`, `playout`, `nowplaying`, `analysis`, `director`, `enrichment`, plus process-level `logging`.
 `src/modules/modules.ts` is the source of truth, in that order; check it before assuming a subsystem
 exists.
 
@@ -145,6 +145,33 @@ the operator's: a placeholder outside an optional chunk that cannot be filled me
 not apply, and a phrasing saying nothing about the record just finished is only offered where there
 is none.
 
+**Who the station IS is a row, and it reaches four things rather than one.** `deadair.personas`, one
+active per station enforced by a partial unique index, with its own contract and its own console page
+— a table for the reason `docs/todo/station-moment.md` argues moods are one: a `ConfigField`
+describes one row of a form and this is a list an operator adds to and switches between. It replaced
+`llm.breakPersona` and `llm.setPersona`, both retired, and the reason it could not stay two settings
+is what putting one on air now does: it changes what the model is TOLD (the sheet, in
+`break.prompt.ts`), what the station says when the model declined (the persona's own `templates`,
+ahead of `rotation.breakTemplates` in `resolveTemplates`), which VOICE speaks it (`segments.voice`,
+stamped by `WriteBreakJob` in the same statement as the words), and what it PROGRAMMES towards (the
+`music` line, and only that line — what a character sounds like has nothing to do with what it
+plays). Five things are load-bearing. **`diction` is not a quirk**: a quirk applies to the sentences
+it fits and diction applies to every sentence there will ever be, which is why it leads the sheet AND
+is restated after the content rules — the failure it addresses is CAUSED by those rules, since a host
+reads seven careful instructions about naming records accurately and answers them in careful, plain
+English. **A persona REPLACES the role sentence** rather than queueing behind it, because a model
+told both that it is the voice of a radio station and that it is a pirate captain hedges. **The
+templates chain rather than merge**, since mixing the pools would put plain English back in at
+random, which is the whole failure. **`dictionMarkers` make character checkable** — `readAnswer`
+declines a script carrying fewer than two, and declines rather than re-drafting, because the floor
+underneath now speaks in the same character and a break writer's one job is not to be slow. And **a
+sheet that named no markers passes everything**, because an author who filled in fewer boxes made no
+checkable claim and should not have their scripts refused for it. The four seeds are written from
+`persona.defaults.ts` in `ready()` rather than from the migration, so the sheets have one source, and
+the guard is that the station is EMPTY rather than that each key is missing — which is what makes
+deleting a seeded persona expressible. None of them names a voice: which ids exist is a question only
+the installed engine can answer.
+
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
 words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next
@@ -244,8 +271,9 @@ payload.** `station_lineup.brief` is what they asked for in their own words ("he
 distinct from `name`, which is only a label. It rides the running order because `onEnd: 'extend'`
 keeps asking for more: a theme held in a refill's payload would last one batch and drift back to
 ordinary rotation within the hour with nothing saying so. It reaches the model in the USER turn (this
-refill's instruction, where the system turn is the standing job) and beats `llm.setPersona` where the
-two disagree, since the persona is a description and the brief is somebody deciding tonight.
+refill's instruction, where the system turn is the standing job) and beats the active persona's
+`music` line where the two disagree, since a persona is a description and a brief is somebody
+deciding tonight.
 `CatalogSetGenerator` ignores it deliberately — approximating an instruction would make the thing
 that cannot fail depend on how well a guess landed — so a briefed station whose model produced
 nothing gets an ordinary hour rather than a bad impression of the one it asked for.

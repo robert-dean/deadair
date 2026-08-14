@@ -3,6 +3,10 @@
 **Written:** 2026-08-09, after adding the brick-wall limiter to the broadcast bus.
 **State of the tree:** one `%mp3` mount at `STREAM_BITRATE`. That is the entire output side.
 
+This file is about WHICH mounts to serve. For how good the audio on any of them can get, and why the
+ceiling is the source rather than the encoder, see
+[stream-quality-ceiling.md](stream-quality-ceiling.md).
+
 ---
 
 ## Incoming needs nothing

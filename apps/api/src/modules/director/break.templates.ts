@@ -154,12 +154,36 @@ const isComment = (line: string): boolean => line.trimStart().startsWith('#');
  * break that says nothing.
  */
 export function parseTemplates(raw: string | undefined): readonly string[] {
-    const lines = (raw ?? '')
+    const lines = linesOf(raw);
+    return lines.length > 0 ? lines : DEFAULT_TEMPLATES;
+}
+
+/**
+ * The phrasings this break is written from: the persona's, then the station's, then the defaults.
+ *
+ * **The persona's own phrasings are what make a character survive the model declining**, which is
+ * the ordinary case by design. A station whose pirate falls back to "That was X, from Y" has a
+ * pirate for as long as the model answers and a plain announcer the rest of the time, which reads
+ * to a listener as two different stations rather than one with an occasional wobble.
+ *
+ * It is a chain rather than a merge, and that is the point: mixing a persona's lines with the
+ * station's would put plain English back in the pool at random, which is the failure this exists to
+ * close. Each step falls through only when it is EMPTY, so a persona with no phrasings gets the
+ * operator's, and clearing both restores the station's own five rather than silencing the DJ.
+ */
+export function resolveTemplates(persona: string | undefined, station: string | undefined): readonly string[] {
+    const fromPersona = linesOf(persona);
+    if (fromPersona.length > 0) return fromPersona;
+
+    return parseTemplates(station);
+}
+
+/** One blob of phrasings as lines: trimmed, comments dropped, blanks dropped. */
+function linesOf(raw: string | undefined): string[] {
+    return (raw ?? '')
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0 && !isComment(line));
-
-    return lines.length > 0 ? lines : DEFAULT_TEMPLATES;
 }
 
 /**

@@ -4,7 +4,7 @@ import { saysTime } from './clock.words.js';
 import { Logger } from '@maroonedsoftware/logger';
 import { BreakWriter, type BreakTrack, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import {
-    parseTemplates,
+    resolveTemplates,
     TEMPLATE_KEYS,
     TEMPLATE_VOCABULARY,
     unknownPlaceholders,
@@ -28,10 +28,13 @@ import {
  * ## The phrasings are the OPERATOR'S
  *
  * They ship as the station's own five and are edited in `rotation.breakTemplates`, which is what
- * makes a station sound like itself with no model anywhere near it. The words being a setting
- * changes nothing else here: the repetition rule, the reading of a title and the refusal to invent
- * are all where they were. See `break.templates.ts` for the syntax and the two rules that decide
- * which phrasings fit a given break.
+ * makes a station sound like itself with no model anywhere near it. The persona on air may carry its
+ * OWN, and those sit in front — which is what keeps a character on the station through every break
+ * the model declined, and that is the ordinary case rather than the exception.
+ *
+ * Where the words come FROM changes nothing else here: the repetition rule, the reading of a title
+ * and the refusal to invent are all where they were. See `break.templates.ts` for the syntax, the
+ * chain, and the two rules that decide which phrasings fit a given break.
 
 /** The kind of segment this writes. The same string as `segments.kind`. */
 export const TALK_BREAK_KIND = 'talkbreak';
@@ -82,7 +85,10 @@ export class TalkBreakWriter extends BreakWriter {
 
     async write(request: BreakWriteRequest): Promise<WrittenBreak | undefined> {
         this.lastTemplate = undefined;
-        const dj = this.config.get(TEMPLATE_KEYS.djName, '').trim();
+        // The persona's own name where it has one, and the station's behind it. Same resolution as
+        // the model binding uses, because two writers naming the presenter differently is one
+        // station with two presenters as far as a listener can tell.
+        const dj = (request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, '')).trim();
         const inputs: PhrasingInputs = {
             ...(request.previous === undefined ? {} : { previous: request.previous }),
             ...(request.next === undefined ? {} : { next: request.next }),
@@ -93,8 +99,9 @@ export class TalkBreakWriter extends BreakWriter {
 
         // Read per break rather than held: `deadair.settings` is a layer of the config, so an
         // operator editing their phrasings hears the change on the next break rather than after a
-        // restart, which is the whole point of them being a setting.
-        const templates = parseTemplates(this.config.get(TEMPLATE_KEYS.templates, ''));
+        // restart, which is the whole point of them being a setting. The persona's own phrasings sit
+        // in front of them, which is what keeps a character on the station when the model declined.
+        const templates = resolveTemplates(request.persona?.templates, this.config.get(TEMPLATE_KEYS.templates, ''));
         this.complainAboutTypos(templates);
 
         const fits = usable(templates, inputs, spoken);

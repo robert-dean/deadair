@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
+import type { Persona } from '../../../src/modules/personas/persona.js';
 import { spoken, TalkBreakWriter, TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
@@ -218,6 +219,57 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
 // its wording is good for. Getting the claim wrong in either direction is inaudible from here: too
 // wide and the station says "just after nine" at twenty past, too narrow and a perfectly good break
 // is dropped for a promise it never made.
+describe('TalkBreakWriter against the persona on air', () => {
+    const KEY = 'rotation.breakTemplates';
+    const DJ = 'station.djName';
+
+    /** Enough of a persona to be one. The writer reads two fields of it and nothing else. */
+    const pirate = (over: Partial<Persona> = {}): Persona =>
+        ({ id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', active: true, ...over }) as Persona;
+
+    it("uses the persona's phrasings ahead of the operator's", async () => {
+        // The whole point of this phase: the model declines on most breaks by design, so a character
+        // that lives only in the prompt is a character the listener meets occasionally.
+        const own = build({ [KEY]: 'That was {{previous.title}}, from {{previous.artist}}.' });
+
+        const written = await own.write({
+            kind: TALK_BREAK_KIND,
+            previous,
+            persona: pirate({ templates: 'That there haul was {{previous.title}}, from {{previous.artist}}.' }),
+        });
+
+        expect(written?.script).toBe('That there haul was Solid Air, from John Martyn.');
+    });
+
+    it("falls through to the operator's when the persona carries none", async () => {
+        const own = build({ [KEY]: 'You just heard {{previous.title}}.' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, previous, persona: pirate() });
+
+        expect(written?.script).toBe('You just heard Solid Air.');
+    });
+
+    it("prefers the persona's on-air name to the station's", async () => {
+        // Two writers naming the presenter differently is one station with two presenters, as far
+        // as a listener can tell.
+        const own = build({ [KEY]: 'This is {{dj.name}}, with {{previous.title}}.', [DJ]: 'Sam' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, previous, persona: pirate({ djName: 'Captain Salt' }) });
+
+        expect(written?.script).toBe('This is Captain Salt, with Solid Air.');
+    });
+
+    it('never mixes the two pools, because a stray plain line is the failure this closes', async () => {
+        const own = build({ [KEY]: 'That was {{previous.title}}.\nYou just heard {{previous.title}}.' });
+        const persona = pirate({ templates: 'That there haul was {{previous.title}}.\nYe just heard {{previous.title}}.' });
+
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+            const written = await own.write({ kind: TALK_BREAK_KIND, previous, persona });
+            expect(written?.script).toMatch(/^(That there haul was|Ye just heard)/);
+        }
+    });
+});
+
 describe('TalkBreakWriter and the time', () => {
     const clock = { words: 'just after nine', validFrom: 1_000, validUntil: 500_000 };
 

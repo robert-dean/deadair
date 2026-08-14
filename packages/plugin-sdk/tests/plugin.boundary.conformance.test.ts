@@ -35,6 +35,9 @@ import {
     searchTracksOptionsFixture,
     similarArtistFixture,
     artistTrackFixture,
+    scrobblePlayFixture,
+    scrobbleRejectionFixture,
+    scrobbleResultFixture,
     speechRequestFixture,
     speechVoiceFixture,
     trackEnrichmentBatchFixture,
@@ -86,6 +89,9 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['ChartEntry', chartEntryFixture],
         ['SimilarArtist', similarArtistFixture],
         ['ArtistTrack', artistTrackFixture],
+        ['ScrobblePlay', scrobblePlayFixture],
+        ['ScrobbleRejection', scrobbleRejectionFixture],
+        ['ScrobbleResult', scrobbleResultFixture],
     ] as const)('%s crosses the boundary', (label, value) => {
         expect(() => assertCrossesBoundary(value, label)).not.toThrow();
     });

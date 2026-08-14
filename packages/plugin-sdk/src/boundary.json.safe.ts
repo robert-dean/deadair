@@ -38,6 +38,7 @@
 
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
+import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
 import type {
     AlbumEnrichment,
@@ -175,6 +176,9 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ChartEntry: IsJsonSafe<ChartEntry>;
     SimilarArtist: IsJsonSafe<SimilarArtist>;
     ArtistTrack: IsJsonSafe<ArtistTrack>;
+    ScrobblePlay: IsJsonSafe<ScrobblePlay>;
+    ScrobbleRejection: IsJsonSafe<ScrobbleRejection>;
+    ScrobbleResult: IsJsonSafe<ScrobbleResult>;
 }>;
 
 /**
@@ -226,6 +230,9 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ChartEntry',
     'SimilarArtist',
     'ArtistTrack',
+    'ScrobblePlay',
+    'ScrobbleRejection',
+    'ScrobbleResult',
 ] as const;
 
 /**
@@ -258,6 +265,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'AnalysisProvider',
     'ChartsProvider',
     'SimilarityProvider',
+    'ScrobbleProvider',
 ] as const;
 
 /**

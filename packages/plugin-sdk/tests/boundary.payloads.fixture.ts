@@ -20,6 +20,7 @@ import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/ll
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from '../src/capabilities/analysis.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from '../src/capabilities/charts.js';
 import type { ArtistTrack, SimilarArtist } from '../src/capabilities/similarity.js';
+import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from '../src/capabilities/scrobble.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -404,6 +405,30 @@ export const artistTrackFixture: ArtistTrack = {
     artist: 'Massive Attack',
     album: 'Mezzanine',
     year: 1998,
+};
+
+/** `playedAt` is epoch millis as an integer, never a `Date`: this one goes into a jsonb column. */
+export const scrobblePlayFixture: ScrobblePlay = {
+    title: 'Teardrop',
+    artist: 'Massive Attack',
+    album: 'Mezzanine',
+    albumArtist: 'Massive Attack',
+    durationMs: 330_000,
+    trackNumber: 2,
+    mbid: '0e0b4b4a-3b1e-4f0a-9c2d-6a1b7c8d9e0f',
+    playedAt: 1_767_225_600_000,
+};
+
+/** A permanent refusal: the host drops it rather than retrying forever. */
+export const scrobbleRejectionFixture: ScrobbleRejection = {
+    index: 3,
+    reason: 'the service will not accept a timestamp that old',
+    retryable: false,
+};
+
+export const scrobbleResultFixture: ScrobbleResult = {
+    accepted: 9,
+    rejected: [scrobbleRejectionFixture],
 };
 
 const externalIdFixture: ExternalId = { source: 'musicbrainz', id: 'mb-123' };

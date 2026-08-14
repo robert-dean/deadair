@@ -73,6 +73,16 @@ export const PLUGIN_CAPABILITY_CHARTS = 'charts';
  */
 export const PLUGIN_CAPABILITY_SIMILARITY = 'similarity';
 
+/**
+ * The plugin can report what the station played to somebody else's service.
+ *
+ * The only capability that SENDS. Everything else here reads an upstream; this
+ * publishes the operator's own listening to an account they hold, which is why
+ * the SDK gives it a way to be declined per installation rather than assuming
+ * that installing a plugin is consent to broadcast from it.
+ */
+export const PLUGIN_CAPABILITY_SCROBBLE = 'scrobble';
+
 export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_STREAM,
@@ -84,6 +94,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_ANALYSIS,
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_SIMILARITY,
+    PLUGIN_CAPABILITY_SCROBBLE,
 ] as const;
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];

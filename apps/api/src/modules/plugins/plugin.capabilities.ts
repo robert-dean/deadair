@@ -4,11 +4,13 @@ import {
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
+    PLUGIN_CAPABILITY_SCROBBLE,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_STREAM,
     type AnalysisProvider,
     type ChartsPluginInstance,
+    type ScrobblePluginInstance,
     type SimilarityPluginInstance,
     type EnrichmentPluginInstance,
     type LlmPluginInstance,
@@ -254,6 +256,78 @@ export const asChartsPlugin = (record: PluginRecord): ChartsPlugin | undefined =
     if (!implementsCharts(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as ChartsPluginInstance };
+};
+
+/** The one method that earns the `scrobble` capability. */
+export const SCROBBLE_METHODS = ['scrobble'] as const satisfies ReadonlyArray<keyof ScrobblePluginInstance>;
+
+/**
+ * How many plays a destination is handed at once when it names no number.
+ *
+ * Modest, because this is the size of one request to somebody else's service and
+ * the queue drains on a two-minute cron: a station airing fifteen records an hour
+ * never has a backlog this does not clear in one pass, and a service with a
+ * smaller published limit says so.
+ */
+export const DEFAULT_SCROBBLE_BATCH_SIZE = 20;
+
+/** Above this, one failure costs too many plays a retry. A plugin asking for more is clamped. */
+export const MAX_SCROBBLE_BATCH_SIZE = 50;
+
+/** A plugin narrowed to "can report what the station played, right now". */
+export interface ScrobblePlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: ScrobblePluginInstance;
+    /** Whether `nowPlaying` is there to call. Optional in the SDK, so absent is normal. */
+    saysNowPlaying: boolean;
+    /** Whether `accepting` is there to ask. Absent means yes, per the SDK. */
+    declarable: boolean;
+    /** {@link ScrobbleProvider.maxBatchSize}, defaulted and clamped. */
+    maxBatchSize: number;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `scrobble` capability. */
+export const implementsScrobble = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_SCROBBLE)) return false;
+    return SCROBBLE_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/** Whether this plugin wants telling what is on air, as opposed to only what has played. */
+export const implementsNowPlaying = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).nowPlaying === 'function';
+
+/** Whether this plugin can be asked to decline. Absent means it always accepts, per the SDK. */
+export const implementsAccepting = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).accepting === 'function';
+
+/** {@link ScrobbleProvider.maxBatchSize}, defaulted and held between 1 and the ceiling. */
+export const scrobbleBatchSize = (instance: ScrobblePluginInstance): number => {
+    const declared = instance.maxBatchSize;
+    if (typeof declared !== 'number' || !Number.isFinite(declared) || declared < 1) return DEFAULT_SCROBBLE_BATCH_SIZE;
+    return Math.min(Math.floor(declared), MAX_SCROBBLE_BATCH_SIZE);
+};
+
+/**
+ * The scrobble-capable view of a record, or `undefined` when it is not one.
+ *
+ * No priority and no choosing between them, unlike speech or llm: every
+ * destination gets every play, because two services scrobbling the same station
+ * are two accounts an operator holds rather than two answers to one question.
+ * That is also why the queue carries a row per play per destination — one
+ * outage must not cost the other its retry.
+ */
+export const asScrobblePlugin = (record: PluginRecord): ScrobblePlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsScrobble(record.manifest, record.instance)) return undefined;
+
+    const instance = record.instance as ScrobblePluginInstance;
+    return {
+        record,
+        manifest: record.manifest,
+        instance,
+        saysNowPlaying: implementsNowPlaying(instance),
+        declarable: implementsAccepting(instance),
+        maxBatchSize: scrobbleBatchSize(instance),
+    };
 };
 
 /**

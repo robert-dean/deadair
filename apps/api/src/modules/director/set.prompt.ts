@@ -118,13 +118,30 @@ function systemPrompt(settings: SetPromptSettings): string {
         // already owned, already measured and cost nothing to play; a provider record costs a
         // lookup and a download. Both air, so this is about cost and not about permission.
         '- Search the library FIRST. Use search_catalog when the library cannot fill what you were asked for.',
-        // Bounded rather than encouraged, which is the correction a live run forced. "Search
-        // several times" with no ceiling had the model spend every round it was given searching and
-        // never answer at all: the tool loop ran out, the final turn was asked with no tools, and
-        // what came back was the model still saying it wanted to search. A DJ does not need to have
-        // read the whole library to pick an hour of it.
-        '- Search three or four times, for different artists, styles or eras, and then ANSWER.',
-        '- Do not keep searching for more. Choose from what the searches have already returned.',
+        // Two live runs pulled this rule in opposite directions and it now states the condition
+        // rather than a number of searches, which is what satisfies both.
+        //
+        // A flat "search several times" with no ceiling had the model spend every round it was given
+        // searching and never answer: the tool loop ran out, the final turn was asked with no tools,
+        // and what came back was the model still saying it wanted to search. "Three or four times,
+        // then ANSWER" fixed that and introduced the opposite failure — asked for two dozen records
+        // off a library holding two of the style, it searched twice, had twelve records in front of
+        // it, and padded the answer to length by naming eleven of them more than once. Half a
+        // briefed hour was then filled by the deterministic floor, which is the one binding that
+        // cannot act on a brief at all.
+        //
+        // So the bound is what it is FOR — enough distinct records to choose from — and the guard
+        // against the first failure is that the condition is reachable and stated as a stopping
+        // rule. `ModelSetGenerator.MAX_TOOL_STEPS` is the structural ceiling underneath it, and the
+        // floor still covers a run that answers short.
+        '- Keep searching until you have found at least as many DIFFERENT records as you were asked to name.',
+        '- Vary the searches: different artists, styles or eras. The same query returns the same records again.',
+        '- As soon as you have enough to choose from, ANSWER. Do not keep searching for more.',
+        // The failure this prevents is invisible from the answer, which looks complete: a repeated
+        // record is discarded downstream and the station fills the gap from ordinary rotation, so a
+        // model padding to length silently costs the operator the thing they asked for.
+        '- Name each record ONCE. Repeating one does not fill the request; the record is discarded and the station chooses something else in its place.',
+        '- If you cannot find enough, name fewer. A short answer is better than a repeated one.',
         '- Do not put two records by the same artist next to each other.',
         '- Order them so the set flows: think about what follows what.',
         '',

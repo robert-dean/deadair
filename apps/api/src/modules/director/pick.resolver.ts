@@ -29,17 +29,40 @@ export const DISCOVER_KEY = 'rotation.discover';
 export const DISCOVER_DEFAULT = true;
 
 /**
- * How many records one resolve may look up at a provider.
+ * The fewest records one resolve may look up, however small the batch.
+ *
+ * Headroom for the ordinary case, where a station programming from its own library names one or two
+ * records it turns out not to own. A batch smaller than this is never capped.
+ */
+export const MIN_DISCOVERIES = 8;
+
+/**
+ * The most records one resolve may look up, however large the batch.
  *
  * A bound on the network rather than on the answer. Every miss is a search across every searchable
- * provider, so an unlucky batch — a model naming fifteen records nothing carries — would otherwise
- * spend a provider's whole rate budget on one refill and leave nothing for the next. Eight is most
- * of a normal batch's headroom and far short of a runaway.
+ * provider, so a runaway batch would otherwise spend a provider's whole rate budget on one refill
+ * and leave nothing for the next.
  *
  * Counted as ATTEMPTS rather than successes, since a search that found nothing cost the same round
  * trip as one that found something.
  */
-export const MAX_DISCOVERIES = 8;
+export const MAX_DISCOVERIES = 32;
+
+/**
+ * How many lookups this batch gets: one per pick, held between the two bounds.
+ *
+ * It was a flat eight, which was sized for discovery as a garnish on an hour the library could
+ * mostly fill — and that is precisely the case this path does NOT exist for. Give a briefed station
+ * a theme its playlists have never covered and every pick in the batch needs a lookup, so a
+ * twenty-four-pick refill spent its allowance a third of the way in and the rest were dropped as
+ * "not in the catalog" without a single provider being asked about them. The symptom is
+ * indistinguishable from a provider that carried nothing, which is why it is logged.
+ *
+ * Scaling with the batch is what makes the ceiling a runaway guard again rather than the thing that
+ * decides how well a brief is served: an ordinary refill never comes near it, and an oversampled one
+ * gets a lookup for every record it named.
+ */
+export const discoveryCap = (picks: number): number => Math.min(Math.max(picks, MIN_DISCOVERIES), MAX_DISCOVERIES);
 
 /** The four cue points as an item carries them: all of them, or none. */
 type CuePointSnapshot = { cueInMs?: number; introEndMs?: number; outroStartMs?: number; cueOutMs?: number };
@@ -345,6 +368,7 @@ export class PickResolver {
     private async identify(picks: readonly TrackPick[]): Promise<Identified[]> {
         const identified: Identified[] = [];
         const mayDiscover = this.mayDiscover();
+        const cap = discoveryCap(picks.length);
         let attempted = 0;
         let overCap = 0;
 
@@ -352,7 +376,7 @@ export class PickResolver {
             let trackId = pick.trackId ?? (await this.candidates.findByName(pick.title, pick.artist));
 
             if (!trackId && mayDiscover) {
-                if (attempted < MAX_DISCOVERIES) {
+                if (attempted < cap) {
                     attempted += 1;
                     trackId = await this.discover(pick);
                 } else {
@@ -381,7 +405,7 @@ export class PickResolver {
             // Said out loud rather than absorbed. A cap that silently truncates reads exactly like a
             // provider that had nothing, and the two want opposite fixes: raise the bound, or look
             // at why a whole batch is naming records nothing carries.
-            this.logger.info('director: stopped looking records up at the per-refill cap', { cap: MAX_DISCOVERIES, notLookedUp: overCap });
+            this.logger.info('director: stopped looking records up at the per-refill cap', { cap, notLookedUp: overCap });
         }
         return identified;
     }

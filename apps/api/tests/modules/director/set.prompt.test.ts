@@ -35,6 +35,27 @@ describe('setPrompt', () => {
         expect(system).toMatch(/when the library cannot fill/);
     });
 
+    it('bounds the searching by what it is for rather than by a number of searches', () => {
+        // Two live runs pulled this in opposite directions. "Search several times" with no ceiling
+        // had the model spend every round searching and never answer; "three or four times, then
+        // ANSWER" then had it stop with twelve records in front of it when asked to name two dozen.
+        // Stating the condition satisfies both, and it has to remain a STOPPING rule.
+        const system = systemOf(setPrompt({ count: 24, avoid: [] }));
+
+        expect(system).toMatch(/Keep searching until you have found at least as many DIFFERENT records/);
+        expect(system).toMatch(/As soon as you have enough to choose from, ANSWER/);
+    });
+
+    it('says a repeated record does not fill the request', () => {
+        // The failure is invisible from the answer, which looks complete: `SetGeneratorChain`
+        // discards the duplicate and the deterministic floor fills the gap, so a model padding to
+        // length silently costs the operator the brief they asked for.
+        const system = systemOf(setPrompt({ count: 24, avoid: [] }));
+
+        expect(system).toMatch(/Name each record ONCE/);
+        expect(system).toMatch(/name fewer/);
+    });
+
     it('asks for the answer in a shape something can read back', () => {
         expect(systemOf(setPrompt({ count: 5, avoid: [] }))).toMatch(/JSON array/);
     });

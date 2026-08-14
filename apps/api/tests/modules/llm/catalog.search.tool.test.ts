@@ -138,12 +138,25 @@ describe('searching', () => {
     });
 
     it('caps the answer however many were asked for', async () => {
-        const many = Array.from({ length: 40 }, (_, index) => track(`Track ${index}`, 'Artist'));
+        const many = Array.from({ length: 40 }, (_, index) => track(`Track ${index}`, `Artist ${index}`));
         const tool = await offered([fakeCatalog({ tracks: many })]);
 
         const result = (await tool!.run({ query: 'x', limit: 500 })) as { tracks: unknown[] };
 
-        expect(result.tracks.length).toBeLessThanOrEqual(10);
+        expect(result.tracks.length).toBeLessThanOrEqual(25);
+    });
+
+    it('offers enough records to programme an oversampled refill from', async () => {
+        // Not a round number for its own sake. `ModelSetGenerator` asks for an oversampled batch —
+        // two dozen records for a fifteen-item refill — and a model shown ten cannot name two dozen
+        // distinct ones. It padded the answer with repeats instead, and the deterministic floor,
+        // which cannot act on a brief, filled half a briefed hour.
+        const many = Array.from({ length: 40 }, (_, index) => track(`Track ${index}`, `Artist ${index}`));
+        const tool = await offered([fakeCatalog({ tracks: many })]);
+
+        const result = (await tool!.run({ query: 'x' })) as { tracks: unknown[] };
+
+        expect(result.tracks.length).toBeGreaterThanOrEqual(24);
     });
 
     it('honours a smaller limit the model asked for', async () => {
@@ -153,6 +166,35 @@ describe('searching', () => {
         const result = (await tool!.run({ query: 'x', limit: 3 })) as { tracks: unknown[] };
 
         expect(result.tracks).toHaveLength(3);
+    });
+
+    it('answers with the LEAD artist, so a collaboration can be looked up again', async () => {
+        // The bug this file did not catch for as long as the tool existed. `artists.join(', ')`
+        // reads perfectly well and is unschedulable: the model is told to copy the artist back
+        // exactly, and both steps that then judge the pick match on the lead artist alone —
+        // `songKey(title, [artist])` in `PickResolver.identify`, and `normalizeKey(artists[0])` in
+        // `ProviderTrackLookup`. Neither can equal a joined line. In a live run every solo credit
+        // resolved and every collaboration was dropped as "not in the catalog".
+        const duet: ProviderTrack = { id: 'x', title: 'Jazz Club', artists: ['Accelio', 'ROOXG'] };
+        const tool = await offered([fakeCatalog({ tracks: [duet] })]);
+
+        const result = (await tool!.run({ query: 'jazz' })) as { tracks: { artist: string; featuring?: string[] }[] };
+
+        expect(result.tracks[0]?.artist).toBe('Accelio');
+        // Shown, so the listing stays honest about what the record is, and separate so it cannot get
+        // back into the field that has to survive a strict match.
+        expect(result.tracks[0]?.featuring).toEqual(['ROOXG']);
+    });
+
+    it('leaves out a record with nobody credited', async () => {
+        // Unnameable: `readPicks` drops a pick with a blank artist and the lookup refuses to search
+        // for one, so offering it can only spend context on a row the model is penalised for using.
+        const anonymous: ProviderTrack = { id: 'x', title: 'Untitled', artists: [] };
+        const tool = await offered([fakeCatalog({ tracks: [anonymous, track('One', 'A')] })]);
+
+        const result = (await tool!.run({ query: 'x' })) as { tracks: { title: string }[] };
+
+        expect(result.tracks.map(item => item.title)).toEqual(['One']);
     });
 
     it('refuses a query it cannot read, in terms the model can correct', async () => {

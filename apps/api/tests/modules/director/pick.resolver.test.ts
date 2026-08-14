@@ -9,7 +9,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 
-import { DISCOVER_KEY, MAX_DISCOVERIES, PickResolver } from '../../../src/modules/director/pick.resolver.js';
+import { discoveryCap, DISCOVER_KEY, MAX_DISCOVERIES, MIN_DISCOVERIES, PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import type { ProviderTrackLookup } from '../../../src/modules/director/provider.track.lookup.js';
 import type { CatalogResolverService } from '../../../src/modules/catalog/ingest/catalog.resolver.service.js';
 import type { CandidatesRepository, TrackBinding } from '../../../src/modules/director/candidates.repository.js';
@@ -363,6 +363,27 @@ describe('PickResolver discovering a record at a provider', () => {
         );
 
         expect(find).toHaveBeenCalledTimes(MAX_DISCOVERIES);
+    });
+
+    it('gives a whole batch a lookup each, rather than a fixed few', async () => {
+        // The bound used to be a flat eight, sized for discovery as a garnish on an hour the library
+        // could mostly fill — which is the one case this path does not exist for. A station briefed
+        // on a style its playlists never covered needs a lookup for EVERY pick, so a twenty-four
+        // pick refill spent its allowance a third of the way in and the rest were dropped without a
+        // provider ever being asked about them.
+        const { resolver, find } = build({ byName: {}, atProvider: {} });
+        const batch = Array.from({ length: 24 }, (_, index) => ({ title: `T${index}`, artist: `A${index}` }));
+
+        await resolve(resolver, batch);
+
+        expect(find).toHaveBeenCalledTimes(batch.length);
+    });
+
+    it('still gives a small batch room to discover more than it named', async () => {
+        // The floor is the other half: a two-pick batch is not held to two lookups, because the
+        // ordinary case is a station that owns most of what it names and misses one or two.
+        expect(discoveryCap(2)).toBe(MIN_DISCOVERIES);
+        expect(discoveryCap(MAX_DISCOVERIES * 2)).toBe(MAX_DISCOVERIES);
     });
 
     it('drops one track rather than the batch when the lookup throws', async () => {

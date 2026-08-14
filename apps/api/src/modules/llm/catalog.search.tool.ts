@@ -44,16 +44,50 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  * the search: a partial answer is worth more here than none.
  */
 
-/** How many tracks come back at most, whatever was asked for. */
-const MAX_RESULTS = 10;
+/**
+ * How many tracks come back at most, whatever was asked for.
+ *
+ * The same figure {@link LibrarySearchTool} uses, and it is a floor on what a refill can do rather
+ * than a comfort: `ModelSetGenerator` is asked for an oversampled batch — two dozen records for a
+ * fifteen-item refill — and a model that can see ten cannot name two dozen distinct ones. It was ten
+ * here while the library tool's was twenty-five, so the tool for a station's OWN records offered
+ * more than the one reaching a provider's entire catalogue, which is backwards: this is the tool
+ * that exists for a brief the library cannot fill, and it was the one running out of records first.
+ */
+const MAX_RESULTS = 25;
 
 /** What one provider is asked for, before the merge trims to {@link MAX_RESULTS}. */
-const PER_PROVIDER_LIMIT = 10;
+const PER_PROVIDER_LIMIT = 25;
 
 /** One row of the answer. Deliberately thin: a model writing a sentence needs a name, not a schema. */
 interface FoundTrack {
-    title: string;
+    /**
+     * The LEAD artist alone, and this is an identity rather than a credit.
+     *
+     * It was `artists.join(', ')` for as long as this tool existed, which quietly made every
+     * collaboration unschedulable. The model is told to copy what a search gave it back exactly —
+     * it must be, because {@link ProviderTrackLookup} is strict — so it returned `"Accelio, ROOXG"`
+     * as the artist, and both steps that then judge the pick match on the LEAD artist only:
+     * `PickResolver.identify` keys it with `songKey(title, [artist])`, and the lookup compares
+     * `normalizeKey(track.artists[0])`. Neither can ever equal a joined line, so a record a provider
+     * was carrying, that the model had found and named correctly, was dropped as "not in the
+     * catalog". Every solo credit in a live run resolved and every collaboration failed.
+     *
+     * So what this field carries is what those two comparisons are made against, which is the rule
+     * every rotation key in the codebase already follows and which {@link LibrarySearchTool} was
+     * following all along by answering with `row.artistName`.
+     */
     artist: string;
+    title: string;
+    /**
+     * Everyone else on the record, shown and never copied.
+     *
+     * Here so the answer stays honest — a listing that says a duet is a solo record is worse
+     * information to programme from — and separate so it cannot get into {@link artist}. A model
+     * choosing between two versions of a title wants to see who else is on them; nothing downstream
+     * reads this.
+     */
+    featuring?: string[];
     album?: string;
     /** Which plugin can play it, so a caller downstream could act on the answer rather than only read it. */
     source: string;
@@ -137,9 +171,17 @@ export class CatalogSearchTool implements ToolSource {
                 );
 
                 for (const track of tracks) {
+                    const [lead, ...featuring] = track.artists ?? [];
+                    // A record with nobody credited is left out rather than shown with an empty
+                    // artist. It is unnameable: `readPicks` drops a pick with a blank artist and the
+                    // lookup refuses to search for one, so offering it can only spend the model's
+                    // context on a row it will be penalised for choosing.
+                    if (lead === undefined || lead.trim().length === 0) continue;
+
                     found.push({
                         title: track.title,
-                        artist: track.artists?.join(', ') ?? '',
+                        artist: lead,
+                        ...(featuring.length === 0 ? {} : { featuring }),
                         ...(track.album === undefined ? {} : { album: track.album }),
                         source: plugin.record.id,
                     });
@@ -151,7 +193,15 @@ export class CatalogSearchTool implements ToolSource {
             }
         }
 
-        return { tracks: dedupe(found).slice(0, limit), searched: catalogs.length };
+        const tracks = dedupe(found).slice(0, limit);
+        // The line `LibrarySearchTool` has had all along, and its absence is why diagnosing a refill
+        // that came up short took reading the answer's consequences backwards: the library's search
+        // was in the log with its query and its count, and the one that reaches a provider left
+        // nothing at all, so "how many records did the model actually have to choose from" was
+        // unanswerable for the tool where it matters most.
+        this.logger.debug('llm: searched the providers', { query, found: tracks.length, providers: catalogs.length });
+
+        return { tracks, searched: catalogs.length };
     }
 }
 
@@ -160,6 +210,12 @@ export class CatalogSearchTool implements ToolSource {
  *
  * By title and artist rather than by id, because the ids are per provider and the whole reason two
  * rows collide here is that they came from different ones.
+ *
+ * The artist is now the lead alone, so two rows sharing a title and a lead artist and differing only
+ * in who is featured collapse into one. That is the correct answer here rather than a loss of
+ * precision: `ProviderTrackLookup` matches on exactly those two fields, so a pair this cannot tell
+ * apart is a pair the station could not choose between anyway — showing both would offer the model a
+ * distinction it has no way to act on.
  */
 function dedupe(tracks: readonly FoundTrack[]): FoundTrack[] {
     const seen = new Set<string>();

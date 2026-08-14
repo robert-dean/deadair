@@ -83,6 +83,20 @@ describe('searchTracks', () => {
 
         await expect(plugin.searchTracks('nothing')).resolves.toEqual([]);
     });
+
+    it('declines a narrowed search rather than answering it unfiltered', async () => {
+        // `search3.view` matches text and offers no genre or year filter. Ignoring the filter would
+        // be worse than declining: the caller merges every provider into one list with nothing
+        // marking which rows honoured it, so unfiltered records would arrive indistinguishable from
+        // the ones the station asked for.
+        const { host, plugin } = await build();
+
+        await expect(plugin.searchTracks('anything', { genre: 'jazz' })).resolves.toEqual([]);
+        await expect(plugin.searchTracks('anything', { yearFrom: 1955 })).resolves.toEqual([]);
+        await expect(plugin.searchTracks('anything', { yearTo: 1965 })).resolves.toEqual([]);
+        // Declined before the request, not after it: no queued response was needed above.
+        expect(host.calls).toHaveLength(0);
+    });
 });
 
 describe('getTrack', () => {

@@ -197,6 +197,43 @@ describe('searching', () => {
         expect(result.tracks.map(item => item.title)).toEqual(['One']);
     });
 
+    it('offers the filters, and says why the query alone will not do', async () => {
+        // A parameter a model does not know the point of is a parameter it does not use, and the
+        // point here is not inferable: `query` matches titles and artist names, so "jazz club hits"
+        // came back as records literally titled "Jazz Club".
+        const tool = await offered([fakeCatalog()]);
+        const properties = (tool?.declaration.parameters as { properties: Record<string, { description?: string }> }).properties;
+
+        expect(Object.keys(properties)).toEqual(expect.arrayContaining(['genre', 'yearFrom', 'yearTo']));
+        expect(properties.genre?.description).toContain('only matches titles and artist names');
+    });
+
+    it('hands a filter to the provider untranslated', async () => {
+        // Each plugin expresses these however its upstream does; the host never learns one service's
+        // filter dialect, exactly as it never learns a speech engine's knobs.
+        const record = fakeCatalog();
+        const tool = await offered([record]);
+
+        await tool!.run({ query: 'hits', genre: 'jazz', yearFrom: 1955, yearTo: 1965 });
+
+        const searchTracks = (record.instance as unknown as { searchTracks: ReturnType<typeof vi.fn> }).searchTracks;
+        expect(searchTracks).toHaveBeenCalledWith('hits', expect.objectContaining({ genre: 'jazz', yearFrom: 1955, yearTo: 1965 }));
+    });
+
+    it('leaves out a filter the model did not really set', async () => {
+        // A model that fills every parameter in a declaration sends `genre: ""`, and a provider
+        // handed an empty narrowing either declines outright or searches for nothing.
+        const record = fakeCatalog();
+        const tool = await offered([record]);
+
+        await tool!.run({ query: 'hits', genre: '   ', yearFrom: 'recently' });
+
+        const searchTracks = (record.instance as unknown as { searchTracks: ReturnType<typeof vi.fn> }).searchTracks;
+        const options = searchTracks.mock.calls[0]![1] as Record<string, unknown>;
+        expect(options).not.toHaveProperty('genre');
+        expect(options).not.toHaveProperty('yearFrom');
+    });
+
     it('refuses a query it cannot read, in terms the model can correct', async () => {
         // Arguments arrive as the model produced them, so nothing here trusts a type. "I could not
         // read your query" is something it can fix; an exception is not.

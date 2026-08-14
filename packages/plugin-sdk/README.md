@@ -452,6 +452,21 @@ ones it implements in `manifest.capabilities`:
   `getPlaylistTracks`. Being browsable, and nothing more: a provider that can
   be searched but whose audio deadair cannot get at is a legitimate thing to
   be, and it declares this alone.
+
+    `SearchTracksOptions` carries `genre`, `yearFrom` and `yearTo` beside
+    `limit` and `offset`, structured and provider-neutral: the caller's `query`
+    is free text going at a title and an artist name, and a style is a
+    different axis. Express them however your upstream does — the host never
+    learns one service's filter dialect, exactly as it never learns a speech
+    engine's knobs.
+
+    **Two rules here are load-bearing, and both are about not lying quietly.**
+    A filter you cannot apply means you have nothing to offer for that search,
+    so answer `[]`; never ignore it and answer as though it had not been asked
+    for, because the caller merges several providers into one list and nothing
+    marks which rows honoured it. And `limit` is a TOTAL rather than a page
+    size: page internally if your upstream's own ceiling is lower, since a
+    short answer is indistinguishable from a genuinely thin search.
 - **`stream`** — `resolveStreamUrl`: hand back a complete URL the audio consumer
   can fetch directly, carrying its own authentication, because it is fetched
   with no headers from us. A provider that cannot answer it plays its own audio

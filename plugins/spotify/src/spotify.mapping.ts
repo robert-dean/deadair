@@ -1,5 +1,5 @@
 import type { MaxInt } from '@spotify/web-api-ts-sdk';
-import type { PlaybackState, ProviderPlaylist, ProviderPlaylistPermission, ProviderTrack } from '@deadair/plugin-sdk';
+import type { PlaybackState, ProviderPlaylist, ProviderPlaylistPermission, ProviderTrack, SearchTracksOptions } from '@deadair/plugin-sdk';
 
 /**
  * The SDK's own `Track` / `PlaylistedTrack` / `PlaybackState` types declare their
@@ -214,6 +214,50 @@ export function clampSearchLimit(limit: number | undefined): MaxInt<50> {
     const clamped = Math.min(SEARCH_LIMIT_MAX, Math.max(1, Math.trunc(limit)));
     return clamped as MaxInt<50>;
 }
+
+/**
+ * The caller's free text plus Spotify's own field filters, as one `q`.
+ *
+ * Spotify's search is a text match against titles and artist names, so a station's brief handed
+ * straight over comes back as records with those words in the title. `genre:` and `year:` are a
+ * different axis and the only way to ask the question the caller meant. The SDK keeps them
+ * structured and provider-neutral precisely so this translation lives here, in the one plugin that
+ * knows this dialect — the host never learns it, the same way it never learns a speech engine's
+ * knobs.
+ *
+ * Values are quoted when they contain a space, because `genre:new wave` parses as a genre of `new`
+ * and a stray term `wave`. A year range is `year:1955-1965`, and either end alone is `year:1955`
+ * (Spotify reads a bare year as that year, so an open-ended `yearFrom` is expressed by ranging it to
+ * the other bound rather than left dangling).
+ */
+export function buildSearchQuery(query: string, options: SearchTracksOptions | undefined): string {
+    const parts = [query.trim()];
+
+    const genre = options?.genre?.trim();
+    if (genre) parts.push(`genre:${quoteIfNeeded(genre)}`);
+
+    const from = year(options?.yearFrom);
+    const to = year(options?.yearTo);
+    if (from !== undefined && to !== undefined) parts.push(`year:${Math.min(from, to)}-${Math.max(from, to)}`);
+    else if (from !== undefined) parts.push(`year:${from}-${YEAR_MAX}`);
+    else if (to !== undefined) parts.push(`year:${YEAR_MIN}-${to}`);
+
+    return parts.filter(part => part.length > 0).join(' ');
+}
+
+/** The bounds an open-ended year range is closed against. Recorded music starts well inside these. */
+const YEAR_MIN = 1900;
+const YEAR_MAX = 2100;
+
+/** A usable four-digit year, or nothing. A caller's zero or NaN is not a filter. */
+function year(value: number | undefined): number | undefined {
+    if (value === undefined || !Number.isFinite(value)) return undefined;
+    const rounded = Math.trunc(value);
+    return rounded >= YEAR_MIN && rounded <= YEAR_MAX ? rounded : undefined;
+}
+
+/** A double quote is what Spotify's parser takes, and a value carrying one cannot be quoted at all. */
+const quoteIfNeeded = (value: string): string => (value.includes(' ') && !value.includes('"') ? `"${value}"` : value.replace(/"/g, ''));
 
 /** Holds a caller's search offset inside the window Spotify will page over. */
 export function clampSearchOffset(offset: number | undefined): number | undefined {

@@ -45,6 +45,8 @@ describe('setPrompt', () => {
 
         expect(system).toMatch(/A brief describes a STYLE, not a search term/);
         expect(system).toMatch(/search for THOSE by name/);
+        // And the axis the search itself offers for it, which is the half the model cannot infer.
+        expect(system).toMatch(/genre, yearFrom and yearTo filters/);
         // The rule it must not be read as loosening.
         expect(system).toMatch(/Never name a record from your own knowledge/);
     });

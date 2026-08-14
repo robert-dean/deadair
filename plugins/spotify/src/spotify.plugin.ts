@@ -18,6 +18,7 @@ import { SpotifyApi } from '@spotify/web-api-ts-sdk';
 import { HostVaultAuthStrategy } from './spotify.auth.js';
 import { createHostFetch, SpotifyRequestError, SpotifyResponseValidator } from './spotify.fetch.js';
 import {
+    buildSearchQuery,
     clampLimit,
     clampSearchLimit,
     clampSearchOffset,
@@ -165,12 +166,16 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      */
     async searchTracks(query: string, options?: SearchTracksOptions): Promise<ProviderTrack[]> {
         const wanted = clampSearchTotal(options?.limit);
+        // Spotify's own `genre:` / `year:` dialect, built here because the SDK keeps a filter
+        // structured and provider-neutral. Nothing declines: this is the one provider that CAN
+        // filter, so it never has to answer `[]` for a narrowing it cannot express.
+        const q = buildSearchQuery(query, options);
         let offset = clampSearchOffset(options?.offset) ?? 0;
 
         const tracks: ProviderTrack[] = [];
         while (tracks.length < wanted && offset <= SEARCH_OFFSET_MAX) {
             const page = clampSearchLimit(wanted - tracks.length);
-            const results = await this.getApi().search(query, ['track'], undefined, page, offset);
+            const results = await this.getApi().search(q, ['track'], undefined, page, offset);
             const items = results.tracks.items;
 
             tracks.push(...toProviderTracks(items));

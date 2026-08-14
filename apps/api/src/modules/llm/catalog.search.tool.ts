@@ -118,6 +118,19 @@ export class CatalogSearchTool implements ToolSource {
                         type: 'object',
                         properties: {
                             query: { type: 'string', description: 'A title, an artist, or both.' },
+                            // The three filters exist because `query` is matched against titles and
+                            // artist names and nothing else, which is not a detail the model can be
+                            // expected to infer: asked for "jazz club hits" it searched those words
+                            // and got back obscure records literally titled "Jazz Club". Saying so
+                            // in the description is most of the fix, since a parameter a model does
+                            // not know the point of is a parameter it does not use.
+                            genre: {
+                                type: 'string',
+                                description:
+                                    'Narrow to a style, e.g. "jazz". Use this instead of putting the style in query: query only matches titles and artist names.',
+                            },
+                            yearFrom: { type: 'number', description: 'Narrow to records released in or after this year.' },
+                            yearTo: { type: 'number', description: 'Narrow to records released in or before this year.' },
                             limit: { type: 'number', description: `How many results, at most ${MAX_RESULTS}.` },
                         },
                         required: ['query'],
@@ -158,6 +171,14 @@ export class CatalogSearchTool implements ToolSource {
 
         const limit = clampLimit(args.limit);
         const catalogs = this.catalogs();
+        // Passed through untranslated. Each plugin expresses these however its upstream does, and a
+        // plugin that cannot express one at all answers with nothing rather than with unfiltered
+        // records the merge below could not tell apart. See `MusicProviderCatalog.searchTracks`.
+        const filters = {
+            ...(readText(args.genre) === undefined ? {} : { genre: readText(args.genre)! }),
+            ...(readYear(args.yearFrom) === undefined ? {} : { yearFrom: readYear(args.yearFrom)! }),
+            ...(readYear(args.yearTo) === undefined ? {} : { yearTo: readYear(args.yearTo)! }),
+        };
 
         const found: FoundTrack[] = [];
         for (const plugin of catalogs) {
@@ -167,7 +188,7 @@ export class CatalogSearchTool implements ToolSource {
                     'llm.tool.searchTracks',
                     // Non-null because `catalogs()` filtered on `searchesTracks`, which is the same
                     // declaration-and-implementation rule the rest of the host applies.
-                    async () => (await plugin.instance.searchTracks!(query, { limit: PER_PROVIDER_LIMIT })) ?? [],
+                    async () => (await plugin.instance.searchTracks!(query, { limit: PER_PROVIDER_LIMIT, ...filters })) ?? [],
                 );
 
                 for (const track of tracks) {
@@ -199,7 +220,7 @@ export class CatalogSearchTool implements ToolSource {
         // was in the log with its query and its count, and the one that reaches a provider left
         // nothing at all, so "how many records did the model actually have to choose from" was
         // unanswerable for the tool where it matters most.
-        this.logger.debug('llm: searched the providers', { query, found: tracks.length, providers: catalogs.length });
+        this.logger.debug('llm: searched the providers', { query, ...filters, found: tracks.length, providers: catalogs.length });
 
         return { tracks, searched: catalogs.length };
     }
@@ -235,6 +256,20 @@ function dedupe(tracks: readonly FoundTrack[]): FoundTrack[] {
 
     return unique;
 }
+
+/**
+ * A filter the model actually set, or nothing.
+ *
+ * Arguments arrive as the model produced them, so a filter is taken only when it is a usable value
+ * of the right type. Absent is the ordinary case and blank is the interesting one: a model that
+ * fills every parameter in a declaration would otherwise send `genre: ""`, and a provider handed an
+ * empty narrowing either declines outright or searches for nothing.
+ */
+const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
+
+/** A year the model set, ignoring anything that is not one. */
+const readYear = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.trunc(value) : undefined;
 
 /** Whatever the model asked for, held between one and {@link MAX_RESULTS}. */
 function clampLimit(value: unknown): number {

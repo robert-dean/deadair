@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { clampLimit, clampSearchLimit, clampSearchOffset, mapPlaybackState, mapPlaylist, mapTrack } from '../src/spotify.mapping.js';
+import {
+    buildSearchQuery,
+    clampLimit,
+    clampSearchLimit,
+    clampSearchOffset,
+    clampSearchTotal,
+    mapPlaybackState,
+    mapPlaylist,
+    mapTrack,
+} from '../src/spotify.mapping.js';
 
 describe('mapTrack', () => {
     it('maps a full track', () => {
@@ -289,5 +298,69 @@ describe('clampSearchOffset', () => {
 
     it('truncates a fractional value', () => {
         expect(clampSearchOffset(12.7)).toBe(12);
+    });
+});
+
+describe('clampSearchTotal', () => {
+    it('defaults to one request when the caller named no limit', () => {
+        // The cheapest thing to do for a caller that does not care, and what a caller used to get.
+        expect(clampSearchTotal(undefined)).toBe(10);
+    });
+
+    it('passes through an ask above the per-request ceiling, which is what paging is for', () => {
+        // The whole point: `clampSearchLimit` bounds one REQUEST, this bounds the call. They were
+        // the same number while `searchTracks` made one request, and a caller asking for 25 was
+        // answered with 10 by a trim nothing downstream could tell from a thin search.
+        expect(clampSearchTotal(25)).toBe(25);
+    });
+
+    it('bounds how deep one call may page', () => {
+        expect(clampSearchTotal(500)).toBe(50);
+    });
+
+    it('holds a nonsense ask at one', () => {
+        expect(clampSearchTotal(0)).toBe(1);
+        expect(clampSearchTotal(-5)).toBe(1);
+    });
+});
+
+describe('buildSearchQuery', () => {
+    it('leaves a plain query alone', () => {
+        expect(buildSearchQuery('miles davis', undefined)).toBe('miles davis');
+        expect(buildSearchQuery('miles davis', { limit: 10 })).toBe('miles davis');
+    });
+
+    it('sends a style as a filter rather than as query text', () => {
+        // The failure this exists for: Spotify matches `q` against titles and artist names, so a
+        // station's brief handed over as text returns records with those words in the TITLE.
+        expect(buildSearchQuery('hits', { genre: 'jazz' })).toBe('hits genre:jazz');
+    });
+
+    it('quotes a multi-word style, which would otherwise parse as a stray term', () => {
+        expect(buildSearchQuery('best of', { genre: 'new wave' })).toBe('best of genre:"new wave"');
+    });
+
+    it('sends a year range', () => {
+        expect(buildSearchQuery('jazz', { yearFrom: 1955, yearTo: 1965 })).toBe('jazz year:1955-1965');
+    });
+
+    it('closes an open-ended range against the bound rather than leaving it dangling', () => {
+        // Spotify reads a bare `year:1955` as that one year, which is not what "from 1955" means.
+        expect(buildSearchQuery('jazz', { yearFrom: 1955 })).toBe('jazz year:1955-2100');
+        expect(buildSearchQuery('jazz', { yearTo: 1965 })).toBe('jazz year:1900-1965');
+    });
+
+    it('orders a reversed range rather than sending one Spotify would reject', () => {
+        expect(buildSearchQuery('jazz', { yearFrom: 1965, yearTo: 1955 })).toBe('jazz year:1955-1965');
+    });
+
+    it('ignores a filter that is not a usable value', () => {
+        expect(buildSearchQuery('jazz', { genre: '   ' })).toBe('jazz');
+        expect(buildSearchQuery('jazz', { yearFrom: Number.NaN })).toBe('jazz');
+        expect(buildSearchQuery('jazz', { yearFrom: 0 })).toBe('jazz');
+    });
+
+    it('combines every filter it was given', () => {
+        expect(buildSearchQuery('modal', { genre: 'jazz', yearFrom: 1959, yearTo: 1965 })).toBe('modal genre:jazz year:1959-1965');
     });
 });

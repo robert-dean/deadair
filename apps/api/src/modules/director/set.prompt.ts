@@ -127,6 +127,7 @@ function systemPrompt(settings: SetPromptSettings): string {
         // provenance, and only the second one is what may be answered with.
         '- A brief describes a STYLE, not a search term. Searching for the operator’s own words finds records with those words in the title, which is almost never what they meant.',
         '- Work out for yourself which artists and which records fit the brief, then search for THOSE by name. Search for artists more than for genres.',
+        '- search_catalog also takes genre, yearFrom and yearTo filters. Narrow a style with those rather than by putting the style in the query text.',
         // Two live runs pulled this rule in opposite directions and it now states the condition
         // rather than a number of searches, which is what satisfies both.
         //

@@ -307,6 +307,17 @@ describe('SpotifyPlugin', () => {
             expect(host.calls).toHaveLength(5);
         });
 
+        it('searchTracks sends a filter as Spotify field syntax rather than as query text', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ tracks: { items: [] } }));
+
+            await plugin.searchTracks('hits', { genre: 'jazz', yearFrom: 1955, yearTo: 1965 });
+
+            const q = new URL(host.calls[0].url).searchParams.get('q');
+            expect(q).toBe('hits genre:jazz year:1955-1965');
+        });
+
         it('getTrack returns the mapped track on success', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);

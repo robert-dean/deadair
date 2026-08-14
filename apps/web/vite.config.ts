@@ -31,6 +31,9 @@ export default defineConfig({
         // The default binds ::1 only, which the dev nginx container cannot reach over
         // host.docker.internal (that resolves to the host's IPv4 address).
         host: true,
+        // Vite rejects any Host header it was not told about, so a tunnel that forwards
+        // the public hostname through gets a 403 before any route or proxy is consulted.
+        allowedHosts: ['radio.robertdean.dev'],
         proxy: {
             // The API mounts its routers at the root, so the /api prefix is stripped here.
             // 127.0.0.1 rather than localhost: the latter resolves to IPv6 and is refused.

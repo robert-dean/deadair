@@ -412,7 +412,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         for (const index of outstanding) {
             const album = refs[index]!.album;
             if (!album) continue;
-            const key = `${baseForm(refs[index]!.artist)} ${baseForm(album)}`;
+            // `\u0000` as an escape, not the literal byte. See `lookupKey` in `listenbrainz.mapping.ts`.
+            const key = `${baseForm(refs[index]!.artist)}\u0000${baseForm(album)}`;
             groups.set(key, [...(groups.get(key) ?? []), index]);
         }
 

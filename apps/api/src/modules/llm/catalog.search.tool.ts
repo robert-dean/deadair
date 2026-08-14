@@ -166,7 +166,12 @@ function dedupe(tracks: readonly FoundTrack[]): FoundTrack[] {
     const unique: FoundTrack[] = [];
 
     for (const track of tracks) {
-        const key = `${track.title.toLowerCase()} ${track.artist.toLowerCase()}`;
+        // `\u0000` written as an escape, not as the literal byte it used to be. A NUL is the right
+        // separator — both halves are free text that can contain anything a separator might be, and
+        // this is the one character that cannot appear in either, so "Hello " + "World" cannot
+        // collide with "Hello" + " World". Written invisibly it was a trap: the same expression
+        // typed out by hand somewhere else would build a different key and silently never match.
+        const key = `${track.title.toLowerCase()}\u0000${track.artist.toLowerCase()}`;
         if (seen.has(key)) continue;
         seen.add(key);
         unique.push(track);

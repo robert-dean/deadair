@@ -99,6 +99,12 @@ export function RootLayout() {
                             <Anchor component={Link} to="/lineups" size="sm">
                                 Lineups
                             </Anchor>
+                            {/* Beside Voices, because the two are halves of the same question:
+                                who the station is, and what it sounds like saying it. A persona
+                                picks one of these voices. */}
+                            <Anchor component={Link} to="/personas" size="sm">
+                                Personas
+                            </Anchor>
                             <Anchor component={Link} to="/voices" size="sm">
                                 Voices
                             </Anchor>

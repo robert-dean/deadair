@@ -15,6 +15,7 @@ import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnairRouteImport } from './routes/onair'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PersonasRouteImport } from './routes/personas'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as VoicesRouteImport } from './routes/voices'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
@@ -55,6 +56,11 @@ const OnairRoute = OnairRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersonasRoute = PersonasRouteImport.update({
+  id: '/personas',
+  path: '/personas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
+  '/personas': typeof PersonasRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
   '/catalog/tracks': typeof CatalogTracksRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
+  '/personas': typeof PersonasRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
   '/catalog/tracks': typeof CatalogTracksRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
+  '/personas': typeof PersonasRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
   '/catalog/tracks': typeof CatalogTracksRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onair'
     | '/onboarding'
+    | '/personas'
     | '/settings'
     | '/voices'
     | '/catalog/tracks'
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onair'
     | '/onboarding'
+    | '/personas'
     | '/settings'
     | '/voices'
     | '/catalog/tracks'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onair'
     | '/onboarding'
+    | '/personas'
     | '/settings'
     | '/voices'
     | '/catalog/tracks'
@@ -239,6 +251,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnairRoute: typeof OnairRoute
   OnboardingRoute: typeof OnboardingRoute
+  PersonasRoute: typeof PersonasRoute
   SettingsRoute: typeof SettingsRoute
   VoicesRoute: typeof VoicesRoute
   CatalogTracksRoute: typeof CatalogTracksRoute
@@ -294,6 +307,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/personas': {
+      id: '/personas'
+      path: '/personas'
+      fullPath: '/personas'
+      preLoaderRoute: typeof PersonasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -383,6 +403,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnairRoute: OnairRoute,
   OnboardingRoute: OnboardingRoute,
+  PersonasRoute: PersonasRoute,
   SettingsRoute: SettingsRoute,
   VoicesRoute: VoicesRoute,
   CatalogTracksRoute: CatalogTracksRoute,

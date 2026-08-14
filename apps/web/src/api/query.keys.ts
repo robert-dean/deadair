@@ -48,6 +48,14 @@ export const queryKeys = {
     voices: {
         list: () => ['voices', 'list'] as const,
     },
+    /**
+     * Who the station can be. One key, and no per-persona form: every write answers with the whole
+     * list, because putting one on air takes another off, so there is never a slice of this worth
+     * invalidating on its own. Same shape as `settings` above and for the same reason.
+     */
+    personas: {
+        list: () => ['personas', 'list'] as const,
+    },
     playlists: {
         list: () => ['playlists', 'list'] as const,
         tracks: (pluginId: string, playlistId: string) => ['playlists', 'tracks', pluginId, playlistId] as const,

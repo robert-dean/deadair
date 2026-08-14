@@ -1,0 +1,181 @@
+import { useState } from 'react';
+import { Alert, Badge, Button, Card, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
+import type { Persona, PersonaInput } from '@deadair/sdk';
+
+import { useCreatePersona, useDeletePersona, usePersonas, usePutPersonaOnAir, useUpdatePersona } from '../../api/personas.queries';
+import { apiErrorMessage } from '../../api/sdk.error';
+import { PersonaEditor } from './persona.editor';
+
+/**
+ * Who the station is when it opens its mouth.
+ *
+ * One persona is on air at a time, and putting one there changes four things at once: what the
+ * model is told to sound like, what the station says when the model declines, which voice speaks it,
+ * and what it programmes towards. That is the reason this is a page rather than four settings — a
+ * character is one decision.
+ *
+ * A change is heard on the NEXT break rather than immediately, and the page says so. Breaks are
+ * written a little ahead of their slot, so whatever is already rendered airs in the character it
+ * was written in; nothing here can reach into audio that already exists.
+ */
+export function PersonasPage() {
+    const personas = usePersonas();
+    const create = useCreatePersona();
+    const update = useUpdatePersona();
+    const remove = useDeletePersona();
+    const putOnAir = usePutPersonaOnAir();
+
+    // `undefined` is closed; a persona is editing that one; `null` is a new one. The one place in
+    // this app where null earns its keep: "no editor" and "an editor with nothing in it" are
+    // genuinely different states.
+    const [editing, setEditing] = useState<Persona | null | undefined>(undefined);
+
+    const close = () => {
+        setEditing(undefined);
+        create.reset();
+        update.reset();
+    };
+
+    const submit = (draft: PersonaInput) => {
+        const done = { onSuccess: close };
+        if (editing === null) create.mutate(draft, done);
+        else if (editing !== undefined) update.mutate({ id: editing.id, body: draft }, done);
+    };
+
+    return (
+        <Stack gap="lg">
+            <Group justify="space-between" align="flex-start">
+                <Stack gap={4}>
+                    <Title order={1}>Personas</Title>
+                    <Text c="dimmed" size="sm">
+                        Who the station is when it talks. The one on air decides how a break is written, what it says when nothing wrote it, which
+                        voice reads it, and what the station programmes towards. A change is heard on the next break.
+                    </Text>
+                </Stack>
+                <Button onClick={() => setEditing(null)}>New persona</Button>
+            </Group>
+
+            {personas.error ? (
+                <Alert color="red" title="Personas could not be loaded">
+                    {apiErrorMessage(personas.error, 'The persona list is unavailable.')}
+                </Alert>
+            ) : undefined}
+
+            {putOnAir.error ? (
+                <Alert color="red" title="That persona could not be put on air">
+                    {apiErrorMessage(putOnAir.error, 'The station is still in the character it was.')}
+                </Alert>
+            ) : undefined}
+
+            {remove.error ? (
+                <Alert color="red" title="That persona could not be deleted">
+                    {apiErrorMessage(remove.error, 'Nothing was removed.')}
+                </Alert>
+            ) : undefined}
+
+            {personas.isPending ? (
+                <Stack gap="sm">
+                    <Skeleton height={90} radius="md" />
+                    <Skeleton height={90} radius="md" />
+                </Stack>
+            ) : undefined}
+
+            {personas.data?.personas.length === 0 ? (
+                <Card withBorder padding="lg">
+                    <Text c="dimmed" size="sm">
+                        This station has no personas, which is an ordinary state rather than a fault: it writes its breaks from the station&apos;s own
+                        phrasings and speaks them in the plugin&apos;s default voice. Write one to give it a character.
+                    </Text>
+                </Card>
+            ) : undefined}
+
+            <Stack gap="sm">
+                {(personas.data?.personas ?? []).map(persona => (
+                    <Card key={persona.id} withBorder padding="md">
+                        <Group justify="space-between" align="flex-start" wrap="nowrap">
+                            <Stack gap={6} style={{ minWidth: 0 }}>
+                                <Group gap="xs">
+                                    <Text fw={600}>{persona.label}</Text>
+                                    {persona.active ? (
+                                        <Badge color="green" variant="light">
+                                            On air
+                                        </Badge>
+                                    ) : undefined}
+                                    {persona.djName ? (
+                                        <Badge variant="outline" color="gray">
+                                            {persona.djName}
+                                        </Badge>
+                                    ) : undefined}
+                                </Group>
+                                <Text size="sm" c="dimmed">
+                                    {persona.style}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                    {summarise(persona)}
+                                </Text>
+                            </Stack>
+                            <Group gap="xs" wrap="nowrap">
+                                {persona.active ? undefined : (
+                                    <Button
+                                        variant="light"
+                                        size="compact-sm"
+                                        loading={putOnAir.isPending && putOnAir.variables === persona.id}
+                                        onClick={() => putOnAir.mutate(persona.id)}
+                                    >
+                                        Put on air
+                                    </Button>
+                                )}
+                                <Button variant="subtle" size="compact-sm" onClick={() => setEditing(persona)}>
+                                    Edit
+                                </Button>
+                                <Button
+                                    variant="subtle"
+                                    color="red"
+                                    size="compact-sm"
+                                    loading={remove.isPending && remove.variables === persona.id}
+                                    onClick={() => remove.mutate(persona.id)}
+                                >
+                                    Delete
+                                </Button>
+                            </Group>
+                        </Group>
+                    </Card>
+                ))}
+            </Stack>
+
+            <PersonaEditor
+                // Keyed, so opening a different persona builds a fresh form rather than showing the
+                // last one's values under the new one's title.
+                key={editing === null ? 'new' : (editing?.id ?? 'closed')}
+                {...(editing === null || editing === undefined ? {} : { persona: editing })}
+                opened={editing !== undefined}
+                onClose={close}
+                onSubmit={submit}
+                saving={create.isPending || update.isPending}
+                error={create.error ?? update.error ?? undefined}
+            />
+        </Stack>
+    );
+}
+
+/**
+ * The one line under a persona that says what it actually carries.
+ *
+ * Counts rather than contents: a card showing six quirks is a card nobody scans, and the two facts
+ * an operator wants at a glance are whether this character can survive the model declining (its own
+ * phrasings) and whether it is checked for staying in character (its markers).
+ */
+function summarise(persona: Persona): string {
+    const parts: string[] = [];
+
+    const phrasings = (persona.templates ?? '').split('\n').filter(line => line.trim().length > 0).length;
+    parts.push(phrasings > 0 ? `${phrasings} of its own phrasings` : "the station's phrasings");
+
+    const markers = persona.dictionMarkers?.length ?? 0;
+    parts.push(markers > 0 ? `checked against ${markers} words` : 'not checked for character');
+
+    parts.push(persona.voice ? `spoken as ${persona.voice}` : 'the default voice');
+    if (persona.music) parts.push('picks its own records');
+
+    return parts.join(' · ');
+}

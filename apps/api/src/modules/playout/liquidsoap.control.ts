@@ -65,18 +65,24 @@ export const CONTROL_TTL_S = 6;
  * Liquidsoap will not resolve buys nothing, and a prefetch with nothing pushed
  * has nothing to resolve.
  *
- * This is what makes a skip land at once. `prefetch` defaults to 1, so exactly
- * one track is ever downloaded ahead; a skip spends it, and a second skip before
- * the replacement finishes downloading has nothing resolved to cut to. Measured
- * on a real station, that is the difference between a ~200ms skip and one that is
- * either seconds late or silently swallowed.
+ * ONE, and it is one because `COMMIT_LEAD` is: the pusher can only hand over what
+ * the director has prepared, so a larger number here would describe a queue depth
+ * that cannot happen and leave the prefetch with nothing to work on — which is
+ * precisely the failure the paragraph above says keeping them equal avoids.
  *
- * Three, so an operator can click through a few tracks and each one lands. The
- * cost is real but small: three tracks fetched ahead rather than one, which is
- * disk and upstream traffic in the stream container. Raising it further buys
- * deeper clicking and commits the running order further ahead.
+ * **What that costs is the second skip, and it was measured before it was traded
+ * away.** A skip onto a RESOLVED item lands in about 200ms; one onto an unresolved
+ * queue is over 1.2s late or produces no boundary at all. At three, an operator
+ * could click through a few tracks and each one landed. At one there is exactly
+ * one resolved item: the first skip still lands at once, and a second taken before
+ * the replacement resolves does not.
+ *
+ * It was three, and it came down with the commitment horizon — see `COMMIT_LEAD`
+ * and `docs/decisions/bytes-before-air.md`. The two go back up together or not at
+ * all; raising this one alone buys nothing, because there is nothing extra pushed
+ * for it to resolve.
  */
-export const PLAYOUT_LEAD = 3;
+export const PLAYOUT_LEAD = 1;
 
 /**
  * What Liquidsoap reports about its playout queue: `radio.liq`'s `playout_reading`.

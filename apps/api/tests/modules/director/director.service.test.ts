@@ -10,7 +10,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 
-import { DirectorService } from '../../../src/modules/director/director.service.js';
+import { COMMIT_LEAD, DirectorService } from '../../../src/modules/director/director.service.js';
 import {
     StationLineup,
     isTrackItem,
@@ -299,6 +299,21 @@ const wake = async (rundown: Rundown) => {
     await settle();
 };
 
+/**
+ * Air the item at the head of the queue, and let the commit pass fill the slot behind it.
+ *
+ * At a `COMMIT_LEAD` of 1 the committed window is one item, so a scenario about two consecutive
+ * items plays out across two boundaries rather than inside one pass. That is what the station
+ * actually does — it is only the tests that used to be able to see three items at once.
+ */
+const airNext = async (rundown: Rundown) => {
+    const pulled = await rundown.next();
+    if (pulled) rundown.markAired(pulled.item.id);
+    await settle();
+
+    return pulled;
+};
+
 describe('DirectorService thinning the order before the slot arrives', () => {
     // The half that turns "silence at the boundary" into "rotation got thinner an hour ago". The
     // same judgement already ran at the commit window; running it over the WARM window is the whole
@@ -361,12 +376,17 @@ describe('DirectorService committing only what it has the audio for', () => {
     });
 
     it('commits the head that is here and holds the slot of the record that is not', async () => {
-        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'], localAudio: ['a', 'b'] });
+        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'], localAudio: ['a'] });
         await seed();
 
         await director.start();
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
 
-        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b']);
+        // 'a' airs and 'b' does not take its place, because its bytes are not here. The slot is
+        // HELD rather than skipped, so 'c' — which is here — does not jump the queue.
+        await airNext(rundown);
+
+        expect(idsOf(rundown.upcoming())).toEqual([]);
     });
 
     // A segment's readiness is `segments.state` and `toPlayerItems` SKIPS one that is not ready
@@ -381,6 +401,8 @@ describe('DirectorService committing only what it has the audio for', () => {
 
         await director.start();
 
+        // The record behind the segment is asked about and the segment is not: a segment's
+        // readiness is `segments.state` rather than anything on disk.
         expect(readyFor).toHaveBeenCalledWith([{ pluginId: 'deadair.spotify', externalId: 'a' }]);
     });
 
@@ -393,7 +415,7 @@ describe('DirectorService committing only what it has the audio for', () => {
 
         await director.start();
 
-        expect(rundown.upcoming()).toHaveLength(3);
+        expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
     });
 });
 
@@ -406,7 +428,7 @@ describe('DirectorService committing', () => {
 
         await director.start();
 
-        expect(rundown.upcoming()).toHaveLength(3);
+        expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
     });
 
     it('prepares what the transport has room for, and marks nothing itself', async () => {
@@ -419,7 +441,7 @@ describe('DirectorService committing', () => {
 
         await director.start();
 
-        expect(rundown.upcoming()).toHaveLength(3);
+        expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
         expect(lineup.all().every(item => item.state === 'planned')).toBe(true);
     });
 
@@ -444,7 +466,7 @@ describe('DirectorService committing', () => {
         rundown.markAired(pulled!.item.id);
         await new Promise(resolve => setImmediate(resolve));
 
-        expect(rundown.upcoming()).toHaveLength(3);
+        expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
     });
 
     it('does not commit anything for a station that was stood down', async () => {
@@ -468,16 +490,19 @@ describe('DirectorService committing', () => {
             await seedCatalogued();
 
             await director.start();
+            // One boundary, so 'b' reaches the commit window and is judged there.
+            await airNext(rundown);
 
             expect(lineup.all()[1]?.state).toBe('unavailable');
-            expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a', 'c']);
+            expect(rundown.upcoming().map(item => item.externalId)).toEqual(['c']);
         });
 
         it('says so on the feed, because the station is narrowing its own rotation', async () => {
-            const { director, activity, seedCatalogued } = build({ items: ['a', 'b'], servable: ['track-a'] });
+            const { director, rundown, activity, seedCatalogued } = build({ items: ['a', 'b'], servable: ['track-a'] });
             await seedCatalogued();
 
             await director.start();
+            await airNext(rundown);
 
             expect(activity.record).toHaveBeenCalledWith(
                 expect.objectContaining({ kind: 'item.unavailable', data: expect.objectContaining({ trackId: 'track-b' }) }),
@@ -488,7 +513,7 @@ describe('DirectorService committing', () => {
             // "Coming up, X" is baked into audio that cannot be re-cut, so a break naming a record
             // that has just come out of the order has two futures: dropped at hand-over by the
             // claim check, or written again before its slot. This asks for the second.
-            const { director, segmentStub, activity, seedCatalogued, lineup } = build({
+            const { director, rundown, segmentStub, activity, seedCatalogued, lineup } = build({
                 items: ['a', 'b', 'c'],
                 servable: ['track-a', 'track-c'],
             });
@@ -497,6 +522,8 @@ describe('DirectorService committing', () => {
             segmentStub.reopenClaims.mockImplementation(async (itemIds: readonly string[]) => (itemIds.includes(doomed) ? ['seg-1'] : []));
 
             await director.start();
+            // One boundary, so the doomed line reaches the commit window.
+            await airNext(rundown);
             await new Promise(resolve => setImmediate(resolve));
 
             expect(segmentStub.reopenClaims).toHaveBeenCalledWith([doomed]);
@@ -516,11 +543,15 @@ describe('DirectorService committing', () => {
         it('takes the record out even when the break cannot be re-offered', async () => {
             // Best-effort by design: the break is no worse off than it was a moment ago, and a
             // failure here must not cost the pass that was taking a dead record out of the order.
-            const { director, segmentStub, lineup, seedCatalogued } = build({ items: ['a', 'b', 'c'], servable: ['track-a', 'track-c'] });
+            const { director, rundown, segmentStub, lineup, seedCatalogued } = build({
+                items: ['a', 'b', 'c'],
+                servable: ['track-a', 'track-c'],
+            });
             await seedCatalogued();
             segmentStub.reopenClaims.mockRejectedValue(new Error('the segments table is gone'));
 
             await director.start();
+            await airNext(rundown);
             await new Promise(resolve => setImmediate(resolve));
 
             expect(lineup.all()[1]?.state).toBe('unavailable');
@@ -621,7 +652,7 @@ describe('DirectorService noticing the row', () => {
         const { director, rundown, setAir, seed } = build();
         await seed();
         await director.start();
-        expect(rundown.upcoming()).toHaveLength(3);
+        expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
 
         setAir({ slot: 'main', active: false });
         // Past the throttle, because this station IS on air and a busy director reads the row
@@ -642,18 +673,17 @@ describe('DirectorService reclaiming what was retracted', () => {
         const { director, rundown, seed } = build();
         await seed();
         await director.start();
-        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
         // Handed to the player, and heard by nobody.
-        await rundown.next();
         await rundown.next();
 
         // What `putOnAir` does: retract the tail, leave the station on air.
         rundown.retract();
         await settle();
 
-        // The same three, not the three after them. Without the reclaim they would sit spent in
-        // the order, where nothing would ever offer them and no listener ever heard them.
-        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+        // The same line, not the one after it. Without the reclaim it would sit spent in the
+        // order, where nothing would ever offer it and no listener ever heard it.
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
     });
 
     it('does not replay the line that was on air, which the listener did hear', async () => {
@@ -689,22 +719,19 @@ describe('DirectorService reclaiming what was retracted', () => {
         await seed();
         await director.start();
 
-        // 'a' is handed over and confirmed; 'b' and 'c' are handed over and still merely held.
-        const pulled = await rundown.next();
+        // 'a' is handed over and merely held: nothing has confirmed it on air.
         await rundown.next();
-        await rundown.next();
-        rundown.markAired(pulled!.item.id);
         await settle();
 
-        // The running order moves ON: 'd' is prepared behind the two the player is holding.
-        // Nothing is reclaimed and nothing is offered twice.
-        expect(idsOf(rundown.upcoming())).toEqual(['b', 'c', 'd']);
+        // It stays exactly where it is. Nothing is reclaimed and nothing is offered twice — and
+        // at a lead of one, nothing else is committed either, because the slot is still spent.
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
         expect(
             lineup
                 .all()
-                .slice(0, 5)
+                .slice(0, 3)
                 .map(item => item.state),
-        ).toEqual(['airing', 'handed', 'handed', 'planned', 'planned']);
+        ).toEqual(['handed', 'planned', 'planned']);
     });
 
     it('recognises what a previous process left on air, rather than standing the clock down', async () => {
@@ -747,7 +774,7 @@ describe('DirectorService committing under a burst of events', () => {
 
         const ids = idsOf(rundown.upcoming());
         expect(new Set(ids).size).toBe(ids.length);
-        expect(ids).toEqual(['a', 'b', 'c']);
+        expect(ids).toEqual(['a']);
     });
 
     it('does not run two passes at once', async () => {
@@ -912,17 +939,18 @@ describe('DirectorService history', () => {
         // Found by running it: a stream that dropped while the station was driving wrote off
         // twenty items and the feed said nothing at all. One line per item would have been the
         // other failure — twenty rows burying everything else on the page.
-        const { director, rundown, activity, seed } = build();
+        const { director, rundown, lineup, activity, seed } = build();
         await seed();
         await director.start();
 
-        // Three items handed over, and the player reports the THIRD: the two behind it were
-        // committed and never aired, which is exactly what a failed decode or a dropped stream
-        // looks like from here.
+        // The player reports an item two further down than the one it was handed: everything
+        // between was committed and never aired, which is what a failed decode or a dropped
+        // stream looks like from here. Prepared by hand because at a lead of one the director
+        // commits only the head, and this is a reading about something past it.
+        const later = lineup.all()[2]!;
+        rundown.prepare([{ id: later.id, pluginId: 'deadair.spotify', externalId: 'c', title: 'c', artists: [] }]);
         await rundown.next();
-        await rundown.next();
-        const third = await rundown.next();
-        rundown.markAired(third!.item.id);
+        rundown.markAired(later.id);
         await settle();
 
         const record = activity.record as unknown as ReturnType<typeof vi.fn>;
@@ -983,7 +1011,7 @@ describe('DirectorService at the end of a lineup', () => {
         await seed();
 
         await director.start();
-        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b']);
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
 
         // Both are handed over, then both air. Everything BEHIND the record now playing is
         // offered again; the one still airing is not, because a listener is in the middle of it.
@@ -1031,7 +1059,7 @@ describe('DirectorService resuming what it was stopped on', () => {
 
         expect(result).toEqual({ resumed: true });
         expect(airRepository.goOnAir).toHaveBeenCalled();
-        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
     });
 
     // The same broadcast, not a new one: `putOnAir` mints an id and this does not, so the hour
@@ -1063,7 +1091,7 @@ describe('DirectorService going on air', () => {
         const { director, rundown, seed, snapshots } = build();
         await seed();
         await director.start();
-        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
 
         await director.post({
             kind: 'putOnAir',
@@ -1072,9 +1100,8 @@ describe('DirectorService going on air', () => {
         });
 
         // Nothing of the previous programme survives behind the record still playing. That is
-        // the retraction, and it is why a change of lineup used to leak three records into the
-        // new show.
-        expect(idsOf(rundown.upcoming())).toEqual(['x', 'y']);
+        // the retraction, and it is why a change of lineup used to leak records into the new show.
+        expect(idsOf(rundown.upcoming())).toEqual(['x']);
         expect(snapshots.at(-1)?.items.map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y']);
         expect(director.status().name).toBe('Something else');
     });
@@ -1128,16 +1155,16 @@ describe('DirectorService committing segments', () => {
     it('commits a ready segment as an ordinary item, so nothing downstream has to know what it is', async () => {
         const { director, lineup, rundown, seed } = build({ items: ['a', 'b'], segments: [READY] });
         await seed();
-        lineup.insertSegment('seg-1', 1);
+        lineup.insertSegment('seg-1', 0);
 
         await director.start();
         await settle();
 
         const committed = rundown.upcoming();
-        expect(committed[1]).toMatchObject({ pluginId: RENDER_PLUGIN_ID, externalId: 'seg-1', title: 'Top of the hour' });
+        expect(committed[0]).toMatchObject({ pluginId: RENDER_PLUGIN_ID, externalId: 'seg-1', title: 'Top of the hour' });
         // Empty rather than the station's name: `itemAnnotations` drops an empty value, so the
         // mount reads "Top of the hour" instead of "Top of the hour - Deadair".
-        expect(committed[1]?.artists).toEqual([]);
+        expect(committed[0]?.artists).toEqual([]);
     });
 
     it('skips a segment that has no audio yet rather than holding the slot open', async () => {
@@ -1146,16 +1173,15 @@ describe('DirectorService committing segments', () => {
             segments: [{ id: 'seg-1', kind: 'talkbreak', state: 'planned', label: 'A talk break', source: 'render' }],
         });
         await seed();
-        lineup.insertSegment('seg-1', 1);
+        lineup.insertSegment('seg-1', 0);
 
         await director.start();
         await settle();
 
-        // The three lines taken were a, the segment, and b — and the lead is still full. Appending
-        // to the rundown emits a change, which the commit pass coalesces into the `pending` wake it
-        // fires on its way out, and that pass takes `c`. So a skipped segment costs the running
-        // order nothing at all, not even until the next reconcile.
-        expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a', 'b', 'c']);
+        // The segment is at the head and is passed over, so the window fills with the record
+        // behind it instead of being left empty. A skipped segment costs the running order
+        // nothing at all, not even until the next reconcile.
+        expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a']);
     });
 
     // The lineup names it and the library no longer holds it: same outcome as one that is not
@@ -1188,9 +1214,11 @@ describe('DirectorService committing segments', () => {
         const withClaim = async (claimed: (nextLineId: string) => string) => {
             const harness = build({ items: ['a', 'b'], segments: [] });
             await harness.seed();
-            harness.lineup.insertSegment('seg-1', 1);
+            // At the head, because the committed window is one item: a break the pass never
+            // reaches is not a test of the claim check.
+            harness.lineup.insertSegment('seg-1', 0);
 
-            const nextLine = harness.lineup.all()[2]!;
+            const nextLine = harness.lineup.all()[1]!;
             const segment = promising(claimed(nextLine.id));
             harness.segmentStub.findByIds = vi.fn(async (ids: readonly string[]) =>
                 ids.includes('seg-1') ? new Map([['seg-1', segment as never]]) : new Map(),
@@ -1220,8 +1248,9 @@ describe('DirectorService committing segments', () => {
 
             expect(rundown.upcoming().every(item => item.externalId !== 'seg-1')).toBe(true);
             // And the order does not lose its lead for it, exactly as with a segment that is not
-            // ready: it goes through the same branch.
-            expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a', 'b']);
+            // ready: it goes through the same branch, and the record behind it comes in on the
+            // segment slack rather than waiting for the next pass.
+            expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a']);
         });
 
         it('leaves a break that promised nothing alone', async () => {
@@ -1276,7 +1305,7 @@ describe('DirectorService committing segments', () => {
 
             expect(rundown.upcoming().every(item => item.externalId !== 'seg-1')).toBe(true);
             // And the order keeps its lead, through the same branch every other skip takes.
-            expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a', 'b']);
+            expect(rundown.upcoming().map(item => item.externalId)).toEqual(['a']);
         });
 
         it('drops a break that arrives before its words are true', async () => {
@@ -1392,7 +1421,7 @@ describe('DirectorService planting breaks', () => {
         await director.start();
         await settle();
 
-        expect(rundown.upcoming()).toHaveLength(3);
+        expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
     });
 });
 
@@ -1481,7 +1510,7 @@ describe('DirectorService committing across a change underneath it', () => {
         // Only the new programme. Without the synchronous cancel the blocked pass resumes past
         // its own guard and appends the OLD records behind these, which is a quarter of an hour
         // of a show the operator has just taken off air.
-        expect(idsOf(rundown.upcoming())).toEqual(['x', 'y']);
+        expect(idsOf(rundown.upcoming())).toEqual(['x']);
         expect(snapshots.at(-1)?.items.map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y']);
     });
 
@@ -1512,36 +1541,34 @@ describe('DirectorService committing a talk-over', () => {
     it('attaches it to the record that follows rather than committing it as an item', async () => {
         const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c'], segments: [READY] });
         await seed();
-        lineup.insertSegment('seg-1', 1, { atMs: 8000 });
+        lineup.insertSegment('seg-1', 0, { atMs: 8000 });
 
         await director.start();
         await settle();
 
         const committed = rundown.upcoming();
-        // Three records, no extra item for the segment.
-        expect(committed.map(item => item.externalId)).toEqual(['a', 'b', 'c']);
-        expect(committed[0]?.voice).toBeUndefined();
-        expect(committed[1]?.voice).toEqual({ segmentId: 'seg-1', atMs: 8000 });
+        // The record only, with no extra item for the segment: it is heard OVER 'a' rather than
+        // between anything.
+        expect(committed.map(item => item.externalId)).toEqual(['a']);
+        expect(committed[0]?.voice).toEqual({ segmentId: 'seg-1', atMs: 8000 });
     });
 
-    // A batch is three items, so a talk-over planted before the last record of one has nothing in
-    // that batch to ride on. Dropping it would silently lose about a third of them.
+    // A batch is one item now, so a talk-over planted at the END of a batch has nothing in that
+    // batch to ride on and has to survive to the next one. Dropping it would silently lose them.
     it('holds one whose record is in the next batch', async () => {
-        const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c', 'd'], segments: [READY] });
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b'], segments: [READY] });
         await seed();
-        // After a, b, c — so it is the last line of the first batch of three.
-        lineup.insertSegment('seg-1', 3, { atMs: 5000 });
+        // After 'a', so it belongs to 'b' and there is nothing in this batch for it to ride on.
+        lineup.insertSegment('seg-1', 1, { atMs: 5000 });
 
         await director.start();
         await settle();
         expect(rundown.upcoming().some(item => item.voice !== undefined)).toBe(false);
 
         // The player takes one, which is what makes room for the next commit.
-        const pulled = await rundown.next();
-        rundown.markAired(pulled!.item.id);
-        await settle();
+        await airNext(rundown);
 
-        expect(rundown.upcoming().find(item => item.externalId === 'd')?.voice).toEqual({ segmentId: 'seg-1', atMs: 5000 });
+        expect(rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 5000 });
     });
 
     // Two voices at once is the one outcome nobody wants; queueing them would produce exactly that.
@@ -1551,13 +1578,14 @@ describe('DirectorService committing a talk-over', () => {
             segments: [READY, { id: 'seg-2', kind: 'talkbreak', state: 'ready', label: 'Also over the intro', source: 'library' }],
         });
         await seed();
-        lineup.insertSegment('seg-1', 1, { atMs: 1000 });
-        lineup.insertSegment('seg-2', 2, { atMs: 2000 });
+        // Both in front of the SAME record, which is what makes them a pair rather than one each.
+        lineup.insertSegment('seg-1', 0, { atMs: 1000 });
+        lineup.insertSegment('seg-2', 1, { atMs: 2000 });
 
         await director.start();
         await settle();
 
-        expect(rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-2', atMs: 2000 });
+        expect(rundown.upcoming().find(item => item.externalId === 'a')?.voice).toEqual({ segmentId: 'seg-2', atMs: 2000 });
     });
 
     // A cue is about a particular record in a particular running order. One held across a
@@ -1678,12 +1706,12 @@ describe('DirectorService editing what is on air', () => {
         const { director, rundown, lineup, seed } = build({ items: ['a', 'b', 'c', 'd'] });
         await seed();
         await director.start();
-        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
 
-        // Drop what is on air and the pass behind the edit fills the gap from the tail.
+        // Drop something further down the order; the pass behind the edit leaves the window full.
         await director.applyEdit({ kind: 'remove', itemId: lineup.all()[3]!.id });
 
-        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
     });
 });
 

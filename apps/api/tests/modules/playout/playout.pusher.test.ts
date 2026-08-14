@@ -266,17 +266,17 @@ describe('PlayoutPusher.reconcile', () => {
             const { pusher, rundown, pushed } = setup(['a', 'b'], { queued: 0, ready: false });
 
             await pusher.reconcile();
-            // Only two items in the order, so the lead cannot be filled past them.
-            expect(pushed).toHaveLength(2);
+            // One item, because the lead is one: the player holds the next record and nothing more.
+            expect(pushed).toHaveLength(1);
 
-            // Past the point where the player could still be fetching them: everything
-            // handed over is forgotten by the player, so it comes back to us.
+            // Past the point where the player could still be fetching it: everything handed over
+            // is forgotten by the player, so it comes back to us.
             vi.advanceTimersByTime(30_000);
             rundown.reconcile({ queued: 0, ready: false });
             await pusher.reconcile();
 
-            expect(pushed).toHaveLength(4);
-            expect(pushed[2]).toContain('https://example.test/a.ogg');
+            expect(pushed).toHaveLength(2);
+            expect(pushed[1]).toContain('https://example.test/a.ogg');
         } finally {
             vi.useRealTimers();
         }
@@ -690,13 +690,21 @@ describe('PlayoutPusher pushing across a change underneath it', () => {
     // itself; a gate that shuts leaves the order intact, and a loop trusting the reading it
     // started with would fill the player's whole lead for a mount nobody is hearing — a provider
     // fetch and a download per track, which is precisely what WARM_LEAD exists to prevent.
+    // At a `PLAYOUT_LEAD` of 1 there is no second push for a closing gate to catch, so what is
+    // asserted is the pass AFTER: the loop re-reads the gate rather than trusting the reading it
+    // started with, and a mount nobody is hearing gets no further records.
     it('stops filling the lead when the last listener leaves mid-push', async () => {
         const harness = build(() => harness.close());
 
         await harness.pusher.reconcile();
+        expect(harness.pushed).toHaveLength(1);
+
+        // The item pushed above airs, which would ordinarily make room for the next one.
+        const head = harness.rundown.upcoming()[0];
+        if (head) harness.rundown.markAired(head.id);
+        await harness.pusher.reconcile();
 
         expect(harness.pushed).toHaveLength(1);
-        expect(PLAYOUT_LEAD).toBeGreaterThan(1);
     });
 
     it('fills the whole lead while somebody is still listening', async () => {
@@ -800,6 +808,20 @@ describe('PlayoutPusher: the blend', () => {
     /** What a boundary the station does not blend carries. Never zero; see `annotate.ts`. */
     const HARD_JOIN = String(HARD_JOIN_MS / 1000);
 
+    /**
+     * Push the next item and let the player report it on air, so the pass behind it can push again.
+     *
+     * `PLAYOUT_LEAD` is one, so a boundary is one reconcile rather than a batch: a scenario about
+     * consecutive records plays out across passes, which is what the station does anyway.
+     */
+    async function boundaries(pusher: PlayoutPusher, rundown: Rundown, count: number): Promise<void> {
+        for (let index = 0; index < count; index++) {
+            await pusher.reconcile();
+            const head = rundown.upcoming()[0];
+            if (head) rundown.markAired(head.id);
+        }
+    }
+
     function setupMeasured(tracks: readonly RundownTrack[], crossfade = true) {
         const rundown = new Rundown(new StubResolver(), logger);
         seed(rundown, tracks);
@@ -812,9 +834,9 @@ describe('PlayoutPusher: the blend', () => {
         // Three records handed over in one pass, so every stamp but the last has a
         // successor the order already knows about. The first blends against the second's
         // intro, the second against the third's.
-        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)]);
+        const { pusher, pushed, rundown } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)]);
 
-        await pusher.reconcile();
+        await boundaries(pusher, rundown, 3);
 
         expect(blend(pushed[0]!)).toBe('6');
         expect(blend(pushed[1]!)).toBe('9');
@@ -828,9 +850,9 @@ describe('PlayoutPusher: the blend', () => {
         // meaning "the boundary after me", so every blend was overruled by whatever the
         // next record said about ITS boundary -- which, for anything followed by a hard
         // join, was a hard join. Every blend on the station collapsed and nothing failed.
-        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)]);
+        const { pusher, pushed, rundown } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)]);
 
-        await pusher.reconcile();
+        await boundaries(pusher, rundown, 3);
 
         expect(blend(pushed[0]!)).toBe('6');
         expect(blendIn(pushed[1]!)).toBe('6');
@@ -850,9 +872,9 @@ describe('PlayoutPusher: the blend', () => {
     it('stamps a hard join at the tail of what has been planned', async () => {
         // Nothing follows the last item, so there is no boundary to size. It has to be
         // stamped anyway: `persist_override` means an unstamped track inherits.
-        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000)]);
+        const { pusher, pushed, rundown } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000)]);
 
-        await pusher.reconcile();
+        await boundaries(pusher, rundown, 2);
 
         expect(pushed).toHaveLength(2);
         expect(blend(pushed[1]!)).toBe(HARD_JOIN);
@@ -861,9 +883,9 @@ describe('PlayoutPusher: the blend', () => {
     it('stamps a hard join on every boundary of a broadcast that does not blend', async () => {
         // An album. Its gaps are somebody's decision, and the transport is told so by
         // the director rather than working it out.
-        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)], false);
+        const { pusher, pushed, rundown } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)], false);
 
-        await pusher.reconcile();
+        await boundaries(pusher, rundown, 3);
 
         expect(pushed.map(blend)).toEqual([HARD_JOIN, HARD_JOIN, HARD_JOIN]);
     });
@@ -871,9 +893,9 @@ describe('PlayoutPusher: the blend', () => {
     it('stamps a hard join next to an unmeasured record without disturbing its neighbours', async () => {
         // The ordinary state of a station part way through measuring its library: the
         // boundary either side of an unmeasured record is cold and the rest still blend.
-        const { pusher, pushed } = setupMeasured([measured('a', 0, 30_000), track('b'), measured('c', 9_000, 30_000)]);
+        const { pusher, pushed, rundown } = setupMeasured([measured('a', 0, 30_000), track('b'), measured('c', 9_000, 30_000)]);
 
-        await pusher.reconcile();
+        await boundaries(pusher, rundown, 3);
 
         expect(blend(pushed[0]!)).toBe(HARD_JOIN);
         expect(blend(pushed[1]!)).toBe(HARD_JOIN);

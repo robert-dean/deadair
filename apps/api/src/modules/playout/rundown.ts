@@ -167,14 +167,23 @@ export interface PulledItem {
  * How long a handed-over item may be unaccounted for before the rundown believes
  * the push was lost.
  *
- * Generous on purpose, because the two ways of being wrong are not symmetrical.
- * Too short and an item still downloading is offered again and airs twice, which is
- * audible and wrong. Too long and a genuinely lost push is recovered a few
- * seconds late — during which the item on air is still playing, so nothing is
- * heard at all. A Spotify track comes through the shim, which decrypts it from
- * the CDN, so seconds rather than milliseconds is the normal case.
+ * The two ways of being wrong are still not symmetrical. Too short and an item still resolving is
+ * offered again and airs twice, which is audible and wrong. Too long and a genuinely lost push is
+ * recovered late — during which the item on air is still playing, so nothing is heard at all.
+ *
+ * It was fifteen seconds, sized for a resolve that meant a Spotify track coming through the shim,
+ * decrypted from the CDN. That is not what a resolve is any more: a record is not committed until
+ * its audio is on this machine (`docs/decisions/bytes-before-air.md`), so what Liquidsoap does with
+ * a pushed uri is a loopback GET of a local file. Five seconds is generous for that and still an
+ * order of magnitude above what it should take.
+ *
+ * **Reasoned rather than measured**, which is worth admitting: the gap between a push and the item
+ * appearing in `queued` has not been timed against the running station. The failure mode of guessing
+ * low is a record airing twice, so if that is ever heard, this is the first thing to look at — and
+ * the second is whether something is reaching the air path cold, which the commit gate is supposed
+ * to prevent but does not on a restart or an operator's reorder.
  */
-const RESOLVE_GRACE_MS = 15_000;
+const RESOLVE_GRACE_MS = 5_000;
 
 /**
  * How many times an item may be handed to the player and come back unheard before
@@ -194,6 +203,12 @@ const RESOLVE_GRACE_MS = 15_000;
  * way every time. Retrying twice costs a few seconds and recovers the first;
  * refusing to retry forever is what stops the second becoming silence. It is
  * deliberately not 1: a single lost push is the common, recoverable case.
+ *
+ * **It STAYS at three now that a record's audio is local before it is committed**, and the reason
+ * is worth stating because the obvious reading is that this ceiling was about unfetchable audio and
+ * can now go. It was never only that. The case it still covers is a Liquidsoap that restarted and
+ * silently dropped everything it was holding, which is not an audio-availability fact and is not
+ * addressed by the bytes being on disk.
  */
 const MAX_HAND_OVERS = 3;
 

@@ -50,10 +50,11 @@ export const PLANT_AHEAD = 4;
  * for a forward claim to go stale under an operator edit, it is model and speech work thrown away
  * whenever the order changes, and on a slow model it is spent when the station can least afford it.
  *
- * Eight, against a `COMMIT_LEAD` of 3. A break must be `ready` before the pass that hands it over
- * reaches it, so the window leaves roughly five records of airtime — call it a quarter of an hour —
- * for a write and a render to finish, which is generous against a model answering at a couple of
- * tokens a second and still cuts the horizon from about an hour to about fifteen minutes.
+ * Eight, against a `COMMIT_LEAD` of 1. A break must be `ready` before the pass that hands it over
+ * reaches it, so the window leaves roughly seven records of airtime — call it twenty minutes — for a
+ * write and a render to finish, which is generous against a model answering at a couple of tokens a
+ * second and still cuts the horizon from about an hour. It got two records longer when the commit
+ * lead collapsed, which is the right direction: the work has more time, not less.
  *
  * Measured in ITEMS, deliberately, while the spacing beside it is measured in minutes. This is a
  * bound on how much WORK may be in flight, and the work is one write and one render per break

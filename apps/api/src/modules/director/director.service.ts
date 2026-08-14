@@ -33,12 +33,30 @@ import { errorText } from '#modules/shared/error.text.js';
 /**
  * How many items to keep in the running order beyond what is airing.
  *
- * Small on purpose. Committing further ahead buys nothing and costs everything an
- * operator edit could have changed: an item handed to the player is one they can
- * no longer reorder or remove. Two or three is enough for the pusher to keep the
- * player's own lead full.
+ * ONE, which is as small as this can be: the player needs the next item resolved before the current
+ * one ends or the boundary is a gap, and nothing beyond that item has to be decided yet.
+ *
+ * It was three, and dropping it is what `docs/decisions/bytes-before-air.md` calls collapsing the
+ * commitment horizon. It became affordable because a committed record's audio is now already on this
+ * machine, so Liquidsoap's resolve is a loopback read of a local file rather than a provider
+ * download — the lead used to be cover for a download that might take seconds, and there is no
+ * download left to cover.
+ *
+ * What it buys is everything an operator edit could have changed. An item handed to the player is
+ * one they can no longer reorder or remove, so a lead of three put the next quarter of an hour out
+ * of reach; at one, a skip, a reorder and a fresh running order all take effect on the next record
+ * rather than three later.
+ *
+ * **What it costs is skip latency, and that is a real regression rather than a rounding error.**
+ * `PLAYOUT_LEAD` is capped by this — the pusher can only hand over what has been prepared — and
+ * Liquidsoap only resolves as many requests ahead as it has been given. Measured on this station and
+ * recorded in `radio.liq`: a skip onto a resolved item lands in about 200ms, and one onto an
+ * unresolved queue is over 1.2s late or produces no boundary at all. At a lead of one there is
+ * exactly one resolved item, so the FIRST skip still lands and a second one taken before the
+ * replacement resolves does not. That trade was made deliberately; if clicking through several
+ * tracks matters more than edit latency, this and `PLAYOUT_LEAD` go back up together.
  */
-const COMMIT_LEAD = 3;
+export const COMMIT_LEAD = 1;
 
 /**
  * How long the station may commit nothing for want of audio before it says so.
@@ -50,6 +68,21 @@ const COMMIT_LEAD = 3;
  * a warning rather than a post-mortem.
  */
 const WAITING_ON_AUDIO_MS = 60_000;
+
+/**
+ * How many segments the gather may pull in beyond the records it is filling the window with.
+ *
+ * A segment is not necessarily an ITEM. One that is not `ready` is skipped, and a talk-over is heard
+ * over the record behind it rather than between two, so both leave the window exactly as empty as
+ * they found it. Counting them against `COMMIT_LEAD` therefore under-fills it — invisible at a lead
+ * of three, where taking three candidates almost always yielded two or three items, and constant at
+ * a lead of one, where a single break at the head meant a pass that committed nothing at all and no
+ * change to wake the next one.
+ *
+ * Four, which is more consecutive segments than `BreakPlanner` will ever place: it plants one break
+ * per slot and never two in a row. It is slack rather than a rule, so being wrong costs one pass.
+ */
+const SEGMENT_SLACK = 4;
 
 /**
  * Commit the tail below this and a refill is sent.
@@ -686,8 +719,10 @@ export class DirectorService {
             // change and a change asks for another pass — so a pass that simply offered the next
             // few planned items would prepare the same ones on every pass and never stop.
             const wanted = COMMIT_LEAD - held;
-            const candidates = lineup.nextPlanned(COMMIT_LEAD).filter(item => !this.rundown.isPrepared(item.id));
-            const taken = (await this.withLocalAudio(candidates)).slice(0, wanted);
+            // Asked for generously and then cut to `wanted` RECORDS by `takeForLead`: a window
+            // sized in candidates is not the same as a window sized in items.
+            const candidates = lineup.nextPlanned(COMMIT_LEAD + SEGMENT_SLACK).filter(item => !this.rundown.isPrepared(item.id));
+            const taken = takeForLead(await this.withLocalAudio(candidates), wanted);
             this.noteAudioWait(candidates.length > 0 && taken.length === 0);
             const prepared = taken.length === 0 ? undefined : await this.toPlayerItems(taken);
 
@@ -1513,3 +1548,24 @@ export class DirectorService {
 const isEditResult = (result: DirectorCommandResult): result is EditResult => result !== undefined && 'ok' in result;
 
 const isResumeResult = (result: DirectorCommandResult): result is ResumeResult => result !== undefined && 'resumed' in result;
+
+/**
+ * The head of a candidate list holding `wanted` RECORDS, plus any segments in front of them.
+ *
+ * The window is a promise about how much music is committed, and segments ride along for free
+ * because they may produce no player item at all. See {@link SEGMENT_SLACK}.
+ */
+function takeForLead(candidates: readonly StationLineupItem[], wanted: number): StationLineupItem[] {
+    const taken: StationLineupItem[] = [];
+    let records = 0;
+
+    for (const item of candidates) {
+        if (isTrackItem(item)) {
+            if (records === wanted) break;
+            records += 1;
+        }
+        taken.push(item);
+    }
+
+    return taken;
+}

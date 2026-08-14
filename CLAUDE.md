@@ -277,7 +277,18 @@ is disposable and a record is not); `readyFor` demands the row's checksum AND th
 whose file was deleted is repaired by re-fetching on the air path; and it fails OPEN, because a gate
 that could not read its own answer would take the station off air within three items over a transient
 database fault. `order.waitingOnAudio` is on the feed for a station that has been unable to commit for
-`WAITING_ON_AUDIO_MS`, written once on the edge. **The other half is that a record nothing will serve
+`WAITING_ON_AUDIO_MS`, written once on the edge. **With the bytes local the commitment horizon
+collapsed to ONE**: `COMMIT_LEAD` and `PLAYOUT_LEAD` are both 1 and move together — the pusher can
+only hand over what the director prepared, and Liquidsoap's `prefetch` is materialized from the
+same constant, so raising one alone buys nothing. An operator's edit now lands on the next record
+rather than three later, and the price, taken deliberately, is the SECOND skip: measured at ~200ms
+onto a resolved item against >1.2s or no boundary at all onto an unresolved queue, so the first
+skip still lands and one taken before the replacement resolves does not. `SEGMENT_SLACK` is what
+keeps a window of one honest — a segment may produce no player item (skipped, or a talk-over that
+rides the record behind it), so segments ride along for free and only RECORDS count against the
+lead. `RESOLVE_GRACE_MS` is 5s on the same argument and is reasoned rather than measured, so a
+record airing twice is the first thing to look at. `MAX_HAND_OVERS` STAYS at 3: it covers a
+Liquidsoap that restarted and dropped what it held, which is not an audio-availability fact. **The other half is that a record nothing will serve
 comes OUT of the order before its slot**: `TrackCachePlanner.ripen` answers with the window's
 unfetchable items — absent from `findForBindings` means every copy is benched, and a backoff that
 outlasts the item's own projected slot is a miss rather than a wait — and `DirectorService.thin`

@@ -220,11 +220,14 @@ station_id = map_metadata(bed_label, insert_missing=true, mksafe(single("/radio/
 #
 # `prefetch` is what makes an operator skip land AT ONCE, and it is not the same thing as how many
 # items the app has pushed. Liquidsoap only ever downloads `prefetch` requests ahead of the one on
-# air; everything else pushed sits unresolved. The default is 1, so a single skip spends the only
-# fetched track and the next skip — until the replacement finishes downloading, which for a Spotify
-# track through the shim is seconds — has nothing resolved to cut to, and is silently swallowed.
-# Measured on a real station: ~200ms for a skip onto a resolved item, >1.2s and no boundary at all
-# for one onto an unresolved queue.
+# air; everything else pushed sits unresolved. Measured on a real station: ~200ms for a skip onto a
+# resolved item, >1.2s and no boundary at all for one onto an unresolved queue.
+#
+# It is ONE now, down from three, because the app's commitment horizon collapsed to one item: a
+# record is not committed until its audio is on the app's own disk, so there is nothing left for a
+# deeper lead to hide. The cost was taken deliberately and is the second skip — the first still
+# lands at once, and one taken before the replacement resolves does not. See COMMIT_LEAD and
+# PLAYOUT_LEAD in apps/api, and docs/decisions/bytes-before-air.md.
 #
 # PLAYOUT_PREFETCH is materialized by the app from the same constant it uses for its own push lead
 # (PLAYOUT_LEAD), because the two are useless apart: pushing more than this resolves buys nothing,

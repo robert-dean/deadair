@@ -6,6 +6,7 @@ import { PlainJob } from '#modules/jobs/plain.job.js';
 import { DirectorService } from './director.service.js';
 import { isTrackItem, type StationLineupItem } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
+import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
@@ -58,6 +59,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         private readonly order: StationLineupRepository,
         private readonly generator: SetGenerator,
         private readonly resolver: PickResolver,
+        private readonly personas: PersonaRepository,
         // The reactor, which is a singleton: this job runs in its own scope and still has to reach
         // the one object that is actually airing the lineup it just extended.
         private readonly director: DirectorService,
@@ -92,6 +94,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
             return;
         }
 
+        const persona = await this.personas.active();
         const count = Math.max(1, payload?.count ?? DEFAULT_COUNT);
         const picks = await this.generator.generate({
             count: Math.ceil(count * OVERSAMPLE),
@@ -100,6 +103,11 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
             // reason the rules are: this job runs again in an hour, and what the operator asked for
             // has to still be steering it then. An empty brief reads as absent.
             ...(lineup.brief ? { brief: lineup.brief } : {}),
+            // Read per refill, beside the brief and for the same reason: this job runs again in an
+            // hour, and the character the operator put on air has to still be steering it then.
+            // `undefined` is ordinary — a station that has chosen no persona programmes as it did
+            // before personas existed.
+            ...(persona === undefined ? {} : { persona }),
             // The songs the lineup ALREADY holds, which history knows nothing about: a
             // track queued ten minutes ago has not aired, so nothing else would stop the
             // generator choosing it again and putting it in twice.

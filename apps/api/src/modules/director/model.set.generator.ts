@@ -137,11 +137,17 @@ export const TASTE_SHOWN = 15;
 /** How much of an unreadable answer is logged. Enough to see the shape, not enough to flood a line. */
 const ANSWER_LOG_CHARS = 400;
 
-/** The `deadair.settings` keys this binding reads. */
+/**
+ * The `deadair.settings` keys this binding reads.
+ *
+ * There is no persona key here any more. What the station plays was one free-text setting and is
+ * now the `music` line of the persona on air, read by the caller and handed over on the inputs —
+ * so choosing a character changes what it programmes as well as how it talks, which is what makes
+ * putting one on air a single decision rather than three.
+ */
 export const MODEL_GENERATOR_KEYS = {
     enabled: 'llm.setGenerator',
     model: 'llm.setModel',
-    persona: 'llm.setPersona',
 } as const;
 
 @Injectable()
@@ -173,7 +179,7 @@ export class ModelSetGenerator extends SetGenerator {
             { count: inputs.count, avoid: describeAvoided(inputs), ...(inputs.brief === undefined ? {} : { brief: inputs.brief }) },
             {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-                persona: this.config.get(MODEL_GENERATOR_KEYS.persona, ''),
+                ...(inputs.persona?.music === undefined ? {} : { music: inputs.persona.music }),
                 taste: await this.describeTaste(),
             },
         );

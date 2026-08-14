@@ -56,8 +56,14 @@ export interface TastePrompt {
 export interface SetPromptSettings {
     /** What the station calls itself, from `stream.title`. */
     station?: string;
-    /** The operator's own line about what the station plays, from `llm.setPersona`. */
-    persona?: string;
+    /**
+     * What the station plays, in the operator's own words, from the active persona's `music`.
+     *
+     * The MUSIC half of a persona and deliberately not the rest of it: what a character sounds like
+     * has nothing to do with what it programmes, and handing a record chooser a page of diction
+     * would spend context on a question nobody asked it.
+     */
+    music?: string;
     /**
      * What the operator has liked and disliked, for steering.
      *
@@ -100,7 +106,7 @@ export function setPrompt(request: SetPromptRequest, settings: SetPromptSettings
 
 function systemPrompt(settings: SetPromptSettings): string {
     const station = settings.station?.trim();
-    const persona = settings.persona?.trim();
+    const music = settings.music?.trim();
 
     const lines = [
         `You are programming the music for a radio station${station ? ` called ${station}` : ''}.`,
@@ -163,7 +169,7 @@ function systemPrompt(settings: SetPromptSettings): string {
         'Copy each title and artist exactly as the search gave them to you.',
     ];
 
-    if (persona) lines.push('', 'The station describes its music this way, and you should choose to match it:', persona);
+    if (music) lines.push('', 'The station describes its music this way, and you should choose to match it:', music);
     lines.push(...tasteLines(settings.taste));
 
     return lines.join('\n');

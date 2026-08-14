@@ -81,8 +81,8 @@ describe('setPrompt', () => {
         expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/called/);
     });
 
-    it('carries the operator’s own description of the music', () => {
-        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { persona: 'Krautrock and dub, nothing after 1985.' }));
+    it('carries the persona’s own description of the music', () => {
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { music: 'Krautrock and dub, nothing after 1985.' }));
 
         expect(system).toMatch(/Krautrock and dub/);
     });
@@ -145,7 +145,7 @@ describe('setPrompt', () => {
     it('says the brief beats the station description where the two disagree', () => {
         // They genuinely can: a station described as ambient whose operator asked for metal. The
         // person in the room wins.
-        const user = userOf(setPrompt({ count: 5, avoid: [], brief: 'heavy metal hits' }, { persona: 'Ambient and nothing else.' }));
+        const user = userOf(setPrompt({ count: 5, avoid: [], brief: 'heavy metal hits' }, { music: 'Ambient and nothing else.' }));
 
         expect(user).toMatch(/follow this/i);
     });

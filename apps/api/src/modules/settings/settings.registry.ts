@@ -378,15 +378,9 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         help: "Separate from the talk break's model on purpose: programming an hour is a research task and writing a link is not, so the two are worth sizing differently. Leave empty for the plugin's own default.",
     },
-    {
-        group: 'llm',
-        key: MODEL_GENERATOR_KEYS.persona,
-        label: 'What the station plays',
-        type: 'text',
-        dependsOn: MODEL_GENERATOR_KEYS.enabled,
-        default: '',
-        help: 'A line or two in your own words about the music itself, handed to the model as what to choose towards. It cannot loosen the rules the station always sends, and it cannot reach a record your library does not hold. Your dislikes and the repeat window still apply to whatever it picks.',
-    },
+    // What the station plays was a setting here and is now the persona's own `music` line, beside
+    // the character that plays it: choosing a persona is one decision about who the station is, and
+    // splitting the voice from the programming across two pages made it three.
     {
         group: 'llm',
         key: SCRIPT_HISTORY_KEYS.capture,

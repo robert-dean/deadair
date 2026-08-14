@@ -18,6 +18,7 @@ import type { StationLineupRepository } from '../../../src/modules/director/stat
 import type { DirectorCommand } from '../../../src/modules/director/director.mailbox.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import type { Persona } from '../../../src/modules/personas/persona.js';
 import type { SetGenerator, SetInputs, TrackPick } from '../../../src/modules/director/set.generator.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 
@@ -51,6 +52,8 @@ interface Options {
     /** What the resolver can actually play, by title. Defaults to everything named. */
     resolvable?: (picks: readonly TrackPick[]) => RundownTrack[];
     missing?: boolean;
+    /** The persona on air, for the one test about handing it to the generator. */
+    persona?: Persona;
 }
 
 function build(options: Options & { stationRules?: Record<string, string> } = {}) {
@@ -90,8 +93,12 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
         }),
     } as unknown as DirectorService;
 
+    // Who the station is right now. `undefined` unless a test asks otherwise: a station that has
+    // chosen no persona programmes exactly as it did before personas existed.
+    const personas = { active: vi.fn(async () => options.persona) } as never;
+
     return {
-        job: new ExtendLineupJob(lineups, generator, resolver, director, station.config, context, container, logger),
+        job: new ExtendLineupJob(lineups, generator, resolver, personas, director, station.config, context, container, logger),
         director,
         posted: () => posted,
         lineup,
@@ -132,6 +139,30 @@ describe('ExtendLineupJob', () => {
 
         expect(generate.mock.calls[0]![0]!.brief).toBe('heavy metal hits');
         expect(generate.mock.calls[1]![0]!.brief).toBe('heavy metal hits');
+    });
+
+    it('passes the persona on air, so choosing one steers what plays as well as what is said', async () => {
+        const persona = {
+            id: 'p-1',
+            key: 'pirate',
+            label: 'Pirate captain',
+            style: 'a pirate captain',
+            music: 'Loud and rowdy',
+            active: true,
+        } as Persona;
+        const { job, generate } = build({ persona });
+
+        await job.run();
+
+        expect(generate.mock.calls[0]?.[0]).toMatchObject({ persona });
+    });
+
+    it('says nothing about a persona when the station has chosen none', async () => {
+        const { job, generate } = build();
+
+        await job.run();
+
+        expect(generate.mock.calls[0]?.[0]).not.toHaveProperty('persona');
     });
 
     it('says nothing about a brief when the station was never given one', async () => {

@@ -1,3 +1,4 @@
+import type { Persona } from '#modules/personas/persona.js';
 import type { ResolvedRules } from './rotation.rules.js';
 
 /**
@@ -42,6 +43,18 @@ export interface SetInputs {
      * satisfy gets an ordinary hour rather than a short one.
      */
     brief?: string;
+    /**
+     * Who the station is right now.
+     *
+     * Read by the caller and handed over whole, exactly as `BreakWriteRequest.persona` is and for
+     * the same reason: a generator stays a pure function of what it was told. Only the `music` line
+     * is used here — what a persona SOUNDS like has nothing to do with what it plays, and handing a
+     * record chooser a page of diction would spend context on a question it is not being asked.
+     *
+     * The floor ignores it, like the brief and for the same reason: approximating an instruction
+     * would make the thing that cannot fail depend on how well a guess landed.
+     */
+    persona?: Persona;
     /** Songs not to choose, beyond whatever history says: what the lineup already holds. */
     avoidSongKeys?: ReadonlySet<string>;
     /** Artists not to choose, for the same reason. */

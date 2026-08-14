@@ -71,6 +71,18 @@ export type DirectorCommand =
      * guard before either has set it.
      */
     | { kind: 'restore' }
+    /**
+     * Put the station back on air with the running order it already has.
+     *
+     * The counterpart to `standDown`, and deliberately NOT `putOnAir`: that one replaces the order
+     * from material somebody has just read, which is a new broadcast. This resumes the one that was
+     * stopped, mid-order, with every item still saying where it got to — which is exactly what
+     * `StationAirRepository.standDown` leaves behind and what nothing could pick back up before.
+     *
+     * It answers whether there was anything to resume, so a console can say why nothing happened
+     * rather than reporting a station on air that is holding nothing.
+     */
+    | { kind: 'resume' }
     /** The station is going off air, from the transport or from an order that ended. */
     | { kind: 'standDown' }
     /**
@@ -102,8 +114,13 @@ export type DirectorCommand =
      */
     | { kind: 'edit'; edit: OrderEdit };
 
-/** What a handled command answers with. Only an edit has anything to say. */
-export type DirectorCommandResult = EditResult | undefined;
+/** Whether a resume found a running order to pick back up. */
+export interface ResumeResult {
+    resumed: boolean;
+}
+
+/** What a handled command answers with. Only an edit and a resume have anything to say. */
+export type DirectorCommandResult = EditResult | ResumeResult | undefined;
 
 /** One posted command and the caller waiting on it. */
 interface Envelope {

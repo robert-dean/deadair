@@ -1018,6 +1018,46 @@ describe('DirectorService at the end of a lineup', () => {
     // on air is built when it goes on air. `stop` above is what a finite programme does now.
 });
 
+describe('DirectorService resuming what it was stopped on', () => {
+    // Stop deliberately leaves the running order alone, every item still saying where it got to.
+    // Until this there was no way to pick that up: the only route back on air replaced it.
+    it('goes back on air on the order it already has', async () => {
+        const { director, rundown, airRepository, seed } = build({ air: { active: false } });
+        await seed();
+        await director.start();
+        expect(rundown.upcoming()).toHaveLength(0);
+
+        const result = await director.resumeAir();
+
+        expect(result).toEqual({ resumed: true });
+        expect(airRepository.goOnAir).toHaveBeenCalled();
+        expect(idsOf(rundown.upcoming())).toEqual(['a', 'b', 'c']);
+    });
+
+    // The same broadcast, not a new one: `putOnAir` mints an id and this does not, so the hour
+    // either side of an operator's Stop is one programme rather than two.
+    it('keeps the broadcast it was stopped on', async () => {
+        const { director, lineup, seed } = build({ air: { active: false } });
+        await seed();
+        await director.start();
+        const before = lineup.toSnapshot().broadcastId;
+
+        await director.resumeAir();
+
+        expect(lineup.toSnapshot().broadcastId).toBe(before);
+    });
+
+    // A station switched on and holding nothing is the state the mount lease exists to avoid
+    // asserting, so this refuses rather than reporting a station on air with nothing to play.
+    it('refuses when there is no running order left to resume', async () => {
+        const { director, seed } = build({ air: { active: false }, noOrder: true });
+        await seed();
+        await director.start();
+
+        expect(await director.resumeAir()).toEqual({ resumed: false });
+    });
+});
+
 describe('DirectorService going on air', () => {
     it('replaces the running order with what it was handed, and retracts the old one', async () => {
         const { director, rundown, seed, snapshots } = build();

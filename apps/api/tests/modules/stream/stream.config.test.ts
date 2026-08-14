@@ -39,7 +39,6 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     language: '',
     icecastHost: 'icecast',
     icecastPort: '8000',
-    listenerHooks: true,
     sourcePassword: 'source-pw',
     adminPassword: 'admin-pw',
     harborPassword: 'harbor-pw',
@@ -60,11 +59,6 @@ const playout = (overrides: Partial<StreamPlayoutConfig> = {}): StreamPlayoutCon
     playoutPrefetch: 3,
     ...overrides,
 });
-
-const listenerHooks = {
-    addUrl: 'http://host.docker.internal:3333/api/playout/bridge/listener?event=add',
-    removeUrl: 'http://host.docker.internal:3333/api/playout/bridge/listener?event=remove',
-};
 
 /** An assets dir holding the template, plus an empty config dir to render into. */
 function dirs(): { assetsDir: string; configDir: string } {
@@ -170,36 +164,12 @@ describe('writeStreamConfig', () => {
         expect(xml).toContain(`<password>${sourcePassword}</password>`);
     });
 
-    it('renders the listener hooks with the secret as basic credentials, never in the URL', () => {
-        // In the URL it would be written into every access log and error page that
-        // records an address. Icecast can present a credential instead, so it does.
-        const { assetsDir, configDir } = dirs();
-        writeStreamConfig({ settings: settings(), playout: playout({ listenerHooks }), assetsDir, configDir });
-
-        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
-        expect(xml).toContain('<authentication type="url">');
-        expect(xml).toContain(`<option name="listener_add" value="${listenerHooks.addUrl}"/>`);
-        expect(xml).toContain('<option name="password" value="bridge-secret"/>');
-        // The header the app answers with, which is what admits the listener. The two
-        // ends have to agree or Icecast refuses everyone.
-        expect(xml).toContain('<option name="auth_header" value="icecast-auth-user: 1"/>');
-        expect(xml).not.toContain('listener?event=add&secret');
-    });
-
-    it('renders no hooks at all when they are turned off', () => {
-        // The way back for an Icecast built without libcurl, which refuses to start on
-        // a config naming url authentication.
+    // The listener hooks are gone: `/admin/eventfeed` reports every change in the count in either
+    // direction, so nothing is gained by holding a listener's own connection open on a call to this
+    // app — and a great deal is lost when the app is down.
+    it('renders no listener authentication at all', () => {
         const { assetsDir, configDir } = dirs();
         writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
-
-        expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).not.toContain('<authentication');
-    });
-
-    it('renders no hooks when there is no secret to gate them with', () => {
-        // An open hook is worse than no hook: anything that could reach the app could
-        // tell it a room full of listeners had arrived.
-        const { assetsDir, configDir } = dirs();
-        writeStreamConfig({ settings: settings(), playout: playout({ listenerHooks, playoutBridgeSecret: '' }), assetsDir, configDir });
 
         expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).not.toContain('<authentication');
     });

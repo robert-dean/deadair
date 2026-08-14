@@ -6,7 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
+import { AUDIENCE_POLL_MS, AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -44,8 +44,14 @@ function stubStats(initial: number | undefined) {
  */
 const feed = () => ({ watch: vi.fn(), stop: vi.fn(), attached: () => false }) as unknown as IcecastEventFeed;
 
-/** One poll cycle: advance to the interval and let the awaited read settle. */
-async function tick(ms = 5_000): Promise<void> {
+/**
+ * One poll cycle: advance to the interval and let the awaited read settle.
+ *
+ * Derived from the constant rather than restated, because the poll is a failsafe now and its
+ * interval moved from five seconds to a minute — a literal here would have gone on passing while
+ * testing nothing.
+ */
+async function tick(ms = AUDIENCE_POLL_MS): Promise<void> {
     await vi.advanceTimersByTimeAsync(ms);
 }
 
@@ -122,7 +128,8 @@ describe('AudienceWatch', () => {
         await tick(0);
 
         answer(0);
-        await tick(65_000);
+        // Comfortably past the five-minute linger.
+        await tick(6 * 60_000);
 
         expect(watch.hasAudience()).toBe(false);
         expect(edges).toEqual([true, false]);
@@ -205,14 +212,16 @@ describe('AudienceWatch', () => {
             watch.stop();
         });
 
-        it('counts an arrival as Icecast being alive too', async () => {
+        it('counts a feed message as Icecast being alive too', async () => {
+            // The poll is a failsafe now, so on a healthy station this is usually the only
+            // thing proving Icecast is there.
             const { stats } = stubStats(undefined);
             const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
 
             watch.start();
             await tick(0);
 
-            watch.noteArrival(true);
+            watch.report(1);
 
             expect(watch.reading().readAt).toBe(Date.now());
             watch.stop();
@@ -293,63 +302,28 @@ describe('AudienceWatch', () => {
         expect(edges).toEqual([true]);
     });
 
-    it('opens the gate on an arrival, before Icecast can even count it', async () => {
-        // Icecast is still holding the listener's connection when it tells us, so it
-        // has not counted them yet: a poll here would read the old number, and the
-        // station would stay silent for exactly as long as the person is waiting to
-        // hear it.
+    it('opens the gate the moment the feed reports somebody, without waiting for a poll', async () => {
+        // What the listener hooks used to be for. `source-listeners-changed` arrives within
+        // milliseconds of the connection, so the minute-long poll is never in the path.
         const { stats } = stubStats(0);
         const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
         watch.start();
         await tick(0);
 
-        watch.noteArrival(true);
+        watch.report(1);
 
         expect(watch.listenerCount()).toBe(1);
         expect(watch.gateOpen()).toBe(true);
         watch.stop();
     });
 
-    it('replaces the guess with a real reading a moment later', async () => {
-        const { stats, answer } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
-        watch.start();
-        await tick(0);
-
-        // Two arrive, and Icecast turns out to hold three: something connected without
-        // a hook, or one was dropped. The poll is the number, always.
-        watch.noteArrival(true);
-        watch.noteArrival(true);
-        expect(watch.listenerCount()).toBe(2);
-
-        answer(3);
-        await tick(1_500);
-
-        expect(watch.listenerCount()).toBe(3);
-        watch.stop();
-    });
-
-    it('coalesces a burst of arrivals into one reading', async () => {
-        const { stats, spy } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
-        watch.start();
-        await tick(0);
-        const before = spy.listeners.mock.calls.length;
-
-        for (let i = 0; i < 10; i++) watch.noteArrival(true);
-        await tick(1_500);
-
-        expect(spy.listeners.mock.calls.length).toBe(before + 1);
-        watch.stop();
-    });
-
     it('never counts below nobody', async () => {
-        // A `remove` for a listener this process never saw arrive: an app that started
-        // after them, or an event whose partner was dropped.
+        // A negative from anything that reports one: the count is clamped rather than
+        // trusted, since a linger window measured against a negative never expires.
         const { stats } = stubStats(0);
         const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), logger);
 
-        watch.noteArrival(false);
+        watch.report(-2);
 
         expect(watch.listenerCount()).toBe(0);
     });

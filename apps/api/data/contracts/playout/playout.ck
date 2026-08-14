@@ -61,6 +61,21 @@ operation /playout/skip: {
     }
 }
 
+operation /playout/start: {
+    post: { # Puts the station back on air with the running order it already has, picking it up where Stop left it. Distinct from putting a playlist on air, which builds a new broadcast and throws away what was there. Refused when there is nothing left to resume
+        name: Start playout
+        service: PlayoutService.start
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: PlayoutStatus
+            }
+        }
+    }
+}
+
 operation /playout/stop: {
     post: { # Stands the station down: drops the running order, stops what is on air, and hands the mount back. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
         name: Stop playout
@@ -143,29 +158,6 @@ operation(internal) /playout/audio/{sourceId}: {
 #
 # `internal` keeps them out of the SDK. It is a generation flag, not a security property —
 # these routes are live on the wire like any other.
-
-# Icecast's listener hooks. Icecast presents the secret as HTTP basic, because its URL
-# authenticator can send no header of its own; `listener.credential.middleware` moves it onto
-# `x-playout-secret` before ServerKit's authentication middleware deletes the Authorization
-# header, and before the bridge gate reads it. The 200 carries the header Icecast reads as
-# "admit this listener": an `add` is a blocking authentication call, so a refusal here is a
-# listener who is refused the mount.
-operation(internal) /playout/bridge/listener: {
-    post: { # Notes a listener arriving or leaving, so the station reacts the moment somebody tunes in rather than at the next poll of Icecast's stats. The count itself still comes from the poll, which is what makes a dropped event harmless
-        name: Note a listener
-        service: PlayoutService.noteListener
-        security: none
-        query: PlayoutListenerQuery
-        response: {
-            200: {
-                text/plain: string
-                headers: {
-                    icecast-auth-user: string
-                }
-            }
-        }
-    }
-}
 
 # Liquidsoap's air confirmation. The secret is the same one the app presents when pushing to
 # Liquidsoap's own /control/* endpoints, materialized into radio.env by the stream module.

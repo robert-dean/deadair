@@ -57,7 +57,6 @@ describe('SettingsService.read', () => {
 
         expect(model.values[STREAM_KEYS.title]).toBe('Deadair');
         expect(model.values[AIR_MODE_KEY]).toBe('audience');
-        expect(model.values[STREAM_KEYS.listenerHooks]).toBe(true);
     });
 
     it('reports a secret as whether it is stored, never as what it is', () => {

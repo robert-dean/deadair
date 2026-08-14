@@ -1,4 +1,3 @@
-import { AUDIENCE_POLL_MS } from './audience.watch.js';
 import { CONTROL_TTL_S } from './liquidsoap.control.js';
 import { RECONCILE_TICK_MS } from './playout.pusher.js';
 import type { AirMode } from './air.mode.js';
@@ -34,7 +33,7 @@ import type { StreamConfigWarning } from '#modules/stream/stream.staleness.js';
  * could not be tested at all, and the ordering is exactly the part worth testing.
  *
  * It is deliberately not a health check. Four of the gates below —
- * `stoodDown`, `noProgramme`, `noAudience`, `audienceUnknown` — describe a
+ * `stoodDown`, `noProgramme`, `noAudience` — describe a
  * completely healthy process in a particular state, and a surface that called any
  * of those `degraded` would be a light an operator learns to stop reading. That
  * is the mistake the `ready` badge was added to fix, and repeating it here would
@@ -50,7 +49,6 @@ export type SilenceCause =
     | 'configNotAdopted'
     | 'stoodDown'
     | 'noProgramme'
-    | 'audienceUnknown'
     | 'noAudience'
     | 'notDriving'
     | 'starved';
@@ -140,7 +138,6 @@ export interface StationFacts {
      * reading rather than a neutral one: a count of zero that came from nowhere is
      * not evidence of an empty room.
      */
-    sinceAudienceAnswerMs?: number;
     /**
      * How long the mount has been playing Liquidsoap's local bed instead of the
      * running order. `undefined` means it is not, which is the ordinary state.
@@ -158,19 +155,6 @@ export interface StationFacts {
  * "did it get several chances".
  */
 const STALL_AFTER_MS = 3 * RECONCILE_TICK_MS;
-
-/**
- * How long Icecast may go without answering before its silence stops being
- * evidence about the audience.
- *
- * Four polls, for the same reason the stall threshold is three passes: one
- * dropped request is a blip and the reading that stands is still roughly true,
- * while four in a row is a stats endpoint that has gone away. Under the audience
- * linger window (a minute), deliberately — the point is to name the fault BEFORE
- * the linger expires and the station goes quiet for what looks like an empty
- * room.
- */
-const AUDIENCE_UNANSWERED_AFTER_MS = 4 * AUDIENCE_POLL_MS;
 
 /**
  * How long a gap on the mount has to last before it means anything.
@@ -202,7 +186,6 @@ export function diagnose(facts: StationFacts): StationSilence {
         configNotAdopted(facts),
         stoodDown(facts),
         noProgramme(facts),
-        audienceUnknown(facts),
         noAudience(facts),
     ];
 
@@ -350,46 +333,17 @@ function noProgramme(facts: StationFacts): SilenceCheck {
 }
 
 /**
- * The one this whole file exists for.
- *
- * A listener count of zero means two completely different things and, until this
- * check, the station could not say which: an empty room, or an Icecast whose
- * stats endpoint stopped answering. In `audience` mode the second one is
- * permanent silence, because the gate opens on a reading that will never arrive.
- *
- * Only asked in `audience` mode. In `always` mode nobody is holding the station
- * on this reading, so an unreadable count is a broken number rather than a broken
- * station.
- */
-function audienceUnknown(facts: StationFacts): SilenceCheck {
-    if (facts.airMode !== 'audience') {
-        return { code: 'audienceUnknown', state: 'ok', detail: 'The station airs whether or not anyone is listening, so the count decides nothing.' };
-    }
-
-    const unanswered = facts.sinceAudienceAnswerMs === undefined || facts.sinceAudienceAnswerMs > AUDIENCE_UNANSWERED_AFTER_MS;
-    if (!unanswered) return { code: 'audienceUnknown', state: 'ok', detail: 'Icecast is answering with a listener count.' };
-
-    const howLong =
-        facts.sinceAudienceAnswerMs === undefined
-            ? 'has not answered at all since the app started'
-            : `has not answered for ${seconds(facts.sinceAudienceAnswerMs)}`;
-    return {
-        code: 'audienceUnknown',
-        state: 'fault',
-        detail:
-            `Icecast ${howLong}, so the station cannot tell an empty room from a stats endpoint that is down. ` +
-            'This station airs only for an audience, so it stays silent either way.',
-        remedy: 'Check that the icecast container is running and that its stats endpoint and admin credentials still work.',
-    };
-}
-
-/**
  * Nobody is listening, and the count is trustworthy.
  *
  * The resting state of an audience-gated station, which is what the console has
- * been calling `ready`. Reached only after {@link audienceUnknown} has ruled out
- * the reading being a fiction, which is the entire reason these are two checks
- * and not one.
+ * been calling `ready`.
+ *
+ * It used to be reached only after an `audienceUnknown` check had ruled out the reading being a
+ * fiction. That check is gone, because the fiction it guarded against cannot happen: a failed poll
+ * calls `settle()` without touching the count, so an Icecast that stops answering leaves the last
+ * reading standing rather than reading as an empty room. **Only a positive reading — a feed message
+ * or a poll that answered — can close this gate.** What the deleted check actually said was that the
+ * station "stays silent either way", which was true only when the last answer happened to be zero.
  */
 function noAudience(facts: StationFacts): SilenceCheck {
     if (facts.airMode !== 'audience' || facts.audience) {

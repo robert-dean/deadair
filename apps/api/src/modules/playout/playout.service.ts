@@ -16,7 +16,6 @@ import { diagnose } from './silence.diagnosis.js';
 import type {
     PlayoutAiredQuery,
     PlayoutItem,
-    PlayoutListenerQuery,
     PlayoutPlaylistInput,
     PlayoutStarveQuery,
     PlayoutStatus,
@@ -199,7 +198,6 @@ export class PlayoutService {
             airMode: air.airMode,
             listeners: audience.count,
             audience: audience.hasAudience,
-            ...(audience.readAt === undefined ? {} : { sinceAudienceAnswerMs: now - audience.readAt }),
             ...(starvedSince === undefined ? {} : { starvedForMs: now - starvedSince }),
         });
 
@@ -293,6 +291,28 @@ export class PlayoutService {
     }
 
     /**
+     * Put the station back on air with the running order it already has.
+     *
+     * The other half of {@link stop}, and it exists because Stop deliberately keeps the order:
+     * `StationAirRepository.standDown` leaves every item saying where it got to, and until this
+     * route the only way back on air was `PUT /director/air`, which builds a NEW broadcast from a
+     * playlist read at that moment and throws the stopped one away.
+     *
+     * A 409 rather than a quiet 200 when there is nothing left to resume. A station switched on and
+     * holding nothing is the state the mount lease exists to avoid asserting, and an operator who
+     * pressed Start needs to be told to put a playlist on instead.
+     */
+    async start(): Promise<PlayoutStatus> {
+        const { resumed } = await this.director.resumeAir();
+        if (!resumed) {
+            throw httpError(409).withDetails({ message: 'there is no running order left to resume; put a playlist on air instead' });
+        }
+
+        this.logger.info('playout: starting again on the running order the station was stopped on');
+        return this.getStatus();
+    }
+
+    /**
      * Drop the running order and go off air.
      *
      * Ends the broadcast rather than the running order: what is on air stops too,
@@ -354,36 +374,6 @@ export class PlayoutService {
         if (!this.rundown.markAired(query.item)) {
             this.logger.warn('playout: aired notify named an item the rundown does not hold', { item: query.item });
         }
-    }
-
-    /**
-     * Note a listener Icecast has just admitted, or let go.
-     *
-     * The one route in the app that a listener's own connection is WAITING on:
-     * `listener_add` is an authentication call, and Icecast holds the client
-     * until this answers. So it does no database work, takes no lock and returns
-     * a constant, and the header it returns is what admits them. A refusal here
-     * is a listener refused the mount, which is why the only refusal is a wrong
-     * secret.
-     *
-     * The count is not taken from these events. They move the reading
-     * optimistically so the station is on air by the time the first bytes are
-     * pulled, and `AudienceWatch` re-reads Icecast a moment later for the real
-     * number. A dropped event therefore costs a second of latency and nothing
-     * else.
-     *
-     * The secret is checked before this runs, by `bridgeSecretMiddleware` on the
-     * `/playout/bridge/` prefix. Icecast presents it as HTTP basic and
-     * `listener.credential.middleware` moves it onto the header first, because
-     * ServerKit's authentication middleware deletes Authorization before any
-     * route runs.
-     */
-    noteListener(query: PlayoutListenerQuery): { body: string; headers: { icecastAuthUser: string } } {
-        this.audience.noteArrival(query.event === 'add');
-        // `1` is what Icecast reads as "this listener may have the mount"; the header
-        // name is the `auth_header` option in the rendered icecast.xml, and the two have
-        // to agree or every listener is refused.
-        return { body: '', headers: { icecastAuthUser: '1' } };
     }
 
     /**

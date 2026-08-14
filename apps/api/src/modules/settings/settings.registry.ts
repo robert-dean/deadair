@@ -163,14 +163,6 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: STREAM_DEFAULTS.icecastPort,
     },
-    {
-        group: 'station',
-        key: STREAM_KEYS.listenerHooks,
-        label: 'Tell the app about each listener',
-        type: 'boolean',
-        default: STREAM_DEFAULTS.listenerHooks,
-        help: 'Keep this on unless Icecast refuses to start: url authentication needs an Icecast built with libcurl. Turning it off costs only the seconds between somebody connecting and the next stats poll.',
-    },
 
     {
         group: 'station',

@@ -341,16 +341,25 @@ runs (read as the admin user, since access under `/admin/` is a role decision an
 tighten) or `/status-json.xsl` on a 2.4 (which 2.5 deprecates). Whichever answers is cached, so the
 other is probed once per re-probe rather than once per poll. **The two documents carry the same facts
 in different shapes, and neither matches what upstream's source suggests** — `listenersForMount` is
-where that lives, and `docs/todo/icecast-2.5.md` records both measured payloads. The count is also
-pushed, two ways: on a 2.5, `IcecastEventFeed` holds `/admin/eventfeed` open (SSE) and reports
-whole counts (it attaches only where the poll resolved the admin endpoint, so it is inert against a
-2.4); and on any version by Icecast's `listener_add`/`listener_remove` hooks into
-`POST /playout/listener`, which only makes the arrival edge faster. That route's credential arrives
-as HTTP basic and is moved onto `x-playout-secret` by `listener.credential.middleware`, which MUST
-stay registered before `authenticationMiddleware`: ServerKit deletes `Authorization` from every
-request, so a route can never read one for itself. `listener_add` is a blocking
-auth call, so with the hooks on a dead API refuses new listeners: `stream.listenerHooks` turns them
-off for an Icecast built without libcurl. Off air the transport hands over NOTHING and the falling edge
+where that lives, and `docs/todo/icecast-2.5.md` records both measured payloads.
+
+**The FEED is the mechanism and the poll is the failsafe.** `IcecastEventFeed` holds
+`/admin/eventfeed` open and `icecast.eventfeed.parse.ts` deliberately does not filter on the trigger,
+so it takes the count off whichever event carries one — and `source-listeners-changed` is emitted on
+every change in either direction (`src/source.c`), with an authoritative total, reaching the feed with
+no `<event-bindings>` config because `event.c` hands every event to the stream unconditionally. So
+both edges arrive within milliseconds and `AUDIENCE_POLL_MS` is a minute, covering only what the feed
+cannot: a 2.4 server, a dropped feed, and the window before the poll that discovers the admin endpoint
+has attached it. **Icecast's `listener_add`/`listener_remove` hooks are GONE** along with
+`listener.credential.middleware`, `stream.listenerHooks` and `POST /playout/bridge/listener`: they
+existed to beat a five-second poll to an arrival, which the feed now does without holding a listener's
+own connection open on a blocking auth call to this app — and with them went the property that a dead
+API refuses new listeners at the door. `AUDIENCE_LINGER_MS` is five minutes and means only what it
+says now, since it is no longer cover for a missed departure: how long the mount is held for somebody
+who might come back, at the cost of five minutes of fetching per departure. **Only a positive reading
+can close the gate** — a failed poll calls `settle()` without touching the count — which is why there
+is no longer an `audienceUnknown` check: it reported a `fault` saying the station "stays silent either
+way", true only when the last answer happened to have been zero. Off air the transport hands over NOTHING and the falling edge
 calls `/control/offair` at once, because Liquidsoap keeps consuming the playout queue whether or not
 `driving()` selects it (measured: `remainingMs` falls with the wall clock while `driving` is false).
 Anything left queued plays out to an empty mount at a download per track, which is the cost the gate
@@ -415,9 +424,11 @@ which scrubs tokens and sits on `platform.manage` precisely because plugin outpu
 deliberately not `0`; `AudienceWatch` used to discard it, so a dead stats endpoint read as an empty
 room and in `audience` mode the gate then never reopened — silent for good, console saying `ready`.
 `AudienceWatch.reading()` keeps `readAt` beside the count, stamped in `accept()` because that is the
-one place a poll, an event-feed message and a `listener_add` hook all meet, and all three are proof
-Icecast is alive. **The gate itself is deliberately unchanged**: an app that cannot see Icecast has
-no evidence anybody is there, and airing on a failed request would be the worse mistake.
+one place a poll and an event-feed message meet, and both are proof Icecast is alive. **The gate
+itself is deliberately unchanged**: an app that cannot see Icecast has no evidence anybody is there,
+and airing on a failed request would be the worse mistake. What that means in practice is that only a
+POSITIVE reading moves it — a failed poll leaves the last count standing rather than reading as an
+empty room — so an Icecast that dies while somebody is listening does not take the station off air.
 
 **A heartbeat is not a health check.** `modules/shared/heartbeat.ts` is a map of name to two
 timestamps and holds no opinion about thresholds, because a five-second poll and a nightly sweep are

@@ -83,16 +83,8 @@ export interface PlayoutAiredQuery {
 }
 
 /**
- * Which way a listener went
- * generated from [PlayoutListenerQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L95)
- */
-export interface PlayoutListenerQuery {
-    event: 'add' | 'remove';
-}
-
-/**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L99)
+ * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L95)
  */
 export interface PlayoutStarveQuery {
     /** `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again */

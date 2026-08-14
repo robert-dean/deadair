@@ -91,17 +91,8 @@ export const PlayoutAiredQuery = z.strictObject({
 export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
- * Which way a listener went
- * generated from [PlayoutListenerQuery](file://./../../../../data/contracts/playout/playout.types.ck#L95)
- */
-export const PlayoutListenerQuery = z.strictObject({
-    event: z.enum(['add', 'remove']),
-});
-export type PlayoutListenerQuery = z.infer<typeof PlayoutListenerQuery>;
-
-/**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L99)
+ * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L95)
  */
 export const PlayoutStarveQuery = z.strictObject({
     state: z

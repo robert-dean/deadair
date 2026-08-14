@@ -37,6 +37,15 @@ export class PlayoutClient {
     }
 
     /**
+     * @name Start playout
+     * @description Puts the station back on air with the running order it already has, picking it up where Stop left it. Distinct from putting a playlist on air, which builds a new broadcast and throws away what was there. Refused when there is nothing left to resume
+     */
+    async startPlayout(): Promise<PlayoutStatus> {
+        const result = await this.fetch(`/playout/start`, { method: 'POST' });
+        return await parseJson<PlayoutStatus>(result);
+    }
+
+    /**
      * @name Stop playout
      * @description Stands the station down: drops the running order, stops what is on air, and hands the mount back. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
      */

@@ -19,7 +19,6 @@ const airing = (over: Partial<StationFacts> = {}): StationFacts => ({
     airMode: 'audience',
     listeners: 1,
     audience: true,
-    sinceAudienceAnswerMs: 1_000,
     ...over,
 });
 
@@ -38,7 +37,7 @@ describe('diagnose', () => {
         // The panel says what it ruled out, which is most of what makes it worth opening.
         const answer = diagnose(airing({ streamUp: false }));
 
-        expect(answer.checks).toHaveLength(10);
+        expect(answer.checks).toHaveLength(9);
         expect(answer.checks.filter(check => check.state !== 'ok')).toHaveLength(1);
     });
 
@@ -49,7 +48,6 @@ describe('diagnose', () => {
             ['streamUnreachable', { streamUp: false }],
             ['stoodDown', { active: false }],
             ['noProgramme', { hasProgramme: false }],
-            ['audienceUnknown', { audience: false, listeners: 0, sinceAudienceAnswerMs: 300_000 }],
             ['noAudience', { audience: false, listeners: 0 }],
             ['notDriving', { driving: false }],
             ['starved', { starvedForMs: 30_000 }],
@@ -79,7 +77,7 @@ describe('diagnose', () => {
         it('does not ask about the audience at all in `always` mode', () => {
             // Nobody is holding the station on that reading, so an empty mount is the
             // programme going out to nobody rather than a gate that is shut.
-            const answer = diagnose(airing({ airMode: 'always', audience: false, listeners: 0, sinceAudienceAnswerMs: undefined }));
+            const answer = diagnose(airing({ airMode: 'always', audience: false, listeners: 0 }));
 
             expect(answer.cause).toBe('airing');
             expect(answer.audible).toBe(true);
@@ -87,21 +85,20 @@ describe('diagnose', () => {
     });
 
     describe('an Icecast that stopped answering', () => {
-        it('outranks an empty room, because they are the same listener count', () => {
-            const answer = diagnose(airing({ audience: false, listeners: 0, sinceAudienceAnswerMs: 300_000 }));
+        // There is no `audienceUnknown` gate any more, and its absence is the assertion. The
+        // fiction it guarded against cannot happen: a failed poll leaves the last reading standing
+        // rather than reading as an empty room, so only a positive reading can shut this gate. What
+        // the check actually said — that the station "stays silent either way" — was true only when
+        // the last answer happened to have been zero.
+        it('leaves the gate where the last real reading left it', () => {
+            const answer = diagnose(airing({ audience: true, listeners: 2 }));
 
-            expect(answer.cause).toBe('audienceUnknown');
-            expect(answer.checks.find(check => check.code === 'noAudience')?.state).toBe('waiting');
+            expect(answer.cause).toBe('airing');
+            expect(answer.audible).toBe(true);
         });
 
-        it('reads never having answered as the worse case, not as a neutral one', () => {
-            // A count of zero that came from nowhere is not evidence of an empty room, and
-            // in audience mode the gate would never open again on it.
-            expect(diagnose(airing({ audience: false, listeners: 0, sinceAudienceAnswerMs: undefined })).cause).toBe('audienceUnknown');
-        });
-
-        it('tolerates one dropped poll', () => {
-            expect(diagnose(airing({ sinceAudienceAnswerMs: 6_000 })).cause).toBe('airing');
+        it('still calls an empty room an empty room', () => {
+            expect(diagnose(airing({ audience: false, listeners: 0 })).cause).toBe('noAudience');
         });
     });
 
@@ -222,8 +219,7 @@ describe('the residue check', () => {
         airMode: 'audience',
         listeners: 0,
         audience: false,
-        sinceAudienceAnswerMs: 1_000,
-        ...over,
+            ...over,
     });
 
     it('does not call a dropped lease a fault when a gate above explains it', () => {

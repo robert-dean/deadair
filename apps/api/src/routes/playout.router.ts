@@ -1,13 +1,7 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { PlayoutService } from '#src/modules/playout/playout.service.js';
-import {
-    PlayoutAiredQuery,
-    PlayoutListenerQuery,
-    PlayoutPlaylistInput,
-    PlayoutStarveQuery,
-    PlayoutStatus,
-} from '../modules/playout/types/playout.types.js';
+import { PlayoutAiredQuery, PlayoutPlaylistInput, PlayoutStarveQuery, PlayoutStatus } from '../modules/playout/types/playout.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -57,8 +51,21 @@ PlayoutRouter.post('/playout/skip', requirePolicy({ policy: 'platform.manage' })
 });
 
 /**
- * Stands the station down: drops the running order, stops what is on air, and hands the mount back. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
+ * Puts the station back on air with the running order it already has, picking it up where Stop left it. Distinct from putting a playlist on air, which builds a new broadcast and throws away what was there. Refused when there is nothing left to resume
  * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L65)
+ */
+PlayoutRouter.post('/playout/start', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(PlayoutService);
+    const result: PlayoutStatus = await service.start();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Stands the station down: drops the running order, stops what is on air, and hands the mount back. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L80)
  */
 PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PlayoutService);
@@ -71,7 +78,7 @@ PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * The station's own copy of one record, by the provider binding it was cached for
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L98)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L113)
  * anonymous access, no security required
  * @internal
  */
@@ -98,26 +105,8 @@ PlayoutRouter.get('/playout/audio/:sourceId', async ctx => {
 });
 
 /**
- * Notes a listener arriving or leaving, so the station reacts the moment somebody tunes in rather than at the next poll of Icecast's stats. The count itself still comes from the poll, which is what makes a dropped event harmless
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L154)
- * anonymous access, no security required
- * @internal
- */
-PlayoutRouter.post('/playout/bridge/listener', async ctx => {
-    const query = await parseAndValidate(ctx.query, PlayoutListenerQuery.strict());
-
-    const service = ctx.container.get(PlayoutService);
-    const result: { body: string; headers: { icecastAuthUser: string } } = await service.noteListener(query);
-
-    ctx.status = 200;
-    ctx.set('icecast-auth-user', String(result.headers['icecastAuthUser']));
-    ctx.type = 'text/plain';
-    ctx.body = result.body;
-});
-
-/**
  * Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L173)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L165)
  * anonymous access, no security required
  * @internal
  */
@@ -132,7 +121,7 @@ PlayoutRouter.post('/playout/bridge/aired', async ctx => {
 
 /**
  * Reports that the running order stopped producing audio, or started again. The mount has fallen through to the local bed in between, so nothing deadair programmed is being heard
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L193)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L185)
  * anonymous access, no security required
  * @internal
  */

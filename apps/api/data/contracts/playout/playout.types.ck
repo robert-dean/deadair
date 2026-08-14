@@ -92,10 +92,6 @@ contract PlayoutAiredQuery: { # Which rundown item Liquidsoap has just started p
     item: string(min=1, max=100) # The id the app put on the pushed uri's `annotate:` metadata
 }
 
-contract PlayoutListenerQuery: { # Which way a listener went
-    event: enum(add, remove)
-}
-
 contract PlayoutStarveQuery: { # Which way the running order went, and how long it had been that way
     state: enum(starved, recovered) # `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again
     forMs: int(min=0) # How long the PREVIOUS state lasted, in milliseconds. On a recovery this is the length of the gap, which is the number worth reading

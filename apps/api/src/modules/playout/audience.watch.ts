@@ -26,33 +26,37 @@ import { errorText } from '#modules/shared/error.text.js';
  */
 
 /**
- * How often Icecast is asked. Cheap and local; the whole document is a few hundred bytes.
+ * How often Icecast is asked.
  *
- * Exported because it is also the yardstick for how long Icecast has to go quiet before its
- * silence stops being evidence about the audience: see `silence.diagnosis.ts`, which counts
- * polls rather than inventing a second number that could drift away from this one.
+ * A FAILSAFE rather than the mechanism, which is why it is a minute rather than the five seconds it
+ * used to be. `/admin/eventfeed` carries `source-listeners-changed` on every change in either
+ * direction, with an authoritative count, so the arrival that opens the gate and the departure that
+ * eventually closes it both land within milliseconds. What the poll is still for is the cases the
+ * feed cannot cover: a 2.4 server, which has no feed at all; a feed that has dropped and not
+ * reconnected yet; and the window before the poll that discovers the admin endpoint has run, since
+ * the feed only attaches once it has.
+ *
+ * The exposure that buys is up to a minute of silence for somebody who tunes in while the feed is
+ * down, and it is accepted deliberately: `IcecastEventFeed` retries a drop immediately with backoff,
+ * so the window is short and rare, and a second poll rate to reason about is worse than the case it
+ * would cover.
  */
-export const AUDIENCE_POLL_MS = 5_000;
+export const AUDIENCE_POLL_MS = 60_000;
 
 /**
  * How long the last listener counts as still being there.
  *
- * A player reconnecting — a network blip, a phone changing radios, an operator
- * moving the console between tabs — drops to zero listeners for a second or two
- * and comes straight back. Cutting the mount on that reading and rebuilding it a
- * moment later is worse than airing a minute of music nobody heard, and the
- * rebuild is audible while the gap is not.
- */
-const AUDIENCE_LINGER_MS = 60_000;
-
-/**
- * How long after a pushed listener event to take a real reading.
+ * It used to be a minute, and it was cover for a missed departure as much as anything: the count
+ * could be wrong in the direction that mattered, so the window had to absorb that. It no longer
+ * does — `source-listeners-changed` reports both edges — so this is now only what it says it is:
+ * **how long the station holds the mount for somebody who might come back.**
  *
- * Long enough for Icecast to have finished admitting (or releasing) the client
- * whose event this was, so the document it answers with already counts them.
- * Short enough that the guess the push produced is never the number for long.
+ * Five minutes, because a player reconnecting (a network blip, a phone changing radios, an operator
+ * moving the console between tabs) should not cost a mount rebuild, and the rebuild is audible while
+ * the gap is not. What it costs is five minutes of provider fetching and model work per departure,
+ * on a station nobody is listening to.
  */
-const PUSH_SETTLE_MS = 1_000;
+const AUDIENCE_LINGER_MS = 5 * 60_000;
 
 @Injectable()
 export class AudienceWatch {
@@ -77,8 +81,6 @@ export class AudienceWatch {
     private readonly listeners = new Set<(open: boolean) => void>();
     /** One poll at a time: a slow Icecast must not stack requests behind the interval. */
     private polling = false;
-    /** A reading brought forward by a push. Coalesced; see {@link refreshSoon}. */
-    private refresh?: NodeJS.Timeout;
 
     constructor(
         private readonly stats: IcecastStatsClient,
@@ -125,8 +127,6 @@ export class AudienceWatch {
         this.heartbeat.forget(HEARTBEATS.audiencePoll);
         if (this.timer) clearInterval(this.timer);
         this.timer = undefined;
-        if (this.refresh) clearTimeout(this.refresh);
-        this.refresh = undefined;
         this.listeners.clear();
     }
 
@@ -201,31 +201,6 @@ export class AudienceWatch {
     }
 
     /**
-     * Icecast has just admitted a listener, or let one go.
-     *
-     * This is the push half, and it exists for one moment only: the arrival. A
-     * poll is up to {@link AUDIENCE_POLL_MS} behind, and those are seconds of
-     * silence for somebody who has just tuned in. So an arrival is applied
-     * OPTIMISTICALLY, which opens the gate on the instant, and a fresh reading is
-     * taken a moment later to replace the guess with Icecast's own number.
-     *
-     * Optimistic is safe here in a way it would not be for a departure. Guessing
-     * one listener too many airs a station for a second longer than it had to;
-     * guessing one too few takes a mount away from somebody who is listening. The
-     * departure is applied the same way only because the linger window means
-     * nothing acts on it for a minute, by which time the poll has corrected it.
-     *
-     * NB an arrival is reported while Icecast is still holding the client's
-     * connection open waiting for this answer, so the listener is NOT in its
-     * stats yet: a poll here would read the old number, which is exactly why this
-     * counts rather than asks.
-     */
-    noteArrival(arrived: boolean): void {
-        this.accept(this.listenerCount() + (arrived ? 1 : -1));
-        this.refreshSoon();
-    }
-
-    /**
      * Subscribe to the gate opening or closing. Returns the unsubscribe.
      *
      * Edges only, and on {@link gateOpen} rather than the raw count: the
@@ -237,24 +212,6 @@ export class AudienceWatch {
     onChange(listener: (open: boolean) => void): () => void {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);
-    }
-
-    /**
-     * Take a reading shortly, rather than at the next interval.
-     *
-     * Coalesced, because a burst of arrivals is one thing to check: a station
-     * announced somewhere gets a dozen connections in a second, and each of them
-     * asking Icecast for the same document would be a dozen requests for one
-     * answer.
-     */
-    private refreshSoon(): void {
-        if (this.refresh || !this.timer) return;
-
-        this.refresh = setTimeout(() => {
-            this.refresh = undefined;
-            void this.poll();
-        }, PUSH_SETTLE_MS);
-        this.refresh.unref?.();
     }
 
     /** One reading. Never throws: it runs off a timer with nobody to hand a rejection to. */

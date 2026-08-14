@@ -15,7 +15,7 @@ import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.sourc
 import { inScope } from '#modules/shared/scoped.work.js';
 import { BreakPlanner, type AirClock } from './break.planner.js';
 import { CandidatesRepository } from './candidates.repository.js';
-import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit } from './director.mailbox.js';
+import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { resolveRules, stationRules, type ResolvedRules } from './rotation.rules.js';
 import { MAIN_SLOT, StationAirRepository, type StationAir } from './station.air.repository.js';
@@ -325,9 +325,21 @@ export class DirectorService {
      */
     async applyEdit(edit: OrderEdit): Promise<EditResult> {
         const result = await this.post({ kind: 'edit', edit });
-        // The edit arm always answers. The type is wide because most commands have
-        // nothing to say, not because this one might stay silent.
-        return result ?? { ok: false, reason: 'not-found', message: 'the station has nothing on air to edit' };
+        // The edit arm always answers. The type is wide because most commands have nothing to say
+        // and one of them says something else, not because this one might stay silent.
+        return isEditResult(result) ? result : { ok: false, reason: 'not-found', message: 'the station has nothing on air to edit' };
+    }
+
+    /**
+     * Put the station back on air with the order it already has. Answers whether there was one.
+     *
+     * Distinct from {@link putOnAir} in the way an operator means it to be: Stop leaves the running
+     * order alone, and this picks it up where it stopped rather than replacing it.
+     */
+    async resumeAir(): Promise<ResumeResult> {
+        const result = await this.post({ kind: 'resume' });
+
+        return isResumeResult(result) ? result : { resumed: false };
     }
 
     /**
@@ -421,6 +433,9 @@ export class DirectorService {
             case 'restore':
                 await this.restore();
                 return undefined;
+
+            case 'resume':
+                return await this.resume();
 
             case 'standDown':
                 await this.standDown();
@@ -1337,6 +1352,46 @@ export class DirectorService {
         this.identity.ended();
     }
 
+    /**
+     * Put the station back on air with the running order it already has.
+     *
+     * The counterpart to {@link standDown}, and the thing that was missing beside it: standing down
+     * deliberately LEAVES the running order in `station_lineup`, every item still saying where it got
+     * to, and until now the only way back on air was `putOnAir`, which throws all of that away and
+     * builds a new broadcast from a playlist read at that moment.
+     *
+     * The same broadcast, therefore, and not a new one: `restore` reads the id back off the row, so
+     * the hour either side of an operator's Stop is one programme rather than two.
+     *
+     * Refuses cleanly when there is nothing to resume, rather than switching the station on and
+     * leaving it holding nothing: an empty station that says it is on air is the state the whole
+     * `hasProgramme` lease exists to avoid describing.
+     */
+    private async resume(): Promise<ResumeResult> {
+        // Cleared FIRST. `standDown` sets it to keep this process off air until the row is written,
+        // and a resume arriving while it is still set would be dropped by the commit pass it ends in.
+        this.standingDown = false;
+
+        await inScope(this.container, async scope => scope.get(StationAirRepository).goOnAir());
+        this.airReadAt = 0;
+        await this.restore();
+
+        if (!this.lineup || this.lineup.remaining() === 0) {
+            this.logger.info('director: nothing to resume; the station has no running order left to play');
+            return { resumed: false };
+        }
+
+        this.logger.info('director: resumed the running order the station was stopped on', { remaining: this.lineup.remaining() });
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.on',
+            detail: 'The station was started again on the running order it had been stopped on.',
+            data: { remaining: this.lineup.remaining() },
+        });
+
+        return { resumed: true };
+    }
+
     /** Remember that the station is off, so a restart stays off. */
     private async standDown(): Promise<void> {
         // Idempotent, and called directly by the `standDown` command as well as after
@@ -1447,3 +1502,14 @@ export class DirectorService {
         return this.air;
     }
 }
+
+/**
+ * Which arm of {@link DirectorCommandResult} came back.
+ *
+ * The mailbox answers one union for every command, so a caller that knows which command it posted
+ * still has to narrow. Two guards rather than a cast, because a cast would go on compiling on the
+ * day a third command grows an answer.
+ */
+const isEditResult = (result: DirectorCommandResult): result is EditResult => result !== undefined && 'ok' in result;
+
+const isResumeResult = (result: DirectorCommandResult): result is ResumeResult => result !== undefined && 'resumed' in result;

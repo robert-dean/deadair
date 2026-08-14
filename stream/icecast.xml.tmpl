@@ -70,7 +70,12 @@
     <stream-url>{{STREAM_URL}}</stream-url>
     <!-- Don't auto-advertise to public YP directories yet. -->
     <public>0</public>
-{{LISTENER_HOOKS}}  </mount>
+    <!-- No <authentication type="url"> here, deliberately. The app used to have Icecast call it on
+         every listener_add and listener_remove, which made a listener's own connection wait on the
+         API and let a dead API refuse new listeners at the door. It is not needed: /admin/eventfeed
+         carries `source-listeners-changed` on every change in either direction with an authoritative
+         count, so both edges are already known without holding anybody's connection open. -->
+  </mount>
 
   <fileserve>1</fileserve>
   <!-- Paths match the libretime/icecast image (built from source, prefix /usr,

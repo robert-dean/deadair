@@ -2,7 +2,7 @@ import { ActionIcon, Button, Divider, Group, Paper, Progress, SegmentedControl, 
 import type { PlayoutStatus } from '@deadair/sdk';
 
 import { useSetAirMode } from '../../api/director.queries';
-import { useSkipCurrent, useStopPlayout } from '../../api/playout.queries';
+import { useSkipCurrent, useStartPlayout, useStopPlayout } from '../../api/playout.queries';
 import { Artwork } from '../shared/artwork';
 import { formatDuration } from '../shared/format.duration';
 import { listenerLabel, OnAirBadge } from './on.air.badge';
@@ -76,6 +76,7 @@ export function hasTransportToShow(status: PlayoutStatus | undefined): status is
 export function TransportBar({ status, airMode, expanded, onToggleExpanded }: TransportBarProps) {
     const skip = useSkipCurrent();
     const stop = useStopPlayout();
+    const start = useStartPlayout();
     const setAirMode = useSetAirMode();
 
     const { streamUp, nowPlaying, upNext, queuedCount, mountPath, listeners, silence } = status;
@@ -178,7 +179,24 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                         {/* Only while the panel is shut: open, the same command is a
                             labelled button below, and two controls that do one thing is
                             one more thing to be sure about mid-broadcast. */}
-                        {!expanded ? (
+                        {/* Only when there is nothing on air to stop, which is what makes the pair
+                            unambiguous: one control is shown at a time and it is always the one
+                            that does something. A stopped station keeps its running order, so this
+                            resumes it rather than building a new one. */}
+                        {!expanded && idle ? (
+                            <Tooltip label="Put the station back on air on the running order it was stopped on">
+                                <ActionIcon
+                                    variant="subtle"
+                                    aria-label="Start the station again"
+                                    loading={start.isPending}
+                                    onClick={() => start.mutate()}
+                                >
+                                    ⏵
+                                </ActionIcon>
+                            </Tooltip>
+                        ) : undefined}
+
+                        {!expanded && !idle ? (
                             <Tooltip label="Take the station out of service: drop the running order and go quiet, whoever is listening">
                                 <ActionIcon
                                     variant="subtle"
@@ -244,17 +262,22 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                                     say what it does, it says it. Not "stop playing" any more —
                                     the audience decides that. This is the station standing down,
                                     which is what silences it even with listeners attached. */}
-                                <Button
-                                    size="compact-xs"
-                                    variant="subtle"
-                                    color="red"
-                                    ml="auto"
-                                    loading={stop.isPending}
-                                    disabled={idle}
-                                    onClick={() => stop.mutate()}
-                                >
-                                    Take out of service
-                                </Button>
+                                {idle ? (
+                                    <Button size="compact-xs" variant="subtle" ml="auto" loading={start.isPending} onClick={() => start.mutate()}>
+                                        Start again
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        size="compact-xs"
+                                        variant="subtle"
+                                        color="red"
+                                        ml="auto"
+                                        loading={stop.isPending}
+                                        onClick={() => stop.mutate()}
+                                    >
+                                        Take out of service
+                                    </Button>
+                                )}
                             </Group>
                         </Stack>
                     </>

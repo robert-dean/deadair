@@ -96,14 +96,3 @@ export function trackAudioUrl(base: string, sourceId: string): string {
     return `${base}/audio/${sourceId}`;
 }
 
-/**
- * Where Icecast posts a listener arriving or leaving.
- *
- * The event is in the query because Icecast configures one URL per event and can
- * add nothing to a request but its own form fields. The SECRET is deliberately
- * not: Icecast presents it as HTTP basic instead, so it stays out of every access
- * log and error page an address can end up in.
- */
-export function playoutListenerUrl(base: string, event: 'add' | 'remove'): string {
-    return `${base}${BRIDGE}/listener?event=${event}`;
-}

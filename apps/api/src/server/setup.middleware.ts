@@ -14,7 +14,6 @@ import { auditContextMiddleware } from './middleware/audit.context.middleware.js
 import { authorizationContextMiddleware } from './middleware/authorization.context.middleware.js';
 import { refreshCookieMiddleware } from './middleware/refresh.cookie.middleware.js';
 import { conditionalGetMiddleware } from './middleware/conditional.get.middleware.js';
-import { listenerCredentialMiddleware } from './middleware/listener.credential.middleware.js';
 import { bridgeSecretMiddleware } from './middleware/bridge.secret.middleware.js';
 
 export const setupMiddleware = (container: Container) => {
@@ -48,10 +47,6 @@ export const setupMiddleware = (container: Container) => {
     // An unset (or blank) base URL falls back to the empty default and drops out of the list.
     const allowedOrigins = [config.get<string, string>('SPA_BASE_URL', ''), config.get<string, string>('APP_BASE_URL', '')].filter(Boolean);
     middlewares.push(corsMiddleware({ origin: allowedOrigins, credentials: true, exposeHeaders: ['WWW-Authenticate'] }));
-    // Strictly BEFORE authentication, which deletes the Authorization header from every
-    // request: this is the one caller that presents its credential there and is not a
-    // session. See the middleware for why Icecast has no other way to send it.
-    middlewares.push(listenerCredentialMiddleware());
     // The gate on everything under /playout/bridge/. Both sides of this position are
     // load-bearing: AFTER the credential middleware, which is the only thing that puts
     // Icecast's HTTP-basic password onto the header this reads, and BEFORE authentication,

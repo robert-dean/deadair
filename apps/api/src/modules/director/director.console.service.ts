@@ -144,6 +144,20 @@ export class DirectorConsoleService {
     }
 
     /**
+     * Put the station back on air with the running order it already has.
+     *
+     * Deliberately thin, and deliberately NOT beside {@link putOnAir}'s cancel-then-post: there is
+     * no programme coming off to cancel. A resume happens when the station is stopped, so nothing is
+     * in flight for an epoch bump to reach.
+     */
+    async resumeAir(): Promise<{ resumed: boolean }> {
+        const result = await this.director.resumeAir();
+        if (result.resumed) this.logger.info('director: an operator started the station again');
+
+        return result;
+    }
+
+    /**
      * Put the station on air, building the running order from a playlist.
      *
      * What is playing finishes: changing the programming is not a reason to cut a

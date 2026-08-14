@@ -102,6 +102,23 @@ export function useSkipCurrent() {
 }
 
 /** Drops the running order. What is on air finishes; the mount falls back to the local bed. */
+/**
+ * Start the station again on the running order it was stopped on.
+ *
+ * Not the same command as putting a playlist on air: that builds a new broadcast and throws away
+ * whatever the station was stopped part-way through. This picks that up where it left off, and the
+ * API refuses with a 409 when there is nothing left to resume.
+ */
+export function useStartPlayout() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => sdk.playout.startPlayout(),
+        onSuccess: status => {
+            followTransport(queryClient, status);
+        },
+    });
+}
+
 export function useStopPlayout() {
     const queryClient = useQueryClient();
     return useMutation({

@@ -42,19 +42,6 @@ export const STREAM_KEYS = {
     /** Host and port the app tells Liquidsoap to publish to (the compose service). */
     icecastHost: 'stream.icecastHost',
     icecastPort: 'stream.icecastPort',
-    /**
-     * Whether the rendered `icecast.xml` asks Icecast to tell the app about each
-     * listener arriving and leaving.
-     *
-     * On by default, because the whole point is that the station is on air before
-     * the first listener's player has finished buffering. It is a setting at all
-     * because `<authentication type="url">` needs an Icecast built with libcurl:
-     * one that was not refuses to start on a config naming it, and an operator on
-     * such an image needs a way back that is not a code change. Turning it off
-     * costs the seconds between a connection and the next stats poll, nothing
-     * more.
-     */
-    listenerHooks: 'stream.listenerHooks',
     // Secrets below. Stored encrypted, never returned in the clear to a response.
     sourcePassword: 'stream.sourcePassword',
     adminPassword: 'stream.adminPassword',
@@ -113,8 +100,6 @@ export interface StreamSettings {
     language: string;
     icecastHost: string;
     icecastPort: string;
-    /** Whether Icecast is asked to notify the app of each listener. See {@link STREAM_KEYS.listenerHooks}. */
-    listenerHooks: boolean;
     /** Decrypted Icecast source password, `undefined` when unset. */
     sourcePassword?: string;
     /** Decrypted Icecast admin password, `undefined` when unset. */
@@ -154,7 +139,6 @@ export const STREAM_DEFAULTS = {
     language: '',
     icecastHost: 'icecast',
     icecastPort: '8000',
-    listenerHooks: true,
 } as const;
 
 /**
@@ -200,9 +184,6 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         language: values.get(STREAM_KEYS.language) ?? STREAM_DEFAULTS.language,
         icecastHost: values.get(STREAM_KEYS.icecastHost) ?? STREAM_DEFAULTS.icecastHost,
         icecastPort: values.get(STREAM_KEYS.icecastPort) ?? STREAM_DEFAULTS.icecastPort,
-        // Only an explicit `false` turns them off, so an unset key (every install
-        // until someone decides otherwise) gets the fast start.
-        listenerHooks: values.get(STREAM_KEYS.listenerHooks) !== 'false',
         sourcePassword: decrypt(values.get(STREAM_KEYS.sourcePassword)),
         adminPassword: decrypt(values.get(STREAM_KEYS.adminPassword)),
         harborPassword: decrypt(values.get(STREAM_KEYS.harborPassword)),

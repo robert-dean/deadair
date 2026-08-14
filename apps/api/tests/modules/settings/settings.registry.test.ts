@@ -64,7 +64,6 @@ describe('the settings registry', () => {
         expect(findDescriptor(AIR_MODE_KEY)!.default).toBe(DEFAULT_AIR_MODE);
         expect(findDescriptor(STREAM_KEYS.title)!.default).toBe(STREAM_DEFAULTS.title);
         expect(findDescriptor(STREAM_KEYS.mount)!.default).toBe(STREAM_DEFAULTS.mount);
-        expect(findDescriptor(STREAM_KEYS.listenerHooks)!.default).toBe(STREAM_DEFAULTS.listenerHooks);
     });
 
     it('does not know about a key nobody declared', () => {

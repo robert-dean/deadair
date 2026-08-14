@@ -4,7 +4,7 @@ import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { Logger } from '@maroonedsoftware/logger';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { CONTROL_TTL_S, PLAYOUT_LEAD } from '#modules/playout/liquidsoap.control.js';
-import { playoutAiredUrl, playoutListenerUrl, playoutStarveUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
+import { playoutAiredUrl, playoutStarveUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
 import { defaultStreamAssetsDir, defaultStreamConfigDir, writeStreamConfig, type StreamPlayoutConfig } from './stream.config.js';
 import { ensureStreamSecrets, resolveStreamSettings, type StreamSettings } from './stream.settings.js';
 import { StreamConfigWatch } from './stream.staleness.js';
@@ -122,11 +122,6 @@ export class StreamService {
         return {
             playoutAiredUrl: playoutAiredUrl(base),
             playoutStarveUrl: playoutStarveUrl(base),
-            // The same base Liquidsoap reports air on, because it is the same question:
-            // where this app is, as a container on the stream's network sees it.
-            ...(settings.listenerHooks
-                ? { listenerHooks: { addUrl: playoutListenerUrl(base, 'add'), removeUrl: playoutListenerUrl(base, 'remove') } }
-                : {}),
             playoutBridgeSecret: settings.playoutBridgeSecret ?? '',
             talkOverTracks: TALK_OVER_TRACKS,
             duckGainDb: DUCK_GAIN_DB,

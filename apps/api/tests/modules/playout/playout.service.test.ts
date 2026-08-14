@@ -254,14 +254,13 @@ describe('PlayoutService.getStatus', () => {
             expect(director.getAir).toHaveBeenCalled();
         });
 
-        it('tells an Icecast that never answered from an empty room', async () => {
-            // The pair this whole reading exists for. Same listener count, same `audience`
-            // false, and only one of them is a station that will wait forever.
+        it('calls an empty room an empty room', async () => {
+            // There is no longer an `audienceUnknown` beside this. An Icecast that stops
+            // answering leaves the last reading standing rather than reading as an empty room,
+            // so the only thing that closes this gate is a reading that actually said zero.
             const empty = build({ listeners: 0 });
-            const blind = build({ listeners: 0, audienceAnswered: false });
 
             expect((await empty.service.getStatus()).silence.cause).toBe('noAudience');
-            expect((await blind.service.getStatus()).silence.cause).toBe('audienceUnknown');
         });
 
         it('reports the gates it ruled out alongside the one that blocked', async () => {
@@ -269,7 +268,7 @@ describe('PlayoutService.getStatus', () => {
 
             const { silence } = await service.getStatus();
 
-            expect(silence.checks).toHaveLength(10);
+            expect(silence.checks).toHaveLength(9);
             expect(silence.checks.filter(check => check.state === 'ok').length).toBeGreaterThan(0);
         });
     });
@@ -334,33 +333,6 @@ describe('PlayoutService.skip and stop', () => {
         await service.stop();
 
         expect(rundown.reset).toHaveBeenCalledOnce();
-    });
-});
-
-// The secret is no longer these handlers' business: they sit under /playout/bridge/, and
-// `bridgeSecretMiddleware` has already refused anything that did not present it. The gate's
-// own cases live in tests/server/middleware/bridge.secret.middleware.test.ts — deliberately
-// in ONE place, since that is the point of gating the prefix rather than each handler.
-describe('PlayoutService.noteListener', () => {
-    it('answers with the header that admits the listener', () => {
-        // Icecast is holding the client's connection open waiting for this. Without the
-        // header it reads as a refusal, and the listener is turned away from a mount
-        // that was perfectly willing to have them.
-        const { service } = build();
-
-        const answer = service.noteListener({ event: 'add' });
-
-        expect(answer.headers.icecastAuthUser).toBe('1');
-    });
-
-    it('tells the audience which way the listener went', () => {
-        const { service, audience } = build();
-
-        service.noteListener({ event: 'add' });
-        service.noteListener({ event: 'remove' });
-
-        expect(audience.noteArrival).toHaveBeenNthCalledWith(1, true);
-        expect(audience.noteArrival).toHaveBeenNthCalledWith(2, false);
     });
 });
 

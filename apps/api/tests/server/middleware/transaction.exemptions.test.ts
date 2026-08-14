@@ -5,9 +5,29 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_TRANSACTION_EXEMPTIONS, isTransactionExempt, nowPlayingExemption } from '../../../src/server/middleware/transaction.exemptions.js';
+import {
+    DEFAULT_TRANSACTION_EXEMPTIONS,
+    infraExemption,
+    isTransactionExempt,
+    nowPlayingExemption,
+} from '../../../src/server/middleware/transaction.exemptions.js';
 
 const exempt = (method: string, path: string) => isTransactionExempt({ method, path }, DEFAULT_TRANSACTION_EXEMPTIONS);
+
+describe('infraExemption', () => {
+    it('exempts both spellings of the liveness probe', () => {
+        // The API serves both, so both have to be exempt: a probe on a short interval
+        // spending a pooled connection is the cost this list exists to avoid.
+        expect(infraExemption({ method: 'GET', path: '/health' })).toBe(true);
+        expect(infraExemption({ method: 'GET', path: '/healthcheck' })).toBe(true);
+        expect(exempt('GET', '/health')).toBe(true);
+        expect(exempt('GET', '/healthcheck')).toBe(true);
+    });
+
+    it('exempts nothing else that merely starts with the same path', () => {
+        expect(exempt('GET', '/health/deep')).toBe(false);
+    });
+});
 
 describe('nowPlayingExemption', () => {
     it('exempts the public now-playing poll', () => {

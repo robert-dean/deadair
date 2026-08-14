@@ -1,4 +1,5 @@
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { HealthModule } from './health/health.module.js';
 import { DataConnectionsModule, DataModule } from './data/data.module.js';
 import { CryptoModule } from './crypto/crypto.module.js';
 import { AuthenticationModule } from './authentication/authentication.module.js';
@@ -42,6 +43,10 @@ import { withBoundedShutdown } from './shared/shutdown.guard.js';
 //   - No hook may cost the ones after it their teardown, or the process its exit. That is
 //     `withBoundedShutdown` at the bottom of this file.
 const ordered: ServerKitModule[] = [
+    // First, and it depends on nothing: a probe asking whether this process is up
+    // while everything below is still starting wants the true answer rather than a
+    // 404 that reads as a wrong URL. It registers one singleton and starts nothing.
+    HealthModule,
     DataModule,
     CryptoModule,
     AuthenticationModule,

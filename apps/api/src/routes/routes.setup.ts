@@ -5,6 +5,7 @@ import { ActivityRouter } from './activity.router.js';
 import { ArtRouter } from './art.router.js';
 import { CatalogRouter } from './catalog.router.js';
 import { ChartsRouter } from './charts.router.js';
+import { HealthRouter } from './health.router.js';
 import { DirectorRouter } from './director.router.js';
 import { PlaylistsRouter } from './playlists.router.js';
 import { NowplayingRouter } from './nowplaying.router.js';
@@ -15,6 +16,7 @@ import { SettingsRouter } from './settings.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
 
 export const routers = [
+    HealthRouter,
     AuthenticationRouter,
     AuthenticationFactorRouter,
     AuthenticationSessionsRouter,

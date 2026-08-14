@@ -28,8 +28,11 @@ export type ExemptionRequest = { method: string; path: string };
 
 export type TransactionExemption = (request: ExemptionRequest) => boolean;
 
-// OPTIONS preflight plus the health/root probes touch no tenant data.
-export const infraExemption: TransactionExemption = ({ method, path }) => method === 'OPTIONS' || path === '/' || path === '/healthcheck';
+// OPTIONS preflight plus the health/root probes touch no tenant data. Both spellings of the probe
+// are served (see health.ck) and both are exempt: HealthService answers out of memory, so a probe
+// on a short interval must never spend a pooled connection or open a transaction.
+export const infraExemption: TransactionExemption = ({ method, path }) =>
+    method === 'OPTIONS' || path === '/' || path === '/health' || path === '/healthcheck';
 
 // Streaming media/content routes return large bodies from the storage backend, not the DB, so
 // wrapping them in a request transaction would pin a pooled connection for the whole stream. Their

@@ -49,7 +49,6 @@ contract SilenceCause: enum(
     configNotAdopted,
     stoodDown,
     noProgramme,
-    audienceUnknown,
     noAudience,
     notDriving,
     starved

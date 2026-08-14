@@ -39,15 +39,6 @@ describe('OnAirBadge', () => {
         expect(screen.getByText('stream unreachable')).toBeInTheDocument();
     });
 
-    it('names an Icecast that stopped answering, which used to draw as `ready`', () => {
-        // The pair the badge could not tell apart: same listener count, and one of them
-        // is a station that will wait for a reading that is never going to arrive.
-        render(<OnAirBadge silence={stationSilence('audienceUnknown')} />);
-
-        expect(screen.getByText('audience unknown')).toBeInTheDocument();
-        expect(screen.queryByText('ready')).not.toBeInTheDocument();
-    });
-
     it('has a label for every gate the station can name', () => {
         // A missing one would render as blank, and a blank tally light is worse than a
         // wrong one: nothing about it says to look further.

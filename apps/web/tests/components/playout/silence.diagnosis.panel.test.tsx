@@ -34,9 +34,9 @@ describe('SilenceDiagnosisPanel', () => {
     });
 
     it('names the blocking gate and carries the remedy the station gave', () => {
-        render(<SilenceDiagnosisPanel silence={stationSilence('audienceUnknown', { remedy: 'Check that the icecast container is running.' })} />);
+        render(<SilenceDiagnosisPanel silence={stationSilence('streamUnreachable', { remedy: 'Check that the icecast container is running.' })} />);
 
-        expect(screen.getByText('Icecast is not answering')).toBeInTheDocument();
+        expect(screen.getByText('The stream is not reachable')).toBeInTheDocument();
         expect(screen.getByText('Check that the icecast container is running.')).toBeInTheDocument();
     });
 

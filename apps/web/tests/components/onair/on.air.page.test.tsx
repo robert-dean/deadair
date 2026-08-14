@@ -310,11 +310,11 @@ describe('OnAirPage', () => {
         // strip already runs, so the page and the strip cannot disagree about the same station.
         getTheRunningOrder.mockResolvedValue(order());
         getStationAir.mockResolvedValue(stationAir());
-        getPlayoutStatus.mockResolvedValue(playoutStatus({ silence: stationSilence('audienceUnknown') }));
+        getPlayoutStatus.mockResolvedValue(playoutStatus({ silence: stationSilence('streamUnreachable') }));
 
         render(<OnAirPage />);
 
-        expect(await screen.findByText('Icecast is not answering')).toBeInTheDocument();
+        expect(await screen.findByText('The stream is not reachable')).toBeInTheDocument();
     });
 
     it('lists what it ruled out, which is why this is a panel and not a tooltip', async () => {

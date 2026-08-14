@@ -133,7 +133,6 @@ const TITLES: Record<SilenceCause, string> = {
     configNotAdopted: 'A container is running config that was replaced',
     stoodDown: 'The station was stood down',
     noProgramme: 'There is nothing left to air',
-    audienceUnknown: 'Icecast is not answering',
     noAudience: 'Waiting for a listener',
     notDriving: 'The mount is not being held',
     starved: 'The mount is airing the local bed',

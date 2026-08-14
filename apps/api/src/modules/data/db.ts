@@ -241,6 +241,28 @@ export interface DeadairPermissionsRelationTuples {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairPersonas {
+  active: Generated<boolean>;
+  avoid: Generated<Json>;
+  background: string | null;
+  catchphrases: Generated<Json>;
+  createdAt: Generated<DateTime>;
+  diction: Generated<Json>;
+  dictionMarkers: Generated<Json>;
+  djName: string | null;
+  id: Generated<string>;
+  key: string;
+  label: string;
+  music: string | null;
+  quirks: Generated<Json>;
+  samples: Generated<Json>;
+  stationKey: Generated<string>;
+  style: string;
+  templates: string | null;
+  updatedAt: Generated<DateTime>;
+  voice: string | null;
+}
+
 export interface DeadairPlayHistory {
   airedAt: Generated<DateTime>;
   artistKey: string;
@@ -356,6 +378,7 @@ export interface DeadairSegments {
   id: Generated<string>;
   kind: Generated<string>;
   label: string;
+  personaId: string | null;
   script: string | null;
   source: Generated<string>;
   sourcePath: string | null;
@@ -511,6 +534,7 @@ export interface DB {
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
+  "deadair.personas": DeadairPersonas;
   "deadair.playHistory": DeadairPlayHistory;
   "deadair.playlists": DeadairPlaylists;
   "deadair.playlistTracks": DeadairPlaylistTracks;

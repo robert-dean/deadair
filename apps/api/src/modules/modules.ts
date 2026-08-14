@@ -15,6 +15,7 @@ import { ChartsModule } from './charts/charts.module.js';
 import { SimilarityModule } from './similarity/similarity.module.js';
 import { ScrobbleModule } from './scrobble/scrobble.module.js';
 import { LlmModule } from './llm/llm.module.js';
+import { PersonasModule } from './personas/personas.module.js';
 import { RenderModule } from './render/render.module.js';
 import { PlayoutModule } from './playout/playout.module.js';
 import { DirectorModule } from './director/director.module.js';
@@ -88,6 +89,11 @@ const ordered: ServerKitModule[] = [
     // DirectorModule, which are the two that will ask a model for words. It owns
     // no loop and starts nothing: a generation happens because something asked.
     LlmModule,
+    // Before RenderModule and DirectorModule, which are the two that read a
+    // persona: one for the voice a break is spoken in, one for the words and the
+    // phrasings underneath them. Nothing here reaches forward into either, and it
+    // owns no loop — its ready() seeds a station that has no personas at all.
+    PersonasModule,
     // Before PlayoutModule: the transport resolves a committed segment by reading
     // a row and a file from here, the way it resolves a track through a plugin.
     // Nothing here reaches back into playout or the director.

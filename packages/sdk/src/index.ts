@@ -17,6 +17,8 @@ export * from './nowplaying/nowplaying.client.js';
 export * from './nowplaying/types/index.js';
 export * from './onboarding/onboarding.client.js';
 export * from './onboarding/types/index.js';
+export * from './personas/personas.client.js';
+export * from './personas/types/index.js';
 export * from './playlists/playlists.client.js';
 export * from './playlists/types/index.js';
 export * from './playout/playout.client.js';

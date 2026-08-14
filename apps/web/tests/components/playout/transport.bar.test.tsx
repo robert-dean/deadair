@@ -14,12 +14,19 @@ import { render, screen } from '../../utils/render';
 
 const skip = vi.fn();
 const stop = vi.fn();
+const start = vi.fn();
 
 const setAirMode = vi.fn();
 
+// A factory mock REPLACES the module, so every hook the bar imports has to be here — an
+// omission is not a missing spy, it is `useStartPlayout is not a function` thrown during
+// render, which fails every test in the file including the ones that never touch it. That
+// is exactly what happened when the bar grew its "start again" control: 23 of 27 red, and
+// none of them about starting the station.
 vi.mock('../../../src/api/playout.queries', () => ({
     useSkipCurrent: () => ({ mutate: skip, isPending: false }),
     useStopPlayout: () => ({ mutate: stop, isPending: false }),
+    useStartPlayout: () => ({ mutate: start, isPending: false }),
 }));
 
 vi.mock('../../../src/api/director.queries', () => ({
@@ -156,6 +163,24 @@ describe('TransportBar', () => {
         expect(screen.queryByLabelText('Take the station out of service')).not.toBeInTheDocument();
         await userEvent.click(screen.getByRole('button', { name: 'Take out of service' }));
         expect(stop).toHaveBeenCalledOnce();
+    });
+
+    it('offers a start instead of a stop once the station is idle, on the same one-control rule', async () => {
+        // The mirror of the test above, and it had none until now: the mock the bar was
+        // rendered against did not carry `useStartPlayout` at all, so a control that has
+        // been on screen this whole time was never exercised.
+        const idle = playoutStatus({ nowPlaying: undefined, upNext: [], queuedCount: 0 });
+        const { rerender } = renderBar(idle);
+
+        expect(screen.queryByLabelText('Take the station out of service')).not.toBeInTheDocument();
+        await userEvent.click(screen.getByLabelText('Start the station again'));
+        expect(start).toHaveBeenCalledOnce();
+
+        rerender(<TransportBar status={idle} expanded onToggleExpanded={vi.fn()} />);
+
+        expect(screen.queryByLabelText('Start the station again')).not.toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Start again' }));
+        expect(start).toHaveBeenCalledTimes(2);
     });
 
     it('flags a container running replaced config, and gives the command in full once expanded', () => {

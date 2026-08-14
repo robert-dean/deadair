@@ -1,5 +1,5 @@
 import { Container, Injectable } from 'injectkit';
-import { RateLimiterMemory } from 'rate-limiter-flexible';
+import { RateLimiterMemory, RateLimiterQueue, RateLimiterQueueError } from 'rate-limiter-flexible';
 import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 import type {
     HostFetchInit,
@@ -104,14 +104,26 @@ export class PluginHostFactoryOptions {
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * How much randomness is added to a rate-limit park.
+ * How many calls may be waiting on one bucket before the next is refused outright.
  *
- * Small, and it exists only to break a tie: `rate-limiter-flexible` tells every caller rejected in
- * one window the same time until that window refills, so without this they all wake together and
- * race for the same points. A tenth of a second is enough to spread them and short enough that it
- * cannot meaningfully lengthen a wait.
+ * A queue is a promise to serve everyone eventually, and without a cap that promise outlives any
+ * upstream worth making it to: a plugin bursting against a one-per-second limit would accumulate
+ * waiters faster than they drain and each would sit there until its own deadline expired. Well
+ * above what the station's own subsystems can produce at once, so it only ever catches a runaway.
  */
-const RATE_LIMIT_JITTER_MS = 100;
+const MAX_RATE_LIMIT_QUEUE = 200;
+
+/**
+ * One upstream's pacing: the limiter that counts, and the FIFO queue that waits on it.
+ *
+ * Paired rather than kept apart because both are needed per call — the queue admits the waiters in
+ * order, and the limiter is what can still say how long a refusal should back off for, which the
+ * queue's own error does not carry.
+ */
+interface RateBucket {
+    limiter: RateLimiterMemory;
+    queue: RateLimiterQueue;
+}
 
 /**
  * Hostname match against one allowlist entry. A leading `*.` matches any
@@ -488,13 +500,6 @@ const guardedResponse = (manifest: PluginManifest, sent: SentResponse, controlle
     return response;
 };
 
-/** Duck-typed: `rate-limiter-flexible` rejects with a `RateLimiterRes`, not an `Error`. */
-const rateLimitWaitMs = (rejection: unknown): number | undefined => {
-    if (typeof rejection !== 'object' || rejection === null) return undefined;
-    const msBeforeNext = (rejection as { msBeforeNext?: unknown }).msBeforeNext;
-    return typeof msBeforeNext === 'number' ? msBeforeNext : undefined;
-};
-
 /**
  * Builds the one object a plugin is allowed to touch the outside world through.
  *
@@ -553,7 +558,7 @@ export class PluginHostFactory {
     // was `Transaction is already committed` thrown into whichever plugin happened to read its
     // own config.
 
-    /** One host per plugin. Cheap: the only per-host state is its rate limiters. */
+    /** One host per plugin. Cheap: the only per-host state is its rate buckets. */
     createHost(manifest: PluginManifest): PluginHost {
         const logger = this.pluginLog.for(manifest.id);
         const entries = this.networkEntries(manifest, logger);
@@ -561,7 +566,7 @@ export class PluginHostFactory {
         // sharing one allowance between them, which paced it against a limit
         // neither of them published. Built lazily, so a declared-but-unused
         // upstream costs nothing.
-        const limiters = new Map<string, RateLimiterMemory>();
+        const buckets = new Map<string, RateBucket>();
 
         // Per plugin instance, and the reason `cancelOpenBodies` exists: a body
         // outlives the invocation that fetched it, so nothing else would ever
@@ -571,7 +576,7 @@ export class PluginHostFactory {
 
         return {
             logger,
-            fetch: (url, init) => this.hostFetch(manifest, entries, limiters, logger, bodies, url, init),
+            fetch: (url, init) => this.hostFetch(manifest, entries, buckets, logger, bodies, url, init),
             // A getter, not a captured value: the host object outlives every
             // invocation made through it, so it has to read the ambient one at
             // the moment the plugin asks rather than whichever was running when
@@ -806,7 +811,7 @@ export class PluginHostFactory {
     private async hostFetch(
         manifest: PluginManifest,
         networkEntries: () => Promise<NetworkEntry[]>,
-        limiters: Map<string, RateLimiterMemory>,
+        buckets: Map<string, RateBucket>,
         logger: PluginLogger,
         bodies: Set<BodyRelease>,
         url: string,
@@ -820,7 +825,7 @@ export class PluginHostFactory {
 
         let sent: SentResponse;
         try {
-            sent = await this.sendWithRetry(manifest, entries, limiters, logger, entry, target, init, controller, deadlineAt, budgetMs);
+            sent = await this.sendWithRetry(manifest, entries, buckets, logger, entry, target, init, controller, deadlineAt, budgetMs);
         } catch (error) {
             // Nothing was registered, so nothing else will ever abort this.
             controller.abort();
@@ -903,7 +908,7 @@ export class PluginHostFactory {
     private async sendWithRetry(
         manifest: PluginManifest,
         entries: NetworkEntry[],
-        limiters: Map<string, RateLimiterMemory>,
+        buckets: Map<string, RateBucket>,
         logger: PluginLogger,
         entry: NetworkEntry,
         target: URL,
@@ -912,7 +917,7 @@ export class PluginHostFactory {
         deadlineAt: number,
         budgetMs: number,
     ): Promise<SentResponse> {
-        await this.consumeRateLimit(manifest, limiters, entry, deadlineAt);
+        await this.consumeRateLimit(manifest, buckets, entry, deadlineAt);
         const first = await this.sendRaw(manifest, entries, logger, target, init, controller, budgetMs);
 
         if (first.response.status !== 429 && first.response.status !== 503) return first;
@@ -929,7 +934,7 @@ export class PluginHostFactory {
         await cancelBody(first.response);
 
         await sleep(retryAfterMs);
-        await this.consumeRateLimit(manifest, limiters, entry, deadlineAt);
+        await this.consumeRateLimit(manifest, buckets, entry, deadlineAt);
         return this.sendRaw(manifest, entries, logger, target, init, controller, budgetMs);
     }
 
@@ -1042,14 +1047,15 @@ export class PluginHostFactory {
      */
     private async consumeRateLimit(
         manifest: PluginManifest,
-        limiters: Map<string, RateLimiterMemory>,
+        buckets: Map<string, RateBucket>,
         entry: NetworkEntry,
         deadlineAt: number,
     ): Promise<void> {
-        let limiter = limiters.get(entry.bucket);
-        if (limiter === undefined) {
-            limiter = limiterFor(entry.ratePerSecond);
-            limiters.set(entry.bucket, limiter);
+        let bucket = buckets.get(entry.bucket);
+        if (bucket === undefined) {
+            const limiter = limiterFor(entry.ratePerSecond);
+            bucket = { limiter, queue: new RateLimiterQueue(limiter, { maxQueueSize: MAX_RATE_LIMIT_QUEUE }) };
+            buckets.set(entry.bucket, bucket);
         }
 
         // The limiter knows exactly how long the wait would have been, so the
@@ -1066,30 +1072,34 @@ export class PluginHostFactory {
                 .withRetry(waitMs);
         };
 
-        // Parked until there is headroom or until the budget runs out, which is what the note above
-        // has always claimed and what this did NOT do: it consumed, slept once, tried again, and
-        // then threw whatever the second attempt said, with no deadline check on that last throw.
-        //
-        // One sleep is enough for a single caller and is a thundering herd for several. Two calls
-        // rejected in the same window are told the same `msBeforeNext`, sleep the same span, wake
-        // together and race for the same refilled points — and the loser fails outright with most
-        // of its budget unspent. It showed up as `enrichment.enrichArtist` failing against a
-        // 5-per-second bucket while the enrichment walk and a lineup refill were both drawing on
-        // it, which is two sequential callers and should never have been over quota at all.
-        for (;;) {
-            try {
-                await limiter.consume(manifest.id, 1);
-                return;
-            } catch (rejection) {
-                const waitMs = rateLimitWaitMs(rejection);
-                if (waitMs === undefined) throw rejection;
-                if (waitMs >= deadlineAt - Date.now()) overQuota(waitMs);
+        // Refused before queueing when the window will not refill inside the budget, which is the
+        // one thing the queue cannot do for us: its own `expiresUnixAt` is in whole SECONDS and is
+        // only swept when the queue next ticks, so a call with 50ms left would otherwise sit there
+        // for the best part of a second before being told no. This keeps a doomed call cheap and is
+        // what carries the real `Retry-After`.
+        const state = await bucket.limiter.get(manifest.id);
+        if (state !== null && state.remainingPoints <= 0 && state.msBeforeNext >= deadlineAt - Date.now()) {
+            overQuota(state.msBeforeNext);
+        }
 
-                // Jittered, because the collision above is what makes a second attempt necessary in
-                // the first place: waking two callers at the same instant re-runs the same race.
-                // Bounded at a tenth of a second so it cannot dominate a short wait.
-                await sleep(waitMs + Math.floor(Math.random() * RATE_LIMIT_JITTER_MS));
-            }
+        // Otherwise queue, FIFO. This used to be a hand-rolled consume-sleep-retry, which was two
+        // things wrong at once: it slept exactly once, so under contention everyone woke together
+        // and raced for the same refilled points and the losers failed outright — and even with the
+        // retry looped, a race has no order, so a caller could be starved indefinitely while others
+        // won. `RateLimiterQueue` is the library's answer to both: one waiter is admitted at a time,
+        // in arrival order, woken by the limiter's own timer rather than by polling.
+        //
+        // `expiresUnixAt` is the backstop for a call that outlives its budget while queued. Ceiled
+        // rather than floored, because flooring a deadline that is 200ms away lands it in the
+        // current second and the sweep would drop the request before it ever had a turn.
+        try {
+            await bucket.queue.removeTokens(1, manifest.id, Math.ceil(deadlineAt / 1000));
+        } catch (rejection) {
+            if (!(rejection instanceof RateLimiterQueueError)) throw rejection;
+            // Expired in the queue, or the queue is full. Neither carries a wait, so it is read back
+            // off the limiter: the caller still deserves a real number to back off by.
+            const after = await bucket.limiter.get(manifest.id);
+            overQuota(after?.msBeforeNext ?? 0);
         }
     }
 

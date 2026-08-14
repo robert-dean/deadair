@@ -30,6 +30,8 @@ const BOUNDARY_SOURCE_FILES = [
     'capabilities/speech.ts',
     'capabilities/llm.ts',
     'capabilities/analysis.ts',
+    'capabilities/charts.ts',
+    'capabilities/similarity.ts',
 ] as const;
 
 function exportedInterfacesIn(relativePath: string): string[] {

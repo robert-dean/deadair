@@ -1,5 +1,7 @@
+import type { ChartsProvider } from './capabilities/charts.js';
 import type { EnrichmentProvider } from './capabilities/enrichment.js';
 import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
+import type { SimilarityProvider } from './capabilities/similarity.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { PluginLifecycle } from './plugin.lifecycle.js';
 
@@ -34,6 +36,12 @@ export type MusicProviderPluginInstance = PluginLifecycle &
 
 /** Instance shape for an `enrichment` plugin. */
 export type EnrichmentPluginInstance = PluginLifecycle & EnrichmentProvider;
+
+/** Instance shape for a `charts` plugin. */
+export type ChartsPluginInstance = PluginLifecycle & ChartsProvider;
+
+/** Instance shape for a `similarity` plugin. */
+export type SimilarityPluginInstance = PluginLifecycle & SimilarityProvider;
 
 /**
  * Pairs a manifest with its factory and returns the object a plugin package

@@ -51,6 +51,28 @@ export const PLUGIN_CAPABILITY_LLM = 'llm';
  */
 export const PLUGIN_CAPABILITY_ANALYSIS = 'analysis';
 
+/**
+ * The plugin can say what is popular: a chart id in, an ordered list of names
+ * out.
+ *
+ * Separate from {@link PLUGIN_CAPABILITY_ENRICHMENT} because it is not a fact
+ * about a record the station holds — it is an opinion about records in general,
+ * most of which the library has never seen. And separate from
+ * {@link PLUGIN_CAPABILITY_CATALOG} because a chart is not a source of audio:
+ * naming a record is the whole of what it does.
+ */
+export const PLUGIN_CAPABILITY_CHARTS = 'charts';
+
+/**
+ * The plugin can say who else sounds like this: an artist in, artists out.
+ *
+ * Separate from {@link PLUGIN_CAPABILITY_ENRICHMENT} for the reason
+ * `capabilities/similarity.ts` gives at length: enrichment describes rows the
+ * catalog holds, and the artists worth asking about here are the ones it does
+ * not.
+ */
+export const PLUGIN_CAPABILITY_SIMILARITY = 'similarity';
+
 export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_STREAM,
@@ -60,6 +82,8 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_ANALYSIS,
+    PLUGIN_CAPABILITY_CHARTS,
+    PLUGIN_CAPABILITY_SIMILARITY,
 ] as const;
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];

@@ -18,6 +18,8 @@ import type { ConfigField } from '../src/plugin.config.fields.js';
 import type { SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
 import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/llm.js';
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from '../src/capabilities/analysis.js';
+import type { ChartDescriptor, ChartEntry, ChartQuery } from '../src/capabilities/charts.js';
+import type { ArtistTrack, SimilarArtist } from '../src/capabilities/similarity.js';
 
 /**
  * Throws with the offending property path when `value` is not JSON-safe.
@@ -357,6 +359,51 @@ export const trackRefFixture: TrackRef = {
     album: 'Kid A',
     durationMs: 249_000,
     year: 2000,
+};
+
+export const chartDescriptorFixture: ChartDescriptor = {
+    id: 'top-100-gb',
+    name: 'Top 100 Songs',
+    country: 'GB',
+    description: 'The most played songs in the United Kingdom, updated daily.',
+};
+
+/** `date` is an ISO-8601 string, never a `Date`: a chart is a weekly document with a history. */
+export const chartQueryFixture: ChartQuery = {
+    chartId: 'top-100-gb',
+    limit: 25,
+    date: '1994-11-05',
+};
+
+/**
+ * A collaboration, deliberately: `artist` is the LEAD credit alone and the rest ride in
+ * `featuring`. A fixture that used a solo credit would round-trip just as happily and would
+ * document nothing about the rule that actually matters here.
+ */
+export const chartEntryFixture: ChartEntry = {
+    rank: 3,
+    title: 'Under Pressure',
+    artist: 'Queen',
+    featuring: ['David Bowie'],
+    album: 'Hot Space',
+    year: 1981,
+    peak: 1,
+    weeksOn: 14,
+};
+
+/** Carries both ids, since a source that knows an MBID and its own id should hand over both. */
+export const similarArtistFixture: SimilarArtist = {
+    name: 'Massive Attack',
+    mbid: '10adbe5e-a2c0-4bf3-8249-2b4cbf6e6ca8',
+    providerRef: 'lastfm:massive-attack',
+    match: 0.82,
+};
+
+export const artistTrackFixture: ArtistTrack = {
+    title: 'Teardrop',
+    artist: 'Massive Attack',
+    album: 'Mezzanine',
+    year: 1998,
 };
 
 const externalIdFixture: ExternalId = { source: 'musicbrainz', id: 'mb-123' };

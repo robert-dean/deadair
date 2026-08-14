@@ -2,9 +2,11 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { CatalogSearchTool } from './catalog.search.tool.js';
+import { ChartsTool } from './charts.tool.js';
 import { LibrarySearchTool } from './library.search.tool.js';
 import { LlmGate } from './llm.gate.js';
 import { LlmService } from './llm.service.js';
+import { SimilarArtistsTool } from './similar.artists.tool.js';
 import { ToolRegistry } from './llm.tools.js';
 import { StationTasteTool } from './station.taste.tool.js';
 
@@ -54,21 +56,36 @@ export const LlmModule: ServerKitModule = {
         // Also a catalog read rather than a plugin one, and offered to every caller rather than to
         // selection alone: "the station loves this band" is a thing a break writer says on air.
         registry.register(StationTasteTool).useClass(StationTasteTool).asScoped();
+        // Scoped with the `ChartsService` it adapts, which is scoped with the plugin registry it
+        // reads. Unlike the three above, the thing behind this one is somebody else's service, which
+        // is exactly why the fetching half is a plugin and only the adapter lives here.
+        registry.register(ChartsTool).useClass(ChartsTool).asScoped();
+        // The other plugin-backed source, beside the charts one and for the same reason: the thing
+        // it talks to is somebody else's service, so the fetching lives in a plugin and only the
+        // adapter is here.
+        registry.register(SimilarArtistsTool).useClass(SimilarArtistsTool).asScoped();
 
         // The source list is explicit rather than discovered, so what the model can reach is one
         // readable line rather than the sum of whatever registered itself. A `tool` plugin
         // capability becomes another entry here and nothing else changes.
         //
-        // The library first. Order here is only a tie-break on duplicate NAMES, which these two do
-        // not have, but it is also the order the declarations reach the model — and the tool a DJ
-        // should reach for when choosing what to play is the one that answers with records it can
-        // actually schedule.
+        // The library first. Order here is only a tie-break on duplicate NAMES, which these do not
+        // have, but it is also the order the declarations reach the model — and the tool a DJ should
+        // reach for when choosing what to play is the one that answers with records it can actually
+        // schedule. The charts go last for the same reason read the other way round: they are the
+        // one source that knows nothing about whether the station can play what it names.
         registry
             .register(ToolRegistry)
             .useFactory(
                 (container: Container) =>
                     new ToolRegistry(
-                        [container.get(LibrarySearchTool), container.get(CatalogSearchTool), container.get(StationTasteTool)],
+                        [
+                            container.get(LibrarySearchTool),
+                            container.get(CatalogSearchTool),
+                            container.get(StationTasteTool),
+                            container.get(SimilarArtistsTool),
+                            container.get(ChartsTool),
+                        ],
                         container.get(Logger),
                     ),
             )

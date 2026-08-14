@@ -5,6 +5,8 @@ import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.j
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { CLOCK_KEYS } from '#modules/director/clock.words.js';
 import { MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
+import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
+import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
@@ -216,6 +218,30 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: DISCOVER_DEFAULT,
         help: 'The library holds what your playlists carry, which is a fraction of what a provider knows. With this on, a chosen record the library has never seen is looked up at your providers, taken into the catalog and played. Turning it off makes the library the boundary again: anything outside it is skipped.',
+    },
+    {
+        group: 'rotation',
+        key: CHART_GENERATOR_KEYS.mix,
+        label: 'How much of each batch comes from a chart',
+        type: 'number',
+        default: DEFAULT_CHART_MIX,
+        help: 'A share between 0 and 1 of what the station is popular with other people rather than drawn from your library. 0 is off, which is what a station stays on until you change it. Needs a chart plugin installed, and needs "Play records the station does not own yet" on, because a chart names records your library almost certainly does not hold.',
+    },
+    {
+        group: 'rotation',
+        key: CHART_GENERATOR_KEYS.chart,
+        label: 'Which chart',
+        type: 'string',
+        dependsOn: CHART_GENERATOR_KEYS.mix,
+        help: 'The id of a chart one of your plugins offers, as listed at /charts. Leave it blank to use the first one on offer, or to let a broadcast brief naming a country or a genre choose between them.',
+    },
+    {
+        group: 'rotation',
+        key: SIMILAR_GENERATOR_KEYS.mix,
+        label: 'How much of each batch comes from similar artists',
+        type: 'number',
+        default: DEFAULT_SIMILAR_MIX,
+        help: 'A share between 0 and 1 of what the station plays by acts that resemble the ones it has just played, rather than drawn from your library. This is how a station stops sounding like it owns two hundred songs. 0 is off. Needs a similarity plugin installed, and needs "Play records the station does not own yet" on, because the point of it is acts your library does not hold.',
     },
     {
         group: 'rotation',

@@ -9,7 +9,9 @@ import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
+import { ChartSetGenerator } from './chart.set.generator.js';
 import { ModelSetGenerator } from './model.set.generator.js';
+import { SimilarSetGenerator } from './similar.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
 import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
@@ -45,6 +47,8 @@ export const DirectorModule: ServerKitModule = {
         // The one difference is that the chain TOPS UP rather than falling through — a generator
         // that named six of fifteen has done most of the job — which is why a set is not a break.
         registry.register(ModelSetGenerator).useClass(ModelSetGenerator).asScoped();
+        registry.register(ChartSetGenerator).useClass(ChartSetGenerator).asScoped();
+        registry.register(SimilarSetGenerator).useClass(SimilarSetGenerator).asScoped();
         registry.register(CatalogSetGenerator).useClass(CatalogSetGenerator).asScoped();
         registry
             .register(SetGenerator)
@@ -53,8 +57,27 @@ export const DirectorModule: ServerKitModule = {
                     // The model first and the catalog draw last, which is the whole of how they are
                     // ranked. Everything the model can do wrong is topped up by the entry below it,
                     // and the entry below it cannot fail.
+                    //
+                    // The chart sits between them, and that position is an argument rather than a
+                    // gap to fill. Above the floor, because a published chart is a stronger claim
+                    // about what to play than a weighted draw from whatever the library holds.
+                    // Below the model, because the model can act on the operator's brief and this
+                    // can only choose which chart to read — and because a chart takes only the
+                    // share `rotation.chartMix` allows, so it must not get first refusal on a batch
+                    // the model was going to programme properly.
+                    //
+                    // The similarity binding sits behind the chart on a weaker version of the same
+                    // argument: a chart is a claim somebody published, and a neighbour of something
+                    // that happened to air is an inference from the station's own recent history.
+                    // Both take only their configured share, so the order between them decides who
+                    // gets the good slots rather than who gets any.
                     new SetGeneratorChain(
-                        [container.get(ModelSetGenerator), container.get(CatalogSetGenerator)],
+                        [
+                            container.get(ModelSetGenerator),
+                            container.get(ChartSetGenerator),
+                            container.get(SimilarSetGenerator),
+                            container.get(CatalogSetGenerator),
+                        ],
                         container.get(ActivityRecorder),
                         container.get(Logger),
                     ),

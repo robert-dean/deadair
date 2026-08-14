@@ -8,6 +8,8 @@ export * from './authentication/authentication.sessions.client.js';
 export * from './authentication/types/index.js';
 export * from './catalog/catalog.client.js';
 export * from './catalog/types/index.js';
+export * from './charts/charts.client.js';
+export * from './charts/types/index.js';
 export * from './deadair.sdk.js';
 export * from './director/director.client.js';
 export * from './director/types/index.js';

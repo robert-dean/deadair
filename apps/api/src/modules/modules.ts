@@ -10,6 +10,8 @@ import { SettingsModule } from './settings/settings.module.js';
 import { StreamModule } from './stream/stream.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
+import { ChartsModule } from './charts/charts.module.js';
+import { SimilarityModule } from './similarity/similarity.module.js';
 import { LlmModule } from './llm/llm.module.js';
 import { RenderModule } from './render/render.module.js';
 import { PlayoutModule } from './playout/playout.module.js';
@@ -62,6 +64,15 @@ const ordered: ServerKitModule[] = [
     // After PluginsModule: it resolves PluginRegistry and PluginInvoker, which
     // PluginsModule registers.
     PlaylistsModule,
+    // After PluginsModule for the same reason, and before LlmModule and
+    // DirectorModule, which are the two that ask it for a chart: one as a tool a
+    // model may call, one as a source of names for a refill. It starts nothing.
+    ChartsModule,
+    // Beside ChartsModule and for the same reasons: after PluginsModule, before the
+    // LLM and the director, no loop of its own. The two are siblings — one says what
+    // is popular, the other who sounds alike, and both answer in names that the pick
+    // path judges.
+    SimilarityModule,
     // After PluginsModule for the same reason, and before RenderModule and
     // DirectorModule, which are the two that will ask a model for words. It owns
     // no loop and starts nothing: a generation happens because something asked.

@@ -1,11 +1,15 @@
 import {
     PLUGIN_CAPABILITY_ANALYSIS,
     PLUGIN_CAPABILITY_CATALOG,
+    PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
+    PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_STREAM,
     type AnalysisProvider,
+    type ChartsPluginInstance,
+    type SimilarityPluginInstance,
     type EnrichmentPluginInstance,
     type LlmPluginInstance,
     type MusicProviderPluginInstance,
@@ -209,6 +213,102 @@ export const asEnrichmentPlugin = (record: PluginRecord): EnrichmentPlugin | und
         enrichesBatches: implementsBatchEnrichment(instance),
         maxBatchSize: enrichmentBatchSize(instance),
     };
+};
+
+/**
+ * Both methods earn the `charts` capability, unlike every other family here
+ * where one is required and the rest are optional.
+ *
+ * The reason is that neither is usable alone: a plugin that can fetch a chart
+ * and cannot say which charts it has is unreachable, because a chart id is
+ * scoped to the plugin that minted it and nothing else can invent one. And a
+ * plugin that lists charts it cannot fetch is a menu with no kitchen.
+ */
+export const CHARTS_METHODS = ['listCharts', 'fetchChart'] as const satisfies ReadonlyArray<keyof ChartsPluginInstance>;
+
+/** A plugin narrowed to "can say what is popular, right now". */
+export interface ChartsPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: ChartsPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `charts` capability. */
+export const implementsCharts = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_CHARTS)) return false;
+    return CHARTS_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The charts-capable view of a record, or `undefined` when it is not one.
+ *
+ * No `priority`, and the reason is not the one `asSpeechPlugin` gives. Speech
+ * has one answer because two voices reading one break is two breaks; charts can
+ * have many answers at once and they are still not a merge — two services'
+ * top forties are two documents, and averaging them would produce a chart
+ * nobody published. So several chart plugins are several MENUS, ordered by
+ * nothing, and choosing between them is the operator picking an id.
+ */
+export const asChartsPlugin = (record: PluginRecord): ChartsPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsCharts(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as ChartsPluginInstance };
+};
+
+/**
+ * The one method that earns the `similarity` capability.
+ *
+ * `artistTopTracks` is deliberately not on the list, the way `enrichArtist` is
+ * not on enrichment's: a source that can only say who sounds alike is a
+ * legitimate plugin, and one that can also name records is a better one.
+ * {@link SimilarityPlugin.namesTracks} is how a caller that needs the second
+ * skips the ones that only do the first.
+ */
+export const SIMILARITY_METHODS = ['similarArtists'] as const satisfies ReadonlyArray<keyof SimilarityPluginInstance>;
+
+/** A plugin narrowed to "can say who else sounds like this, right now". */
+export interface SimilarityPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: SimilarityPluginInstance;
+    /**
+     * Whether `artistTopTracks` is there to call.
+     *
+     * Load-bearing in the way `LlmPlugin.listsModels` is rather than the way
+     * `SpeechPlugin.listsVoices` is: without it the host has a list of names and
+     * no way to turn one into a record, so such a plugin can inform a DJ and
+     * cannot programme an hour.
+     */
+    namesTracks: boolean;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `similarity` capability. */
+export const implementsSimilarity = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_SIMILARITY)) return false;
+    return SIMILARITY_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/** Whether this plugin can name records by an artist, as opposed to only naming the artist. */
+export const implementsArtistTopTracks = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).artistTopTracks === 'function';
+
+/**
+ * The similarity-capable view of a record, or `undefined` when it is not one.
+ *
+ * No `priority`, unlike enrichment, and the reason is what a disagreement means.
+ * Two enrichment sources describing one record are reconciled because there is
+ * one right answer about a release year. Two sources saying different artists
+ * resemble Portishead are not in conflict at all — they are two opinions, and
+ * the useful thing to do with both is to take both. So the host merges by name
+ * without ranking the sources, and `match` orders within one source's answer
+ * rather than across them.
+ */
+export const asSimilarityPlugin = (record: PluginRecord): SimilarityPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsSimilarity(record.manifest, record.instance)) return undefined;
+
+    const instance = record.instance as SimilarityPluginInstance;
+    return { record, manifest: record.manifest, instance, namesTracks: implementsArtistTopTracks(instance) };
 };
 
 /**

@@ -11,6 +11,9 @@ import {
     artistEnrichmentFixture,
     artistRefFixture,
     assertCrossesBoundary,
+    chartDescriptorFixture,
+    chartEntryFixture,
+    chartQueryFixture,
     getPlaylistTracksOptionsFixture,
     listPlaylistsOptionsFixture,
     playbackStateFixture,
@@ -30,6 +33,8 @@ import {
     llmRequestFixture,
     llmResultFixture,
     searchTracksOptionsFixture,
+    similarArtistFixture,
+    artistTrackFixture,
     speechRequestFixture,
     speechVoiceFixture,
     trackEnrichmentBatchFixture,
@@ -76,6 +81,11 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['TrackLoudness', trackLoudnessFixture],
         ['TrackTaggedLoudness', trackTaggedLoudnessFixture],
         ['TrackAnalysis', trackAnalysisFixture],
+        ['ChartDescriptor', chartDescriptorFixture],
+        ['ChartQuery', chartQueryFixture],
+        ['ChartEntry', chartEntryFixture],
+        ['SimilarArtist', similarArtistFixture],
+        ['ArtistTrack', artistTrackFixture],
     ] as const)('%s crosses the boundary', (label, value) => {
         expect(() => assertCrossesBoundary(value, label)).not.toThrow();
     });

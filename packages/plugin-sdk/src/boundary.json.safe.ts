@@ -37,6 +37,8 @@
  */
 
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
+import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
+import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
 import type {
     AlbumEnrichment,
     AlbumRef,
@@ -168,6 +170,11 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     TrackLoudness: IsJsonSafe<TrackLoudness>;
     TrackTaggedLoudness: IsJsonSafe<TrackTaggedLoudness>;
     TrackAnalysis: IsJsonSafe<TrackAnalysis>;
+    ChartDescriptor: IsJsonSafe<ChartDescriptor>;
+    ChartQuery: IsJsonSafe<ChartQuery>;
+    ChartEntry: IsJsonSafe<ChartEntry>;
+    SimilarArtist: IsJsonSafe<SimilarArtist>;
+    ArtistTrack: IsJsonSafe<ArtistTrack>;
 }>;
 
 /**
@@ -214,6 +221,11 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'TrackLoudness',
     'TrackTaggedLoudness',
     'TrackAnalysis',
+    'ChartDescriptor',
+    'ChartQuery',
+    'ChartEntry',
+    'SimilarArtist',
+    'ArtistTrack',
 ] as const;
 
 /**
@@ -244,6 +256,8 @@ export const BOUNDARY_METHOD_TYPES = [
     'SpeechPluginInstance',
     'LlmPluginInstance',
     'AnalysisProvider',
+    'ChartsProvider',
+    'SimilarityProvider',
 ] as const;
 
 /**

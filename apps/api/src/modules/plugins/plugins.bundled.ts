@@ -36,6 +36,7 @@ export function resolveBundledPluginDir(repoRelativePath: string): string {
 export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/spotify'),
     resolveBundledPluginDir('plugins/musicbrainz'),
+    resolveBundledPluginDir('plugins/lastfm'),
     resolveBundledPluginDir('plugins/kokoro'),
     resolveBundledPluginDir('plugins/llm'),
     resolveBundledPluginDir('plugins/analyzer'),

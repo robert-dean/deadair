@@ -10,4 +10,5 @@ export type JobNames =
     | 'director.write_break'
     | 'render.segment'
     | 'render.prune_script_history'
-    | 'activity.prune_events';
+    | 'activity.prune_events'
+    | 'scrobble.flush';

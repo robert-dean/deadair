@@ -14,6 +14,7 @@ import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
+import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
 
 /**
  * What a job name maps to. The bare constructor is the short form for an
@@ -224,5 +225,23 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: PruneActivityJob,
         cron: '53 4 * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // Every two minutes, which is a latency choice rather than a throughput one: a scrobble is a
+    // record of something that already happened, and nobody is waiting on it. Frequent enough that
+    // an evening's listening appears on the service while the operator is still listening, rare
+    // enough that a station airing fifteen records an hour is not making a request per record.
+    //
+    // NO retry, like the two prune jobs above and for the same reason read from the other side: a
+    // run that failed leaves every row where it was with its own backoff, so the cron IS the retry.
+    // A job-level retry would put a second schedule on top of the row-level one and make the
+    // backoff mean less than it says.
+    //
+    // `expiresIn` sits above a full run (`RUN_BUDGET_MS`) plus the batch that could be in flight
+    // when it ends, and below the interval, so a wedged run is reclaimed before the next one starts.
+    'scrobble.flush': {
+        job: ScrobbleFlushJob,
+        cron: '*/2 * * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 };

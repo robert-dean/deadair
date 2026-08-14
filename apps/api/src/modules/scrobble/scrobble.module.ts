@@ -22,5 +22,8 @@ export const ScrobbleModule: ServerKitModule = {
         // on the request path.
         registry.register(ScrobbleService).useClass(ScrobbleService).asScoped();
         registry.register(ScrobbleRepository).useClass(ScrobbleRepository).asScoped();
+        // `ScrobbleFlushJob` is deliberately NOT registered here. `JobsModule` walks
+        // `JobMappings` and registers every job class it names, so a second registration
+        // would shadow that one and differ from how every other job in the tree is wired.
     },
 };

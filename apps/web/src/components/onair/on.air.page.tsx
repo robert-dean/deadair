@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router';
 
 import { useRateTrack } from '../../api/catalog.queries';
 import { useExtendOrder, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
-import { usePlayoutStatus, useStopPlayout } from '../../api/playout.queries';
+import { usePlayoutStatus, useStartPlayout, useStopPlayout } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
 import { BriefTheStation } from './brief.the.station';
@@ -28,6 +28,7 @@ export function OnAirPage() {
     const removeItem = useRemoveOrderItem();
     const rateTrack = useRateTrack();
     const stop = useStopPlayout();
+    const start = useStartPlayout();
     // The same query the shell polls for the transport strip, so this page's panel and
     // that strip cannot come to different conclusions about the same station.
     const playout = usePlayoutStatus(true);
@@ -43,6 +44,15 @@ export function OnAirPage() {
     const extendFailure = extend.isError ? apiErrorMessage(extend.error, 'A refill could not be queued.') : undefined;
     const removeFailure = removeItem.isError ? apiErrorMessage(removeItem.error, 'That item could not be dropped.') : undefined;
     const stopFailure = stop.isError ? apiErrorMessage(stop.error, 'The station could not be stopped.') : undefined;
+    const startFailure = start.isError ? apiErrorMessage(start.error, 'The station could not be put back on air.') : undefined;
+
+    // Stop deliberately leaves the running order alone so that Start can pick it up where it
+    // stopped, and until now nothing on this page offered that Start: an operator who stopped a
+    // station with a full order was shown Shuffle, Extend and Stop again, with no way back on air
+    // from the one page whose whole subject is the running order. `false` rather than `!active`
+    // because the air state may not have loaded yet, and an unknown station should read the way it
+    // did before rather than flickering a Start on.
+    const standingDown = air.data?.active === false;
 
     return (
         <Stack gap="lg">
@@ -134,19 +144,32 @@ export function OnAirPage() {
                                 Extend
                             </Button>
                         </Tooltip>
-                        <Tooltip
-                            label={
-                                stopFailure ??
-                                'Ends the broadcast. What is playing stops too, and the mount goes quiet rather than falling back to a bed.'
-                            }
-                            color={stopFailure ? 'red' : undefined}
-                            multiline
-                            maw={320}
-                        >
-                            <Button color="red" variant="outline" loading={stop.isPending} onClick={() => stop.mutate()}>
-                                Stop
-                            </Button>
-                        </Tooltip>
+                        {standingDown ? (
+                            <Tooltip
+                                label={startFailure ?? 'Puts the station back on air on the running order it was stopped on. Nothing is rebuilt.'}
+                                color={startFailure ? 'red' : undefined}
+                                multiline
+                                maw={320}
+                            >
+                                <Button color={startFailure ? 'red' : undefined} loading={start.isPending} onClick={() => start.mutate()}>
+                                    Start
+                                </Button>
+                            </Tooltip>
+                        ) : (
+                            <Tooltip
+                                label={
+                                    stopFailure ??
+                                    'Ends the broadcast. What is playing stops too, and the mount goes quiet rather than falling back to a bed.'
+                                }
+                                color={stopFailure ? 'red' : undefined}
+                                multiline
+                                maw={320}
+                            >
+                                <Button color="red" variant="outline" loading={stop.isPending} onClick={() => stop.mutate()}>
+                                    Stop
+                                </Button>
+                            </Tooltip>
+                        )}
                     </Group>
                 ) : undefined}
             </Group>

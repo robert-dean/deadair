@@ -19,6 +19,7 @@ const removeARunningOrderItem = vi.fn();
 const shuffleTheRunningOrder = vi.fn();
 const extendTheRunningOrder = vi.fn();
 const stopPlayout = vi.fn();
+const startPlayout = vi.fn();
 const rateTrack = vi.fn();
 const getPlayoutStatus = vi.fn();
 
@@ -31,7 +32,7 @@ vi.mock('../../../src/api/client', () => ({
             shuffleTheRunningOrder: () => shuffleTheRunningOrder(),
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
         },
-        playout: { stop: () => stopPlayout(), getPlayoutStatus: () => getPlayoutStatus() },
+        playout: { stopPlayout: () => stopPlayout(), startPlayout: () => startPlayout(), getPlayoutStatus: () => getPlayoutStatus() },
         catalog: { rateTrack: (...args: unknown[]) => rateTrack(...args) },
     },
 }));
@@ -242,6 +243,45 @@ describe('OnAirPage', () => {
 
         expect(await screen.findByText('Top of the hour')).toBeInTheDocument();
         expect(screen.queryByText('deterministic')).not.toBeInTheDocument();
+    });
+
+    it('offers Start instead of Stop once the station is stood down, on the order it kept', async () => {
+        // The gap this closes: Stop deliberately leaves the running order alone so that Start can
+        // resume it, and this page offered no Start at all — an operator who stopped a station with
+        // a full order was shown Shuffle, Extend and Stop again, with no way back on air from the
+        // one page whose whole subject is the running order.
+        getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'item-1', title: 'Windowlicker' })] }));
+        getStationAir.mockResolvedValue(stationAir({ active: false }));
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
+        await userEvent.click(screen.getByRole('button', { name: 'Start' }));
+
+        expect(startPlayout).toHaveBeenCalledOnce();
+    });
+
+    it('offers Stop rather than Start while the station is on air', async () => {
+        getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'item-1', title: 'Windowlicker' })] }));
+        getStationAir.mockResolvedValue(stationAir({ active: true }));
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Start' })).not.toBeInTheDocument();
+    });
+
+    it('still offers Shuffle and Extend while stood down, because an order can be prepared off air', async () => {
+        getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'item-1' }), orderItem({ id: 'item-2', title: 'Xtal' })] }));
+        getStationAir.mockResolvedValue(stationAir({ active: false }));
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByRole('button', { name: 'Shuffle' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Extend' })).toBeEnabled();
     });
 
     it('will not offer to shuffle a tail with nothing left in it', async () => {

@@ -7,11 +7,15 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 
+import { writeCapture } from '../../../src/modules/llm/llm.capture.js';
 import type { StationTaste, TasteRepository } from '../../../src/modules/catalog/taste.repository.js';
 import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
 import { MODEL_GENERATOR_KEYS, ModelSetGenerator } from '../../../src/modules/director/model.set.generator.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
+
+// Mocked, because what it writes is a file and this is about WHETHER it is asked to.
+vi.mock('../../../src/modules/llm/llm.capture.js', () => ({ writeCapture: vi.fn(async () => '/logs/captures/set-x.json') }));
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -324,19 +328,26 @@ describe('ModelSetGenerator', () => {
 
         await generator.generate(inputs(5));
 
-        expect(logger.info).toHaveBeenCalledWith(
-            expect.stringMatching(/what the model was shown/),
-            expect.objectContaining({ transcript: expect.stringContaining('Atrophy'), said: '[]' }),
+        expect(writeCapture).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.anything(),
+            expect.objectContaining({
+                kind: 'set',
+                answer: '[]',
+                transcript: expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining('Atrophy') })]),
+                context: expect.objectContaining({ named: 0, searches: 3 }),
+            }),
+            expect.any(Number),
         );
     });
 
     it('keeps nothing while the switch is off, which is every ordinary night', async () => {
-        vi.mocked(logger.info).mockClear();
+        vi.mocked(writeCapture).mockClear();
         const { generator } = build({ enabled: true, text: picks(['A', 'One']) });
 
         await generator.generate(inputs(5));
 
-        expect(logger.info).not.toHaveBeenCalledWith(expect.stringMatching(/what the model was shown/), expect.anything());
+        expect(writeCapture).not.toHaveBeenCalled();
     });
 
     it('lets a model failure reach the chain, which is what absorbs it', async () => {

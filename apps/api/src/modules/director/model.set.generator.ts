@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
+import { writeCapture } from '#modules/llm/llm.capture.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -240,21 +241,37 @@ export class ModelSetGenerator extends SetGenerator {
         // Everything the model saw and everything it said, while the operator has the switch on.
         //
         // The same switch the break writers fill `script_history`'s two capture columns from, and
-        // for the same evening: this is prompt tuning, not a record. It goes to the LOG rather than
-        // to a table because a set has no row of its own — the picks become a running order and the
-        // conversation that produced them is not a thing the station keeps.
+        // for the same evening: this is prompt tuning, not a record.
+        //
+        // To a FILE, and that is the second attempt. It was one log line with the transcript in a
+        // field, which the log store truncated at 512 characters — so the first capture of the
+        // failure it was written for arrived as two rules of the system prompt and an ellipsis.
+        // What stays here is the pointer, which is all a log line should have been carrying.
         //
         // A zero-pick run is what this was added for and it deliberately captures every run anyway:
         // the useful comparison when a refill declines is against the one before it that worked,
         // and a capture that starts once something has already gone wrong never has that.
         if (captureWrites(this.config)) {
-            this.logger.info('director: what the model was shown and what it said', {
-                asked: inputs.count,
-                named: picks.length,
-                // The transcript stops before the answer, so the two are logged side by side.
-                transcript: JSON.stringify(result.transcript),
-                said: result.text,
-            });
+            const path = await writeCapture(
+                this.config,
+                this.logger,
+                {
+                    kind: 'set',
+                    context: {
+                        asked: inputs.count,
+                        named: picks.length,
+                        searches: result.toolCallsMade,
+                        finish: result.finishReason,
+                        ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
+                        ...(model.length === 0 ? {} : { model }),
+                    },
+                    transcript: result.transcript,
+                    // The transcript stops before the answer, so the two are kept side by side.
+                    answer: result.text,
+                },
+                Date.now(),
+            );
+            if (path !== undefined) this.logger.info('director: kept what the model was shown', { file: path, named: picks.length });
         }
 
         if (picks.length === 0) {

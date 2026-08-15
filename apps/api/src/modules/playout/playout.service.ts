@@ -184,6 +184,7 @@ export class PlayoutService {
         const audience = this.audience.reading();
         const starvedSince = this.control.starvedSince();
         const deniedSince = this.control.deniedSince();
+        const audioWaitSince = this.director.audioWaitSince();
 
         const silence = diagnose({
             now,
@@ -195,6 +196,11 @@ export class PlayoutService {
             staleConfig: this.staleness.warnings(),
             active: air.active,
             hasProgramme: this.rundown.hasProgramme(),
+            // Read from the director rather than derived here, because "the order is full and cold"
+            // is a fact about the commit pass and nothing this service can see says it: an order
+            // that ran out and one whose records are still being fetched both leave the transport
+            // holding nothing.
+            ...(audioWaitSince === undefined ? {} : { audioWaitForMs: now - audioWaitSince }),
             airMode: air.airMode,
             listeners: audience.count,
             audience: audience.hasAudience,

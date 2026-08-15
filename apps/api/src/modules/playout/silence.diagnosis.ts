@@ -33,7 +33,7 @@ import type { StreamConfigWarning } from '#modules/stream/stream.staleness.js';
  * could not be tested at all, and the ordering is exactly the part worth testing.
  *
  * It is deliberately not a health check. Four of the gates below —
- * `stoodDown`, `noProgramme`, `noAudience` — describe a
+ * `stoodDown`, `noProgramme`, `waitingOnAudio`, `noAudience` — describe a
  * completely healthy process in a particular state, and a surface that called any
  * of those `degraded` would be a light an operator learns to stop reading. That
  * is the mistake the `ready` badge was added to fix, and repeating it here would
@@ -50,6 +50,7 @@ export type SilenceCause =
     | 'stoodDown'
     | 'noProgramme'
     | 'noAudience'
+    | 'waitingOnAudio'
     | 'notDriving'
     | 'starved';
 
@@ -127,6 +128,18 @@ export interface StationFacts {
     /** Whether the station has been stood down, from `station_air`. */
     active: boolean;
     hasProgramme: boolean;
+    /**
+     * How long the director has had a running order it could not commit anything from because the
+     * audio is not on this machine yet. `undefined` means that is not what is happening, which
+     * covers both an order committing normally and one with nothing left in it.
+     *
+     * It is what tells those last two apart, and they are indistinguishable from
+     * {@link hasProgramme} alone: an order that ran out and an order whose next records are still
+     * downloading both leave the transport holding nothing. Read from the commit pass rather than
+     * from a clock, so it means "nothing has been committed since", which stays true even when no
+     * pass has run lately — the sentences below are worded around that and not around the fetch.
+     */
+    audioWaitForMs?: number;
     airMode: AirMode;
     listeners: number;
     /** The gate's own answer, which lingers past the last listener. */
@@ -160,6 +173,18 @@ const STALL_AFTER_MS = 3 * RECONCILE_TICK_MS;
 const STARVE_AFTER_MS = RECONCILE_TICK_MS;
 
 /**
+ * How long a running order may sit uncommittable for want of its audio before it stops being an
+ * ordinary wait.
+ *
+ * A minute, which is a big file downloading and then some. Stated here rather than borrowed from
+ * the director's own `WAITING_ON_AUDIO_MS`, which reports the same wait on the activity feed:
+ * importing it would run an edge from playout to director, and this module edge deliberately runs
+ * the other way. The two agreeing is worth nothing anyway — one is when to write a row down and
+ * this is when to stop calling a wait healthy — so they are free to drift apart on purpose.
+ */
+const AUDIO_WAIT_AFTER_MS = 60_000;
+
+/**
  * Name the gate that is keeping the station quiet.
  *
  * The first blocking check wins. `configNotAdopted` is the one fault that is
@@ -180,6 +205,7 @@ export function diagnose(facts: StationFacts): StationSilence {
         stoodDown(facts),
         noProgramme(facts),
         noAudience(facts),
+        waitingOnAudio(facts),
     ];
 
     // `notDriving` is the RESIDUE, and does not stand on its own: "the station is not
@@ -313,15 +339,80 @@ function stoodDown(facts: StationFacts): SilenceCheck {
  * A fault rather than a waiting state, because an active station is one somebody
  * told to broadcast: the running order ran out and whatever was supposed to top
  * it up did not.
+ *
+ * **It yields to {@link waitingOnAudio}**, and that is the whole of the distinction: from
+ * `hasProgramme` alone an order that ran out and an order whose next records are still being
+ * fetched are the same fact, and this said "the running order ran out and nothing refilled it" for
+ * both. That sentence sent an operator to look at refills that were working perfectly, and it went
+ * on the activity feed as the reason a full running order was quiet. A replan makes it easy to
+ * reach — every record in a fresh tail is one nothing has downloaded yet — but any cold refill got
+ * there first.
  */
 function noProgramme(facts: StationFacts): SilenceCheck {
     if (facts.hasProgramme) return { code: 'noProgramme', state: 'ok', detail: 'There is a running order to air.' };
+    if (facts.audioWaitForMs !== undefined) {
+        return {
+            code: 'noProgramme',
+            state: 'ok',
+            detail: 'There is a running order to air; the gate below is about whether its records are here yet.',
+        };
+    }
 
     return {
         code: 'noProgramme',
         state: 'fault',
         detail: 'The station is active but has nothing left to air: the running order ran out and nothing refilled it.',
         remedy: 'Extend the running order, or check whether refills are failing.',
+    };
+}
+
+/**
+ * There is a running order, and nothing in front of it has its audio on this machine.
+ *
+ * A record is not committed until its bytes are local, so that Liquidsoap's resolve is a read from
+ * this app rather than a provider download inside the request it is waiting on. The cost of that
+ * rule is this state: a running order full of records nobody has fetched yet commits nothing, and
+ * the station is as silent as one with an empty order while being in no trouble at all.
+ *
+ * `waiting` while it is short, because a station downloading its next record is working, and the
+ * operator has nothing to do but let it. A fault after {@link AUDIO_WAIT_AFTER_MS}, because by then
+ * the explanation is no longer "a big file": every copy of every record in front of the cursor is
+ * refusing, or nothing is asking for them.
+ *
+ * Both sentences are about what has been COMMITTED rather than about what is downloading, and
+ * deliberately: the wait is stamped by the commit pass, so a long one means "nothing has committed
+ * since then", which is true whether the fetch is still running or nothing has looked lately.
+ *
+ * **Below {@link noAudience}, which is what keeps that escalation honest.** With nobody connected
+ * the transport hands over nothing and the commit pass is not being run on any clock, so the wait
+ * can sit there growing while no one has looked at it — an idle station would work itself up to a
+ * fault over a running order it will commit the instant a listener arrives. Ranking it under the
+ * audience gate says the true thing in both cases: an empty room is the headline while the room is
+ * empty, and a wait somebody is actually waiting through is the headline once it is not.
+ */
+function waitingOnAudio(facts: StationFacts): SilenceCheck {
+    const waitingFor = facts.audioWaitForMs;
+    if (facts.hasProgramme || waitingFor === undefined) {
+        return { code: 'waitingOnAudio', state: 'ok', detail: 'The records in front of the station are on this machine.' };
+    }
+
+    if (waitingFor <= AUDIO_WAIT_AFTER_MS) {
+        return {
+            code: 'waitingOnAudio',
+            state: 'waiting',
+            detail:
+                'The running order is full, and none of the records in front of it is on this machine yet. ' +
+                'Nothing goes to air until one of them is here, which is normally a download away.',
+        };
+    }
+
+    return {
+        code: 'waitingOnAudio',
+        state: 'fault',
+        detail:
+            `The station has had a running order it could not commit anything from for ${seconds(waitingFor)}: ` +
+            'nothing in front of it has its audio on this machine.',
+        remedy: 'Check the API log for fetch failures, and whether the provider is refusing the records at the head of the order.',
     };
 }
 

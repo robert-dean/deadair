@@ -62,6 +62,7 @@ const LABELS: Record<SilenceCause, string> = {
     configNotAdopted: 'config not adopted',
     stoodDown: 'off air',
     noProgramme: 'nothing to air',
+    waitingOnAudio: 'fetching records',
     noAudience: 'ready',
     notDriving: 'not driving',
     starved: 'off the running order',

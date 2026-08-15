@@ -97,6 +97,19 @@ export class DirectorConsoleService {
     }
 
     /**
+     * When the director last found a running order it could not commit anything from for want of
+     * the audio, or `undefined` when that is not what is happening.
+     *
+     * A passthrough, and it earns its line here for the reason {@link getAir} does: the reactor is
+     * the only thing that knows, and the silence diagnosis is the only thing that asks. Without it
+     * that diagnosis cannot tell a running order that RAN OUT from one whose records are still
+     * being fetched, and it reported the first for both.
+     */
+    audioWaitSince(): number | undefined {
+        return this.director.audioWaitSince();
+    }
+
+    /**
      * The live running order, item by item.
      *
      * A segment is filled in from `deadair.segments` rather than from anything stored

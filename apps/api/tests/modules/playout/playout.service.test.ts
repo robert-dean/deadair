@@ -53,6 +53,11 @@ interface Options {
     /** Whether the rundown has anything left to air, which is half of the on-air condition. */
     hasProgramme?: boolean;
     /**
+     * When the director last found a running order it could not commit from for want of the audio.
+     * Absent is the ordinary state, and it is what tells an order that RAN OUT from a cold one.
+     */
+    audioWaitSince?: number;
+    /**
      * Whether Icecast has ever answered with a count. Default true, because most of
      * these tests are about something else and a stats endpoint that never answered is a
      * fault in its own right.
@@ -97,6 +102,9 @@ function build(options: Options = {}) {
         // Read on every status poll: whether the station was stood down is the one fact
         // the silence diagnosis cannot get from memory.
         getAir: vi.fn(async () => ({ active: options.active ?? true, airMode: options.airMode ?? ('audience' as const), remaining: 0 })),
+        // Read on the same poll: whether a running order that is committing nothing is empty or
+        // merely cold. `undefined` is the ordinary state and means it is neither.
+        audioWaitSince: vi.fn(() => options.audioWaitSince),
     } as unknown as DirectorConsoleService;
 
     // Deliberately always resolves an address, even when the stream is down: that is
@@ -254,6 +262,21 @@ describe('PlayoutService.getStatus', () => {
             expect(director.getAir).toHaveBeenCalled();
         });
 
+        it('takes the audio wait from the director, so a cold running order is not reported as an empty one', async () => {
+            // From `hasProgramme` alone the two are the same fact, and the director is the only
+            // thing that knows which: the commit pass is what found records it could not commit.
+            const { service, director } = build({ hasProgramme: false, listeners: 1, audioWaitSince: Date.now() - 5_000 });
+
+            expect((await service.getStatus()).silence.cause).toBe('waitingOnAudio');
+            expect(director.audioWaitSince).toHaveBeenCalled();
+        });
+
+        it('still calls an order that ran out an order that ran out', async () => {
+            const { service } = build({ hasProgramme: false, listeners: 1 });
+
+            expect((await service.getStatus()).silence.cause).toBe('noProgramme');
+        });
+
         it('calls an empty room an empty room', async () => {
             // There is no longer an `audienceUnknown` beside this. An Icecast that stops
             // answering leaves the last reading standing rather than reading as an empty room,
@@ -268,7 +291,7 @@ describe('PlayoutService.getStatus', () => {
 
             const { silence } = await service.getStatus();
 
-            expect(silence.checks).toHaveLength(9);
+            expect(silence.checks).toHaveLength(10);
             expect(silence.checks.filter(check => check.state === 'ok').length).toBeGreaterThan(0);
         });
     });

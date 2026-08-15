@@ -37,7 +37,7 @@ describe('diagnose', () => {
         // The panel says what it ruled out, which is most of what makes it worth opening.
         const answer = diagnose(airing({ streamUp: false }));
 
-        expect(answer.checks).toHaveLength(9);
+        expect(answer.checks).toHaveLength(10);
         expect(answer.checks.filter(check => check.state !== 'ok')).toHaveLength(1);
     });
 
@@ -49,6 +49,7 @@ describe('diagnose', () => {
             ['stoodDown', { active: false }],
             ['noProgramme', { hasProgramme: false }],
             ['noAudience', { audience: false, listeners: 0 }],
+            ['waitingOnAudio', { hasProgramme: false, audioWaitForMs: 5_000 }],
             ['notDriving', { driving: false }],
             ['starved', { starvedForMs: 30_000 }],
         ];
@@ -194,6 +195,62 @@ describe('diagnose', () => {
         });
     });
 
+    describe('a running order whose records are not here yet', () => {
+        // The pair this gate exists for. A station is not committed to a record until its audio is
+        // on this machine, so a full running order that nothing has downloaded yet is as silent as
+        // an empty one — and until this gate existed the console said "the running order ran out
+        // and nothing refilled it" for both, which sent an operator to look at refills that were
+        // working. A replan reaches it in one press, since every record in a fresh tail is cold.
+        it('says the records are still coming rather than that the order ran out', () => {
+            const answer = diagnose(airing({ hasProgramme: false, audioWaitForMs: 5_000 }));
+
+            expect(answer.cause).toBe('waitingOnAudio');
+            expect(answer.detail).not.toContain('ran out');
+            expect(answer.checks.find(check => check.code === 'noProgramme')?.state).toBe('ok');
+        });
+
+        it('calls a short wait `waiting`, because a station downloading its next record is working', () => {
+            const answer = diagnose(airing({ hasProgramme: false, audioWaitForMs: 5_000 }));
+
+            expect(answer.checks.find(check => check.code === 'waitingOnAudio')?.state).toBe('waiting');
+            expect(answer.checks.find(check => check.code === 'waitingOnAudio')?.remedy).toBeUndefined();
+        });
+
+        it('calls a long one a fault, because by then it is not a big file', () => {
+            const answer = diagnose(airing({ hasProgramme: false, audioWaitForMs: 300_000 }));
+
+            expect(answer.cause).toBe('waitingOnAudio');
+            expect(answer.checks.find(check => check.code === 'waitingOnAudio')?.state).toBe('fault');
+            expect(answer.checks.find(check => check.code === 'waitingOnAudio')?.remedy).toBeDefined();
+        });
+
+        it('lets an empty room have the headline, so an idle station never works itself up to a fault', () => {
+            // With nobody connected the transport hands over nothing and the commit pass is not
+            // being run on any clock, so the wait grows while nobody has looked at it. The station
+            // will commit the moment a listener arrives, and calling that a fault first would put a
+            // red mark next to a station that is fine.
+            const answer = diagnose(airing({ hasProgramme: false, audioWaitForMs: 300_000, audience: false, listeners: 0 }));
+
+            expect(answer.cause).toBe('noAudience');
+        });
+
+        it('still calls an order that genuinely ran out what it is', () => {
+            // The wait is cleared by the commit pass as soon as there is nothing to wait FOR, so
+            // an exhausted order arrives here with no wait on it.
+            expect(diagnose(airing({ hasProgramme: false })).cause).toBe('noProgramme');
+        });
+
+        it('says nothing at all while the station is airing, whatever the next record is doing', () => {
+            // The transport holding one record and the one behind it still downloading is an
+            // ordinary moment on every station, and not a silence.
+            expect(diagnose(airing({ audioWaitForMs: 300_000 })).cause).toBe('airing');
+        });
+
+        it('lets a stand-down explain it, since stopping drops the order and the wait with it', () => {
+            expect(diagnose(airing({ active: false, hasProgramme: false, audioWaitForMs: 300_000 })).cause).toBe('stoodDown');
+        });
+    });
+
     it('puts a stood-down station ahead of the empty running order it implies', () => {
         // Stopping drops the running order, so both are true at once and only one of them
         // is something an operator did on purpose.
@@ -219,7 +276,7 @@ describe('the residue check', () => {
         airMode: 'audience',
         listeners: 0,
         audience: false,
-            ...over,
+        ...over,
     });
 
     it('does not call a dropped lease a fault when a gate above explains it', () => {

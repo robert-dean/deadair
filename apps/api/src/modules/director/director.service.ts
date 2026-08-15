@@ -344,6 +344,25 @@ export class DirectorService {
     }
 
     /**
+     * How long the commit pass has been unable to commit for want of the audio, or `undefined`
+     * when that is not what is holding it up.
+     *
+     * The one thing that tells a running order which has RUN OUT apart from one that is full and
+     * cold, which look identical from outside: both leave the transport holding nothing. It is the
+     * same instant {@link noteAudioWait} reports on the feed after a minute, published here so the
+     * silence diagnosis can say which of the two an operator is looking at — "the refills are
+     * failing" and "the next record is still downloading" want opposite responses, and until this
+     * existed the console gave the first answer for both.
+     *
+     * Set and cleared by the commit pass rather than by a clock, so it means "nothing has been
+     * committed since", which stays true whether the bytes are still coming or nothing has looked
+     * lately. Whoever reads it words its sentence around that rather than around the fetch.
+     */
+    audioWaitSince(): number | undefined {
+        return this.waitingOnAudioSince;
+    }
+
+    /**
      * The running order as it stands, for a console that has to draw it.
      *
      * A snapshot rather than the object, so a caller cannot edit what is on air by

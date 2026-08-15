@@ -21,6 +21,7 @@ const GATES: SilenceCause[] = [
     'stoodDown',
     'noProgramme',
     'noAudience',
+    'waitingOnAudio',
     'notDriving',
     'starved',
 ];
@@ -49,8 +50,8 @@ export function stationSilence(cause: SilenceCause = 'airing', overrides: Partia
     };
 }
 
-/** The two gates that are not faults. See the badge, which colours them differently. */
-const WAITING: SilenceCause[] = ['stoodDown', 'noAudience'];
+/** The gates that are not faults. See the badge, which colours them differently. */
+const WAITING: SilenceCause[] = ['stoodDown', 'noAudience', 'waitingOnAudio'];
 
 /** Roughly what the station says, so a test asserting on the strip's sentence has something real. */
 const DETAILS: Record<SilenceCause, string> = {
@@ -61,6 +62,7 @@ const DETAILS: Record<SilenceCause, string> = {
     configNotAdopted: 'icecast is running config the app has replaced.',
     stoodDown: 'The station was stood down, so it is holding nothing and airing nothing.',
     noProgramme: 'The station is active but has nothing left to air.',
+    waitingOnAudio: 'The running order is full, and none of the records in front of it is on this machine yet.',
     noAudience: 'The station is loaded and the stream is up. It goes on air the moment somebody starts listening.',
     notDriving: 'There is a programme, an audience and a reachable stream, and deadair is still not holding the mount.',
     starved: "The mount has been airing Liquidsoap's local bed instead of the running order for 30s.",

@@ -36,6 +36,20 @@ describe('mapTrack', () => {
         });
     });
 
+    it('carries the popularity, which is what a browse is ordered by', () => {
+        const track = mapTrack({ id: 'track-1', name: 'Respect', popularity: 82 });
+
+        expect(track?.popularity).toBe(82);
+    });
+
+    it('says nothing when Spotify did not rank it, rather than calling it unpopular', () => {
+        // A simplified track object inside an album carries no `popularity`, and "absent" has to
+        // stay distinguishable from zero: a caller ordering by it sorts the unranked last rather
+        // than beneath everything ranked.
+        expect(mapTrack({ id: 'track-1', name: 'Album Cut' })).not.toHaveProperty('popularity');
+        expect(mapTrack({ id: 'track-1', name: 'Odd', popularity: 140 })).not.toHaveProperty('popularity');
+    });
+
     it('returns undefined when id is missing', () => {
         expect(mapTrack({ name: 'No Id' })).toBeUndefined();
     });
@@ -142,6 +156,20 @@ describe('mapPlaylist', () => {
         // library the first time the profile call fails.
         expect(refused?.permissions).toEqual([]);
         expect(unknown?.permissions).toBeUndefined();
+    });
+
+    it('carries the popularity, which is what a browse is ordered by', () => {
+        const track = mapTrack({ id: 'track-1', name: 'Respect', popularity: 82 });
+
+        expect(track?.popularity).toBe(82);
+    });
+
+    it('says nothing when Spotify did not rank it, rather than calling it unpopular', () => {
+        // A simplified track object inside an album carries no `popularity`, and "absent" has to
+        // stay distinguishable from zero: a caller ordering by it sorts the unranked last rather
+        // than beneath everything ranked.
+        expect(mapTrack({ id: 'track-1', name: 'Album Cut' })).not.toHaveProperty('popularity');
+        expect(mapTrack({ id: 'track-1', name: 'Odd', popularity: 140 })).not.toHaveProperty('popularity');
     });
 
     it('returns undefined when id is missing', () => {

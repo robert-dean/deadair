@@ -22,6 +22,24 @@ export interface ProviderTrack {
     /** Recording ISRC, when the provider exposes one. The best cross-provider join key. */
     isrc?: string;
     artworkUrl?: string;
+    /**
+     * How well known the record is, 0 to 100, when the provider has an opinion.
+     *
+     * A RANKING and not a fact: providers compute it differently and none of them says how, so the
+     * only thing it may be used for is ordering rows from the same search against each other. Never
+     * compare it across providers, never show it to a listener, and never gate on a threshold.
+     *
+     * Optional because most sources have nothing like it — a personal library knows what you own,
+     * not what the world plays — and absent must read as "no opinion" rather than as unpopular, or
+     * a station with one ranked provider and one unranked would bury the unranked one's whole
+     * catalogue.
+     *
+     * It exists because of a specific failure: asked for "popular rap songs from the USA", the
+     * model browsed a genre, got two dozen obscure records back in the provider's own order, and
+     * named them. Nothing in the chain could tell a hit from an unknown, so the brief was
+     * unservable however well the model behaved. See `CatalogSearchTool`.
+     */
+    popularity?: number;
 }
 
 /**

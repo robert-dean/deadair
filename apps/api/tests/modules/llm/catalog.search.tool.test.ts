@@ -23,6 +23,9 @@ const track = (title: string, artist: string, album?: string): ProviderTrack => 
     ...(album === undefined ? {} : { album }),
 });
 
+/** A record the provider has an opinion about, for the browse ordering. */
+const ranked = (title: string, artist: string, popularity: number): ProviderTrack => ({ ...track(title, artist), popularity });
+
 interface FakeCatalogOptions {
     id?: string;
     tracks?: ProviderTrack[];
@@ -258,6 +261,58 @@ describe('searching', () => {
         expect(result.tracks.map(item => item.title)).toEqual(['Blue in Green']);
         const searchTracks = (record.instance as unknown as { searchTracks: ReturnType<typeof vi.fn> }).searchTracks;
         expect(searchTracks).toHaveBeenCalledWith('', expect.objectContaining({ genre: 'jazz', yearFrom: 1955 }));
+    });
+
+    it('puts the best known first when the model gave no words to be relevant to', async () => {
+        // The live failure: asked for "popular rap songs from the USA" the model browsed a genre,
+        // and the provider answered in its own order — two dozen records nobody has heard of, which
+        // the model then named because nothing on the row said which were hits.
+        const tool = await offered([
+            fakeCatalog({ tracks: [ranked('Obscure', 'Nobody', 3), ranked('Respect', 'Aretha Franklin', 82), ranked('Mid', 'Someone', 40)] }),
+        ]);
+
+        const result = (await tool!.run({ genre: 'soul' })) as { tracks: { title: string }[] };
+
+        expect(result.tracks.map(found => found.title)).toEqual(['Respect', 'Mid', 'Obscure']);
+    });
+
+    it('leaves a text search in the provider’s own relevance order', async () => {
+        // Relevance means something once there are words: re-sorting by popularity would put an
+        // artist's biggest hit above the record actually asked for.
+        const tool = await offered([fakeCatalog({ tracks: [ranked('The One Asked For', 'A', 5), ranked('Their Big Hit', 'A', 90)] })]);
+
+        const result = (await tool!.run({ query: 'the one asked for' })) as { tracks: { title: string }[] };
+
+        expect(result.tracks.map(found => found.title)).toEqual(['The One Asked For', 'Their Big Hit']);
+    });
+
+    it('sorts a provider with no opinion last rather than as unpopular', async () => {
+        // Otherwise a station with one ranked provider and one unranked buries the unranked one's
+        // whole catalogue, which is not what "it did not say" means.
+        const tool = await offered([
+            fakeCatalog({ id: 'deadair.unranked', tracks: [track('Unranked', 'B')] }),
+            fakeCatalog({ id: 'deadair.ranked', tracks: [ranked('Known', 'A', 55)] }),
+        ]);
+
+        const result = (await tool!.run({ genre: 'soul' })) as { tracks: { title: string }[] };
+
+        expect(result.tracks.map(found => found.title)).toEqual(['Known', 'Unranked']);
+    });
+
+    it('shows the ranking, because the model is the one choosing', async () => {
+        const tool = await offered([fakeCatalog({ tracks: [ranked('Respect', 'Aretha Franklin', 82)] })]);
+
+        const result = (await tool!.run({ genre: 'soul' })) as { tracks: { popularity?: number }[] };
+
+        expect(result.tracks[0]?.popularity).toBe(82);
+    });
+
+    it('says nothing about a ranking the provider does not have', async () => {
+        const tool = await offered([fakeCatalog({ tracks: [track('One', 'A')] })]);
+
+        const result = (await tool!.run({ query: 'one' })) as { tracks: Record<string, unknown>[] };
+
+        expect(result.tracks[0]).not.toHaveProperty('popularity');
     });
 
     it('survives a limit that is not a number', async () => {

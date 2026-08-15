@@ -91,6 +91,15 @@ interface FoundTrack {
     album?: string;
     /** Which plugin can play it, so a caller downstream could act on the answer rather than only read it. */
     source: string;
+    /**
+     * How well known the provider says it is, 0 to 100, when it has an opinion.
+     *
+     * Shown as well as sorted on, because the model is choosing and this is the one thing on the row
+     * that says whether a record is a hit or an obscurity. A brief asking for popular anything is
+     * otherwise unservable: a genre browse comes back in the provider's own order, and from a title
+     * and an artist alone nothing can tell "Respect by Aretha Franklin" from a bedroom upload.
+     */
+    popularity?: number;
 }
 
 @Injectable()
@@ -220,6 +229,7 @@ export class CatalogSearchTool implements ToolSource {
                         ...(featuring.length === 0 ? {} : { featuring }),
                         ...(track.album === undefined ? {} : { album: track.album }),
                         source: plugin.record.id,
+                        ...(track.popularity === undefined ? {} : { popularity: track.popularity }),
                     });
                 }
             } catch (error) {
@@ -229,7 +239,21 @@ export class CatalogSearchTool implements ToolSource {
             }
         }
 
-        const tracks = dedupe(found).slice(0, limit);
+        // Ordered by how well known they are when the model gave no words to be relevant TO, and
+        // left in the providers' own order when it did.
+        //
+        // The split is the whole point. A text search has a relevance order that means something —
+        // the rows nearest what was typed come first, and re-sorting those by popularity would put
+        // an artist's hit above the record actually asked for. A browse has no such order: asked
+        // for a genre and a period, a provider answers with whatever it answers with, and a live
+        // run turned "popular rap songs from the USA" into two dozen records nobody has heard of
+        // because the first two dozen rows were the first two dozen rows.
+        //
+        // A provider with no opinion sorts LAST rather than as zero, so a station with one ranked
+        // provider and one unranked does not bury the unranked one's whole catalogue — but the
+        // ranked rows still lead, which is the point of asking.
+        const ordered = query.length === 0 ? [...found].sort(byPopularity) : found;
+        const tracks = dedupe(ordered).slice(0, limit);
         // The line `LibrarySearchTool` has had all along, and its absence is why diagnosing a refill
         // that came up short took reading the answer's consequences backwards: the library's search
         // was in the log with its query and its count, and the one that reaches a provider left
@@ -240,6 +264,20 @@ export class CatalogSearchTool implements ToolSource {
         return { tracks, searched: catalogs.length };
     }
 }
+
+/**
+ * Best known first, and anything nobody ranked after all of them.
+ *
+ * A stable comparator on purpose: rows the providers agree nothing about keep the order they
+ * arrived in, so a search that ranks nothing at all is left exactly as it was found rather than
+ * shuffled by an arbitrary tie-break.
+ */
+const byPopularity = (left: FoundTrack, right: FoundTrack): number => {
+    if (left.popularity === right.popularity) return 0;
+    if (left.popularity === undefined) return 1;
+    if (right.popularity === undefined) return -1;
+    return right.popularity - left.popularity;
+};
 
 /**
  * The same record from two providers is one record to a DJ.

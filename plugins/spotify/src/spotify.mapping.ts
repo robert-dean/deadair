@@ -29,6 +29,12 @@ interface SpotifyTrack {
     album?: SpotifyAlbum;
     duration_ms?: number;
     external_ids?: { isrc?: string };
+    /**
+     * Spotify's own 0-100 ranking. Present on a full track object, which is what search and
+     * top-tracks return; ABSENT on the simplified ones inside an album, which is why the mapping
+     * below treats a missing value as "no opinion" rather than as unpopular.
+     */
+    popularity?: number;
 }
 
 /**
@@ -94,6 +100,9 @@ export function mapTrack(track: SpotifyTrack | null | undefined): ProviderTrack 
         durationMs: track.duration_ms,
         isrc: track.external_ids?.isrc,
         artworkUrl: pickArtwork(track.album?.images),
+        // Carried rather than dropped, and only when it is a real reading: a caller ordering by it
+        // must be able to tell "Spotify says this is obscure" from "Spotify did not say".
+        ...(isRanking(track.popularity) ? { popularity: track.popularity } : {}),
     };
 }
 
@@ -255,6 +264,9 @@ function year(value: number | undefined): number | undefined {
     const rounded = Math.trunc(value);
     return rounded >= YEAR_MIN && rounded <= YEAR_MAX ? rounded : undefined;
 }
+
+/** A usable 0-100 ranking. Anything else is Spotify not having said. */
+const isRanking = (value: number | undefined): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100;
 
 /** A double quote is what Spotify's parser takes, and a value carrying one cannot be quoted at all. */
 const quoteIfNeeded = (value: string): string => (value.includes(' ') && !value.includes('"') ? `"${value}"` : value.replace(/"/g, ''));

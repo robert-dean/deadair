@@ -40,4 +40,5 @@ export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/kokoro'),
     resolveBundledPluginDir('plugins/llm'),
     resolveBundledPluginDir('plugins/analyzer'),
+    resolveBundledPluginDir('plugins/rss'),
 ];

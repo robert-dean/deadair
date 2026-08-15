@@ -1,0 +1,97 @@
+import { type PluginManifest } from '@deadair/plugin-sdk';
+import { z } from 'zod';
+
+export const PLUGIN_ID = 'deadair.rss';
+export const PLUGIN_VERSION = '0.0.1';
+
+/**
+ * Per-request budget.
+ *
+ * A feed is a small static file behind a CDN, so this is generous rather than
+ * tuned: the case it covers is a publisher having a bad minute, and a ceiling
+ * is not a reservation — the host caps every fetch by whatever is left of the
+ * current invocation anyway.
+ */
+export const REQUEST_TIMEOUT_MS = 8_000;
+
+/**
+ * One request a second across every feed on the list, sharing one bucket.
+ *
+ * The rate being paced here is this station's OUTBOUND rate and not any one
+ * publisher's limit, which is why a single bucket is right: a list of twenty
+ * feeds refreshing at once is the behaviour worth flattening, and no publisher
+ * on it is being asked for more than one file.
+ */
+export const FEED_RATE_PER_SECOND = 1;
+export const FEED_BUCKET = 'rss';
+
+/** Entries per feed, when the operator has not said. Roughly a front page. */
+export const DEFAULT_MAX_ITEMS = 25;
+
+/**
+ * How long a fetched feed is reused, in seconds.
+ *
+ * A minute, because the failure this exists for is small and immediate: a model
+ * writing one break may call the news tool twice, and asking a publisher twice
+ * inside ten seconds is rude for no gain. It is deliberately NOT sized to how
+ * often news happens — a caller that wants to know what is new asks more often
+ * than this, and gets repeats rather than gaps, which its ids already handle.
+ */
+export const DEFAULT_CACHE_SECONDS = 60;
+
+export const configSchema = z.object({
+    feeds: z.string().default(''),
+    maxItems: z.coerce.number().int().min(1).max(100).default(DEFAULT_MAX_ITEMS),
+    cacheSeconds: z.coerce.number().int().min(0).max(3_600).default(DEFAULT_CACHE_SECONDS),
+});
+
+export type RssConfig = z.infer<typeof configSchema>;
+
+export const rssManifest: PluginManifest = {
+    id: PLUGIN_ID,
+    name: 'RSS',
+    version: PLUGIN_VERSION,
+    capabilities: ['news'],
+    apiVersion: '^1.0.0',
+    description: 'Reads the RSS and Atom feeds you point it at, so the station has something true to say about the world.',
+    permissions: {
+        // Every upstream here is one the operator named, so there is no hostname
+        // to write down at authoring time and this single entry is the whole
+        // allowlist. The host reads one hostname per line out of the same
+        // setting `parseFeedLines` reads, which is why both must read a line the
+        // same way: a feed the menu offers and the allowlist refuses looks like
+        // a broken plugin rather than a mistyped line.
+        network: [{ fromConfig: 'feeds', ratePerSecond: FEED_RATE_PER_SECOND, bucket: FEED_BUCKET }],
+        // Nothing to keep. What was published is the publisher's, and what the
+        // station did with it belongs to the station: a cache lives for a minute
+        // in memory and anything longer would be this plugin holding a second
+        // copy of somebody else's file.
+        storage: false,
+        oauth: false,
+    },
+    configFields: [
+        {
+            key: 'feeds',
+            label: 'Feeds',
+            type: 'text',
+            required: true,
+            placeholder: 'https://example.com/rss.xml\nworld|World news|https://example.com/world.xml',
+            help: 'One feed per line. Paste the address on its own, or put a name in front of it, or a short id and a name: id|Name|address. The id is what the DJ asks for by name, so keep it short. A line starting with # is ignored.',
+        },
+        {
+            key: 'maxItems',
+            label: 'Headlines per feed',
+            type: 'number',
+            default: DEFAULT_MAX_ITEMS,
+            help: 'How far down each feed to read. Newest first, so this is really how much of the front page the station can see.',
+        },
+        {
+            key: 'cacheSeconds',
+            label: 'Reuse a feed for (seconds)',
+            type: 'number',
+            default: DEFAULT_CACHE_SECONDS,
+            help: 'How long a feed already fetched is reused before it is asked for again. Stops one break that mentions the news twice from fetching twice. Set it to 0 to fetch every time.',
+        },
+    ],
+    configSchema,
+};

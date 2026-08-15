@@ -6,7 +6,9 @@
 import { Logger } from '@maroonedsoftware/logger';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BreakPlanner, PLANT_AHEAD, WRITE_AHEAD, type AirClock } from '../../../src/modules/director/break.planner.js';
+import { BreakPlanner, INTERRUPT_OVER_AT_MS, PLANT_AHEAD, WRITE_AHEAD, type AirClock } from '../../../src/modules/director/break.planner.js';
+import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
+import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { resolveRules } from '../../../src/modules/director/rotation.rules.js';
@@ -696,5 +698,116 @@ describe('BreakPlanner.ripen', () => {
 
         expect(asked(often.send).length).toBeGreaterThan(asked(rarely.send).length);
         expect(asked(often.send).length).toBeLessThanOrEqual(WRITE_AHEAD);
+    });
+
+    // Where a break somebody ASKED for goes. A different question from the spacing above: that one
+    // is about elapsed airtime and is recomputed every pass, this one is about the clock — how long
+    // a write and a render need — and is asked once.
+    describe('plantRequested', () => {
+        const asking = (overrides: Partial<StoredBreakRequest> = {}): StoredBreakRequest => ({
+            id: 'req-1',
+            kind: TALK_BREAK_KIND,
+            urgency: 'next',
+            source: 'audience',
+            state: 'placed',
+            ...overrides,
+        });
+
+        it('places a request at the first boundary far enough ahead to write and speak into', async () => {
+            const { planner } = build({ canWrite: true });
+            // The first record is airing and started a moment ago, so the boundary in front of it is
+            // whole records away and the one behind it has already gone.
+            const lineup = await lineupOf(6, 1);
+            const now = Date.UTC(2026, 7, 13, 9, 0);
+
+            const result = await planner.plantRequested(lineup, rules(), { now, anchorAt: now, from: 0 }, asking());
+
+            expect(result.accepted).toBe(true);
+            // Not the head: index 1 is the boundary at the end of the record now playing, five
+            // minutes off, which is comfortably past the lead a write and a render need.
+            expect(result.atIndex).toBe(1);
+            expect(segmentsAt(lineup)).toEqual([1]);
+        });
+
+        it('passes over a boundary that is too close for the words to exist by then', async () => {
+            const { planner } = build({ canWrite: true });
+            const lineup = await lineupOf(6, 1);
+            // The record on air started four minutes and fifty seconds ago, so the boundary in front
+            // of it is ten seconds away: real, reachable, and no use to a renderer.
+            const now = Date.UTC(2026, 7, 13, 9, 0);
+            const anchorAt = now - (TRACK_MINUTES * 60_000 - 10_000);
+
+            const result = await planner.plantRequested(lineup, rules(), { now, anchorAt, from: 0 }, asking());
+
+            expect(result.atIndex).toBe(2);
+        });
+
+        it('rides the record rather than the gap when it is asked to interrupt', async () => {
+            const { planner } = build({ canWrite: true });
+            const lineup = await lineupOf(6, 1);
+            const now = Date.UTC(2026, 7, 13, 9, 0);
+
+            const result = await planner.plantRequested(lineup, rules(), { now, anchorAt: now, from: 0 }, asking({ urgency: 'interrupt' }));
+
+            expect(result.accepted).toBe(true);
+            const placed = lineup.all()[result.atIndex!]!;
+            expect(placed.kind === 'segment' && placed.over).toEqual({ atMs: INTERRUPT_OVER_AT_MS });
+        });
+
+        it('declines a soon request the order cannot fit inside its deadline', async () => {
+            const { planner } = build({ canWrite: true });
+            // Two records of programme, both spent: everything left is past the deadline because
+            // there is nothing left at all.
+            const lineup = await lineupOf(2, 2);
+            const now = Date.UTC(2026, 7, 13, 9, 0);
+
+            const result = await planner.plantRequested(lineup, rules(), { now, anchorAt: now, from: 0 }, asking({ urgency: 'soon' }));
+
+            expect(result.accepted).toBe(false);
+            expect(result.reason).toContain('no boundary far enough ahead');
+        });
+
+        it('never puts a request next to a break that is already there', async () => {
+            const { planner } = build({ canWrite: true });
+            const lineup = await lineupOf(6, 1);
+            // Exactly where the request would otherwise have gone.
+            lineup.insertSegments([{ segmentId: 'already-here', atIndex: 1 }]);
+            const now = Date.UTC(2026, 7, 13, 9, 0);
+
+            const result = await planner.plantRequested(lineup, rules(), { now, anchorAt: now, from: 0 }, asking());
+
+            expect(result.accepted).toBe(true);
+            expect(result.atIndex).not.toBe(1);
+        });
+
+        it('declines when nothing can write the kind, or nothing can speak it', async () => {
+            const mute = build({ canWrite: true, speaker: false });
+            const lineup = await lineupOf(6, 1);
+            const now = Date.UTC(2026, 7, 13, 9, 0);
+
+            expect((await mute.planner.plantRequested(lineup, rules(), { now, anchorAt: now, from: 0 }, asking())).reason).toContain('no voice');
+
+            const speechless = build({ canWrite: false, speaker: true });
+            const unwritable = await speechless.planner.plantRequested(lineup, rules(), { now, anchorAt: now, from: 0 }, asking({ kind: 'news' }));
+            expect(unwritable.reason).toContain('knows how to write a news');
+
+            // And the operator's own switch, which turns every break off including the asked-for kind.
+            const quiet = build({ canWrite: true });
+            const silenced = await quiet.planner.plantRequested(lineup, rules({ breaks: false }), { now, anchorAt: now, from: 0 }, asking());
+            expect(silenced.accepted).toBe(false);
+        });
+
+        it('stamps the projected air time and the request it came from onto the row', async () => {
+            // Both travel on the row because the words are asked for on a later pass: the writer is
+            // the only thing that will still know when this is going to be spoken and what it is
+            // about.
+            const { planner, plan } = build({ canWrite: true });
+            const lineup = await lineupOf(6, 1);
+            const now = Date.UTC(2026, 7, 13, 9, 0);
+
+            await planner.plantRequested(lineup, rules(), { now, anchorAt: now, from: 0 }, asking());
+
+            expect(plan).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'req-1', airsAt: now + TRACK_MINUTES * 60_000 }));
+        });
     });
 });

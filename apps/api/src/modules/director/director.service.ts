@@ -16,6 +16,8 @@ import { inScope } from '#modules/shared/scoped.work.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { BreakPlanner, type AirClock } from './break.planner.js';
+import type { BreakRequest, BreakRequestResult } from './break.request.js';
+import { BreakRequestRepository } from './break.request.repository.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -371,6 +373,20 @@ export class DirectorService {
      * Distinct from {@link putOnAir} in the way an operator means it to be: Stop leaves the running
      * order alone, and this picks it up where it stopped rather than replacing it.
      */
+    /**
+     * Ask the station to say something, and find out whether it will.
+     *
+     * The way in for anything that is not the running order's own rules: the audience watch, a news
+     * poller, an operator at the desk. It goes through the queue like every other writer, so a
+     * request cannot land in the middle of a commit pass — and the position is decided HERE, because
+     * a producer knows that something happened and only this knows what is still free.
+     */
+    async requestBreak(request: BreakRequest): Promise<BreakRequestResult> {
+        const result = await this.post({ kind: 'requestBreak', request });
+
+        return isBreakRequestResult(result) ? result : { accepted: false, reason: 'the station had nothing to say about that request' };
+    }
+
     async resumeAir(): Promise<ResumeResult> {
         const result = await this.post({ kind: 'resume' });
 
@@ -486,6 +502,78 @@ export class DirectorService {
 
             case 'edit':
                 return await this.edit(command.edit);
+
+            case 'requestBreak':
+                return await this.takeRequest(command.request);
+        }
+    }
+
+    /**
+     * Somebody asked the station to say something.
+     *
+     * The whole of what this adds to `plantBreaks` beside it is the two things a REQUEST has that a
+     * planted break does not: a cooldown, because a producer watching an edge can see the same edge
+     * twice, and a row, because the moment it describes cannot be re-derived from the running order
+     * the way a spacing rule can.
+     *
+     * Declines rather than throws all the way down. A station that is off air, a cooldown that has
+     * not run out, an order with no room, a kind nothing can write: all ordinary, all with a sentence
+     * for whoever is reading.
+     */
+    private async takeRequest(request: BreakRequest): Promise<BreakRequestResult> {
+        if (!this.active || this.lineup === undefined) {
+            return { accepted: false, reason: 'the station is not airing anything to put a break into' };
+        }
+        const lineup = this.lineup;
+
+        try {
+            return await inScope(this.container, async scope => {
+                const requests = scope.get(BreakRequestRepository);
+
+                // Asked of the TABLE rather than of a map here, and that is what makes it survive a
+                // restart — which is exactly when it matters most, since a restart makes every
+                // listener look like a fresh arrival at once.
+                if (request.key !== undefined && request.cooldownMs !== undefined) {
+                    if (await requests.acceptedSince(request.key, Date.now() - request.cooldownMs)) {
+                        return { accepted: false, reason: `the station already took a ${request.kind} recently` };
+                    }
+                }
+
+                const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
+                const stored = await requests.open(request, 'placed');
+                const result = await scope.get(BreakPlanner).plantRequested(lineup, rules, this.airClock(lineup), stored);
+
+                if (!result.accepted) {
+                    // Failed rather than deleted, exactly as `BreakPlanner.abandon` retires a row the
+                    // order refused: it carries the reason and is inert, instead of sitting in the
+                    // table looking like a break that is still coming.
+                    await requests.moveTo(stored.id, 'failed', 'placed');
+                    this.logger.info('director: declined a request to say something', { kind: request.kind, reason: result.reason });
+                    return result;
+                }
+
+                await requests.attachSegment(stored.id, result.segmentId!);
+                // Written THROUGH rather than soon, and for `plantBreaks`'s reason: what is about to
+                // be asked for is the words of a break in this order, and the job that writes them
+                // reads the order from the row. With the ordinary throttle it would find no
+                // neighbours and defer, which costs a boundary for nothing.
+                await this.flushPersist();
+                await this.jobs.send('director.write_break', { segmentId: result.segmentId! });
+
+                void this.activity.record({
+                    module: 'director',
+                    kind: 'break.requested',
+                    detail: `The station was asked for a ${request.kind}${request.reason ? `: ${request.reason}` : ''}.`,
+                    data: { requestId: stored.id, kind: request.kind, urgency: request.urgency, source: request.source },
+                });
+                return result;
+            });
+        } catch (error) {
+            // Swallowed for the reason a planting failure is: a break is the one thing in a pass the
+            // broadcast does not depend on, and a request that could not be written down must not
+            // take down the station it was asking to speak.
+            this.logger.warn(`director: could not take a request to say something (${errorText(error)})`);
+            return { accepted: false, reason: 'the station could not write the request down' };
         }
     }
 
@@ -1578,6 +1666,8 @@ export class DirectorService {
 const isEditResult = (result: DirectorCommandResult): result is EditResult => result !== undefined && 'ok' in result;
 
 const isResumeResult = (result: DirectorCommandResult): result is ResumeResult => result !== undefined && 'resumed' in result;
+
+const isBreakRequestResult = (result: DirectorCommandResult): result is BreakRequestResult => result !== undefined && 'accepted' in result;
 
 /**
  * The head of a candidate list holding `wanted` RECORDS, plus any segments in front of them.

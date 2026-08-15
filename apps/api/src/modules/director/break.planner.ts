@@ -10,6 +10,7 @@ import { SpeechService } from '#modules/render/speech.service.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { isTrackItem, type StationLineup, type StationLineupItem, type StationLineupSegmentItem } from './station.lineup.js';
 import type { ResolvedRules } from './rotation.rules.js';
+import type { BreakRequestResult, BreakUrgency, StoredBreakRequest } from './break.request.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
 
 /**
@@ -69,6 +70,47 @@ export const PLANT_AHEAD = 4;
  * and a model is serialised by `LlmGate` however many are asked for.
  */
 export const WRITE_AHEAD = 8;
+
+/**
+ * How near its slot a requested break may be placed, per urgency, and how long it stays worth
+ * airing.
+ *
+ * One table, here, rather than a number in each producer. A producer knows that a listener arrived
+ * or that a bulletin came in; it has no way to know how long a write and a render take on this
+ * station, and a dozen of them each guessing would be a dozen numbers to correct when the speech
+ * engine changes.
+ *
+ * `leadMs` is the only thing a placement needs: the first boundary at least this far away. For the
+ * two urgencies that are rendered before they are injected it is what the writer and the renderer
+ * get, and for the two that are planted it is what stands between the slot and the commit window.
+ *
+ * `deadlineMs` bounds the OTHER end and only `soon` has one: asked for "within a few records" and
+ * offered nothing inside ten minutes, the honest answer is to decline and let the caller ask again.
+ * `next` has none because the next boundary is the next boundary however far off it is.
+ *
+ * `expiresMs` is how long the words stay worth speaking, and it exists only for the two that wait
+ * for their audio: a planted break's expiry is its POSITION, which cannot go stale the way a
+ * finished recording held back for a slot can. A bulletin that took twenty minutes to render is not
+ * news, and a welcome for a listener who has since left is worse than silence.
+ */
+export const URGENCY = {
+    // The shortest lead of the four, because a talk-over does not wait for a boundary: it rides a
+    // record and speaks part-way in, so the renderer has the head of that record as well.
+    interrupt: { leadMs: 20_000, expiresMs: 10 * 60_000 },
+    next: { leadMs: 90_000, expiresMs: 15 * 60_000 },
+    soon: { leadMs: 90_000, deadlineMs: 10 * 60_000 },
+    whenever: { leadMs: 0 },
+} as const satisfies Record<BreakUrgency, { leadMs: number; deadlineMs?: number; expiresMs?: number }>;
+
+/**
+ * How far into a record an interrupting talk-over speaks.
+ *
+ * Not zero: a cue that fires the instant a record starts talks over its intro, which is the one
+ * part of a record a presenter is actually supposed to talk over and the one part they are supposed
+ * to get out of the way of. Thirty seconds is past almost every intro and still early enough that
+ * the interruption is heard as one.
+ */
+export const INTERRUPT_OVER_AT_MS = 30_000;
 
 /**
  * How long an unmeasured record is assumed to run when spacing is being decided.
@@ -177,15 +219,7 @@ export class BreakPlanner {
         const placements = await this.fill(wanted, idents, canWrite, await this.lastKindBefore(lineup, wanted[0]!.atIndex));
         if (placements.length === 0) return 0;
 
-        const result = lineup.insertSegments(placements.map(({ segmentId, atIndex, kind }) => ({ segmentId, atIndex, segmentKind: kind })));
-        if (!result.ok) {
-            // The order moved under the walk: the director committed, or an operator edited, between
-            // computing these positions and writing them. Nothing is lost — the next pass walks the
-            // order as it stands and plants against that.
-            this.logger.info('director: a break placement was refused; it will be planned again', { reason: result.reason });
-            await this.abandon(placements);
-            return 0;
-        }
+        if (!(await this.insert(lineup, placements))) return 0;
 
         // Nothing is sent for writing here. A break is written when its slot comes near rather than
         // when it is planted, which is {@link ripen}'s job on the same pass. What that preserves is
@@ -194,6 +228,138 @@ export class BreakPlanner {
         // pays for the words fifteen minutes ahead.
         this.logger.info('director: planted breaks into the running order', { count: placements.length, written: canWrite });
         return placements.length;
+    }
+
+    /**
+     * Put a break something ASKED for into the order. Answers whether it took, and why not.
+     *
+     * The sibling of {@link plant} and deliberately not a case inside it. Planting answers "where do
+     * the station's own rules want a break", which is a question about elapsed airtime and is
+     * recomputed from the order on every pass. This answers "where can a break somebody asked for
+     * still go", which is a question about the CLOCK — how long a write and a render need — and is
+     * asked exactly once per request. The two share how a break gets into the order ({@link insert})
+     * and nothing else, and folding them together would make each worse at its own question.
+     *
+     * Every way of declining is an ordinary outcome with a sentence attached, because the caller is
+     * a producer that will hear about it and, more often, an operator reading a log line wondering
+     * why the station said nothing.
+     */
+    async plantRequested(lineup: StationLineup, rules: ResolvedRules, clock: AirClock, request: StoredBreakRequest): Promise<BreakRequestResult> {
+        const refusal = this.refuse(request.kind, rules);
+        if (refusal !== undefined) return { accepted: false, reason: refusal };
+
+        const slot = this.slotFor(lineup, clock, request.urgency);
+        if (slot === undefined) {
+            return {
+                accepted: false,
+                reason: `the running order has no boundary far enough ahead to fit a ${request.kind} that is wanted ${request.urgency}`,
+            };
+        }
+
+        // A talk-over rides the record after it rather than sitting in the gap before it, which is
+        // the whole of what makes an interruption one. Everything else about placing it is identical.
+        const over = request.urgency === 'interrupt' ? { atMs: INTERRUPT_OVER_AT_MS } : undefined;
+        const segment = await this.segments.plan({
+            kind: request.kind,
+            label: labelFor(request.kind),
+            requestId: request.id,
+            // The projected time, exactly as a band's slot stamps it: the writer is asked for the
+            // words on a later pass and this is the only thing that will still know when they are
+            // going to be spoken.
+            ...(slot.airsAt === undefined ? {} : { airsAt: slot.airsAt }),
+        });
+        const placement: Placement = { segmentId: segment.id, atIndex: slot.atIndex, kind: request.kind, written: true, ...(over ? { over } : {}) };
+
+        if (!(await this.insert(lineup, [placement]))) {
+            return { accepted: false, reason: 'the running order moved while this break was being placed' };
+        }
+
+        this.logger.info('director: put a requested break into the running order', {
+            kind: request.kind,
+            urgency: request.urgency,
+            source: request.source,
+            at: slot.atIndex,
+        });
+        return { accepted: true, requestId: request.id, segmentId: segment.id, atIndex: slot.atIndex };
+    }
+
+    /**
+     * Where a break of this urgency can still go, and when it would be heard.
+     *
+     * The first boundary at least `leadMs` away, which is what makes this a question about the clock
+     * rather than about positions: a record with twenty seconds left and one with four minutes left
+     * occupy the same INDEX and offer completely different amounts of time to write and speak in.
+     *
+     * A boundary already holding a segment is walked past rather than declined. Landing on one would
+     * put two breaks back to back, and declining outright would lose a welcome because an ordinary
+     * talk break happened to be planted where it wanted to go.
+     *
+     * `undefined` when the order does not reach far enough, or when everything inside a `soon`
+     * request's deadline is taken. That is an ordinary answer: the caller may ask again on the next
+     * boundary, against an order that has since been topped up.
+     */
+    private slotFor(lineup: StationLineup, clock: AirClock, urgency: BreakUrgency): { atIndex: number; airsAt?: number } | undefined {
+        const items = lineup.all();
+        const bounds = URGENCY[urgency];
+        // `whenever` is the one urgency measured in positions rather than in time: it is asking for
+        // an ordinary slot, and an ordinary slot stays out of the operator's reach exactly as far as
+        // a planted break does.
+        const from = lineup.committedThrough() + (urgency === 'whenever' ? PLANT_AHEAD : 0);
+        const projected = projectAirTimes(items, clock.anchorAt, clock.from);
+        const deadline = 'deadlineMs' in bounds ? clock.now + bounds.deadlineMs : undefined;
+
+        for (let index = Math.max(0, from); index < items.length; index++) {
+            const at = projected[index];
+            if (at === undefined || at < clock.now + bounds.leadMs) continue;
+            if (deadline !== undefined && at > deadline) return undefined;
+            if (items[index]!.kind === 'segment') continue;
+
+            return { atIndex: index, airsAt: at };
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Why this break cannot be written at all, or `undefined` when it can.
+     *
+     * The same pair {@link plant} checks before it reads the library, for the same reason: a break
+     * nothing can write, or nothing can speak, is a slot the station is silent in rather than a break
+     * it takes. Answered as a sentence because a request has somebody waiting to be told.
+     */
+    private refuse(kind: string, rules: ResolvedRules): string | undefined {
+        if (!rules.breaks) return 'the station has been told not to interrupt itself';
+        if (!this.writers.canWrite(kind)) return `nothing on this station knows how to write a ${kind}`;
+        if (this.speech.speaker() === undefined) return 'the station has no voice to speak with';
+
+        return undefined;
+    }
+
+    /**
+     * Put placements into the order, and clean up after an order that moved.
+     *
+     * Shared by both planting paths, because how a break ENTERS the running order is one decision
+     * however it was chosen: positions are computed against the order as it stood a moment ago, and
+     * a commit or an operator edit landing in between refuses the lot. Nothing is lost when it does
+     * — the rows are failed rather than left looking like breaks that are still coming.
+     */
+    private async insert(lineup: StationLineup, placements: readonly Placement[]): Promise<boolean> {
+        const result = lineup.insertSegments(
+            placements.map(({ segmentId, atIndex, kind, over }) => ({
+                segmentId,
+                atIndex,
+                segmentKind: kind,
+                ...(over === undefined ? {} : { over }),
+            })),
+        );
+        if (result.ok) return true;
+
+        // The order moved under the walk: the director committed, or an operator edited, between
+        // computing these positions and writing them. Nothing is lost — the next pass walks the
+        // order as it stands and plants against that.
+        this.logger.info('director: a break placement was refused; it will be planned again', { reason: result.reason });
+        await this.abandon(placements);
+        return false;
     }
 
     /**
@@ -519,6 +685,14 @@ interface Placement {
     /** What sort of break it is, carried onto the order so the spacing walk can count it. */
     kind: string;
     written: boolean;
+    /**
+     * How far into the record behind it this speaks, for a talk-over.
+     *
+     * Absent for every break the station plants for itself: those sit in the gap between two records,
+     * which is what a break normally is. Present only for an interrupting request, which rides the
+     * record rather than waiting for its end.
+     */
+    over?: { atMs: number };
 }
 
 /**

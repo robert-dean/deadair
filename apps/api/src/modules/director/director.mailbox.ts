@@ -34,6 +34,7 @@
  */
 
 import type { RundownTrack } from '#modules/playout/rundown.js';
+import type { BreakRequest, BreakRequestResult } from './break.request.js';
 import type { EditResult, StationLineupBinding } from './station.lineup.js';
 
 /**
@@ -112,15 +113,24 @@ export type DirectorCommand =
      * the difference stage 2 makes: an edit used to be a write to a row that the
      * reactor then re-read, with all the racing that implies.
      */
-    | { kind: 'edit'; edit: OrderEdit };
+    | { kind: 'edit'; edit: OrderEdit }
+    /**
+     * Something outside the running order wants the station to say something.
+     *
+     * A listener arriving, a bulletin, an operator at the desk. The producer says what sort of break
+     * and how soon; WHERE it goes is decided here, because the director is the only thing that knows
+     * what is committed and what is still free. Answers whether it took and, when it did not, a
+     * sentence saying why — a decline is an ordinary outcome rather than a failure.
+     */
+    | { kind: 'requestBreak'; request: BreakRequest };
 
 /** Whether a resume found a running order to pick back up. */
 export interface ResumeResult {
     resumed: boolean;
 }
 
-/** What a handled command answers with. Only an edit and a resume have anything to say. */
-export type DirectorCommandResult = EditResult | ResumeResult | undefined;
+/** What a handled command answers with. Only an edit, a resume and a request have anything to say. */
+export type DirectorCommandResult = EditResult | ResumeResult | BreakRequestResult | undefined;
 
 /** One posted command and the caller waiting on it. */
 interface Envelope {

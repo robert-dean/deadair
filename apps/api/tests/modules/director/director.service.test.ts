@@ -32,6 +32,7 @@ import { TrackResolver } from '../../../src/modules/playout/playout.capability.j
 import { TrackAudioService, bindingKey } from '../../../src/modules/playout/audio/track.audio.service.js';
 import { TrackCachePlanner } from '../../../src/modules/playout/audio/track.cache.planner.js';
 import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
+import { BreakRequestRepository } from '../../../src/modules/director/break.request.repository.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
@@ -97,6 +98,8 @@ interface Options {
      * named one of the lines being taken out.
      */
     claimedBy?: [string, string][];
+    /** The station has a writer and a voice, so a requested break can actually be produced. */
+    canTalk?: boolean;
 }
 
 function build(options: Options = {}) {
@@ -155,9 +158,15 @@ function build(options: Options = {}) {
     const breaks = new BreakPlanner(
         {
             listReady: vi.fn(async () => [{ id: 'ident-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }]),
+            // Only a requested break plans a row through this planner: the ident path above takes
+            // what the library already holds.
+            plan: vi.fn(async (input: Record<string, unknown>) => ({ id: 'planned-1', state: 'planned', source: 'render', ...input })),
+            markFailed: vi.fn(async () => {}),
         } as unknown as SegmentRepository,
-        { canWrite: () => false } as never,
-        { speaker: () => undefined } as never,
+        // `canTalk` is for the request tests, which need a station that can actually produce the
+        // break they are asking for. Everything else here plants recorded idents.
+        { canWrite: () => options.canTalk ?? false } as never,
+        { speaker: () => (options.canTalk ? { record: { id: 'deadair.kokoro' } } : undefined) } as never,
         { send: vi.fn(async () => {}) } as never,
         // The same config the director gets, so a clock band set in a test reaches the planner the
         // way it reaches it in the app: one settings layer, read by both.
@@ -213,23 +222,42 @@ function build(options: Options = {}) {
     }));
     const cachePlanner = { ripen } as unknown as TrackCachePlanner;
 
+    // What the station has been asked to say. In memory here: what these tests are about is the
+    // director's own restraint — the cooldown, and declining while off air — rather than the SQL,
+    // which `apps/api/scripts/break.request.smoke.ts` covers against the real database.
+    const opened: { id: string; key?: string; at: number }[] = [];
+    const requests = {
+        open: vi.fn(async (request: { kind: string; urgency: string; source: string; key?: string }, state: string) => {
+            const row = { id: `req-${opened.length + 1}`, ...request, state, at: Date.now() };
+            opened.push({ id: row.id, ...(request.key === undefined ? {} : { key: request.key }), at: row.at });
+            return row;
+        }),
+        acceptedSince: vi.fn(async (key: string, since: number) => opened.some(row => row.key === key && row.at >= since)),
+        attachSegment: vi.fn(async () => {}),
+        moveTo: vi.fn(async () => true),
+        waiting: vi.fn(async () => []),
+        findById: vi.fn(async () => undefined),
+    };
+
     const scope = {
         get: vi.fn((token: unknown) =>
-            token === StationLineupRepository
-                ? lineups
-                : token === StationAirRepository
-                  ? airRepository
-                  : token === SegmentRepository
-                    ? segments
-                    : token === BreakPlanner
-                      ? breaks
-                      : token === CandidatesRepository
-                        ? candidates
-                        : token === TrackAudioService
-                          ? trackAudio
-                          : token === TrackCachePlanner
-                            ? cachePlanner
-                            : history,
+            token === BreakRequestRepository
+                ? requests
+                : token === StationLineupRepository
+                  ? lineups
+                  : token === StationAirRepository
+                    ? airRepository
+                    : token === SegmentRepository
+                      ? segments
+                      : token === BreakPlanner
+                        ? breaks
+                        : token === CandidatesRepository
+                          ? candidates
+                          : token === TrackAudioService
+                            ? trackAudio
+                            : token === TrackCachePlanner
+                              ? cachePlanner
+                              : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -276,6 +304,7 @@ function build(options: Options = {}) {
         airRepository,
         audience,
         activity,
+        requests,
         seed: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(track)),
         /** The same, with every record catalogued, so its copies can be judged before its slot. */
         seedCatalogued: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(catalogued)),
@@ -1851,5 +1880,64 @@ describe('DirectorService opening a database scope', () => {
 
         expect(createScope).toHaveBeenCalled();
         expect(scope.disposeAsync).toHaveBeenCalledTimes(createScope.mock.calls.length);
+    });
+
+    // What a producer outside the running order gets. The placement itself is BreakPlanner's and is
+    // tested there; what is here is the director's own restraint.
+    describe('requestBreak', () => {
+        const asking = { kind: 'talkbreak', urgency: 'next', source: 'audience', reason: 'somebody tuned in' } as const;
+
+        it('takes a request, writes it down and asks for the words', async () => {
+            const { director, seed, requests, jobs } = build({ canTalk: true });
+            await seed();
+            await director.start();
+
+            const result = await director.requestBreak({ ...asking });
+
+            expect(result.accepted).toBe(true);
+            expect(requests.open).toHaveBeenCalled();
+            expect(requests.attachSegment).toHaveBeenCalledWith('req-1', result.segmentId);
+            expect(jobs.send).toHaveBeenCalledWith('director.write_break', { segmentId: result.segmentId });
+        });
+
+        it('says no while the station is not airing anything', async () => {
+            // Not a fault: a producer watching an edge has no idea whether the station is on, and
+            // planting into an order that does not exist is not something to half-do.
+            const { director } = build({ air: { active: false }, canTalk: true });
+
+            const result = await director.requestBreak({ ...asking });
+
+            expect(result.accepted).toBe(false);
+            expect(result.reason).toContain('not airing');
+        });
+
+        it('holds a keyed request off for its cooldown', async () => {
+            // The case this exists for: a phone changing networks, or the console's own player being
+            // toggled, is a second arrival within seconds and must not be a second greeting.
+            const { director, seed, jobs } = build({ canTalk: true });
+            await seed();
+            await director.start();
+
+            const first = await director.requestBreak({ ...asking, key: 'welcome', cooldownMs: 20 * 60_000 });
+            const second = await director.requestBreak({ ...asking, key: 'welcome', cooldownMs: 20 * 60_000 });
+
+            expect(first.accepted).toBe(true);
+            expect(second.accepted).toBe(false);
+            expect(second.reason).toContain('already took');
+            expect(jobs.send.mock.calls.filter(([name]) => name === 'director.write_break')).toHaveLength(1);
+        });
+
+        it('retires the row when there was nowhere to put the break', async () => {
+            // Failed rather than left pending, for the reason an abandoned placement is failed: a row
+            // nothing will ever pick up should carry its reason and be inert.
+            const { director, seed, requests } = build({ items: ['a'], canTalk: false });
+            await seed();
+            await director.start();
+
+            const result = await director.requestBreak({ ...asking });
+
+            expect(result.accepted).toBe(false);
+            expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'failed', 'placed');
+        });
     });
 });

@@ -15,6 +15,7 @@ import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.sourc
 import { inScope } from '#modules/shared/scoped.work.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
+import { brokenClaim } from './break.claims.js';
 import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
@@ -1348,26 +1349,27 @@ export class DirectorService {
                 continue;
             }
 
-            // The other end of the forward claim. A break saying "coming up, X" named a LINE when it
-            // was written, minutes ago, and the words are now baked into audio that cannot be
-            // re-cut. Everything that can happen to a running order in that gap makes them false: an
-            // operator moves the item, a request goes in, the resolver drops the pick, the record is
-            // skipped for having no audio. The station would then name a record that is not the one
-            // playing, in a confident voice, which is the kind of error a listener remembers.
+            // The other end of the forward claim, in both dimensions. A break saying "coming up, X"
+            // or "it's just after nine" named something when it was written, minutes ago, and the
+            // words are now baked into audio that cannot be re-cut. Everything that can happen to a
+            // running order and to the clock in that gap makes them false. The station would then
+            // name a record that is not the one playing, in a confident voice, which is the kind of
+            // error a listener remembers.
             //
             // So it is checked here, against the order as it stands at the instant of hand-over, and
             // a claim that no longer holds costs the break. Silence on one boundary beats a wrong
             // fact — the same trade the station already makes by skipping a segment that is not
             // ready, taken through the same branch, so the order does not lose its lead either.
-            const promised = segment.claimsItemId;
-            const actuallyNext = promised === undefined ? undefined : this.lineup?.nextTrackAfter(item.id);
-            if (promised !== undefined && actuallyNext?.id !== promised) {
+            //
+            // The question itself lives in `break.claims.ts`, because `BreakPlanner.ripen` asks the
+            // same one earlier, where the answer is worth a rewrite rather than a dropped break.
+            // Two readings of one claim that could disagree would be two bugs waiting.
+            const broken = brokenClaim(segment, this.lineup?.nextTrackAfter(item.id)?.id, Date.now());
+            if (broken?.kind === 'item') {
                 this.logger.info('director: dropping a break whose running order has moved under it', {
                     segment: item.segmentId,
-                    claimed: promised,
-                    // `nothing` for a break at the end of an order that has since lost its tail: the
-                    // promise is equally unkeepable, and equally not worth airing.
-                    next: actuallyNext?.id ?? 'nothing',
+                    claimed: broken.claimed,
+                    next: broken.next ?? 'nothing',
                 });
                 // Worth its own kind rather than folding into `item.skipped`: an operator who
                 // shuffled the order and then noticed the station stopped talking is looking at the
@@ -1377,34 +1379,23 @@ export class DirectorService {
                     module: 'director',
                     kind: 'break.claimStale',
                     detail: 'A break was dropped because the record it named is no longer what plays next.',
-                    data: { segmentId: item.segmentId, claimed: promised, next: actuallyNext?.id ?? 'nothing' },
+                    data: { segmentId: item.segmentId, claimed: broken.claimed, next: broken.next ?? 'nothing' },
                 });
                 skipped.push(item.id);
                 continue;
             }
 
-            // The same check in the other dimension. A break that named a TIME — "it's just after
-            // nine" — is overtaken by the clock exactly as one naming the next record is overtaken
-            // by an edit, and for the same underlying reason: the words were chosen minutes ago and
-            // the audio they were rendered into cannot be re-cut. An operator shuffling the order,
-            // a run of skipped items, a record that took longer to fetch than the projection
-            // assumed: any of them can push a break past the window its phrasing is true in.
-            //
-            // The window comes from the phrasing rather than from a constant, so a break saying
-            // something vague is allowed to drift further than one saying something precise. See
-            // `clock.words.ts`, which answers with the words and their window together.
-            const claimed = segment.claimsTime;
-            if (claimed !== undefined && (Date.now() < claimed.from || Date.now() >= claimed.until)) {
+            if (broken?.kind === 'time') {
                 this.logger.info('director: dropping a break whose words are no longer true of the time', {
                     segment: item.segmentId,
-                    from: new Date(claimed.from).toISOString(),
-                    until: new Date(claimed.until).toISOString(),
+                    from: new Date(broken.from).toISOString(),
+                    until: new Date(broken.until).toISOString(),
                 });
                 void this.activity.record({
                     module: 'director',
                     kind: 'break.claimStale',
                     detail: 'A break was dropped because the time it named has passed.',
-                    data: { segmentId: item.segmentId, from: claimed.from, until: claimed.until },
+                    data: { segmentId: item.segmentId, from: broken.from, until: broken.until },
                 });
                 skipped.push(item.id);
                 continue;

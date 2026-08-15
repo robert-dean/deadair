@@ -413,8 +413,11 @@ calls `/control/offair` at once, because Liquidsoap keeps consuming the playout 
 `driving()` selects it (measured: `remainingMs` falls with the wall clock while `driving` is false).
 Anything left queued plays out to an empty mount at a download per track, which is the cost the gate
 exists to avoid. A warm queue is therefore not available from the app side; it would take a clock
-change in `radio.liq`. The console's own
-`StreamMonitor` plays the mount, so an operator listening in the browser is an audience.
+change in `radio.liq`. **The console does not play the mount**, deliberately: it used to carry a
+`StreamMonitor`, and the console is the wrong place to listen to a radio station. The consequence is
+worth knowing rather than working around — an operator with the console open is no longer an
+audience, so in `audience` mode a station with nobody actually tuned in stays silent while they
+watch it, which is the gate telling the truth rather than a fault.
 
 **Every gate that can silence the station says so, in ONE ordered answer.** `silence.diagnosis.ts` is
 ten gates over a `StationFacts` snapshot, pure so the precedence can be tested without a stack, and

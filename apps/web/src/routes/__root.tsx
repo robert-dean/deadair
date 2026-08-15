@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Alert, Anchor, AppShell, Button, Group, Text } from '@mantine/core';
-import { useLocalStorage } from '@mantine/hooks';
-import { createRootRouteWithContext, Link, Outlet, redirect, useNavigate } from '@tanstack/react-router';
+import { Alert, AppShell, Burger, Button, Group, Text } from '@mantine/core';
+import { useDisclosure, useLocalStorage } from '@mantine/hooks';
+import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type { OnboardingRequirement } from '@deadair/sdk';
 
@@ -15,7 +15,9 @@ import { isAuthenticated, isSessionActive, useSession } from '../auth/session.st
 import { useStationAir } from '../api/director.queries';
 import { usePlayoutStatus } from '../api/playout.queries';
 import { hasTransportToShow, TRANSPORT_HEIGHT, TRANSPORT_HEIGHT_EXPANDED, TransportBar } from '../components/playout/transport.bar';
-import { StreamMonitor } from '../components/playout/stream.monitor';
+import { SideNav } from '../components/shell/side.nav';
+import { StationMark } from '../components/shell/station.mark';
+import { StationClock } from '../components/shell/station.clock';
 
 /** Where the transport's open/shut state is remembered between visits. */
 const TRANSPORT_EXPANDED_KEY = 'deadair.transport.expanded';
@@ -48,6 +50,8 @@ export function RootLayout() {
     // Remembered, because an operator who wants the running order in front of them
     // wants it there on the next page too.
     const [transportExpanded, setTransportExpanded] = useLocalStorage({ key: TRANSPORT_EXPANDED_KEY, defaultValue: false });
+    // Phone only: on a desk the nav is always there, and this stays false for its whole life.
+    const [navOpened, navDrawer] = useDisclosure(false);
 
     async function handleLogout(): Promise<void> {
         let failure: string | undefined;
@@ -67,62 +71,22 @@ export function RootLayout() {
     return (
         <AppShell
             header={{ height: 56 }}
+            navbar={signedIn ? { width: 208, breakpoint: 'sm', collapsed: { mobile: !navOpened } } : undefined}
             footer={transport ? { height: transportExpanded ? TRANSPORT_HEIGHT_EXPANDED : TRANSPORT_HEIGHT } : undefined}
-            padding="lg"
+            padding="md"
         >
-            <AppShell.Header>
-                <Group h="100%" px="lg" justify="space-between">
-                    <Text fw={700} tt="uppercase" style={{ letterSpacing: '0.12em' }}>
-                        deadair
-                    </Text>
+            <AppShell.Header className="da-scanlines">
+                <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+                    <Group gap="sm" wrap="nowrap">
+                        {signedIn ? <Burger opened={navOpened} onClick={navDrawer.toggle} hiddenFrom="sm" size="sm" aria-label="Navigation" /> : undefined}
+                        <StationMark />
+                        <Text ff="heading" fw={700} tt="uppercase" style={{ letterSpacing: 'var(--da-tracking-wordmark)' }}>
+                            deadair
+                        </Text>
+                    </Group>
                     {signedIn ? (
-                        <Group gap="lg">
-                            <Anchor component={Link} to="/" size="sm">
-                                Home
-                            </Anchor>
-                            <Anchor component={Link} to="/onair" size="sm">
-                                On air
-                            </Anchor>
-                            {/* Beside On air rather than over with Plugins: it answers the
-                                question an operator arrives with when the station is not doing
-                                what they expected, which is the same question On air answers
-                                about right now. */}
-                            <Anchor component={Link} to="/activity" size="sm">
-                                Activity
-                            </Anchor>
-                            <Anchor component={Link} to="/catalog" size="sm">
-                                Catalog
-                            </Anchor>
-                            <Anchor component={Link} to="/playlists" size="sm">
-                                Playlists
-                            </Anchor>
-                            <Anchor component={Link} to="/lineups" size="sm">
-                                Lineups
-                            </Anchor>
-                            {/* Beside Voices, because the two are halves of the same question:
-                                who the station is, and what it sounds like saying it. A persona
-                                picks one of these voices. */}
-                            <Anchor component={Link} to="/personas" size="sm">
-                                Personas
-                            </Anchor>
-                            <Anchor component={Link} to="/voices" size="sm">
-                                Voices
-                            </Anchor>
-                            <Anchor component={Link} to="/plugins" size="sm">
-                                Plugins
-                            </Anchor>
-                            <Anchor component={Link} to="/settings" size="sm">
-                                Settings
-                            </Anchor>
-                            <Anchor component={Link} to="/about" size="sm">
-                                About
-                            </Anchor>
-                            {/* In the header rather than in the transport bar, which hides itself
-                                when the station is idle. The mount is never silent — it falls
-                                through to the local bed and then the ident — so "is anything
-                                actually going out?" is a question worth being able to answer
-                                precisely when deadair is NOT driving it. */}
-                            {playout.data ? <StreamMonitor mountPath={playout.data.mountPath} /> : undefined}
+                        <Group gap="sm" wrap="nowrap">
+                            <StationClock />
                             <Button
                                 variant="subtle"
                                 size="compact-sm"
@@ -137,6 +101,11 @@ export function RootLayout() {
                     ) : undefined}
                 </Group>
             </AppShell.Header>
+            {signedIn ? (
+                <AppShell.Navbar>
+                    <SideNav onNavigate={navDrawer.close} />
+                </AppShell.Navbar>
+            ) : undefined}
             <AppShell.Main>
                 {logoutError ? (
                     <Alert

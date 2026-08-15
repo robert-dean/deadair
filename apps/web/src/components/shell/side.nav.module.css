@@ -1,0 +1,48 @@
+/*
+ * The channel strip down the left-hand side.
+ *
+ * A CSS module rather than inline styles because the active state is a data attribute the router
+ * writes, and there is no way to read that from a style prop. `postcss-preset-mantine` is already
+ * wired, so `light-dark()` and the breakpoint vars are available if this ever needs them.
+ */
+
+.item {
+    /* The active bar sits in this gutter whether or not the item is active, so nothing shifts
+       sideways when the route changes. */
+    border-left: 2px solid transparent;
+    border-radius: 0;
+    padding-block: 7px;
+    color: var(--da-text-secondary);
+    transition:
+        background-color var(--da-fast) var(--da-ease),
+        color var(--da-fast) var(--da-ease),
+        border-color var(--da-fast) var(--da-ease);
+}
+
+.item:hover {
+    background-color: var(--da-raised);
+    color: var(--da-text);
+}
+
+/*
+ * `data-status="active"` is written by the router's own Link, so the console never computes
+ * "which page am I on" a second time and cannot get a different answer than the router did.
+ */
+.item[data-status='active'] {
+    border-left-color: var(--da-phosphor);
+    background-color: var(--da-raised);
+    color: var(--da-text);
+}
+
+.item[data-status='active'] .label {
+    font-weight: 600;
+}
+
+.label {
+    font-size: var(--mantine-font-size-sm);
+}
+
+.groupLabel {
+    padding-inline: var(--mantine-spacing-md);
+    padding-block: var(--mantine-spacing-xs) 4px;
+}

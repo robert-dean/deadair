@@ -7,7 +7,7 @@ import { brokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { isAnchored, nextOccurrence, stationBands } from './clock.bands.js';
 import { stationZone } from './clock.words.js';
-import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { SegmentRepository, type Segment, type StrandedRelease } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { isTrackItem, type StationLineup, type StationLineupItem, type StationLineupSegmentItem } from './station.lineup.js';
@@ -170,20 +170,41 @@ const NOMINAL_TRACK_MS = 270_000;
 const BAND_LATENESS_MS = 600_000;
 
 /**
+ * How long a break may sit half-written before the job that claimed it is taken to be gone.
+ *
+ * Five minutes, against a `director.write_break` that expires in three (`job.mappings.ts`). The
+ * margin is deliberate and one-directional: releasing a row a live job still holds would have two
+ * writers for one break, while releasing one late costs nothing but a boundary. Not imported from
+ * the jobs module, because the module edge runs director ← jobs and a number with the reason beside
+ * it is worth more here than a shared constant would be.
+ */
+const WRITING_STRANDED_MS = 300_000;
+
+/**
+ * The same, for a break half-spoken. Fifteen minutes, against a `render.segment` that expires in
+ * ten, and generous for the same reason: speech on CPU is slow, and a render still running is a
+ * render nobody should interrupt.
+ */
+const RENDERING_STRANDED_MS = 900_000;
+
+/**
  * What one pass over the write-ahead window did.
  *
  * `offered` is what it asked for the words of, which is the number this used to answer with on its
- * own. `rewritten` is what it had to un-write first, and it is a list rather than a count because
- * an operator is told about those: a break being written a second time is a consequence of their
- * own edit, and the segment ids are how the activity feed says which.
+ * own. The other two are lists rather than counts because an operator is told about those: a break
+ * being written a second time is usually the consequence of an edit they made a moment ago, and one
+ * handed back by the sweep is the station recovering from something they never saw.
  */
 export interface RipenResult {
     offered: number;
+    /** Breaks whose words had stopped being true, and are being written again. */
     rewritten: string[];
+    /** Breaks whose writer or renderer died holding them, now back in the pool. */
+    released: string[];
 }
 
 /** A pass with no segments in its window at all, which is most of them. */
-const NOTHING_RIPENED: RipenResult = { offered: 0, rewritten: [] };
+const NOTHING_RIPENED: RipenResult = { offered: 0, rewritten: [], released: [] };
 
 /**
  * The station putting its own segments into a lineup.
@@ -619,20 +640,63 @@ export class BreakPlanner {
         if (ids.length === 0) return NOTHING_RIPENED;
 
         const segments = await this.segments.findByIds(ids);
+        // Before the claims, deliberately: a stranded render handed back becomes `written`, and if
+        // what it says has ALSO stopped being true it should be re-written rather than re-spoken.
+        // The other order would leave it queued to say the wrong thing correctly.
+        const unstuck = await this.releaseStranded(ids);
         const rewritten = await this.rewriteStale(lineup, window, segments);
 
         // `planned`, and what this pass has just returned to `planned`. A break already being
         // written belongs to whoever claimed it, one already written needs no words, and a failed
         // one is not retried by asking again — the usual reason it failed is that there was nothing
         // true to say, and that does not change.
-        const reopened = new Set(rewritten);
-        const unwritten = ids.filter(id => segments.get(id)?.state === 'planned' || reopened.has(id));
-        if (unwritten.length === 0) return { offered: 0, rewritten };
+        const revived = new Set([...unstuck.writing, ...rewritten]);
+        const unwritten = ids.filter(id => segments.get(id)?.state === 'planned' || revived.has(id));
+        const released = [...unstuck.writing, ...unstuck.rendering];
+        if (unwritten.length === 0) return { offered: 0, rewritten, released };
 
         for (const segmentId of unwritten) await this.jobs.send('director.write_break', { segmentId });
 
         this.logger.info('director: asked for the words of breaks coming up', { count: unwritten.length });
-        return { offered: unwritten.length, rewritten };
+        return { offered: unwritten.length, rewritten, released };
+    }
+
+    /**
+     * Hand back any break in this window whose job died holding it.
+     *
+     * The failure this exists for is silent and permanent. A worker killed between claiming a break
+     * and finishing it leaves the row in `writing` or `rendering`; the job's retry re-claims nothing
+     * because the claim it needs has already been taken, and `ripen` does not offer it because it is
+     * not `planned`. The break is then skipped at its slot and at every slot it is ever given. There
+     * are rows in this station's own database that have been stuck like that since August.
+     *
+     * How long is too long is a fact about the JOB rather than about the row, which is why the bound
+     * is decided here and not in the repository: see the two constants and the policies they sit
+     * above.
+     *
+     * Swallowed for {@link rewriteStale}'s reason. A sweep that could not run leaves the rows exactly
+     * as stuck as they already were, which is not worth the words of every other break in the window.
+     */
+    private async releaseStranded(ids: readonly string[]): Promise<StrandedRelease> {
+        const now = Date.now();
+
+        try {
+            const released = await this.segments.releaseStranded(ids, {
+                writing: now - WRITING_STRANDED_MS,
+                rendering: now - RENDERING_STRANDED_MS,
+            });
+
+            if (released.writing.length > 0 || released.rendering.length > 0) {
+                this.logger.info('director: took back a break whose job never finished', {
+                    writing: released.writing,
+                    rendering: released.rendering,
+                });
+            }
+            return released;
+        } catch (error) {
+            this.logger.warn(`director: could not take back a break whose job never finished (${errorText(error)})`);
+            return { writing: [], rendering: [] };
+        }
     }
 
     /**

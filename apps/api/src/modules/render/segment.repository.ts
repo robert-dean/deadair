@@ -138,6 +138,18 @@ export interface RenderedAudio {
 /** What the station wrote itself, as opposed to `library` for a file somebody dropped in. */
 export const RENDER_SOURCE = 'render';
 
+/**
+ * What a sweep for stranded claims handed back, kept apart by which claim it was.
+ *
+ * Two lists rather than one, because they resume at different stages and a caller acts on that: a
+ * released `writing` row needs its words asked for again, and a released `rendering` row needs only
+ * its audio.
+ */
+export interface StrandedRelease {
+    writing: string[];
+    rendering: string[];
+}
+
 /** A segment as it is created from an imported file: audio first, everything else described. */
 export interface ImportedSegment {
     kind: string;
@@ -565,6 +577,58 @@ export class SegmentRepository extends DataRepository {
             .execute();
 
         for (const row of rows) await this.record(row.id, 'written', 'planned', reason);
+        return rows.map(row => row.id);
+    }
+
+    /**
+     * Give back the rows whose job died holding the claim.
+     *
+     * `writing` and `rendering` are claims a job took with a conditional update, which is what makes
+     * a duplicate send free — and the same property is what makes a job that never finished
+     * permanent. A worker killed after `claimForWrite` leaves the row in `writing`; pg-boss re-sends
+     * the job, its own `claimForWrite` finds nothing in `planned` to take, and it stops. Nothing
+     * else ever looks. The break is then skipped at its slot, and at every slot it is ever put in.
+     *
+     * Each state goes back to where its work would have STARTED, which is not the same place:
+     * a `writing` row has no words yet, so it becomes `planned` and is written from scratch; a
+     * `rendering` row has them on it, so it becomes `written` and `claimForRender` re-speaks exactly
+     * the words that were already decided rather than paying a writer to invent different ones.
+     * That is the whole reason `written` is its own state.
+     *
+     * A `rendering` row with no script is left alone: it should not exist — the write job commits
+     * the words before it sends the render — and the render job's own failure path says so on the
+     * row rather than this silently inventing a state for it.
+     *
+     * **The bound is the caller's**, because how long is too long is a fact about the JOB rather
+     * than about this table, and the two have very different answers (see `job.mappings.ts`). What
+     * this owns is that `updated_at` is a truthful clock for it: `deadair.set_updated_at` moves it
+     * on every real change, so it is the moment the claim was taken.
+     */
+    async releaseStranded(ids: readonly string[], before: { writing: number; rendering: number }): Promise<StrandedRelease> {
+        if (ids.length === 0) return { writing: [], rendering: [] };
+
+        return {
+            writing: await this.release(ids, 'writing', 'planned', before.writing, 'the job that was writing it never finished'),
+            rendering: await this.release(ids, 'rendering', 'written', before.rendering, 'the job that was rendering it never finished'),
+        };
+    }
+
+    /** One stranded state, back to where its work starts. */
+    private async release(ids: readonly string[], from: SegmentState, to: SegmentState, before: number, reason: string): Promise<string[]> {
+        let query = this.db
+            .updateTable('deadair.segments')
+            .set({ state: to })
+            .where('id', 'in', [...ids])
+            .where('state', '=', from)
+            .where('updatedAt', '<', instant(before));
+
+        // See the note above: words on the row are what `written` MEANS, so a render that stranded
+        // without any is not something this can hand back.
+        if (to === 'written') query = query.where('script', 'is not', null);
+
+        const rows = await query.returning('id').execute();
+
+        for (const row of rows) await this.record(row.id, from, to, reason);
         return rows.map(row => row.id);
     }
 

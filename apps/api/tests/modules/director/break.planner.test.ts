@@ -62,6 +62,8 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
     // anything about it — its kind, whether anybody has written it — is a lookup rather than a
     // memory. Planted rows go in here too, which is what lets `ripen` see them.
     const known = new Map<string, Segment>((options.idents ?? [ident('seg-1')]).map(segment => [segment.id, segment]));
+    /** When each row last moved, standing in for the `updated_at` the database keeps by trigger. */
+    const touched = new Map<string, number>();
     const plan = vi.fn(async (input: PlannedSegment) => {
         const segment = { id: `planned-${++planned}`, state: 'planned', source: 'render', ...input } as Segment;
         known.set(segment.id, segment);
@@ -85,13 +87,33 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
         return reopened;
     });
 
+    // The other half of the SQL, mirrored: a row is handed back only when its claim is older than
+    // the caller's bound, and `rendering` goes back to `written` only when the words are on it.
+    // `touched` stands in for `updated_at`, which the database maintains by trigger.
+    const releaseStranded = vi.fn(async (ids: readonly string[], before: { writing: number; rendering: number }) => {
+        const released: { writing: string[]; rendering: string[] } = { writing: [], rendering: [] };
+        for (const id of ids) {
+            const segment = known.get(id);
+            const at = touched.get(id) ?? Date.now();
+            if (segment?.state === 'writing' && at < before.writing) {
+                known.set(id, { ...segment, state: 'planned' });
+                released.writing.push(id);
+            }
+            if (segment?.state === 'rendering' && at < before.rendering && segment.script !== undefined) {
+                known.set(id, { ...segment, state: 'written' });
+                released.rendering.push(id);
+            }
+        }
+        return released;
+    });
+
     const writers = { canWrite: vi.fn(() => options.canWrite ?? false) };
     const speech = { speaker: vi.fn(() => ((options.speaker ?? options.canWrite) ? { record: { id: 'deadair.kokoro' } } : undefined)) };
     const send = vi.fn(async () => {});
 
     return {
         planner: new BreakPlanner(
-            { listReady, plan, markFailed, findByIds, reopenSegments } as unknown as SegmentRepository,
+            { listReady, plan, markFailed, findByIds, reopenSegments, releaseStranded } as unknown as SegmentRepository,
             writers as never,
             speech as never,
             { send } as never,
@@ -102,8 +124,10 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
         plan,
         markFailed,
         reopenSegments,
+        releaseStranded,
         send,
         known,
+        touched,
     };
 };
 
@@ -807,6 +831,63 @@ describe('BreakPlanner.ripen', () => {
             // Answers rather than throwing, so a repair that could not run costs one break its
             // rewrite and does not take the words of everything else in the window with it.
             await expect(built.planner.ripen(lineup)).resolves.toMatchObject({ rewritten: [] });
+        });
+    });
+
+    // A job that died holding a break used to strand it for good: its retry re-claims nothing,
+    // because the claim it needs has already been taken, and nothing else ever looks at the row.
+    // This station's database has rows stuck that way since August.
+    describe('a break whose job never came back', () => {
+        /** One planted break, claimed by a job that then died `ago` milliseconds back. */
+        const stranded = async (state: 'writing' | 'rendering', ago: number, script?: string) => {
+            const built = build({ canWrite: true });
+            const lineup = await lineupOf(12);
+            await built.planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+            const segmentId = (lineup.all().find(item => item.kind === 'segment') as { segmentId: string }).segmentId;
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, state, ...(script === undefined ? {} : { script }) });
+            built.touched.set(segmentId, Date.now() - ago);
+
+            return { built, lineup, segmentId };
+        };
+
+        it('takes back a break nobody finished writing, and asks for its words again', async () => {
+            const { built, lineup, segmentId } = await stranded('writing', 600_000);
+
+            const result = await built.planner.ripen(lineup);
+
+            expect(result.released).toEqual([segmentId]);
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'planned' });
+            // In the same pass. A row handed back and then not offered until the next boundary is a
+            // boundary of the write window spent doing nothing.
+            expect(asked(built.send)).toEqual([segmentId]);
+        });
+
+        it('leaves a job that is merely slow alone', async () => {
+            // The margin over the job's own expiry is the whole point: two writers for one break is
+            // worse than a break that took a minute longer.
+            const { built, lineup, segmentId } = await stranded('writing', 30_000);
+
+            expect((await built.planner.ripen(lineup)).released).toEqual([]);
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'writing' });
+        });
+
+        it('takes back a stranded render at its WORDS rather than at the start', async () => {
+            // What `written` being its own state is for: a retry re-speaks the words already
+            // decided instead of paying a writer to invent different ones.
+            const { built, lineup, segmentId } = await stranded('rendering', 1_800_000, 'That was the last one.');
+
+            expect((await built.planner.ripen(lineup)).released).toEqual([segmentId]);
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'written', script: 'That was the last one.' });
+            // And it is not offered for writing: it has its words.
+            expect(asked(built.send)).toEqual([]);
+        });
+
+        it('carries on with the pass when the sweep itself fails', async () => {
+            const { built, lineup } = await stranded('writing', 600_000);
+            built.releaseStranded.mockRejectedValueOnce(new Error('the database said no'));
+
+            await expect(built.planner.ripen(lineup)).resolves.toMatchObject({ released: [] });
         });
     });
 

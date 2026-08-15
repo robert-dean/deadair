@@ -1216,6 +1216,21 @@ export class DirectorService {
                         many: 'no longer said anything true about the running order',
                     });
                 }
+                if (ripened.released.length > 0) {
+                    // Its own kind rather than a rewrite: this is the station noticing that a job
+                    // died holding a break, which is a fault an operator never saw happen and the
+                    // only place it is ever reported.
+                    void this.activity.record({
+                        module: 'director',
+                        kind: 'break.released',
+                        severity: 'fault',
+                        detail:
+                            ripened.released.length === 1
+                                ? 'A break was left half-finished by a job that never came back, and has been picked up again.'
+                                : `${ripened.released.length} breaks were left half-finished by jobs that never came back, and have been picked up again.`,
+                        data: { segmentIds: ripened.released },
+                    });
+                }
             });
         } catch (error) {
             this.logger.warn(`director: could not plan breaks for the running order (${errorText(error)})`);

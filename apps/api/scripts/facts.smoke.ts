@@ -171,6 +171,18 @@ try {
 
     const order = (await facts.findFacts([{ type: 'track', id: track.id }])).filter(fact => fact.sourceProvider === PROVIDER);
     check('and sorts behind the one that has never been said', order[0]?.id, stored[1]?.id);
+
+    // The read the break writer makes, which is a different query: three arms joined through the
+    // track to its record and its artist, with the cooldown applied inside rather than after.
+    const forBreak = await facts.findFactsForTracks([track.id], 0);
+    check('the break read finds both claims about the track', forBreak.get(track.id)?.length, 2);
+    check('coldest first, so a line never said outranks one just used', forBreak.get(track.id)?.[0]?.id, stored[1]?.id);
+
+    const rested = await facts.findFactsForTracks([track.id], 60 * 60 * 1000);
+    check('and a claim inside its cooldown is not offered at all', rested.get(track.id)?.length, 1);
+    check('which is the one that was never used', rested.get(track.id)?.[0]?.id, stored[1]?.id);
+
+    check('a track nobody asked about is simply absent', (await facts.findFactsForTracks([], 0)).size, 0);
 } finally {
     await clean(track.id);
     await db.destroy();

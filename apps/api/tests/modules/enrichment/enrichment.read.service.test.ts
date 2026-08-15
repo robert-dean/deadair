@@ -9,7 +9,7 @@ import { DateTime } from 'luxon';
 import { EnrichmentReadService, MAX_FACT_CHARS } from '../../../src/modules/enrichment/enrichment.read.service.js';
 import type { EnrichmentRepository, StoredProviderPayload, TrackFactPayloads } from '../../../src/modules/enrichment/enrichment.repository.js';
 import type { EnrichmentService } from '../../../src/modules/enrichment/enrichment.service.js';
-import type { FactRepository, StoredFact } from '../../../src/modules/enrichment/fact.repository.js';
+import type { ClaimForTrack, FactRepository, StoredFact } from '../../../src/modules/enrichment/fact.repository.js';
 
 const TRACK_ID = '11111111-1111-4111-8111-111111111111';
 const ARTIST_ID = '22222222-2222-4222-8222-222222222222';
@@ -66,7 +66,12 @@ function fakeService(order: string[]) {
  * Its own fixture rather than a field on {@link fakeRepository}, because the two are separate
  * stores: one holds what a plugin said and the other what this host concluded from it.
  */
-const fakeFacts = (claims: StoredFact[] = []) => ({ findFacts: vi.fn(async () => claims) }) as unknown as FactRepository;
+const fakeFacts = (claims: StoredFact[] = [], believed: Map<string, ClaimForTrack[]> = new Map()) =>
+    ({
+        findFacts: vi.fn(async () => claims),
+        findFactsForTracks: vi.fn(async () => believed),
+        markUsed: vi.fn(async () => undefined),
+    }) as unknown as FactRepository;
 
 const service = (rows: Record<string, StoredProviderPayload[] | undefined>, order: string[] = [MUSICBRAINZ, OTHER], claims: StoredFact[] = []) =>
     new EnrichmentReadService(fakeRepository(rows), fakeService(order), fakeFacts(claims));
@@ -77,8 +82,8 @@ function factRows(levels: Partial<Record<'track' | 'album' | 'artist', unknown[]
     return [{ trackId, track: at('track'), album: at('album'), artist: at('artist') }];
 }
 
-const factReader = (facts: TrackFactPayloads[], order: string[] = [MUSICBRAINZ, OTHER]) =>
-    new EnrichmentReadService(fakeRepository({}, facts), fakeService(order), fakeFacts());
+const factReader = (facts: TrackFactPayloads[], order: string[] = [MUSICBRAINZ, OTHER], believed: Map<string, ClaimForTrack[]> = new Map()) =>
+    new EnrichmentReadService(fakeRepository({}, facts), fakeService(order), fakeFacts([], believed));
 
 describe('EnrichmentReadService', () => {
     it('gives a scalar to the higher-priority provider and accumulates the lists across both', async () => {
@@ -356,6 +361,65 @@ describe('EnrichmentReadService', () => {
 
             await expect(read.factsForTracks([])).resolves.toEqual(new Map());
             expect(repository.findFactPayloadsForTracks).not.toHaveBeenCalled();
+        });
+
+        // A claim carries the span of an article that says so, and a provider's `facts` line carries
+        // a source name. Only one of those can be checked when something sounds wrong on air.
+        describe('against what the station believes', () => {
+            const believed = (...claims: string[]) =>
+                new Map([[TRACK_ID, claims.map((claim, at) => ({ id: `fact-${at}`, claim }))]]) as Map<string, ClaimForTrack[]>;
+
+            it('says what it can source before what a provider composed', async () => {
+                const read = factReader(factRows({ track: [{ facts: ['Recorded in one take.'] }] }), undefined, believed('It was used in a film.'));
+
+                await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(
+                    new Map([[TRACK_ID, ['It was used in a film.', 'Recorded in one take.']]]),
+                );
+            });
+
+            it('tops up rather than mixing, so a template line never displaces a sourced one', async () => {
+                const read = factReader(
+                    factRows({ track: [{ facts: ['Recorded in one take.'] }] }),
+                    undefined,
+                    believed('It was used in a film.', 'Johnny Cash covered it.'),
+                );
+
+                // Both slots are claims, so the provider's line is not asked for at all.
+                await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(
+                    new Map([[TRACK_ID, ['It was used in a film.', 'Johnny Cash covered it.']]]),
+                );
+            });
+
+            it('falls back to the providers when every claim about a record is resting', async () => {
+                // The cooldown filters in the query, so a store with nothing to offer looks exactly
+                // like a store with nothing in it. Either way the station still has something to say.
+                const read = factReader(factRows({ track: [{ facts: ['Recorded in one take.'] }] }), undefined, new Map());
+
+                await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(new Map([[TRACK_ID, ['Recorded in one take.']]]));
+            });
+
+            it('says the same thing once when a provider composed a line the store already holds', async () => {
+                const read = factReader(factRows({ track: [{ facts: ['It was used in a film.'] }] }), undefined, believed('It was used in a film.'));
+
+                await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(new Map([[TRACK_ID, ['It was used in a film.']]]));
+            });
+
+            it('stamps every claim it hands over, so the cooldown has something to work from', async () => {
+                const facts = fakeFacts([], believed('It was used in a film.'));
+                const read = new EnrichmentReadService(fakeRepository({}, factRows({})), fakeService([MUSICBRAINZ]), facts);
+
+                await read.factsForTracks([TRACK_ID]);
+
+                expect(facts.markUsed).toHaveBeenCalledWith(['fact-0']);
+            });
+
+            it('still answers when the stamp fails, because nothing may cost a break its notes', async () => {
+                const facts = fakeFacts([], believed('It was used in a film.'));
+                vi.mocked(facts.markUsed).mockRejectedValue(new Error('the database went away'));
+                const read = new EnrichmentReadService(fakeRepository({}, factRows({})), fakeService([MUSICBRAINZ]), facts);
+
+                await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(new Map([[TRACK_ID, ['It was used in a film.']]]));
+            });
         });
     });
 });

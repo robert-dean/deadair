@@ -79,6 +79,18 @@ export interface FactWrite {
     model?: string;
 }
 
+/**
+ * A claim as the break writer wants it: the sentence, and the id to stamp when it is used.
+ *
+ * Everything the console reads — the citation, the quote, the category, which extractor found it —
+ * is deliberately absent. A writer wants something to say and has no use for the rest, and the
+ * provenance stays where somebody can act on it.
+ */
+export interface ClaimForTrack {
+    id: string;
+    claim: string;
+}
+
 /** A claim on its way out, as the reader wants it. */
 export interface StoredFact {
     id: string;
@@ -301,6 +313,62 @@ export class FactRepository extends DataRepository {
         );
 
         return found.flat();
+    }
+
+    /**
+     * The claims worth saying about some records right now, keyed by track id.
+     *
+     * Three arms again, and the ordering is the whole answer. `level` puts what is known about this
+     * recording ahead of what is known about its record, ahead of what is known about whoever made
+     * it — the same preference the provider facts have always been read in. Within a level it is
+     * coldest first, so a claim nothing has ever said outranks one said last week, and the index
+     * carries that ordering rather than the query sorting for it.
+     *
+     * The cooldown is applied HERE rather than by the caller, because it belongs with the ordering:
+     * a fact resting is not a fact ranked low, it is a fact that must not be offered at all, and a
+     * caller that read them and filtered afterwards would come up short exactly when the store was
+     * thin.
+     */
+    async findFactsForTracks(trackIds: readonly string[], cooldownMs: number): Promise<Map<string, ClaimForTrack[]>> {
+        const found = new Map<string, ClaimForTrack[]>();
+        if (trackIds.length === 0) return found;
+
+        const ids = [...new Set(trackIds)];
+        const cooldownSeconds = Math.max(0, Math.round(cooldownMs / 1000));
+
+        const rows = await sql<{ trackId: string; factId: string; claim: string; level: number }>`
+            with rested as (
+                select f.*
+                  from deadair.facts f
+                 where f.last_used_at is null
+                    or f.last_used_at < now() - make_interval(secs => ${cooldownSeconds})
+            )
+            select t.id as track_id, f.id as fact_id, f.claim, 0 as level, f.last_used_at
+              from deadair.tracks t
+              join rested f on f.track_id = t.id
+             where t.id = any(${ids}::uuid[]) and t.merged_into_id is null
+            union all
+            select t.id, f.id, f.claim, 1, f.last_used_at
+              from deadair.tracks t
+              join deadair.albums al on al.id = t.album_id and al.merged_into_id is null
+              join rested f on f.album_id = al.id
+             where t.id = any(${ids}::uuid[]) and t.merged_into_id is null
+            union all
+            select t.id, f.id, f.claim, 2, f.last_used_at
+              from deadair.tracks t
+              join deadair.artists a on a.id = t.artist_id and a.merged_into_id is null
+              join rested f on f.artist_id = a.id
+             where t.id = any(${ids}::uuid[]) and t.merged_into_id is null
+             order by track_id, level, last_used_at asc nulls first, fact_id
+        `.execute(this.db);
+
+        for (const row of rows.rows) {
+            const claims = found.get(row.trackId) ?? [];
+            claims.push({ id: row.factId, claim: row.claim });
+            found.set(row.trackId, claims);
+        }
+
+        return found;
     }
 
     /**

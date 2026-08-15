@@ -37,6 +37,21 @@ export const MAX_BREAK_FACTS = 2;
 export const MAX_FACT_CHARS = 200;
 
 /**
+ * How long a claim rests after the station has used it.
+ *
+ * A week, which on a rotation of a few hundred artists means a listener hears a given line about a
+ * given record at most once in a listening habit. Long enough to be worth having, short enough that
+ * a small store does not run dry — and when every claim about a record IS resting, nothing breaks:
+ * the provider facts fill in, and then the writers' own phrasings, which say nothing about the
+ * record at all.
+ *
+ * There is deliberately no retirement beside it. A fact that has been said fifty times is still
+ * true, and a station whose good lines expired permanently would end up with less to say the longer
+ * it ran.
+ */
+export const FACT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
  * Live plugin priority, with anything no longer installed sorting last rather than being dropped.
  *
  * Shared by the console read and the fact read so the two cannot rank the same two payloads
@@ -199,6 +214,23 @@ export class EnrichmentReadService {
      *
      * `rotate` is variety, not paging. See {@link chooseFacts}.
      *
+     * ## The claims come first, and they TOP UP rather than mix
+     *
+     * A claim the host extracted beats a line a plugin composed, because it carries the span of an
+     * article that says so and somebody can go and check it. So the claims are taken first, in the
+     * order the store hands them over, and the provider facts fill whatever is left — the same
+     * top-up shape `SetGeneratorChain` uses, rather than pooling the two and rotating over the lot,
+     * which would put a template sentence in front of a sourced one at random.
+     *
+     * The two halves get their variety from different places, which is why they are not pooled.
+     * A claim's is the cooldown, applied in the query: one that has been said is not offered again
+     * for a week. A provider fact has no such record, so `rotate` is all it has.
+     *
+     * Every claim handed over is STAMPED, best-effort. See {@link FactRepository.markUsed} and the
+     * note on `facts.last_used_at`: the stamp is at selection rather than at airing, because a
+     * break can still be dropped before its slot, and a reader of `segment_events` is a great deal
+     * of machinery for the difference between "used" and "used and heard".
+     *
      * Only tracks with something to say appear in the answer. Absent is the ordinary case: on a
      * fresh install nothing has been enriched at all, and a station with no facts talks perfectly
      * well.
@@ -207,25 +239,48 @@ export class EnrichmentReadService {
         const facts = new Map<string, string[]>();
         if (trackIds.length === 0) return facts;
 
-        const stored = await this.enrichmentRepository.findFactPayloadsForTracks([...new Set(trackIds)]);
+        const ids = [...new Set(trackIds)];
+        const [stored, claims] = await Promise.all([
+            this.enrichmentRepository.findFactPayloadsForTracks(ids),
+            this.factRepository.findFactsForTracks(ids, FACT_COOLDOWN_MS),
+        ]);
 
-        for (const row of stored) {
-            const chosen = chooseFacts(
-                [
-                    ...(mergeEnrichment(this.ranked(row.track, this.enrichmentService.providerIds()).map(data => sanitizeEnrichment(data))).facts ??
-                        []),
-                    ...(mergeAlbumEnrichment(
-                        this.ranked(row.album, this.enrichmentService.albumProviderIds()).map(data => sanitizeAlbumEnrichment(data)),
-                    ).facts ?? []),
-                    ...(mergeArtistEnrichment(
-                        this.ranked(row.artist, this.enrichmentService.artistProviderIds()).map(data => sanitizeArtistEnrichment(data)),
-                    ).facts ?? []),
-                ],
-                rotate,
-            );
+        const used: string[] = [];
 
-            if (chosen.length > 0) facts.set(row.trackId, chosen);
+        for (const trackId of ids) {
+            const believed = (claims.get(trackId) ?? []).slice(0, MAX_BREAK_FACTS);
+            used.push(...believed.map(claim => claim.id));
+
+            const chosen = [...believed.map(claim => claim.claim)];
+            const row = stored.find(payloads => payloads.trackId === trackId);
+
+            if (chosen.length < MAX_BREAK_FACTS && row !== undefined) {
+                const supplied = chooseFacts(
+                    [
+                        ...(mergeEnrichment(this.ranked(row.track, this.enrichmentService.providerIds()).map(data => sanitizeEnrichment(data)))
+                            .facts ?? []),
+                        ...(mergeAlbumEnrichment(
+                            this.ranked(row.album, this.enrichmentService.albumProviderIds()).map(data => sanitizeAlbumEnrichment(data)),
+                        ).facts ?? []),
+                        ...(mergeArtistEnrichment(
+                            this.ranked(row.artist, this.enrichmentService.artistProviderIds()).map(data => sanitizeArtistEnrichment(data)),
+                        ).facts ?? []),
+                    ],
+                    rotate,
+                );
+
+                for (const fact of supplied) {
+                    if (chosen.length >= MAX_BREAK_FACTS) break;
+                    if (!chosen.some(already => already.toLowerCase() === fact.toLowerCase())) chosen.push(fact);
+                }
+            }
+
+            if (chosen.length > 0) facts.set(trackId, chosen);
         }
+
+        // Deliberately not awaited into the answer's critical path, and deliberately caught: a
+        // failed stamp costs a fact its rest, and nothing here may cost a break its notes.
+        void this.factRepository.markUsed(used).catch(() => undefined);
 
         return facts;
     }

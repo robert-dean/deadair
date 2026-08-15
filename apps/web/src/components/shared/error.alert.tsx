@@ -4,8 +4,13 @@ import { Alert } from '@mantine/core';
 import { apiErrorMessage } from '../../api/sdk.error';
 
 export interface ErrorAlertProps {
-    /** What failed, in the console's own words. Always said, even when the server said nothing. */
-    title: string;
+    /**
+     * What failed, in the console's own words.
+     *
+     * Optional for the same reason `EmptyState.title` is: a couple of these carry one finished
+     * sentence and inventing a heading to sit over it would be this component writing station copy.
+     */
+    title?: string;
     /** Whatever was thrown or returned as `query.error`. */
     error?: unknown;
     /** The sentence to fall back to when the failure carries no message of its own. */

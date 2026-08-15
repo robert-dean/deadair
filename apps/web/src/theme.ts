@@ -128,6 +128,19 @@ export const theme = createTheme({
             // at badge size.
             defaultProps: { radius: 'sm' },
         },
+        Alert: {
+            // A panel with a coloured spine rather than a coloured block. Mantine's light variant
+            // tints the whole background, which on a page that can show three alerts at once (a
+            // silence cause, a refill failure, a stale container) turns most of the console into
+            // warning. The spine says the same thing in 2px and leaves the text on the same
+            // surface as everything else, which is what keeps a busy page readable.
+            styles: {
+                root: {
+                    background: 'var(--da-panel)',
+                    borderLeft: '2px solid var(--alert-color)',
+                },
+            },
+        },
     },
 });
 

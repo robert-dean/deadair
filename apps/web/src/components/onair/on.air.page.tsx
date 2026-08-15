@@ -1,4 +1,4 @@
-import { Alert, Anchor, Badge, Button, Card, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
+import { Anchor, Badge, Button, Card, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 
 import { useRateTrack } from '../../api/catalog.queries';
@@ -7,6 +7,7 @@ import { usePlayoutStatus, useStartPlayout, useStopPlayout } from '../../api/pla
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { StatusLamp } from '../shared/status.lamp';
 import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
 import { BriefTheStation } from './brief.the.station';
 import { StationOrderTable } from './station.order.table';
@@ -62,10 +63,15 @@ export function OnAirPage() {
                 <Stack gap={6}>
                     <Group gap="sm" wrap="nowrap">
                         <Title order={1}>{loaded?.name || 'On air'}</Title>
+                        {/* The tally light, and the one thing on this console that pulses. Stood
+                            down is drawn as a quiet lamp rather than a second chip, because it is
+                            a resting state an operator chose and not an alarm. */}
                         {air.data ? (
-                            <Badge variant={air.data.active ? 'filled' : 'light'} color={air.data.active ? 'red' : 'gray'}>
-                                {air.data.active ? 'on air' : 'stood down'}
-                            </Badge>
+                            air.data.active ? (
+                                <StatusLamp tone="live" label="on air" emphasis="chip" pulse />
+                            ) : (
+                                <StatusLamp tone="off" label="stood down" size="md" />
+                            )
                         ) : undefined}
                         {/* In `audience` mode a station that is active with a full running order is
                             still silent while nobody is connected. That is the intended state and
@@ -199,7 +205,7 @@ export function OnAirPage() {
                 <ErrorAlert title="The running order could not be read" error={order.error} fallback="The station is not answering." />
             ) : undefined}
 
-            {removeFailure ? <Alert color="red">{removeFailure}</Alert> : undefined}
+            {removeFailure ? <ErrorAlert>{removeFailure}</ErrorAlert> : undefined}
 
             {order.isPending ? <PageSkeleton variant="table" /> : undefined}
 

@@ -1,4 +1,5 @@
 import { ActionIcon, Badge, Group, Table, Text, Tooltip } from '@mantine/core';
+import { IconX } from '@tabler/icons-react';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
 import { RatingControl } from '../catalog/rating.control';
@@ -127,7 +128,7 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                             opacity={item.state === 'airing' || item.state === 'planned' ? 1 : 0.5}
                         >
                             <Table.Td>
-                                <Text size="xs" c="dimmed" ff="monospace">
+                                <Text size="xs" c="dimmed" className="da-num">
                                     {index + 1}
                                 </Text>
                             </Table.Td>
@@ -183,7 +184,16 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                     ) : undefined}
                                     {state ? (
                                         <Tooltip label={state.hint} multiline maw={360}>
-                                            <Text size="xs" c={state.colour} tt="uppercase" style={{ letterSpacing: '0.08em' }}>
+                                            {/* Mono, like every other legend on the desk, and pulsing on the one
+                                                row that is actually going out. */}
+                                            <Text
+                                                size="xs"
+                                                c={state.colour}
+                                                ff="monospace"
+                                                tt="uppercase"
+                                                className={item.state === 'airing' ? 'da-lamp-pulse' : undefined}
+                                                style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap' }}
+                                            >
                                                 {state.label}
                                             </Text>
                                         </Tooltip>
@@ -202,7 +212,7 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                 </Text>
                             </Table.Td>
                             <Table.Td>
-                                <Text size="xs" c="dimmed" ff="monospace">
+                                <Text size="xs" c="dimmed" className="da-num">
                                     {formatDuration(item.durationMs)}
                                 </Text>
                             </Table.Td>
@@ -236,7 +246,7 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                                 loading={removingItemId === item.id}
                                                 onClick={() => onRemove(item)}
                                             >
-                                                ✕
+                                                <IconX size={15} stroke={1.8} />
                                             </ActionIcon>
                                         </Tooltip>
                                     ) : undefined}

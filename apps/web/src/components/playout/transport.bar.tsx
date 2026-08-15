@@ -1,4 +1,5 @@
 import { ActionIcon, Button, Divider, Group, Paper, Progress, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
+import { IconChevronDown, IconChevronUp, IconHeadphones, IconPlayerPlay, IconPlayerSkipForward, IconPlayerStop } from '@tabler/icons-react';
 import type { PlayoutStatus } from '@deadair/sdk';
 
 import { useSetAirMode } from '../../api/director.queries';
@@ -27,6 +28,9 @@ export interface TransportBarProps {
 /** Footer heights the shell reserves, collapsed and expanded. */
 export const TRANSPORT_HEIGHT = 56;
 export const TRANSPORT_HEIGHT_EXPANDED = 280;
+
+/** One size for every control on the strip, so the row reads as one instrument. */
+const ICON = 17;
 
 /**
  * Whether the station has anything worth a permanent strip across the console.
@@ -87,7 +91,16 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
     const playhead = usePlayhead(nowPlaying);
 
     return (
-        <Paper radius={0} px="lg" py="xs" h="100%" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
+        <Paper
+            radius={0}
+            px="md"
+            py="xs"
+            h="100%"
+            className="da-scanlines"
+            // A heavier rule than a card's: this is the edge of the desk, and the strip below it
+            // has to read as chrome rather than as one more panel in the page's stack.
+            style={{ borderTop: '1px solid var(--da-border-strong)', background: 'var(--da-panel)' }}
+        >
             <Stack gap="xs" h="100%">
                 <Group justify="space-between" wrap="nowrap" gap="lg">
                     {/* Only while something is on air: an empty square over "Starting…" reads as a
@@ -115,11 +128,13 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                                 </Group>
                                 {playhead ? (
                                     <Group gap="xs" wrap="nowrap">
-                                        <Text size="xs" c="dimmed" ff="monospace">
+                                        {/* Tabular figures on both ends: these count while you watch them, and
+                                            proportional digits make the whole row twitch on every tick. */}
+                                        <Text size="xs" c="dimmed" className="da-num">
                                             {formatDuration(playhead.elapsedMs)}
                                         </Text>
-                                        <Progress value={playhead.percent} size="xs" style={{ flex: 1 }} aria-label="Track progress" />
-                                        <Text size="xs" c="dimmed" ff="monospace">
+                                        <Progress value={playhead.percent} size={4} radius={0} style={{ flex: 1 }} aria-label="Track progress" />
+                                        <Text size="xs" c="dimmed" className="da-num">
                                             -{formatDuration(playhead.remainingMs)}
                                         </Text>
                                     </Group>
@@ -149,9 +164,12 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                             any of this is audible, so it is not a statistic to bury in a panel
                             an operator has to open. */}
                         <Tooltip label="Clients attached to the mount, as Icecast counts them">
-                            <Text size="xs" c={listeners > 0 ? undefined : 'dimmed'} ff="monospace" visibleFrom="xs">
-                                ♫ {listenerLabel(listeners)}
-                            </Text>
+                            <Group gap={5} wrap="nowrap" visibleFrom="xs" c={listeners > 0 ? undefined : 'dimmed'}>
+                                <IconHeadphones size={15} stroke={1.7} />
+                                <Text size="xs" className="da-num" c={listeners > 0 ? undefined : 'dimmed'}>
+                                    {listenerLabel(listeners)}
+                                </Text>
+                            </Group>
                         </Tooltip>
 
                         {/* The next track is worth the width only while the panel is shut;
@@ -172,7 +190,7 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                                 disabled={!streamUp || !nowPlaying}
                                 onClick={() => skip.mutate()}
                             >
-                                ⏭
+                                <IconPlayerSkipForward size={ICON} stroke={1.7} />
                             </ActionIcon>
                         </Tooltip>
 
@@ -191,7 +209,7 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                                     loading={start.isPending}
                                     onClick={() => start.mutate()}
                                 >
-                                    ⏵
+                                    <IconPlayerPlay size={ICON} stroke={1.7} />
                                 </ActionIcon>
                             </Tooltip>
                         ) : undefined}
@@ -206,7 +224,7 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                                     disabled={idle}
                                     onClick={() => stop.mutate()}
                                 >
-                                    ⏹
+                                    <IconPlayerStop size={ICON} stroke={1.7} />
                                 </ActionIcon>
                             </Tooltip>
                         ) : undefined}
@@ -218,7 +236,7 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                                 aria-expanded={expanded}
                                 onClick={onToggleExpanded}
                             >
-                                {expanded ? '▾' : '▴'}
+                                {expanded ? <IconChevronDown size={ICON} stroke={1.7} /> : <IconChevronUp size={ICON} stroke={1.7} />}
                             </ActionIcon>
                         </Tooltip>
                     </Group>

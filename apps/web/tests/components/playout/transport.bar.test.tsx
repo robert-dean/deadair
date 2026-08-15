@@ -213,13 +213,15 @@ describe('TransportBar', () => {
     it('says how many people are listening', () => {
         renderBar(playoutStatus({ listeners: 3 }));
 
-        expect(screen.getByText('♫ 3 listening')).toBeInTheDocument();
+        // The headphones beside it are an icon rather than a character now, so the count is the
+        // whole of this node's text.
+        expect(screen.getByText('3 listening')).toBeInTheDocument();
     });
 
     it('says nobody is listening rather than showing a bare zero', () => {
         renderBar(playoutStatus({ listeners: 0, audience: false, onAir: false }));
 
-        expect(screen.getByText('♫ nobody listening')).toBeInTheDocument();
+        expect(screen.getByText('nobody listening')).toBeInTheDocument();
     });
 
     it('explains a silent station that is merely waiting for a listener', async () => {

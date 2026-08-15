@@ -2023,6 +2023,35 @@ describe('DirectorService opening a database scope', () => {
             expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'break.expired' }));
         });
 
+        it('asks again for the words of a break nothing has claimed', async () => {
+            // The one break `ripen` cannot cover: it re-offers what the running order holds, and a
+            // break waiting for its audio is deliberately outside it. Without this a write job lost
+            // to a restart strands the request silently until it expires.
+            const { director, seed, jobs } = build({
+                canTalk: true,
+                waiting: [inFlight()],
+                segments: [{ id: 'seg-ready', kind: 'talkbreak', state: 'planned', label: 'Talk break' }],
+            });
+            await seed();
+
+            await director.start();
+
+            expect(jobs.send).toHaveBeenCalledWith('director.write_break', { segmentId: 'seg-ready' });
+        });
+
+        it('leaves a break somebody is already writing alone', async () => {
+            const { director, seed, jobs } = build({
+                canTalk: true,
+                waiting: [inFlight()],
+                segments: [{ id: 'seg-ready', kind: 'talkbreak', state: 'writing', label: 'Talk break' }],
+            });
+            await seed();
+
+            await director.start();
+
+            expect(jobs.send).not.toHaveBeenCalledWith('director.write_break', { segmentId: 'seg-ready' });
+        });
+
         it('gives up on a request whose break nothing could write', async () => {
             const { director, seed, requests } = build({
                 canTalk: true,

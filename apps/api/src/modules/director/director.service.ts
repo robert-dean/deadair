@@ -655,6 +655,12 @@ export class DirectorService {
      * and costs one indexed query per pass that answers nothing on the overwhelming majority of them.
      *
 
+     * **It is also where a lost write is asked for again.** `BreakPlanner.ripen` re-offers every
+     * `planned` break in its window on every boundary, which is what makes a dropped job free
+     * everywhere else in the director — and it cannot cover this one, because it walks the running
+     * order and a break waiting for its audio is deliberately not in it. So the re-offer lives here,
+     * on the pass that is already reading these rows.
+     *
      * **Expiry is the half that keeps this honest.** A break held back until its audio exists is a
      * break that can be held back forever, and airing one late is worse than not airing it: a
      * bulletin that took twenty minutes to write and speak is not news, and a welcome for a listener
@@ -687,6 +693,17 @@ export class DirectorService {
                     // segment row; this is only the request agreeing that it is over.
                     if (segment === undefined || segment.state === 'failed') {
                         await requests.moveTo(request.id, 'failed', ['pending', 'ready']);
+                        continue;
+                    }
+                    // Nothing has claimed it. Asked for again, exactly as `ripen` re-offers every
+                    // `planned` break in its window on every boundary: a break waiting for a slot is
+                    // the one kind `ripen` cannot cover, because it walks the running order and this
+                    // segment is deliberately outside it. Without this a write job lost to a restart
+                    // strands the request silently until it expires, which is the one failure the
+                    // whole rendered-first path exists to avoid. The claim makes a duplicate send
+                    // free, so this needs no memory of what it has already asked for.
+                    if (segment.state === 'planned') {
+                        await this.jobs.send('director.write_break', { segmentId: request.segmentId });
                         continue;
                     }
                     // Still being written or spoken: an ordinary state on most passes, since the

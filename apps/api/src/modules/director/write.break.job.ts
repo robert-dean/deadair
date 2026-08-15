@@ -11,6 +11,7 @@ import { ScriptHistoryRepository } from '#modules/render/script.history.reposito
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { BreakRequestRepository } from './break.request.repository.js';
+import { isRenderedFirst, type BreakContext, type StoredBreakRequest } from './break.request.js';
 import { BulletinSource } from './bulletin.source.js';
 import type { BreakTrack } from './break.writer.js';
 import { dayGreeting, roughTime, stationZone } from './clock.words.js';
@@ -35,12 +36,22 @@ export interface WriteBreakPayload {
 }
 
 /**
- * Write the words for a break that has already been planted.
+ * Write the words for a break the station means to say.
  *
  * The slow half of planting one. `BreakPlanner` puts the segment row and its place in the running
  * order down synchronously, because that is what keeps planting idempotent — the next pass over the
  * order sees the gap filled and plants nothing — and everything after it happens here, where nobody
  * is waiting.
+ *
+ * ## Two shapes of break reach this, and only one of them has a position
+ *
+ * A PLANTED break is in the running order before this job is sent, and its neighbours are what it is
+ * about. A break something urgently REQUESTED is the inversion: `interrupt` and `next` are rendered
+ * before they are injected, so `BreakPlanner.prepareRequested` deliberately gives the segment no
+ * position at all and `DirectorService.injectReady` finds it one once the audio exists. Both send
+ * this job, and the difference between them is the whole of why the guard below asks a second
+ * question before it defers — reading absence from the order as "too early" is right for the first
+ * and silently fatal for the second, which never appears in the order and is never re-offered.
  *
  * Nobody is waiting in the strong sense: a segment that is not `ready` when it comes round is
  * SKIPPED, never held for. So a writer that is slow, a model that is down, or this job never running
@@ -102,14 +113,23 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         //
         // So: not being in the order yet is not a failure, it is being early. The row stays
         // `planned` and the next pass offers it again, by which time the write-through has landed.
-        const neighbours = neighboursOf(lineup, segmentId);
-        if (neighbours === undefined) {
+        //
+        // Unless it is a break that WANTS no position, which is the other shape described on the
+        // class. That question is asked only on this branch, so an ordinary planted break — every
+        // break on most stations — costs the walk above and no extra query at all.
+        const found = neighboursOf(lineup, segmentId);
+        const request = found === undefined ? await this.requestBehind(segmentId) : undefined;
+        if (found === undefined && !(request !== undefined && isRenderedFirst(request.urgency))) {
             this.logger.info('director: this break is not in the running order yet, so it will be written on a later pass', {
                 job: this.context.id,
                 segment: segmentId,
             });
             return;
         }
+
+        // A break with no position genuinely has no neighbours, which is a shape every writer
+        // already answers for: it is the same pair a break at the head of an order is handed.
+        const neighbours: Neighbours = found ?? {};
 
         // Claimed rather than read, so two runs cannot both write the same break: only one
         // `planned → writing` wins and the loser stops here. That is what makes a duplicate send
@@ -150,7 +170,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // carried in the payload, for the reason the neighbours are: the row is the record, and a job
         // re-sent after a restart has to be able to find out what it is writing about. A break the
         // station planted for itself has no request and no context, which is most of them.
-        const context = segment.requestId === undefined ? undefined : (await this.requests.findById(segment.requestId))?.context;
+        const context = await this.contextFor(segment.requestId, request);
 
         // What a bulletin has to report, for the kinds that report. `undefined` for every other
         // kind, which is how the branch about news stays inside a file about news: this job serves
@@ -255,6 +275,43 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     }
 
     /**
+     * The request this break is being made for, or `undefined` for one the station planted itself.
+     *
+     * Asked only of a segment the running order does not hold, which is what keeps it off the path
+     * every ordinary break takes. Two indexed reads, and both are worth it there: the alternative is
+     * a welcome that is never written because it was mistaken for one written too soon.
+     *
+     * A read that FAILS answers `undefined`, which defers rather than writes. That is the safe way
+     * round: deferring a break that should have been written costs it one pass, and writing one that
+     * really was early costs every talk break its neighbours.
+     */
+    private async requestBehind(segmentId: string): Promise<StoredBreakRequest | undefined> {
+        try {
+            const segment = await this.segments.findById(segmentId);
+            if (segment?.requestId === undefined) return undefined;
+
+            return await this.requests.findById(segment.requestId);
+        } catch (error) {
+            this.logger.warn(`director: could not tell whether this break is waiting for a slot (${errorText(error)})`);
+            return undefined;
+        }
+    }
+
+    /**
+     * What the break is about, without reading the request row twice.
+     *
+     * {@link requestBehind} has already fetched it on the one path that runs, so this is a lookup
+     * only for a break that WAS in the order — which is every planted break, and none of them has a
+     * request at all.
+     */
+    private async contextFor(requestId: string | undefined, known: StoredBreakRequest | undefined): Promise<BreakContext | undefined> {
+        if (requestId === undefined) return undefined;
+        if (known?.id === requestId) return known.context;
+
+        return (await this.requests.findById(requestId))?.context;
+    }
+
+    /**
      * Put whatever the station knows about these two records onto them, in place.
      *
      * Best-effort in the same sense `remember` below is: a fact is what makes a break better and
@@ -353,8 +410,11 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
  *
  * `undefined` for a break the order does not hold AT ALL, which is a different answer entirely and
  * the reason this does not just return an empty pair: a break with no neighbours is one at the edge
- * of an order, and a break the order has never heard of is one this job is too early for. Answering
- * the same thing for both is how every talk break ends up saying only the station's name.
+ * of an order, and a break the order has never heard of is one whose position this cannot speak for.
+ * Answering the same thing for both is how every talk break ends up saying only the station's name.
+ *
+ * Which of the two reasons a break is absent for — too early, or not placed yet on purpose — is a
+ * question about the REQUEST behind it and not about the order, so it is answered by the caller.
  */
 function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | undefined {
     const items = lineup.all();

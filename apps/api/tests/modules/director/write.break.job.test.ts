@@ -54,6 +54,9 @@ function harness(
 ) {
     const segments = {
         claimForWrite: vi.fn(async () => ('segment' in options ? options.segment : planned())),
+        // Read only for a segment the order does not hold, which is how the job tells a break that
+        // is early from one that is deliberately waiting for its audio before it takes a slot.
+        findById: vi.fn(async () => ('segment' in options ? options.segment : planned())),
         recentScripts: vi.fn(async () => []),
         writeScript: vi.fn(async () => options.wrote ?? true),
         markFailed: vi.fn(async () => {}),
@@ -351,6 +354,89 @@ describe('WriteBreakJob', () => {
                 next: { title: 'Pink Moon', artist: 'Nick Drake' },
             }),
         );
+    });
+
+    describe('a break the running order does not hold', () => {
+        /** The same two records, and no break planted between them. */
+        const withoutBreak = (): StationLineup => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+            return lineup;
+        };
+
+        const request = (urgency: StoredBreakRequest['urgency']): StoredBreakRequest => ({
+            id: 'req-1',
+            kind: 'welcome',
+            urgency,
+            source: 'audience',
+            state: 'pending',
+        });
+
+        it('writes one that is waiting for its audio before it has a slot', async () => {
+            // `interrupt` and `next` are rendered BEFORE they are injected, so having no position is
+            // the whole design rather than a race. Deferring one is fatal and silent: nothing ever
+            // re-offers a segment the order does not hold, so it sits `planned` until it expires.
+            const { job, segments, writers, jobs } = harness({
+                lineup: withoutBreak(),
+                segment: planned({ kind: 'welcome', requestId: 'req-1' }),
+                request: request('next'),
+                written: {
+                    written: { script: "You're listening to deadair.", label: 'Welcome' },
+                    writer: 'deterministic',
+                    attempts: [{ writer: 'deterministic', outcome: 'written', durationMs: 1 }],
+                },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            // No neighbours at all, which is a shape the writers already answer for.
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ previous: expect.anything(), next: expect.anything() }));
+            expect(segments.writeScript).toHaveBeenCalledWith('seg-1', {
+                script: "You're listening to deadair.",
+                label: 'Welcome',
+                writer: 'deterministic',
+            });
+            expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
+        });
+
+        it('reads the request once, not once for the guard and again for the context', async () => {
+            const { job, requests } = harness({
+                lineup: withoutBreak(),
+                segment: planned({ kind: 'welcome', requestId: 'req-1' }),
+                request: request('next'),
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(requests.findById).toHaveBeenCalledTimes(1);
+        });
+
+        it('still defers one whose urgency takes an ordinary slot', async () => {
+            // A `soon` or `whenever` request is planted like any other break and written through
+            // before its job is sent, so absence from the order really is being early.
+            const { job, segments, writers } = harness({
+                lineup: withoutBreak(),
+                segment: planned({ requestId: 'req-1' }),
+                request: request('whenever'),
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).not.toHaveBeenCalled();
+            expect(segments.claimForWrite).not.toHaveBeenCalled();
+        });
+
+        it('still defers a planted break the write-through has not landed for', async () => {
+            // The race the guard was built for: the order is persisted through a throttle, so a
+            // break can be planted, offered and picked up here before the row anybody can read
+            // holds it. Claiming now would write a break that knows neither of its neighbours.
+            const { job, segments, writers } = harness({ lineup: withoutBreak() });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).not.toHaveBeenCalled();
+            expect(segments.claimForWrite).not.toHaveBeenCalled();
+        });
     });
 
     describe('what the station knows about the records', () => {

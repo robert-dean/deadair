@@ -64,3 +64,7 @@ points at that file. Checked against the tree on 2026-08-11.
 - [ ] integrate with genuis for enrichment
 - [x] drop the plugin kind and only use capabilities — done; a manifest has one axis and
       `plugin.manifest.ts` records why
+- [ ] fix the render race on plugin reload — scoped in `render-plugin-readiness.md`, with the log
+      line. A `render.segment` job that runs while the speech plugin is initializing writes the
+      break off as `failed`; a planted one burns a retry and a break waiting for its audio is lost
+      outright. The race is fine, the write-off is not

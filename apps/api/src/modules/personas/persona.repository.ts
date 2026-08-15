@@ -45,8 +45,8 @@ export class PersonaRepository extends DataRepository {
             .selectFrom('deadair.personas')
             .selectAll()
             .where('stationKey', '=', this.station.stationKey)
-            .orderBy('createdAt asc')
-            .orderBy('key asc')
+            .orderBy('createdAt', 'asc')
+            .orderBy('key', 'asc')
             .execute();
 
         return rows.map(toPersona);

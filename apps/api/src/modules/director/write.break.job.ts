@@ -10,6 +10,7 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { BreakRequestRepository } from './break.request.repository.js';
 import type { BreakTrack } from './break.writer.js';
 import { roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
@@ -61,6 +62,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     constructor(
         private readonly order: StationLineupRepository,
         private readonly segments: SegmentRepository,
+        private readonly requests: BreakRequestRepository,
         private readonly history: ScriptHistoryRepository,
         private readonly writers: BreakWriterRegistry,
         private readonly enrichment: EnrichmentReadService,
@@ -137,9 +139,16 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // before personas existed.
         const persona = await this.personas.presenting(lineup.personaId);
 
+        // What this break is about, for a break something asked for. Read off the row rather than
+        // carried in the payload, for the reason the neighbours are: the row is the record, and a job
+        // re-sent after a restart has to be able to find out what it is writing about. A break the
+        // station planted for itself has no request and no context, which is most of them.
+        const context = segment.requestId === undefined ? undefined : (await this.requests.findById(segment.requestId))?.context;
+
         const result = await this.writers.write({
             kind: segment.kind,
             ...(clock === undefined ? {} : { clock }),
+            ...(context === undefined ? {} : { context }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),

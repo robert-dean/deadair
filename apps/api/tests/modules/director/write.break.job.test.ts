@@ -4,6 +4,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { WriteBreakJob } from '../../../src/modules/director/write.break.job.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
@@ -44,6 +45,8 @@ function harness(
         factsThrow?: boolean;
         /** The persona on air, for the one test about handing it to the writers. */
         persona?: Persona;
+        /** The request this break was made for, for the one test about handing its context over. */
+        request?: StoredBreakRequest;
     } = {},
 ) {
     const segments = {
@@ -53,6 +56,9 @@ function harness(
         markFailed: vi.fn(async () => {}),
     };
     const lineups = { load: vi.fn(async () => options.lineup) };
+    // What a break was asked for, for one that came from a request. Read only when the segment names
+    // one, so an ordinary planted break never reaches this.
+    const requests = { findById: vi.fn(async () => options.request) };
     const history = {
         recordAll: vi.fn(async (_writes: readonly ScriptWrite[]) => options.historyThrows && Promise.reject(new Error('the history table is gone'))),
     };
@@ -79,6 +85,7 @@ function harness(
     const job = new WriteBreakJob(
         lineups as never,
         segments as never,
+        requests as never,
         history as never,
         writers as never,
         enrichment as never,
@@ -91,7 +98,7 @@ function harness(
         logger as never,
     );
 
-    return { job, segments, lineups, history, writers, enrichment, personas, jobs, logger, activity };
+    return { job, segments, lineups, requests, history, writers, enrichment, personas, jobs, logger, activity };
 }
 
 describe('WriteBreakJob', () => {
@@ -122,6 +129,29 @@ describe('WriteBreakJob', () => {
         await bare.job.run({ segmentId: 'seg-1' });
 
         expect(bare.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ persona: expect.anything() }));
+    });
+
+    it('hands the writers what a requested break is about, and asks nothing for a planted one', async () => {
+        // Read off the row rather than carried in the payload, for the reason the neighbours are: a
+        // job re-sent after a restart has to be able to find out what it is writing about.
+        const context = { headline: 'the bridge is shut' };
+        const { job, writers, requests } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ requestId: 'req-1' }),
+            request: { id: 'req-1', kind: 'news', urgency: 'interrupt', source: 'operator', state: 'pending', context },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(requests.findById).toHaveBeenCalledWith('req-1');
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ context }));
+
+        // The station's own planted break, which is most of them: no request, so no read at all.
+        const planted = harness({ lineup: await lineupWithBreak() });
+        await planted.job.run({ segmentId: 'seg-1' });
+
+        expect(planted.requests.findById).not.toHaveBeenCalled();
+        expect(planted.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }));
     });
 
     it('asks who is presenting THIS broadcast, not who the station is', async () => {

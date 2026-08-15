@@ -28,6 +28,7 @@
  */
 
 import type { Persona } from '#modules/personas/persona.js';
+import type { BreakContext } from './break.request.js';
 import type { RoughTime } from './clock.words.js';
 
 /** A record, as a writer sees one. */
@@ -97,6 +98,18 @@ export interface BreakWriteRequest {
      * to avoid repeating a signature line, which is why it is scripts and not template names.
      */
     recent?: readonly string[];
+    /**
+     * What this break is ABOUT, when something asked for it and said.
+     *
+     * Present only for a break that came from a `BreakRequest`, and absent even then unless the
+     * producer had something to hand over: a welcome needs nothing but the fact that it is a welcome,
+     * and the station's own planted breaks have no request at all.
+     *
+     * Read by the writer for the kind and nobody else. A writer knows what its own kind's context
+     * looks like, reads what it expects and ignores the rest, which is what lets this be one field
+     * rather than a union that grows with every kind.
+     */
+    context?: BreakContext;
     /**
      * What time this break was placed for, as words and as the window they stay true in.
      *

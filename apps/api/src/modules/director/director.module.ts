@@ -4,6 +4,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { BreakPlanner } from './break.planner.js';
+import { BreakRequestRepository } from './break.request.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
@@ -40,6 +41,10 @@ export const DirectorModule: ServerKitModule = {
         registry.register(StationAirRepository).useClass(StationAirRepository).asScoped();
         registry.register(PlayHistoryRepository).useClass(PlayHistoryRepository).asScoped();
         registry.register(CandidatesRepository).useClass(CandidatesRepository).asScoped();
+        // What the station has been asked to say, as opposed to what its own rules decided. Scoped
+        // like the rest: the director opens a scope per unit of work and the render job gets one per
+        // execution, and both write these rows.
+        registry.register(BreakRequestRepository).useClass(BreakRequestRepository).asScoped();
 
         // The selection seam, and its ranking. Shaped exactly like the writer seam below and for
         // the same reason: several bindings may choose what the station plays, THIS ORDER is the

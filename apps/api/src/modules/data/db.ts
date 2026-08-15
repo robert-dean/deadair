@@ -204,6 +204,23 @@ export interface DeadairArtistSources {
   uri: string | null;
 }
 
+export interface DeadairBreakRequests {
+  broadcastId: string | null;
+  context: Json | null;
+  createdAt: Generated<DateTime>;
+  dedupeKey: string | null;
+  expiresAt: DateTime | null;
+  id: Generated<string>;
+  kind: string;
+  reason: string | null;
+  segmentId: string | null;
+  source: string;
+  state: Generated<"pending" | "ready" | "placed" | "expired" | "failed">;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+  urgency: "interrupt" | "next" | "soon" | "whenever";
+}
+
 export interface DeadairLoginEvents {
   actorId: string;
   factorId: string | null;
@@ -379,6 +396,7 @@ export interface DeadairSegments {
   kind: Generated<string>;
   label: string;
   personaId: string | null;
+  requestId: string | null;
   script: string | null;
   source: Generated<string>;
   sourcePath: string | null;
@@ -532,6 +550,7 @@ export interface DB {
   "deadair.artistEnrichment": DeadairArtistEnrichment;
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
+  "deadair.breakRequests": DeadairBreakRequests;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;

@@ -75,6 +75,15 @@ export interface Segment {
      * {@link claimsItemId} is. Both ends together or neither.
      */
     claimsTime?: { from: number; until: number };
+    /**
+     * The request this break was made for, when something asked for it.
+     *
+     * Absent for a break the station planted for itself, which is most of them: the spacing rules
+     * are a function of the running order and need nothing written down. A request is the opposite —
+     * it exists because something happened outside the order — and this is how a break gets back to
+     * the reason it exists, which is what the writer for its kind is given.
+     */
+    requestId?: string;
 }
 
 /**
@@ -115,6 +124,8 @@ export interface PlannedSegment {
     reason?: string;
     /** When a rule on the station clock placed this. See {@link Segment.airsAt}. */
     airsAt?: number;
+    /** The request that asked for this break. See {@link Segment.requestId}. */
+    requestId?: string;
 }
 
 /** What the renderer writes back when it worked. */
@@ -155,6 +166,7 @@ interface SegmentRow {
     airsAt: DateTime | null;
     claimsTimeFrom: DateTime | null;
     claimsTimeUntil: DateTime | null;
+    requestId: string | null;
 }
 
 const SEGMENT_COLUMNS = [
@@ -175,6 +187,7 @@ const SEGMENT_COLUMNS = [
     'airsAt',
     'claimsTimeFrom',
     'claimsTimeUntil',
+    'requestId',
 ] as const;
 
 /**
@@ -226,6 +239,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.voice == null ? {} : { voice: row.voice }),
         ...(row.writer == null ? {} : { writer: row.writer }),
         ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),
+        ...(row.requestId == null ? {} : { requestId: row.requestId }),
         ...(millisOf(row.airsAt) === undefined ? {} : { airsAt: millisOf(row.airsAt)! }),
         ...(millisOf(row.claimsTimeFrom) === undefined || millisOf(row.claimsTimeUntil) === undefined
             ? {}
@@ -373,6 +387,7 @@ export class SegmentRepository extends DataRepository {
                 voice: planned.voice ?? null,
                 writer: planned.writer ?? null,
                 airsAt: planned.airsAt === undefined ? null : instant(planned.airsAt),
+                requestId: planned.requestId ?? null,
                 source: RENDER_SOURCE,
                 state,
             })

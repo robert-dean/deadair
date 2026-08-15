@@ -39,6 +39,7 @@ import { PlayoutPusher } from '../src/modules/playout/playout.pusher.js';
 import { Rundown, type RundownItem } from '../src/modules/playout/rundown.js';
 import { TrackResolver } from '../src/modules/playout/playout.capability.js';
 import { Heartbeat } from '../src/modules/shared/heartbeat.js';
+import { StationBus } from '../src/modules/shared/station.bus.js';
 
 /** Container-side uris to air. Defaults to the ident, which the image always has. */
 const URIS = process.argv.slice(2).length > 0 ? process.argv.slice(2) : ['file:///radio/station-id.mp3', 'file:///radio/station-id.mp3'];
@@ -128,7 +129,7 @@ rundown.prepare(order.all().flatMap(item => (isTrackItem(item) ? [{ ...item.trac
 // The pusher will not hand anything over unless the audience gate is open, so this needs
 // a real watch: `always` mode opens it permanently, which is what a smoke test wants and
 // what an operator listening for it would otherwise have to provide in person.
-const audience = new AudienceWatch(stats, new IcecastEventFeed(stats, quiet), config, new Heartbeat(), quiet);
+const audience = new AudienceWatch(stats, new IcecastEventFeed(stats, quiet), config, new Heartbeat(), new StationBus(quiet), quiet);
 const pusher = new PlayoutPusher(rundown, control, audience, config, new Heartbeat(), logger);
 
 // Started before the gate is judged, and then given a moment: `gateOpen()` answers from

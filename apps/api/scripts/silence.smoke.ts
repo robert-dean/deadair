@@ -49,6 +49,7 @@ import { LiquidsoapEndpoint } from '../src/modules/playout/liquidsoap.endpoint.j
 import { PlayoutControlClient } from '../src/modules/playout/liquidsoap.control.js';
 import { diagnose, type StationFacts } from '../src/modules/playout/silence.diagnosis.js';
 import { Heartbeat, HEARTBEATS } from '../src/modules/shared/heartbeat.js';
+import { StationBus } from '../src/modules/shared/station.bus.js';
 
 const WATCH = process.argv.includes('--watch');
 /**
@@ -112,7 +113,7 @@ stats.useMount({
 if (BLIND) console.log(`--blind: asking ${stream.icecastHost}:${CLOSED_PORT} instead of ${stream.icecastPort}. The real icecast is untouched.`);
 
 const heartbeat = new Heartbeat();
-const audience = new AudienceWatch(stats, new IcecastEventFeed(stats, quiet), config, heartbeat, quiet);
+const audience = new AudienceWatch(stats, new IcecastEventFeed(stats, quiet), config, heartbeat, new StationBus(quiet), quiet);
 
 const endpoint = new LiquidsoapEndpoint(config, quiet);
 endpoint.useSecret(stream.playoutBridgeSecret ?? '');

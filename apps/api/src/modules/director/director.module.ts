@@ -7,6 +7,7 @@ import { BreakPlanner } from './break.planner.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
+import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
 import { WelcomeWriter } from './welcome.writer.js';
@@ -103,6 +104,7 @@ export const DirectorModule: ServerKitModule = {
         // decline. So the station's own words stay the floor by being the final entry.
         registry.register(ModelTalkBreakWriter).useClass(ModelTalkBreakWriter).asScoped();
         registry.register(TalkBreakWriter).useClass(TalkBreakWriter).asScoped();
+        registry.register(ModelWelcomeWriter).useClass(ModelWelcomeWriter).asScoped();
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
         registry
             .register(BreakWriterRegistry)
@@ -114,9 +116,15 @@ export const DirectorModule: ServerKitModule = {
                         // the line below it, and the line below it cannot fail.
                         // The welcome is a second KIND rather than a third writer of the first: a
                         // greeting looks forward and a talk break looks back, so a writer for one is
-                        // wrong for the other whatever it is handed. It has no model binding in front
-                        // of it yet, so it is both front and floor.
-                        [container.get(ModelTalkBreakWriter), container.get(TalkBreakWriter), container.get(WelcomeWriter)],
+                        // wrong for the other whatever it is handed. Each kind is ranked the same
+                        // way within itself — the model in front, the station's own words as the
+                        // floor behind it.
+                        [
+                            container.get(ModelTalkBreakWriter),
+                            container.get(TalkBreakWriter),
+                            container.get(ModelWelcomeWriter),
+                            container.get(WelcomeWriter),
+                        ],
                         container.get(Logger),
                     ),
             )

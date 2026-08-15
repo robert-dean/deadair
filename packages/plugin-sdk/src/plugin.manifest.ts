@@ -64,6 +64,17 @@ export const PLUGIN_CAPABILITY_ANALYSIS = 'analysis';
 export const PLUGIN_CAPABILITY_CHARTS = 'charts';
 
 /**
+ * The plugin can say what happened outside the station: a feed in, published
+ * entries out.
+ *
+ * Separate from {@link PLUGIN_CAPABILITY_CHARTS} even though both read somebody
+ * else's document, because what comes back is not about records at all. A chart
+ * entry is a name the pick path can turn into something that airs; a news item
+ * is a fact, and the only thing that can be done with it is say it.
+ */
+export const PLUGIN_CAPABILITY_NEWS = 'news';
+
+/**
  * The plugin can say who else sounds like this: an artist in, artists out.
  *
  * Separate from {@link PLUGIN_CAPABILITY_ENRICHMENT} for the reason
@@ -93,6 +104,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_ANALYSIS,
     PLUGIN_CAPABILITY_CHARTS,
+    PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SCROBBLE,
 ] as const;

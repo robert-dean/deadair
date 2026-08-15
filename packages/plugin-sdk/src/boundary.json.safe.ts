@@ -38,6 +38,7 @@
 
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
+import type { NewsFeedDescriptor, NewsItem, NewsQuery } from './capabilities/news.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
 import type {
@@ -174,6 +175,9 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ChartDescriptor: IsJsonSafe<ChartDescriptor>;
     ChartQuery: IsJsonSafe<ChartQuery>;
     ChartEntry: IsJsonSafe<ChartEntry>;
+    NewsFeedDescriptor: IsJsonSafe<NewsFeedDescriptor>;
+    NewsQuery: IsJsonSafe<NewsQuery>;
+    NewsItem: IsJsonSafe<NewsItem>;
     SimilarArtist: IsJsonSafe<SimilarArtist>;
     ArtistTrack: IsJsonSafe<ArtistTrack>;
     ScrobblePlay: IsJsonSafe<ScrobblePlay>;
@@ -228,6 +232,9 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ChartDescriptor',
     'ChartQuery',
     'ChartEntry',
+    'NewsFeedDescriptor',
+    'NewsQuery',
+    'NewsItem',
     'SimilarArtist',
     'ArtistTrack',
     'ScrobblePlay',
@@ -264,6 +271,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'LlmPluginInstance',
     'AnalysisProvider',
     'ChartsProvider',
+    'NewsProvider',
     'SimilarityProvider',
     'ScrobbleProvider',
 ] as const;

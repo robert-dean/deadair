@@ -4,6 +4,7 @@ import {
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
+    PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_SCROBBLE,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SPEECH,
@@ -15,6 +16,7 @@ import {
     type EnrichmentPluginInstance,
     type LlmPluginInstance,
     type MusicProviderPluginInstance,
+    type NewsPluginInstance,
     type PluginManifest,
     type SpeechPluginInstance,
 } from '@deadair/plugin-sdk';
@@ -256,6 +258,41 @@ export const asChartsPlugin = (record: PluginRecord): ChartsPlugin | undefined =
     if (!implementsCharts(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as ChartsPluginInstance };
+};
+
+/**
+ * Both methods earn the `news` capability, on {@link CHARTS_METHODS}'s argument
+ * exactly: a feed id is scoped to the plugin that minted it, so a plugin that
+ * fetches without listing is unreachable and one that lists without fetching is
+ * a menu with no kitchen.
+ */
+export const NEWS_METHODS = ['listFeeds', 'fetchItems'] as const satisfies ReadonlyArray<keyof NewsPluginInstance>;
+
+/** A plugin narrowed to "can say what happened outside the station". */
+export interface NewsPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: NewsPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `news` capability. */
+export const implementsNews = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_NEWS)) return false;
+    return NEWS_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The news-capable view of a record, or `undefined` when it is not one.
+ *
+ * No `priority`, for {@link asChartsPlugin}'s reason rather than
+ * {@link asSpeechPlugin}'s: two news services are two newsrooms, and ranking
+ * them would be the host deciding which account of an event is the true one.
+ */
+export const asNewsPlugin = (record: PluginRecord): NewsPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsNews(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as NewsPluginInstance };
 };
 
 /** The one method that earns the `scrobble` capability. */

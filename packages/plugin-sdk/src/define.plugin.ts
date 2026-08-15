@@ -1,6 +1,7 @@
 import type { ChartsProvider } from './capabilities/charts.js';
 import type { EnrichmentProvider } from './capabilities/enrichment.js';
 import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
+import type { NewsProvider } from './capabilities/news.js';
 import type { ScrobbleProvider } from './capabilities/scrobble.js';
 import type { SimilarityProvider } from './capabilities/similarity.js';
 import type { PluginManifest } from './plugin.manifest.js';
@@ -40,6 +41,9 @@ export type EnrichmentPluginInstance = PluginLifecycle & EnrichmentProvider;
 
 /** Instance shape for a `charts` plugin. */
 export type ChartsPluginInstance = PluginLifecycle & ChartsProvider;
+
+/** Instance shape for a `news` plugin. */
+export type NewsPluginInstance = PluginLifecycle & NewsProvider;
 
 /** Instance shape for a `similarity` plugin. */
 export type SimilarityPluginInstance = PluginLifecycle & SimilarityProvider;

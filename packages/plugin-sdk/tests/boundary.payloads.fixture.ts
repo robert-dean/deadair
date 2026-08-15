@@ -19,6 +19,7 @@ import type { SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
 import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/llm.js';
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from '../src/capabilities/analysis.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from '../src/capabilities/charts.js';
+import type { NewsFeedDescriptor, NewsItem, NewsQuery } from '../src/capabilities/news.js';
 import type { ArtistTrack, SimilarArtist } from '../src/capabilities/similarity.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from '../src/capabilities/scrobble.js';
 
@@ -390,6 +391,37 @@ export const chartEntryFixture: ChartEntry = {
     year: 1981,
     peak: 1,
     weeksOn: 14,
+};
+
+export const newsFeedDescriptorFixture: NewsFeedDescriptor = {
+    id: 'world',
+    name: 'World news',
+    category: 'world',
+    language: 'en',
+    description: 'Headlines from around the world.',
+    pollHintMs: 300_000,
+};
+
+/** `since` is an ISO-8601 string, never a `Date`: it is how a caller asks what is new. */
+export const newsQueryFixture: NewsQuery = {
+    feedId: 'world',
+    limit: 25,
+    since: '2026-08-15T09:00:00.000Z',
+};
+
+/**
+ * `summary` is plain text, deliberately: a fixture carrying markup would round-trip perfectly well
+ * and would document the opposite of the rule, which is that nothing downstream strips tags.
+ */
+export const newsItemFixture: NewsItem = {
+    id: 'urn:example:1',
+    feedId: 'world',
+    feedName: 'World news',
+    title: 'Bridge reopens after four years',
+    summary: 'The crossing reopened this morning and traffic is moving.',
+    url: 'https://example.com/bridge',
+    publishedAt: '2026-08-15T08:41:00.000Z',
+    categories: ['Local', 'Transport'],
 };
 
 /** Carries both ids, since a source that knows an MBID and its own id should hand over both. */

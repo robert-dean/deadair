@@ -31,7 +31,7 @@
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import { keepsCharacter, personaLines, personaVoiceReminder, type PersonaSheet } from '#modules/personas/persona.sheet.js';
-import type { BreakTrack, BreakWriteRequest } from './break.writer.js';
+import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 
 /**
  * What makes one KIND of break's prompt different from another's.
@@ -207,6 +207,24 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // A bulletin's substrate, and the strictest rules in this file sit on it. Rendered whenever the
+    // request carries stories rather than behind a flag on the shape, exactly as the clock and the
+    // recent scripts are: what the prompt says is a function of what the moment holds.
+    if (request.stories && request.stories.length > 0) {
+        parts.push(['The stories to report, in this order:', ...request.stories.map(describeStory)].join('\n'));
+        // The one place a model is told it may not paraphrase. Every other rule here is about a
+        // record, where the worst case is an awkward sentence about music; here the worst case is
+        // the station stating something false as news in a confident voice, which no listener can
+        // check and no later break can take back. So: no detail that is not written down, no
+        // consequences, no opinion, and nothing joined into one story that arrived as two.
+        parts.push(
+            'Read these as news. Say only what each story actually says: do not add detail, do not explain what it means, ' +
+                'do not say what will happen next, and do not merge two stories into one. ' +
+                "The summaries are the publisher's own wording — use them to know what happened, not as lines to read out. " +
+                'If a story is unclear, leave it out rather than guessing at it. Do not say how you feel about any of it.',
+        );
+    }
+
     if (request.recent && request.recent.length > 0) {
         parts.push(
             ['You said these recently. Do not reuse their opening or their shape:', ...request.recent.map(script => `- ${script}`)].join('\n'),
@@ -241,6 +259,22 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
 function describe(track: BreakTrack): string {
     const lines = [`- Title: ${track.title}`, `- Artist: ${track.artist}`];
     if (track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
+    return lines.join('\n');
+}
+
+/**
+ * One story, as the model is shown it.
+ *
+ * The headline first and on its own line, because it is the part that may be read more or less as
+ * it stands — it is a published sentence somebody else already stands behind. The summary is
+ * labelled as background rather than as copy, which is what the rule beside it then leans on.
+ */
+function describeStory(story: BreakStory): string {
+    const lines = [`- Headline: ${story.headline}`];
+    if (story.summary) lines.push(`  Background: ${story.summary}`);
+    // Deliberately not offered as something to say. Attribution is a station's own decision — some
+    // read it, some never do — and a model shown a publisher's name will credit it in a sentence
+    // the operator never asked for.
     return lines.join('\n');
 }
 

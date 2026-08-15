@@ -62,6 +62,27 @@ export interface BreakTrack {
     facts?: readonly string[];
 }
 
+/**
+ * One published story, as a writer sees one.
+ *
+ * The news equivalent of {@link BreakTrack.facts}, and it follows the same rule for the same
+ * reason: the CALLER fetches it, and what arrives here is already speakable. The headline has had
+ * the publisher's furniture taken off it ("Bridge reopens — BBC News" is a real shape and is not a
+ * sentence anybody says out loud), the count is already capped, and the staleness has already been
+ * judged. A writer that had to decide any of that would be deciding it differently from the writer
+ * beside it, and the floor would be doing network I/O.
+ */
+export interface BreakStory {
+    /** The headline, ready to be read aloud. */
+    headline: string;
+    /** The publisher's own summary, as plain text. Raw material for a model, never read verbatim. */
+    summary?: string;
+    /** Which feed carried it, for a bulletin that attributes. Absent when there is nothing to say. */
+    source?: string;
+    /** ISO-8601, when the publisher gave one. For a writer that wants to say how fresh this is. */
+    publishedAt?: string;
+}
+
 /** What a writer is told before it writes. */
 export interface BreakWriteRequest {
     /** Which sort of break this is. The same string as `segments.kind`. */
@@ -110,6 +131,20 @@ export interface BreakWriteRequest {
      * rather than a union that grows with every kind.
      */
     context?: BreakContext;
+    /**
+     * What the station has to REPORT, for a kind of break that reports.
+     *
+     * Present only for a bulletin, and the same shape whichever writer takes it. Absent means there
+     * is nothing to read — a station with no news plugin, a publisher that is down, or nothing
+     * published since the last bulletin — and a writer for a reporting kind must then DECLINE
+     * rather than fill the slot, because a bulletin with no stories in it is a presenter saying
+     * "and now the news" to silence.
+     *
+     * Separate from {@link context} even though a requested bulletin could carry stories there:
+     * this arrives the same way for a break the station clock planted and one something asked for,
+     * and a writer having to read its own substrate out of two places is how the two drift.
+     */
+    stories?: readonly BreakStory[];
     /**
      * What time this break was placed for, as words and as the window they stay true in.
      *

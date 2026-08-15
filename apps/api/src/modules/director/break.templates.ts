@@ -58,6 +58,19 @@ export interface TemplateInputs {
      */
     clock?: string;
     /**
+     * The stories of a bulletin, already assembled into sentences.
+     *
+     * One value rather than a list, because a template is a sentence with holes in it and has no
+     * loops — see the header. What goes in the hole is the whole read, built by the writer for the
+     * kind, so an operator's phrasing decides what is said AROUND the news and never how many
+     * stories there are.
+     *
+     * Absent for every break that is not a bulletin, which is nearly all of them, so a phrasing
+     * naming it is simply not used elsewhere. That is the same no-branch-needed behaviour
+     * {@link clock} has.
+     */
+    news?: string;
+    /**
      * How the station greets somebody at this hour: "good morning", "good evening".
      *
      * Absent in the small hours, where the station greets nobody by name of day, and absent for
@@ -143,6 +156,10 @@ const VALUES: Record<string, Resolver> = {
     // catalogue furniture to strip. The filter there excludes it already, by naming the two
     // prefixes that ARE read as titles, so this needs nothing.
     'clock.rough': inputs => inputs.clock,
+    // Out of `SPOKEN_VALUES` for the same reason as the two around it: the stories arrive already
+    // speakable (see `BreakStory.headline`), and `spoken` strips catalogue furniture off a TITLE,
+    // which would be the wrong operation entirely on a sentence.
+    'news.headlines': inputs => inputs.news,
     // Out of `SPOKEN_VALUES` for `clock.rough`'s reason, which the filter below already gets right by
     // naming the two prefixes that ARE read as titles: "good morning" has no catalogue furniture.
     greeting: inputs => inputs.greeting,

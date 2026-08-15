@@ -168,6 +168,48 @@ describe('breakPrompt', () => {
 
     // What a KIND may change, and what it may not. The shared half is everything that keeps a break
     // truthful, and no shape can opt out of it.
+    describe('the stories, for a break that reports', () => {
+        const stories = [
+            { headline: 'Bridge reopens after four years.', summary: 'It reopened this morning.' },
+            { headline: 'Council votes and adjourns.' },
+        ];
+
+        it('lists them in the order they were given', () => {
+            const said = user(prompt({ kind: 'news', stories }));
+
+            expect(said).toContain('Bridge reopens after four years.');
+            expect(said.indexOf('Bridge reopens')).toBeLessThan(said.indexOf('Council votes'));
+        });
+
+        it('offers a summary as background rather than as a line to read out', () => {
+            const said = user(prompt({ kind: 'news', stories }));
+
+            expect(said).toContain('Background: It reopened this morning.');
+            expect(said).toMatch(/not as lines to read out/i);
+        });
+
+        it('bans the ways a model gets news wrong: adding, explaining, predicting, merging', () => {
+            const said = user(prompt({ kind: 'news', stories }));
+
+            expect(said).toMatch(/do not add detail/i);
+            expect(said).toMatch(/do not explain what it means/i);
+            expect(said).toMatch(/do not say what will happen next/i);
+            expect(said).toMatch(/do not merge two stories/i);
+        });
+
+        it('says nothing about stories for a break that has none, because a rule about nothing is noise', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next }));
+
+            expect(said).not.toMatch(/Read these as news/i);
+        });
+
+        it('does not offer the publisher as something to credit', () => {
+            const said = user(prompt({ kind: 'news', stories: [{ headline: 'Bridge reopens.', source: 'World news' }] }));
+
+            expect(said).not.toContain('World news');
+        });
+    });
+
     describe('a kind bringing its own shape', () => {
         const greeting = {
             job: 'You greet somebody who has just tuned in.',

@@ -11,6 +11,7 @@ import { ScriptHistoryRepository } from '#modules/render/script.history.reposito
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { BreakRequestRepository } from './break.request.repository.js';
+import { BulletinSource } from './bulletin.source.js';
 import type { BreakTrack } from './break.writer.js';
 import { dayGreeting, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
@@ -66,6 +67,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly history: ScriptHistoryRepository,
         private readonly writers: BreakWriterRegistry,
         private readonly enrichment: EnrichmentReadService,
+        private readonly bulletin: BulletinSource,
         private readonly personas: PersonaRepository,
         private readonly activity: ActivityRecorder,
         private readonly jobs: PgBossJobBroker,
@@ -150,11 +152,20 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // station planted for itself has no request and no context, which is most of them.
         const context = segment.requestId === undefined ? undefined : (await this.requests.findById(segment.requestId))?.context;
 
+        // What a bulletin has to report, for the kinds that report. `undefined` for every other
+        // kind, which is how the branch about news stays inside a file about news: this job serves
+        // every kind and knowing which of them read the headlines is not its business. Fetched
+        // AFTER the claim for the facts' reason — a job that was merely early does no work at all —
+        // and against the moment the break was placed for rather than now, so a bulletin written a
+        // quarter of an hour early is judged fresh against the slot it will actually air in.
+        const stories = await this.bulletin.storiesFor(segment.kind, segment.airsAt ?? Date.now());
+
         const result = await this.writers.write({
             kind: segment.kind,
             ...(clock === undefined ? {} : { clock }),
             ...(greeting === undefined ? {} : { greeting }),
             ...(context === undefined ? {} : { context }),
+            ...(stories === undefined ? {} : { stories }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),

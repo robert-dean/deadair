@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
+import type { BreakStory } from '../../../src/modules/director/break.writer.js';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { WriteBreakJob } from '../../../src/modules/director/write.break.job.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
@@ -47,6 +48,8 @@ function harness(
         persona?: Persona;
         /** The request this break was made for, for the one test about handing its context over. */
         request?: StoredBreakRequest;
+        /** What a bulletin has to report, for the one test about handing the stories over. */
+        stories?: readonly BreakStory[];
     } = {},
 ) {
     const segments = {
@@ -81,6 +84,9 @@ function harness(
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
     // The feed's write side. Only a break that fell through to a second writer reaches it.
     const activity = { record: vi.fn(async (_event: Record<string, unknown>) => undefined) };
+    // What a bulletin is written from. `undefined` for every kind that does not report, which is
+    // every kind these assertions are about.
+    const bulletin = { storiesFor: vi.fn(async (_kind: string, _now?: number) => options.stories) };
 
     const job = new WriteBreakJob(
         lineups as never,
@@ -89,6 +95,7 @@ function harness(
         history as never,
         writers as never,
         enrichment as never,
+        bulletin as never,
         personas as never,
         activity as never,
         jobs as never,
@@ -98,7 +105,7 @@ function harness(
         logger as never,
     );
 
-    return { job, segments, lineups, requests, history, writers, enrichment, personas, jobs, logger, activity };
+    return { job, segments, lineups, requests, history, writers, enrichment, personas, jobs, logger, activity, bulletin };
 }
 
 describe('WriteBreakJob', () => {
@@ -152,6 +159,31 @@ describe('WriteBreakJob', () => {
 
         expect(planted.requests.findById).not.toHaveBeenCalled();
         expect(planted.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }));
+    });
+
+    it('hands a bulletin the stories, against the moment it will actually air', async () => {
+        const stories = [{ headline: 'Bridge reopens after four years.' }];
+        const { job, writers, bulletin } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ kind: 'news', airsAt: 1_700_000_000_000 }),
+            stories,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // The slot's own time rather than now: a bulletin written a quarter of an hour early is
+        // judged fresh against when it is heard, not against when it was written.
+        expect(bulletin.storiesFor).toHaveBeenCalledWith('news', 1_700_000_000_000);
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ stories }));
+    });
+
+    it('hands no stories at all to a kind that does not report', async () => {
+        // `undefined` from the source is what keeps the branch about news inside a file about news.
+        const { job, writers } = harness({ lineup: await lineupWithBreak() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ stories: expect.anything() }));
     });
 
     it('asks who is presenting THIS broadcast, not who the station is', async () => {

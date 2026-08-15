@@ -4,6 +4,9 @@ import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
+import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.js';
+import { BULLETIN_KEYS, DEFAULT_MAX_AGE_HOURS, DEFAULT_STORY_COUNT } from '#modules/director/bulletin.source.js';
+import { CLOCK_BAND_KEYS } from '#modules/director/clock.bands.js';
 import { CLOCK_KEYS } from '#modules/director/clock.words.js';
 import { MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
@@ -289,6 +292,53 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'One phrasing per line, in the same syntax as the breaks above, with {{greeting}} for "good morning" and the like. ' +
             'A greeting is deliberately not a back-announce: somebody who has just arrived did not hear the last record, so ' +
             "{{previous.*}} is not offered here. Empty restores the station's own.",
+    },
+    {
+        group: 'rotation',
+        key: CLOCK_BAND_KEYS.bands,
+        label: 'The station clock',
+        type: 'text',
+        dependsOn: ROTATION_KEYS.breaks,
+        placeholder: ':00 talkbreak\n:30 news\nevery 90m ident',
+        help:
+            'One rule per line, in the shape a radio clock is drawn in. ":30 news" is every hour at half past, ' +
+            '"09:00 news" is once a day, and "every 90m ident" is a spacing rule for a sort of break the interval above does not cover. ' +
+            'The kind is free text: write ":20 sponsor", drop the recordings in the segment inbox, and the station will play them. ' +
+            'Empty means the station keeps its ordinary spacing and nothing else. A line starting with # is off without being lost.',
+    },
+    {
+        group: 'rotation',
+        key: BULLETIN_KEYS.stories,
+        label: 'Headlines in a news bulletin',
+        type: 'number',
+        default: DEFAULT_STORY_COUNT,
+        help: 'How many stories the station reads when the clock above asks for news. Three is a headline round; a station that stops for two minutes every half hour is a news station that plays records.',
+    },
+    {
+        group: 'rotation',
+        key: BULLETIN_KEYS.maxAgeHours,
+        label: 'How old a story may be (hours)',
+        type: 'number',
+        default: DEFAULT_MAX_AGE_HOURS,
+        help: 'Anything older than this is not read. A feed that stopped updating yesterday would otherwise have the station reading last night as though it had just happened, and a listener cannot tell that from the station being wrong. A bulletin with nothing fresh enough is skipped rather than filled.',
+    },
+    {
+        group: 'rotation',
+        key: BULLETIN_KEYS.feed,
+        label: 'Which news feed',
+        type: 'string',
+        help: 'The id of a feed one of your plugins offers, as listed at /news/feeds. Leave it blank to read across all of them, newest first.',
+    },
+    {
+        group: 'rotation',
+        key: NEWS_KEYS.templates,
+        label: 'How the station introduces the news',
+        type: 'text',
+        default: NEWS_TEMPLATES.join('\n'),
+        help:
+            'One phrasing per line, in the same syntax as the breaks below, with {{news.headlines}} for the stories themselves. ' +
+            'The headlines are read as published and this decides only what is said around them, which is why every line has to carry ' +
+            "{{news.headlines}} outside its [[optional]] parts. Empty restores the station's own.",
     },
     {
         group: 'rotation',

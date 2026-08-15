@@ -6,7 +6,10 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { BreakPlanner } from './break.planner.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
+import { ModelNewsBreakWriter } from './model.news.break.writer.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
+import { NewsBreakWriter } from './news.break.writer.js';
+import { BulletinSource } from './bulletin.source.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
@@ -106,6 +109,11 @@ export const DirectorModule: ServerKitModule = {
         registry.register(TalkBreakWriter).useClass(TalkBreakWriter).asScoped();
         registry.register(ModelWelcomeWriter).useClass(ModelWelcomeWriter).asScoped();
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
+        registry.register(ModelNewsBreakWriter).useClass(ModelNewsBreakWriter).asScoped();
+        registry.register(NewsBreakWriter).useClass(NewsBreakWriter).asScoped();
+        // Scoped with the `NewsService` it reads. What a bulletin is written FROM, fetched once for
+        // whichever writer takes it, so the model and the floor read the same headlines.
+        registry.register(BulletinSource).useClass(BulletinSource).asScoped();
         registry
             .register(BreakWriterRegistry)
             .useFactory(
@@ -124,6 +132,12 @@ export const DirectorModule: ServerKitModule = {
                             container.get(TalkBreakWriter),
                             container.get(ModelWelcomeWriter),
                             container.get(WelcomeWriter),
+                            // The third kind, ranked the same way within itself. It is the one where
+                            // the floor is not merely a safety net: reading a published headline
+                            // cannot be wrong about the news, and everything a model adds to that is
+                            // something a listener has no way to check.
+                            container.get(ModelNewsBreakWriter),
+                            container.get(NewsBreakWriter),
                         ],
                         container.get(Logger),
                     ),

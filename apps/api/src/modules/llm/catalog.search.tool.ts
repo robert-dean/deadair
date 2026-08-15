@@ -96,8 +96,10 @@ interface FoundTrack {
      *
      * Shown as well as sorted on, because the model is choosing and this is the one thing on the row
      * that says whether a record is a hit or an obscurity. A brief asking for popular anything is
-     * otherwise unservable: a genre browse comes back in the provider's own order, and from a title
-     * and an artist alone nothing can tell "Respect by Aretha Franklin" from a bedroom upload.
+     * otherwise unservable: a search comes back in the provider's own order, and from a title and an
+     * artist alone nothing can tell "Respect by Aretha Franklin" from a bedroom upload. Not every
+     * provider has an opinion, and one measured caveat: the station's own Spotify account does not
+     * receive this on a search response, so the ordering below is inert for it.
      */
     popularity?: number;
 }
@@ -122,35 +124,32 @@ export class CatalogSearchTool implements ToolSource {
                     // Written for the model rather than for a developer: this text is the entire
                     // basis on which it decides whether to call the thing.
                     description:
-                        "Search everything the station's music providers offer, by title or artist, including records the station does not own yet. Choosing one makes the station fetch it, so its results are safe to name. Prefer search_library first, and use this to reach a record the library does not have.",
+                        "Search everything the station's music providers offer, by artist or title, including records the station does not own yet. Choosing one makes the station fetch it, so its results are safe to name. Prefer search_library first, and use this to reach a record the library does not have. It matches NAMES, not styles: to fill a brief, work out for yourself which artists fit it and search for them one at a time.",
                     parameters: {
                         type: 'object',
                         properties: {
                             query: {
                                 type: 'string',
-                                description: 'A title, an artist, or both. Leave it out to browse a genre or a period on its own.',
-                            },
-                            // The three filters exist because `query` is matched against titles and
-                            // artist names and nothing else, which is not a detail the model can be
-                            // expected to infer: asked for "jazz club hits" it searched those words
-                            // and got back obscure records literally titled "Jazz Club". Saying so
-                            // in the description is most of the fix, since a parameter a model does
-                            // not know the point of is a parameter it does not use.
-                            genre: {
-                                type: 'string',
                                 description:
-                                    'A style, e.g. "jazz". On its own, with no query, it browses that style\'s best-known artists and their biggest records — which is how to ask for hits. Alongside a query the query wins, so search by artist name when you know who you want.',
+                                    'An artist, a title, or both. An artist name on its own is the search this answers best. A style like "rap" finds records with that word in the title, not records of that style.',
                             },
+                            // There is no `genre` here, and the absence is measured rather than an
+                            // oversight. It went to the provider as a filter for as long as this
+                            // tool existed; on the station's own account it returned nothing at all
+                            // beside an artist name, and obscure records nobody has heard of on its
+                            // own. A model narrowing exactly as it had been told to was handed junk,
+                            // and named it. Turning a style into artists is the one thing a model
+                            // does better than this search does, so that is where it now happens —
+                            // and the description above says so, because a rule stated nowhere is a
+                            // rule the model cannot follow.
                             yearFrom: { type: 'number', description: 'Narrow to records released in or after this year.' },
                             yearTo: { type: 'number', description: 'Narrow to records released in or before this year.' },
                             limit: { type: 'number', description: `How many results, at most ${MAX_RESULTS}.` },
                         },
-                        // Nothing is required, because a genre with no query is a legitimate search
-                        // and a MODEL FOUND THAT OUT before this did: told to narrow by genre rather
-                        // than by words, it called this with only a genre, was refused, and worked
-                        // around the refusal by passing the query `a` — which is not a no-op, it is
-                        // a text match that quietly steers what comes back. What the call actually
-                        // needs is one of the four, which `search` below enforces and says.
+                        // Nothing is required, because a period is a complete search on its own. What
+                        // the call actually needs is one of the three, which `search` below enforces
+                        // and says: a model refused for sending no query worked around it by passing
+                        // the query `a`, which is not a no-op but a text match that steers the answer.
                         required: [],
                         additionalProperties: false,
                     },
@@ -183,9 +182,9 @@ export class CatalogSearchTool implements ToolSource {
      * the model's mistake and is reported as one, because "you gave me nothing to search on" is
      * something it can correct and an exception is not.
      *
-     * A query is no longer required on its own: a genre or a period is a complete search, and
-     * demanding words alongside one made a model that was narrowing correctly invent the filler
-     * query `a` to get past the refusal. What IS required is at least one of the four.
+     * A query is not required on its own: a period is a complete search, and demanding words
+     * alongside one made a model that was narrowing correctly invent the filler query `a` to get
+     * past the refusal. What IS required is at least one of the three.
      */
     private async search(args: Record<string, unknown>): Promise<{ tracks: FoundTrack[]; searched: number }> {
         const query = readText(args.query) ?? '';
@@ -195,13 +194,12 @@ export class CatalogSearchTool implements ToolSource {
         // plugin that cannot express one at all answers with nothing rather than with unfiltered
         // records the merge below could not tell apart. See `MusicProviderCatalog.searchTracks`.
         const filters = {
-            ...(readText(args.genre) === undefined ? {} : { genre: readText(args.genre)! }),
             ...(readYear(args.yearFrom) === undefined ? {} : { yearFrom: readYear(args.yearFrom)! }),
             ...(readYear(args.yearTo) === undefined ? {} : { yearTo: readYear(args.yearTo)! }),
         };
 
         if (query.length === 0 && Object.keys(filters).length === 0) {
-            throw new Error('a search needs a "query" string, or a "genre" or a year to narrow by');
+            throw new Error('a search needs a "query" string, or a year to narrow by');
         }
 
         const found: FoundTrack[] = [];
@@ -245,8 +243,8 @@ export class CatalogSearchTool implements ToolSource {
         // The split is the whole point. A text search has a relevance order that means something —
         // the rows nearest what was typed come first, and re-sorting those by popularity would put
         // an artist's hit above the record actually asked for. A browse has no such order: asked
-        // for a genre and a period, a provider answers with whatever it answers with, and a live
-        // run turned "popular rap songs from the USA" into two dozen records nobody has heard of
+        // for a period alone, a provider answers with whatever it answers with, and a live run
+        // turned "popular rap songs from the USA" into two dozen records nobody has heard of
         // because the first two dozen rows were the first two dozen rows.
         //
         // A provider with no opinion sorts LAST rather than as zero, so a station with one ranked
@@ -311,12 +309,11 @@ function dedupe(tracks: readonly FoundTrack[]): FoundTrack[] {
 }
 
 /**
- * A filter the model actually set, or nothing.
+ * Text the model actually set, or nothing.
  *
- * Arguments arrive as the model produced them, so a filter is taken only when it is a usable value
- * of the right type. Absent is the ordinary case and blank is the interesting one: a model that
- * fills every parameter in a declaration would otherwise send `genre: ""`, and a provider handed an
- * empty narrowing either declines outright or searches for nothing.
+ * Arguments arrive as the model produced them, so a value is taken only when it is usable and of the
+ * right type. Absent is the ordinary case and blank is the interesting one: a model that fills every
+ * parameter in a declaration sends `query: ""`, which is not a search, it is everything.
  */
 const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
 

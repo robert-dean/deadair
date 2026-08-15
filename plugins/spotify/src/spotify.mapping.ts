@@ -233,17 +233,17 @@ export function clampSearchLimit(limit: number | undefined): MaxInt<50> {
  * provider-neutral precisely so this translation lives here, in the one plugin that knows this
  * dialect — the host never learns it, the same way it never learns a speech engine's knobs.
  *
- * **`genre:` is deliberately NOT emitted here, and that is a fix rather than an omission.** It went
- * onto every track search for as long as this function existed, and measured against the real API it
- * does not narrow a track search, it destroys it: `Snoop Dogg genre:"hip hop"` answered with NOTHING
- * for an artist the account can certainly play, and `Dr Dre genre:"hip hop"` answered with ten
- * records by nobody of that name. With no text at all it returned the same two dozen obscure records
- * whatever year range came with it. A model narrowing exactly as it had been told to was getting
- * junk or silence, and the station could not tell either from a thin catalogue. Genre is a real
- * filter on an ARTIST search, which is how {@link SpotifyPlugin.searchTracks} serves one now.
+ * **There is no `genre:` here, and its absence is a fix rather than an omission.** It went onto
+ * every track search for as long as this function existed, and measured against the real API it does
+ * not narrow one, it destroys it: `Snoop Dogg genre:"hip hop"` answered with NOTHING for an artist
+ * the account can certainly play, and `Dr Dre genre:"hip hop"` answered with ten records by nobody
+ * of that name. With no text at all it returned the same two dozen obscure recordings whatever year
+ * range came with it. A model narrowing exactly as it had been told to was getting junk or silence,
+ * and the station could not tell either from a thin catalogue. Nothing here replaces it: the style
+ * is the MODEL's to turn into artist names, which is the one search this account is demonstrably
+ * good at. See `CatalogSearchTool`.
  *
- * Values are quoted when they contain a space, because `year:new wave` parses as a stray term. A
- * year range is `year:1955-1965`, and either end alone is `year:1955` (Spotify reads a bare year as
+ * A year range is `year:1955-1965`, and either end alone is `year:1955` (Spotify reads a bare year as
  * that year, so an open-ended `yearFrom` is expressed by ranging it to the other bound rather than
  * left dangling).
  */
@@ -272,9 +272,6 @@ function year(value: number | undefined): number | undefined {
 
 /** A usable 0-100 ranking. Anything else is Spotify not having said. */
 const isRanking = (value: number | undefined): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100;
-
-/** A double quote is what Spotify's parser takes, and a value carrying one cannot be quoted at all. */
-export const quoteIfNeeded = (value: string): string => (value.includes(' ') && !value.includes('"') ? `"${value}"` : value.replace(/"/g, ''));
 
 /** Holds a caller's search offset inside the window Spotify will page over. */
 export function clampSearchOffset(offset: number | undefined): number | undefined {

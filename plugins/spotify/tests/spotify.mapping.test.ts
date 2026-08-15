@@ -358,13 +358,13 @@ describe('buildSearchQuery', () => {
         expect(buildSearchQuery('miles davis', { limit: 10 })).toBe('miles davis');
     });
 
-    it('never sends a style to a TRACK search, because it destroys one', () => {
-        // Measured against the real API: `Snoop Dogg genre:"hip hop"` answers with nothing for an
-        // artist the account can certainly play, and `Dr Dre genre:"hip hop"` answers with ten
-        // records by nobody of that name. The words are what the caller wanted found, so they go
-        // alone and the genre picks the browse path instead. See `SpotifyPlugin.browseGenre`.
-        expect(buildSearchQuery('hits', { genre: 'jazz' })).toBe('hits');
-        expect(buildSearchQuery('best of', { genre: 'new wave' })).toBe('best of');
+    it('sends the words alone when there is nothing else it can express', () => {
+        // There is no `genre:` here on purpose. Measured against the real API it does not narrow a
+        // track search, it destroys one: `Snoop Dogg genre:"hip hop"` answered with nothing for an
+        // artist the account can certainly play. Turning a style into artist names is the model's
+        // job now, and searching for a name is what this does well.
+        expect(buildSearchQuery('hits', {})).toBe('hits');
+        expect(buildSearchQuery('best of', undefined)).toBe('best of');
     });
 
     it('sends a year range', () => {
@@ -388,6 +388,6 @@ describe('buildSearchQuery', () => {
     });
 
     it('combines the filters it can actually express', () => {
-        expect(buildSearchQuery('modal', { genre: 'jazz', yearFrom: 1959, yearTo: 1965 })).toBe('modal year:1959-1965');
+        expect(buildSearchQuery('modal', { yearFrom: 1959, yearTo: 1965 })).toBe('modal year:1959-1965');
     });
 });

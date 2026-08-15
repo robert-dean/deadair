@@ -98,19 +98,6 @@ export interface SearchTracksOptions {
     limit?: number;
     offset?: number;
     /**
-     * Narrow the search to a style, as a plain word the caller chose (`jazz`, `krautrock`).
-     *
-     * Structured rather than folded into `query` because every upstream spells this differently, and
-     * `query` is free text going straight at a title and an artist name. A station asked for "jazz
-     * club hits" that searches for those words gets records with those words in the TITLE, which is
-     * the failure this field exists to fix; the style is a different axis and has to be sent as one.
-     *
-     * How it is expressed is the plugin's business, exactly as a voice id is: the host never learns
-     * one upstream's filter dialect. See {@link searchTracks} for what a provider that cannot filter
-     * must do about it.
-     */
-    genre?: string;
-    /**
      * Narrow to records released in a period, inclusive, as four-digit years.
      *
      * Either end may stand alone: `yearFrom` with no `yearTo` is "this year onwards".
@@ -137,8 +124,8 @@ export interface MusicProviderCatalog {
      * **A filter you cannot apply means you have nothing to offer for that search — answer `[]`.**
      * Never ignore one and answer as though it had not been asked for. The caller merges several
      * providers into one list and cannot tell which rows honoured a filter, so a provider that
-     * quietly drops `genre` does not degrade the answer, it poisons it: the station asked for jazz
-     * from 1955 and is handed something else with nothing marking it. Declining costs the caller one
+     * quietly drops a period does not degrade the answer, it poisons it: the station asked for
+     * records from 1955 and is handed something else with nothing marking it. Declining costs the caller one
      * provider's share of a result set it already treats as partial, which is the cheaper mistake by
      * a wide margin. This is the same reasoning `ProviderTrackLookup` is strict for — a near miss
      * here does not raise an error, it airs the wrong record.

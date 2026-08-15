@@ -17,13 +17,18 @@ describe('setPrompt', () => {
         expect(messages.map(message => message.role)).toEqual(['system', 'user']);
     });
 
-    it('makes searching mandatory rather than encouraged', () => {
-        // The grounding rule, now about provenance rather than about the library: a name no tool
-        // returned still resolves to nothing and is dropped, whichever tool could have returned it.
+    it('lets memory name a record and never overrule a search', () => {
+        // The grounding rule after `PickResolver` grew its lookup rung. A remembered record is no
+        // longer unplayable, and the absolute version cost real hours: told a style could not be
+        // searched for and forbidden to name what it knew, a model answered with nothing at all.
+        // What survives is the half that keeps the station honest — a search result is spelled the
+        // way the lookup will look it up, so it wins wherever the two disagree.
         const system = systemOf(setPrompt({ count: 5, avoid: [] }));
 
-        expect(system).toMatch(/MUST find records with the search_library and search_catalog tools/);
-        expect(system).toMatch(/Never name a record from your own knowledge/);
+        expect(system).toMatch(/Use the search_library and search_catalog tools to find records/);
+        expect(system).toMatch(/You may also name a record you know of that no search returned/);
+        expect(system).toMatch(/Never correct a search result from memory/);
+        expect(system).not.toMatch(/Never name a record from your own knowledge/);
     });
 
     it('puts the library first and the provider second', () => {
@@ -38,17 +43,17 @@ describe('setPrompt', () => {
     it('says a brief is a style to expand rather than a query to run', () => {
         // A search is text against titles and artist names, so passing the operator's words straight
         // through returns records with those words in the title: "jazz club hits" found five obscure
-        // records literally titled "Jazz Club". Expanding the brief is the one thing here the model's
-        // own knowledge is for, and it does not touch the grounding rule — knowing a brief implies
-        // Bill Evans is knowledge, naming a record a search returned is provenance.
+        // records literally titled "Jazz Club". Expanding the brief is what the model's own
+        // knowledge is for here: knowing that a brief implies Bill Evans is the step no search can
+        // take, and searching for HIM by name is the step it is good at.
         const system = systemOf(setPrompt({ count: 5, avoid: [] }));
 
         expect(system).toMatch(/A brief describes a STYLE, not a search term/);
-        expect(system).toMatch(/search for THOSE by name/);
-        // And the axis the search itself offers for it, which is the half the model cannot infer.
-        expect(system).toMatch(/genre, yearFrom and yearTo filters/);
-        // The rule it must not be read as loosening.
-        expect(system).toMatch(/Never name a record from your own knowledge/);
+        expect(system).toMatch(/search for THEM by name, one at a time/);
+        // The axis the search actually offers. A style filter was advertised here for as long as
+        // the tool carried one, and it went with it: sent to the provider it narrowed nothing.
+        expect(system).toMatch(/yearFrom and yearTo/);
+        expect(system).not.toMatch(/genre/);
     });
 
     it('bounds the searching by what it is for rather than by a number of searches', () => {

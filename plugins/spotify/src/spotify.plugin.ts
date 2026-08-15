@@ -26,7 +26,6 @@ import {
     mapPlaybackState,
     mapPlaylist,
     mapTrack,
-    quoteIfNeeded,
     SEARCH_OFFSET_MAX,
     type SpotifyPlaylistedItem,
 } from './spotify.mapping.js';
@@ -38,16 +37,6 @@ const DEVICE_ID_CACHE_TTL_MS = 60_000;
 
 /** Surfaced when a steer call 404s and there is no device left to fall back on. */
 const NO_ACTIVE_DEVICE_MESSAGE = 'no active Spotify device; open Spotify or start the go-librespot bridge';
-
-/**
- * How many artists a genre browse takes records from.
- *
- * Each one is a search, on an account this plugin is careful about the rate limit of, so this is
- * the number that decides what a browse COSTS: six artists is seven calls, which is comfortably
- * more variety than a refill needs. Raising it buys deeper cuts of the same genre at a request
- * each; the reason not to is that a browse runs inside a refill that also has records to fetch.
- */
-const BROWSE_ARTISTS = 6;
 
 /** Maps a batch of Spotify items to `ProviderTrack`s, dropping the ones `mapTrack` can't use (nulls, episodes). */
 function toProviderTracks(tracks: Parameters<typeof mapTrack>[0][]): ProviderTrack[] {
@@ -178,16 +167,8 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
     async searchTracks(query: string, options?: SearchTracksOptions): Promise<ProviderTrack[]> {
         const wanted = clampSearchTotal(options?.limit);
 
-        // A genre with no words to search for is a BROWSE, and it goes somewhere else entirely.
-        // `genre:` is a real filter on an ARTIST search and does nothing usable on a track search
-        // — see `buildSearchQuery`, which no longer sends it — so the only honest way to answer
-        // "what rap is there" is to find the artists and ask what their biggest records are.
-        const genre = options?.genre?.trim();
-        if (genre !== undefined && genre.length > 0 && query.trim().length === 0) return await this.browseGenre(genre, options, wanted);
-
         // Spotify's own `year:` dialect, built here because the SDK keeps a filter structured and
-        // provider-neutral. A genre alongside text is dropped rather than sent: it would return
-        // nothing at all, and the words are what the caller actually wanted found.
+        // provider-neutral.
         const q = buildSearchQuery(query, options);
         let offset = clampSearchOffset(options?.offset) ?? 0;
 
@@ -206,68 +187,6 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
             // read as one, and the search would stop with records still to come.
             if (items.length < page) break;
             offset += items.length;
-        }
-
-        return tracks.slice(0, wanted);
-    }
-
-    /**
-     * What a genre sounds like here: its artists' biggest records.
-     *
-     * ## Why a browse is two calls rather than one filter
-     *
-     * `genre:` on a track search does not narrow it, measured against the real API: with words it
-     * answers with nothing or with unrelated records, and without them it answers with the same two
-     * dozen obscure recordings whatever period is asked for. On an ARTIST search it is a real
-     * filter, and an artist's top tracks are ranked by Spotify itself — so the pair answers the
-     * question a browse is actually asking, which is "who plays this, and what are they known for".
-     *
-     * That is the path a brief reaches. Asked for "popular rap songs from the USA" the station used
-     * to hand a model two dozen bedroom uploads, and the model named them because nothing on the row
-     * said which were hits. An artist's own records, ranked by the popularity this now carries, are
-     * the hits.
-     *
-     * ## Why not `artists/{id}/top-tracks`, which is the obvious second call
-     *
-     * It answers **403 Forbidden** for this application. Measured on the station's own account,
-     * where `/search` with the same token answered perfectly well two seconds later, and it is not a
-     * scope: that endpoint asks for none. Spotify restricts a set of endpoints per application, and
-     * one that cannot be called at all is not worth carrying a fallback for. Searching each artist
-     * by NAME needs no market, no extra permission and no second dialect, and it is the same call
-     * the plugin already makes for every other search on this page.
-     *
-     * ## What it costs, and what bounds it
-     *
-     * One artist search plus one track search per artist, capped at {@link BROWSE_ARTISTS}.
-     * Deliberately modest: this runs inside a refill on a rate-limited account, and a browse that
-     * spent thirty requests would be a better answer nobody could afford to ask for twice. It stops
-     * as soon as `wanted` records are in hand.
-     *
-     * A period rides along on each of those searches, where `year:` is a filter Spotify does honour.
-     */
-    private async browseGenre(genre: string, options: SearchTracksOptions | undefined, wanted: number): Promise<ProviderTrack[]> {
-        const results = await this.getApi().search(`genre:${quoteIfNeeded(genre)}`, ['artist'], undefined, clampSearchLimit(BROWSE_ARTISTS));
-        const names = results.artists.items
-            .map(artist => artist.name)
-            .filter((name): name is string => typeof name === 'string' && name.trim().length > 0);
-
-        const tracks: ProviderTrack[] = [];
-        const seen = new Set<string>();
-        for (const name of names.slice(0, BROWSE_ARTISTS)) {
-            if (tracks.length >= wanted) break;
-
-            // Straight back through the ordinary search, which is what keeps this one code path
-            // rather than two: the same paging, the same clamps, the same year dialect. The name
-            // goes as plain text on purpose — a bare name is the search this account is
-            // demonstrably allowed to make — and the genre is dropped, having done its job above.
-            const perArtist = Math.max(1, Math.ceil(wanted / BROWSE_ARTISTS));
-            for (const track of await this.searchTracks(name, { ...options, genre: undefined, limit: perArtist })) {
-                // One record can be reached from two artists on a collaboration, and a browse
-                // showing it twice would spend one of the model's choices on nothing.
-                if (seen.has(track.id)) continue;
-                seen.add(track.id);
-                tracks.push(track);
-            }
         }
 
         return tracks.slice(0, wanted);

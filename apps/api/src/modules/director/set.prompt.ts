@@ -122,13 +122,22 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         'You choose which records play next, in the order they will play.',
         '',
         'Rules:',
-        // The grounding rule, and it is now about two tools rather than one. It survives the
-        // lookup rung unchanged in substance: a name no tool returned still resolves to nothing
-        // and is dropped, and the running order silently comes up short. What changed is that a
-        // record the station does not own is reachable, so the rule is about provenance (a tool
-        // returned it) rather than about the library.
-        '- You MUST find records with the search_library and search_catalog tools. Only name records a search returned to you.',
-        '- Never name a record from your own knowledge. If a search did not return it, the station cannot play it.',
+        // The grounding rule, and what it forbids has narrowed to what it was always FOR.
+        //
+        // It read "never name a record from your own knowledge", which was right while a pick that
+        // matched no catalog row was silently dropped. `PickResolver` looks a missing record up at a
+        // provider and ingests it now, so a remembered record is no longer unplayable — and the
+        // absolute version was costing real hours: told a style could not be searched for, and
+        // forbidden to name what it knew, a model handed a brief it could not turn into a search
+        // answered with nothing at all and the deterministic floor filled a briefed hour.
+        //
+        // What survives is the half that keeps the station honest. A search RESULT is a fact about
+        // what a provider carries, spelled the way the lookup will look it up; a memory is a
+        // starting point. So knowledge may name, and may never overrule: where the two disagree,
+        // the provider is right, because it is the one that has to find the record afterwards.
+        '- Use the search_library and search_catalog tools to find records. What a search returns is what the station can definitely play.',
+        '- You may also name a record you know of that no search returned. The station will try to find it, and will quietly drop it if it cannot, so prefer what the searches gave you.',
+        '- Never correct a search result from memory. If a search returned a record, its spelling of the title and the artist is the right one.',
         // The preference, stated as an order rather than as a prohibition. Library records are
         // already owned, already measured and cost nothing to play; a provider record costs a
         // lookup and a download. Both air, so this is about cost and not about permission.
@@ -141,8 +150,13 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // brief implies Bill Evans is knowledge, naming a record because a search returned it is
         // provenance, and only the second one is what may be answered with.
         '- A brief describes a STYLE, not a search term. Searching for the operator’s own words finds records with those words in the title, which is almost never what they meant.',
-        '- Work out for yourself which artists and which records fit the brief, then search for THOSE by name. Search for artists more than for genres.',
-        '- search_catalog also takes genre, yearFrom and yearTo filters. Narrow a style with those rather than by putting the style in the query text.',
+        '- Work out for yourself which artists fit the brief, then search for THEM by name, one at a time. That is what the searches are good at.',
+        // The filter that used to be advertised here is gone. It was sent to the provider and did
+        // not narrow anything: beside an artist's name it returned nothing at all, and on its own
+        // it returned the same obscure records whatever else came with it. See `CatalogSearchTool`,
+        // which no longer offers it — this line went with it rather than being left to recommend a
+        // parameter that is not there.
+        '- search_catalog also takes yearFrom and yearTo. Use those for a period, never words like "80s" in the query text.',
         // Two live runs pulled this rule in opposite directions and it now states the condition
         // rather than a number of searches, which is what satisfies both.
         //
@@ -174,8 +188,9 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         '[{"title": "...", "artist": "..."}, {"title": "...", "artist": "..."}]',
         // Exactly, and it matters more since a search result can be a record the station does not
         // own: the lookup that fetches it matches on the normalized title and lead artist, so a
-        // tidied-up title finds nothing where the tool's own spelling finds the record.
-        'Copy each title and artist exactly as the search gave them to you.',
+        // tidied-up title finds nothing where the tool's own spelling finds the record. The same
+        // reason makes a remembered record worth spelling plainly — it is looked up the same way.
+        'Copy each title and artist exactly as the search gave them to you. For a record you named from memory, use the plainest spelling of its title and its main artist.',
     ];
 
     // Dropped entirely when the operator briefed this broadcast, rather than sent with an

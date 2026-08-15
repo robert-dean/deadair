@@ -82,7 +82,7 @@ describe('what it offers', () => {
         const tool = await offered([fakeCatalog()]);
 
         expect(tool?.declaration.name).toBe('search_catalog');
-        // Nothing is required: a genre or a period is a complete search on its own, and the real
+        // Nothing is required: a period is a complete search on its own, and the real
         // rule — at least one of the four — is enforced in the runner, where it can be explained.
         expect(tool?.declaration.parameters).toMatchObject({ required: [] });
     });
@@ -202,17 +202,17 @@ describe('searching', () => {
         expect(result.tracks.map(item => item.title)).toEqual(['One']);
     });
 
-    it('offers the filters, and says what a style on its own does', async () => {
-        // A parameter a model does not know the point of is a parameter it does not use, and the
-        // point here is not inferable: `query` matches titles and artist names, so "jazz club hits"
-        // came back as records literally titled "Jazz Club". What a genre does is not inferable
-        // either — on its own it browses the style's best-known artists, which is how to ask for
-        // hits, and beside a query it is the query that decides.
+    it('offers no style filter, and says what to do instead', async () => {
+        // Measured: sent to the provider as a filter, a style returned nothing beside an artist name
+        // and obscure records on its own. A model narrowing exactly as it had been told to was
+        // handed junk and named it. Turning a style into artists is the model's job, and a rule
+        // stated nowhere is a rule it cannot follow — so the description carries it.
         const tool = await offered([fakeCatalog()]);
-        const properties = (tool?.declaration.parameters as { properties: Record<string, { description?: string }> }).properties;
+        const parameters = tool?.declaration.parameters as { properties: Record<string, { description?: string }> };
 
-        expect(Object.keys(properties)).toEqual(expect.arrayContaining(['genre', 'yearFrom', 'yearTo']));
-        expect(properties.genre?.description).toContain('best-known artists');
+        expect(Object.keys(parameters.properties)).toEqual(expect.arrayContaining(['query', 'yearFrom', 'yearTo']));
+        expect(Object.keys(parameters.properties)).not.toContain('genre');
+        expect(tool?.declaration.description).toContain('which artists fit it');
     });
 
     it('hands a filter to the provider untranslated', async () => {
@@ -221,23 +221,22 @@ describe('searching', () => {
         const record = fakeCatalog();
         const tool = await offered([record]);
 
-        await tool!.run({ query: 'hits', genre: 'jazz', yearFrom: 1955, yearTo: 1965 });
+        await tool!.run({ query: 'hits', yearFrom: 1955, yearTo: 1965 });
 
         const searchTracks = (record.instance as unknown as { searchTracks: ReturnType<typeof vi.fn> }).searchTracks;
-        expect(searchTracks).toHaveBeenCalledWith('hits', expect.objectContaining({ genre: 'jazz', yearFrom: 1955, yearTo: 1965 }));
+        expect(searchTracks).toHaveBeenCalledWith('hits', expect.objectContaining({ yearFrom: 1955, yearTo: 1965 }));
     });
 
     it('leaves out a filter the model did not really set', async () => {
-        // A model that fills every parameter in a declaration sends `genre: ""`, and a provider
+        // A model that fills every parameter in a declaration sends a blank one, and a provider
         // handed an empty narrowing either declines outright or searches for nothing.
         const record = fakeCatalog();
         const tool = await offered([record]);
 
-        await tool!.run({ query: 'hits', genre: '   ', yearFrom: 'recently' });
+        await tool!.run({ query: 'hits', yearFrom: 'recently' });
 
         const searchTracks = (record.instance as unknown as { searchTracks: ReturnType<typeof vi.fn> }).searchTracks;
         const options = searchTracks.mock.calls[0]![1] as Record<string, unknown>;
-        expect(options).not.toHaveProperty('genre');
         expect(options).not.toHaveProperty('yearFrom');
     });
 
@@ -251,29 +250,29 @@ describe('searching', () => {
         await expect(tool!.run({ query: '  ' })).rejects.toThrow('query');
     });
 
-    it('takes a genre or a period as a whole search, with no query at all', async () => {
-        // A model found this out before the code did: told to narrow by genre rather than by words,
-        // it called this with only a genre, was refused, and got past the refusal by inventing the
+    it('takes a period as a whole search, with no query at all', async () => {
+        // A model found this out before the code did: told to narrow rather than to use words,
+        // it called this with only a filter, was refused, and got past the refusal by inventing the
         // query `a` — which is not a no-op but a text match quietly steering what comes back.
         const record = fakeCatalog({ tracks: [track('Blue in Green', 'Miles Davis')] });
         const tool = await offered([record]);
 
-        const result = (await tool!.run({ genre: 'jazz', yearFrom: 1955 })) as { tracks: { title: string }[] };
+        const result = (await tool!.run({ yearFrom: 1955 })) as { tracks: { title: string }[] };
 
         expect(result.tracks.map(item => item.title)).toEqual(['Blue in Green']);
         const searchTracks = (record.instance as unknown as { searchTracks: ReturnType<typeof vi.fn> }).searchTracks;
-        expect(searchTracks).toHaveBeenCalledWith('', expect.objectContaining({ genre: 'jazz', yearFrom: 1955 }));
+        expect(searchTracks).toHaveBeenCalledWith('', expect.objectContaining({ yearFrom: 1955 }));
     });
 
     it('puts the best known first when the model gave no words to be relevant to', async () => {
-        // The live failure: asked for "popular rap songs from the USA" the model browsed a genre,
-        // and the provider answered in its own order — two dozen records nobody has heard of, which
-        // the model then named because nothing on the row said which were hits.
+        // The live failure: asked for "popular rap songs from the USA" the model searched with no
+        // words at all, and the provider answered in its own order — two dozen records nobody has
+        // heard of, which the model then named because nothing on the row said which were hits.
         const tool = await offered([
             fakeCatalog({ tracks: [ranked('Obscure', 'Nobody', 3), ranked('Respect', 'Aretha Franklin', 82), ranked('Mid', 'Someone', 40)] }),
         ]);
 
-        const result = (await tool!.run({ genre: 'soul' })) as { tracks: { title: string }[] };
+        const result = (await tool!.run({ yearFrom: 1960 })) as { tracks: { title: string }[] };
 
         expect(result.tracks.map(found => found.title)).toEqual(['Respect', 'Mid', 'Obscure']);
     });
@@ -296,7 +295,7 @@ describe('searching', () => {
             fakeCatalog({ id: 'deadair.ranked', tracks: [ranked('Known', 'A', 55)] }),
         ]);
 
-        const result = (await tool!.run({ genre: 'soul' })) as { tracks: { title: string }[] };
+        const result = (await tool!.run({ yearFrom: 1960 })) as { tracks: { title: string }[] };
 
         expect(result.tracks.map(found => found.title)).toEqual(['Known', 'Unranked']);
     });
@@ -304,7 +303,7 @@ describe('searching', () => {
     it('shows the ranking, because the model is the one choosing', async () => {
         const tool = await offered([fakeCatalog({ tracks: [ranked('Respect', 'Aretha Franklin', 82)] })]);
 
-        const result = (await tool!.run({ genre: 'soul' })) as { tracks: { popularity?: number }[] };
+        const result = (await tool!.run({ yearFrom: 1960 })) as { tracks: { popularity?: number }[] };
 
         expect(result.tracks[0]?.popularity).toBe(82);
     });

@@ -5,11 +5,15 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>deadair</title>
         <style>
-            /* Painted before the bundle loads so there is no light flash. */
+            /*
+             * Painted before the bundle loads so there is no light flash. The hex is duplicated
+             * from `--da-bg` in src/tokens.css deliberately: this has to paint before any
+             * stylesheet exists, so it cannot read the token it is copying.
+             */
             html,
             body {
                 margin: 0;
-                background-color: #0b0d0e;
+                background-color: #0c0e0d;
             }
         </style>
     </head>

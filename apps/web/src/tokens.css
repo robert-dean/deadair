@@ -1,0 +1,135 @@
+/*
+ * The console's raw tokens, and the handful of things a Mantine theme cannot say.
+ *
+ * `theme.ts` owns everything expressible as a theme; this file owns the surfaces those values
+ * point AT (`--da-*`), plus the keyframes, the chrome texture and the scrollbars. Loaded after
+ * Mantine's stylesheet so the resolver's `var(--da-*)` references have something to resolve to.
+ */
+
+:root {
+    /* Carbon surfaces, darkest first. The layering is the depth model: content sits on panels,
+       panels sit on the desk, and nothing casts a shadow to say so. */
+    --da-bg: #0c0e0d;
+    --da-panel: #121514;
+    --da-raised: #191d1b;
+    --da-border: #242927;
+    --da-border-strong: #313836;
+
+    --da-text: #e8edea;
+    --da-text-secondary: #a7b2ac;
+    --da-text-dimmed: #6e7a74;
+
+    --da-phosphor: #2fd98c;
+    --da-phosphor-pressed: #21b573;
+    --da-phosphor-glow: rgb(47 217 140 / 35%);
+    --da-tally: #ff4b4b;
+    --da-tally-glow: rgb(255 75 75 / 40%);
+
+    /* One tracking value per idea, which is the whole point: the console had three different
+       letter-spacings for the same uppercase label. */
+    --da-tracking-eyebrow: 0.08em;
+    --da-tracking-wordmark: 0.12em;
+
+    --da-fast: 120ms;
+    --da-slow: 200ms;
+    --da-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html,
+body {
+    background-color: var(--da-bg);
+}
+
+body {
+    /* Durations, counts and timecodes line up in columns without anything opting in. */
+    font-variant-numeric: tabular-nums;
+    /* A desk lit by its own lamps: barely a gradient, enough that the corners recede. */
+    background-image: radial-gradient(ellipse 120% 80% at 50% 0%, #10130f 0%, var(--da-bg) 60%);
+    background-attachment: fixed;
+}
+
+/** Numeric cells that should hold their column even in the body face. */
+.da-num {
+    font-family: var(--mantine-font-family-monospace);
+    font-variant-numeric: tabular-nums;
+}
+
+/**
+ * The one texture in the console, and it is confined to chrome.
+ *
+ * Content areas never get this: a scanline over a table of track titles is decoration paid for in
+ * legibility, which is the wrong trade on a page someone reads during a fault.
+ */
+.da-scanlines {
+    position: relative;
+}
+
+.da-scanlines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(to bottom, rgb(255 255 255 / 2.5%) 0 1px, transparent 1px 3px);
+}
+
+/**
+ * The tally pulse. One keyframe set, used only where something is genuinely live.
+ *
+ * Reserved for `tone="live"` lamps and the header's stream light, because a console where several
+ * things blink is a console where nothing does.
+ */
+@keyframes da-lamp-pulse {
+    0%,
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 var(--da-tally-glow);
+    }
+
+    50% {
+        opacity: 0.55;
+        box-shadow: 0 0 0 3px transparent;
+    }
+}
+
+.da-lamp-pulse {
+    animation: da-lamp-pulse 2s var(--da-ease) infinite;
+}
+
+/* Steady-on rather than stopped mid-fade: the lamp still has to read as lit. */
+@media (prefers-reduced-motion: reduce) {
+    .da-lamp-pulse {
+        animation: none;
+        opacity: 1;
+    }
+}
+
+/* Scrollbars in carbon, so a long table does not hang a bright strip down the page. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--da-border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: var(--da-border-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 6px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: var(--da-text-dimmed);
+}
+
+::selection {
+    background-color: var(--da-phosphor-glow);
+    color: var(--da-text);
+}

@@ -5,6 +5,7 @@ import type { PluginSummary } from '@deadair/sdk';
 
 import { useSetPluginEnabled } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { toneColor } from '../shared/status';
 import { PluginStatusLamp, statusOf } from './plugin.status';
 import { PluginTrustDialog } from './plugin.trust.dialog';
 
@@ -15,12 +16,12 @@ export interface PluginCardProps {
 /** One plugin in the catalogue: what it is, whether it is running, and a way in. */
 export function PluginCard({ plugin }: PluginCardProps) {
     const setEnabled = useSetPluginEnabled();
-    const { color } = statusOf(plugin.status);
+    const { tone } = statusOf(plugin.status);
     const pending = setEnabled.isPending && setEnabled.variables?.id === plugin.id;
     const [trustDialogOpen, setTrustDialogOpen] = useState(false);
 
     return (
-        <Card withBorder padding="lg" radius="sm" style={{ borderLeft: `2px solid var(--mantine-color-${color}-5)` }}>
+        <Card padding="lg" style={{ borderLeft: `2px solid var(--mantine-color-${toneColor[tone]}-5)` }}>
             <Stack gap="sm" h="100%">
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Stack gap={2}>

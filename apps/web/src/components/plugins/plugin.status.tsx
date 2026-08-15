@@ -1,13 +1,15 @@
 import { Box, Group, Text } from '@mantine/core';
 import type { PluginStatus, PluginSummary } from '@deadair/sdk';
 
+import { type StatusTone, toneColor } from '../shared/status';
+
 /** The capability a plugin declares when it can walk an operator through a provider's consent screen. */
 export const OAUTH_CAPABILITY = 'oauth';
 
 interface StatusDescriptor {
     label: string;
-    /** A Mantine palette name, used for the dot, the card's edge and any badge. */
-    color: string;
+    /** What KIND of state this is, in the console's one status vocabulary. */
+    tone: StatusTone;
     /** One sentence an operator can act on, shown under the status on the detail page. */
     description: string;
 }
@@ -15,13 +17,16 @@ interface StatusDescriptor {
 /**
  * The single reading of `PluginStatus`. Every surface that colours or explains a status goes
  * through here, so a card and a detail header cannot disagree about what `misconfigured` means.
+ *
+ * The colour itself is no longer named here: a tone is, and `shared/status.ts` maps it, so a
+ * plugin that failed and a station that went off air are the same red for the same reason.
  */
 export const PLUGIN_STATUS: Record<PluginStatus, StatusDescriptor> = {
-    active: { label: 'Active', color: 'teal', description: 'Running and available to the station.' },
-    disabled: { label: 'Disabled', color: 'gray', description: 'Switched off. Its configuration is kept.' },
-    misconfigured: { label: 'Misconfigured', color: 'yellow', description: 'Installed, but its settings are incomplete or rejected.' },
-    failed: { label: 'Failed', color: 'red', description: 'The host could not start it. See the error below.' },
-    discovered: { label: 'Discovered', color: 'blue', description: 'Found on disk and not yet started.' },
+    active: { label: 'Active', tone: 'ok', description: 'Running and available to the station.' },
+    disabled: { label: 'Disabled', tone: 'off', description: 'Switched off. Its configuration is kept.' },
+    misconfigured: { label: 'Misconfigured', tone: 'fault', description: 'Installed, but its settings are incomplete or rejected.' },
+    failed: { label: 'Failed', tone: 'live', description: 'The host could not start it. See the error below.' },
+    discovered: { label: 'Discovered', tone: 'standby', description: 'Found on disk and not yet started.' },
 };
 
 export function statusOf(status: PluginStatus): StatusDescriptor {
@@ -49,12 +54,12 @@ export interface PluginStatusProps {
 
 /** A lamp and a word. Deliberately not a Badge: status is the quietest thing on a busy card. */
 export function PluginStatusLamp({ status, size = 'sm' }: PluginStatusProps) {
-    const { label, color } = statusOf(status);
+    const { label, tone } = statusOf(status);
     const dot = size === 'md' ? 10 : 8;
     return (
         <Group gap={7} wrap="nowrap" aria-label={`Status: ${label}`}>
-            <Box w={dot} h={dot} bg={`${color}.5`} style={{ borderRadius: '50%', flexShrink: 0 }} />
-            <Text size={size === 'md' ? 'sm' : 'xs'} fw={600} tt="uppercase" style={{ letterSpacing: '0.06em' }}>
+            <Box w={dot} h={dot} bg={`${toneColor[tone]}.5`} style={{ borderRadius: '50%', flexShrink: 0 }} />
+            <Text size={size === 'md' ? 'sm' : 'xs'} fw={600} tt="uppercase" style={{ letterSpacing: 'var(--da-tracking-eyebrow)' }}>
                 {label}
             </Text>
         </Group>

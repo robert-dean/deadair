@@ -1,6 +1,8 @@
 import { Badge, Tooltip } from '@mantine/core';
 import type { SilenceCause, StationSilence } from '@deadair/sdk';
 
+import { type StatusTone, toneColor } from '../shared/status';
+
 export interface OnAirBadgeProps {
     silence: StationSilence;
 }
@@ -27,7 +29,7 @@ export function OnAirBadge({ silence }: OnAirBadgeProps) {
     if (silence.audible) {
         return (
             <Tooltip label={silence.detail}>
-                <Badge variant="filled" color="red">
+                <Badge variant="filled" color={toneColor.live} className="da-lamp-pulse">
                     on air
                 </Badge>
             </Tooltip>
@@ -35,9 +37,10 @@ export function OnAirBadge({ silence }: OnAirBadgeProps) {
     }
 
     const blocking = silence.checks.find(check => check.code === silence.cause);
+    const tone = blocking?.state === 'waiting' ? (WAITING_TONES[silence.cause] ?? 'standby') : 'fault';
     return (
         <Tooltip multiline w={340} label={silence.detail}>
-            <Badge variant="light" color={blocking?.state === 'waiting' ? WAITING_COLOURS[silence.cause] : 'yellow'}>
+            <Badge variant="light" color={toneColor[tone]}>
                 {LABELS[silence.cause]}
             </Badge>
         </Tooltip>
@@ -67,13 +70,13 @@ const LABELS: Record<SilenceCause, string> = {
 /**
  * The two states that are not faults, and must not be drawn as one.
  *
- * Blue for waiting on a listener, because it is the resting state of an
- * audience-gated station and the operator has nothing to do about it. Grey for
+ * Standby for waiting on a listener, because it is the resting state of an
+ * audience-gated station and the operator has nothing to do about it. Off for
  * stood down, because they did it on purpose.
  */
-const WAITING_COLOURS: Partial<Record<SilenceCause, string>> = {
-    noAudience: 'blue',
-    stoodDown: 'gray',
+const WAITING_TONES: Partial<Record<SilenceCause, StatusTone>> = {
+    noAudience: 'standby',
+    stoodDown: 'off',
 };
 
 /**

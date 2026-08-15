@@ -56,6 +56,7 @@ const WAITING: SilenceCause[] = ['stoodDown', 'noAudience'];
 const DETAILS: Record<SilenceCause, string> = {
     airing: 'The station is holding the mount and its programme is going out.',
     transportStalled: 'The loop that renews the mount lease has not completed a pass for 60s.',
+    controlDenied: 'The stream is answering and refusing us, so the mount lease cannot be renewed.',
     streamUnreachable: "Liquidsoap's control API is not answering, so nothing can go to air whatever the running order holds.",
     configNotAdopted: 'icecast is running config the app has replaced.',
     stoodDown: 'The station was stood down, so it is holding nothing and airing nothing.',

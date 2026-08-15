@@ -12,7 +12,7 @@ import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import type { BreakTrack } from './break.writer.js';
-import { roughTime, stationZone } from './clock.words.js';
+import { dayGreeting, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
@@ -126,7 +126,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // placed for; `ripen` re-offers whatever is still planned and knows nothing about the
         // schedule, so by now this job is the only thing that could say what time it is writing
         // about — and asking the clock again here would answer with now, a quarter of an hour early.
-        const clock = segment.airsAt === undefined ? undefined : roughTime(segment.airsAt, stationZone(this.config));
+        const zone = stationZone(this.config);
+        const clock = segment.airsAt === undefined ? undefined : roughTime(segment.airsAt, zone);
+        // Off the same instant as the clock, and offered to every kind: which breaks have any
+        // business greeting anybody is the writer's own question, and answering it here would put a
+        // decision about one kind of break in the job that serves all of them.
+        const greeting = segment.airsAt === undefined ? undefined : dayGreeting(segment.airsAt, zone);
 
         // After the claim, so a job that was merely early does no work at all, and for EVERY break
         // rather than only when a model might use them: what the station knows about a record is a
@@ -148,6 +153,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         const result = await this.writers.write({
             kind: segment.kind,
             ...(clock === undefined ? {} : { clock }),
+            ...(greeting === undefined ? {} : { greeting }),
             ...(context === undefined ? {} : { context }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),

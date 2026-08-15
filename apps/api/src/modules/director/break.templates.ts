@@ -57,6 +57,14 @@ export interface TemplateInputs {
      * template that does not apply.
      */
     clock?: string;
+    /**
+     * How the station greets somebody at this hour: "good morning", "good evening".
+     *
+     * Absent in the small hours, where the station greets nobody by name of day, and absent for
+     * every break that is not somebody's first — which is most of them. A phrasing naming it is then
+     * simply not used, or drops the chunk it sits in.
+     */
+    greeting?: string;
 }
 
 /** One template, rendered. */
@@ -135,6 +143,9 @@ const VALUES: Record<string, Resolver> = {
     // catalogue furniture to strip. The filter there excludes it already, by naming the two
     // prefixes that ARE read as titles, so this needs nothing.
     'clock.rough': inputs => inputs.clock,
+    // Out of `SPOKEN_VALUES` for `clock.rough`'s reason, which the filter below already gets right by
+    // naming the two prefixes that ARE read as titles: "good morning" has no catalogue furniture.
+    greeting: inputs => inputs.greeting,
 };
 
 /** Which placeholders are read out loud, and so go through {@link spoken}. */
@@ -152,10 +163,14 @@ const isComment = (line: string): boolean => line.trimStart().startsWith('#');
  * Empty means the defaults, exactly as every other setting resolves. A line beginning `#` is a
  * comment; blank lines are ignored, because a person spacing their list out is not asking for a
  * break that says nothing.
+ *
+ * `fallback` is which set of the station's own to fall back to. A talk break and a welcome are two
+ * pools of phrasings for two different moments — one looks back at the record just played and the
+ * other greets somebody who missed it — and each has to restore ITS own when the box is cleared.
  */
-export function parseTemplates(raw: string | undefined): readonly string[] {
+export function parseTemplates(raw: string | undefined, fallback: readonly string[] = DEFAULT_TEMPLATES): readonly string[] {
     const lines = linesOf(raw);
-    return lines.length > 0 ? lines : DEFAULT_TEMPLATES;
+    return lines.length > 0 ? lines : fallback;
 }
 
 /**

@@ -12,6 +12,7 @@ import { isTrackItem, type StationLineup, type StationLineupItem, type StationLi
 import type { ResolvedRules } from './rotation.rules.js';
 import type { BreakRequestResult, BreakUrgency, StoredBreakRequest } from './break.request.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
+import { WELCOME_KIND } from './welcome.writer.js';
 
 /**
  * The kind of break whose audio already exists, because somebody recorded it and
@@ -792,11 +793,16 @@ interface Placement {
  * telling a listener what they are listening to — and a station that counted them separately would
  * say its own name twice as often as asked. Everything else is somebody else's rule.
  *
+ * **A welcome counts as one of them**, on exactly that argument: it names the station to somebody who
+ * has just arrived, which is the ident's whole job. Left out, the spacing walk would read straight
+ * past it and plant an ordinary break a boundary later, so the first thing a new listener heard would
+ * be the station introducing itself twice.
+ *
  * **A segment with no kind counts here**, because an order written before the running order carried
  * one holds nothing but the station's own breaks. Guessing the other way would have the station
  * talk over the top of breaks it had already planted, once, on the first pass after an upgrade.
  */
-const isStationKind = (kind: string): boolean => kind === IDENT_KIND || kind === TALK_BREAK_KIND;
+const isStationKind = (kind: string): boolean => kind === IDENT_KIND || kind === TALK_BREAK_KIND || kind === WELCOME_KIND;
 
 const isStationBreak = (item: StationLineupSegmentItem): boolean => item.segmentKind === undefined || isStationKind(item.segmentKind);
 

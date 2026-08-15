@@ -176,6 +176,8 @@ export interface StationLineupRules {
     autoExtend?: boolean;
     /** Whether the station may put its own segments into this order. */
     breaks?: boolean;
+    /** Whether the station greets somebody who tunes in to an empty room during this broadcast. */
+    welcome?: boolean;
     /** Minutes of airtime between one break and the next of the same kind. `0` is `breaks: false`. */
     breakEveryMinutes?: number;
     /**

@@ -131,6 +131,55 @@ export function roughTime(at: number, zone: string): RoughTime {
 }
 
 /**
+ * The parts of the day the station greets somebody in, and the hours each one covers.
+ *
+ * Three, and the gap is the point: there is deliberately nothing for the small hours. "Good night"
+ * to somebody who has just tuned in is a goodbye, "good morning" at two is wrong, and a greeting is
+ * the one part of a welcome the station can simply leave out — {@link dayGreeting} answers
+ * `undefined` and the phrasing drops its optional chunk.
+ */
+const DAYPARTS: readonly { from: number; until: number; words: string }[] = [
+    { from: 5, until: 12, words: 'good morning' },
+    { from: 12, until: 18, words: 'good afternoon' },
+    { from: 18, until: 22, words: 'good evening' },
+];
+
+/**
+ * How the station greets somebody at this hour, and how long that stays true.
+ *
+ * A {@link RoughTime} rather than a string, and reusing it is the whole point: the words and the
+ * window they hold in are one object because how long a wording lasts is a fact about the wording.
+ * A daypart is that same idea with coarser bounds — "good morning" is good for hours where "just
+ * after nine" is good for minutes — and the machinery either side of it is already built for the
+ * pair. A break written at 11:56 and spoken at 12:02 has its claim checked at hand-over and is
+ * dropped, exactly as one that named the time is.
+ *
+ * `at` is when the words will be SPOKEN, not when they are written; see {@link roughTime}, which
+ * takes the same instant for the same reason.
+ *
+ * `undefined` in the small hours, which is an ordinary answer rather than a failure: see
+ * {@link DAYPARTS}.
+ */
+export function dayGreeting(at: number, zone: string): RoughTime | undefined {
+    const { hour, minute } = wallClock(at, zone);
+
+    const part = DAYPARTS.find(daypart => hour >= daypart.from && hour < daypart.until);
+    if (part === undefined) return undefined;
+
+    // The same arithmetic `roughTime` uses, and for the same reason: every zone offset there is is a
+    // whole number of minutes, so the wall clock and the instant agree by construction.
+    const instant = new Date(at);
+    const intoHour = (minute * 60 + instant.getUTCSeconds()) * 1000 + instant.getUTCMilliseconds();
+    const hourStart = at - intoHour;
+
+    return {
+        words: part.words,
+        validFrom: hourStart - (hour - part.from) * 3_600_000,
+        validUntil: hourStart + (part.until - hour) * 3_600_000,
+    };
+}
+
+/**
  * An hour of the day as the station reads it.
  *
  * Twelve-hour and without am or pm, because that is how a presenter says it and because the

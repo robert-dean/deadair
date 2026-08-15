@@ -118,6 +118,18 @@ export interface BreakWriteRequest {
      * {@link WrittenBreak.claimsTime}, or the words will outlive their own truth.
      */
     clock?: RoughTime;
+    /**
+     * How the station would greet somebody at the moment this airs, and how long that stays true.
+     *
+     * A {@link RoughTime} like {@link clock} and stamped the same way: a writer that USES it must say
+     * so through {@link WrittenBreak.claimsTime}, or a "good morning" written at ten to twelve is
+     * spoken at five past.
+     *
+     * Present for any break whose row knows when it will air. Whether a greeting is APPROPRIATE is
+     * the writer's own business — a talk break between two records has no business saying good
+     * evening — which is why this is offered rather than applied.
+     */
+    greeting?: RoughTime;
 }
 
 /** What a writer produces. */

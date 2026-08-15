@@ -28,6 +28,13 @@ export interface ResolvedRules {
     /** Whether the station may put its own segments into this lineup. */
     breaks: boolean;
     /**
+     * Whether the station greets somebody who tunes in to an empty room.
+     *
+     * Under {@link breaks} rather than beside it: a station that has been told not to interrupt
+     * itself has been told that about every kind of break there is, and a greeting is one.
+     */
+    welcome: boolean;
+    /**
      * Minutes of airtime between one break and the next OF THE SAME KIND. `0` is `breaks: false`.
      *
      * Minutes rather than records, which is what this counted until it was measured. Four records
@@ -77,6 +84,9 @@ export const DEFAULT_RULES: ResolvedRules = {
     maxPerArtist: 2,
     autoExtend: true,
     breaks: true,
+    // ON. A station that never says hello to somebody who has just arrived is one they have to wait
+    // a quarter of an hour to learn the name of.
+    welcome: true,
     // A quarter of an hour, which is about as long as a station can go without identifying itself
     // before it stops sounding like a station and starts sounding like a playlist. Erring long: a
     // break every few minutes is a novelty that wears out in an afternoon. This is the number the
@@ -105,6 +115,7 @@ export const ROTATION_KEYS = {
     maxPerArtist: 'rotation.maxPerArtist',
     autoExtend: 'rotation.autoExtend',
     breaks: 'rotation.breaks',
+    welcome: 'rotation.welcome',
     breakEveryMinutes: 'rotation.breakEveryMinutes',
     crossfade: 'rotation.crossfade',
 } as const;
@@ -134,6 +145,7 @@ export function stationRules(config: AppConfig): ResolvedRules {
         maxPerArtist: number(ROTATION_KEYS.maxPerArtist, DEFAULT_RULES.maxPerArtist),
         autoExtend: boolean(ROTATION_KEYS.autoExtend, DEFAULT_RULES.autoExtend),
         breaks: boolean(ROTATION_KEYS.breaks, DEFAULT_RULES.breaks),
+        welcome: boolean(ROTATION_KEYS.welcome, DEFAULT_RULES.welcome),
         breakEveryMinutes: number(ROTATION_KEYS.breakEveryMinutes, DEFAULT_RULES.breakEveryMinutes),
         crossfade: boolean(ROTATION_KEYS.crossfade, DEFAULT_RULES.crossfade),
     };
@@ -146,6 +158,7 @@ const NO_RULES: ResolvedRules = {
     maxPerArtist: 0,
     autoExtend: false,
     breaks: false,
+    welcome: false,
     breakEveryMinutes: 0,
     crossfade: false,
 };
@@ -192,6 +205,7 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         maxPerArtist: overrides?.maxPerArtist ?? base.maxPerArtist,
         autoExtend: overrides?.autoExtend ?? base.autoExtend,
         breaks: overrides?.breaks ?? base.breaks,
+        welcome: overrides?.welcome ?? base.welcome,
         breakEveryMinutes: overrides?.breakEveryMinutes ?? base.breakEveryMinutes,
         crossfade: overrides?.crossfade ?? base.crossfade,
     };

@@ -79,6 +79,9 @@ describe('resolveRules', () => {
             // undoing the work, which is the same argument the 0007 migration makes about a
             // feature's segues, one step weaker.
             breaks: false,
+            // Including a greeting, which is a break like any other: an album played in full does
+            // not stop halfway to introduce itself to whoever just arrived.
+            welcome: false,
             breakEveryMinutes: 0,
             // Same argument, one step further: somebody decided where these records stop
             // and start, and overlapping two of them overrules that decision.

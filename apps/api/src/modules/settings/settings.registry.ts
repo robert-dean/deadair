@@ -3,6 +3,7 @@ import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.
 import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
+import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
 import { CLOCK_KEYS } from '#modules/director/clock.words.js';
 import { MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
@@ -267,6 +268,27 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: DEFAULT_RULES.breakEveryMinutes,
         dependsOn: ROTATION_KEYS.breaks,
         help: 'Fifteen is around as long as a station can go without saying its own name before it sounds like a playlist. Each sort of break keeps its own spacing, so a news bulletin does not push the next ident back.',
+    },
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.welcome,
+        label: 'Say hello to a new listener',
+        type: 'boolean',
+        default: DEFAULT_RULES.welcome,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'Whether the station greets somebody who tunes in to an empty room, rather than leaving them to work out what they are listening to at the next break. It is held off for twenty minutes afterwards, so a phone changing networks does not get greeted twice.',
+    },
+    {
+        group: 'rotation',
+        key: WELCOME_KEYS.templates,
+        label: 'What the station says to a new listener',
+        type: 'text',
+        default: WELCOME_TEMPLATES.join('\n'),
+        dependsOn: ROTATION_KEYS.welcome,
+        help:
+            'One phrasing per line, in the same syntax as the breaks above, with {{greeting}} for "good morning" and the like. ' +
+            'A greeting is deliberately not a back-announce: somebody who has just arrived did not hear the last record, so ' +
+            "{{previous.*}} is not offered here. Empty restores the station's own.",
     },
     {
         group: 'rotation',

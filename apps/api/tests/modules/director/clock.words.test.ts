@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { settingsConfig } from '../../utils/settings.config.js';
-import { CLOCK_KEYS, roughTime, stationZone } from '../../../src/modules/director/clock.words.js';
+import { CLOCK_KEYS, dayGreeting, roughTime, stationZone } from '../../../src/modules/director/clock.words.js';
 
 /** An instant from a UTC wall clock, so a test can name the time it means. */
 const at = (hour: number, minute: number, second = 0): number => Date.UTC(2026, 7, 13, hour, minute, second);
@@ -92,6 +92,53 @@ describe('roughTime', () => {
         // The station's hour starts at :30 past UTC's, and the window has to start with it.
         expect(validFrom).toBe(Date.UTC(2026, 7, 13, 3, 30));
         expect(validUntil).toBe(Date.UTC(2026, 7, 13, 3, 37));
+    });
+});
+
+// Same invariant as above, coarser: the words a greeting uses have to hold for the whole window
+// stamped with them, or a break written at ten to twelve and spoken at five past says good morning
+// in the afternoon.
+describe('dayGreeting', () => {
+    it('greets the part of the day it is in', () => {
+        expect(dayGreeting(at(6, 0), UTC)?.words).toBe('good morning');
+        expect(dayGreeting(at(11, 59), UTC)?.words).toBe('good morning');
+        expect(dayGreeting(at(12, 0), UTC)?.words).toBe('good afternoon');
+        expect(dayGreeting(at(17, 59), UTC)?.words).toBe('good afternoon');
+        expect(dayGreeting(at(18, 0), UTC)?.words).toBe('good evening');
+    });
+
+    it('says nothing at all in the small hours', () => {
+        // Deliberate: "good night" to somebody who has just tuned in is a goodbye, and a welcome can
+        // simply leave the greeting out.
+        expect(dayGreeting(at(2, 0), UTC)).toBeUndefined();
+        expect(dayGreeting(at(22, 0), UTC)).toBeUndefined();
+        expect(dayGreeting(at(4, 59), UTC)).toBeUndefined();
+    });
+
+    it('carries a window that contains the moment it describes, all day', () => {
+        for (let hour = 0; hour < 24; hour++) {
+            for (const minute of [0, 17, 43, 59]) {
+                const instant = at(hour, minute);
+                const greeting = dayGreeting(instant, UTC);
+                if (greeting === undefined) continue;
+
+                expect(greeting.validFrom).toBeLessThanOrEqual(instant);
+                expect(greeting.validUntil).toBeGreaterThan(instant);
+                // And the window really is the daypart's, so a break stamped with it is dropped at
+                // the boundary rather than a fixed span after it was written.
+                expect(dayGreeting(greeting.validFrom, UTC)?.words).toBe(greeting.words);
+                expect(dayGreeting(greeting.validUntil, UTC)?.words).not.toBe(greeting.words);
+            }
+        }
+    });
+
+    it("is the station's own part of the day, not the host's", () => {
+        // Half past nine in the morning in Kolkata is four in the morning in UTC, which greets
+        // nobody.
+        const instant = Date.UTC(2026, 7, 13, 4, 0);
+
+        expect(dayGreeting(instant, 'Asia/Kolkata')?.words).toBe('good morning');
+        expect(dayGreeting(instant, UTC)).toBeUndefined();
     });
 });
 

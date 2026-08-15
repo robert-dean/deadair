@@ -8,6 +8,7 @@ import { BreakRequestRepository } from './break.request.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
+import { WelcomeWriter } from './welcome.writer.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
@@ -101,6 +102,7 @@ export const DirectorModule: ServerKitModule = {
         // decline. So the station's own words stay the floor by being the final entry.
         registry.register(ModelTalkBreakWriter).useClass(ModelTalkBreakWriter).asScoped();
         registry.register(TalkBreakWriter).useClass(TalkBreakWriter).asScoped();
+        registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
         registry
             .register(BreakWriterRegistry)
             .useFactory(
@@ -109,7 +111,11 @@ export const DirectorModule: ServerKitModule = {
                         // The model first and the station's own words last, which is the whole of
                         // how they are ranked. Everything the model can do wrong falls through to
                         // the line below it, and the line below it cannot fail.
-                        [container.get(ModelTalkBreakWriter), container.get(TalkBreakWriter)],
+                        // The welcome is a second KIND rather than a third writer of the first: a
+                        // greeting looks forward and a talk break looks back, so a writer for one is
+                        // wrong for the other whatever it is handed. It has no model binding in front
+                        // of it yet, so it is both front and floor.
+                        [container.get(ModelTalkBreakWriter), container.get(TalkBreakWriter), container.get(WelcomeWriter)],
                         container.get(Logger),
                     ),
             )

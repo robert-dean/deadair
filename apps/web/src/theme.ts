@@ -94,32 +94,28 @@ export const theme = createTheme({
         fontFamily: '"Chakra Petch", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif',
         fontWeight: '600',
         sizes: {
-            h1: { fontSize: '1.625rem', lineHeight: '1.2' },
-            h2: { fontSize: '1.25rem', lineHeight: '1.25' },
-            h3: { fontSize: '1.0625rem', lineHeight: '1.3' },
-            h4: { fontSize: '0.9375rem', lineHeight: '1.35' },
+            h1: { fontSize: '1.875rem', lineHeight: '1.2' },
+            h2: { fontSize: '1.5rem', lineHeight: '1.25' },
+            h3: { fontSize: '1.25rem', lineHeight: '1.3' },
+            h4: { fontSize: '1.0625rem', lineHeight: '1.35' },
         },
     },
-    fontSizes: {
-        xs: '0.6875rem',
-        sm: '0.78125rem',
-        md: '0.875rem',
-        lg: '1rem',
-        xl: '1.125rem',
-    },
-    lineHeights: {
-        xs: '1.35',
-        sm: '1.4',
-        md: '1.45',
-        lg: '1.5',
-        xl: '1.55',
-    },
+    /**
+     * Type is Mantine's own scale, deliberately.
+     *
+     * It was a step smaller across the board for one pass, on the theory that an operator console
+     * wants density. That is true and this was the wrong lever: shrinking the type AND the spacing
+     * together is a uniform scale-down, which is the definition of zooming out, and it bought rows
+     * that were harder to read rather than more rows worth reading. Density belongs in the places
+     * below — table rows, card padding, the gutters — where it costs whitespace instead of
+     * legibility.
+     */
     spacing: {
-        xs: '6px',
-        sm: '10px',
-        md: '14px',
-        lg: '20px',
-        xl: '28px',
+        xs: '8px',
+        sm: '12px',
+        md: '16px',
+        lg: '22px',
+        xl: '30px',
     },
     components: {
         // The conventions live here rather than in wrapper components: a `Card` is a Mantine Card

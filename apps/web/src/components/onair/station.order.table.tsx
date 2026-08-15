@@ -101,161 +101,179 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
     const editable = onRemove !== undefined || onMove !== undefined;
 
     return (
-        <Table highlightOnHover verticalSpacing="xs">
-            <Table.Thead>
-                <Table.Tr>
-                    <Table.Th w={40}>#</Table.Th>
-                    <Table.Th>Title</Table.Th>
-                    <Table.Th>Artists</Table.Th>
-                    <Table.Th visibleFrom="sm">Album</Table.Th>
-                    <Table.Th w={90}>Duration</Table.Th>
-                    {onRate ? <Table.Th w={130}>Rating</Table.Th> : undefined}
-                    {editable ? <Table.Th w={60} /> : undefined}
-                </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-                {items.map((item, index) => {
-                    const state = STATE_LABEL[item.state];
-                    // A segment is the station's own words, and a record the catalog has never seen
-                    // has no row to hold an opinion — a station can air one it never ingested.
-                    const trackId = item.kind === 'track' ? item.trackId : undefined;
-                    return (
-                        <Table.Tr
-                            key={item.id}
-                            // Dimmed rather than hidden: what is beyond editing is how an operator
-                            // reads where the station has got to. The item ON AIR is not dimmed,
-                            // because it is the one thing on the page that is happening.
-                            opacity={item.state === 'airing' || item.state === 'planned' ? 1 : 0.5}
-                        >
-                            <Table.Td>
-                                <Text size="xs" c="dimmed" className="da-num">
-                                    {index + 1}
-                                </Text>
-                            </Table.Td>
-                            <Table.Td>
-                                <Group gap="xs" wrap="nowrap">
-                                    <Artwork src={item.artworkUrl} alt={item.title} size={28} radius="xs" />
-                                    <Text size="sm" truncate fw={item.state === 'airing' ? 600 : undefined}>
-                                        {item.title}
+        // Scrolled inside its own box rather than by the page. The row is genuinely wide — a title,
+        // its badges, a credit, a record and a rating — and without this the whole console slides
+        // sideways, taking the nav and the transport with it, which is the one thing that must stay
+        // put while an operator is reading a fault.
+        <Table.ScrollContainer minWidth={780}>
+            <Table highlightOnHover verticalSpacing="xs">
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Th w={40}>#</Table.Th>
+                        <Table.Th>Title</Table.Th>
+                        <Table.Th>Artists</Table.Th>
+                        <Table.Th visibleFrom="xl">Album</Table.Th>
+                        <Table.Th w={90}>Duration</Table.Th>
+                        {onRate ? <Table.Th w={112}>Rating</Table.Th> : undefined}
+                        {editable ? <Table.Th w={60} /> : undefined}
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                    {items.map((item, index) => {
+                        const state = STATE_LABEL[item.state];
+                        // A segment is the station's own words, and a record the catalog has never seen
+                        // has no row to hold an opinion — a station can air one it never ingested.
+                        const trackId = item.kind === 'track' ? item.trackId : undefined;
+                        return (
+                            <Table.Tr
+                                key={item.id}
+                                // Dimmed rather than hidden: what is beyond editing is how an operator
+                                // reads where the station has got to. The item ON AIR is not dimmed,
+                                // because it is the one thing on the page that is happening.
+                                opacity={item.state === 'airing' || item.state === 'planned' ? 1 : 0.5}
+                            >
+                                <Table.Td>
+                                    <Text size="xs" c="dimmed" className="da-num">
+                                        {index + 1}
                                     </Text>
-                                    {/* A segment is not a record and should not have to be worked
-                                        out from an empty artist column. */}
-                                    {item.kind === 'segment' ? (
-                                        <Badge size="xs" variant="light" color="grape">
-                                            segment
-                                        </Badge>
-                                    ) : undefined}
-                                    {/* A talk-over never becomes something the player is handed: it
-                                        is heard ALONGSIDE the record after it, with the music
-                                        ducked under it. */}
-                                    {item.overAtMs === undefined ? undefined : (
-                                        <Badge size="xs" variant="light" color="grape">
-                                            over the next record
-                                        </Badge>
-                                    )}
-                                    {/* Which writer produced the words. Without it a model that
-                                        degrades to the station's own phrasings on every single
-                                        break looks exactly like a model that is working, and the
-                                        answer has been on the row since it was written. */}
-                                    {item.segmentWriter === undefined ? undefined : (
-                                        <Tooltip label={writerHint(item.segmentWriter)} multiline maw={360}>
-                                            <Badge size="xs" variant="light" color={item.segmentWriter === 'model' ? 'grape' : 'gray'}>
-                                                {item.segmentWriter}
+                                </Table.Td>
+                                {/* `maxWidth` rather than `minWidth` is what actually caps this: a table
+                                    column sizes to its content, so an upper bound on the cell is the
+                                    only thing the layout algorithm will honour, and the `minWidth: 0`
+                                    below is what then makes the title the part that gives. */}
+                                <Table.Td style={{ maxWidth: 430 }}>
+                                    {/* `minWidth: 0` in both places, and both are load-bearing: a flex
+                                        child defaults to `min-width: auto`, so a truncating title
+                                        still reports its full width to the table's column algorithm
+                                        and the row grows instead of the text shrinking. The Group
+                                        needs it to be shrinkable at all; the Text needs it to be the
+                                        thing that gives. */}
+                                    <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                                        <Artwork src={item.artworkUrl} alt={item.title} size={28} radius="xs" />
+                                        <Text size="sm" truncate fw={item.state === 'airing' ? 600 : undefined} style={{ minWidth: 0 }}>
+                                            {item.title}
+                                        </Text>
+                                        {/* A segment is not a record and should not have to be worked
+                                            out from an empty artist column. */}
+                                        {item.kind === 'segment' ? (
+                                            <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                                                segment
                                             </Badge>
-                                        </Tooltip>
-                                    )}
-                                    {/* The station SKIPS a segment that has no audio when it comes
-                                        round, rather than waiting for one. An operator reading the
-                                        order has to be able to see which items will not be heard. */}
-                                    {item.kind === 'segment' && item.playable === false && item.state === 'planned' ? (
-                                        // The reason when the row carries one. A break that could
-                                        // not be written and a DJ that simply talks less look
-                                        // identical without it, and the difference is a sentence
-                                        // already on the segment.
-                                        <Tooltip
-                                            multiline
-                                            maw={360}
-                                            label={item.segmentError ?? `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`}
-                                        >
-                                            <Badge size="xs" variant="light" color="yellow">
-                                                will skip
+                                        ) : undefined}
+                                        {/* A talk-over never becomes something the player is handed: it
+                                            is heard ALONGSIDE the record after it, with the music
+                                            ducked under it. */}
+                                        {item.overAtMs === undefined ? undefined : (
+                                            <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                                                over the next record
                                             </Badge>
-                                        </Tooltip>
-                                    ) : undefined}
-                                    {state ? (
-                                        <Tooltip label={state.hint} multiline maw={360}>
-                                            {/* Mono, like every other legend on the desk, and pulsing on the one
-                                                row that is actually going out. */}
-                                            <Text
+                                        )}
+                                        {/* Which writer produced the words. Without it a model that
+                                            degrades to the station's own phrasings on every single
+                                            break looks exactly like a model that is working, and the
+                                            answer has been on the row since it was written. */}
+                                        {item.segmentWriter === undefined ? undefined : (
+                                            <Tooltip label={writerHint(item.segmentWriter)} multiline maw={360}>
+                                                <Badge size="xs" variant="light" color={item.segmentWriter === 'model' ? 'grape' : 'gray'} style={{ flexShrink: 0 }}>
+                                                    {item.segmentWriter}
+                                                </Badge>
+                                            </Tooltip>
+                                        )}
+                                        {/* The station SKIPS a segment that has no audio when it comes
+                                            round, rather than waiting for one. An operator reading the
+                                            order has to be able to see which items will not be heard. */}
+                                        {item.kind === 'segment' && item.playable === false && item.state === 'planned' ? (
+                                            // The reason when the row carries one. A break that could
+                                            // not be written and a DJ that simply talks less look
+                                            // identical without it, and the difference is a sentence
+                                            // already on the segment.
+                                            <Tooltip
+                                                multiline
+                                                maw={360}
+                                                label={
+                                                    item.segmentError ?? `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`
+                                                }
+                                            >
+                                                <Badge size="xs" variant="light" color="yellow" style={{ flexShrink: 0 }}>
+                                                    will skip
+                                                </Badge>
+                                            </Tooltip>
+                                        ) : undefined}
+                                        {state ? (
+                                            <Tooltip label={state.hint} multiline maw={360}>
+                                                {/* Mono, like every other legend on the desk, and pulsing on the one
+                                                    row that is actually going out. */}
+                                                <Text
+                                                    size="xs"
+                                                    c={state.colour}
+                                                    ff="monospace"
+                                                    tt="uppercase"
+                                                    className={item.state === 'airing' ? 'da-lamp-pulse' : undefined}
+                                                    style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                                                >
+                                                    {state.label}
+                                                </Text>
+                                            </Tooltip>
+                                        ) : undefined}
+                                    </Group>
+                                </Table.Td>
+                                <Table.Td style={{ maxWidth: 220 }}>
+                                    <Text size="sm" c="dimmed" truncate>
+                                        {formatArtists(item.artists)}
+                                    </Text>
+                                </Table.Td>
+                                <Table.Td visibleFrom="xl">
+                                    <Text size="sm" c="dimmed" truncate>
+                                        {item.album ?? ''}
+                                        {item.year ? ` (${item.year})` : ''}
+                                    </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                    <Text size="xs" c="dimmed" className="da-num">
+                                        {formatDuration(item.durationMs)}
+                                    </Text>
+                                </Table.Td>
+                                {onRate ? (
+                                    <Table.Td>
+                                        {trackId === undefined ? undefined : (
+                                            <RatingControl
                                                 size="xs"
-                                                c={state.colour}
-                                                ff="monospace"
-                                                tt="uppercase"
-                                                className={item.state === 'airing' ? 'da-lamp-pulse' : undefined}
-                                                style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap' }}
-                                            >
-                                                {state.label}
-                                            </Text>
-                                        </Tooltip>
-                                    ) : undefined}
-                                </Group>
-                            </Table.Td>
-                            <Table.Td>
-                                <Text size="sm" c="dimmed" truncate>
-                                    {formatArtists(item.artists)}
-                                </Text>
-                            </Table.Td>
-                            <Table.Td visibleFrom="sm">
-                                <Text size="sm" c="dimmed" truncate>
-                                    {item.album ?? ''}
-                                    {item.year ? ` (${item.year})` : ''}
-                                </Text>
-                            </Table.Td>
-                            <Table.Td>
-                                <Text size="xs" c="dimmed" className="da-num">
-                                    {formatDuration(item.durationMs)}
-                                </Text>
-                            </Table.Td>
-                            {onRate ? (
-                                <Table.Td>
-                                    {trackId === undefined ? undefined : (
-                                        <RatingControl
-                                            size="xs"
-                                            rating={item.rating}
-                                            label={item.title}
-                                            busy={ratingTrackId === trackId}
-                                            onChange={rating => {
-                                                onRate(trackId, rating);
-                                            }}
-                                        />
-                                    )}
-                                </Table.Td>
-                            ) : undefined}
-                            {editable ? (
-                                <Table.Td>
-                                    {/* Nothing at all on a spent item, rather than a disabled
-                                        control: the player is holding it or it is behind us, and an
-                                        affordance that could only ever answer 422 is worse than no
-                                        affordance. */}
-                                    {onRemove && !isSpent(item.state) ? (
-                                        <Tooltip label="Drop this item">
-                                            <ActionIcon
-                                                variant="subtle"
-                                                color="red"
-                                                aria-label={`Drop ${item.title}`}
-                                                loading={removingItemId === item.id}
-                                                onClick={() => onRemove(item)}
-                                            >
-                                                <IconX size={15} stroke={1.8} />
-                                            </ActionIcon>
-                                        </Tooltip>
-                                    ) : undefined}
-                                </Table.Td>
-                            ) : undefined}
-                        </Table.Tr>
-                    );
-                })}
-            </Table.Tbody>
-        </Table>
+                                                rating={item.rating}
+                                                label={item.title}
+                                                busy={ratingTrackId === trackId}
+                                                onChange={rating => {
+                                                    onRate(trackId, rating);
+                                                }}
+                                            />
+                                        )}
+                                    </Table.Td>
+                                ) : undefined}
+                                {editable ? (
+                                    <Table.Td>
+                                        {/* Nothing at all on a spent item, rather than a disabled
+                                            control: the player is holding it or it is behind us, and an
+                                            affordance that could only ever answer 422 is worse than no
+                                            affordance. */}
+                                        {onRemove && !isSpent(item.state) ? (
+                                            <Tooltip label="Drop this item">
+                                                <ActionIcon
+                                                    variant="subtle"
+                                                    color="red"
+                                                    aria-label={`Drop ${item.title}`}
+                                                    loading={removingItemId === item.id}
+                                                    onClick={() => onRemove(item)}
+                                                >
+                                                    <IconX size={15} stroke={1.8} />
+                                                </ActionIcon>
+                                            </Tooltip>
+                                        ) : undefined}
+                                    </Table.Td>
+                                ) : undefined}
+                            </Table.Tr>
+                        );
+                    })}
+                </Table.Tbody>
+            </Table>
+        </Table.ScrollContainer>
     );
 }

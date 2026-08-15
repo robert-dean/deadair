@@ -322,78 +322,69 @@ describe('SpotifyPlugin', () => {
 
         it('browses a genre through its ARTISTS, since a track search cannot be narrowed by one', async () => {
             // The measured failure: `genre:` on a track search answers with nothing or with
-            // unrelated records. On an artist search it is a real filter, and an artist's top
-            // tracks are the hits — which is what a brief asking for popular anything wanted.
+            // unrelated records. On an artist search it is a real filter, so a browse finds who
+            // plays the style and then asks what records each of them has.
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ country: 'GB', id: 'me' }));
             host.queueResponse(apiResponse({ artists: { items: [{ id: 'artist-1', name: 'Aretha Franklin' }] } }));
-            host.queueResponse(apiResponse({ tracks: [{ ...searchHit('t1'), popularity: 82 }] }));
+            host.queueResponse(apiResponse({ tracks: { items: [{ ...searchHit('t1'), popularity: 82 }] } }));
 
             const results = await plugin.searchTracks('', { genre: 'soul', limit: 10 });
 
-            expect(new URL(host.calls[1].url).searchParams.get('q')).toBe('genre:soul');
-            expect(new URL(host.calls[1].url).searchParams.get('type')).toBe('artist');
-            expect(host.calls[2].url).toContain('artists/artist-1/top-tracks');
+            expect(new URL(host.calls[0].url).searchParams.get('q')).toBe('genre:soul');
+            expect(new URL(host.calls[0].url).searchParams.get('type')).toBe('artist');
+            // The second call is an ordinary track search for the artist's NAME, which is the one
+            // this account is demonstrably allowed to make: `artists/{id}/top-tracks` answers 403.
+            expect(new URL(host.calls[1].url).searchParams.get('q')).toBe('Aretha Franklin');
+            expect(new URL(host.calls[1].url).searchParams.get('type')).toBe('track');
             expect(results).toHaveLength(1);
             expect(results[0]?.popularity).toBe(82);
         });
 
-        it('asks the account which market it is in, because top tracks will not answer without one', async () => {
+        it('carries a period into each artist search, where Spotify does honour it', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ country: 'GB', id: 'me' }));
-            host.queueResponse(apiResponse({ artists: { items: [{ id: 'artist-1', name: 'A' }] } }));
-            host.queueResponse(apiResponse({ tracks: [searchHit('t1')] }));
+            host.queueResponse(apiResponse({ artists: { items: [{ id: 'artist-1', name: 'Aretha Franklin' }] } }));
+            host.queueResponse(apiResponse({ tracks: { items: [searchHit('t1')] } }));
 
-            await plugin.searchTracks('', { genre: 'soul' });
+            await plugin.searchTracks('', { genre: 'soul', yearFrom: 1960, yearTo: 1975 });
 
-            expect(host.calls[0].url).toContain('me');
-            expect(host.calls[2].url).toContain('market=GB');
+            expect(new URL(host.calls[1].url).searchParams.get('q')).toBe('Aretha Franklin year:1960-1975');
         });
 
-        it('answers with nothing rather than guessing a market it could not read', async () => {
-            // Another market's hits would be a catalogue this account may not be able to play from.
+        it('shows a record found under two artists once', async () => {
+            // A collaboration is reachable from either name, and showing it twice would spend one
+            // of the model's choices on nothing.
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ error: 'nope' }, { status: 500 }));
-
-            expect(await plugin.searchTracks('', { genre: 'soul' })).toEqual([]);
-        });
-
-        it('applies a period itself, because top tracks take no year filter', async () => {
-            const host = createFakePluginHost();
-            const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ country: 'GB', id: 'me' }));
-            host.queueResponse(apiResponse({ artists: { items: [{ id: 'artist-1', name: 'A' }] } }));
             host.queueResponse(
                 apiResponse({
-                    tracks: [
-                        { ...searchHit('old'), album: { name: 'Then', release_date: '1967-03-10' } },
-                        { ...searchHit('new'), album: { name: 'Now', release_date: '2019' } },
-                        // No release date: kept, because the filter drops what is KNOWN to fall
-                        // outside rather than everything unlabelled.
-                        { ...searchHit('undated'), album: { name: 'Undated' } },
-                    ],
+                    artists: {
+                        items: [
+                            { id: 'a-1', name: 'One' },
+                            { id: 'a-2', name: 'Two' },
+                        ],
+                    },
                 }),
             );
+            host.queueResponse(apiResponse({ tracks: { items: [searchHit('shared')] } }));
+            host.queueResponse(apiResponse({ tracks: { items: [searchHit('shared')] } }));
 
-            const results = await plugin.searchTracks('', { genre: 'soul', yearTo: 1970 });
+            const results = await plugin.searchTracks('', { genre: 'soul', limit: 10 });
 
-            expect(results.map(found => found.title)).toEqual(['Song old', 'Song undated']);
+            expect(results).toHaveLength(1);
         });
 
         it('bounds a browse to a handful of artists, since each one is a request', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
-            host.queueResponse(apiResponse({ country: 'GB', id: 'me' }));
             host.queueResponse(apiResponse({ artists: { items: Array.from({ length: 20 }, (_, i) => ({ id: `artist-${i}`, name: `A${i}` })) } }));
-            for (let index = 0; index < 20; index += 1) host.queueResponse(apiResponse({ tracks: [searchHit(`t${index}`)] }));
+            for (let index = 0; index < 20; index += 1) host.queueResponse(apiResponse({ tracks: { items: [searchHit(`t${index}`)] } }));
 
             const results = await plugin.searchTracks('', { genre: 'soul', limit: 50 });
 
-            // The profile, the artist search, and one call per artist taken.
-            expect(host.calls.length).toBeLessThanOrEqual(8);
+            // The artist search plus one per artist taken, and no more.
+            expect(host.calls.length).toBeLessThanOrEqual(7);
             expect(results.length).toBeLessThanOrEqual(6);
         });
 

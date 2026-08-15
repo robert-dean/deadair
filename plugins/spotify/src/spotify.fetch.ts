@@ -72,6 +72,22 @@ function upstreamCause(body: string | undefined): string | undefined {
     return upstreamField(body, parsed => (parsed as { error?: { reason?: unknown } }).error?.reason);
 }
 
+/**
+ * The API path a response came from, as `(v1/artists/…/top-tracks)`, or nothing when it is unreadable.
+ *
+ * Path only. A search's query string is the caller's own words and would put a station's brief
+ * inside an error message that travels further than the log line it came from.
+ */
+function endpointOf(url: string | undefined): string | undefined {
+    if (!url) return undefined;
+
+    try {
+        return `(${new URL(url).pathname.replace(/^\//, '')})`;
+    } catch {
+        return undefined;
+    }
+}
+
 /** The `error.reason` Spotify sends on a 429 when the app's allowance is spent rather than its burst. */
 export const QUOTA_EXCEEDED_REASON = 'QUOTA_EXCEEDED';
 
@@ -220,6 +236,12 @@ export class SpotifyResponseValidator implements IValidateResponses {
             response.statusText,
             upstreamReason(body),
             quota ? "(quota exhausted: the app's allowance is spent, not a burst limit)" : undefined,
+            // WHICH call, because a plugin method can make several and Spotify refuses them
+            // individually. A browse that failed reported "HTTP 403 Forbidden" and nothing else,
+            // and telling a restricted endpoint apart from a missing scope started with guessing
+            // which of three requests had been refused. The path alone: the query string is the
+            // caller's own search terms and belongs in the caller's own log line, not in an error.
+            endpointOf(response.url),
         ];
 
         throw new SpotifyRequestError(

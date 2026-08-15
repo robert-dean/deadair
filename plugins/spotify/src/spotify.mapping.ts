@@ -20,8 +20,6 @@ interface SpotifyArtist {
 interface SpotifyAlbum {
     name?: string;
     images?: SpotifyImage[];
-    /** `YYYY`, `YYYY-MM` or `YYYY-MM-DD`, per Spotify's own precision field. */
-    release_date?: string;
 }
 
 interface SpotifyTrack {
@@ -271,28 +269,6 @@ function year(value: number | undefined): number | undefined {
     const rounded = Math.trunc(value);
     return rounded >= YEAR_MIN && rounded <= YEAR_MAX ? rounded : undefined;
 }
-
-/**
- * Whether a track falls inside a caller's year range, read off its album's release date.
- *
- * For the browse path, which cannot express a year to Spotify at all: an artist's top tracks are
- * whatever they are, so a period asked for has to be applied here or silently ignored. A record
- * whose release date Spotify does not give is KEPT — the filter narrows what is known to fall
- * outside, rather than dropping everything unlabelled.
- */
-export function withinYears(released: number | undefined, options: SearchTracksOptions | undefined): boolean {
-    if (released === undefined) return true;
-
-    const from = year(options?.yearFrom);
-    const to = year(options?.yearTo);
-    return (from === undefined || released >= from) && (to === undefined || released <= to);
-}
-
-/** The four-digit year off a Spotify release date, whatever precision it came at. */
-export const releaseYearOf = (album: { release_date?: string } | undefined): number | undefined => {
-    const match = /^(\d{4})/.exec(album?.release_date ?? '');
-    return match ? Number(match[1]) : undefined;
-};
 
 /** A usable 0-100 ranking. Anything else is Spotify not having said. */
 const isRanking = (value: number | undefined): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100;

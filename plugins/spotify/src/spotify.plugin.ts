@@ -13,7 +13,7 @@ import {
     type ProviderTrack,
     type SearchTracksOptions,
 } from '@deadair/plugin-sdk';
-import { SpotifyApi, type Market } from '@spotify/web-api-ts-sdk';
+import { SpotifyApi } from '@spotify/web-api-ts-sdk';
 
 import { HostVaultAuthStrategy } from './spotify.auth.js';
 import { createHostFetch, SpotifyRequestError, SpotifyResponseValidator } from './spotify.fetch.js';
@@ -27,9 +27,7 @@ import {
     mapPlaylist,
     mapTrack,
     quoteIfNeeded,
-    releaseYearOf,
     SEARCH_OFFSET_MAX,
-    withinYears,
     type SpotifyPlaylistedItem,
 } from './spotify.mapping.js';
 
@@ -42,13 +40,12 @@ const DEVICE_ID_CACHE_TTL_MS = 60_000;
 const NO_ACTIVE_DEVICE_MESSAGE = 'no active Spotify device; open Spotify or start the go-librespot bridge';
 
 /**
- * How many artists a genre browse takes the top tracks of.
+ * How many artists a genre browse takes records from.
  *
- * Each one is a request, on an account this plugin is careful about the rate limit of, so this is
- * the number that decides what a browse COSTS: six artists is seven calls and up to sixty records,
- * which is more than any caller's ceiling and comfortably more variety than a refill needs. Raising
- * it buys deeper cuts of the same genre at a request each; the reason not to is that a browse runs
- * inside a refill that also has records to fetch.
+ * Each one is a search, on an account this plugin is careful about the rate limit of, so this is
+ * the number that decides what a browse COSTS: six artists is seven calls, which is comfortably
+ * more variety than a refill needs. Raising it buys deeper cuts of the same genre at a request
+ * each; the reason not to is that a browse runs inside a refill that also has records to fetch.
  */
 const BROWSE_ARTISTS = 6;
 
@@ -94,8 +91,6 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      * would otherwise spend a second round trip on every listing.
      */
     private currentUserIdCache?: string;
-    /** The account's country, for the one endpoint that will not answer without one. */
-    private marketCache?: Market;
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -124,7 +119,6 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
         this.auth = undefined;
         this.api = undefined;
         this.currentUserIdCache = undefined;
-        this.marketCache = undefined;
         this.deviceIdCache = undefined;
     }
 
@@ -228,71 +222,55 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      * filter, and an artist's top tracks are ranked by Spotify itself — so the pair answers the
      * question a browse is actually asking, which is "who plays this, and what are they known for".
      *
-     * That is also why this is the path a brief reaches. Asked for "popular rap songs from the USA"
-     * the station used to hand a model two dozen bedroom uploads; the model named them, because
-     * nothing on the row said which were hits. Top tracks ARE the hits.
+     * That is the path a brief reaches. Asked for "popular rap songs from the USA" the station used
+     * to hand a model two dozen bedroom uploads, and the model named them because nothing on the row
+     * said which were hits. An artist's own records, ranked by the popularity this now carries, are
+     * the hits.
+     *
+     * ## Why not `artists/{id}/top-tracks`, which is the obvious second call
+     *
+     * It answers **403 Forbidden** for this application. Measured on the station's own account,
+     * where `/search` with the same token answered perfectly well two seconds later, and it is not a
+     * scope: that endpoint asks for none. Spotify restricts a set of endpoints per application, and
+     * one that cannot be called at all is not worth carrying a fallback for. Searching each artist
+     * by NAME needs no market, no extra permission and no second dialect, and it is the same call
+     * the plugin already makes for every other search on this page.
      *
      * ## What it costs, and what bounds it
      *
-     * One artist search plus one call per artist, capped at {@link BROWSE_ARTISTS}. Deliberately
-     * modest: this runs inside a refill on a rate-limited account, and a browse that spent thirty
-     * requests would be a better answer nobody could afford to ask for twice. It stops early once
-     * `wanted` records are in hand.
+     * One artist search plus one track search per artist, capped at {@link BROWSE_ARTISTS}.
+     * Deliberately modest: this runs inside a refill on a rate-limited account, and a browse that
+     * spent thirty requests would be a better answer nobody could afford to ask for twice. It stops
+     * as soon as `wanted` records are in hand.
      *
-     * A period is applied HERE rather than sent, because top tracks take no year filter — a record
-     * whose release date Spotify does not give is kept, so the filter drops what is known to fall
-     * outside rather than everything unlabelled.
-     *
-     * The market is the connected account's own country, since that is what this station can
-     * actually play. Without it Spotify refuses the call, so a profile that cannot be read means no
-     * browse rather than a guessed country: answering with another market's hits would be inventing
-     * a catalogue the account may not be able to play from.
+     * A period rides along on each of those searches, where `year:` is a filter Spotify does honour.
      */
     private async browseGenre(genre: string, options: SearchTracksOptions | undefined, wanted: number): Promise<ProviderTrack[]> {
-        const market = await this.getMarket();
-        if (market === undefined) {
-            this.host.logger.warn('cannot browse a genre without the account market; answering with nothing', { genre });
-            return [];
-        }
-
-        const results = await this.getApi().search(`genre:${quoteIfNeeded(genre)}`, ['artist'], market, clampSearchLimit(BROWSE_ARTISTS));
-        const artists = results.artists.items.filter(artist => typeof artist.id === 'string' && artist.id.length > 0);
+        const results = await this.getApi().search(`genre:${quoteIfNeeded(genre)}`, ['artist'], undefined, clampSearchLimit(BROWSE_ARTISTS));
+        const names = results.artists.items
+            .map(artist => artist.name)
+            .filter((name): name is string => typeof name === 'string' && name.trim().length > 0);
 
         const tracks: ProviderTrack[] = [];
-        for (const artist of artists.slice(0, BROWSE_ARTISTS)) {
+        const seen = new Set<string>();
+        for (const name of names.slice(0, BROWSE_ARTISTS)) {
             if (tracks.length >= wanted) break;
 
-            const top = await this.getApi().artists.topTracks(artist.id, market);
-            for (const item of top.tracks) {
-                if (!withinYears(releaseYearOf(item.album), options)) continue;
-
-                const mapped = mapTrack(item);
-                if (mapped !== undefined) tracks.push(mapped);
+            // Straight back through the ordinary search, which is what keeps this one code path
+            // rather than two: the same paging, the same clamps, the same year dialect. The name
+            // goes as plain text on purpose — a bare name is the search this account is
+            // demonstrably allowed to make — and the genre is dropped, having done its job above.
+            const perArtist = Math.max(1, Math.ceil(wanted / BROWSE_ARTISTS));
+            for (const track of await this.searchTracks(name, { ...options, genre: undefined, limit: perArtist })) {
+                // One record can be reached from two artists on a collaboration, and a browse
+                // showing it twice would spend one of the model's choices on nothing.
+                if (seen.has(track.id)) continue;
+                seen.add(track.id);
+                tracks.push(track);
             }
         }
 
         return tracks.slice(0, wanted);
-    }
-
-    /**
-     * The connected account's country, or `undefined` when it cannot be read.
-     *
-     * Cached beside {@link getCurrentUserId} and cleared with it on unload, because it is the same
-     * profile call and the same lifetime. Swallows for that method's reason too, with one
-     * difference worth stating: this one's caller has no degraded mode to fall back to, so it
-     * reports rather than carrying on.
-     */
-    private async getMarket(): Promise<Market | undefined> {
-        if (this.marketCache !== undefined) return this.marketCache;
-
-        try {
-            const profile = await this.getApi().currentUser.profile();
-            this.marketCache = profile.country as Market | undefined;
-            return this.marketCache;
-        } catch (error) {
-            this.host.logger.warn('could not resolve the Spotify account market', { error: errorText(error) });
-            return undefined;
-        }
     }
 
     async getTrack(trackId: string): Promise<ProviderTrack | undefined> {

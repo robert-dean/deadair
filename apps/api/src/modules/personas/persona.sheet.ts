@@ -34,6 +34,37 @@
  * asked for at first, which made the shortfall a trick question: the station declined good scripts
  * for missing words it had never named, and the floor wrote more than half the breaks on the day
  * the first persona went on air.
+ *
+ * ## A pasted character is not a character, which is the fault {@link characterFault} exists for
+ *
+ * Measured on this station, over seventeen consecutive model breaks under one persona: fifteen of
+ * them ended with a signature line or a sample line reproduced word for word. `Okay that was rough
+ * and I picked it, so that's on me` went out four times, once behind `Oh boy, Anvil dropping
+ * Paranormal now!`, where it means nothing at all. `I said what I said` closed a talk break, a
+ * welcome and a NEWS BULLETIN.
+ *
+ * What that is, exactly: plain announcer English in the middle, a marker bolted to the front and a
+ * quoted signature bolted to the end. Every one of those scripts passed {@link keepsCharacter},
+ * because a pasted catchphrase is precisely the evidence it counts — so the guard was reading the
+ * decoration as the voice.
+ *
+ * So the sheet now judges three more things, and each is the enforcement of a line the sheet was
+ * already sending and nothing was checking:
+ *
+ * - **A sample may not be echoed** ({@link echoedSample}). The prompt says reuse the grammar and
+ *   never the sentences; this is what makes that true.
+ * - **A signature already heard is spent** ({@link spentCatchphrases}). The prompt says "at most
+ *   one, and not every time", and "not every time" was the half with nothing behind it. The model is
+ *   TOLD which ones are spent, in the user turn beside the recent scripts, and invited to invent one
+ *   of its own instead — so this refuses a script for an instruction it was given, which is the same
+ *   bargain the markers are on.
+ * - **`avoid` is a list of things not to say** ({@link avoidedWording}), and it went out on every
+ *   prompt with nothing reading the answer back against it. A break saying "buckle up" aired under a
+ *   persona whose sheet forbids exactly that, in exactly those words.
+ *
+ * All three DECLINE rather than repair, for the reason the marker check does: the floor underneath
+ * is written in the same character, so the station gets an in-character line at once instead of
+ * paying for a second generation to maybe get one.
  */
 
 /**
@@ -114,6 +145,20 @@ const REMINDER_CLAUSES = 2;
  */
 export const MIN_DICTION_MARKERS = 1;
 
+/**
+ * How many consecutive words a script may share with one of the sheet's {@link PersonaSheet.samples}.
+ *
+ * Five, so a script may pick up a signature phrase or a turn of grammar and may not pick up a
+ * sentence. Every catchphrase on every seeded persona is four words or fewer, which is what sets
+ * this: the shortest thing a persona is allowed to reuse has to fit under it, and the shortest thing
+ * it is not allowed to reuse — a sample clause — has to not.
+ *
+ * A run rather than the whole line, because the observed failure is not always a clean copy. "Okay
+ * that was rough and I picked it, so that's on me" came back once entire and once truncated at "I
+ * picked it", and a check that only caught the first would have passed the second as original work.
+ */
+export const MAX_SAMPLE_ECHO_WORDS = 5;
+
 export interface PersonaLineOptions {
     /** Example lines woven in. Defaults to {@link MAX_EXAMPLES}. */
     maxExamples?: number;
@@ -155,7 +200,16 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
 
     const catchphrases = cleanList(sheet.catchphrases, PERSONA_SHEET_LIMITS.catchphrases);
     if (catchphrases.length > 0) {
-        lines.push(`You have signature phrases. Use at most one, and not every time: ${catchphrases.map(phrase => `"${phrase}"`).join('; ')}`);
+        // The invitation at the end is the positive half of the rule the user turn enforces. A
+        // signature the station has just used is refused there, and a model told only that has been
+        // left with a hole where its sign-off was — which it fills by reaching for a sample line
+        // instead. So it is told what to do with the hole: make a new one. A phrase invented in
+        // character is the character working, where a phrase quoted from the sheet is the character
+        // being pasted, and only the second is what a listener hears as a recording.
+        lines.push(
+            `You have signature phrases. Use at most one, and not every time: ${catchphrases.map(phrase => `"${phrase}"`).join('; ')}. ` +
+                'A new line of your own in the same voice is always better than repeating one of these.',
+        );
     }
 
     const avoid = cleanList(sheet.avoid, PERSONA_SHEET_LIMITS.avoid);
@@ -168,7 +222,11 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
     if (examples.length > 0) {
         // "Do not reuse the words" was the whole instruction once, and a model read it as leave to
         // drop the dialect along with the wording. Reuse the grammar; only the sentences must be new.
-        lines.push('This is your speech and rhythm — reuse the grammar, never the sentences:');
+        //
+        // The refusal is stated because it is now real: `echoedSample` declines a script that lifts
+        // a clause from one of these, and an instruction whose enforcement is invisible is one a
+        // model has no reason to weigh against the pull of an example sitting right in front of it.
+        lines.push('This is your speech and rhythm — reuse the grammar, never the sentences. A line lifted from one of these is thrown away:');
         lines.push(...examples.map(example => `- "${example}"`));
     }
 
@@ -272,6 +330,123 @@ export function keepsCharacter(sheet: PersonaSheet, script: string): boolean {
 
     const evidence = dictionMarkersIn(markers, script).length + catchphrasesIn(sheet.catchphrases, script).length;
     return evidence >= MIN_DICTION_MARKERS;
+}
+
+/**
+ * Whether a phrase appears in `text` as words rather than as characters.
+ *
+ * The `avoid` list's own matcher. Not {@link catchphrasesIn}'s plain substring, because that list is
+ * full of single common words — "folks", "amazing", "incredible" — and a substring test refuses a
+ * break for saying "Folkstone" or "incredibly". Internal whitespace is matched loosely, so a sheet
+ * that wrote "buckle up" still catches "buckle  up" across a line break.
+ */
+function containsPhrase(phrase: string, text: string): boolean {
+    const needle = straightenApostrophes(phrase.trim().toLowerCase());
+    if (needle.length === 0) return false;
+
+    const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    return new RegExp(`(?<![a-z'])${escaped}(?![a-z'])`).test(straightenApostrophes(text.toLowerCase()));
+}
+
+/**
+ * The wording from {@link PersonaSheet.avoid} that a script used anyway.
+ *
+ * Only the PHRASE-shaped entries can be caught here, and that is a real limit rather than a
+ * temporary one: a sheet's avoid list mixes literal wording ("buckle up", "without further ado")
+ * with descriptions of a subject ("anything about a listener's body, money, family or
+ * intelligence"), and the second kind is an instruction to a model that no string comparison can
+ * enforce. Those entries simply never match, which costs nothing — they are still sent, and the
+ * grounding rules underneath them are what actually hold.
+ *
+ * So this closes the half that is checkable, and the half it closes is the one that was observed
+ * failing: a break went out saying "buckle up" under a sheet forbidding it in those exact words.
+ */
+export function avoidedWording(sheet: PersonaSheet, script: string): string[] {
+    return cleanList(sheet.avoid, PERSONA_SHEET_LIMITS.avoid).filter(phrase => containsPhrase(phrase, script));
+}
+
+/**
+ * The sample line a script lifted a clause from, or `undefined`.
+ *
+ * Compared as words rather than as text so punctuation, capitals and a curly apostrophe cannot hide
+ * a copy. A sample shorter than {@link MAX_SAMPLE_ECHO_WORDS} has to appear whole to count, which is
+ * the same rule and not a special case: there is no longer run in it to find.
+ */
+export function echoedSample(sheet: PersonaSheet, script: string): string | undefined {
+    const spoken = ` ${wordsOf(script).join(' ')} `;
+
+    return cleanList(sheet.samples, PERSONA_SHEET_LIMITS.samples).find(sample => {
+        const words = wordsOf(sample);
+        const run = Math.min(words.length, MAX_SAMPLE_ECHO_WORDS + 1);
+        if (run === 0) return false;
+
+        for (let i = 0; i + run <= words.length; i++) {
+            if (spoken.includes(` ${words.slice(i, i + run).join(' ')} `)) return true;
+        }
+        return false;
+    });
+}
+
+/**
+ * The signatures the station has said recently, and so may not say again now.
+ *
+ * `recent` is the last few scripts of this KIND, which is what makes "not every time" a question
+ * about what a listener has actually heard rather than about a counter. A persona with no
+ * catchphrases, or a station with nothing behind it, spends nothing.
+ */
+export function spentCatchphrases(sheet: PersonaSheet, recent: readonly string[] | undefined): string[] {
+    if (recent === undefined || recent.length === 0) return [];
+
+    return catchphrasesIn(sheet.catchphrases, recent.join('\n'));
+}
+
+/** What a script did that means it is not this character speaking. See {@link characterFault}. */
+export type CharacterFault =
+    /** A clause lifted from one of the sheet's own sample lines. */
+    | 'quoted-sample'
+    /** A signature phrase the station has just used. */
+    | 'spent-catchphrase'
+    /** Wording the sheet forbids. */
+    | 'avoided-wording'
+    /** Nothing in it carries the dialect at all. */
+    | 'out-of-character';
+
+/** What the caller knows about the moment, for the checks that are about more than the script. */
+export interface CharacterContext {
+    /** The last few things the station said, as `BreakWriteRequest.recent` holds them. */
+    recent?: readonly string[];
+}
+
+/**
+ * Why this script is not the persona speaking, or `undefined` when it is.
+ *
+ * The whole judgement in one call, so a caller cannot enforce three of the four and quietly leave
+ * the fourth as decoration — which is exactly how the sheet ended up sending an `avoid` list nobody
+ * read. It answers WHICH fault rather than a boolean because the four want quite different fixes and
+ * look identical from the row: a spent signature is the station working as designed, a quoted sample
+ * is a sheet whose examples are too magnetic for the model in front of them, forbidden wording is
+ * worth an operator's attention, and a flat plain-English line is markers or diction wanting work.
+ *
+ * Ordered by how specific the fault is rather than by severity: all four decline, so the only thing
+ * the order decides is what the log says, and the narrower reason is the more useful one.
+ */
+export function characterFault(sheet: PersonaSheet, script: string, context: CharacterContext = {}): CharacterFault | undefined {
+    if (echoedSample(sheet, script) !== undefined) return 'quoted-sample';
+    if (avoidedWording(sheet, script).length > 0) return 'avoided-wording';
+
+    const spent = spentCatchphrases(sheet, context.recent);
+    if (spent.length > 0 && catchphrasesIn(spent, script).length > 0) return 'spent-catchphrase';
+
+    return keepsCharacter(sheet, script) ? undefined : 'out-of-character';
+}
+
+/** A text as bare lower-case words, so two of them can be compared as speech rather than as text. */
+function wordsOf(text: string): string[] {
+    return straightenApostrophes(text.toLowerCase())
+        .replace(/[^a-z0-9']+/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
 }
 
 /** Trim, drop blanks, de-duplicate case-insensitively, and cap. The sheet's one normalizer. */

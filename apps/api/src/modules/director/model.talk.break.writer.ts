@@ -4,7 +4,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE } from './break.prompt.js';
+import type { CharacterFault } from '#modules/personas/persona.sheet.js';
+import { breakPrompt, DEFAULT_MAX_WORDS, faultIn, readAnswer, TALK_BREAK_SHAPE, type AnswerGuard } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
@@ -152,10 +153,15 @@ export class ModelTalkBreakWriter extends BreakWriter {
             },
         );
 
-        const script = readAnswer(result.text, {
+        const guard: AnswerGuard = {
             maxWords: DEFAULT_MAX_WORDS,
             ...(request.persona === undefined ? {} : { persona: request.persona }),
-        });
+            // The same list the prompt was built from, which is what keeps the spent-signature rule
+            // a bargain rather than a trick: the model is refused only for repeating something it
+            // was shown and told not to repeat.
+            ...(request.recent === undefined ? {} : { recent: request.recent }),
+        };
+        const script = readAnswer(result.text, guard);
 
         // Recorded whichever way it went, and BEFORE the answer is judged, so a model that produced
         // forty seconds of nothing leaves behind the same numbers as one that worked.
@@ -177,13 +183,14 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // for a dialect is a sheet whose markers or diction want work, which is the only one of
             // the three an operator can fix from the personas page.
             const words = result.text.trim().split(/\s+/).filter(Boolean).length;
+            const fault = characterFaultOf(result.text, guard);
             this.logger.info(
                 words === 0 && result.finishReason === 'length'
                     ? 'director: the model used its whole answer thinking and never spoke; raise the token ceiling'
-                    : outOfCharacter(request, result.text)
-                      ? 'director: the model wrote a line the station could say, but not in its own voice'
-                      : 'director: the model wrote nothing the station could say',
-                { finish: result.finishReason, words, tokens: result.usage?.outputTokens, persona: request.persona?.key },
+                    : fault === undefined
+                      ? 'director: the model wrote nothing the station could say'
+                      : FAULT_EXPLANATIONS[fault],
+                { finish: result.finishReason, words, tokens: result.usage?.outputTokens, persona: request.persona?.key, fault },
             );
             return undefined;
         }
@@ -212,14 +219,31 @@ export class ModelTalkBreakWriter extends BreakWriter {
 }
 
 /**
- * Whether the guard's only complaint was the voice.
+ * What an operator should go and change, per fault.
  *
- * Re-runs the guard without the persona: a script that survives that and not the full one was
- * speakable and simply not in character. Cheap, and it exists so a log line can tell an operator
- * which of three quite different things to go and change.
+ * Four sentences rather than one, because the four are not variations on "the model missed": a spent
+ * signature is the station working exactly as designed and wants nothing done about it, a quoted
+ * sample is a sheet whose examples are too magnetic for the model in front of them, forbidden
+ * wording is worth reading the capture for, and a flat plain-English line is markers or diction
+ * wanting work. Only the last two are usually a fault of the sheet at all.
  */
-function outOfCharacter(request: BreakWriteRequest, text: string): boolean {
-    if (request.persona === undefined) return false;
+const FAULT_EXPLANATIONS: Record<CharacterFault, string> = {
+    'quoted-sample': 'director: the model read one of the persona’s own sample lines back rather than writing in its voice',
+    'spent-catchphrase': 'director: the model reached for a signature the station had just used, so the floor took the break',
+    'avoided-wording': 'director: the model used wording the persona forbids',
+    'out-of-character': 'director: the model wrote a line the station could say, but not in its own voice',
+};
 
-    return readAnswer(text, { maxWords: DEFAULT_MAX_WORDS }) !== undefined;
+/**
+ * Which character fault a raw answer carries, once it is cleaned up.
+ *
+ * Runs the guard WITHOUT the persona first, which does the tidying and applies the word ceiling: a
+ * script that does not survive that was never a character problem, and asking why it is out of
+ * character would answer a question about a line the station was never going to say. Cheap, and it
+ * exists so one log line can tell an operator which of four quite different things to go and change.
+ */
+function characterFaultOf(text: string, guard: AnswerGuard): CharacterFault | undefined {
+    const speakable = readAnswer(text, { maxWords: guard.maxWords ?? DEFAULT_MAX_WORDS });
+
+    return speakable === undefined ? undefined : faultIn(speakable, guard);
 }

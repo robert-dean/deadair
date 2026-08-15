@@ -77,6 +77,29 @@ describe('breakPrompt', () => {
         expect(said).toMatch(/do not reuse/i);
     });
 
+    describe('a signature the station has already used', () => {
+        const persona = { style: 'a pirate', catchphrases: ['Arrr, and there it goes', 'Make of that what you will'] };
+
+        // The half of "at most one, and not every time" that had nothing behind it. It is in the
+        // user turn because which signatures are spent is a fact about tonight, where the sheet is
+        // who the station is — and `readAnswer` refuses a script that ignores it.
+        it('names the spent one and asks for a new line rather than only forbidding the old', () => {
+            const recent = ['Aye. Arrr, and there it goes.'];
+            const said = user(prompt({ kind: 'talkbreak', previous, recent }, { persona }));
+
+            expect(said).toContain('You have already said "Arrr, and there it goes" recently');
+            expect(said).toMatch(/make up a new one of your own/i);
+            // The one it has NOT spent stays available, and is not named here as though it were.
+            expect(said).not.toContain('You have already said "Make of that what you will"');
+        });
+
+        it('says nothing about signatures the station has not used, because that is a rule about nothing', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, recent: ['That was Solid Air.'] }, { persona }));
+
+            expect(said).not.toMatch(/already said/i);
+        });
+    });
+
     it('states the length as words and as seconds', () => {
         // A model reasons about a spoken length better than about a count; the count is what can
         // actually be checked afterwards.
@@ -262,6 +285,28 @@ describe('readAnswer, against a persona', () => {
 
     it('accepts anything from a sheet that named no markers, which made no checkable claim', () => {
         expect(readAnswer('That was Solid Air.', { persona: { diction: ['Ye for you'] } })).toBe('That was Solid Air.');
+    });
+
+    // A pasted signature is the evidence the marker check counts, so a break that was plain English
+    // plus a quoted sign-off passed every time. See `characterFault`.
+    it('declines a signature the station has just used, and takes the same one when it has not', () => {
+        const sheet = { ...pirate, catchphrases: ['Arrr, and there it goes'] };
+        const script = 'Ye just heard Solid Air. Arrr, and there it goes.';
+
+        expect(readAnswer(script, { persona: sheet, recent: ['Aye. Arrr, and there it goes.'] })).toBeUndefined();
+        expect(readAnswer(script, { persona: sheet, recent: ['Aye, that were Pink Moon, matey.'] })).toBe(script);
+    });
+
+    it('declines a line lifted out of the sheet’s own examples', () => {
+        const sheet = { ...pirate, samples: ['Aye, ye just heard the best thing on this ship all night.'] };
+
+        expect(readAnswer('Aye, ye just heard the best thing on this ship all night.', { persona: sheet })).toBeUndefined();
+    });
+
+    it('declines wording the sheet forbids, which was sent on every prompt and read back on none', () => {
+        const sheet = { ...pirate, avoid: ['buckle up'] };
+
+        expect(readAnswer('Aye, matey — buckle up.', { persona: sheet })).toBeUndefined();
     });
 });
 

@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { SEED_PERSONAS } from '../../../src/modules/personas/persona.defaults.js';
-import { keepsCharacter, MIN_DICTION_MARKERS, personaLines } from '../../../src/modules/personas/persona.sheet.js';
+import { avoidedWording, echoedSample, keepsCharacter, MIN_DICTION_MARKERS, personaLines } from '../../../src/modules/personas/persona.sheet.js';
 import { parseTemplates, unknownPlaceholders, usable } from '../../../src/modules/director/break.templates.js';
 import { spoken } from '../../../src/modules/director/talk.break.writer.js';
 
@@ -61,6 +61,30 @@ describe('the seeded personas', () => {
         for (const persona of SEED_PERSONAS) {
             for (const sample of persona.samples ?? []) {
                 expect(keepsCharacter(persona, sample), `${persona.key} would decline its own sample: "${sample}"`).toBe(true);
+            }
+        }
+    });
+
+    // The sibling calibration, for the rule that a sample may not be echoed. A catchphrase is the one
+    // thing a sheet asks to be REUSED, so a sheet whose sample carries its own signature long enough
+    // to trip the echo rule has quietly forbidden the one phrase it wanted back — and it would look
+    // from the console exactly like a model refusing to use it.
+    it('write signatures long enough to say without echoing a sample line', () => {
+        for (const persona of SEED_PERSONAS) {
+            for (const catchphrase of persona.catchphrases ?? []) {
+                const echoed = echoedSample(persona, catchphrase);
+
+                expect(echoed, `${persona.key}'s "${catchphrase}" is unusable: it echoes "${echoed}"`).toBeUndefined();
+            }
+        }
+    });
+
+    // `avoid` is now read back against what the model wrote, so a seed that forbids its own wording
+    // declines every break that follows the example it was given.
+    it('forbid no wording their own samples use', () => {
+        for (const persona of SEED_PERSONAS) {
+            for (const sample of persona.samples ?? []) {
+                expect(avoidedWording(persona, sample), `${persona.key}'s sample uses wording it forbids: "${sample}"`).toEqual([]);
             }
         }
     });

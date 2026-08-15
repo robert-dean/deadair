@@ -187,10 +187,24 @@ English. **A persona REPLACES the role sentence** rather than queueing behind it
 told both that it is the voice of a radio station and that it is a pirate captain hedges. **The
 templates chain rather than merge**, since mixing the pools would put plain English back in at
 random, which is the whole failure. **`dictionMarkers` make character checkable** — `readAnswer`
-declines a script carrying fewer than two, and declines rather than re-drafting, because the floor
-underneath now speaks in the same character and a break writer's one job is not to be slow. And **a
-sheet that named no markers passes everything**, because an author who filled in fewer boxes made no
-checkable claim and should not have their scripts refused for it. The four seeds are written from
+declines a script carrying fewer than `MIN_DICTION_MARKERS`, and declines rather than re-drafting,
+because the floor underneath now speaks in the same character and a break writer's one job is not to
+be slow. And **a sheet that named no markers passes everything**, because an author who filled in
+fewer boxes made no checkable claim and should not have their scripts refused for it.
+**A pasted character is not a character**, which is the newest half and the one measured on air: of
+seventeen consecutive model breaks under one persona, fifteen ended with a sample line or a signature
+reproduced word for word, and every one passed the marker check — because a quoted catchphrase is
+exactly the evidence it counts. So `characterFault` now judges four things rather than one, and the
+three new ones are each the enforcement of a line the sheet was already sending and nothing was
+reading back: a sample may not be echoed (`MAX_SAMPLE_ECHO_WORDS` of consecutive words, since the
+lift is as often a clause as a whole line), a signature the station has just used is SPENT, and
+`avoid` is checked against the answer at last. The spent rule is a bargain rather than a trap — the
+user turn names which signatures are gone and **invites the model to invent its own instead**, on the
+same argument that made the markers get sent: refusing a script for an instruction it was never given
+is a trick question, and a model told only what it may not say fills the hole with a sample line,
+which is the failure one rule over. Only the phrase-shaped half of `avoid` is checkable, and the
+entries describing a subject stay instructions to a model, which is why the grounding rules
+underneath them are what actually hold. The four seeds are written from
 `persona.defaults.ts` in `ready()` rather than from the migration, so the sheets have one source, and
 the guard is that the station is EMPTY rather than that each key is missing — which is what makes
 deleting a seeded persona expressible. None of them names a voice: which ids exist is a question only

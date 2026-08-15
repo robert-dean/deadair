@@ -30,7 +30,14 @@
  */
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
-import { keepsCharacter, personaLines, personaVoiceReminder, type PersonaSheet } from '#modules/personas/persona.sheet.js';
+import {
+    characterFault,
+    personaLines,
+    personaVoiceReminder,
+    spentCatchphrases,
+    type CharacterFault,
+    type PersonaSheet,
+} from '#modules/personas/persona.sheet.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 
 /**
@@ -229,6 +236,24 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         parts.push(
             ['You said these recently. Do not reuse their opening or their shape:', ...request.recent.map(script => `- ${script}`)].join('\n'),
         );
+
+        // The moment-dependent half of the catchphrase rule, and it is here rather than in the sheet
+        // for the reason everything is here rather than there: which signatures are spent is a fact
+        // about tonight, and the system turn is who the station is. The sheet says "at most one, and
+        // not every time"; this is the sentence that makes "not every time" mean something, and
+        // `characterFault` refuses a script that ignores it.
+        //
+        // The invitation matters as much as the refusal. Told only what it may not say, a model
+        // reaches for the nearest other thing the sheet gave it, which is a sample line — the
+        // failure one rule over. Told to make a new one, it does the character rather than quoting
+        // it, and the station gets a signature that is genuinely its own.
+        const spent = settings.persona === undefined ? [] : spentCatchphrases(settings.persona, request.recent);
+        if (spent.length > 0) {
+            parts.push(
+                `You have already said ${spent.map(phrase => `"${phrase}"`).join(' and ')} recently. Do not say ${spent.length === 1 ? 'it' : 'any of them'} again now. ` +
+                    'If you want a line to go out on, make up a new one of your own in the same voice.',
+            );
+        }
     }
 
     if (request.clock) {
@@ -288,10 +313,19 @@ export interface AnswerGuard {
     /**
      * The character it was asked to write in, checked against what came back.
      *
-     * Only the persona's `dictionMarkers` are read, and a sheet naming none makes no checkable claim
-     * and so passes everything. See {@link keepsCharacter}.
+     * A sheet that named no markers, no samples, no catchphrases and no forbidden wording makes no
+     * checkable claim and so passes everything. See {@link characterFault}.
      */
     persona?: PersonaSheet;
+    /**
+     * The last few things the station said, exactly as the prompt was shown them.
+     *
+     * Read only to decide which signature phrases are spent, and it has to be the same list the
+     * prompt carried: a script refused for a repetition it was never warned about is the trick
+     * question the markers used to be, and the whole bargain here is that the station asks for
+     * something before it refuses a script for not doing it.
+     */
+    recent?: readonly string[];
 }
 
 /**
@@ -339,13 +373,28 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // than merely overshot.
     if (script.split(/\s+/).length > maxWords) return undefined;
 
-    // A correct sentence in the wrong voice, which is the failure a persona's diction is asked for
-    // and the one a model handed a page of content rules actually makes. Declined rather than
-    // re-drafted: the floor underneath speaks in the same character, so the station gets an
-    // in-character line at once instead of paying for a second generation to maybe get one.
-    if (guard.persona !== undefined && !keepsCharacter(guard.persona, script)) return undefined;
+    // A correct sentence that is not this character speaking, which is the failure a persona is
+    // asked for and the one a model handed a page of content rules actually makes — in flat plain
+    // English, in a lifted sample line, in a signature the station used four records ago, or in
+    // wording the sheet forbids. Declined rather than re-drafted: the floor underneath speaks in
+    // the same character, so the station gets an in-character line at once instead of paying for a
+    // second generation to maybe get one.
+    if (faultIn(script, guard) !== undefined) return undefined;
 
     return script;
+}
+
+/**
+ * Why a cleaned script is not the persona speaking, or `undefined` when it is.
+ *
+ * The same judgement {@link readAnswer} makes, exported so a writer can log WHICH of the four faults
+ * it was without re-deriving it and drifting from what actually happened. A guard carrying no
+ * persona answers `undefined`: a station that made no claim, rather than one that passed.
+ */
+export function faultIn(script: string, guard: AnswerGuard): CharacterFault | undefined {
+    if (guard.persona === undefined) return undefined;
+
+    return characterFault(guard.persona, script, guard.recent === undefined ? {} : { recent: guard.recent });
 }
 
 /** Drop a pair of marks that wraps the entire text, and only then. */

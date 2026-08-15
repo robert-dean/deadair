@@ -105,6 +105,9 @@ export class ModelWelcomeWriter extends BreakWriter {
         const script = readAnswer(result.text, {
             maxWords: DEFAULT_MAX_WORDS,
             ...(request.persona === undefined ? {} : { persona: request.persona }),
+            // The list the prompt was built from, so a signature is refused here only where the
+            // prompt named it as spent. See `AnswerGuard.recent`.
+            ...(request.recent === undefined ? {} : { recent: request.recent }),
         });
 
         this.lastDetail = {

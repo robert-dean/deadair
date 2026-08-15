@@ -7,13 +7,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    avoidedWording,
+    characterFault,
     dictionMarkersIn,
+    echoedSample,
     keepsCharacter,
     matchesDictionMarker,
+    MAX_SAMPLE_ECHO_WORDS,
     MIN_DICTION_MARKERS,
     personaLines,
     personaVoiceReminder,
     PERSONA_SHEET_LIMITS,
+    spentCatchphrases,
 } from '../../../src/modules/personas/persona.sheet.js';
 
 describe('personaLines', () => {
@@ -63,11 +68,23 @@ describe('personaLines', () => {
         expect(personaLines({ catchphrases: ['Arrr'] })[0]).toContain('at most one, and not every time');
     });
 
+    // The positive half of the rule the user turn enforces. A model told only what it may not say
+    // fills the hole with a sample line, which is the failure one rule over.
+    it('offers a line of the writer’s own as better than repeating a signature', () => {
+        expect(personaLines({ catchphrases: ['Arrr'] })[0]).toContain('A new line of your own');
+    });
+
     it('asks for the grammar of its examples and not their sentences', () => {
         const lines = personaLines({ samples: ['Ahoy, me hearty.'] });
 
         expect(lines.join('\n')).toContain('reuse the grammar, never the sentences');
         expect(lines).toContain('- "Ahoy, me hearty."');
+    });
+
+    // An instruction whose enforcement is invisible is one a model has no reason to weigh against
+    // the pull of the example sitting in front of it. `echoedSample` is what makes this true.
+    it('says what happens to a lifted line, because now something happens to it', () => {
+        expect(personaLines({ samples: ['Ahoy, me hearty.'] }).join('\n')).toContain('thrown away');
     });
 
     it('takes a tighter example count when a caller has less room', () => {
@@ -198,5 +215,111 @@ describe('keepsCharacter', () => {
         const sheet = { dictionMarkers: ["you're", "that's", "it's", 'record'] };
 
         expect(keepsCharacter(sheet, 'That’s Pink Moon, and you’re hearing it here.')).toBe(true);
+    });
+});
+
+// The observed failure this whole group exists for: fifteen of seventeen consecutive model breaks
+// under one persona ended with a sample line or a signature reproduced word for word, and every one
+// of them passed `keepsCharacter` — because a pasted catchphrase is exactly the evidence it counts.
+describe('echoedSample', () => {
+    const sheet = { samples: ["Okay that was rough and I picked it, so that's on me. Honestly? I'd do it again."] };
+
+    it('catches a sample read back whole', () => {
+        expect(echoedSample(sheet, "Okay that was rough and I picked it, so that's on me. Honestly? I'd do it again.")).toBeDefined();
+    });
+
+    // Both of these aired. The truncated one is why this counts a RUN rather than the whole line.
+    it('catches a sample lifted as a clause into a new sentence', () => {
+        expect(echoedSample(sheet, 'Oh boy, Anvil droppin’ Paranormal! Okay that was rough and I picked it.')).toBeDefined();
+    });
+
+    it('sees through punctuation, capitals and the writer’s own apostrophe', () => {
+        expect(echoedSample(sheet, 'okay — that was rough, and I picked it… so that’s on me')).toBeDefined();
+    });
+
+    it('leaves a line that only shares the character’s grammar, which is what the sheet asked for', () => {
+        expect(echoedSample(sheet, 'Okay, that one was my fault entirely, and I stand by it.')).toBeUndefined();
+    });
+
+    it(`lets a run of ${MAX_SAMPLE_ECHO_WORDS} words through, so a signature inside a sample is still usable`, () => {
+        const short = { samples: ["You're locked in, and that's one of those records that refuses to get old."] };
+
+        expect(echoedSample(short, "You're locked in. Nothing else to say about it.")).toBeUndefined();
+    });
+
+    it('makes no claim for a sheet with no samples', () => {
+        expect(echoedSample({}, 'Anything at all.')).toBeUndefined();
+    });
+});
+
+describe('avoidedWording', () => {
+    // Aired under a sheet forbidding it in exactly those words, because nothing read the answer back
+    // against the list the prompt had just sent.
+    it('catches wording the sheet forbids', () => {
+        expect(avoidedWording({ avoid: ['buckle up', 'folks'] }, 'Wow. Anyway, buckle up for what’s next.')).toEqual(['buckle up']);
+    });
+
+    it('matches words rather than characters, so a near miss is not a fault', () => {
+        expect(avoidedWording({ avoid: ['folks', 'amazing'] }, 'Recorded in Folkstone, and amazingly cheap.')).toEqual([]);
+    });
+
+    // A sheet's avoid list mixes literal wording with descriptions of a subject, and only the first
+    // kind is checkable. The second is an instruction to a model, and stays one.
+    it('says nothing about an entry describing a subject rather than naming words', () => {
+        expect(avoidedWording({ avoid: ["anything about a listener's body, money or family"] }, 'You sound broke.')).toEqual([]);
+    });
+});
+
+describe('spentCatchphrases', () => {
+    const sheet = { catchphrases: ['I said what I said', "Don't @ me"] };
+
+    it('spends a signature the station has just used', () => {
+        expect(spentCatchphrases(sheet, ['Wow. Ozzy just slammed that one. I said what I said.'])).toEqual(['I said what I said']);
+    });
+
+    it('spends nothing on a station with nothing behind it', () => {
+        expect(spentCatchphrases(sheet, undefined)).toEqual([]);
+        expect(spentCatchphrases(sheet, [])).toEqual([]);
+    });
+});
+
+describe('characterFault', () => {
+    const sheet = {
+        dictionMarkers: ['wow', 'anyway', 'alright'],
+        catchphrases: ['I said what I said'],
+        avoid: ['buckle up'],
+        samples: ['Wow. Four minutes of my life and yours, gone. Anyway, this next one is genuinely great.'],
+    };
+
+    it('finds no fault in a line that is the character speaking', () => {
+        expect(characterFault(sheet, 'Wow. That one’s been in the rack since March and I forgot why.')).toBeUndefined();
+    });
+
+    // The whole point of the change: every one of these carries a marker, so all three passed before.
+    it('names the quotation rather than passing it on the marker inside it', () => {
+        expect(characterFault(sheet, 'Wow. Four minutes of my life and yours, gone. Anyway.')).toBe('quoted-sample');
+    });
+
+    it('names the forbidden wording', () => {
+        expect(characterFault(sheet, 'Alright, buckle up for this next one.')).toBe('avoided-wording');
+    });
+
+    it('refuses a signature the station has just used, which is what makes "not every time" real', () => {
+        const recent = ['Wow. Anyway, that was Danzig. I said what I said.'];
+
+        expect(characterFault(sheet, 'Alright, next up is Pantera. I said what I said.', { recent })).toBe('spent-catchphrase');
+    });
+
+    // The bargain: refused only for repeating something it was shown and told not to repeat.
+    it('allows the same signature when the station has not just used it', () => {
+        expect(characterFault(sheet, 'Alright, next up is Pantera. I said what I said.', { recent: ['That was Ozzy. Wow.'] })).toBeUndefined();
+    });
+
+    it('still finds the plain-English line, which is the fault it started as', () => {
+        expect(characterFault(sheet, 'That was Pink Moon by Nick Drake. Coming up, Solid Air.')).toBe('out-of-character');
+    });
+
+    it('finds no fault at all in a sheet that made no checkable claim', () => {
+        expect(characterFault({ diction: ['Ye for you'] }, 'Anything at all.')).toBeUndefined();
     });
 });

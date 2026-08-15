@@ -1021,6 +1021,71 @@ describe('PluginHostFactory config-derived allowlist', () => {
         expect(getConfig).not.toHaveBeenCalled();
     });
 
+    it('allows every host in a multi-line setting', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockImplementation(async () => new Response('ok', { status: 200 })),
+        );
+        const { service } = configured({ feeds: 'https://one.example.com/feed.xml\nhttps://two.example.net/rss\n' });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'feeds' }));
+
+        await expect(host.fetch('https://one.example.com/feed.xml')).resolves.toMatchObject({ status: 200 });
+        await expect(host.fetch('https://two.example.net/rss')).resolves.toMatchObject({ status: 200 });
+        await expectPluginError(host.fetch('https://three.example.org/rss'), 'forbidden', /not allowed to reach/);
+    });
+
+    it('reads the address as the last field of a line, so a list can carry labels', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        const { service } = configured({ feeds: 'world|World news|https://labelled.example.com/feed.xml' });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'feeds' }));
+
+        await expect(host.fetch('https://labelled.example.com/feed.xml')).resolves.toMatchObject({ status: 200 });
+    });
+
+    it('reads the JSON array a multiselect stores', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockImplementation(async () => new Response('ok', { status: 200 })),
+        );
+        const { service } = configured({ feeds: ['https://one.example.com', 'two.example.net'] });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'feeds' }));
+
+        await expect(host.fetch('https://one.example.com/x')).resolves.toMatchObject({ status: 200 });
+        await expect(host.fetch('https://two.example.net/x')).resolves.toMatchObject({ status: 200 });
+    });
+
+    it('lets one bad line cost its own upstream and no other', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        // A blank line, a wildcard somebody pasted, and a good address.
+        const { service } = configured({ feeds: '\nhttps://*.example.org\nhttps://good.example.com/feed.xml' });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'feeds' }));
+
+        await expect(host.fetch('https://good.example.com/feed.xml')).resolves.toMatchObject({ status: 200 });
+        await expectPluginError(host.fetch('https://anything.example.org/x'), 'forbidden', /not allowed to reach/);
+    });
+
+    it('paces two feeds at one publisher as one upstream rather than two', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockImplementation(async () => new Response('ok', { status: 200 })),
+        );
+        // Deduplication is what makes this true: a repeated pattern would install
+        // a second limiter and quietly buy twice the rate the entry asked for.
+        const { service } = configured({ feeds: 'https://one.example.com/a.xml\nhttps://one.example.com/b.xml' });
+        const host = factory(undefined, service).createHost(fromConfig({ fromConfig: 'feeds', ratePerSecond: 1 }));
+
+        await host.fetch('https://one.example.com/a.xml');
+
+        let settled = false;
+        void host.fetch('https://one.example.com/b.xml').then(() => {
+            settled = true;
+        });
+
+        await vi.advanceTimersByTimeAsync(500);
+        expect(settled).toBe(false);
+    });
+
     it('paces a configured host at the rate its entry declared', async () => {
         vi.useFakeTimers();
         vi.stubGlobal(

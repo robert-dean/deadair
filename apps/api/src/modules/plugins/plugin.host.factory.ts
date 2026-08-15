@@ -172,6 +172,56 @@ const hostnameFromSetting = (value: unknown): string | undefined => {
 };
 
 /**
+ * Every hostname one setting names, which is usually one and is sometimes many.
+ *
+ * A `fromConfig` entry was written for a setting holding one address — a
+ * mirror, a self-hosted server — and one shape of plugin cannot express itself
+ * that way: a reader of feeds is pointed at a LIST the operator pasted, and
+ * there is no honest number of `url` fields to give it. So a value holding
+ * several addresses contributes several entries, whether it arrived as the
+ * lines of a `text` field or as the JSON array a `multiselect` stores.
+ *
+ * Nothing about a single-address setting changes, deliberately: one line in,
+ * one entry out, and every refusal {@link hostnameFromSetting} makes is made
+ * per address rather than over the whole value. So one mistyped line among five
+ * costs its own feed and not the other four — the same treatment the clock
+ * bands and the break templates give a line an operator got wrong — and a
+ * wildcard still cannot arrive from data.
+ *
+ * Deduplicated because two feeds at one publisher are two lines and one host,
+ * and a repeated pattern would otherwise install a second limiter that quietly
+ * doubles the rate the entry asked to be paced at.
+ */
+const hostnamesFromSetting = (value: unknown): string[] => {
+    const raw = Array.isArray(value) ? value : typeof value === 'string' ? readAddressLines(value) : [value];
+
+    return [...new Set(raw.flatMap(one => hostnameFromSetting(one) ?? []))];
+};
+
+/**
+ * The addresses in a multi-line setting: one per line, and the address is the
+ * last `|`-separated field of its line.
+ *
+ * That format is the HOST's, not any plugin's, which is the whole point of it
+ * being here. A list of addresses is rarely just addresses — an operator wants
+ * to name the things they pasted — so a plugin will invent somewhere to put a
+ * label whether or not this makes room for one. Fixing the shape means the
+ * hostnames an entry resolves to are readable from the operator's own text by
+ * anything, rather than being whatever a plugin's private line parser decided.
+ *
+ * Split on newlines and nothing else. A comma and a space are both legal inside
+ * a URL, and splitting on either would turn one address into two hostnames that
+ * reach nothing — silently, since a request to a host the allowlist does not
+ * hold is refused rather than reported back to the form.
+ */
+const readAddressLines = (value: string): string[] =>
+    value
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(line => line.slice(line.lastIndexOf('|') + 1).trim());
+
+/**
  * Expands the manifest's allowlist into what the egress path actually needs,
  * reading `fromConfig` entries out of `config`.
  *
@@ -193,9 +243,15 @@ const normalizeNetwork = (network: PluginPermissions['network'], config: Record<
             continue;
         }
 
-        const hostname = hostnameFromSetting(config[entry.fromConfig]);
-        if (hostname === undefined) continue;
-        entries.push({ pattern: hostname, bucket: entry.bucket ?? hostname, ratePerSecond: entry.ratePerSecond });
+        // One address or twenty, the same loop: a setting that names several
+        // contributes several entries, and one that names none contributes
+        // nothing at all. Where the entry declared a `bucket`, every hostname
+        // out of it shares that one limiter — which is what an operator's list
+        // of feeds actually wants, since the rate being paced is this station's
+        // own and not any one publisher's.
+        for (const hostname of hostnamesFromSetting(config[entry.fromConfig])) {
+            entries.push({ pattern: hostname, bucket: entry.bucket ?? hostname, ratePerSecond: entry.ratePerSecond });
+        }
     }
 
     return entries;

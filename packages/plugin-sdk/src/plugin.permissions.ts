@@ -58,6 +58,26 @@ export interface NetworkPermissionHost extends NetworkPermissionPacing {
  * entry, so an unconfigured plugin is refused exactly as if it had asked for
  * an undeclared host. Because it resolves at init, changing the setting
  * reinitializes the plugin and the new address takes effect with it.
+ *
+ * ## One setting, several addresses
+ *
+ * A setting holding SEVERAL addresses contributes one entry each. That is for
+ * the plugin whose upstreams are a list the operator pasted rather than one
+ * server they run — a reader of feeds — where there is no honest number of
+ * `url` fields to offer.
+ *
+ * The shape is one address per line (a `text` field), or the JSON array a
+ * `multiselect` stores. Where a line carries more than the address, the address
+ * is its last `|`-separated field, so `world|World news|https://…/feed.xml`
+ * resolves to that host: a list wants labels, and fixing where they go keeps
+ * the hostnames readable out of the operator's own text instead of out of a
+ * plugin's private parser.
+ *
+ * Every rule above is applied per address rather than to the value as a whole,
+ * so one mistyped line costs its own upstream and not the rest, and a wildcard
+ * still cannot arrive from data. Repeats collapse: two feeds at one publisher
+ * are one entry, or the second would install a limiter that doubles the rate
+ * this entry asked to be paced at.
  */
 export interface NetworkPermissionFromConfig extends NetworkPermissionPacing {
     /** Key of the config field holding the address, e.g. `baseUrl`. */

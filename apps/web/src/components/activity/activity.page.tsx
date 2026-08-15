@@ -5,6 +5,7 @@ import type { ActivityEntry, ActivityModule, ActivitySeverity } from '@deadair/s
 import { useActivity } from '../../api/activity.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
+import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { dayOf, formatDay, formatMoment, formatMomentFull } from './activity.moment';
@@ -134,14 +135,12 @@ function DayHeading({ at, first }: { at: string; first: boolean }) {
         <Group
             px="md"
             py={6}
-            style={theme => ({
-                borderTop: first ? undefined : `1px solid ${theme.colors.dark[4]}`,
-                background: 'var(--mantine-color-dark-6)',
-            })}
+            style={{
+                borderTop: first ? undefined : '1px solid var(--da-border)',
+                background: 'var(--da-raised)',
+            }}
         >
-            <Text size="xs" fw={600} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
-                {formatDay(at)}
-            </Text>
+            <Eyebrow>{formatDay(at)}</Eyebrow>
         </Group>
     );
 }
@@ -161,10 +160,10 @@ function ActivityLine({ entry, first }: ActivityLineProps) {
             align="flex-start"
             px="md"
             py={8}
-            style={theme => ({ borderTop: first ? undefined : `1px solid ${theme.colors.dark[4]}` })}
+            style={{ borderTop: first ? undefined : '1px solid var(--da-border)' }}
         >
             <Tooltip label={formatMomentFull(entry.at)} openDelay={300}>
-                <Text size="xs" c="dimmed" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                <Text size="xs" c="dimmed" className="da-num" style={{ whiteSpace: 'nowrap' }}>
                     {formatMoment(entry.at)}
                 </Text>
             </Tooltip>

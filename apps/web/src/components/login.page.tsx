@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Center, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Card, Center, Image, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useNavigate } from '@tanstack/react-router';
 
@@ -72,19 +72,24 @@ export function LoginPage({ redirect }: LoginPageProps) {
     const error = login.error ? signInError(login.error) : undefined;
 
     return (
-        <Center mih="60vh">
-            <Card padding="xl" radius="md" w="100%" maw={400}>
+        <Center mih="70vh">
+            <Card padding="xl" w="100%" maw={400}>
                 <form
                     onSubmit={form.onSubmit(values => {
                         void submit(values);
                     })}
                 >
                     <Stack gap="md">
-                        <Stack gap={4}>
-                            <Title order={2}>Sign in</Title>
-                            <Text c="dimmed" size="sm">
-                                Station controls are staff only.
-                            </Text>
+                        {/* The one place the mark is the first thing you see: there is no shell
+                            around this page, so the badge is what says which station you are at. */}
+                        <Stack gap="xs" align="center">
+                            <Image src="/logo-mark.png" alt="" aria-hidden w={64} h={64} />
+                            <Stack gap={2} align="center">
+                                <Title order={2}>Sign in</Title>
+                                <Text c="dimmed" size="sm">
+                                    Station controls are staff only.
+                                </Text>
+                            </Stack>
                         </Stack>
                         {mfaRequired ? (
                             <Alert color="yellow" title="Second factor required">

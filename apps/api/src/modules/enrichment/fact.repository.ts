@@ -26,7 +26,18 @@ export type FactSubjectType = (typeof FACT_SUBJECTS)[number];
 /** Which extractor produced a claim. See `0015_facts.sql` for why the two are tracked apart. */
 export type FactSource = 'lead' | 'model';
 
-export type FactCategory = 'summary' | 'placement' | 'chart' | 'recording' | 'personnel' | 'controversy' | 'cover_or_sample' | 'ending';
+/**
+ * What sort of fact a claim is.
+ *
+ * The same list as the `facts_category_check` constraint, and the reason it is
+ * a runtime array rather than only a type is that the extraction prompt reads
+ * it: a category the model is told about but the column refuses would be a row
+ * that fails to insert, and a category the column allows but nothing describes
+ * is one the model will never produce.
+ */
+export const FACT_CATEGORIES = ['summary', 'placement', 'chart', 'recording', 'personnel', 'controversy', 'cover_or_sample', 'ending'] as const;
+
+export type FactCategory = (typeof FACT_CATEGORIES)[number];
 
 /** What a claim is about: one level, one id. */
 export interface FactSubject {
@@ -37,6 +48,17 @@ export interface FactSubject {
 /** A document that has not been read by this extractor yet, with the subject it describes. */
 export interface PendingDocument {
     subject: FactSubject;
+    /**
+     * What the CATALOG calls this subject, and its artist where it has one.
+     *
+     * Carried from the row rather than taken from `title` below, which is the
+     * ARTICLE's name and is not the same thing: an encyclopaedia files a band
+     * under "Portishead (band)" and a song under whatever disambiguator it
+     * needed. An extractor told to read about "Portishead (band)" is being told
+     * something slightly untrue about the record it is describing.
+     */
+    name: string;
+    artist?: string;
     /** The enrichment plugin that handed the document over. */
     provider: string;
     url: string;
@@ -117,6 +139,8 @@ export class FactRepository extends DataRepository {
         const rows = await sql<{
             subjectType: FactSubjectType;
             subjectId: string;
+            name: string;
+            artist: string | null;
             provider: string;
             url: string | null;
             title: string | null;
@@ -124,11 +148,14 @@ export class FactRepository extends DataRepository {
         }>`
             select 'track' as subject_type,
                    t.id as subject_id,
+                   t.title as name,
+                   ar.name as artist,
                    te.provider,
                    d.doc->>'url' as url,
                    d.doc->>'title' as title,
                    d.doc->>'text' as text
               from deadair.tracks t
+              join deadair.artists ar on ar.id = t.artist_id
               join deadair.track_enrichment te on te.track_id = t.id
               cross join lateral jsonb_array_elements(coalesce(te.data->'documents', '[]'::jsonb)) as d(doc)
              where t.merged_into_id is null
@@ -138,8 +165,9 @@ export class FactRepository extends DataRepository {
                                   and fe.source = ${source}
                                   and fe.document_url = d.doc->>'url')
             union all
-            select 'album', al.id, ale.provider, d.doc->>'url', d.doc->>'title', d.doc->>'text'
+            select 'album', al.id, al.name, ar.name, ale.provider, d.doc->>'url', d.doc->>'title', d.doc->>'text'
               from deadair.albums al
+              join deadair.artists ar on ar.id = al.artist_id
               join deadair.album_enrichment ale on ale.album_id = al.id
               cross join lateral jsonb_array_elements(coalesce(ale.data->'documents', '[]'::jsonb)) as d(doc)
              where al.merged_into_id is null
@@ -149,7 +177,7 @@ export class FactRepository extends DataRepository {
                                   and fe.source = ${source}
                                   and fe.document_url = d.doc->>'url')
             union all
-            select 'artist', a.id, ae.provider, d.doc->>'url', d.doc->>'title', d.doc->>'text'
+            select 'artist', a.id, a.name, null, ae.provider, d.doc->>'url', d.doc->>'title', d.doc->>'text'
               from deadair.artists a
               join deadair.artist_enrichment ae on ae.artist_id = a.id
               cross join lateral jsonb_array_elements(coalesce(ae.data->'documents', '[]'::jsonb)) as d(doc)
@@ -169,6 +197,8 @@ export class FactRepository extends DataRepository {
             .filter(row => row.url !== null && row.title !== null && row.text !== null)
             .map(row => ({
                 subject: { type: row.subjectType, id: row.subjectId },
+                name: row.name,
+                ...(nullable(row.artist) === undefined ? {} : { artist: row.artist! }),
                 provider: row.provider,
                 url: row.url!,
                 title: row.title!,

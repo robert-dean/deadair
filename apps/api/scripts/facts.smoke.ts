@@ -26,9 +26,12 @@ import { Kysely, sql } from 'kysely';
 import { EmptyUpdateRewriteDialect, KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
 import type { Logger } from '@maroonedsoftware/logger';
 
+import type { AppConfig } from '@maroonedsoftware/appconfig';
+
 import type { DB } from '../src/modules/data/db.js';
 import { FactRepository } from '../src/modules/enrichment/fact.repository.js';
 import { FactExtractionService } from '../src/modules/enrichment/fact.extraction.service.js';
+import type { LlmService } from '../src/modules/llm/llm.service.js';
 
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
 
@@ -43,7 +46,14 @@ const pool = new KyselyPool({
 const db = new Kysely<DB>({ dialect: new EmptyUpdateRewriteDialect({ pool }, quiet), plugins: [...KyselyDefaultPlugins] });
 
 const facts = new FactRepository(db);
-const extraction = new FactExtractionService(facts, quiet);
+
+// The model half is deliberately switched off here rather than stubbed: this script is about the
+// SQL, and a smoke run that reached for the station's one model slot would be a smoke run that
+// could take an afternoon and fail for reasons that have nothing to do with the database.
+const noModel = { canGenerate: () => false, explainGenerator: () => 'this smoke run does not use a model' } as unknown as LlmService;
+const offConfig = { get: (_key: string, fallback: unknown) => fallback } as AppConfig;
+
+const extraction = new FactExtractionService(facts, noModel, offConfig, quiet);
 
 /** The provider this pretends to be, so nothing it writes can be confused for a real plugin's. */
 const PROVIDER = 'deadair.smoke';
@@ -128,7 +138,7 @@ try {
 
     // The unique index, exercised directly: the same claim offered twice is one row.
     const repeat = await facts.recordExtraction(
-        { subject: { type: 'track', id: track.id }, provider: PROVIDER, url: ARTICLE_URL, title: 'Smoke Test', text: ARTICLE },
+        { subject: { type: 'track', id: track.id }, name: track.title, provider: PROVIDER, url: ARTICLE_URL, title: 'Smoke Test', text: ARTICLE },
         'model',
         [
             {

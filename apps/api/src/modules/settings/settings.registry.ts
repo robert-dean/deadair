@@ -14,6 +14,7 @@ import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/s
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
+import { MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
     ANALYSIS_LOCAL_PACE_KEY,
@@ -453,6 +454,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     // What the station plays was a setting here and is now the persona's own `music` line, beside
     // the character that plays it: choosing a persona is one decision about who the station is, and
     // splitting the voice from the programming across two pages made it three.
+    {
+        group: 'llm',
+        key: MODEL_FACTS_KEYS.enabled,
+        label: 'Let a model find trivia in the articles',
+        type: 'boolean',
+        default: false,
+        help: 'The station already keeps the opening line of every article it has read, which needs no model and cannot be wrong. With this on a model reads further in for the things that line cannot carry — a film it was used in, who played on it, what it was banned for — and a second call checks each one against the exact words that state it, dropping anything the article does not say outright. It runs in the background at the lowest priority, so a talk break always gets the model first, and it will take days rather than minutes to work through a library.',
+    },
+    {
+        group: 'llm',
+        key: MODEL_FACTS_KEYS.model,
+        label: 'Model for reading articles',
+        type: 'string',
+        dependsOn: MODEL_FACTS_KEYS.enabled,
+        default: '',
+        help: "Reading is the one job here where nothing is waiting, so this is the place a slower and more careful model costs you nothing. Leave empty for the plugin's own default.",
+    },
     {
         group: 'llm',
         key: SCRIPT_HISTORY_KEYS.capture,

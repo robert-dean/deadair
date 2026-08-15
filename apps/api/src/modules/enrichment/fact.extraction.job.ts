@@ -16,6 +16,19 @@ import { FactExtractionService } from './fact.extraction.service.js';
 const BATCH_SIZE = 500;
 
 /**
+ * Documents the MODEL pass reads per run, which is a different order of number
+ * entirely.
+ *
+ * One document here is two generations against one shared model slot, plus a
+ * verification per claim it produced. On a self-hosted model that is minutes,
+ * not milliseconds — so the batch is sized to what fits in the run budget
+ * rather than to how many documents are waiting, and the backlog drains over
+ * days. That is the intended shape: nothing is waiting on a fact, and the floor
+ * has already said something about every one of these articles.
+ */
+const MODEL_BATCH_SIZE = 8;
+
+/**
  * How long a run may keep reading before it stops.
  *
  * Comfortably inside the cron interval and inside the job's `expiresIn`.
@@ -52,13 +65,24 @@ export class FactExtractionJob extends PlainJob<FactExtractionPayload> {
     protected async execute(payload?: FactExtractionPayload, signal?: AbortSignal): Promise<void> {
         const limit = payload?.limit ?? BATCH_SIZE;
 
-        const { result, outOfTime } = await withRunBudget(RUN_BUDGET_MS, signal, async stop => await this.extraction.extractLead(limit, stop));
+        const { result, outOfTime } = await withRunBudget(RUN_BUDGET_MS, signal, async stop => {
+            // The floor first, and always. It needs no model, so it is done
+            // before anything can be blocked, deferred or turned off — which is
+            // what makes a station with no model plugin still fill its store.
+            const lead = await this.extraction.extractLead(limit, stop);
+
+            // Then whatever a model can add on top. Off by default, and every
+            // way it declines leaves the pass above already banked.
+            const model = await this.extraction.extractModel(MODEL_BATCH_SIZE, stop);
+
+            return { lead, model };
+        });
 
         // Quiet when there was nothing to do. On a settled station this is every
         // run: the documents stop arriving once the enrichment walk has been
         // over the catalog, and it stays quiet until a record is added.
-        if (result.read > 0) {
-            this.logger.info('fact extraction pass', { job: this.context.id, ...result, outOfTime });
+        if (result.lead.read + result.model.read > 0) {
+            this.logger.info('fact extraction pass', { job: this.context.id, lead: result.lead, model: result.model, outOfTime });
         }
     }
 }

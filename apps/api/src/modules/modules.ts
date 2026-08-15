@@ -140,6 +140,11 @@ const ordered: ServerKitModule[] = [
     // track out across every enrichment plugin through the registry and the
     // invoker. It also writes catalog rows, but through its own repository, so
     // it does not need CatalogModule.
+    //
+    // And after DirectorModule, which is newer and narrower: `LineupPriorityReader`
+    // resolves `StationLineupRepository` to find out what the station is about to
+    // play, so the walk can describe those records before the rest of the catalog.
+    // It only READS the running order — the director remains its only writer.
     EnrichmentModule,
     // Registers nothing and starts nothing: it exists to close the database and Redis at the END,
     // because shutdown runs in this list's order and DataModule has to be at the front of it. With

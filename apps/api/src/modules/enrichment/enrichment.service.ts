@@ -655,14 +655,19 @@ export class EnrichmentService {
         return { albumId: album.id, providers: result.contributions.map(contribution => contribution.pluginId), promoted, failures: result.failures };
     }
 
-    /** One batch of albums that have not heard from every album provider lately. */
-    async enrichPendingAlbums(limit: number, signal?: AbortSignal): Promise<EnrichmentPassSummary> {
+    /**
+     * One batch of albums that have not heard from every album provider lately.
+     *
+     * `priority` is the records behind what the station is about to play, and it only ever reorders
+     * this batch. See {@link enrichPending}.
+     */
+    async enrichPendingAlbums(limit: number, signal?: AbortSignal, priority: readonly string[] = []): Promise<EnrichmentPassSummary> {
         const summary: EnrichmentPassSummary = { scanned: 0, enriched: 0, promoted: 0, failed: 0 };
 
         const providers = this.albumProviderIds();
         if (providers.length === 0) return summary;
 
-        const albums = await this.enrichmentRepository.listAlbumsNeedingEnrichment(providers, limit);
+        const albums = await this.enrichmentRepository.listAlbumsNeedingEnrichment(providers, limit, priority);
 
         for (const album of albums) {
             if (signal?.aborted) break;
@@ -767,14 +772,19 @@ export class EnrichmentService {
         };
     }
 
-    /** One batch of artists that have not heard from every artist provider lately. */
-    async enrichPendingArtists(limit: number, signal?: AbortSignal): Promise<EnrichmentPassSummary> {
+    /**
+     * One batch of artists that have not heard from every artist provider lately.
+     *
+     * `priority` is the artists behind what the station is about to play, and it only ever reorders
+     * this batch. See {@link enrichPending}.
+     */
+    async enrichPendingArtists(limit: number, signal?: AbortSignal, priority: readonly string[] = []): Promise<EnrichmentPassSummary> {
         const summary: EnrichmentPassSummary = { scanned: 0, enriched: 0, promoted: 0, failed: 0 };
 
         const providers = this.artistProviderIds();
         if (providers.length === 0) return summary;
 
-        const artists = await this.enrichmentRepository.listArtistsNeedingEnrichment(providers, limit);
+        const artists = await this.enrichmentRepository.listArtistsNeedingEnrichment(providers, limit, priority);
 
         for (const artist of artists) {
             if (signal?.aborted) break;
@@ -805,14 +815,20 @@ export class EnrichmentService {
      * A track that fails is skipped, not retried here. Its rows are unchanged,
      * so it is still outstanding and the next pass will find it; retrying inside
      * the batch would spend the whole run on one bad track.
+     *
+     * `priority` is what the station is about to play, nearest slot first, and it
+     * ORDERS this batch without changing what is in it — a record that has heard
+     * from every provider is not selected either way. Empty is the ordinary case
+     * and sorts as this always did. `LineupPriorityReader` is where it comes from
+     * and argues why it exists at all.
      */
-    async enrichPending(limit: number, signal?: AbortSignal): Promise<EnrichmentPassSummary> {
+    async enrichPending(limit: number, signal?: AbortSignal, priority: readonly string[] = []): Promise<EnrichmentPassSummary> {
         const summary: EnrichmentPassSummary = { scanned: 0, enriched: 0, promoted: 0, failed: 0 };
 
         const providers = this.providerIds();
         if (providers.length === 0) return summary;
 
-        const tracks = await this.enrichmentRepository.listTracksNeedingEnrichment(providers, this.isrcOnlyProviderIds(), limit);
+        const tracks = await this.enrichmentRepository.listTracksNeedingEnrichment(providers, this.isrcOnlyProviderIds(), limit, priority);
         if (tracks.length === 0) return summary;
 
         // The whole batch is asked at once, so a provider that can answer in

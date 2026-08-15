@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { EnrichmentReadService } from './enrichment.read.service.js';
 import { EnrichmentRepository } from './enrichment.repository.js';
 import { EnrichmentService } from './enrichment.service.js';
+import { LineupPriorityReader } from './lineup.priority.js';
 import { FactExtractionService } from './fact.extraction.service.js';
 import { FactRepository } from './fact.repository.js';
 
@@ -15,6 +16,12 @@ export const EnrichmentModule: ServerKitModule = {
         // per-request on the request path.
         registry.register(EnrichmentService).useClass(EnrichmentService).asScoped();
         registry.register(EnrichmentRepository).useClass(EnrichmentRepository).asScoped();
+
+        // What the station is about to play, which is what decides the ORDER of the
+        // walk above. Scoped for the reason everything here is, and registered in
+        // this module rather than the director's because it is a reader of that
+        // module's repository and nothing in `director/` asks for it.
+        registry.register(LineupPriorityReader).useClass(LineupPriorityReader).asScoped();
 
         // The read side of the same tables, reached from the catalog routes. Scoped
         // for the same reason, and separate so that reading a track's enrichment can

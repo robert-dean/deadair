@@ -1144,6 +1144,51 @@ describe('DirectorService going on air', () => {
         expect(director.status().name).toBe('Something else');
     });
 
+    it('asks for the new records to be described, rather than waiting for the next quarter hour', async () => {
+        // The enrichment walk already puts what the station is about to play in front of the rest of
+        // the catalog; this is what stops the first run that does so being up to fifteen minutes
+        // away. An imported provider playlist is the case that needs it most, since nothing ever
+        // extends one.
+        const { director, jobs, seed } = build();
+        await seed();
+        await director.start();
+        jobs.send.mockClear();
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x'), track('y')],
+        });
+
+        expect(jobs.send.mock.calls.filter(call => call[0] === 'catalog.enrich')).toHaveLength(1);
+    });
+
+    it('asks again when a refill appends more, since that is where a discovered record arrives', async () => {
+        // `PickResolver` looks a pick up at a provider and ingests it INSIDE the refill, so the
+        // records that most need describing are the ones this command carries.
+        const { director, jobs, seed } = build();
+        await seed();
+        await director.start();
+        jobs.send.mockClear();
+
+        await director.post({ kind: 'appendTracks', tracks: [track('x'), track('y')] });
+
+        expect(jobs.send.mock.calls.filter(call => call[0] === 'catalog.enrich')).toHaveLength(1);
+    });
+
+    it('does not let a broker that will not take the send cost the station its running order', async () => {
+        const { director, jobs, seed, lineup } = build();
+        await seed();
+        await director.start();
+        jobs.send.mockRejectedValue(new Error('the broker is not available here'));
+
+        await director.post({ kind: 'appendTracks', tracks: [track('x'), track('y')] });
+
+        // The append landed. Nothing reads the enrichment send to decide anything and the cron is
+        // still there, so a lost one costs a quarter hour and nothing else.
+        expect(lineup.all().some(item => item.kind === 'track' && item.track.externalId === 'x')).toBe(true);
+    });
+
     it('starts a NEW broadcast, so what aired before it is not filed under what is on now', async () => {
         // The whole point of the id: `play_history`, `segment_events`, `script_history` and
         // `station_events` are all stamped with it, so a running order that kept the previous

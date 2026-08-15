@@ -208,8 +208,30 @@ export class EnrichmentRepository extends DataRepository {
      * arrive together, and interleaving them by creation date would scatter a
      * twelve track album across five passes. Tracks with no album sort last,
      * where they cost a batch-capable source nothing.
+     *
+     * `priority` is what the station is about to PLAY, nearest slot first, and it
+     * leads all of that (`LineupPriorityReader`). Arrival order is the right
+     * answer to "what does this station still know nothing about" and the wrong
+     * one to "what is it about to talk over", and the two disagree in exactly the
+     * expensive case: a record discovered at a provider mid-refill is the newest
+     * row there is, so it sorts last, and its break is written within minutes.
+     *
+     * **It costs the album clustering for those rows, deliberately.** A handful of
+     * lineup members at the head of a batch of seventy-five scatters those few and
+     * leaves the rest clustered as before. The bill is a couple of extra upstream
+     * requests; the alternative is a record airing with nothing to say about it.
+     *
+     * It cannot cost anything else, because it only ORDERS work this query was
+     * already going to return: a track that has heard from every provider fails
+     * the `pending.providers` test above and is not here to be promoted. An empty
+     * array — an off-air station, the ordinary case — sorts exactly as it always did.
      */
-    async listTracksNeedingEnrichment(providers: string[], isrcOnly: string[], limit: number): Promise<PendingTrack[]> {
+    async listTracksNeedingEnrichment(
+        providers: string[],
+        isrcOnly: string[],
+        limit: number,
+        priority: readonly string[] = [],
+    ): Promise<PendingTrack[]> {
         if (providers.length === 0) return [];
 
         // Keys are camelCase even here: `CamelCasePlugin` is in
@@ -261,7 +283,12 @@ export class EnrichmentRepository extends DataRepository {
               ) pending
              where t.merged_into_id is null
                and cardinality(pending.providers) > 0
-             order by t.album_id asc nulls last, t.created_at asc, t.id asc
+             -- array_position rather than a boolean, so the running order's own sequence survives
+             -- into the batch: the record two boundaries away is asked about before the one at the
+             -- end of the hour. Absent from the list is null, which sorts last under the coalesce,
+             -- and an empty list makes every row tie there and fall through to the clustering below.
+             order by coalesce(array_position(${priority}::uuid[], t.id), 2147483647),
+                      t.album_id asc nulls last, t.created_at asc, t.id asc
              limit ${limit}
         `.execute(this.db);
 
@@ -407,8 +434,15 @@ export class EnrichmentRepository extends DataRepository {
      * way: an artist always has a name, so there is no equivalent of the
      * ISRC-only provider that could not have answered. Every artist provider is
      * applicable to every artist.
+     *
+     * `priority` is the artists behind the records the station is about to play,
+     * on the same argument {@link listTracksNeedingEnrichment} makes at length —
+     * and it matters more here than there, because what is known about an artist
+     * is where most of what a break can say actually lives, and a record
+     * discovered at a provider tends to arrive with an artist the catalog has
+     * never enriched either.
      */
-    async listArtistsNeedingEnrichment(providers: string[], limit: number): Promise<PendingArtist[]> {
+    async listArtistsNeedingEnrichment(providers: string[], limit: number, priority: readonly string[] = []): Promise<PendingArtist[]> {
         if (providers.length === 0) return [];
 
         const rows = await sql<{
@@ -442,7 +476,8 @@ export class EnrichmentRepository extends DataRepository {
               ) refs on true
              where a.merged_into_id is null
                and cardinality(pending.providers) > 0
-             order by a.created_at asc, a.id asc
+             order by coalesce(array_position(${priority}::uuid[], a.id), 2147483647),
+                      a.created_at asc, a.id asc
              limit ${limit}
         `.execute(this.db);
 
@@ -494,8 +529,11 @@ export class EnrichmentRepository extends DataRepository {
         return (result.numUpdatedRows ?? 0n) > 0n ? ['artist.imageUrl'] : [];
     }
 
-    /** Albums that have not heard from every album provider lately. {@link listArtistsNeedingEnrichment}, one table over. */
-    async listAlbumsNeedingEnrichment(providers: string[], limit: number): Promise<PendingAlbum[]> {
+    /**
+     * Albums that have not heard from every album provider lately.
+     * {@link listArtistsNeedingEnrichment}, one table over, `priority` and all.
+     */
+    async listAlbumsNeedingEnrichment(providers: string[], limit: number, priority: readonly string[] = []): Promise<PendingAlbum[]> {
         if (providers.length === 0) return [];
 
         const rows = await sql<{
@@ -532,7 +570,8 @@ export class EnrichmentRepository extends DataRepository {
               ) refs on true
              where al.merged_into_id is null
                and cardinality(pending.providers) > 0
-             order by al.created_at asc, al.id asc
+             order by coalesce(array_position(${priority}::uuid[], al.id), 2147483647),
+                      al.created_at asc, al.id asc
              limit ${limit}
         `.execute(this.db);
 

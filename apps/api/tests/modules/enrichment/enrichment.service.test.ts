@@ -336,7 +336,7 @@ describe('enrichPending', () => {
 
         const summary = await service.enrichPending(25);
 
-        expect(repository.listTracksNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ], [], 25);
+        expect(repository.listTracksNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ], [], 25, []);
         expect(summary).toMatchObject({ scanned: 2, enriched: 2, failed: 0 });
     });
 
@@ -365,7 +365,7 @@ describe('enrichPending', () => {
 
         await service.enrichPending(25);
 
-        expect(repository.listTracksNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ, OTHER], [OTHER], 25);
+        expect(repository.listTracksNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ, OTHER], [OTHER], 25, []);
     });
 
     it('does not go near the database when no enrichment plugin is installed', async () => {
@@ -522,7 +522,7 @@ describe('artist enrichment', () => {
 
         const summary = await service.enrichPendingArtists(25);
 
-        expect(repository.listArtistsNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ], 25);
+        expect(repository.listArtistsNeedingEnrichment).toHaveBeenCalledWith([MUSICBRAINZ], 25, []);
         expect(enrichArtist).toHaveBeenCalledWith({ name: 'Portishead', mbid: artist.mbid, providerRef: 'mb-cached' });
         expect(summary).toMatchObject({ scanned: 1, enriched: 1, promoted: 1, failed: 0 });
     });

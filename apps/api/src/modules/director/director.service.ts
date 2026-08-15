@@ -791,6 +791,10 @@ export class DirectorService {
         this.identity.began(lineup.broadcastId);
         this.rundown.attach(lineup);
         await this.persist();
+        // A whole programme's worth of records at once, and an imported provider playlist is the
+        // case that needs it most: nothing ever extends one, so without this its first enrichment
+        // would be whenever the quarter hour came round.
+        this.askForEnrichment('a new running order');
 
         await inScope(this.container, async scope => scope.get(StationAirRepository).goOnAir());
         this.standingDown = false;
@@ -826,7 +830,36 @@ export class DirectorService {
         // it finds in one write, so doing it now would buy a boundary's latency and a second
         // writer. See `BreakPlanner.plant` and `placementsFor`.
         await this.persist();
+        this.askForEnrichment('a refill');
         await this.commit();
+    }
+
+    /**
+     * Tell the enrichment walk the running order has grown.
+     *
+     * The walk already puts what the station is about to play in front of the rest of the catalog
+     * (`LineupPriorityReader`); this is what stops the first run that does so being up to a quarter
+     * hour away. It matters because the two things are minutes apart: a record `PickResolver` found
+     * at a provider is ingested inside the refill, and the break that talks over it is written within
+     * `WRITE_AHEAD` items of the cursor.
+     *
+     * **After the persist, never before.** The walk reads the running order from the row, and
+     * `persist` writes through rather than riding the throttle, so sending first would have it read
+     * the order as it stood before the append and pick exactly the wrong batch.
+     *
+     * **One queue, one job, deliberately.** This is the ordinary `catalog.enrich`, not a priority
+     * job beside it: two walks would sit on the same one-request-per-second bucket and starve each
+     * other into the timeouts that quarantine a plugin. pg-boss serializes the queue, so a send that
+     * arrives mid-walk waits for a run that was already going to do this work.
+     *
+     * Not awaited and never thrown from, following {@link plantBreaks} and {@link ripenTrackCache}: a
+     * broker that will not take a send must not cost the station its running order, and the cron is
+     * still there — a lost send costs one quarter hour and nothing else.
+     */
+    private askForEnrichment(because: string): void {
+        void this.jobs.send('catalog.enrich', {}).catch(error => {
+            this.logger.warn(`director: could not ask for the new records to be described (${errorText(error)})`, { because });
+        });
     }
 
     /**

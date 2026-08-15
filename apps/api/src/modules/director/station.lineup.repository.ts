@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { sql } from 'kysely';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
@@ -104,6 +105,56 @@ export class StationLineupRepository extends DataRepository {
             .values({ stationKey, ...values })
             .onConflict(oc => oc.column('stationKey').doUpdateSet(values))
             .execute();
+    }
+
+    /**
+     * The catalog ids of the records still ahead of the cursor, nearest slot first.
+     *
+     * What anything walking the catalog reads to find out what the station is ABOUT to play, as
+     * opposed to what it holds. The enrichment walk is the first caller: a record described after it
+     * aired was described for nothing, and this is the list that says which ones are worth a
+     * rate-limited request now.
+     *
+     * It lives here rather than being read by that walk directly, because the shape of
+     * `station_lineup.items` is the director's and nothing outside this file should know that a
+     * running order is jsonb. What crosses the boundary is a list of ids.
+     *
+     * Read in SQL rather than through {@link load}, which would build a whole {@link StationLineup}
+     * and its every item to answer a question about one field. The trade is that the state names
+     * appear twice, here and in {@link STATES} — worth it for a read that runs on a schedule, and the
+     * two disagreeing costs at worst a record enriched a few minutes later than it might have been.
+     *
+     * Three things it deliberately drops. Anything already behind the cursor (`played`, `skipped`,
+     * `unavailable`) or cut before its turn (`removed`), because no writer will ever be asked about
+     * those again. Segments, which are the station's own words and have nothing to look up. And any
+     * item with no `trackId` at all, which is the ordinary state of a record the catalog has never
+     * seen — there is nothing to enrich until something ingests it.
+     *
+     * Deduplicated in slot order, since the same record legitimately sits at two positions in an hour
+     * and the earlier one is the one the deadline belongs to.
+     */
+    async lineupTrackIds(stationKey = MAIN_STATION): Promise<string[]> {
+        // `with ordinality` is the whole reason this is not a `select distinct`: the ORDER is the
+        // answer's value. A caller ranking by position gets "enrich the record that airs soonest
+        // first" for free, and a set would have thrown that away.
+        //
+        // Keys come back camelCased even from raw SQL — `CamelCasePlugin` is in
+        // `KyselyDefaultPlugins` and rewrites result keys either way.
+        const rows = await sql<{ trackId: string }>`
+            select line.item -> 'track' ->> 'trackId' as track_id
+              from deadair.station_lineup,
+                   lateral jsonb_array_elements(items) with ordinality as line(item, position)
+             where station_key = ${stationKey}
+               and line.item ->> 'kind' = 'track'
+               and line.item -> 'track' ->> 'trackId' is not null
+               -- An unrecognised state reads as still to come, matching toItems below: the two ways
+               -- of being wrong are not symmetrical, and an extra lookup is cheaper than a record
+               -- that airs with nothing to say about it.
+               and coalesce(line.item ->> 'state', 'planned') not in ('played', 'skipped', 'unavailable', 'removed')
+             order by line.position
+        `.execute(this.db);
+
+        return [...new Set(rows.rows.map(row => row.trackId))];
     }
 
     /** Forget the running order entirely. What a station taken out of service leaves behind. */

@@ -9,6 +9,7 @@ import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
+import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
 import type { OrderEdit } from './director.mailbox.js';
@@ -51,6 +52,9 @@ export class DirectorConsoleService {
         // Read-only from here. A lineup names a segment and the library owns it, so the console's
         // programming surface never writes one; that is the render module's business.
         private readonly segments: SegmentRepository,
+        // Read-only too, and for the same reason: a running order names its host and the personas
+        // page owns it.
+        private readonly personas: PersonaRepository,
         private readonly settings: SettingsService,
         // Scoped, so a send commits with the request's own transaction rather than
         // ahead of it. See JobsModule for why the request path takes this one.
@@ -185,6 +189,11 @@ export class DirectorConsoleService {
             // matched against anything, so there is nothing here to normalize and a station briefed
             // with only spaces asked for nothing.
             ...(input.brief?.trim() ? { brief: input.brief.trim() } : {}),
+            // Not validated against the persona table here, and deliberately: the resolver behind
+            // it already falls back to the station's own host for an id that names nothing, which
+            // is the same answer a persona deleted mid-broadcast gets. Refusing to go on air over a
+            // stale id would be the station declining to broadcast over a question about its DJ.
+            ...(input.personaId?.trim() ? { personaId: input.personaId.trim() } : {}),
             mode: input.mode ?? 'rotation',
             onEnd: input.onEnd ?? 'extend',
             source: input.pluginId === undefined ? 'director' : 'import',
@@ -379,6 +388,10 @@ export class DirectorConsoleService {
      */
     private async toOrder(order: StationLineupSnapshot): Promise<StationOrder> {
         const segments = await this.segments.findByIds(order.items.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])));
+        // Only when this broadcast named one. A show running on the station's own host draws no
+        // name here, because the personas page is where that is already answered and repeating it
+        // would read as an override that was never set.
+        const host = order.personaId === undefined ? undefined : await this.personas.find(order.personaId);
         // Read here rather than stored on the lineup, for the reason a segment's label is: the
         // document holds an id and the catalog holds the opinion, so an operator who rates a record
         // sees it against what is on air instead of against what it was when the order was built.
@@ -389,6 +402,12 @@ export class DirectorConsoleService {
         return {
             name: order.name,
             ...(order.brief === undefined ? {} : { brief: order.brief }),
+            ...(order.personaId === undefined ? {} : { personaId: order.personaId }),
+            // Resolved as the order is read rather than stored beside the id, for the reason a
+            // segment's label and a track's rating are: the document holds an id and the persona
+            // table holds the name, so an operator who renames their host sees the new name on the
+            // show that is already running.
+            ...(host?.label === undefined ? {} : { personaLabel: host.label }),
             mode: order.mode,
             onEnd: order.onEnd,
             source: order.source,

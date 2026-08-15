@@ -1,7 +1,8 @@
-import { Button, Card, Group, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import { Button, Card, Group, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import { useState } from 'react';
 
 import { usePutStationOnAir } from '../../api/director.queries';
+import { usePersonas } from '../../api/personas.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 
 /**
@@ -26,6 +27,13 @@ import { apiErrorMessage } from '../../api/sdk.error';
  * an operator who had ever been on air could not reach it again without emptying the order by hand.
  * `putOnAir` replaces the order and mints a new broadcast regardless of what is on, so the only thing
  * the two cases needed to differ in was saying so — {@link BriefTheStationProps.replacing}.
+ *
+ * ## The host is picked HERE, beside what to play, and that is the point
+ *
+ * A broadcast is a show and a show has a host. Choosing one here binds it to the running order for
+ * as long as the broadcast lasts, so the presenter cannot drift back to the station's own halfway
+ * through — which is exactly what the brief does one field to the left, for exactly the same reason.
+ * Leaving it on the station's own host is the ordinary case and needs no thought.
  */
 export interface BriefTheStationProps {
     /**
@@ -42,7 +50,10 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
     // in place, and there is no such command: what this sends mints a NEW broadcast and drops
     // everything queued, so an empty box is the honest shape of it.
     const [brief, setBrief] = useState('');
+    // `undefined` is "whoever the station has on air", which is the default and the common case.
+    const [personaId, setPersonaId] = useState<string | undefined>(undefined);
     const onAir = usePutStationOnAir();
+    const personas = usePersonas();
 
     const asked = brief.trim();
     const failure = onAir.isError ? apiErrorMessage(onAir.error, 'The station could not be put on air.') : undefined;
@@ -52,7 +63,7 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
         // The brief doubles as the label for this broadcast. An operator who asked for heavy metal
         // hits should see that on the page rather than "The station", and naming it anything else
         // would be inventing a second thing to read.
-        onAir.mutate({ brief: asked, name: asked });
+        onAir.mutate({ brief: asked, name: asked, ...(personaId === undefined ? {} : { personaId }) });
     };
 
     return (
@@ -68,7 +79,7 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                         This starts a new broadcast: everything still to come below is dropped, and what is playing stops.
                     </Text>
                 ) : undefined}
-                <Group gap="sm" wrap="nowrap" w="100%">
+                <Group gap="sm" wrap="nowrap" w="100%" align="flex-start">
                     <TextInput
                         flex={1}
                         placeholder="heavy metal hits"
@@ -79,6 +90,18 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                         onKeyDown={event => {
                             if (event.key === 'Enter') start();
                         }}
+                    />
+                    <Select
+                        w={220}
+                        aria-label="Who is hosting"
+                        placeholder="The station's host"
+                        clearable
+                        data={(personas.data?.personas ?? []).map(persona => ({
+                            value: persona.id,
+                            label: persona.active ? `${persona.label} (on air)` : persona.label,
+                        }))}
+                        value={personaId ?? null}
+                        onChange={value => setPersonaId(value ?? undefined)}
                     />
                     <Tooltip
                         label={
@@ -96,6 +119,9 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                         </Button>
                     </Tooltip>
                 </Group>
+                <Text size="xs" c="dimmed">
+                    The host stays with this broadcast until you go on air again. Leave it empty to use whichever persona the station has on air.
+                </Text>
                 <Text size="xs" c="dimmed">
                     Needs a model to programme with: turn on “Let a model choose what the station plays” in settings. Without one the station falls
                     back to its own rotation, which ignores the brief.

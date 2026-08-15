@@ -95,7 +95,7 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
 
     // Who the station is right now. `undefined` unless a test asks otherwise: a station that has
     // chosen no persona programmes exactly as it did before personas existed.
-    const personas = { active: vi.fn(async () => options.persona) } as never;
+    const personas = { presenting: vi.fn(async () => options.persona) } as never;
 
     return {
         job: new ExtendLineupJob(lineups, generator, resolver, personas, director, station.config, context, container, logger),

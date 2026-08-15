@@ -132,9 +132,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // here would make the substrate depend on a setting.
         await this.attachFacts(segmentId, neighbours);
 
-        // `undefined` is an ordinary answer: a station that has chosen no persona writes exactly
-        // what it wrote before personas existed.
-        const persona = await this.personas.active();
+        // This broadcast's own host where it named one, and the station's behind it. `undefined` is
+        // an ordinary answer: a station that has chosen no persona writes exactly what it wrote
+        // before personas existed.
+        const persona = await this.personas.presenting(lineup.personaId);
 
         const result = await this.writers.write({
             kind: segment.kind,

@@ -81,6 +81,21 @@ export class PersonaRepository extends DataRepository {
         return row === undefined ? undefined : toPersona(row);
     }
 
+    /**
+     * Who is presenting right now: this broadcast's own host, or the station's.
+     *
+     * The one place that precedence lives, because both readers — the break writer and the record
+     * chooser — have to agree about who is on or the show has a different DJ depending on which one
+     * you ask. A show names its host; a station names its default; and a named host that has since
+     * been DELETED falls back rather than leaving the broadcast without one, which is the same
+     * decision `on delete set null` makes on the column.
+     */
+    async presenting(lineupPersonaId: string | undefined): Promise<Persona | undefined> {
+        if (lineupPersonaId === undefined) return this.active();
+
+        return (await this.find(lineupPersonaId)) ?? this.active();
+    }
+
     async create(draft: PersonaDraft): Promise<Persona> {
         const row = await this.db
             .insertInto('deadair.personas')

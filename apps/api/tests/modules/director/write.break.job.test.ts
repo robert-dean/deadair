@@ -69,7 +69,7 @@ function harness(
     };
     // Who the station is right now. `undefined` unless a test asks otherwise, because a station
     // that has chosen no persona is the state every assertion below was written against.
-    const personas = { active: vi.fn(async () => options.persona) };
+    const personas = { presenting: vi.fn(async () => options.persona) };
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((_: string, fallback: string) => fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -122,6 +122,19 @@ describe('WriteBreakJob', () => {
         await bare.job.run({ segmentId: 'seg-1' });
 
         expect(bare.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ persona: expect.anything() }));
+    });
+
+    it('asks who is presenting THIS broadcast, not who the station is', async () => {
+        // A show names its host and the station names its default. Resolving that in one place is
+        // what stops the break writer and the record chooser disagreeing about who is on.
+        const lineup = new StationLineup({ name: 'Tonight', mode: 'rotation', onEnd: 'extend', source: 'import', personaId: 'p-tonight' });
+        lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+        lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+        const { job, personas } = harness({ lineup });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(personas.presenting).toHaveBeenCalledWith('p-tonight');
     });
 
     it("speaks a planted break in the persona's voice, and leaves a hand-planned one alone", async () => {

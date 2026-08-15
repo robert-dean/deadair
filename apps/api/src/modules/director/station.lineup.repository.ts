@@ -43,7 +43,7 @@ export class StationLineupRepository extends DataRepository {
     async load(stationKey = MAIN_STATION): Promise<StationLineup | undefined> {
         const row = await this.db
             .selectFrom('deadair.stationLineup')
-            .select(['broadcastId', 'name', 'brief', 'mode', 'onEnd', 'source', 'sourcePluginId', 'sourcePlaylistId', 'items', 'rules'])
+            .select(['broadcastId', 'name', 'brief', 'personaId', 'mode', 'onEnd', 'source', 'sourcePluginId', 'sourcePlaylistId', 'items', 'rules'])
             .where('stationKey', '=', stationKey)
             .executeTakeFirst();
         if (!row) return undefined;
@@ -58,6 +58,9 @@ export class StationLineupRepository extends DataRepository {
                 // Empty reads as absent rather than as an empty instruction, so the column's
                 // default and a station that was never briefed are the same thing everywhere above.
                 ...(row.brief ? { brief: row.brief } : {}),
+                // Null means the station's own active persona, so an absent host and a station that
+                // was never told who is presenting are the same thing everywhere above.
+                ...(row.personaId == null ? {} : { personaId: row.personaId }),
                 mode: row.mode as StationLineupMode,
                 onEnd: row.onEnd as StationLineupOnEnd,
                 source: row.source,
@@ -86,6 +89,7 @@ export class StationLineupRepository extends DataRepository {
             broadcastId: snapshot.broadcastId,
             name: snapshot.name,
             brief: snapshot.brief ?? '',
+            personaId: snapshot.personaId ?? null,
             mode: snapshot.mode,
             onEnd: snapshot.onEnd,
             source: snapshot.source,

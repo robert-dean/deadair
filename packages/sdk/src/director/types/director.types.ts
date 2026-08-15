@@ -26,7 +26,7 @@ export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'ski
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L73)
+ * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L76)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -38,7 +38,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L79)
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L82)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -46,7 +46,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L83)
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L86)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -79,7 +79,7 @@ export interface SetStationAirInput {
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L64)
+ * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L66)
  */
 export interface PutOnAirInput {
     /** The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming */
@@ -90,6 +90,8 @@ export interface PutOnAirInput {
     name?: string;
     /** What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do */
     brief?: string;
+    /** Who is hosting this broadcast. It rides the running order for as long as the broadcast does, so the presenter cannot drift back mid-show. Absent uses whichever persona the station has on air */
+    personaId?: string;
     mode?: StationMode;
     onEnd?: StationOnEnd;
 }
@@ -142,6 +144,10 @@ export interface StationOrder {
     name: string;
     /** What the operator asked the station to play, in their own words. It keeps steering every refill until the station is put on air again, so a console should show it rather than only accept it */
     brief?: string;
+    /** Who is hosting this broadcast, when it named somebody. Absent means whichever persona the station has on air */
+    personaId?: string;
+    /** What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name */
+    personaLabel?: string;
     mode: StationMode;
     onEnd: StationOnEnd;
     /** Who built it: `import` or `director` */

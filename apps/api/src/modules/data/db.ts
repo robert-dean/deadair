@@ -424,6 +424,7 @@ export interface DeadairStationLineup {
   mode: Generated<"rotation" | "setlist" | "feature">;
   name: Generated<string>;
   onEnd: Generated<"extend" | "repeat" | "stop">;
+  personaId: string | null;
   rules: Json | null;
   source: Generated<string>;
   sourcePlaylistId: string | null;

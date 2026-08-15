@@ -34,6 +34,8 @@ interface Options {
     segments?: Partial<Segment>[];
     /** What the station thinks of the records in the order, keyed by canonical track id. */
     ratings?: Record<string, 'liked' | 'neutral' | 'disliked'>;
+    /** The persona a host id resolves to, for the order that names one. */
+    persona?: (id: string) => { id: string; label: string } | undefined;
 }
 
 function build(options: Options = {}) {
@@ -95,9 +97,12 @@ function build(options: Options = {}) {
     // `platform.manage` and the actor stamp is most of what its events are for.
     const context = { actor: { kind: 'user', sessionToken: '', actorId: 'actor-1' } } as never;
     const activity = { record: vi.fn(async (_event: Record<string, unknown>) => undefined) };
+    // Read-only here: the console names a host and the personas page owns it. `find` answers for
+    // the one test that draws a host's name onto the running order.
+    const personas = { find: vi.fn(async (id: string) => options.persona?.(id)) } as never;
 
     return {
-        service: new DirectorConsoleService(air, director, playlists, tracks, segments, settings, jobs, context, activity as never, logger),
+        service: new DirectorConsoleService(air, director, playlists, tracks, segments, personas, settings, jobs, context, activity as never, logger),
         activity,
         segments,
         settings,
@@ -177,6 +182,25 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         await service.putOnAir({ brief: '  heavy metal hits  ' });
 
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { brief: 'heavy metal hits' } });
+    });
+
+    it('binds a host to the broadcast, so the presenter cannot drift back mid-show', async () => {
+        const { service, posted } = build();
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1', personaId: ' p-1 ' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { personaId: 'p-1' } });
+    });
+
+    it('goes on air with a host id that names nothing rather than refusing', async () => {
+        // The resolver behind it already falls back to the station's own host, which is the same
+        // answer a persona deleted mid-broadcast gets. Refusing would be the station declining to
+        // broadcast over a question about its DJ.
+        const { service, posted } = build({ persona: () => undefined });
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1', personaId: 'p-gone' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { personaId: 'p-gone' } });
     });
 
     it('treats a blank brief as no brief at all', async () => {

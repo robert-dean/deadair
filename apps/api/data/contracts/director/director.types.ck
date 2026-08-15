@@ -53,6 +53,8 @@ contract StationOrderItem: { # One item of the live running order, and where it 
 contract StationOrder: { # The station's live running order: what is airing, item by item
     name: string(max=200) # What is on, for a console to draw. A label for this broadcast rather than the name of a stored object
     brief?: string(max=500) # What the operator asked the station to play, in their own words. It keeps steering every refill until the station is put on air again, so a console should show it rather than only accept it
+    personaId?: string(max=100) # Who is hosting this broadcast, when it named somebody. Absent means whichever persona the station has on air
+    personaLabel?: string(max=200) # What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name
     mode: StationMode
     onEnd: StationOnEnd
     source: string(min=1, max=50) # Who built it: `import` or `director`
@@ -66,6 +68,7 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     playlistId?: string(min=1, max=400) # Required alongside `pluginId`. The playlist is READ at this moment rather than copied, so it is never edited by having been aired
     name?: string(min=1, max=200) # What to call this broadcast. Absent names it after the plugin, since only the surface that listed the playlist knows its own name for it
     brief?: string(max=500) # What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do
+    personaId?: string(min=1, max=100) # Who is hosting this broadcast. It rides the running order for as long as the broadcast does, so the presenter cannot drift back mid-show. Absent uses whichever persona the station has on air
     mode?: StationMode
     onEnd?: StationOnEnd
 }

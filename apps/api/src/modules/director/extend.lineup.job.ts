@@ -94,7 +94,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
             return;
         }
 
-        const persona = await this.personas.active();
+        const persona = await this.personas.presenting(lineup.personaId);
         const count = Math.max(1, payload?.count ?? DEFAULT_COUNT);
         const picks = await this.generator.generate({
             count: Math.ceil(count * OVERSAMPLE),

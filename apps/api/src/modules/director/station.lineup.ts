@@ -218,6 +218,17 @@ export interface StationLineupBinding {
      * Absent is ordinary and means the station programmes itself as it always has.
      */
     brief?: string;
+    /**
+     * Who is HOSTING this broadcast, as distinct from who the station is when nobody said.
+     *
+     * It rides the running order for the same reason {@link brief} does: `onEnd: 'extend'` keeps
+     * asking for more, so a host held in a refill's payload would last one batch and the show would
+     * change presenter within the hour with nothing saying so.
+     *
+     * Absent is the ordinary state and means the station's own active persona. That is what keeps a
+     * station nobody has thought about this on behaving exactly as it did.
+     */
+    personaId?: string;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
     /** Who built it: `import`, or `director` for anything generated. */
@@ -322,6 +333,11 @@ export class StationLineup implements LiveOrder {
     }
 
     /** What the operator asked for, for whatever generates more. Empty means they asked for nothing. */
+    /** Who is hosting this broadcast, or `undefined` for the station's own active persona. */
+    get personaId(): string | undefined {
+        return this.binding.personaId;
+    }
+
     get brief(): string {
         return this.binding.brief ?? '';
     }

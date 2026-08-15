@@ -104,6 +104,20 @@ export function OnAirPage() {
                                     </Badge>
                                 </Tooltip>
                             ) : undefined}
+                            {/* Only when this broadcast named one. A show on the station's own host
+                                draws nothing here, because the personas page already answers that
+                                and repeating it would read as an override nobody set. */}
+                            {loaded.personaLabel ? (
+                                <Tooltip
+                                    multiline
+                                    maw={360}
+                                    label="Who is hosting this broadcast. It stays with the show until the station is put on air again, whatever the personas page says."
+                                >
+                                    <Badge size="sm" variant="light" color="teal" tt="none">
+                                        hosted by: {loaded.personaLabel}
+                                    </Badge>
+                                </Tooltip>
+                            ) : undefined}
                             <Text size="sm" c="dimmed">
                                 {planned === 1 ? '1 still to come' : `${planned} still to come`}
                             </Text>

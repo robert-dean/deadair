@@ -31,7 +31,7 @@ export type StationItemState = z.infer<typeof StationItemState>;
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L73)
+ * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L76)
  */
 export const AddStationSegmentInput = z.strictObject({
     segmentId: z.string().min(1).max(100),
@@ -55,7 +55,7 @@ export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L79)
+ * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L82)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -64,7 +64,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L83)
+ * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L86)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -99,7 +99,7 @@ export type SetStationAirInput = z.infer<typeof SetStationAirInput>;
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L64)
+ * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L66)
  */
 export const PutOnAirInput = z.strictObject({
     pluginId: z
@@ -130,6 +130,14 @@ export const PutOnAirInput = z.strictObject({
         .optional()
         .describe(
             'What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do',
+        ),
+    personaId: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            'Who is hosting this broadcast. It rides the running order for as long as the broadcast does, so the presenter cannot drift back mid-show. Absent uses whichever persona the station has on air',
         ),
     mode: StationMode.optional(),
     onEnd: StationOnEnd.optional(),
@@ -192,6 +200,16 @@ export const StationOrder = z.strictObject({
         .describe(
             'What the operator asked the station to play, in their own words. It keeps steering every refill until the station is put on air again, so a console should show it rather than only accept it',
         ),
+    personaId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe('Who is hosting this broadcast, when it named somebody. Absent means whichever persona the station has on air'),
+    personaLabel: z
+        .string()
+        .max(200)
+        .optional()
+        .describe('What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name'),
     mode: StationMode,
     onEnd: StationOnEnd,
     source: z.string().min(1).max(50).describe('Who built it: `import` or `director`'),

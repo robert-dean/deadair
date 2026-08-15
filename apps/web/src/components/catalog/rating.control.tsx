@@ -1,4 +1,6 @@
 import { SegmentedControl, Tooltip } from '@mantine/core';
+import { IconMinus, IconThumbDown, IconThumbUp } from '@tabler/icons-react';
+import type { ReactNode } from 'react';
 import type { Rating } from '@deadair/sdk';
 
 export interface RatingControlProps {
@@ -42,30 +44,48 @@ export function RatingControl({ rating = 'neutral', onChange, label, busy = fals
                 onChange(value as Rating);
             }}
             data={[
-                { value: 'disliked', label: <Segment glyph="👎" hint={`Never play ${label}`} aria={`Dislike ${label}`} /> },
-                { value: 'neutral', label: <Segment glyph="•" hint={`No opinion about ${label}`} aria={`No opinion about ${label}`} /> },
-                { value: 'liked', label: <Segment glyph="👍" hint={`Play ${label} more often`} aria={`Like ${label}`} /> },
+                {
+                    value: 'disliked',
+                    label: <Segment glyph={<IconThumbDown size={GLYPH} stroke={1.7} />} hint={`Never play ${label}`} aria={`Dislike ${label}`} />,
+                },
+                {
+                    value: 'neutral',
+                    label: (
+                        <Segment glyph={<IconMinus size={GLYPH} stroke={1.7} />} hint={`No opinion about ${label}`} aria={`No opinion about ${label}`} />
+                    ),
+                },
+                {
+                    value: 'liked',
+                    label: <Segment glyph={<IconThumbUp size={GLYPH} stroke={1.7} />} hint={`Play ${label} more often`} aria={`Like ${label}`} />,
+                },
             ]}
         />
     );
 }
 
+/** Matched to the table's body text, so a column of these does not out-shout the titles beside it. */
+const GLYPH = 15;
+
 /**
  * One option: a glyph, what it means on hover, and what it is called to anything not looking at it.
  *
- * Glyphs because `apps/web` carries no icon library, which is also why the running order's drop
- * button is a literal `✕`. The `aria-label` is what the radio around it ends up called, so a page
- * listing fifty of these has fifty distinguishable controls rather than fifty identical ones.
+ * These were emoji, because the app carried no icon set. Two thumbs in full colour on every row of a
+ * fifty-artist table read as the loudest thing on the page, which is the wrong ranking for something
+ * an operator uses occasionally — line icons inherit the segment's own colour and recede until they
+ * are the active one. The `aria-label` is what the radio around it ends up called, so a page listing
+ * fifty of these has fifty distinguishable controls rather than fifty identical ones.
  *
  * No `role="img"` on the span, deliberately. The name it carries belongs to the radio, and giving
  * the glyph a role of its own would put a thumb in the accessibility tree as a picture in its own
  * right — which is also how it started counting as artwork in the album page's "this record has no
  * cover" test.
  */
-function Segment({ glyph, hint, aria }: { glyph: string; hint: string; aria: string }) {
+function Segment({ glyph, hint, aria }: { glyph: ReactNode; hint: string; aria: string }) {
     return (
         <Tooltip label={hint} openDelay={400}>
-            <span aria-label={aria}>{glyph}</span>
+            <span aria-label={aria} style={{ display: 'flex' }}>
+                {glyph}
+            </span>
         </Tooltip>
     );
 }

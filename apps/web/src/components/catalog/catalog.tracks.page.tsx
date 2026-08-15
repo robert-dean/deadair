@@ -125,7 +125,7 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
                                                 </Anchor>
                                             )}
                                         </Table.Td>
-                                        <Table.Td>{formatDuration(track.durationMs)}</Table.Td>
+                                        <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
                                         <Table.Td>
                                             <RatingControl
                                                 size="xs"

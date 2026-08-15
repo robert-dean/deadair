@@ -141,7 +141,7 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                                         {/* The credit as written on the release, which is not the same
                                             as the canonical artist this album hangs off. */}
                                         <Table.Td>{track.artists}</Table.Td>
-                                        <Table.Td>{formatDuration(track.durationMs)}</Table.Td>
+                                        <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
                                         <Table.Td>
                                             <RatingControl
                                                 size="xs"

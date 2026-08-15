@@ -85,8 +85,8 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
                                             {artist.name}
                                         </Anchor>
                                     </Table.Td>
-                                    <Table.Td>{artist.albumCount}</Table.Td>
-                                    <Table.Td>{artist.trackCount}</Table.Td>
+                                    <Table.Td className="da-num">{artist.albumCount}</Table.Td>
+                                    <Table.Td className="da-num">{artist.trackCount}</Table.Td>
                                     <Table.Td>
                                         {/* Rating from the list rather than only from the detail
                                             page: an operator forms most of these opinions while

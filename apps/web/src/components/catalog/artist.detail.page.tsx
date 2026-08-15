@@ -129,8 +129,8 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                                             {album.name}
                                         </Anchor>
                                     </Table.Td>
-                                    <Table.Td>{album.year ?? ''}</Table.Td>
-                                    <Table.Td>{album.trackCount}</Table.Td>
+                                    <Table.Td className="da-num">{album.year ?? ''}</Table.Td>
+                                    <Table.Td className="da-num">{album.trackCount}</Table.Td>
                                     <Table.Td>
                                         <RatingControl
                                             size="xs"

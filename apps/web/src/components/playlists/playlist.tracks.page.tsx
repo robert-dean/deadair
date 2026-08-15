@@ -89,7 +89,7 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                                 <Table.Td>{track.title}</Table.Td>
                                 <Table.Td>{formatArtists(track.artists)}</Table.Td>
                                 <Table.Td>{track.album ?? ''}</Table.Td>
-                                <Table.Td>{formatDuration(track.durationMs)}</Table.Td>
+                                <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
                             </Table.Tr>
                         ))}
                     </Table.Tbody>

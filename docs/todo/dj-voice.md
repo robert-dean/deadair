@@ -354,7 +354,11 @@ stalling on a slow model. It is not scaffolding to be removed once the model hal
 behind" assumes.** The moment a persona or a mood is involved, an avoid-list becomes load-bearing: a
 character sheet saying "use a signature phrase, but not in every script" is an instruction no writer
 can follow without seeing the last few scripts. Still its own table rather than a relaxation of
-`play_history`, for the reason given below.
+`play_history`, for the reason given below. **The cheap half of this shipped with the model writer**
+(a writer is handed the last six scripts of its kind) and personas landed after it, so the rest is
+now scoped as persona memory in [personas.md](personas.md) §2 — including the prerequisite neither
+this note nor that one saw coming, which is that `script_history` records no persona and cannot reach
+one through its segment.
 
 **4. Record the transitions as facts while writing them, not afterwards.** A segment moving
 `planned -> rendering -> ready | failed` wants a timestamp, a reason on `failed`, and a degraded write

@@ -4,7 +4,11 @@ The raw list: unscoped, undesigned, and deliberately not held to the rules the r
 follows. An entry earns a file of its own by being scoped against real code, and the line here then
 points at that file. Checked against the tree on 2026-08-11.
 
-- [ ] shows should use personas
+- [~] shows should use personas — personas are BUILT (`deadair.personas`, the sheet, the voice, the
+      templates chain, the `music` line), and `station_lineup.persona_id` already lets a broadcast
+      name its own host. What is left is scoped in `personas.md`: §3 is the schedule writing that
+      column, and §1 is the newsreader, which is the first case one-persona-per-station could not
+      express
 - [ ] more voices, add phonetics
 - [~] inject news/weather breaks — **news is done, 2026-08-15**: the `news` capability, `plugins/rss`
       and `NewsService` under a `read_news` tool the DJ can call mid-break, plus a `news` segment kind
@@ -18,7 +22,10 @@ points at that file. Checked against the tree on 2026-08-11.
       news feature: a host-side watcher over any polled source that posts a `BreakRequest`, so a new
       number one and a weather warning are the same loop. The de-duplication contract it needs is
       already on the `news` capability
-- [ ] persona memory
+- [ ] persona memory — scoped in `personas.md` §2. The cheap half exists (a writer is shown the last
+      six scripts of its kind), and it is keyed by KIND rather than by character and cannot outlive a
+      segment, so the prerequisite is a `persona_key` on `script_history` before anything summarizes
+      it
 - [ ] talkshows with callers (can we do real and fake like a conspiracy theories )
 - [ ] telegram bot for "requests"
 - [ ] fix the tune-in album art, etc
@@ -47,7 +54,10 @@ points at that file. Checked against the tree on 2026-08-11.
       `packages/plugin-sdk/README.md`. Breaks are host-side and stay that way
 - [ ] integrate with HA, similar?
 - [ ] daily snapshot from calendar integration?
-- [ ] have the talk shows (like conspiracy) keep a history so it can grow organically
+- [ ] have the talk shows (like conspiracy) keep a history so it can grow organically — this is
+      `persona memory` above wearing a different hat, and `personas.md` §2 says so: a show that
+      remembers is a persona that remembers, and building it twice gives the station two characters
+      with one name
 - [ ] view saved track metadata
 - [ ] like/dislike artist/song/album maybe genre — operator dislikes and never-play predicates are
       `station-intelligence.md` §5, the accountless listener version is §7

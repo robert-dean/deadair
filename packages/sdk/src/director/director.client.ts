@@ -5,6 +5,7 @@ import type {
     ExtendStationInput,
     MoveStationItemInput,
     PutOnAirInput,
+    ReplanStationInput,
     SetStationAirInput,
     StationAir,
     StationOrder,
@@ -63,6 +64,18 @@ export class DirectorClient {
      */
     async extendTheRunningOrder(body: ExtendStationInput): Promise<void> {
         await this.fetch(`/director/air/extend`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+    }
+
+    /**
+     * @name Replan the running order
+     * @description Queues a fresh set for everything the player is not already holding, and swaps it in once it exists. The old tail keeps playing until then, because emptying the running order first would take the station off air while the model was still choosing
+     */
+    async replanTheRunningOrder(body: ReplanStationInput): Promise<void> {
+        await this.fetch(`/director/air/replan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),

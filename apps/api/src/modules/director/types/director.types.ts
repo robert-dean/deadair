@@ -72,6 +72,15 @@ export const ExtendStationInput = z.strictObject({
 export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
 
 /**
+ * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
+ * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L90)
+ */
+export const ReplanStationInput = z.strictObject({
+    count: z.coerce.number().int().min(1).max(100).optional().describe('How many records to programme. Absent is roughly an hour'),
+});
+export type ReplanStationInput = z.infer<typeof ReplanStationInput>;
+
+/**
  * What the station is airing, and whether it is driving at all
  * generated from [StationAir](file://./../../../../data/contracts/director/director.types.ck#L13)
  */

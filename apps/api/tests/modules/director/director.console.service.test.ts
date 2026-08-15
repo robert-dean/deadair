@@ -439,6 +439,29 @@ describe('DirectorConsoleService editing the running order', () => {
         expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { count: 5 });
     });
 
+    it('queues a replan rather than emptying the order and making the operator wait', async () => {
+        // The job generates a whole set BEFORE anything is dropped, which is what keeps the station
+        // on air across the swap. Nothing is answered here but the ask.
+        const { service, jobs, director } = build({ order: onAirWith(3) });
+
+        await service.replanOrder({ count: 5 });
+
+        expect(jobs.send).toHaveBeenCalledWith('director.replan_lineup', { count: 5 });
+        expect(director.applyEdit).not.toHaveBeenCalled();
+    });
+
+    it('records the replan against the operator who asked for it', async () => {
+        const { service, activity } = build({ order: onAirWith(3) });
+
+        await service.replanOrder({});
+
+        expect(activity.record.mock.calls[0]![0]).toMatchObject({
+            module: 'director',
+            kind: 'order.replanned',
+            actorId: 'actor-1',
+        });
+    });
+
     // The rating is read as the order is DRAWN rather than stored on the lineup: the director owns
     // that document, and a copy of an opinion in it would be a second answer going stale the moment
     // the operator changed their mind.

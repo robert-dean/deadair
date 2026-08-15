@@ -106,6 +106,16 @@ export type DirectorCommand =
      */
     | { kind: 'appendTracks'; tracks: readonly RundownTrack[] }
     /**
+     * A replan has finished generating: put these records where everything still planned was.
+     *
+     * The sibling of {@link appendTracks} and carries material for the same reason. What is
+     * different is that it takes something away, which is why the generating happens first: the
+     * order the station is airing keeps its tail until there is a replacement to put there, so a
+     * model that takes minutes costs the operator a wait rather than costing the station its
+     * mount lease. See `ReplanLineupJob`.
+     */
+    | { kind: 'replaceTail'; tracks: readonly RundownTrack[] }
+    /**
      * Somebody at the desk changed the order. Answers with whether it took.
      *
      * The edit is applied HERE rather than by the caller, because the running order

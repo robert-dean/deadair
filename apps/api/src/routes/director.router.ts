@@ -6,6 +6,7 @@ import {
     ExtendStationInput,
     MoveStationItemInput,
     PutOnAirInput,
+    ReplanStationInput,
     SetStationAirInput,
     StationAir,
     StationOrder,
@@ -87,8 +88,21 @@ DirectorRouter.post('/director/air/extend', requirePolicy({ policy: 'platform.ma
 });
 
 /**
- * Shuffles everything not yet handed to the player. The head is already in the player's hands and is left alone
+ * Queues a fresh set for everything the player is not already holding, and swaps it in once it exists. The old tail keeps playing until then, because emptying the running order first would take the station off air while the model was still choosing
  * from [director.ck](file://./../../data/contracts/director/director.ck#L104)
+ */
+DirectorRouter.post('/director/air/replan', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, ReplanStationInput);
+
+    const service = ctx.container.get(DirectorConsoleService);
+    await service.replanOrder(body);
+
+    ctx.status = 202;
+});
+
+/**
+ * Shuffles everything not yet handed to the player. The head is already in the player's hands and is left alone
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L120)
  */
 DirectorRouter.post('/director/air/shuffle', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(DirectorConsoleService);
@@ -101,7 +115,7 @@ DirectorRouter.post('/director/air/shuffle', requirePolicy({ policy: 'platform.m
 
 /**
  * Puts something the station says into the running order. A segment with no audio yet is refused here rather than accepted and skipped when it comes round, so an operator is told why it cannot play
- * from [director.ck](file://./../../data/contracts/director/director.ck#L119)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L135)
  */
 DirectorRouter.post('/director/air/segments', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, AddStationSegmentInput);
@@ -116,7 +130,7 @@ DirectorRouter.post('/director/air/segments', requirePolicy({ policy: 'platform.
 
 /**
  * Moves an item. A position already handed to the player is refused rather than clamped
- * from [director.ck](file://./../../data/contracts/director/director.ck#L140)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L156)
  */
 DirectorRouter.patch('/director/air/items/:itemId', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { itemId } = await parseAndValidate(
@@ -138,7 +152,7 @@ DirectorRouter.patch('/director/air/items/:itemId', requirePolicy({ policy: 'pla
 
 /**
  * Drops an item that has not been handed to the player yet
- * from [director.ck](file://./../../data/contracts/director/director.ck#L155)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L171)
  */
 DirectorRouter.delete('/director/air/items/:itemId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { itemId } = await parseAndValidate(

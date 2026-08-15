@@ -4,27 +4,12 @@ import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { DirectorService } from './director.service.js';
-import { isTrackItem, type StationLineupItem } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PickResolver } from './pick.resolver.js';
-import { songKey } from './rotation.keys.js';
+import { DEFAULT_COUNT, planRecords, songKeysOf } from './plan.records.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
-
-/** How many tracks a refill adds when nobody says. Roughly an hour of programming. */
-const DEFAULT_COUNT = 15;
-
-/**
- * Ask for more names than the lineup needs.
- *
- * Between the repeat window, the artist cooldown, the per-artist cap and picks
- * that resolve to nothing, a meaningful share of any batch is discarded. Without
- * the headroom the lineup comes back short, runs dry sooner, and the director
- * simply asks again — which costs another sample and another pass over the
- * history for the same reason it did the first time.
- */
-const OVERSAMPLE = 1.6;
 
 export interface ExtendLineupPayload {
     /** How many tracks to add. Absent means {@link DEFAULT_COUNT}. */
@@ -96,8 +81,8 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
 
         const persona = await this.personas.presenting(lineup.personaId);
         const count = Math.max(1, payload?.count ?? DEFAULT_COUNT);
-        const picks = await this.generator.generate({
-            count: Math.ceil(count * OVERSAMPLE),
+        const planned = await planRecords(this.generator, this.resolver, {
+            count,
             rules,
             // Read off the order on every refill rather than carried in the payload, for the same
             // reason the rules are: this job runs again in an hour, and what the operator asked for
@@ -121,14 +106,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         });
         if (signal?.aborted) return;
 
-        // The rules go WITH the picks. The resolver judges every one of them against these,
-        // whatever generator named them, which is what stops a second binding routing around a
-        // dislike. See `PickResolver`.
-        const resolved = await this.resolver.resolve(picks, rules);
-        // Back down to what was asked for. The oversample is headroom against what the
-        // rules and the resolver discard, not a licence to hand back half an hour more
-        // programming than the station wanted.
-        const added = resolved.slice(0, count);
+        const added = planned.tracks;
 
         // **This job no longer writes the lineup, and that is the point of it.** It used to load
         // its own `Lineup`, spend the seconds above generating, and then append through a store
@@ -148,18 +126,9 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         this.logger.info('director: extended the running order', {
             job: this.context.id,
             asked: count,
-            named: picks.length,
-            resolved: resolved.length,
+            named: planned.named,
+            resolved: planned.resolved,
             added: added.length,
         });
     }
 }
-
-/**
- * The songs the running order already holds, as keys the generator can avoid choosing again.
- *
- * Records only. The order's segments are not songs and have no artists, so feeding their labels into
- * the key space would have the generator avoiding a track it has never chosen.
- */
-const songKeysOf = (items: readonly StationLineupItem[]): Set<string> =>
-    new Set(items.filter(isTrackItem).map(item => songKey(item.track.title, item.track.artists)));

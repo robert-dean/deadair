@@ -11,6 +11,7 @@ import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
 import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
+import { ReplanLineupJob } from '#modules/director/replan.lineup.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
@@ -196,6 +197,18 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'director.extend_lineup': {
         job: ExtendLineupJob,
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 3 }) },
+    },
+
+    // No cron, and there could not be one: this is an operator saying they do not like what is
+    // coming. Nothing about a running order makes a replan due.
+    //
+    // One retry, like the refill, and it is genuinely safe to take: the job changes nothing until
+    // it posts, so an attempt that failed left the old tail exactly where it was. `expiresIn` is
+    // longer than the refill's because a replan is the one that waits on a model before it does
+    // anything, and a run reclaimed halfway is a run whose generation is thrown away.
+    'director.replan_lineup': {
+        job: ReplanLineupJob,
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 
     // No cron: a break is written because the planner put one in a running order, and there is

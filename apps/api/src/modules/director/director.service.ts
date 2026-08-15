@@ -501,6 +501,10 @@ export class DirectorService {
                 await this.appendTracks(command.tracks);
                 return undefined;
 
+            case 'replaceTail':
+                await this.replaceTail(command.tracks);
+                return undefined;
+
             case 'edit':
                 return await this.edit(command.edit);
 
@@ -835,6 +839,43 @@ export class DirectorService {
     }
 
     /**
+     * Put a finished replan where everything still planned was.
+     *
+     * The other end of `ReplanLineupJob`, and the reason the swap is one command: the records
+     * arrive already chosen and already resolved, so the running order is never without a tail for
+     * longer than an array assignment. Everything the player is holding, and everything already
+     * spent, keeps its place — see `StationLineup.replacePlanned`.
+     *
+     * **An empty replacement does nothing at all.** The job guards this too, and it is guarded
+     * twice on purpose: emptying the running order is exactly how the station loses its mount
+     * lease, and this is the last place that can refuse to.
+     */
+    private async replaceTail(tracks: readonly RundownTrack[]): Promise<void> {
+        if (!this.lineup) return;
+        if (tracks.length === 0) {
+            this.logger.warn('director: a replan arrived with no records, so the running order was left alone');
+            return;
+        }
+
+        const dropped = this.lineup.replacePlanned(tracks);
+        // Written down before anything else, for the reason `edit` gives: the swap has happened,
+        // and a swap that was not written down is the bug. Breaks are not planted here either —
+        // the next pass walks the whole tail and plants every slot in one write.
+        await this.persist();
+        // After the persist, like the refill's: the walk reads the running order from the row, and
+        // sending first would have it prioritise the tail that has just been thrown away. Every
+        // record in this one is new, so it is the strongest case there is for asking.
+        this.askForEnrichment('a replan');
+        // The quiet half. A break planted into the old tail is describing a moment that will never
+        // come round, and one being written right now would finish and sit in the library looking
+        // like a break that is still coming.
+        await this.retireSegments(this.lineup, dropped, 'the operator replanned the running order');
+        await this.commit();
+
+        this.logger.info('director: replaced the rest of the running order', { added: tracks.length, dropped: dropped.length });
+    }
+
+    /**
      * Tell the enrichment walk the running order has grown.
      *
      * The walk already puts what the station is about to play in front of the rest of the catalog
@@ -913,22 +954,50 @@ export class DirectorService {
         const item = lineup.find(itemId);
         if (item?.kind !== 'segment') return;
 
-        const stillWanted = lineup
-            .all()
-            .some(other => other.id !== itemId && other.kind === 'segment' && other.segmentId === item.segmentId && other.state !== 'removed');
-        if (stillWanted) return;
+        await this.retireSegments(lineup, [item], 'the operator removed this break from the running order');
+    }
+
+    /**
+     * Write off the segment rows behind breaks that have left the running order.
+     *
+     * The shared half of {@link collectRemoved}, and the two rules in its doc comment are why it is
+     * shared rather than written twice: a `ready` segment is material an operator can put back, and
+     * a segment id still somewhere else in the order is an ident the station is about to play.
+     * Both were learned once and cost a break each; a replan drops a whole tail at a time, so
+     * getting either wrong here would be the same mistake several times over.
+     *
+     * `lineup` is read as it stands AFTER the change, which is what makes the still-wanted check
+     * mean anything. It covers both callers because a removal leaves its item in the order marked
+     * `removed` — never a reason to keep a row alive — and a replan takes its items out entirely.
+     */
+    private async retireSegments(lineup: StationLineup, dropped: readonly StationLineupItem[], because: string): Promise<void> {
+        const droppedIds = new Set(dropped.map(item => item.id));
+        // By segment id rather than by item, because one row legitimately sits at several slots and
+        // a tail dropped wholesale can hand over three items naming the same ident.
+        const segmentIds = new Set(dropped.filter(item => item.kind === 'segment').map(item => item.segmentId));
+        const orphaned = [...segmentIds].filter(
+            segmentId =>
+                !lineup
+                    .all()
+                    .some(
+                        other => !droppedIds.has(other.id) && other.kind === 'segment' && other.segmentId === segmentId && other.state !== 'removed',
+                    ),
+        );
+        if (orphaned.length === 0) return;
 
         try {
             await inScope(this.container, async scope => {
                 const segments = scope.get(SegmentRepository);
-                const segment = await segments.findById(item.segmentId);
-                if (segment === undefined || segment.state === 'ready' || segment.state === 'failed') return;
+                for (const segmentId of orphaned) {
+                    const segment = await segments.findById(segmentId);
+                    if (segment === undefined || segment.state === 'ready' || segment.state === 'failed') continue;
 
-                await segments.markFailed(item.segmentId, 'the operator removed this break from the running order', segment.state);
-                this.logger.info('director: retired the break an operator removed', { segmentId: item.segmentId, from: segment.state });
+                    await segments.markFailed(segmentId, because, segment.state);
+                    this.logger.info('director: retired a break that left the running order', { segmentId, from: segment.state, because });
+                }
             });
         } catch (error) {
-            this.logger.warn(`director: could not retire the break an operator removed (${errorText(error)})`);
+            this.logger.warn(`director: could not retire a break that left the running order (${errorText(error)})`);
         }
     }
 

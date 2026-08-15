@@ -86,3 +86,7 @@ contract MoveStationItemInput: { # Move an item within the running order
 contract ExtendStationInput: { # Add tracks to the running order now, rather than waiting for it to run short
     count?: int(min=1, max=100)
 }
+
+contract ReplanStationInput: { # Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
+    count?: int(min=1, max=100) # How many records to programme. Absent is roughly an hour
+}

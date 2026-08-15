@@ -100,6 +100,22 @@ operation /director/air/extend: {
     }
 }
 
+operation /director/air/replan: {
+    post: { # Queues a fresh set for everything the player is not already holding, and swaps it in once it exists. The old tail keeps playing until then, because emptying the running order first would take the station off air while the model was still choosing
+        name: Replan the running order
+        service: DirectorConsoleService.replanOrder
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: ReplanStationInput
+        }
+        response: {
+            202:
+        }
+    }
+}
+
 operation /director/air/shuffle: {
     post: { # Shuffles everything not yet handed to the player. The head is already in the player's hands and is left alone
         name: Shuffle the running order

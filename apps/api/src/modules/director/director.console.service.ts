@@ -21,6 +21,7 @@ import type {
     ExtendStationInput,
     MoveStationItemInput,
     PutOnAirInput,
+    ReplanStationInput,
     SetStationAirInput,
     StationAir,
     StationOrder,
@@ -250,6 +251,26 @@ export class DirectorConsoleService {
             module: 'director',
             kind: 'order.extended',
             detail: 'An operator asked for more records.',
+            ...(input.count === undefined ? {} : { data: { count: input.count } }),
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
+        });
+    }
+
+    /**
+     * Throw away what the station had planned and have it programme that stretch again.
+     *
+     * Queued, like {@link extendOrder} and more so: this one waits on the same generators AND is
+     * what keeps the station from going quiet while they run. `ReplanLineupJob` chooses a whole
+     * fresh set before anything is dropped, so the tail an operator is tired of keeps playing until
+     * there is something to put in its place. Nothing is answered here but the ASK.
+     */
+    async replanOrder(input: ReplanStationInput): Promise<void> {
+        await this.jobs.send('director.replan_lineup', { ...(input.count === undefined ? {} : { count: input.count }) });
+
+        void this.activity.record({
+            module: 'director',
+            kind: 'order.replanned',
+            detail: 'An operator threw out the rest of the running order and asked the station to programme it again.',
             ...(input.count === undefined ? {} : { data: { count: input.count } }),
             ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
         });

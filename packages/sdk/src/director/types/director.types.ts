@@ -53,6 +53,15 @@ export interface ExtendStationInput {
 }
 
 /**
+ * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
+ * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L90)
+ */
+export interface ReplanStationInput {
+    /** How many records to programme. Absent is roughly an hour */
+    count?: number;
+}
+
+/**
  * What the station is airing, and whether it is driving at all
  * generated from [StationAir](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L13)
  */

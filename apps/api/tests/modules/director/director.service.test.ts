@@ -1798,6 +1798,123 @@ describe('DirectorService editing what is on air', () => {
     });
 });
 
+// A replan arrives here already chosen and already resolved, because the job that generated it
+// kept the old tail playing throughout. What is left for the director is the swap itself, and the
+// rules about it are the ones every other edit obeys: the player's head is untouchable, and a break
+// that has left the order owns a row somebody has to write off.
+describe('DirectorService replacing the rest of the running order', () => {
+    it('swaps the planned tail for the records it was handed', async () => {
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        await rundown.next();
+
+        await director.post({ kind: 'replaceTail', tracks: [track('x'), track('y')] });
+
+        expect(
+            lineup
+                .all()
+                .filter(isTrackItem)
+                .map(item => item.track.externalId),
+        ).toEqual(['a', 'x', 'y']);
+    });
+
+    it('leaves what the player is holding exactly where it is', async () => {
+        // The same line a shuffle draws, and for the same reason: those items are already with the
+        // player, and an operator asking for different programming is not asking to cut a listener off.
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        await rundown.next();
+
+        await director.post({ kind: 'replaceTail', tracks: [track('x')] });
+
+        expect(lineup.all()[0]?.state).not.toBe('planned');
+        expect(
+            lineup
+                .all()
+                .filter(isTrackItem)
+                .map(item => item.track.externalId)[0],
+        ).toBe('a');
+    });
+
+    it('does nothing at all with an empty replacement', async () => {
+        // Guarded twice, here and in the job. Emptying the running order is exactly how the station
+        // loses its mount lease, and this is the last place that can refuse to.
+        const { director, lineup, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+
+        await director.post({ kind: 'replaceTail', tracks: [] });
+
+        expect(lineup.size()).toBe(3);
+    });
+
+    it('writes the swap down before anything else happens to it', async () => {
+        const { director, lineups, seed } = build({ items: ['a', 'b'] });
+        await seed();
+        await director.start();
+        vi.mocked(lineups.save).mockClear();
+
+        await director.post({ kind: 'replaceTail', tracks: [track('x')] });
+
+        expect(lineups.save).toHaveBeenCalled();
+    });
+
+    it('asks for the new records to be described, since every one of them is new', async () => {
+        const { director, jobs, seed } = build({ items: ['a', 'b'] });
+        await seed();
+        await director.start();
+        jobs.send.mockClear();
+
+        await director.post({ kind: 'replaceTail', tracks: [track('x'), track('y')] });
+
+        expect(jobs.send.mock.calls.filter(call => call[0] === 'catalog.enrich')).toHaveLength(1);
+    });
+
+    it('retires a break that was still being written for the tail it just threw away', async () => {
+        // That break describes a moment that will never come round now. Left alone it finishes and
+        // sits in the library looking like a break that is still coming.
+        const { director, lineup, segmentStub, seed } = build({
+            items: ['a', 'b'],
+            segments: [{ id: 'talk-1', kind: 'talk', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertSegment('talk-1', lineup.size());
+
+        await director.post({ kind: 'replaceTail', tracks: [track('x')] });
+
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('replanned'), 'planned');
+    });
+
+    it('leaves a ready ident alone, because it is material an operator can put back', async () => {
+        const { director, lineup, segmentStub, seed } = build({
+            items: ['a', 'b'],
+            segments: [{ id: 'ident-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertSegment('ident-1', lineup.size());
+
+        await director.post({ kind: 'replaceTail', tracks: [track('x')] });
+
+        expect(segmentStub.markFailed).not.toHaveBeenCalled();
+    });
+
+    it('commits off the new tail, so the swap reaches the player without waiting for a boundary', async () => {
+        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        await airNext(rundown);
+
+        await director.post({ kind: 'replaceTail', tracks: [track('x'), track('y')] });
+        await settle();
+
+        expect(idsOf(rundown.upcoming())).toContain('x');
+    });
+});
+
 describe('DirectorService asking for a refill', () => {
     it('sends the refill from a scope of its own', async () => {
         const { director, jobs, seed } = build({ items: ['a', 'b', 'c'] });

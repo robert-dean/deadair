@@ -8,6 +8,7 @@ export type JobNames =
     | 'catalog.analyze'
     | 'playout.cache_track'
     | 'director.extend_lineup'
+    | 'director.replan_lineup'
     | 'director.write_break'
     | 'render.segment'
     | 'render.prune_script_history'

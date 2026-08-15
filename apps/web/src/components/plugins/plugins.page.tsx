@@ -1,8 +1,12 @@
-import { Alert, Button, Card, Group, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, SimpleGrid, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
 import { pluginsListOptions, useRescanPlugins } from '../../api/plugins.queries';
 import { apiErrorMessage, sdkError } from '../../api/sdk.error';
+import { EmptyState } from '../shared/empty.state';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { PluginCard } from './plugin.card';
 
 /** What a rescan refusal means, in the operator's terms rather than the transport's. */
@@ -19,24 +23,26 @@ export function PluginsPage() {
 
     return (
         <Stack gap="lg">
-            <Group justify="space-between" align="flex-end">
-                <Stack gap={4}>
-                    <Title order={1}>Plugins</Title>
+            <PageHeader
+                title="Plugins"
+                description={
                     <Text c="dimmed" size="sm">
                         {plugins.data ? `${plugins.data.length} installed` : 'Everything the host has mounted.'}
                     </Text>
-                </Stack>
-                <Button
-                    variant="default"
-                    size="compact-sm"
-                    loading={rescan.isPending}
-                    onClick={() => {
-                        rescan.mutate();
-                    }}
-                >
-                    Rescan
-                </Button>
-            </Group>
+                }
+                actions={
+                    <Button
+                        variant="default"
+                        size="compact-sm"
+                        loading={rescan.isPending}
+                        onClick={() => {
+                            rescan.mutate();
+                        }}
+                    >
+                        Rescan
+                    </Button>
+                }
+            />
 
             {rescan.error ? (
                 <Alert color="yellow" title="Rescan failed">
@@ -45,28 +51,21 @@ export function PluginsPage() {
             ) : undefined}
 
             {plugins.error ? (
-                <Alert color="red" title="Plugins could not be loaded">
-                    {apiErrorMessage(plugins.error, 'The plugin catalogue is unavailable.')}
-                </Alert>
+                <ErrorAlert title="Plugins could not be loaded" error={plugins.error} fallback="The plugin catalogue is unavailable." />
             ) : undefined}
 
             {plugins.isPending ? (
                 <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                     {[0, 1, 2].map(index => (
-                        <Skeleton key={index} height={196} radius="sm" />
+                        <PageSkeleton key={index} variant="card" />
                     ))}
                 </SimpleGrid>
             ) : undefined}
 
             {plugins.data?.length === 0 ? (
-                <Card withBorder padding="xl" radius="sm">
-                    <Stack gap="xs">
-                        <Text fw={600}>No plugins are mounted</Text>
-                        <Text size="sm" c="dimmed" maw={520}>
-                            Drop a plugin into the host&apos;s plugin directory and rescan. Nothing about the station changes until one is enabled.
-                        </Text>
-                    </Stack>
-                </Card>
+                <EmptyState title="No plugins are mounted">
+                    Drop a plugin into the host&apos;s plugin directory and rescan. Nothing about the station changes until one is enabled.
+                </EmptyState>
             ) : undefined}
 
             {plugins.data && plugins.data.length > 0 ? (

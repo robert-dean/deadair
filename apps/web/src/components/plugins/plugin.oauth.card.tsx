@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Code, CopyButton, Group, Modal, Stack, Text, Title } from '@mantine/core';
+import { Button, Card, Code, CopyButton, Group, Modal, Stack, Text, Title } from '@mantine/core';
 import type { PluginDetail } from '@deadair/sdk';
 
 import { useDisconnectPluginOAuth, useStartPluginOAuth } from '../../api/plugins.queries';
 import { apiErrorMessage, sdkError } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
 
 /** Where the provider should send the operator back to. The console completes the flow, not the API. */
 export function consoleCallbackUrl(pluginId: string): string {
@@ -74,7 +75,7 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
     }
 
     return (
-        <Card withBorder padding="lg" radius="sm">
+        <Card padding="lg">
             <Stack gap="md">
                 <Stack gap={4}>
                     <Title order={3} size="h5">
@@ -110,11 +111,7 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                     </Text>
                 ) : undefined}
 
-                {start.error ? (
-                    <Alert color="red" title="Could not start the authorization">
-                        {connectError(start.error)}
-                    </Alert>
-                ) : undefined}
+                {start.error ? <ErrorAlert title="Could not start the authorization">{connectError(start.error)}</ErrorAlert> : undefined}
 
                 <Group justify="flex-end">
                     {connected ? (
@@ -147,11 +144,7 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                             {plugin.name} will lose access to its provider until it is connected again. Anything it does that depends on that
                             connection will stop working until then.
                         </Text>
-                        {disconnect.error ? (
-                            <Alert color="red" title="Could not disconnect">
-                                {disconnectError(disconnect.error)}
-                            </Alert>
-                        ) : undefined}
+                        {disconnect.error ? <ErrorAlert title="Could not disconnect">{disconnectError(disconnect.error)}</ErrorAlert> : undefined}
                         <Group justify="flex-end">
                             <Button variant="default" onClick={closeConfirm}>
                                 Cancel

@@ -1,9 +1,12 @@
 import { Fragment, useState } from 'react';
-import { Alert, Badge, Button, Card, Group, SegmentedControl, Skeleton, Stack, Text, Title, Tooltip } from '@mantine/core';
+import { Badge, Button, Card, Group, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
 import type { ActivityEntry, ActivityModule, ActivitySeverity } from '@deadair/sdk';
 
 import { useActivity } from '../../api/activity.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { dayOf, formatDay, formatMoment, formatMomentFull } from './activity.moment';
 
 /** The filter chips, and the order an operator meets them: what airs first, what makes it after. */
@@ -53,12 +56,14 @@ export function ActivityPage() {
 
     return (
         <Stack gap="lg">
-            <Stack gap={6}>
-                <Title order={1}>Activity</Title>
-                <Text size="sm" c="dimmed">
-                    What the station has done, newest first: what aired, what it wrote and spoke, and every moment a gate opened or closed on it.
-                </Text>
-            </Stack>
+            <PageHeader
+                title="Activity"
+                description={
+                    <Text size="sm" c="dimmed">
+                        What the station has done, newest first: what aired, what it wrote and spoke, and every moment a gate opened or closed on it.
+                    </Text>
+                }
+            />
 
             <Group gap="md" wrap="wrap">
                 <SegmentedControl
@@ -79,22 +84,12 @@ export function ActivityPage() {
                 />
             </Group>
 
-            {failure ? (
-                <Alert color="red" title="Nothing to show">
-                    {failure}
-                </Alert>
-            ) : undefined}
+            {failure ? <ErrorAlert title="Nothing to show">{failure}</ErrorAlert> : undefined}
 
-            {feed.isPending ? (
-                <Stack gap="xs">
-                    <Skeleton height={28} radius="sm" />
-                    <Skeleton height={28} radius="sm" />
-                    <Skeleton height={28} radius="sm" />
-                </Stack>
-            ) : undefined}
+            {feed.isPending ? <PageSkeleton variant="rows" count={3} /> : undefined}
 
             {!feed.isPending && entries.length === 0 && failure === undefined ? (
-                <Card withBorder padding="lg" radius="sm">
+                <Card padding="lg">
                     <Text size="sm" c="dimmed">
                         {module === 'all' && severity === 'all'
                             ? 'Nothing yet. The station writes here as it airs records, makes breaks and changes what it is doing.'
@@ -104,7 +99,7 @@ export function ActivityPage() {
             ) : undefined}
 
             {entries.length > 0 ? (
-                <Card withBorder padding={0} radius="sm">
+                <Card padding={0}>
                     <Stack gap={0}>
                         {entries.map((entry, index) => {
                             // The time column carries no date, so without this a list spanning

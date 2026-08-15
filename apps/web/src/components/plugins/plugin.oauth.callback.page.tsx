@@ -1,7 +1,8 @@
-import { Alert, Anchor, Card, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Card, Stack, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 
 import type { PluginOAuthOutcome } from '../../api/plugins.queries';
+import { ErrorAlert } from '../shared/error.alert';
 
 export interface PluginOAuthCallbackPageProps {
     id: string;
@@ -20,7 +21,7 @@ export function PluginOAuthCallbackPage({ id, outcome }: PluginOAuthCallbackPage
     const message = failure ?? (result?.ok ? undefined : (result?.message ?? 'The authorization could not be completed.'));
 
     return (
-        <Card withBorder padding="xl" radius="sm" maw={560}>
+        <Card padding="xl" maw={560}>
             <Stack gap="md">
                 <Title order={2} size="h4">
                     Authorization
@@ -29,9 +30,7 @@ export function PluginOAuthCallbackPage({ id, outcome }: PluginOAuthCallbackPage
                 {message === undefined ? (
                     <Text c="teal">Connected. The plugin has stored its tokens.</Text>
                 ) : (
-                    <Alert color="red" title="Not connected">
-                        {message}
-                    </Alert>
+                    <ErrorAlert title="Not connected">{message}</ErrorAlert>
                 )}
 
                 {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the

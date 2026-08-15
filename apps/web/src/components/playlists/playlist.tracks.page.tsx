@@ -1,13 +1,16 @@
-import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Anchor, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CatalogPlaylist, CatalogTrack } from '@deadair/sdk';
 
 import { playlistTracksOptions } from '../../api/playlists.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
 import { queryKeys } from '../../api/query.keys';
 import { PlayPlaylistButton } from '../playout/play.playlist.button';
 import { formatDuration } from '../shared/format.duration';
+import { EmptyState } from '../shared/empty.state';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 
 export interface PlaylistTracksPageProps {
     pluginId: string;
@@ -38,38 +41,36 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                 <Anchor renderRoot={props => <Link to="/playlists" {...props} />} size="sm">
                     Back to playlists
                 </Anchor>
-                <Group justify="space-between" align="flex-end" wrap="nowrap">
-                    <Stack gap={4}>
-                        <Title order={1}>{heading}</Title>
+                <PageHeader
+                    title={heading}
+                    description={
                         <Text c="dimmed" size="sm">
                             {`From ${pluginId}`}
                             {tracks.data ? ` • ${tracks.data.tracks.length} tracks` : ''}
                         </Text>
-                    </Stack>
-                    {/* Only once the tracks are known to exist: airing a playlist that turned out
-                        to be empty is a 422, so offering the button first invites it.
-
-                        One button rather than two. Importing this into a lineup first used to be
-                        the "programmed" path; there is no lineup to import into any more, because
-                        the running order is built from this playlist at the moment it goes on. */}
-                    {tracks.data && tracks.data.tracks.length > 0 ? <PlayPlaylistButton pluginId={pluginId} playlistId={playlistId} /> : undefined}
-                </Group>
+                    }
+                    actions={
+                        // Only once the tracks are known to exist: airing a playlist that turned out
+                        // to be empty is a 422, so offering the button first invites it.
+                        //
+                        // One button rather than two. Importing this into a lineup first used to be
+                        // the "programmed" path; there is no lineup to import into any more, because
+                        // the running order is built from this playlist at the moment it goes on.
+                        tracks.data && tracks.data.tracks.length > 0 ? (
+                            <PlayPlaylistButton pluginId={pluginId} playlistId={playlistId} />
+                        ) : undefined
+                    }
+                />
             </Stack>
 
             {tracks.error ? (
-                <Alert color="red" title="Tracks could not be loaded">
-                    {apiErrorMessage(tracks.error, 'This playlist is unavailable.')}
-                </Alert>
+                <ErrorAlert title="Tracks could not be loaded" error={tracks.error} fallback="This playlist is unavailable." />
             ) : undefined}
 
-            {tracks.isPending ? <Skeleton height={240} radius="sm" /> : undefined}
+            {tracks.isPending ? <PageSkeleton variant="table" /> : undefined}
 
             {tracks.data?.tracks.length === 0 ? (
-                <Card withBorder padding="xl" radius="sm">
-                    <Text size="sm" c="dimmed">
-                        This playlist has no tracks.
-                    </Text>
-                </Card>
+                <EmptyState>This playlist has no tracks.</EmptyState>
             ) : undefined}
 
             {tracks.data && tracks.data.tracks.length > 0 ? (

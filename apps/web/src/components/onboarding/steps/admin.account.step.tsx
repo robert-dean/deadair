@@ -1,9 +1,10 @@
-import { Alert, Button, Group, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Group, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 
 import { useSubmitAdminAccount } from '../../../api/onboarding.queries';
 import { isRateLimited, retryAfterMs } from '../../../api/retry.policy';
 import { apiErrorDetails, apiErrorMessage, sdkError } from '../../../api/sdk.error';
+import { ErrorAlert } from '../../shared/error.alert';
 import type { OnboardingStepProps } from '../onboarding.steps';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -73,11 +74,7 @@ export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProp
         >
             <Stack gap="md" mt="xl">
                 {requirement.description ? <Text c="dimmed">{requirement.description}</Text> : undefined}
-                {error ? (
-                    <Alert color="red" title="Setup failed">
-                        {error}
-                    </Alert>
-                ) : undefined}
+                {error ? <ErrorAlert title="Setup failed">{error}</ErrorAlert> : undefined}
                 <TextInput
                     label="Email"
                     placeholder="you@example.com"

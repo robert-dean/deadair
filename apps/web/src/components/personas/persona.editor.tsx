@@ -1,9 +1,9 @@
-import { Alert, Button, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { Button, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaInput } from '@deadair/sdk';
 
 import { useVoices } from '../../api/voices.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
 
 /**
  * Writing one persona.
@@ -44,9 +44,7 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
             <form onSubmit={form.onSubmit(values => onSubmit(draftOf(values)))}>
                 <Stack gap="md">
                     {error === undefined ? undefined : (
-                        <Alert color="red" title="That could not be saved">
-                            {apiErrorMessage(error, 'The persona could not be saved.')}
-                        </Alert>
+                        <ErrorAlert title="That could not be saved" error={error} fallback="The persona could not be saved." />
                     )}
 
                     <Group grow align="flex-start">

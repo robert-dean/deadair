@@ -1,4 +1,4 @@
-import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Anchor, Group, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -10,8 +10,11 @@ import {
     useRateAlbum,
     useRateArtist,
 } from '../../api/catalog.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
 import { Artwork } from '../shared/artwork';
+import { EmptyState } from '../shared/empty.state';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
@@ -42,42 +45,43 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                     <Anchor renderRoot={props => <Link to="/catalog" {...props} />} size="sm">
                         Back to catalog
                     </Anchor>
-                    <Title order={1}>{artist.data?.name ?? 'Artist'}</Title>
-                    {artist.data ? (
-                        <Text c="dimmed" size="sm">
-                            {artist.data.albumCount === 1 ? '1 album' : `${artist.data.albumCount} albums`}
-                            {' • '}
-                            {artist.data.trackCount === 1 ? '1 track' : `${artist.data.trackCount} tracks`}
-                        </Text>
-                    ) : undefined}
-                    {/* The widest an opinion gets: a dislike here takes every record they are
-                        credited on out of rotation, whatever the tracks themselves say. */}
-                    {artist.data ? (
-                        <Group gap="xs" pt={4}>
-                            <RatingControl
-                                size="xs"
-                                rating={artist.data.rating}
-                                label={artist.data.name}
-                                busy={rateArtist.isPending}
-                                onChange={rating => {
-                                    rateArtist.mutate({ id: artistId, rating });
-                                }}
-                            />
-                        </Group>
-                    ) : undefined}
+                    <PageHeader
+                        title={artist.data?.name ?? 'Artist'}
+                        description={
+                            artist.data ? (
+                                <Text c="dimmed" size="sm">
+                                    {artist.data.albumCount === 1 ? '1 album' : `${artist.data.albumCount} albums`}
+                                    {' • '}
+                                    {artist.data.trackCount === 1 ? '1 track' : `${artist.data.trackCount} tracks`}
+                                </Text>
+                            ) : undefined
+                        }
+                    >
+                        {/* The widest an opinion gets: a dislike here takes every record they are
+                            credited on out of rotation, whatever the tracks themselves say. */}
+                        {artist.data ? (
+                            <Group gap="xs" pt={4}>
+                                <RatingControl
+                                    size="xs"
+                                    rating={artist.data.rating}
+                                    label={artist.data.name}
+                                    busy={rateArtist.isPending}
+                                    onChange={rating => {
+                                        rateArtist.mutate({ id: artistId, rating });
+                                    }}
+                                />
+                            </Group>
+                        ) : undefined}
+                    </PageHeader>
                 </Stack>
             </Group>
 
             {artist.error ? (
-                <Alert color="red" title="This artist could not be loaded">
-                    {apiErrorMessage(artist.error, 'No artist with that id is in the catalog.')}
-                </Alert>
+                <ErrorAlert title="This artist could not be loaded" error={artist.error} fallback="No artist with that id is in the catalog." />
             ) : undefined}
 
             {albums.error && !artist.error ? (
-                <Alert color="red" title="The albums could not be loaded">
-                    {apiErrorMessage(albums.error, 'The catalog is unavailable.')}
-                </Alert>
+                <ErrorAlert title="The albums could not be loaded" error={albums.error} fallback="The catalog is unavailable." />
             ) : undefined}
 
             {/* Suppressed while the artist itself is failing: one alert about an artist who is not
@@ -92,14 +96,12 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                 />
             )}
 
-            {albums.isPending && !artist.error ? <Skeleton height={200} radius="sm" /> : undefined}
+            {albums.isPending && !artist.error ? <PageSkeleton variant="table" /> : undefined}
 
             {albums.data && rows.length === 0 ? (
-                <Card withBorder padding="xl" radius="sm">
-                    <Text size="sm" c="dimmed">
-                        Nothing by this artist has been ingested as an album. Their tracks may still be in the catalog, filed without a release.
-                    </Text>
-                </Card>
+                <EmptyState>
+                    Nothing by this artist has been ingested as an album. Their tracks may still be in the catalog, filed without a release.
+                </EmptyState>
             ) : undefined}
 
             {albums.data && rows.length > 0 ? (

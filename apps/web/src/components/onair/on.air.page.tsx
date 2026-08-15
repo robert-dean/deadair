@@ -1,10 +1,12 @@
-import { Alert, Anchor, Badge, Button, Card, Group, Skeleton, Stack, Text, Title, Tooltip } from '@mantine/core';
+import { Alert, Anchor, Badge, Button, Card, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 
 import { useRateTrack } from '../../api/catalog.queries';
 import { useExtendOrder, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
 import { usePlayoutStatus, useStartPlayout, useStopPlayout } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
 import { BriefTheStation } from './brief.the.station';
 import { StationOrderTable } from './station.order.table';
@@ -194,14 +196,12 @@ export function OnAirPage() {
             {playout.data ? <SilenceDiagnosisPanel silence={playout.data.silence} /> : undefined}
 
             {order.error ? (
-                <Alert color="red" title="The running order could not be read">
-                    {apiErrorMessage(order.error, 'The station is not answering.')}
-                </Alert>
+                <ErrorAlert title="The running order could not be read" error={order.error} fallback="The station is not answering." />
             ) : undefined}
 
             {removeFailure ? <Alert color="red">{removeFailure}</Alert> : undefined}
 
-            {order.isPending ? <Skeleton height={280} radius="sm" /> : undefined}
+            {order.isPending ? <PageSkeleton variant="table" /> : undefined}
 
             {/* Two ways on air, and this one is first because it needs nothing prepared.
                 Outside the empty state on purpose: Stop leaves the running order alone so that
@@ -214,7 +214,7 @@ export function OnAirPage() {
                 playlist is an answer to having nothing on, where an operator who already has a
                 running order has the playlists page a click away in the nav. */}
             {nothingOn ? (
-                <Card withBorder padding="xl" radius="sm">
+                <Card padding="xl">
                     <Stack gap="xs" align="flex-start">
                         <Text size="sm" c="dimmed">
                             Or start from a playlist. It is READ at the moment the station goes on air rather than copied, so there is nothing to

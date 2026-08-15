@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Anchor, Group, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -11,9 +11,12 @@ import {
     useRateAlbum,
     useRateTrack,
 } from '../../api/catalog.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
+import { EmptyState } from '../shared/empty.state';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
@@ -53,41 +56,42 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                             Back to catalog
                         </Anchor>
                     )}
-                    <Title order={1}>{album.data?.name ?? 'Album'}</Title>
-                    {album.data ? (
-                        <Text c="dimmed" size="sm">
-                            {album.data.artistName}
-                            {album.data.year === undefined ? '' : ` • ${album.data.year}`}
-                        </Text>
-                    ) : undefined}
-                    {/* An opinion about the RECORD, which is not an opinion about any one track on
-                        it: a dislike here takes the whole thing out of rotation. */}
-                    {album.data ? (
-                        <Group gap="xs" pt={4}>
-                            <RatingControl
-                                size="xs"
-                                rating={album.data.rating}
-                                label={album.data.name}
-                                busy={rateAlbum.isPending}
-                                onChange={rating => {
-                                    rateAlbum.mutate({ id: albumId, rating });
-                                }}
-                            />
-                        </Group>
-                    ) : undefined}
+                    <PageHeader
+                        title={album.data?.name ?? 'Album'}
+                        description={
+                            album.data ? (
+                                <Text c="dimmed" size="sm">
+                                    {album.data.artistName}
+                                    {album.data.year === undefined ? '' : ` • ${album.data.year}`}
+                                </Text>
+                            ) : undefined
+                        }
+                    >
+                        {/* An opinion about the RECORD, which is not an opinion about any one track on
+                            it: a dislike here takes the whole thing out of rotation. */}
+                        {album.data ? (
+                            <Group gap="xs" pt={4}>
+                                <RatingControl
+                                    size="xs"
+                                    rating={album.data.rating}
+                                    label={album.data.name}
+                                    busy={rateAlbum.isPending}
+                                    onChange={rating => {
+                                        rateAlbum.mutate({ id: albumId, rating });
+                                    }}
+                                />
+                            </Group>
+                        ) : undefined}
+                    </PageHeader>
                 </Stack>
             </Group>
 
             {album.error ? (
-                <Alert color="red" title="This album could not be loaded">
-                    {apiErrorMessage(album.error, 'No album with that id is in the catalog.')}
-                </Alert>
+                <ErrorAlert title="This album could not be loaded" error={album.error} fallback="No album with that id is in the catalog." />
             ) : undefined}
 
             {tracks.error && !album.error ? (
-                <Alert color="red" title="The tracks could not be loaded">
-                    {apiErrorMessage(tracks.error, 'The catalog is unavailable.')}
-                </Alert>
+                <ErrorAlert title="The tracks could not be loaded" error={tracks.error} fallback="The catalog is unavailable." />
             ) : undefined}
 
             {/* Suppressed while the album itself is failing: one alert about a record that is not
@@ -102,14 +106,10 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                 />
             )}
 
-            {tracks.isPending && !album.error ? <Skeleton height={200} radius="sm" /> : undefined}
+            {tracks.isPending && !album.error ? <PageSkeleton variant="table" /> : undefined}
 
             {tracks.data && rows.length === 0 ? (
-                <Card withBorder padding="xl" radius="sm">
-                    <Text size="sm" c="dimmed">
-                        This album has no tracks in the catalog.
-                    </Text>
-                </Card>
+                <EmptyState>This album has no tracks in the catalog.</EmptyState>
             ) : undefined}
 
             {tracks.data && rows.length > 0 ? (

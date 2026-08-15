@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Card, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Badge, Button, Card, Group, Stack, Text } from '@mantine/core';
 import type { Persona, PersonaInput } from '@deadair/sdk';
 
 import {
@@ -10,7 +10,10 @@ import {
     useRestorePersonas,
     useUpdatePersona,
 } from '../../api/personas.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
+import { EmptyState } from '../shared/empty.state';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { PersonaEditor } from './persona.editor';
 
 /**
@@ -52,68 +55,64 @@ export function PersonasPage() {
 
     return (
         <Stack gap="lg">
-            <Group justify="space-between" align="flex-start">
-                <Stack gap={4}>
-                    <Title order={1}>Personas</Title>
+            <PageHeader
+                title="Personas"
+                description={
                     <Text c="dimmed" size="sm">
                         Who the station is when it talks. The one on air decides how a break is written, what it says when nothing wrote it, which
                         voice reads it, and what the station programmes towards. A change is heard on the next break.
                     </Text>
-                </Stack>
-                <Group gap="xs">
-                    {/* Safe to press twice: it writes only what is missing, overwrites nothing an
-                        operator has rewritten, and puts nothing on air. That is what keeps it a
-                        plain button rather than something behind a confirmation. */}
-                    <Button variant="default" loading={restore.isPending} onClick={() => restore.mutate(undefined)}>
-                        Restore built-ins
-                    </Button>
-                    <Button onClick={() => setEditing(null)}>New persona</Button>
-                </Group>
-            </Group>
+                }
+                actions={
+                    <>
+                        {/* Safe to press twice: it writes only what is missing, overwrites nothing an
+                            operator has rewritten, and puts nothing on air. That is what keeps it a
+                            plain button rather than something behind a confirmation. */}
+                        <Button variant="default" loading={restore.isPending} onClick={() => restore.mutate(undefined)}>
+                            Restore built-ins
+                        </Button>
+                        <Button onClick={() => setEditing(null)}>New persona</Button>
+                    </>
+                }
+            />
 
             {personas.error ? (
-                <Alert color="red" title="Personas could not be loaded">
-                    {apiErrorMessage(personas.error, 'The persona list is unavailable.')}
-                </Alert>
+                <ErrorAlert title="Personas could not be loaded" error={personas.error} fallback="The persona list is unavailable." />
             ) : undefined}
 
             {putOnAir.error ? (
-                <Alert color="red" title="That persona could not be put on air">
-                    {apiErrorMessage(putOnAir.error, 'The station is still in the character it was.')}
-                </Alert>
+                <ErrorAlert
+                    title="That persona could not be put on air"
+                    error={putOnAir.error}
+                    fallback="The station is still in the character it was."
+                />
             ) : undefined}
 
             {restore.error ? (
-                <Alert color="red" title="The station personas could not be restored">
-                    {apiErrorMessage(restore.error, 'Nothing was written.')}
-                </Alert>
+                <ErrorAlert title="The station personas could not be restored" error={restore.error} fallback="Nothing was written." />
             ) : undefined}
 
             {remove.error ? (
-                <Alert color="red" title="That persona could not be deleted">
-                    {apiErrorMessage(remove.error, 'Nothing was removed.')}
-                </Alert>
+                <ErrorAlert title="That persona could not be deleted" error={remove.error} fallback="Nothing was removed." />
             ) : undefined}
 
             {personas.isPending ? (
                 <Stack gap="sm">
-                    <Skeleton height={90} radius="md" />
-                    <Skeleton height={90} radius="md" />
+                    <PageSkeleton variant="card" />
+                    <PageSkeleton variant="card" />
                 </Stack>
             ) : undefined}
 
             {personas.data?.personas.length === 0 ? (
-                <Card withBorder padding="lg">
-                    <Text c="dimmed" size="sm">
-                        This station has no personas, which is an ordinary state rather than a fault: it writes its breaks from the station&apos;s own
-                        phrasings and speaks them in the plugin&apos;s default voice. Write one to give it a character.
-                    </Text>
-                </Card>
+                <EmptyState>
+                    This station has no personas, which is an ordinary state rather than a fault: it writes its breaks from the station&apos;s own
+                    phrasings and speaks them in the plugin&apos;s default voice. Write one to give it a character.
+                </EmptyState>
             ) : undefined}
 
             <Stack gap="sm">
                 {(personas.data?.personas ?? []).map(persona => (
-                    <Card key={persona.id} withBorder padding="md">
+                    <Card key={persona.id}>
                         <Group justify="space-between" align="flex-start" wrap="nowrap">
                             <Stack gap={6} style={{ minWidth: 0 }}>
                                 <Group gap="xs">

@@ -6,6 +6,7 @@ import { useLoginMutation } from '../api/auth.mutations';
 import { isRateLimited, retryAfterMs } from '../api/retry.policy';
 import { apiErrorDetails, apiErrorMessage, isInvalidToken } from '../api/sdk.error';
 import { safeRedirectTarget } from '../auth/redirect.target';
+import { ErrorAlert } from './shared/error.alert';
 
 interface LoginValues {
     email: string;
@@ -72,7 +73,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
 
     return (
         <Center mih="60vh">
-            <Card withBorder padding="xl" radius="md" w="100%" maw={400}>
+            <Card padding="xl" radius="md" w="100%" maw={400}>
                 <form
                     onSubmit={form.onSubmit(values => {
                         void submit(values);
@@ -90,11 +91,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                 Your account needs a second factor, which this build cannot complete yet.
                             </Alert>
                         ) : undefined}
-                        {error ? (
-                            <Alert color="red" title="Sign-in failed">
-                                {error}
-                            </Alert>
-                        ) : undefined}
+                        {error ? <ErrorAlert title="Sign-in failed">{error}</ErrorAlert> : undefined}
                         <TextInput
                             label="Email"
                             placeholder="you@example.com"

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActionIcon, Alert, Card, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { ActionIcon, Alert, Card, Group, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchVoiceSample, voicesOptions } from '../../api/voices.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 
 /**
  * The voices the station can speak in, each with a preview.
@@ -67,17 +70,17 @@ export function VoicesPage() {
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Title order={1}>Voices</Title>
-                <Text c="dimmed" size="sm">
-                    {voices.data?.pluginId ? `Spoken by ${voices.data.pluginId}.` : 'What the station can sound like.'}
-                </Text>
-            </Stack>
+            <PageHeader
+                title="Voices"
+                description={
+                    <Text c="dimmed" size="sm">
+                        {voices.data?.pluginId ? `Spoken by ${voices.data.pluginId}.` : 'What the station can sound like.'}
+                    </Text>
+                }
+            />
 
             {voices.error ? (
-                <Alert color="red" title="Voices could not be loaded">
-                    {apiErrorMessage(voices.error, 'The voice list is unavailable.')}
-                </Alert>
+                <ErrorAlert title="Voices could not be loaded" error={voices.error} fallback="The voice list is unavailable." />
             ) : undefined}
 
             {error ? (
@@ -94,11 +97,11 @@ export function VoicesPage() {
                 </Alert>
             ) : undefined}
 
-            {voices.isPending ? <Skeleton height={72} radius="md" /> : undefined}
+            {voices.isPending ? <PageSkeleton variant="table" /> : undefined}
 
             <Stack gap="xs">
                 {voices.data?.voices.map(voice => (
-                    <Card key={voice.id} withBorder padding="sm" radius="md">
+                    <Card key={voice.id} padding="sm" radius="md">
                         <Group justify="space-between" wrap="nowrap">
                             <Stack gap={2}>
                                 <Text fw={500}>{voice.label}</Text>

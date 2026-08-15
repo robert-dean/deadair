@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Group, ScrollArea, Select, Stack, Switch, Text, Title } from '@mantine/core';
+import { Button, Card, Group, ScrollArea, Select, Stack, Switch, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import type { PluginDetail, PluginLogLevel } from '@deadair/sdk';
 
 import { sdk } from '../../api/client';
 import { pluginLogsOptions, useSetPluginLogLevel } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
 
 /** A Mantine palette name per level, so a scan of the tail reads severity at a glance. */
 const LOG_LEVEL_COLOR: Record<PluginLogLevel, string> = {
@@ -78,7 +79,7 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
     const entries = logs.data?.entries ?? [];
 
     return (
-        <Card withBorder padding="lg" radius="sm">
+        <Card padding="lg">
             <Stack gap="md">
                 <Group justify="space-between" align="flex-start">
                     <Stack gap={4}>
@@ -131,21 +132,17 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
                 </Group>
 
                 {setLevel.error ? (
-                    <Alert color="red" title="Could not change the verbose logging setting">
-                        {apiErrorMessage(setLevel.error, 'The plugin was left as it was.')}
-                    </Alert>
+                    <ErrorAlert
+                        title="Could not change the verbose logging setting"
+                        error={setLevel.error}
+                        fallback="The plugin was left as it was."
+                    />
                 ) : undefined}
 
-                {downloadError ? (
-                    <Alert color="red" title="Download failed">
-                        {downloadError}
-                    </Alert>
-                ) : undefined}
+                {downloadError ? <ErrorAlert title="Download failed">{downloadError}</ErrorAlert> : undefined}
 
                 {logs.error ? (
-                    <Alert color="red" title="Could not load logs">
-                        {apiErrorMessage(logs.error, 'The log tail could not be fetched.')}
-                    </Alert>
+                    <ErrorAlert title="Could not load logs" error={logs.error} fallback="The log tail could not be fetched." />
                 ) : undefined}
 
                 <ScrollArea h={260} type="auto" bg="dark.8" style={{ borderRadius: 'var(--mantine-radius-sm)' }} p="xs">

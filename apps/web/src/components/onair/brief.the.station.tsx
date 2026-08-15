@@ -67,7 +67,7 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
     };
 
     return (
-        <Card withBorder padding="xl" radius="sm">
+        <Card padding="xl">
             <Stack gap="sm" align="flex-start">
                 <Text fw={500}>Tell the station what to play</Text>
                 <Text size="sm" c="dimmed">

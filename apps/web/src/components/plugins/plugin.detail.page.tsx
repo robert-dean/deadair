@@ -1,9 +1,11 @@
-import { Alert, Anchor, Badge, Button, Card, Divider, Group, Stack, Switch, Text, Title } from '@mantine/core';
+import { Anchor, Badge, Button, Card, Divider, Group, Stack, Switch, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
 import { pluginDetailOptions, useSetPluginEnabled, useTestPlugin } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
 import { PluginConfigForm } from './plugin.config.form';
 import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
@@ -26,9 +28,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
     if (plugin.error || !plugin.data) {
         return (
             <Stack gap="md" align="flex-start">
-                <Alert color="red" title="Plugin unavailable">
-                    {apiErrorMessage(plugin.error, `No plugin with the id "${id}" answered.`)}
-                </Alert>
+                <ErrorAlert title="Plugin unavailable" error={plugin.error} fallback={`No plugin with the id "${id}" answered.`} />
                 <Anchor component={Link} to="/plugins" size="sm">
                     Back to plugins
                 </Anchor>
@@ -46,59 +46,59 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
             </Anchor>
 
             <Stack gap="xs">
-                <Group justify="space-between" align="flex-start">
-                    <Stack gap={4}>
-                        <Title order={1}>{detail.name}</Title>
+                <PageHeader
+                    title={detail.name}
+                    description={
                         <Text size="sm" c="dimmed" ff="monospace">
                             {detail.id} · {detail.version}
                         </Text>
-                    </Stack>
-                    <Switch
-                        checked={detail.enabled}
-                        disabled={setEnabled.isPending}
-                        label={detail.enabled ? 'Enabled' : 'Disabled'}
-                        aria-label={`Enable ${detail.name}`}
-                        onChange={event => {
-                            setEnabled.mutate({ id: detail.id, enabled: event.currentTarget.checked });
-                        }}
-                    />
-                </Group>
+                    }
+                    actions={
+                        <Switch
+                            checked={detail.enabled}
+                            disabled={setEnabled.isPending}
+                            label={detail.enabled ? 'Enabled' : 'Disabled'}
+                            aria-label={`Enable ${detail.name}`}
+                            onChange={event => {
+                                setEnabled.mutate({ id: detail.id, enabled: event.currentTarget.checked });
+                            }}
+                        />
+                    }
+                >
+                    {detail.description ? <Text c="dimmed">{detail.description}</Text> : undefined}
 
-                {detail.description ? <Text c="dimmed">{detail.description}</Text> : undefined}
-
-                <Group gap="sm" mt="xs">
-                    <PluginStatusLamp status={detail.status} size="md" />
-                    <Text size="sm" c="dimmed">
-                        {status.description}
-                    </Text>
-                </Group>
-
-                {detail.capabilities.length > 0 ? (
-                    <Group gap={6}>
-                        {detail.capabilities.map(capability => (
-                            <Badge key={capability} size="sm" variant="light" color="gray" tt="none">
-                                {capability}
-                            </Badge>
-                        ))}
+                    <Group gap="sm" mt="xs">
+                        <PluginStatusLamp status={detail.status} size="md" />
+                        <Text size="sm" c="dimmed">
+                            {status.description}
+                        </Text>
                     </Group>
-                ) : undefined}
+
+                    {detail.capabilities.length > 0 ? (
+                        <Group gap={6}>
+                            {detail.capabilities.map(capability => (
+                                <Badge key={capability} size="sm" variant="light" color="gray" tt="none">
+                                    {capability}
+                                </Badge>
+                            ))}
+                        </Group>
+                    ) : undefined}
+                </PageHeader>
 
                 {setEnabled.error ? (
-                    <Alert color="red" title="That change could not be applied">
-                        {apiErrorMessage(setEnabled.error, 'The plugin was left as it was.')}
-                    </Alert>
+                    <ErrorAlert title="That change could not be applied" error={setEnabled.error} fallback="The plugin was left as it was." />
                 ) : undefined}
 
                 {detail.lastError ? (
-                    <Alert color="red" title="Last error">
+                    <ErrorAlert title="Last error">
                         <Text size="sm" ff="monospace" style={{ overflowWrap: 'anywhere' }}>
                             {detail.lastError}
                         </Text>
-                    </Alert>
+                    </ErrorAlert>
                 ) : undefined}
             </Stack>
 
-            <Card withBorder padding="lg" radius="sm">
+            <Card padding="lg">
                 <Stack gap="md">
                     <Group justify="space-between" align="center">
                         <Stack gap={2}>
@@ -136,7 +136,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                 </Stack>
             </Card>
 
-            <Card withBorder padding="lg" radius="sm">
+            <Card padding="lg">
                 <Stack gap="md">
                     <Stack gap={4}>
                         <Title order={3} size="h5">

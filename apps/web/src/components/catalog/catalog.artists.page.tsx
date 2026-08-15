@@ -1,10 +1,13 @@
-import { Alert, Anchor, Card, Group, Skeleton, Stack, Table, Text, Title } from '@mantine/core';
+import { Anchor, Group, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { CATALOG_PAGE_SIZE, catalogArtistsOptions, useRateArtist } from '../../api/catalog.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
 import { Artwork } from '../shared/artwork';
+import { EmptyState } from '../shared/empty.state';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
@@ -23,12 +26,14 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Title order={1}>Catalog</Title>
-                <Text c="dimmed" size="sm">
-                    Every artist the station has ingested.
-                </Text>
-            </Stack>
+            <PageHeader
+                title="Catalog"
+                description={
+                    <Text c="dimmed" size="sm">
+                        Every artist the station has ingested.
+                    </Text>
+                }
+            />
 
             <Group justify="space-between" align="center">
                 <CatalogSearch value={search} placeholder="Search artists" onChange={onSearchChange} />
@@ -40,24 +45,17 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
             </Group>
 
             {artists.error ? (
-                <Alert color="red" title="The catalog could not be loaded">
-                    {apiErrorMessage(artists.error, 'The catalog is unavailable.')}
-                </Alert>
+                <ErrorAlert title="The catalog could not be loaded" error={artists.error} fallback="The catalog is unavailable." />
             ) : undefined}
 
-            {artists.isPending ? <Skeleton height={280} radius="sm" /> : undefined}
+            {artists.isPending ? <PageSkeleton variant="table" /> : undefined}
 
             {artists.data && rows.length === 0 ? (
-                <Card withBorder padding="xl" radius="sm">
-                    <Stack gap="xs">
-                        <Text fw={600}>{search === '' ? 'The catalog is empty' : `Nothing matches “${search}”`}</Text>
-                        <Text size="sm" c="dimmed" maw={520}>
-                            {search === ''
-                                ? 'The catalog fills as enabled plugins are scanned. Nothing has been ingested yet.'
-                                : 'Try a shorter term, or part of the name rather than all of it.'}
-                        </Text>
-                    </Stack>
-                </Card>
+                <EmptyState title={search === '' ? 'The catalog is empty' : `Nothing matches “${search}”`}>
+                    {search === ''
+                        ? 'The catalog fills as enabled plugins are scanned. Nothing has been ingested yet.'
+                        : 'Try a shorter term, or part of the name rather than all of it.'}
+                </EmptyState>
             ) : undefined}
 
             {artists.data && rows.length > 0 ? (

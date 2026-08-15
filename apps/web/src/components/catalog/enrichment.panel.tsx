@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Alert, Anchor, Badge, Button, Card, Code, Collapse, Group, List, SimpleGrid, Skeleton, Spoiler, Stack, Text } from '@mantine/core';
+import { Anchor, Badge, Button, Card, Code, Collapse, Group, List, SimpleGrid, Spoiler, Stack, Text } from '@mantine/core';
 
-import { apiErrorMessage } from '../../api/sdk.error';
 import { formatDate } from '../shared/format.date';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageSkeleton } from '../shared/page.skeleton';
 
 /**
  * The union of the three payload shapes the API reports.
@@ -106,14 +107,10 @@ function UnmappedFields({ extra }: { extra: Record<string, unknown> }) {
 }
 
 export function EnrichmentPanel({ merged, sources, isPending, error, emptyMessage }: EnrichmentPanelProps) {
-    if (isPending) return <Skeleton height={120} radius="sm" />;
+    if (isPending) return <PageSkeleton variant="card" />;
 
     if (error) {
-        return (
-            <Alert color="red" title="The enrichment could not be loaded">
-                {apiErrorMessage(error, 'The catalog is unavailable.')}
-            </Alert>
-        );
+        return <ErrorAlert title="The enrichment could not be loaded" error={error} fallback="The catalog is unavailable." />;
     }
 
     const facts = merged ?? {};
@@ -124,7 +121,7 @@ export function EnrichmentPanel({ merged, sources, isPending, error, emptyMessag
 
     if (rows.length === 0) {
         return (
-            <Card withBorder padding="lg" radius="sm">
+            <Card padding="lg">
                 <Text size="sm" c="dimmed">
                     {emptyMessage}
                 </Text>
@@ -133,7 +130,7 @@ export function EnrichmentPanel({ merged, sources, isPending, error, emptyMessag
     }
 
     return (
-        <Card withBorder padding="lg" radius="sm">
+        <Card padding="lg">
             <Stack gap="md">
                 {tags.length > 0 ? (
                     <Group gap="xs">

@@ -1,8 +1,9 @@
-import { Alert, Card, Stack, Text, Title } from '@mantine/core';
+import { Card, Stack, Text, Title } from '@mantine/core';
 import type { StationSettingDescriptor, StationSettings } from '@deadair/sdk';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
 import { ConfigFieldsForm } from './config.fields.form';
 
 /** The sections, in the order an operator should meet them, and what each one is for. */
@@ -54,23 +55,21 @@ export function SettingsPage() {
     }
 
     if (settings.error || !settings.data) {
-        return (
-            <Alert color="red" title="Settings unavailable">
-                {apiErrorMessage(settings.error, 'The station settings could not be read.')}
-            </Alert>
-        );
+        return <ErrorAlert title="Settings unavailable" error={settings.error} fallback="The station settings could not be read." />;
     }
 
     const data = settings.data;
 
     return (
         <Stack gap="lg" maw={720}>
-            <Stack gap="xs">
-                <Title order={1}>Settings</Title>
-                <Text size="sm" c="dimmed">
-                    The station itself. A plugin&rsquo;s own configuration lives on that plugin&rsquo;s page.
-                </Text>
-            </Stack>
+            <PageHeader
+                title="Settings"
+                description={
+                    <Text size="sm" c="dimmed">
+                        The station itself. A plugin&rsquo;s own configuration lives on that plugin&rsquo;s page.
+                    </Text>
+                }
+            />
 
             {GROUPS.map(group => (
                 <SettingsGroupCard key={group.key} group={group} settings={data} />
@@ -95,7 +94,7 @@ function SettingsGroupCard({ group, settings }: SettingsGroupCardProps) {
     if (fields.length === 0) return undefined;
 
     return (
-        <Card withBorder padding="lg">
+        <Card padding="lg">
             <Stack gap="md">
                 <Stack gap={4}>
                     <Title order={2} size="h4">

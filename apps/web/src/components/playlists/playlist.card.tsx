@@ -24,7 +24,7 @@ function canReadTracks(playlist: CatalogPlaylist): boolean {
 /** One importable playlist: what it is, which plugin offers it, and a way in. */
 export function PlaylistCard({ playlist }: PlaylistCardProps) {
     return (
-        <Card withBorder padding="lg" radius="sm">
+        <Card padding="lg">
             <Stack gap="sm" h="100%">
                 <Stack gap={2}>
                     <Text fw={600} size="lg" lh={1.2}>

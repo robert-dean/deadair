@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-    Alert,
     Anchor,
     Autocomplete,
     Button,
@@ -23,6 +22,7 @@ import { useForm, type GetInputPropsReturnType } from '@mantine/form';
 import type { ConfigFieldDescriptor, ConfigFieldOption } from '@deadair/sdk';
 
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
 
 type FieldValue = string | number | boolean;
 type FormValues = Record<string, FieldValue>;
@@ -430,11 +430,7 @@ export function ConfigFieldsForm({
             })}
         >
             <Stack gap="md">
-                {failure ? (
-                    <Alert color="red" title={failureTitle}>
-                        {failure}
-                    </Alert>
-                ) : undefined}
+                {failure ? <ErrorAlert title={failureTitle}>{failure}</ErrorAlert> : undefined}
 
                 {fields.map((field, index) => renderField(field, index))}
 

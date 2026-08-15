@@ -1,8 +1,11 @@
-import { Alert, Card, List, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Alert, List, SimpleGrid, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
 import { playlistsListOptions } from '../../api/playlists.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
+import { EmptyState } from '../shared/empty.state';
+import { ErrorAlert } from '../shared/error.alert';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { PlaylistCard } from './playlist.card';
 
 export function PlaylistsPage() {
@@ -11,17 +14,17 @@ export function PlaylistsPage() {
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
-                <Title order={1}>Playlists</Title>
-                <Text c="dimmed" size="sm">
-                    {playlists.data ? `${playlists.data.playlists.length} available` : 'Everything the enabled catalog plugins can offer.'}
-                </Text>
-            </Stack>
+            <PageHeader
+                title="Playlists"
+                description={
+                    <Text c="dimmed" size="sm">
+                        {playlists.data ? `${playlists.data.playlists.length} available` : 'Everything the enabled catalog plugins can offer.'}
+                    </Text>
+                }
+            />
 
             {playlists.error ? (
-                <Alert color="red" title="Playlists could not be loaded">
-                    {apiErrorMessage(playlists.error, 'The playlist catalogue is unavailable.')}
-                </Alert>
+                <ErrorAlert title="Playlists could not be loaded" error={playlists.error} fallback="The playlist catalogue is unavailable." />
             ) : undefined}
 
             {sourceErrors.length > 0 ? (
@@ -39,33 +42,28 @@ export function PlaylistsPage() {
             {playlists.isPending ? (
                 <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                     {[0, 1, 2].map(index => (
-                        <Skeleton key={index} height={196} radius="sm" />
+                        <PageSkeleton key={index} variant="card" />
                     ))}
                 </SimpleGrid>
             ) : undefined}
 
             {playlists.data?.playlists.length === 0 ? (
-                <Card withBorder padding="xl" radius="sm">
-                    <Stack gap="xs">
-                        <Text fw={600}>No playlists are available</Text>
-                        <Text size="sm" c="dimmed" maw={520}>
-                            {/* Never both stories at once. Telling an operator to enable a plugin
-                                directly under a warning that their enabled plugin has failed sends
-                                them to the wrong screen; the alert above already says what to do. */}
-                            {sourceErrors.length > 0 ? (
-                                'The plugins that could offer playlists are listed above, with why each one could not be.'
-                            ) : (
-                                <>
-                                    Enable a plugin with the{' '}
-                                    <Text span ff="monospace">
-                                        catalog
-                                    </Text>{' '}
-                                    capability to see its playlists here.
-                                </>
-                            )}
-                        </Text>
-                    </Stack>
-                </Card>
+                <EmptyState title="No playlists are available">
+                    {/* Never both stories at once. Telling an operator to enable a plugin
+                        directly under a warning that their enabled plugin has failed sends
+                        them to the wrong screen; the alert above already says what to do. */}
+                    {sourceErrors.length > 0 ? (
+                        'The plugins that could offer playlists are listed above, with why each one could not be.'
+                    ) : (
+                        <>
+                            Enable a plugin with the{' '}
+                            <Text span ff="monospace">
+                                catalog
+                            </Text>{' '}
+                            capability to see its playlists here.
+                        </>
+                    )}
+                </EmptyState>
             ) : undefined}
 
             {playlists.data && playlists.data.playlists.length > 0 ? (

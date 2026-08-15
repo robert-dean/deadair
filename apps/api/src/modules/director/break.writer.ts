@@ -209,6 +209,18 @@ export interface WrittenBreak {
 export interface WriteDetail {
     /** Which model said it, for a writer that used one. */
     model?: string;
+    /**
+     * Why this writer had nothing to say, in its own words.
+     *
+     * The registry writes a reason for every decline, but it can only say WHICH writer declined —
+     * it has no way to know that this one refused a script for quoting the persona's own sample
+     * line rather than for rambling. So a writer that knows something more specific says it here
+     * and the registry prefers it, which is what puts the answer on `script_history.reason` where
+     * it can be counted rather than in a log line where it has to be found.
+     *
+     * Ignored on a writer that produced a script: the row already holds what it said.
+     */
+    reason?: string;
     /** What the line was rendered FROM, for a writer working from something an operator can edit. */
     source?: string;
     /** The provider's own token counts, when it reported any. */

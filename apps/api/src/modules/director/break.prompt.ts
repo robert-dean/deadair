@@ -397,6 +397,44 @@ export function faultIn(script: string, guard: AnswerGuard): CharacterFault | un
     return characterFault(guard.persona, script, guard.recent === undefined ? {} : { recent: guard.recent });
 }
 
+/**
+ * What an operator should go and change, per fault.
+ *
+ * Four sentences rather than one, because the four are not variations on "the model missed": a spent
+ * signature is the station working exactly as designed and wants nothing done about it, a quoted
+ * sample is a sheet whose examples are too magnetic for the model in front of them, forbidden
+ * wording is worth reading a capture for, and a flat plain-English line is markers or diction wanting
+ * work. Only the last two are usually a fault of the sheet at all.
+ */
+const FAULT_REASONS: Record<CharacterFault, string> = {
+    'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
+    'spent-catchphrase': 'the model reached for a signature the station had just used',
+    'avoided-wording': 'the model used wording the persona forbids',
+    'out-of-character': 'the model wrote a line the station could say, but not in its own voice',
+};
+
+/**
+ * Why a raw answer was refused as not-this-character, for a writer that wants to say so.
+ *
+ * Runs the guard WITHOUT the persona first, which does the tidying and applies the word ceiling: an
+ * answer that does not survive that was never a character problem, and asking why it is out of
+ * character would answer a question about a line the station was never going to say. So `undefined`
+ * here means "not a character fault" and never "no fault".
+ *
+ * It answers with the sentence as well as the fault because both destinations matter and neither is
+ * the other: the fault is what a log line can be counted by, and the sentence is what reaches
+ * `script_history.reason` and a person reading the console. Deriving them in one place is what stops
+ * the row and the log disagreeing about the same break.
+ */
+export function characterDecline(text: string, guard: AnswerGuard): { fault: CharacterFault; reason: string } | undefined {
+    const speakable = readAnswer(text, { maxWords: guard.maxWords ?? DEFAULT_MAX_WORDS });
+    if (speakable === undefined) return undefined;
+
+    const fault = faultIn(speakable, guard);
+
+    return fault === undefined ? undefined : { fault, reason: FAULT_REASONS[fault] };
+}
+
 /** Drop a pair of marks that wraps the entire text, and only then. */
 function stripWrapping(text: string, open: string, close: string): string {
     if (!text.startsWith(open) || !text.endsWith(close) || text.length < 2) return text;

@@ -139,6 +139,33 @@ describe('BreakWriterRegistry', () => {
             expect(result.attempts.every(attempt => typeof attempt.durationMs === 'number')).toBe(true);
         });
 
+        // This class knows WHICH writer declined and nothing about why. A model that refused its own
+        // answer for quoting the persona's sample lines back knows exactly why, and that reason is
+        // what reaches `script_history.reason` — where it can be counted, rather than being found in
+        // a rotating log.
+        it('prefers a declining writer’s own reason to its generic one', async () => {
+            class Explaining extends StubWriter {
+                detailOfLastWrite() {
+                    return { reason: 'the model quoted the persona back at itself' };
+                }
+            }
+            const registry = new BreakWriterRegistry(
+                [new Explaining('talkbreak', 'model', nothing), new StubWriter('talkbreak', 'floor', words('the floor'))],
+                logger() as never,
+            );
+
+            const result = await registry.write({ kind: 'talkbreak' });
+
+            expect(result.attempts[0]?.reason).toBe('the model quoted the persona back at itself');
+            expect(result.written?.script).toBe('the floor');
+        });
+
+        it('still explains a decline from a writer that offered no reason of its own', async () => {
+            const result = await stacked(nothing).write({ kind: 'talkbreak' });
+
+            expect(result.attempts[0]?.reason).toContain('model');
+        });
+
         it('names every writer in the reason when all of them decline', async () => {
             const registry = new BreakWriterRegistry(
                 [new StubWriter('talkbreak', 'model', throws('out of budget')), new StubWriter('talkbreak', 'floor', nothing)],

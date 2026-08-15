@@ -170,10 +170,13 @@ export class BreakWriterRegistry {
         if (failure !== undefined) return { writer: writer.name, outcome: 'failed', reason: failure, durationMs: took(), ...kept };
 
         if (written === undefined) {
+            // The writer's own reason where it has one. This class knows which writer declined and
+            // nothing else about why, so a writer that refused a script for quoting the persona's
+            // sample lines back can say so — see `WriteDetail.reason`.
             return {
                 writer: writer.name,
                 outcome: 'declined',
-                reason: `the ${writer.name} writer had nothing to say here`,
+                reason: detail?.reason ?? `the ${writer.name} writer had nothing to say here`,
                 durationMs: took(),
                 ...kept,
             };

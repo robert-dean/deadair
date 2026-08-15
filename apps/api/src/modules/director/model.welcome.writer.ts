@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, type BreakPromptShape } from './break.prompt.js';
+import { breakPrompt, characterDecline, DEFAULT_MAX_WORDS, readAnswer, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
@@ -102,13 +102,14 @@ export class ModelWelcomeWriter extends BreakWriter {
             { tools: false, budgetMs: BUDGET_MS, maxWaitMs: MAX_WAIT_MS },
         );
 
-        const script = readAnswer(result.text, {
+        const guard: AnswerGuard = {
             maxWords: DEFAULT_MAX_WORDS,
             ...(request.persona === undefined ? {} : { persona: request.persona }),
             // The list the prompt was built from, so a signature is refused here only where the
             // prompt named it as spent. See `AnswerGuard.recent`.
             ...(request.recent === undefined ? {} : { recent: request.recent }),
-        });
+        };
+        const script = readAnswer(result.text, guard);
 
         this.lastDetail = {
             model: model.length === 0 ? 'the plugin default' : model,
@@ -117,10 +118,16 @@ export class ModelWelcomeWriter extends BreakWriter {
         };
 
         if (script === undefined) {
-            this.logger.info('director: the model wrote nothing the station could greet a listener with', {
+            // The character reason where there is one, on the row as well as in the log. See
+            // `characterDecline` and `WriteDetail.reason`.
+            const declined = characterDecline(result.text, guard);
+            if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
+
+            this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could greet a listener with'}`, {
                 finish: result.finishReason,
                 tokens: result.usage?.outputTokens,
                 persona: request.persona?.key,
+                fault: declined?.fault,
             });
             return undefined;
         }

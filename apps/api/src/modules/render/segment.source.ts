@@ -39,6 +39,10 @@ export function segmentRundownTrack(segment: Segment): RundownTrack {
         externalId: segment.id,
         title: segment.label,
         artists: [],
+        // A segment is the station talking, so it has no artist to be identified by. The empty
+        // key it produces matches no history row, which is what keeps a break out of the repeat
+        // window rather than needing a rule of its own.
+        artist: '',
         ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
     };
 }

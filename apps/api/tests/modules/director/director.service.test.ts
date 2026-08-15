@@ -54,6 +54,7 @@ const track = (externalId: string): RundownTrack => ({
     externalId,
     title: `Track ${externalId}`,
     artists: ['An Artist'],
+    artist: 'An Artist',
     durationMs: TRACK_MINUTES * 60_000,
 });
 
@@ -986,7 +987,7 @@ describe('DirectorService history', () => {
         // stream looks like from here. Prepared by hand because at a lead of one the director
         // commits only the head, and this is a reading about something past it.
         const later = lineup.all()[2]!;
-        rundown.prepare([{ id: later.id, pluginId: 'deadair.spotify', externalId: 'c', title: 'c', artists: [] }]);
+        rundown.prepare([{ id: later.id, pluginId: 'deadair.spotify', externalId: 'c', title: 'c', artists: [], artist: '' }]);
         await rundown.next();
         rundown.markAired(later.id);
         await settle();

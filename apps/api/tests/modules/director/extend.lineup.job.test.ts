@@ -33,6 +33,7 @@ const track = (title: string, artist = 'One'): RundownTrack => ({
     externalId: `ext-${title}`,
     title,
     artists: [artist],
+    artist,
 });
 
 /** The record at one position, failing loudly rather than narrowing to undefined if a segment is there. */

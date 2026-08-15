@@ -22,6 +22,7 @@ const item = (overrides: Partial<RundownItem> = {}): RundownItem => ({
     externalId: 'track-42',
     title: 'Scourge of Iron',
     artists: ['Cannibal Corpse'],
+    artist: 'Cannibal Corpse',
     ...overrides,
 });
 

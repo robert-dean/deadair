@@ -175,6 +175,16 @@ const measurement = (value: unknown): number | undefined => (typeof value === 'n
 interface Identified extends RotationCandidate {
     pick: TrackPick;
     trackId: string;
+    /**
+     * The catalog's own title and lead artist for the track that was matched, which is what the
+     * keys above were built from and what the item carries as its identity.
+     *
+     * Deliberately not the pick's own strings. A pick is what something ASKED for and the row is
+     * what the station found, and where they differ it is the row that airs, is written to
+     * `play_history` and is compared against on the next refill.
+     */
+    title: string;
+    artist: string;
 }
 
 /** A resolved track with its keys still attached, so the last rule can be applied to it. */
@@ -283,7 +293,8 @@ export class PickResolver {
         ]);
 
         const resolved: Airable[] = [];
-        for (const { pick, trackId, artistKey: artist, songKey: song } of eligible) {
+        for (const entry of eligible) {
+            const { pick, trackId } = entry;
             const binding = bindings.get(trackId);
             if (!binding) {
                 // Every provider that carried it has stopped. The catalog still knows the
@@ -296,14 +307,17 @@ export class PickResolver {
 
             const row = metadata.get(trackId);
             resolved.push({
-                artistKey: artist,
-                songKey: song,
+                artistKey: entry.artistKey,
+                songKey: entry.songKey,
                 pluginId: binding.pluginId,
                 externalId: binding.externalId,
-                title: row?.title ?? pick.title,
+                title: row?.title ?? entry.title,
                 // The credit as written on the release when the catalog has it, because that
-                // is what a listener sees; the pick's `artist` is an identity, not a display.
-                artists: row?.credit ? [row.credit] : [pick.artist],
+                // is what a listener sees. It is a DISPLAY string and frequently a whole credit
+                // line in one element, which is exactly why identity rides beside it rather than
+                // being read back out of `artists[0]`.
+                artists: row?.credit ? [row.credit] : [entry.artist],
+                artist: entry.artist,
                 ...(binding.durationMs === undefined ? {} : { durationMs: binding.durationMs }),
                 ...(row?.album == null ? {} : { album: row.album }),
                 ...(row?.artworkUrl == null ? {} : { artworkUrl: row.artworkUrl }),
@@ -373,18 +387,24 @@ export class PickResolver {
         let overCap = 0;
 
         for (const pick of picks) {
-            let trackId = pick.trackId ?? (await this.candidates.findByName(pick.title, pick.artist));
+            // A pick that already carries an id was read off a catalog row a moment ago, so its
+            // own strings ARE that row's — `TrackPick.artist` is documented as the lead artist
+            // and never a credit line, and `CatalogSetGenerator` fills it from
+            // `deadair.artists.name`.
+            let found = pick.trackId
+                ? { trackId: pick.trackId, title: pick.title, artist: pick.artist }
+                : await this.candidates.findByName(pick.title, pick.artist);
 
-            if (!trackId && mayDiscover) {
+            if (!found && mayDiscover) {
                 if (attempted < cap) {
                     attempted += 1;
-                    trackId = await this.discover(pick);
+                    found = await this.discover(pick);
                 } else {
                     overCap += 1;
                 }
             }
 
-            if (!trackId) {
+            if (!found) {
                 this.logger.warn('director: a chosen track is not in the catalog; skipping it', {
                     track: `${pick.artist} — ${pick.title}`,
                 });
@@ -392,12 +412,14 @@ export class PickResolver {
             }
             identified.push({
                 pick,
-                trackId,
-                // Off the PICK's own strings rather than the catalog row's, which matches how
-                // `CatalogSetGenerator` keys its candidates and how `play_history` is written: the
-                // lead artist is what identity is taken from, never the credit line.
-                songKey: songKey(pick.title, [pick.artist]),
-                artistKey: artistKey([pick.artist]),
+                trackId: found.trackId,
+                title: found.title,
+                artist: found.artist,
+                // Off the matched ROW rather than the pick that matched it, which is what makes
+                // these keys the same ones `play_history` writes when the track airs. The lead
+                // artist is what identity is taken from, never the credit line.
+                songKey: songKey(found.title, [found.artist]),
+                artistKey: artistKey([found.artist]),
             });
         }
 
@@ -433,8 +455,12 @@ export class PickResolver {
      * Never throws. A provider that is down, a record nobody carries and an item with no credited
      * artist are all the same outcome to the caller: one pick dropped from a batch that was
      * oversampled against exactly this.
+     *
+     * Answers with the PROVIDER's title and lead artist, which are the strings the ingest just
+     * wrote to `deadair.tracks` — so a record taken in here is keyed exactly as it will be once
+     * the catalog holds it, rather than as the pick that went looking for it.
      */
-    private async discover(pick: TrackPick): Promise<string | undefined> {
+    private async discover(pick: TrackPick): Promise<{ trackId: string; title: string; artist: string } | undefined> {
         try {
             const found = await this.lookup.find(pick.title, pick.artist);
             if (!found) return undefined;
@@ -468,7 +494,11 @@ export class PickResolver {
                 detail: `${pick.title} by ${pick.artist} was not in the library, so the station took it in from a provider to play it.`,
                 data: { pluginId: found.pluginId, trackId: result.trackId, created: result.created },
             });
-            return result.trackId;
+            // The lead, which `ProviderTrackLookup` has already matched strictly against the pick
+            // and which the ingest wrote to the row. Falling back to the pick's own artist covers
+            // a provider that credited nobody; the lookup would have refused it, so this is the
+            // unreachable arm rather than a second behaviour.
+            return { trackId: result.trackId, title: found.track.title, artist: found.track.artists[0] ?? pick.artist };
         } catch (error) {
             this.logger.warn('director: could not look up a chosen record at a provider', {
                 track: `${pick.artist} — ${pick.title}`,

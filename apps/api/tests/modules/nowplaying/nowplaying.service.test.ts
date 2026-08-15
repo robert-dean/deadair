@@ -18,6 +18,7 @@ const item = {
     externalId: 'trk_1',
     title: 'Windowlicker',
     artists: ['Aphex Twin', 'Someone Else'],
+    artist: 'Aphex Twin',
     durationMs: 366_000,
     album: 'Windowlicker',
     artworkUrl: 'art/asset-1',
@@ -81,7 +82,7 @@ describe('NowPlayingService', () => {
     });
 
     it('omits what nobody could tell it, rather than sending empty fields', () => {
-        const bare = { id: 'item-2', pluginId: 'p', externalId: 'e', title: 'Untitled', artists: [] };
+        const bare = { id: 'item-2', pluginId: 'p', externalId: 'e', title: 'Untitled', artists: [], artist: '' };
         const { service } = build({ item: bare, startedAt: 42 });
 
         expect(service.getNowPlaying().track).toEqual({ title: 'Untitled', artist: '', startedAt: 42 });

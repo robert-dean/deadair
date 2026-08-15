@@ -31,6 +31,7 @@ const item = (overrides: Partial<RundownItem> = {}): RundownItem => ({
     externalId: 'seg-1',
     title: 'Top of the hour',
     artists: [],
+    artist: '',
     ...overrides,
 });
 

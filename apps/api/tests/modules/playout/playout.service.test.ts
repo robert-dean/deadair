@@ -67,7 +67,15 @@ interface Options {
     deniedSince?: number;
 }
 
-const item = { id: 'item-1', pluginId: 'deadair.spotify', externalId: 'trk_1', title: 'A Track', artists: ['An Artist'], durationMs: 200_000 };
+const item = {
+    id: 'item-1',
+    pluginId: 'deadair.spotify',
+    externalId: 'trk_1',
+    title: 'A Track',
+    artists: ['An Artist'],
+    artist: 'An Artist',
+    durationMs: 200_000,
+};
 
 function build(options: Options = {}) {
     const rundown = {
@@ -326,8 +334,11 @@ describe('PlayoutService.getStatus', () => {
         const { service, rundown } = build();
         vi.mocked(rundown.nowPlaying).mockReturnValue({ item, startedAt: 1_700_000_000_000, remainingMs: 42_000 });
 
+        // Without `artist`: identity is the station's own bookkeeping and the response carries
+        // the credit line, which is the thing a console shows.
+        const { artist: _artist, ...onWire } = item;
         expect((await service.getStatus()).nowPlaying).toEqual({
-            item,
+            item: onWire,
             startedAt: 1_700_000_000_000,
             remainingMs: 42_000,
         });

@@ -20,6 +20,7 @@ const track = (externalId: string): RundownTrack => ({
     externalId,
     title: `Track ${externalId}`,
     artists: ['An Artist'],
+    artist: 'An Artist',
 });
 
 const binding = (mode: StationLineupMode = 'rotation'): StationLineupBinding => ({

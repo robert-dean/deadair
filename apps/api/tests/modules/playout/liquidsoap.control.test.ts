@@ -380,6 +380,7 @@ describe('itemAnnotations', () => {
         externalId: 'trk_1',
         title: 'Windowlicker',
         artists: ['Aphex Twin', 'Someone Else'],
+        artist: 'Aphex Twin',
     };
 
     it('labels the mount with what the app knows, because the file cannot', () => {

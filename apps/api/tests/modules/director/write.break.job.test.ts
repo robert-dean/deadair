@@ -20,6 +20,7 @@ const track = (title: string, artist: string, trackId?: string): RundownTrack =>
     externalId: title,
     title,
     artists: [artist],
+    artist,
     ...(trackId === undefined ? {} : { trackId }),
 });
 

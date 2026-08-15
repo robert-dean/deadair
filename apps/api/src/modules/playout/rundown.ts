@@ -57,7 +57,30 @@ export interface RundownItem {
     pluginId: string;
     externalId: string;
     title: string;
+    /**
+     * The credit as written on the release, for DISPLAY: "USHER, Lil Jon, Ludacris".
+     *
+     * Never what identity is taken from — see {@link artist}. It is a list because a provider
+     * gives one, and it is joined back into a line wherever it is shown; nothing may read
+     * `artists[0]` as the lead, because half the producers here have only ever had the credit
+     * as a single string and put it in a one-element array.
+     */
     artists: string[];
+    /**
+     * The LEAD artist, and the only thing identity is ever taken from.
+     *
+     * Its own field because the alternative was an invariant nobody could enforce. `artists[0]`
+     * was documented as the lead in three places and was one wherever the item came from a
+     * playlist, while every item a generator produced carried the whole credit line as a single
+     * element — so `artistKey` keyed "Drake, Wizkid, Kyla" as one artist, the repeat window and
+     * the artist cooldown could never match a collaboration written by `play_history`, and the
+     * scrobbler sent a credit line as an artist name. None of it was visible: the only symptom
+     * of a rotation rule that never matches is a station that repeats itself.
+     *
+     * Empty for an item that has no artist at all (a segment's placeholder), which every reader
+     * already handles: `artistKey('')` is the empty key, which no history row can match.
+     */
+    artist: string;
     durationMs?: number;
     album?: string;
     /** Cover art: the station's own cached copy where there is one, the provider's URL otherwise. */
@@ -583,7 +606,7 @@ export class Rundown {
      */
     private async resolveVoice(voice: { segmentId: string; atMs: number }): Promise<{ url: string; atMs: number } | undefined> {
         const url = await this.resolver
-            .resolve({ id: `voice:${voice.segmentId}`, pluginId: RENDER_PLUGIN_ID, externalId: voice.segmentId, title: '', artists: [] })
+            .resolve({ id: `voice:${voice.segmentId}`, pluginId: RENDER_PLUGIN_ID, externalId: voice.segmentId, title: '', artists: [], artist: '' })
             .catch(() => undefined);
 
         if (!url) {

@@ -21,6 +21,7 @@ const track = (durationMs?: number, cues?: { cueInMs?: number; cueOutMs?: number
         externalId: id(),
         title: 'A record',
         artists: ['Somebody'],
+        artist: 'Somebody',
         ...(durationMs === undefined ? {} : { durationMs }),
         ...cues,
     },

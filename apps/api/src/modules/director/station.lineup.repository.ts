@@ -205,7 +205,16 @@ const toItems = (value: unknown): StationLineupItem[] => {
         }
 
         if (typeof line.track?.externalId === 'string' && typeof line.track.pluginId === 'string') {
-            items.push({ id: line.id, kind: 'track', state, track: line.track as RundownTrack });
+            // The lead artist, filled in where the row predates the field. A restart mid-broadcast
+            // reads an order this process did not write, and `artist` is the one field every
+            // reader takes at face value — an item without it would reach `normalizeKey` as
+            // `undefined` and throw on the air path. `artists[0]` is the best available answer and
+            // is exactly what the old items meant by it.
+            const track =
+                typeof line.track.artist === 'string'
+                    ? (line.track as RundownTrack)
+                    : ({ ...line.track, artist: line.track.artists?.[0] ?? '' } as RundownTrack);
+            items.push({ id: line.id, kind: 'track', state, track });
         }
         return items;
     }, []);

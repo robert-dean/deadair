@@ -34,6 +34,7 @@ const track = (externalId: string): RundownTrack => ({
     externalId,
     title: `Track ${externalId}`,
     artists: ['An Artist'],
+    artist: 'An Artist',
 });
 
 /**
@@ -469,7 +470,14 @@ describe('PlayoutPusher and a player holding somebody else’s plan', () => {
         const rundown = new Rundown(new StubResolver(), logger);
         const order = seed(rundown, ids.map(track));
         const { control, pushed } = reclaimable(reading);
-        const pusher = new PlayoutPusher(rundown, control as unknown as PlayoutControlClient, stubAudience().audience, config, new Heartbeat(), logger);
+        const pusher = new PlayoutPusher(
+            rundown,
+            control as unknown as PlayoutControlClient,
+            stubAudience().audience,
+            config,
+            new Heartbeat(),
+            logger,
+        );
         return { rundown, order, pusher, control, pushed };
     }
 
@@ -883,7 +891,10 @@ describe('PlayoutPusher: the blend', () => {
     it('stamps a hard join on every boundary of a broadcast that does not blend', async () => {
         // An album. Its gaps are somebody's decision, and the transport is told so by
         // the director rather than working it out.
-        const { pusher, pushed, rundown } = setupMeasured([measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)], false);
+        const { pusher, pushed, rundown } = setupMeasured(
+            [measured('a', 0, 30_000), measured('b', 6_000, 30_000), measured('c', 9_000, 30_000)],
+            false,
+        );
 
         await boundaries(pusher, rundown, 3);
 

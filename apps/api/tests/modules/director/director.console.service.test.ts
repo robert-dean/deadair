@@ -172,6 +172,7 @@ describe('DirectorConsoleService building a running order from a playlist', () =
             externalId: 'trk_9',
             title: 'B Side',
             artists: ['Someone'],
+            artist: 'Someone',
             artworkUrl: 'https://provider.test/cover.jpg',
         });
     });
@@ -336,7 +337,15 @@ describe('DirectorConsoleService editing the running order', () => {
 
     const onAirWith = (count: number): StationLineup => {
         const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
-        order.append(Array.from({ length: count }, (_, index) => ({ pluginId: 'p', externalId: `t${index}`, title: `T${index}`, artists: ['X'] })));
+        order.append(
+            Array.from({ length: count }, (_, index) => ({
+                pluginId: 'p',
+                externalId: `t${index}`,
+                title: `T${index}`,
+                artists: ['X'],
+                artist: 'X',
+            })),
+        );
         return order;
     };
 
@@ -497,8 +506,8 @@ describe('DirectorConsoleService editing the running order', () => {
     it('carries what the station thinks of each record, and says nothing about one the catalog has never seen', async () => {
         const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
         order.append([
-            { pluginId: 'p', externalId: 't0', title: 'Known', artists: ['X'], trackId: 'trk_known' },
-            { pluginId: 'p', externalId: 't1', title: 'Uningested', artists: ['Y'] },
+            { pluginId: 'p', externalId: 't0', title: 'Known', artists: ['X'], artist: 'X', trackId: 'trk_known' },
+            { pluginId: 'p', externalId: 't1', title: 'Uningested', artists: ['Y'], artist: 'Y' },
         ]);
         const { service, tracks } = build({ order, ratings: { trk_known: 'disliked' } });
 

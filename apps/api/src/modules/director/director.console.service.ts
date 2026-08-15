@@ -406,6 +406,9 @@ export class DirectorConsoleService {
                 externalId: track.id,
                 title: track.title,
                 artists: track.artists,
+                // A provider's array, so the lead really is its first entry here — which is not
+                // true of every producer, and is why identity is carried rather than inferred.
+                artist: track.artists[0] ?? '',
                 ...(track.durationMs === undefined ? {} : { durationMs: track.durationMs }),
                 ...(album === undefined ? {} : { album }),
                 ...(artworkUrl == null ? {} : { artworkUrl }),

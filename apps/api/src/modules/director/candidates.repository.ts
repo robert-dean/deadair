@@ -217,8 +217,15 @@ export class CandidatesRepository extends DataRepository {
      *
      * Returns nothing for a title that normalizes to empty, which would otherwise
      * match every untitled track by the artist.
+     *
+     * Answers with the CANONICAL title and lead artist alongside the id, rather than only the
+     * id. The caller keys the pick for the rotation rules, and keying it off the strings that
+     * were searched WITH instead of the row that was found makes those keys disagree with the
+     * ones `play_history` is written from — the pick says "Yeah!" by "Usher" and the row says
+     * "Yeah! (feat. Lil Jon & Ludacris)". Both sides of a repeat window have to come off the
+     * same row for the window to mean anything.
      */
-    async findByName(title: string, artist: string): Promise<string | undefined> {
+    async findByName(title: string, artist: string): Promise<{ trackId: string; title: string; artist: string } | undefined> {
         const titleKey = normalizeKey(title);
         const artistKey = normalizeKey(artist);
         if (!titleKey || !artistKey) return undefined;
@@ -226,7 +233,7 @@ export class CandidatesRepository extends DataRepository {
         const row = await this.db
             .selectFrom('deadair.tracks')
             .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
-            .select('deadair.tracks.id as trackId')
+            .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.artists.name as artist'])
             .where('deadair.tracks.titleKey', '=', titleKey)
             .where('deadair.artists.artistKey', '=', artistKey)
             .where('deadair.tracks.mergedIntoId', 'is', null)
@@ -235,6 +242,6 @@ export class CandidatesRepository extends DataRepository {
             .orderBy('deadair.tracks.createdAt', 'asc')
             .executeTakeFirst();
 
-        return row?.trackId;
+        return row;
     }
 }

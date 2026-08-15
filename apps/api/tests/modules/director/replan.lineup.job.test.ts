@@ -31,6 +31,7 @@ const track = (title: string, artist = 'One'): RundownTrack => ({
     externalId: `ext-${title}`,
     title,
     artists: [artist],
+    artist,
 });
 
 const titlesOf = (lineup: StationLineup) =>

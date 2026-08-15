@@ -33,6 +33,7 @@ const track = (externalId: string): RundownTrack => ({
     externalId,
     title: `Track ${externalId}`,
     artists: ['An Artist'],
+    artist: 'An Artist',
     durationMs: TRACK_MINUTES * 60_000,
 });
 

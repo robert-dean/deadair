@@ -40,7 +40,14 @@ const resolve = (resolver: PickResolver, picks: readonly TrackPick[], preference
 interface Options {
     bindings?: Record<string, TrackBinding>;
     metadata?: Record<string, { title: string; credit: string; album?: string; year?: number; artworkUrl?: string }>;
-    byName?: Record<string, string>;
+    /**
+     * What the catalog answers for a name, keyed `Artist — Title`.
+     *
+     * A bare string is the id, and the row is taken to be spelled exactly as it was searched
+     * for. An object is a row whose own title or lead artist DIFFER from the pick that found
+     * it, which is the case the keys have to come off.
+     */
+    byName?: Record<string, string | { trackId: string; title: string; artist: string }>;
     /** What the station thinks of each track: -1 disliked, 0 unrated, 1 liked. Absent means unrated. */
     ratings?: Record<string, number>;
     /** Song keys inside the repeat window, as `play_history` would answer them. */
@@ -85,7 +92,11 @@ function build(options: Options = {}) {
             }
             return found;
         }),
-        findByName: vi.fn(async (title: string, artist: string) => options.byName?.[`${artist} — ${title}`]),
+        findByName: vi.fn(async (title: string, artist: string) => {
+            const found = options.byName?.[`${artist} — ${title}`];
+            if (found === undefined) return undefined;
+            return typeof found === 'string' ? { trackId: found, title, artist } : found;
+        }),
         ratingsFor: vi.fn(async (trackIds: readonly string[]) => {
             const found = new Map<string, number>();
             for (const id of trackIds) {
@@ -170,6 +181,7 @@ describe('PickResolver', () => {
                 externalId: 'ext-track-1',
                 title: 'Windowlicker',
                 artists: ['Aphex Twin'],
+                artist: 'Aphex Twin',
                 durationMs: 240_000,
                 album: 'Windowlicker',
                 year: 1999,

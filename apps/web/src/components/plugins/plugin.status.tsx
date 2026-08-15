@@ -1,7 +1,7 @@
-import { Box, Group, Text } from '@mantine/core';
 import type { PluginStatus, PluginSummary } from '@deadair/sdk';
 
-import { type StatusTone, toneColor } from '../shared/status';
+import type { StatusTone } from '../shared/status';
+import { StatusLamp } from '../shared/status.lamp';
 
 /** The capability a plugin declares when it can walk an operator through a provider's consent screen. */
 export const OAUTH_CAPABILITY = 'oauth';
@@ -52,16 +52,8 @@ export interface PluginStatusProps {
     size?: 'sm' | 'md';
 }
 
-/** A lamp and a word. Deliberately not a Badge: status is the quietest thing on a busy card. */
+/** A lamp and a word. Deliberately not a chip: status is the quietest thing on a busy card. */
 export function PluginStatusLamp({ status, size = 'sm' }: PluginStatusProps) {
     const { label, tone } = statusOf(status);
-    const dot = size === 'md' ? 10 : 8;
-    return (
-        <Group gap={7} wrap="nowrap" aria-label={`Status: ${label}`}>
-            <Box w={dot} h={dot} bg={`${toneColor[tone]}.5`} style={{ borderRadius: '50%', flexShrink: 0 }} />
-            <Text size={size === 'md' ? 'sm' : 'xs'} fw={600} tt="uppercase" style={{ letterSpacing: 'var(--da-tracking-eyebrow)' }}>
-                {label}
-            </Text>
-        </Group>
-    );
+    return <StatusLamp tone={tone} label={label} size={size} />;
 }

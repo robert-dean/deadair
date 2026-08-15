@@ -77,6 +77,13 @@ export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
  */
 export const ReplanStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional().describe('How many records to programme. Absent is roughly an hour'),
+    brief: z
+        .string()
+        .max(500)
+        .optional()
+        .describe(
+            'What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the presenting persona. It steers every later refill too, not just this one batch',
+        ),
 });
 export type ReplanStationInput = z.infer<typeof ReplanStationInput>;
 

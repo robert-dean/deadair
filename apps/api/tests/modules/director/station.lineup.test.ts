@@ -427,6 +427,25 @@ describe('StationLineup editing', () => {
         expect(statesOf(lineup)).toEqual(['played', 'removed', 'planned']);
     });
 
+    it('changes what the broadcast was asked for without disturbing anything else about it', () => {
+        const lineup = new StationLineup({ ...binding(), brief: 'ambient only' });
+        const before = lineup.toSnapshot().broadcastId;
+
+        lineup.rebrief('heavy metal hits');
+
+        expect(lineup.brief).toBe('heavy metal hits');
+        expect(lineup.toSnapshot().broadcastId).toBe(before);
+    });
+
+    it('clears the brief when it is emptied, because an unbriefed station is programmed by its host', () => {
+        const lineup = new StationLineup({ ...binding(), brief: 'ambient only' });
+
+        lineup.rebrief('');
+
+        expect(lineup.brief).toBe('');
+        expect(lineup.toSnapshot()).not.toHaveProperty('brief');
+    });
+
     it('takes a fresh tail onto an order that has run out, which is when it is wanted most', () => {
         const lineup = lineupWith([]);
 

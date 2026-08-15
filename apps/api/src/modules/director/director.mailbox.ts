@@ -116,6 +116,16 @@ export type DirectorCommand =
      */
     | { kind: 'replaceTail'; tracks: readonly RundownTrack[] }
     /**
+     * Change what the operator has asked this broadcast for. Absent or empty clears it.
+     *
+     * A command of its own rather than a field on {@link replaceTail}, because the two happen
+     * minutes apart and in that order: the brief has to be on the row BEFORE `ReplanLineupJob`
+     * reads it, since that is what the fresh set is programmed against. It outlives the replan too
+     * — every later refill reads the same row — which is the whole reason the brief lives on the
+     * running order rather than in a job's payload.
+     */
+    | { kind: 'rebrief'; brief?: string }
+    /**
      * Somebody at the desk changed the order. Answers with whether it took.
      *
      * The edit is applied HERE rather than by the caller, because the running order

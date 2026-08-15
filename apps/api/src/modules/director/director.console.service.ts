@@ -263,15 +263,32 @@ export class DirectorConsoleService {
      * what keeps the station from going quiet while they run. `ReplanLineupJob` chooses a whole
      * fresh set before anything is dropped, so the tail an operator is tired of keeps playing until
      * there is something to put in its place. Nothing is answered here but the ASK.
+     *
+     * A new brief is written FIRST and awaited, because the job reads it off the row: sending both
+     * at once would programme the fresh hour against the instruction being replaced. It is also the
+     * durable half — the brief steers every refill for the rest of the broadcast — so it stands
+     * whether or not the replan behind it finds anything.
      */
     async replanOrder(input: ReplanStationInput): Promise<void> {
+        if (input.brief !== undefined) await this.director.post({ kind: 'rebrief', brief: input.brief });
         await this.jobs.send('director.replan_lineup', { ...(input.count === undefined ? {} : { count: input.count }) });
 
         void this.activity.record({
             module: 'director',
             kind: 'order.replanned',
-            detail: 'An operator threw out the rest of the running order and asked the station to programme it again.',
-            ...(input.count === undefined ? {} : { data: { count: input.count } }),
+            // The brief is quoted because it is the operator's own words about their own station,
+            // which is the one kind of text this feed may carry: see `ActivityRecorder`.
+            detail: input.brief
+                ? `An operator threw out the rest of the running order and asked the station for ${input.brief}.`
+                : 'An operator threw out the rest of the running order and asked the station to programme it again.',
+            ...(input.count === undefined && input.brief === undefined
+                ? {}
+                : {
+                      data: {
+                          ...(input.count === undefined ? {} : { count: input.count }),
+                          ...(input.brief === undefined ? {} : { brief: input.brief }),
+                      },
+                  }),
             ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
         });
     }

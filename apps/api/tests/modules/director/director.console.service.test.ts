@@ -450,6 +450,35 @@ describe('DirectorConsoleService editing the running order', () => {
         expect(director.applyEdit).not.toHaveBeenCalled();
     });
 
+    it('writes a new brief before it asks for the replan, since the job reads it off the row', async () => {
+        // The other way round and the fresh hour is programmed against the instruction the operator
+        // has just replaced.
+        const { service, jobs, director } = build({ order: onAirWith(3) });
+
+        await service.replanOrder({ brief: 'heavy metal hits' });
+
+        expect(director.post).toHaveBeenCalledWith({ kind: 'rebrief', brief: 'heavy metal hits' });
+        expect(vi.mocked(director.post)).toHaveBeenCalledBefore(vi.mocked(jobs.send));
+    });
+
+    it('says nothing about the brief when the operator did not mention one', async () => {
+        // Absent means keep what this broadcast was already asked for. Only an explicit empty
+        // string clears it.
+        const { service, director } = build({ order: onAirWith(3) });
+
+        await service.replanOrder({ count: 4 });
+
+        expect(director.post).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'rebrief' }));
+    });
+
+    it('clears the brief when the operator empties the box, handing programming back to the persona', async () => {
+        const { service, director } = build({ order: onAirWith(3) });
+
+        await service.replanOrder({ brief: '' });
+
+        expect(director.post).toHaveBeenCalledWith({ kind: 'rebrief', brief: '' });
+    });
+
     it('records the replan against the operator who asked for it', async () => {
         const { service, activity } = build({ order: onAirWith(3) });
 

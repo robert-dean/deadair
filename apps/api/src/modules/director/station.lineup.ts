@@ -634,6 +634,24 @@ export class StationLineup implements LiveOrder {
         this.binding = binding;
     }
 
+    /**
+     * Change what the operator has asked this broadcast to play.
+     *
+     * Narrow on purpose, where {@link rebind} takes the whole binding: the brief is the one part of
+     * it that a broadcast can legitimately change its mind about mid-show. Everything else there
+     * says which programme this IS, and a different answer to that is a different programme.
+     *
+     * **An empty brief clears it, and clearing means something.** A briefed station is programmed
+     * against the words and is deliberately not shown the presenting persona's `music` line at all;
+     * an unbriefed one is programmed by that line. So this is the switch between "play heavy metal
+     * hits" and "play whatever the host would play", and both are things to ask for.
+     */
+    rebrief(brief?: string): void {
+        const { brief: _current, ...rest } = this.binding;
+
+        this.binding = brief ? { ...rest, brief } : rest;
+    }
+
     /** Add to the end. Nothing else moves: this is the plan continuing. */
     append(tracks: readonly RundownTrack[]): StationLineupItem[] {
         if (tracks.length === 0) return [];

@@ -505,6 +505,10 @@ export class DirectorService {
                 await this.replaceTail(command.tracks);
                 return undefined;
 
+            case 'rebrief':
+                await this.rebrief(command.brief);
+                return undefined;
+
             case 'edit':
                 return await this.edit(command.edit);
 
@@ -873,6 +877,27 @@ export class DirectorService {
         await this.commit();
 
         this.logger.info('director: replaced the rest of the running order', { added: tracks.length, dropped: dropped.length });
+    }
+
+    /**
+     * Change what the operator has asked this broadcast to play.
+     *
+     * **Written THROUGH rather than soon**, and that is the whole of why this is not a one-liner:
+     * the next thing to read the brief is `ReplanLineupJob`, from the ROW, and the throttle would
+     * have it programme the fresh hour against the brief the operator has just replaced.
+     * {@link persist} rather than {@link flushPersist}, which only settles a write the throttle
+     * already owes and would do nothing at all after a change nobody else had asked to store.
+     *
+     * Nothing is committed and nothing is retracted, because a brief says nothing about the records
+     * already in the order. What acts on it is whatever generates next: the replan this usually
+     * arrives in front of, and every refill for the rest of the broadcast.
+     */
+    private async rebrief(brief?: string): Promise<void> {
+        if (!this.lineup) return;
+
+        this.lineup.rebrief(brief);
+        await this.persist();
+        this.logger.info('director: the broadcast was re-briefed', { brief: brief ?? '' });
     }
 
     /**

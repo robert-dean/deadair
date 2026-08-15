@@ -59,6 +59,8 @@ export interface ExtendStationInput {
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
     count?: number;
+    /** What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the presenting persona. It steers every later refill too, not just this one batch */
+    brief?: string;
 }
 
 /**

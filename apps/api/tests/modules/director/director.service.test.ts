@@ -1902,6 +1902,37 @@ describe('DirectorService replacing the rest of the running order', () => {
         expect(segmentStub.markFailed).not.toHaveBeenCalled();
     });
 
+    it('writes a new brief straight through, because the job that reads it reads the row', async () => {
+        // The throttle is two seconds and the replan job is sent immediately behind this. Riding it
+        // would programme the fresh hour against the brief the operator has just replaced.
+        const { director, lineups, seed, snapshots } = build({ items: ['a', 'b'] });
+        await seed();
+        await director.start();
+        vi.mocked(lineups.save).mockClear();
+
+        await director.post({ kind: 'rebrief', brief: 'heavy metal hits' });
+
+        expect(lineups.save).toHaveBeenCalled();
+        expect(snapshots.at(-1)?.brief).toBe('heavy metal hits');
+    });
+
+    it('leaves the running order itself alone when only the brief changed', async () => {
+        // A brief says what to play NEXT. Nothing about the records already chosen is wrong because
+        // the operator changed their mind about the ones after them.
+        const { director, lineup, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+
+        await director.post({ kind: 'rebrief', brief: 'heavy metal hits' });
+
+        expect(
+            lineup
+                .all()
+                .filter(isTrackItem)
+                .map(item => item.track.externalId),
+        ).toEqual(['a', 'b', 'c']);
+    });
+
     it('commits off the new tail, so the swap reaches the player without waiting for a boundary', async () => {
         const { director, rundown, seed } = build({ items: ['a', 'b', 'c'] });
         await seed();

@@ -89,4 +89,5 @@ contract ExtendStationInput: { # Add tracks to the running order now, rather tha
 
 contract ReplanStationInput: { # Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
     count?: int(min=1, max=100) # How many records to programme. Absent is roughly an hour
+    brief?: string(max=500) # What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the presenting persona. It steers every later refill too, not just this one batch
 }

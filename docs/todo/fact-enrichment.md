@@ -1,111 +1,78 @@
-# Fact Enrichment for Deadair
+# Fact Enrichment
 
-Status: design brief, not yet implemented
-Owner: Robert
-Intended reader: Claude Code, in plan mode, with access to the deadair repo
+Status: **built**, except for the parts listed at the bottom.
+Intended reader: Claude Code, with access to the deadair repo
 
-## Goal
+## What this file is now
 
-Give the DJ personas real, verifiable trivia to talk about between tracks. The
-target quality bar is a fact like: "Hammer Smashed Face by Cannibal Corpse
-appeared in Ace Ventura: Pet Detective." Specific, checkable, and interesting
-to a listener who already likes the song.
+The original brief here was a design for something that did not exist. It exists, so what is left is
+the record of what was decided and the short list of what was deliberately not done. Read the code
+first: `apps/api/src/modules/enrichment/fact.*.ts`, `plugins/wikipedia/`, and migration
+`0015_facts.sql`, whose comments carry the reasoning.
 
-## Non-goals
+## The goal, which has not changed
 
-- No fact generation at airtime. Enrichment is an offline job.
-- No unsourced facts. If a claim has no source URL, it does not enter the store.
-- Not building a general music metadata cache. This is trivia only. Existing
-  metadata paths stay as they are.
+Give the DJ real, verifiable trivia to talk about. The bar is a fact like "Hammer Smashed Face by
+Cannibal Corpse appeared in Ace Ventura: Pet Detective": specific, checkable, and interesting to a
+listener who already likes the song.
 
-## The core problem
+## The shape it took
 
-Almost none of this content lives in structured music metadata. It lives in
-prose. So the pipeline is: fetch prose, extract structured claims, verify the
-claims against the source text, cache, then let the script generator draw from
-the cache.
+**A plugin fetches, the host thinks.** Almost none of this content is in structured metadata; it is
+in prose. `plugins/wikipedia` resolves a record to a Wikidata item by its MusicBrainz id and hands
+the article over as a `SourceDocument`, verbatim. It composes no sentence of its own. Turning prose
+into something sayable is host-side, because only the host can check a claim against the text it
+came from — and because there is no `llm` capability on `PluginHost`, deliberately.
 
-## Sources, in rough order of value
+**Two extractors, and the floor is the deterministic one.** An article's opening sentence is already
+a sourced, speakable claim, and taking it verbatim needs no model and no verification pass, because
+the claim and the quote are the same span (`fact.lead.ts`). The model pass (`fact.model.ts`) adds
+what a lead sentence cannot carry — placements, samples, recording stories — and is off by default.
+Every way it can decline leaves a store the floor has already filled.
 
-1. **Wikipedia / Wikidata.** Highest hit rate. Fetch full article text via the
-   REST API for track, album, and artist. "In popular culture" and "Legacy"
-   sections are the richest. Film articles carry soundtrack sections.
-2. **Genius API.** Song descriptions and annotations are effectively
-   crowd-written trivia. Strong for placements, samples, origin stories.
-3. **Discogs.** Release-level color: studio, engineer, pressing oddities,
-   artwork controversies.
-4. **MusicBrainz.** Not a fact source so much as the connective tissue.
-   Recording / work / artist relationships, and stable MBIDs to key the cache
-   on.
-5. **SecondHandSongs** for covers and originals. **WhoSampled** for samples,
-   but there is no friendly public API, so treat it as optional or manual.
+**A claim with no source does not exist.** `facts.source_url` and `facts.source_quote` are
+`not null`. The model is made to quote the words that state each fact, the quote must occur in the
+article we sent (checked in code), and a second conversation that has never seen the article is
+shown only the claim and the quote and asked whether one states the other. It is told to answer no
+when unsure.
 
-Explicitly excluded: Songfacts. Exactly the right content, no API, unfriendly
-terms.
+**Provenance survives to the console.** Every claim is on the enrichment panel with its category,
+its quote and a link to the article.
 
-Check current rate limits and terms for each before wiring it up. Assume they
-have changed since this brief was written.
+## Answers to the questions the brief asked
 
-## Data model
+- **Plugin or core?** Both, split at prose. The fetch is a plugin, the extraction is core.
+- **Where does the fact store live?** `deadair.facts`, beside `track_enrichment` rather than inside
+  it, because a provider's payload is an answer and a fact is an argument that keeps its evidence.
+  Three nullable subject references rather than one polymorphic id, so a deleted track takes its
+  facts with it.
+- **Which source first?** Wikipedia only, end to end, as the brief guessed.
+- **Test strategy for the non-deterministic passes?** The prompts are pure and unit-tested; the
+  service is tested against a stubbed `LlmService` including a refusal, a malformed answer and a
+  verifier that fails, all of which must yield zero claims rather than a throw. The SQL is covered by
+  `apps/api/scripts/facts.smoke.ts` against the real database.
+- **Playout tracking?** A cooldown on `facts.last_used_at`, stamped at selection. See below.
 
-Facts are stored as structured claims, not as broadcast-ready sentences. The
-persona and script generator do the phrasing.
+## Deliberately not built
 
-Rough shape, adjust to fit the existing schema conventions:
+- **Genius, Discogs, SecondHandSongs.** The seam is the point: once `documents` exists, a second
+  prose source is one plugin and no host change. Songfacts stays excluded — right content, no API,
+  unfriendly terms.
+- **Categories driving persona selection.** The column is populated and nothing reads it. Wire it
+  when there is a real corpus to see the distribution of, so a pirate captain's preference is set
+  against what the store actually holds rather than against a guess.
+- **Editing or deleting a claim from the console.** The panel is read-only. A write surface needs a
+  permission decision and a rule about what a re-extraction does to a claim an operator has touched.
+- **Fact retirement.** Chosen against. A fact said fifty times is still true, and a station whose
+  good lines expired permanently would have less to say the longer it ran.
+- **A stamp at AIRING rather than at selection.** `last_used_at` is written when a claim is handed to
+  a writer, so a break that is later dropped by the forward-claim check still rests its facts. The
+  honest alternative is a reader of `segment_events`, which is a great deal of machinery for the
+  difference between "used" and "used and heard".
 
-    {
-      subjectType: 'track' | 'album' | 'artist',
-      subjectId,          // MBID where possible
-      claim,              // one sentence, neutral phrasing
-      category,
-      sourceUrl,
-      sourceQuote,        // the span that supports the claim
-      confidence,
-      extractedAt
-    }
+## What an operator has to do to turn it on
 
-Categories matter more than they first appear. Suggested starting set: film or
-TV placement, chart performance, recording, personnel, controversy, cover or
-sample, death or breakup. Categories are what let the pirate persona pick a
-different fact than a 2am ambient host, and they give the script generator
-something to build an outline around.
-
-## Pipeline
-
-Enrichment runs when a track enters the library or the upcoming queue, never
-during playout.
-
-1. Resolve the track to an MBID.
-2. Fan out to the sources, collect raw prose.
-3. Extraction pass: LLM turns prose into structured claims.
-4. Verification pass: a second call sees only the claim and the source text and
-   answers whether the text supports the claim. Unsupported claims are dropped.
-   This is cheap and kills most hallucination.
-5. Write surviving claims to the fact store.
-
-## Guardrails
-
-- **No empty-handed invention.** If the fact store returns nothing for a track,
-  the script generator gets an explicit "no facts available" signal and a patter
-  path that works without one. It must not be allowed to improvise a fact.
-- **Playout tracking.** A `factPlays` table with per-fact cooldowns, so the Ace
-  Ventura line does not run every third rotation. A freshness flag retires a
-  fact after N airings.
-- **Provenance survives to the output.** Every aired fact should be traceable
-  back to a source URL for debugging when something sounds wrong on air.
-
-## What I want out of the plan
-
-- How this fits the existing job / worker system and the plugin interrupt model.
-  Should enrichment be a plugin, or core?
-- Where the fact store lives relative to current persistence.
-- The integration point with script generation, specifically the multi-pass
-  outline approach currently being worked on.
-- Which source to build first as a vertical slice. My instinct is Wikipedia
-  only, end to end, with the verification pass in place from day one.
-- Schema migrations required.
-- Test strategy for the extraction and verification passes, which are
-  non-deterministic.
-
-Read the relevant code before proposing any of this. Where the brief conflicts
-with how the codebase actually works, the codebase wins. Flag the conflict.
+The Wikipedia plugin is bundled and discovered, but like every plugin it starts disabled and needs a
+contact email address in its config before it will make a request — Wikimedia asks every client to
+identify itself. Nothing else needs enabling: the walk and the floor run on cron from then on. The
+model pass is `llm.factExtraction`, off by default.

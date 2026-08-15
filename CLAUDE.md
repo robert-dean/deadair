@@ -18,7 +18,8 @@ packages/plugin-sdk   the plugin contract and host capabilities
 packages/sdk          typed client for the API
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
-plugins/*             bundled plugins: spotify, navidrome, musicbrainz, kokoro (the station's
+plugins/*             bundled plugins: spotify, navidrome, musicbrainz, lastfm, wikipedia (the
+                      prose the station's facts are extracted from), rss, kokoro (the station's
                       voice), llm, analyzer (the adapter over the measurement sidecar)
 analysis/             the measurement sidecar: a Python service that decodes a record and answers
                       with its cue points and its loudness. No decoding happens in Node
@@ -134,6 +135,29 @@ reads as a station that never had a model.
 **Both search tools answer with the LEAD artist, never a credit line, and that is a correctness rule rather than a formatting one.** The model is told to copy a title and artist back exactly, because `ProviderTrackLookup` is strict — and the two steps that then judge the pick both match on the lead artist alone: `PickResolver.identify` keys it `songKey(title, [artist])` and the lookup compares `normalizeKey(track.artists[0])`. `CatalogSearchTool` answered `artists.join(', ')` for as long as it existed, so every collaboration it returned was named correctly by the model and then dropped as "not in the catalog" — a live run resolved every solo credit and lost every duet. The other credits ride in `featuring`, which is shown and never copied. Anything new that hands a model a record to name owes the same shape. The related bound is that these tools must offer enough rows to fill an OVERSAMPLED batch (`MAX_RESULTS` is 25 on both): a model shown ten records and asked for two dozen pads the answer with repeats, `SetGeneratorChain` discards them, and `CatalogSetGenerator` — which cannot act on a brief — quietly fills half the hour.
 
 **One model slot, and it stays one.** `LlmGate` serializes because there is one process with one set of weights on one GPU. Two callers now want it at once — a refill holds it for minutes, a break wants it for seconds — and that is still not an argument for a pool: a second app-side slot relocates the queue to the model host, where there is no `maxWaitMs`, and that timeout is the entire mechanism by which a break writer gives up and lets the floor write. Widening the gate would remove the thing that keeps a slow model from costing a silent station while looking like it was helping. The asymmetry is PRIORITY, not throughput, and it is expressed by bounding the background job (`ModelSetGenerator.BUDGET_MS`), which needs nothing from the gate. **A model budget and degradation tiers are deliberately NOT built** (`docs/todo/station-intelligence.md` §2, deferred against its own ordering claim): every call goes through `LlmService`, so the retrofit is one file, the model is self-hosted so nothing is billed, and "no tier makes music stop" is already structural — the chain tops up and the writer registry falls through.
+
+**A FACT is a claim with its evidence attached, and it is not a plugin's payload.** `deadair.facts`
+holds one sentence each, extracted by the host out of prose a plugin handed over, with the span of
+that prose that supports it. `source_url` and `source_quote` are `not null` because a claim with no
+source must not be EXPRESSIBLE: what a nullable column there produces is a DJ saying something
+specific, checkable and untrue in exactly the voice it uses for the things that are true. The split
+that makes it work is **a plugin fetches, the host thinks** — `plugins/wikipedia` resolves a record
+by its MusicBrainz id through Wikidata and hands over the article verbatim as a `SourceDocument`,
+composing no sentence of its own, because only the host can check a claim against the text it came
+from and there is deliberately no `llm` capability on `PluginHost`. Documents are stored and never
+sent (`forTheWire`), so a better extraction later costs the upstream nothing. **The floor needs no
+model**: an article's opening sentence IS a sourced speakable claim and the quote is the same span,
+so `fact.lead.ts` fills the store whether or not a model exists, and `fact.model.ts` — off by
+default — only adds what a lead sentence cannot carry. Its second call is the whole defence and is
+a SEPARATE conversation that has never seen the article, because a model asked to check its own list
+in the same breath approves it. `fact_extractions` exists because plenty of articles yield nothing,
+and without a mark saying so the pass cannot tell one of those from an article it has never opened.
+On air the claims **top up** rather than mix: they fill what they can and the provider `facts` take
+the rest, since pooling them would put a template line in front of a sourced one at random. Their
+variety comes from different places, which is why — a claim's is the cooldown applied inside the
+query, a provider fact's is `chooseFacts`'s `rotate`. The stamp is at SELECTION, so a break dropped
+before its slot still rests its facts; that inaccuracy is bought deliberately against a
+`segment_events` reader.
 
 **The station's phrasings are the operator's.** `rotation.breakTemplates`, one per line, with the
 station's own five as the DEFAULT — so clearing the box restores them rather than producing a silent

@@ -75,6 +75,12 @@ select deadair.add_updated_at_trigger('deadair.personas');
 -- deleted still aired, and losing the segment would lose what was actually said.
 alter table deadair.segments add column persona_id uuid references deadair.personas (id) on delete set null;
 
+-- Retiring a setting has to take its ROW with it. Nothing reads these two keys any more and nothing
+-- declares them, so `GET /settings` never renders them and `PUT /settings` refuses them — which
+-- leaves an operator's own words sitting in a table that has no way to show them or delete them.
+-- A setting is only really retired once the row is gone.
+delete from deadair.settings where key in ('llm.breakPersona', 'llm.setPersona');
+
 -- migrate:down
 
 alter table deadair.segments drop column persona_id;

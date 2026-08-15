@@ -18,6 +18,7 @@ const getTheRunningOrder = vi.fn();
 const removeARunningOrderItem = vi.fn();
 const shuffleTheRunningOrder = vi.fn();
 const extendTheRunningOrder = vi.fn();
+const replanTheRunningOrder = vi.fn();
 const stopPlayout = vi.fn();
 const startPlayout = vi.fn();
 const rateTrack = vi.fn();
@@ -31,6 +32,7 @@ vi.mock('../../../src/api/client', () => ({
             removeARunningOrderItem: (...args: unknown[]) => removeARunningOrderItem(...args),
             shuffleTheRunningOrder: () => shuffleTheRunningOrder(),
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
+            replanTheRunningOrder: (...args: unknown[]) => replanTheRunningOrder(...args),
         },
         playout: { stopPlayout: () => stopPlayout(), startPlayout: () => startPlayout(), getPlayoutStatus: () => getPlayoutStatus() },
         catalog: { rateTrack: (...args: unknown[]) => rateTrack(...args) },
@@ -291,6 +293,52 @@ describe('OnAirPage', () => {
         render(<OnAirPage />);
 
         expect(await screen.findByRole('button', { name: 'Shuffle' })).toBeDisabled();
+    });
+
+    it('offers to replan a tail that is too short to shuffle, because a dry order is worth replanning', async () => {
+        // The one place the two buttons deliberately disagree. Shuffling one item cannot change
+        // anything; replanning is exactly what an operator wants when the hour has run out.
+        getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ state: 'airing' })] }));
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+
+        expect(await screen.findByRole('button', { name: 'Shuffle' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Replan' })).toBeEnabled();
+    });
+
+    it('replans against a new brief, and seeds the box with what the broadcast is already carrying', async () => {
+        getTheRunningOrder.mockResolvedValue(order({ brief: 'ambient only' }));
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Replan' }));
+
+        const box = await screen.findByLabelText('What it should play');
+        expect(box).toHaveValue('ambient only');
+
+        await userEvent.clear(box);
+        await userEvent.type(box, 'heavy metal hits');
+        // The trigger and the one inside the popover share a name, which is the point: the second
+        // is the confirmation of the first.
+        await userEvent.click(screen.getAllByRole('button', { name: 'Replan' })[1]!);
+
+        await waitFor(() => expect(replanTheRunningOrder).toHaveBeenCalledWith({ brief: 'heavy metal hits' }));
+    });
+
+    it('says nothing about the brief when the operator left it alone', async () => {
+        // Absent keeps what the broadcast was asked for; an empty string CLEARS it. Handing the
+        // untouched box back would turn "I did not touch this" into a rewrite of the same words.
+        getTheRunningOrder.mockResolvedValue(order({ brief: 'ambient only' }));
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Replan' }));
+        await screen.findByLabelText('What it should play');
+
+        await userEvent.click(screen.getAllByRole('button', { name: 'Replan' })[1]!);
+
+        await waitFor(() => expect(replanTheRunningOrder).toHaveBeenCalledWith({}));
     });
 
     it('offers an empty station both ways on air, the brief first', async () => {

@@ -10,6 +10,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { StatusLamp } from '../shared/status.lamp';
 import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
 import { BriefTheStation } from './brief.the.station';
+import { ReplanTheRest } from './replan.the.rest';
 import { StationOrderTable } from './station.order.table';
 
 /**
@@ -151,6 +152,11 @@ export function OnAirPage() {
                                 Shuffle
                             </Button>
                         </Tooltip>
+                        {/* Beside Shuffle because they answer the same complaint and answer it
+                            differently: a shuffle reorders the hour and this one replaces it. Not
+                            disabled on a short tail the way Shuffle is — an order that has run dry
+                            is exactly one worth replanning. */}
+                        <ReplanTheRest brief={loaded?.brief ?? ''} disabled={nothingOn} />
                         <Tooltip
                             label={extendFailure ?? 'Queues a refill. The tracks land a few seconds later.'}
                             color={extendFailure ? 'red' : undefined}

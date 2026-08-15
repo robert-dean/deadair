@@ -1,5 +1,13 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { AddStationSegmentInput, ExtendStationInput, MoveStationItemInput, PutOnAirInput, SetStationAirInput, StationOrder } from '@deadair/sdk';
+import type {
+    AddStationSegmentInput,
+    ExtendStationInput,
+    MoveStationItemInput,
+    PutOnAirInput,
+    ReplanStationInput,
+    SetStationAirInput,
+    StationOrder,
+} from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -145,6 +153,24 @@ export function useExtendOrder() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (input: ExtendStationInput) => sdk.director.extendTheRunningOrder(input),
+        onSuccess: () => {
+            followStationExtend(queryClient);
+        },
+    });
+}
+
+/**
+ * Throws away everything the player is not already holding and has the station programme it again.
+ *
+ * Queued like a refill and slower than one, because the whole set is generated BEFORE anything is
+ * dropped: that is what keeps the old tail playing across the swap. So the follow-ups below are a
+ * nudge rather than the mechanism — what actually shows the new hour is the running order's own
+ * poll, which a replan may well outlast.
+ */
+export function useReplanOrder() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (input: ReplanStationInput) => sdk.director.replanTheRunningOrder(input),
         onSuccess: () => {
             followStationExtend(queryClient);
         },

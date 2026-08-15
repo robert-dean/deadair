@@ -14,6 +14,7 @@ import {
     useMoveOrderItem,
     usePutStationOnAir,
     useRemoveOrderItem,
+    useReplanOrder,
     useSetAirMode,
     useShuffleOrder,
 } from '../../src/api/director.queries';
@@ -26,6 +27,7 @@ const removeARunningOrderItem = vi.fn();
 const moveARunningOrderItem = vi.fn();
 const putTheStationOnAir = vi.fn();
 const extendTheRunningOrder = vi.fn();
+const replanTheRunningOrder = vi.fn();
 const setTheAirMode = vi.fn();
 
 vi.mock('../../src/api/client', () => ({
@@ -36,6 +38,7 @@ vi.mock('../../src/api/client', () => ({
             moveARunningOrderItem: (...args: unknown[]) => moveARunningOrderItem(...args),
             putTheStationOnAir: (...args: unknown[]) => putTheStationOnAir(...args),
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
+            replanTheRunningOrder: (...args: unknown[]) => replanTheRunningOrder(...args),
             setTheAirMode: (...args: unknown[]) => setTheAirMode(...args),
         },
     },
@@ -159,6 +162,35 @@ describe('useExtendOrder', () => {
     // `followStationExtend`. Deliberately not pinned by a test: the schedule is module state, so a
     // case that asserts on it is asserting on what every case before it left behind, and fake-timer
     // sessions do not carry handles across.
+});
+
+describe('useReplanOrder', () => {
+    it('passes the brief through and follows the swap up, since nothing comes back to write in', async () => {
+        // Slower than a refill by design: the whole set is generated before anything is dropped, so
+        // these follow-ups are a nudge and the running order's own poll is what shows the new hour.
+        vi.useFakeTimers();
+        try {
+            replanTheRunningOrder.mockResolvedValue(undefined);
+            const refetch = vi.spyOn(queryClient, 'refetchQueries');
+
+            const { result } = renderHook(() => useReplanOrder(), { wrapper: wrapWithQueryClient(queryClient) });
+            await act(async () => {
+                await result.current.mutateAsync({ brief: 'heavy metal hits' });
+            });
+
+            expect(replanTheRunningOrder).toHaveBeenCalledWith({ brief: 'heavy metal hits' });
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(2_000);
+            });
+            expect(refetch).toHaveBeenCalledWith({ queryKey: queryKeys.director.order() });
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(10_000);
+            });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
 });
 
 describe('useSetAirMode', () => {

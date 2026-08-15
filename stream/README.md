@@ -39,13 +39,18 @@ cue keys — the annotation is accepted and ignored without the operator — plu
 value carries a `dB` suffix, and without it Liquidsoap reads the number as a linear factor, so `-3 dB`
 and `-3` differ by the audio being inverted and amplified tenfold.
 
-`normalize` stays, demoted. It is now what catches records the station has not measured, and its
-arguments are set against the one thing a follower reliably gets wrong: a fade is a level falling for
-tens of seconds, which reads as a record that needs lifting, so the default follower rides the gain up
-as the music leaves and makes an ending get louder. `threshold=-25.` holds the gain through anything
-that quiet, `up=30.` puts its reaction time outside the length of a passage, and `gain_max=6.` bounds
-what it can add now that it is no longer the thing doing the levelling. Those three are a first answer
-and can only be judged by ear.
+`normalize` stays, demoted, and **it can only pull down**. It is now what catches records the station
+has not measured, and its arguments are set against the one thing a follower reliably gets wrong: a
+fade is a level falling for tens of seconds, which reads as a record that needs lifting, so the
+default follower rides the gain up as the music leaves and makes an ending get louder. `threshold=-25.`
+holds the gain through anything that quiet and `up=30.` puts its reaction time outside the length of a
+passage, but neither closes it, because the lift is only half the fault. This is one operator over the
+whole queue, so its gain state is continuous across a track boundary: the gain it rode up as one
+record left is still applied when the next one starts at full level, and the two together are heard as
+every track being loud at both ends. `gain_max=0.` is what closes it, since an elevation that is never
+built cannot carry across. It costs nothing here, because every record this station has measured falls
+between -18.5 and -4.9 LUFS and nothing in the library wants lifting towards -16. When coverage is
+complete the operator comes out entirely and `gain.ts` is the whole level policy.
 
 Then one record is **blended into the next**, from the same measurement again: `cross` sits above
 `normalize`, so the two records overlapping are each already at the station's level and the follower

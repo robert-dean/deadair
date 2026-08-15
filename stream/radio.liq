@@ -429,15 +429,31 @@ playout_bed = amplify(1., override="liq_amplify", playout_bed)
 #              a record that needs turning up.
 #   up         30 rather than 10 seconds, so nothing it does can happen inside one passage of a
 #              record. It is there to correct a track, not to follow one.
-#   gain_max   6 rather than 12, because a static gain has already done the real work and anything
-#              this still wants to add is a guess. Bounding it bounds how wrong the guess gets.
+#   gain_max   0, so the follower can only ever pull DOWN. See below; this is the one that
+#              actually closes it.
 #
 # `gain_min` is left alone: pulling a loud unmeasured record down is the half of this that was
 # never audible as a fault.
 #
-# These three numbers can only be judged by listening, and they are a first answer rather than a
-# tuned one.
-playout_bed = normalize(target=-16., threshold=-25., up=30., gain_max=6., playout_bed)
+# **`gain_max` was 6 and bounding the lift was not enough, because the lift is not the whole bug.**
+# This is ONE operator over the whole queue, so its gain state is continuous across a track boundary
+# and its RMS window straddles one. That makes the fade above and the opening of the record after it
+# the same event, heard from both sides: the follower rides up as a record leaves, and the next
+# record then starts at full level with that elevated gain still applied, snapping back over the
+# `down` time. Reported as "loud at the beginning and end of every track", which is what a boundary
+# fault sounds like when you are listening to tracks.
+#
+# At 0 there is no elevation to carry across, so both halves go at once. It costs nothing this
+# station can hear: every record it has measured falls between -18.5 and -4.9 LUFS, averaging -9.5,
+# so nothing in the library is quiet enough to want lifting towards -16 and the up half of the
+# follower had no legitimate work to do here.
+#
+# What is left is the honest half of the fallback, which is holding down an unmeasured loud master
+# until it has been measured. When coverage is complete this operator comes out of the chain
+# entirely and `gain.ts` is the whole level policy.
+#
+# These numbers can only be judged by listening, and they are a first answer rather than a tuned one.
+playout_bed = normalize(target=-16., threshold=-25., up=30., gain_max=0., playout_bed)
 
 # Blend one record into the next.
 #

@@ -764,6 +764,36 @@ export class StationLineup implements LiveOrder {
         return OK;
     }
 
+    /**
+     * Throw the unplayed tail away and put these records in its place.
+     *
+     * What a REPLAN is, as against a shuffle: the same hour in a different sequence is still the
+     * same hour, and an operator who dislikes what is coming wants different records rather than
+     * different order. The alternative before this was putting the station on air again, which ends
+     * the broadcast and files the rest of the night under a new one.
+     *
+     * Everything not `planned` keeps its place, which is the same line {@link shuffleRemaining}
+     * draws and for the same reason: the head is in the player's hands, and the past is the record
+     * of what happened. So `handed`, `airing`, `played`, `skipped`, `unavailable` and `removed` all
+     * survive untouched and the new records go behind them.
+     *
+     * Planned SEGMENTS go too, and this is deliberately not {@link remove}'s asymmetry. A record is
+     * spliced there and a break is left as a `removed` mark, because `BreakPlanner` counts records
+     * since the last segment already in the order and could not otherwise tell an operator's cut
+     * from a slot it never planted into. Here the whole tail goes at once, so what the planner walks
+     * is a run of records with no segments in it — exactly the state it is built to plant into, and
+     * exactly what it should do with a tail nobody has ever talked over.
+     *
+     * @returns the items it dropped, because the caller has work to do on them: the segments among
+     *   them own `deadair.segments` rows that are now describing a break that will never air.
+     */
+    replacePlanned(tracks: readonly RundownTrack[]): StationLineupItem[] {
+        const dropped = this.itemList.filter(item => item.state === 'planned');
+
+        this.itemList = [...this.itemList.filter(item => item.state !== 'planned'), ...tracks.map(toItem)];
+        return dropped;
+    }
+
     /** Empty it. What is on air is the transport's business, not this one's. */
     clear(): void {
         this.itemList = [];

@@ -386,6 +386,54 @@ describe('StationLineup editing', () => {
         expect(lineup.insertSegment('ident', 1)).toMatchObject({ ok: false, reason: 'already-aired' });
     });
 
+    it('replaces the whole unplayed tail, and leaves everything the player has touched where it is', () => {
+        // The difference between a replan and a shuffle: the records themselves change. What is
+        // handed, airing or already spent is not the operator's to throw away.
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+        const handed = hand(lineup, 2);
+        lineup.markAiring(handed[0]!.id);
+
+        lineup.replacePlanned([track('x'), track('y')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'x', 'y']);
+        expect(statesOf(lineup)).toEqual(['airing', 'handed', 'planned', 'planned']);
+    });
+
+    it('hands back the planned segments it dropped, which own rows that outlive the order', () => {
+        // The caller needs these: a break the station was still writing is now describing a moment
+        // that will never come round, and nothing else knows it was ever planned.
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('talk', 1);
+
+        const dropped = lineup.replacePlanned([track('x')]);
+
+        expect(idsOf(dropped)).toEqual(['a', 'segment:talk', 'b']);
+        expect(idsOf(lineup.all())).toEqual(['x']);
+    });
+
+    it('keeps a removed break out of the way rather than reviving it, and leaves the past alone', () => {
+        // `removed` and the spent states are facts about what happened, not plans. A replan is
+        // about what is still to come.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        const [first] = hand(lineup, 1);
+        lineup.markAiring(first!.id);
+        lineup.markPlayed(first!.id);
+        lineup.insertSegment('ident', 1);
+        lineup.remove(lineup.all()[1]!.id);
+
+        lineup.replacePlanned([track('x')]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:ident', 'x']);
+        expect(statesOf(lineup)).toEqual(['played', 'removed', 'planned']);
+    });
+
+    it('takes a fresh tail onto an order that has run out, which is when it is wanted most', () => {
+        const lineup = lineupWith([]);
+
+        expect(lineup.replacePlanned([track('x')])).toEqual([]);
+        expect(idsOf(lineup.all())).toEqual(['x']);
+    });
+
     it('appends without disturbing anything already committed', () => {
         const lineup = lineupWith(['a']);
         hand(lineup, 1);

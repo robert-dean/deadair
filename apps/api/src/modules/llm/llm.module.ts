@@ -6,6 +6,7 @@ import { ChartsTool } from './charts.tool.js';
 import { LibrarySearchTool } from './library.search.tool.js';
 import { LlmGate } from './llm.gate.js';
 import { LlmService } from './llm.service.js';
+import { NewsTool } from './news.tool.js';
 import { SimilarArtistsTool } from './similar.artists.tool.js';
 import { ToolRegistry } from './llm.tools.js';
 import { StationTasteTool } from './station.taste.tool.js';
@@ -64,6 +65,10 @@ export const LlmModule: ServerKitModule = {
         // it talks to is somebody else's service, so the fetching lives in a plugin and only the
         // adapter is here.
         registry.register(SimilarArtistsTool).useClass(SimilarArtistsTool).asScoped();
+        // The third plugin-backed source, and the only one here that is not about records at all:
+        // what comes back cannot be played, so nothing downstream of it touches the pick path and
+        // the only thing a DJ can do with it is talk.
+        registry.register(NewsTool).useClass(NewsTool).asScoped();
 
         // The source list is explicit rather than discovered, so what the model can reach is one
         // readable line rather than the sum of whatever registered itself. A `tool` plugin
@@ -85,6 +90,11 @@ export const LlmModule: ServerKitModule = {
                             container.get(StationTasteTool),
                             container.get(SimilarArtistsTool),
                             container.get(ChartsTool),
+                            // Last, and for a different reason than the charts: this one does not
+                            // answer the question the others do. A model choosing records is not
+                            // helped by it, and a model writing a break reaches it after everything
+                            // that might tell it what is actually playing.
+                            container.get(NewsTool),
                         ],
                         container.get(Logger),
                     ),

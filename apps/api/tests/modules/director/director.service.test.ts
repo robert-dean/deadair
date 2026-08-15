@@ -33,6 +33,7 @@ import { TrackAudioService, bindingKey } from '../../../src/modules/playout/audi
 import { TrackCachePlanner } from '../../../src/modules/playout/audio/track.cache.planner.js';
 import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import { BreakRequestRepository } from '../../../src/modules/director/break.request.repository.js';
+import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
@@ -100,6 +101,8 @@ interface Options {
     claimedBy?: [string, string][];
     /** The station has a writer and a voice, so a requested break can actually be produced. */
     canTalk?: boolean;
+    /** Requests already in flight, for the pass that places the ones whose audio has landed. */
+    waiting?: StoredBreakRequest[];
 }
 
 function build(options: Options = {}) {
@@ -235,7 +238,8 @@ function build(options: Options = {}) {
         acceptedSince: vi.fn(async (key: string, since: number) => opened.some(row => row.key === key && row.at >= since)),
         attachSegment: vi.fn(async () => {}),
         moveTo: vi.fn(async () => true),
-        waiting: vi.fn(async () => []),
+        // What the commit pass drains. Named by a test that is staging a break already in flight.
+        waiting: vi.fn(async () => options.waiting ?? []),
         findById: vi.fn(async () => undefined),
     };
 
@@ -1927,17 +1931,109 @@ describe('DirectorService opening a database scope', () => {
             expect(jobs.send.mock.calls.filter(([name]) => name === 'director.write_break')).toHaveLength(1);
         });
 
-        it('retires the row when there was nowhere to put the break', async () => {
-            // Failed rather than left pending, for the reason an abandoned placement is failed: a row
-            // nothing will ever pick up should carry its reason and be inert.
-            const { director, seed, requests } = build({ items: ['a'], canTalk: false });
+        it('writes nothing down for a break this station could never produce', async () => {
+            // Judged before the row exists, so the table does not fill with requests for a kind
+            // nothing here can write or speak.
+            const { director, seed, requests } = build({ canTalk: false });
             await seed();
             await director.start();
 
             const result = await director.requestBreak({ ...asking });
 
             expect(result.accepted).toBe(false);
-            expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'failed', 'placed');
+            expect(requests.open).not.toHaveBeenCalled();
+        });
+
+        it('gives an urgent request no position at all until its audio exists', async () => {
+            // The inversion. A planted break arriving at its slot unready is skipped, which is right
+            // for a routine one and fatal for a break that exists because something happened.
+            const { director, seed, requests, jobs, lineup } = build({ canTalk: true });
+            await seed();
+            await director.start();
+            const segmentsBefore = lineup.all().filter(item => item.kind === 'segment').length;
+
+            const result = await director.requestBreak({ ...asking, urgency: 'next' });
+
+            expect(result.accepted).toBe(true);
+            expect(result.atIndex).toBeUndefined();
+            expect(lineup.all().filter(item => item.kind === 'segment')).toHaveLength(segmentsBefore);
+            // Written down as pending, with a deadline: a break held back for its audio is one that
+            // could be held back forever.
+            expect(requests.open).toHaveBeenCalledWith(expect.objectContaining({ urgency: 'next' }), 'pending', expect.any(Number));
+            expect(jobs.send).toHaveBeenCalledWith('director.write_break', { segmentId: result.segmentId });
+        });
+
+        const inFlight = (overrides: Partial<StoredBreakRequest> = {}): StoredBreakRequest => ({
+            id: 'req-1',
+            kind: 'talkbreak',
+            urgency: 'next',
+            source: 'audience',
+            state: 'pending',
+            segmentId: 'seg-ready',
+            ...overrides,
+        });
+
+        it('places a waiting break as soon as its audio exists', async () => {
+            const { director, seed, requests, lineup } = build({
+                canTalk: true,
+                waiting: [inFlight()],
+                segments: [{ id: 'seg-ready', kind: 'talkbreak', state: 'ready', label: 'Talk break' }],
+            });
+            await seed();
+
+            await director.start();
+
+            // At the front of what had not been committed: the words are spoken and the file is on
+            // disk, so the only thing left to decide is a position.
+            const at = lineup.all().findIndex(item => item.kind === 'segment' && item.segmentId === 'seg-ready');
+            expect(at).toBeGreaterThanOrEqual(0);
+            expect(at).toBeLessThanOrEqual(lineup.committedThrough());
+            expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'placed', 'ready');
+        });
+
+        it('leaves a break that is still being made where it is', async () => {
+            const { director, seed, requests, lineup } = build({
+                canTalk: true,
+                waiting: [inFlight()],
+                segments: [{ id: 'seg-ready', kind: 'talkbreak', state: 'rendering', label: 'Talk break' }],
+            });
+            await seed();
+
+            await director.start();
+
+            expect(lineup.all().some(item => item.kind === 'segment' && item.segmentId === 'seg-ready')).toBe(false);
+            expect(requests.moveTo).not.toHaveBeenCalledWith('req-1', 'placed', 'ready');
+        });
+
+        it('retires a break whose moment passed before it was ready', async () => {
+            // The half that keeps the whole arrangement honest: a break held back until its audio
+            // exists is one that can be held back forever, and a bulletin twenty minutes late is not
+            // news.
+            const { director, seed, requests, segmentStub, activity } = build({
+                canTalk: true,
+                waiting: [inFlight({ expiresAt: Date.now() - 1000 })],
+                segments: [{ id: 'seg-ready', kind: 'talkbreak', state: 'ready', label: 'Talk break' }],
+            });
+            await seed();
+
+            await director.start();
+
+            expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'expired', ['pending', 'ready']);
+            expect(segmentStub.markFailed).toHaveBeenCalledWith('seg-ready', expect.stringContaining('was not ready'), 'ready');
+            expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'break.expired' }));
+        });
+
+        it('gives up on a request whose break nothing could write', async () => {
+            const { director, seed, requests } = build({
+                canTalk: true,
+                waiting: [inFlight()],
+                segments: [{ id: 'seg-ready', kind: 'talkbreak', state: 'failed', label: 'Talk break' }],
+            });
+            await seed();
+
+            await director.start();
+
+            expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'failed', ['pending', 'ready']);
         });
     });
 });

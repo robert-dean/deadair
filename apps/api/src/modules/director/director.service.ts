@@ -15,8 +15,8 @@ import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.sourc
 import { inScope } from '#modules/shared/scoped.work.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
-import { BreakPlanner, type AirClock } from './break.planner.js';
-import type { BreakRequest, BreakRequestResult } from './break.request.js';
+import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
+import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
@@ -540,8 +540,23 @@ export class DirectorService {
                 }
 
                 const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
+                const planner = scope.get(BreakPlanner);
+
+                // Asked BEFORE the row is written, so the table does not fill with requests for a
+                // kind this station has no writer or no voice for.
+                const refusal = planner.cannotProduce(request.kind, rules);
+                if (refusal !== undefined) {
+                    this.logger.info('director: declined a request to say something', { kind: request.kind, reason: refusal });
+                    return { accepted: false, reason: refusal };
+                }
+
+                // The two halves of the seam. An urgent request is written down as `pending` and takes
+                // no position at all until its audio exists; a routine one is planted exactly like a
+                // break the station planned for itself, and takes the same chances at its slot.
+                if (isRenderedFirst(request.urgency)) return await this.prepareRequest(requests, planner, rules, request);
+
                 const stored = await requests.open(request, 'placed');
-                const result = await scope.get(BreakPlanner).plantRequested(lineup, rules, this.airClock(lineup), stored);
+                const result = await planner.plantRequested(lineup, rules, this.airClock(lineup), stored);
 
                 if (!result.accepted) {
                     // Failed rather than deleted, exactly as `BreakPlanner.abandon` retires a row the
@@ -560,12 +575,7 @@ export class DirectorService {
                 await this.flushPersist();
                 await this.jobs.send('director.write_break', { segmentId: result.segmentId! });
 
-                void this.activity.record({
-                    module: 'director',
-                    kind: 'break.requested',
-                    detail: `The station was asked for a ${request.kind}${request.reason ? `: ${request.reason}` : ''}.`,
-                    data: { requestId: stored.id, kind: request.kind, urgency: request.urgency, source: request.source },
-                });
+                this.announce(stored.id, request);
                 return result;
             });
         } catch (error) {
@@ -575,6 +585,163 @@ export class DirectorService {
             this.logger.warn(`director: could not take a request to say something (${errorText(error)})`);
             return { accepted: false, reason: 'the station could not write the request down' };
         }
+    }
+
+    /**
+     * Take a request that must be heard, by writing everything and placing nothing.
+     *
+     * The urgent half. A break asked for because something HAPPENED gets no slot until its audio
+     * exists, because the alternative is the failure this whole path is built to avoid: a segment
+     * that reaches its slot unready is skipped, and there is no second welcome coming for a listener
+     * who has already arrived.
+     *
+     * So this writes the row, plans the segment, and sends the write job — and {@link injectReady},
+     * on a later pass, is what finds a position for it once the renderer is done. Nothing about the
+     * running order is touched here at all, which is also why it needs no `flushPersist`.
+     */
+    private async prepareRequest(
+        requests: BreakRequestRepository,
+        planner: BreakPlanner,
+        rules: ResolvedRules,
+        request: BreakRequest,
+    ): Promise<BreakRequestResult> {
+        const expiresAt = expiryFor(request.urgency);
+        const stored = await requests.open(request, 'pending', expiresAt === undefined ? undefined : Date.now() + expiresAt);
+
+        const prepared = await planner.prepareRequested(rules, stored);
+        if ('reason' in prepared) {
+            await requests.moveTo(stored.id, 'failed', 'pending');
+            this.logger.info('director: declined a request to say something', { kind: request.kind, reason: prepared.reason });
+            return { accepted: false, reason: prepared.reason };
+        }
+
+        await requests.attachSegment(stored.id, prepared.segmentId);
+        await this.jobs.send('director.write_break', { segmentId: prepared.segmentId });
+
+        this.logger.info('director: preparing a break to be heard as soon as it exists', {
+            kind: request.kind,
+            urgency: request.urgency,
+            source: request.source,
+        });
+        this.announce(stored.id, request);
+        return { accepted: true, requestId: stored.id, segmentId: prepared.segmentId };
+    }
+
+    /** Say on the feed that the station was asked for something. Accepted requests only. */
+    private announce(requestId: string, request: BreakRequest): void {
+        void this.activity.record({
+            module: 'director',
+            kind: 'break.requested',
+            // The station's own sentence: a producer's `reason` is app-written by the same rule that
+            // governs everything else on this feed.
+            detail: `The station was asked for a ${request.kind}${request.reason ? `: ${request.reason}` : ''}.`,
+            data: { requestId, kind: request.kind, urgency: request.urgency, source: request.source },
+        });
+    }
+
+    /**
+     * Give the breaks whose audio now exists a place in the running order, and retire the ones whose
+     * moment has passed.
+     *
+     * Run from the commit pass, before anything is planted or handed over, on the same argument that
+     * puts planting there: a break injected this pass has to be in the order before the pass takes
+     * anything out of it.
+     *
+     * **It notices for itself rather than being told.** The render job could post the moment a
+     * segment is spoken, and it deliberately does not: `render` is registered before `director` in
+     * `modules.ts`, so a job reaching for this class would invert the module edge. Reading the
+     * segment's own state here needs nothing from the renderer, cannot be lost the way a message can,
+     * and costs one indexed query per pass that answers nothing on the overwhelming majority of them.
+     *
+
+     * **Expiry is the half that keeps this honest.** A break held back until its audio exists is a
+     * break that can be held back forever, and airing one late is worse than not airing it: a
+     * bulletin that took twenty minutes to write and speak is not news, and a welcome for a listener
+     * who left ten minutes ago is a station talking to an empty room. So a request past its deadline
+     * is retired here whether or not it ever became ready, and its segment is failed rather than
+     * deleted — carrying the reason, and inert.
+     *
+     * Everything is swallowed, exactly as `plantBreaks` is: the records either side play regardless.
+     */
+    private async injectReady(lineup: StationLineup): Promise<void> {
+        try {
+            await inScope(this.container, async scope => {
+                const requests = scope.get(BreakRequestRepository);
+                const waiting = await requests.waiting();
+                if (waiting.length === 0) return;
+
+                const planner = scope.get(BreakPlanner);
+                const segments = scope.get(SegmentRepository);
+                let placed = 0;
+
+                for (const request of waiting) {
+                    if (request.expiresAt !== undefined && Date.now() >= request.expiresAt) {
+                        await this.expire(requests, segments, request);
+                        continue;
+                    }
+                    if (request.segmentId === undefined) continue;
+
+                    const segment = await segments.findById(request.segmentId);
+                    // Nothing could write it, or nothing could speak it. The reason is already on the
+                    // segment row; this is only the request agreeing that it is over.
+                    if (segment === undefined || segment.state === 'failed') {
+                        await requests.moveTo(request.id, 'failed', ['pending', 'ready']);
+                        continue;
+                    }
+                    // Still being written or spoken: an ordinary state on most passes, since the
+                    // whole point is that the words and the audio come first.
+                    if (segment.state !== 'ready') continue;
+
+                    // The audio exists. Recorded before the placement is attempted, so an order with
+                    // no room leaves behind a request that is waiting for a SLOT rather than one that
+                    // still looks like it is waiting for a renderer.
+                    await requests.moveTo(request.id, 'ready', 'pending');
+
+                    const at = await planner.injectRequested(lineup, request, request.segmentId);
+                    // No room in the order, or the order moved under the insert. Left `ready` rather
+                    // than failed: the audio still exists, and the next pass has a longer order to
+                    // put it in.
+                    if (at === undefined) continue;
+
+                    await requests.moveTo(request.id, 'placed', 'ready');
+                    placed += 1;
+                    this.logger.info('director: put a break the station was waiting on into the running order', {
+                        kind: request.kind,
+                        urgency: request.urgency,
+                        at,
+                    });
+                }
+
+                // Written through rather than soon, for the reason a planting pass is: the order now
+                // holds a break, and anything reading the row back has to see it.
+                if (placed > 0) await this.flushPersist();
+            });
+        } catch (error) {
+            this.logger.warn(`director: could not place a break the station was asked for (${errorText(error)})`);
+        }
+    }
+
+    /** Retire a request whose moment has passed, and the break that was being made for it. */
+    private async expire(requests: BreakRequestRepository, segments: SegmentRepository, request: StoredBreakRequest): Promise<void> {
+        if (!(await requests.moveTo(request.id, 'expired', ['pending', 'ready']))) return;
+
+        if (request.segmentId !== undefined) {
+            const segment = await segments.findById(request.segmentId);
+            // Failed from wherever it got to. A break nobody will hear should not sit in the console's
+            // library looking like one that is still coming.
+            if (segment !== undefined && segment.state !== 'failed') {
+                await segments.markFailed(request.segmentId, 'this break was not ready before the moment it was asked for had passed', segment.state);
+            }
+        }
+
+        this.logger.info('director: a break the station was asked for was not ready in time', { kind: request.kind, urgency: request.urgency });
+        void this.activity.record({
+            module: 'director',
+            kind: 'break.expired',
+            severity: 'warn',
+            detail: `A ${request.kind} the station was asked for was not ready in time, so it will not be aired.`,
+            data: { requestId: request.id, kind: request.kind, urgency: request.urgency, source: request.source },
+        });
     }
 
     /**
@@ -771,6 +938,12 @@ export class DirectorService {
         // than only on a change of order: it is one assignment, and it is what makes an operator's
         // change take effect within a track or two instead of at the next broadcast.
         this.rundown.setCrossfade(rules.crossfade);
+
+        // FIRST, and before planting: a break the station was asked for and has already spoken is
+        // waiting for a position, and everything below this line either takes items out of the order
+        // or puts breaks into it. It also retires the ones whose moment has passed, which is what
+        // stops a request held back for its audio being held back forever.
+        await this.injectReady(lineup);
 
         // BEFORE committing, so a break planted this pass is in the order before anything is
         // taken from it. The other way round, the tail would be topped up first and the break

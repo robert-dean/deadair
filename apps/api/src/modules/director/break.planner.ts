@@ -93,14 +93,32 @@ export const WRITE_AHEAD = 8;
  * finished recording held back for a slot can. A bulletin that took twenty minutes to render is not
  * news, and a welcome for a listener who has since left is worse than silence.
  */
-export const URGENCY = {
+export interface UrgencyBounds {
+    /** How far away the boundary has to be for a write and a render to make it. */
+    leadMs: number;
+    /** How far away it may be before the request has missed what it was asking for. */
+    deadlineMs?: number;
+    /** How long the words stay worth speaking, for one held back until its audio exists. */
+    expiresMs?: number;
+}
+
+export const URGENCY: Record<BreakUrgency, UrgencyBounds> = {
     // The shortest lead of the four, because a talk-over does not wait for a boundary: it rides a
     // record and speaks part-way in, so the renderer has the head of that record as well.
     interrupt: { leadMs: 20_000, expiresMs: 10 * 60_000 },
     next: { leadMs: 90_000, expiresMs: 15 * 60_000 },
     soon: { leadMs: 90_000, deadlineMs: 10 * 60_000 },
     whenever: { leadMs: 0 },
-} as const satisfies Record<BreakUrgency, { leadMs: number; deadlineMs?: number; expiresMs?: number }>;
+};
+
+/**
+ * How long a request of this urgency stays worth airing, or `undefined` for one with no deadline.
+ *
+ * A function rather than a property read, because only two of the four have one and the table above
+ * says why: an expiry belongs to a break whose audio is being held back, and a planted break's
+ * expiry is its own position.
+ */
+export const expiryFor = (urgency: BreakUrgency): number | undefined => URGENCY[urgency].expiresMs;
 
 /**
  * How far into a record an interrupting talk-over speaks.
@@ -284,6 +302,78 @@ export class BreakPlanner {
     }
 
     /**
+     * Write down a break that will take its slot only once it can actually be heard.
+     *
+     * The inversion, and the whole of why the two urgent urgencies exist. A planted break is put in
+     * the order first and written afterwards, which is right for a routine one: another is coming, so
+     * arriving at its slot unready costs a break the station could spare. A requested break has no
+     * other one coming — the moment that caused it does not come round again — so nothing goes into
+     * the order until there is audio, and {@link injectRequested} is what puts it there.
+     *
+     * `airsAt` is an ESTIMATE here rather than a projection, and it says so: nothing has a position
+     * yet, so the best available answer is the soonest this urgency could be heard. It is what the
+     * writer says the time from, and being wrong about it is caught twice over — by the request's own
+     * expiry, and by the claim window the director checks at hand-over.
+     */
+    async prepareRequested(rules: ResolvedRules, request: StoredBreakRequest): Promise<{ segmentId: string } | { reason: string }> {
+        const refusal = this.refuse(request.kind, rules);
+        if (refusal !== undefined) return { reason: refusal };
+
+        const segment = await this.segments.plan({
+            kind: request.kind,
+            label: labelFor(request.kind),
+            requestId: request.id,
+            airsAt: Date.now() + URGENCY[request.urgency].leadMs,
+        });
+
+        return { segmentId: segment.id };
+    }
+
+    /**
+     * Put a break whose audio now exists at the front of what has not been committed.
+     *
+     * The other half of {@link prepareRequested}, and it needs no lead at all: the words are spoken,
+     * the file is on disk, and the only thing left is a position. So it takes the earliest one the
+     * order will accept, which is the next boundary the station reaches.
+     *
+     * A boundary already holding a break is walked past for {@link slotFor}'s reason — two breaks
+     * back to back is worse than one boundary later — and an interruption rides the record it lands
+     * in front of rather than sitting in the gap.
+     *
+     * Answers the index it took, or `undefined` for an order with nothing left to put a break in
+     * front of. That is an ordinary answer rather than a failure: the request stays `ready` and the
+     * next pass tries again against an order that has since been topped up.
+     */
+    async injectRequested(lineup: StationLineup, request: StoredBreakRequest, segmentId: string): Promise<number | undefined> {
+        const items = lineup.all();
+        let atIndex: number | undefined;
+        for (let index = Math.max(0, lineup.committedThrough()); index < items.length; index++) {
+            if (items[index]!.kind === 'segment') continue;
+            atIndex = index;
+            break;
+        }
+        if (atIndex === undefined) return undefined;
+
+        const over = request.urgency === 'interrupt' ? { atMs: INTERRUPT_OVER_AT_MS } : undefined;
+        const placed = await this.insert(lineup, [
+            { segmentId, atIndex, kind: request.kind, written: true, ...(over === undefined ? {} : { over }) },
+        ]);
+
+        return placed ? atIndex : undefined;
+    }
+
+    /**
+     * Whether this break can be produced at all, as a sentence saying why not.
+     *
+     * Public because a request is judged BEFORE anything is written down, which is what stops the
+     * table filling with rows for a kind the station has no writer or no voice for. See
+     * {@link refuse}.
+     */
+    cannotProduce(kind: string, rules: ResolvedRules): string | undefined {
+        return this.refuse(kind, rules);
+    }
+
+    /**
      * Where a break of this urgency can still go, and when it would be heard.
      *
      * The first boundary at least `leadMs` away, which is what makes this a question about the clock
@@ -306,7 +396,7 @@ export class BreakPlanner {
         // a planted break does.
         const from = lineup.committedThrough() + (urgency === 'whenever' ? PLANT_AHEAD : 0);
         const projected = projectAirTimes(items, clock.anchorAt, clock.from);
-        const deadline = 'deadlineMs' in bounds ? clock.now + bounds.deadlineMs : undefined;
+        const deadline = bounds.deadlineMs === undefined ? undefined : clock.now + bounds.deadlineMs;
 
         for (let index = Math.max(0, from); index < items.length; index++) {
             const at = projected[index];

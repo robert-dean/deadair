@@ -13,7 +13,7 @@ import {
     type ProviderTrack,
     type SearchTracksOptions,
 } from '@deadair/plugin-sdk';
-import { SpotifyApi } from '@spotify/web-api-ts-sdk';
+import { SpotifyApi, type Market } from '@spotify/web-api-ts-sdk';
 
 import { HostVaultAuthStrategy } from './spotify.auth.js';
 import { createHostFetch, SpotifyRequestError, SpotifyResponseValidator } from './spotify.fetch.js';
@@ -26,7 +26,10 @@ import {
     mapPlaybackState,
     mapPlaylist,
     mapTrack,
+    quoteIfNeeded,
+    releaseYearOf,
     SEARCH_OFFSET_MAX,
+    withinYears,
     type SpotifyPlaylistedItem,
 } from './spotify.mapping.js';
 
@@ -37,6 +40,17 @@ const DEVICE_ID_CACHE_TTL_MS = 60_000;
 
 /** Surfaced when a steer call 404s and there is no device left to fall back on. */
 const NO_ACTIVE_DEVICE_MESSAGE = 'no active Spotify device; open Spotify or start the go-librespot bridge';
+
+/**
+ * How many artists a genre browse takes the top tracks of.
+ *
+ * Each one is a request, on an account this plugin is careful about the rate limit of, so this is
+ * the number that decides what a browse COSTS: six artists is seven calls and up to sixty records,
+ * which is more than any caller's ceiling and comfortably more variety than a refill needs. Raising
+ * it buys deeper cuts of the same genre at a request each; the reason not to is that a browse runs
+ * inside a refill that also has records to fetch.
+ */
+const BROWSE_ARTISTS = 6;
 
 /** Maps a batch of Spotify items to `ProviderTrack`s, dropping the ones `mapTrack` can't use (nulls, episodes). */
 function toProviderTracks(tracks: Parameters<typeof mapTrack>[0][]): ProviderTrack[] {
@@ -80,6 +94,8 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      * would otherwise spend a second round trip on every listing.
      */
     private currentUserIdCache?: string;
+    /** The account's country, for the one endpoint that will not answer without one. */
+    private marketCache?: Market;
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -108,6 +124,7 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
         this.auth = undefined;
         this.api = undefined;
         this.currentUserIdCache = undefined;
+        this.marketCache = undefined;
         this.deviceIdCache = undefined;
     }
 
@@ -166,9 +183,17 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      */
     async searchTracks(query: string, options?: SearchTracksOptions): Promise<ProviderTrack[]> {
         const wanted = clampSearchTotal(options?.limit);
-        // Spotify's own `genre:` / `year:` dialect, built here because the SDK keeps a filter
-        // structured and provider-neutral. Nothing declines: this is the one provider that CAN
-        // filter, so it never has to answer `[]` for a narrowing it cannot express.
+
+        // A genre with no words to search for is a BROWSE, and it goes somewhere else entirely.
+        // `genre:` is a real filter on an ARTIST search and does nothing usable on a track search
+        // — see `buildSearchQuery`, which no longer sends it — so the only honest way to answer
+        // "what rap is there" is to find the artists and ask what their biggest records are.
+        const genre = options?.genre?.trim();
+        if (genre !== undefined && genre.length > 0 && query.trim().length === 0) return await this.browseGenre(genre, options, wanted);
+
+        // Spotify's own `year:` dialect, built here because the SDK keeps a filter structured and
+        // provider-neutral. A genre alongside text is dropped rather than sent: it would return
+        // nothing at all, and the words are what the caller actually wanted found.
         const q = buildSearchQuery(query, options);
         let offset = clampSearchOffset(options?.offset) ?? 0;
 
@@ -190,6 +215,84 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
         }
 
         return tracks.slice(0, wanted);
+    }
+
+    /**
+     * What a genre sounds like here: its artists' biggest records.
+     *
+     * ## Why a browse is two calls rather than one filter
+     *
+     * `genre:` on a track search does not narrow it, measured against the real API: with words it
+     * answers with nothing or with unrelated records, and without them it answers with the same two
+     * dozen obscure recordings whatever period is asked for. On an ARTIST search it is a real
+     * filter, and an artist's top tracks are ranked by Spotify itself — so the pair answers the
+     * question a browse is actually asking, which is "who plays this, and what are they known for".
+     *
+     * That is also why this is the path a brief reaches. Asked for "popular rap songs from the USA"
+     * the station used to hand a model two dozen bedroom uploads; the model named them, because
+     * nothing on the row said which were hits. Top tracks ARE the hits.
+     *
+     * ## What it costs, and what bounds it
+     *
+     * One artist search plus one call per artist, capped at {@link BROWSE_ARTISTS}. Deliberately
+     * modest: this runs inside a refill on a rate-limited account, and a browse that spent thirty
+     * requests would be a better answer nobody could afford to ask for twice. It stops early once
+     * `wanted` records are in hand.
+     *
+     * A period is applied HERE rather than sent, because top tracks take no year filter — a record
+     * whose release date Spotify does not give is kept, so the filter drops what is known to fall
+     * outside rather than everything unlabelled.
+     *
+     * The market is the connected account's own country, since that is what this station can
+     * actually play. Without it Spotify refuses the call, so a profile that cannot be read means no
+     * browse rather than a guessed country: answering with another market's hits would be inventing
+     * a catalogue the account may not be able to play from.
+     */
+    private async browseGenre(genre: string, options: SearchTracksOptions | undefined, wanted: number): Promise<ProviderTrack[]> {
+        const market = await this.getMarket();
+        if (market === undefined) {
+            this.host.logger.warn('cannot browse a genre without the account market; answering with nothing', { genre });
+            return [];
+        }
+
+        const results = await this.getApi().search(`genre:${quoteIfNeeded(genre)}`, ['artist'], market, clampSearchLimit(BROWSE_ARTISTS));
+        const artists = results.artists.items.filter(artist => typeof artist.id === 'string' && artist.id.length > 0);
+
+        const tracks: ProviderTrack[] = [];
+        for (const artist of artists.slice(0, BROWSE_ARTISTS)) {
+            if (tracks.length >= wanted) break;
+
+            const top = await this.getApi().artists.topTracks(artist.id, market);
+            for (const item of top.tracks) {
+                if (!withinYears(releaseYearOf(item.album), options)) continue;
+
+                const mapped = mapTrack(item);
+                if (mapped !== undefined) tracks.push(mapped);
+            }
+        }
+
+        return tracks.slice(0, wanted);
+    }
+
+    /**
+     * The connected account's country, or `undefined` when it cannot be read.
+     *
+     * Cached beside {@link getCurrentUserId} and cleared with it on unload, because it is the same
+     * profile call and the same lifetime. Swallows for that method's reason too, with one
+     * difference worth stating: this one's caller has no degraded mode to fall back to, so it
+     * reports rather than carrying on.
+     */
+    private async getMarket(): Promise<Market | undefined> {
+        if (this.marketCache !== undefined) return this.marketCache;
+
+        try {
+            const profile = await this.getApi().currentUser.profile();
+            this.marketCache = profile.country as Market | undefined;
+            return this.marketCache;
+        } catch (error) {
+            this.host.logger.warn('could not resolve the Spotify account market', { error: errorText(error) });
+            return undefined;
+        }
     }
 
     async getTrack(trackId: string): Promise<ProviderTrack | undefined> {

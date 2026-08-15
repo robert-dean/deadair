@@ -307,7 +307,9 @@ describe('SpotifyPlugin', () => {
             expect(host.calls).toHaveLength(5);
         });
 
-        it('searchTracks sends a filter as Spotify field syntax rather than as query text', async () => {
+        it('searchTracks sends a period as Spotify field syntax, and drops a style it cannot express', async () => {
+            // `genre:` does not narrow a track search, it destroys it — so the words go alone and
+            // the style is what routes a wordless search to the browse below.
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
             host.queueResponse(apiResponse({ tracks: { items: [] } }));
@@ -315,7 +317,84 @@ describe('SpotifyPlugin', () => {
             await plugin.searchTracks('hits', { genre: 'jazz', yearFrom: 1955, yearTo: 1965 });
 
             const q = new URL(host.calls[0].url).searchParams.get('q');
-            expect(q).toBe('hits genre:jazz year:1955-1965');
+            expect(q).toBe('hits year:1955-1965');
+        });
+
+        it('browses a genre through its ARTISTS, since a track search cannot be narrowed by one', async () => {
+            // The measured failure: `genre:` on a track search answers with nothing or with
+            // unrelated records. On an artist search it is a real filter, and an artist's top
+            // tracks are the hits — which is what a brief asking for popular anything wanted.
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ country: 'GB', id: 'me' }));
+            host.queueResponse(apiResponse({ artists: { items: [{ id: 'artist-1', name: 'Aretha Franklin' }] } }));
+            host.queueResponse(apiResponse({ tracks: [{ ...searchHit('t1'), popularity: 82 }] }));
+
+            const results = await plugin.searchTracks('', { genre: 'soul', limit: 10 });
+
+            expect(new URL(host.calls[1].url).searchParams.get('q')).toBe('genre:soul');
+            expect(new URL(host.calls[1].url).searchParams.get('type')).toBe('artist');
+            expect(host.calls[2].url).toContain('artists/artist-1/top-tracks');
+            expect(results).toHaveLength(1);
+            expect(results[0]?.popularity).toBe(82);
+        });
+
+        it('asks the account which market it is in, because top tracks will not answer without one', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ country: 'GB', id: 'me' }));
+            host.queueResponse(apiResponse({ artists: { items: [{ id: 'artist-1', name: 'A' }] } }));
+            host.queueResponse(apiResponse({ tracks: [searchHit('t1')] }));
+
+            await plugin.searchTracks('', { genre: 'soul' });
+
+            expect(host.calls[0].url).toContain('me');
+            expect(host.calls[2].url).toContain('market=GB');
+        });
+
+        it('answers with nothing rather than guessing a market it could not read', async () => {
+            // Another market's hits would be a catalogue this account may not be able to play from.
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ error: 'nope' }, { status: 500 }));
+
+            expect(await plugin.searchTracks('', { genre: 'soul' })).toEqual([]);
+        });
+
+        it('applies a period itself, because top tracks take no year filter', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ country: 'GB', id: 'me' }));
+            host.queueResponse(apiResponse({ artists: { items: [{ id: 'artist-1', name: 'A' }] } }));
+            host.queueResponse(
+                apiResponse({
+                    tracks: [
+                        { ...searchHit('old'), album: { name: 'Then', release_date: '1967-03-10' } },
+                        { ...searchHit('new'), album: { name: 'Now', release_date: '2019' } },
+                        // No release date: kept, because the filter drops what is KNOWN to fall
+                        // outside rather than everything unlabelled.
+                        { ...searchHit('undated'), album: { name: 'Undated' } },
+                    ],
+                }),
+            );
+
+            const results = await plugin.searchTracks('', { genre: 'soul', yearTo: 1970 });
+
+            expect(results.map(found => found.title)).toEqual(['Song old', 'Song undated']);
+        });
+
+        it('bounds a browse to a handful of artists, since each one is a request', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse(apiResponse({ country: 'GB', id: 'me' }));
+            host.queueResponse(apiResponse({ artists: { items: Array.from({ length: 20 }, (_, i) => ({ id: `artist-${i}`, name: `A${i}` })) } }));
+            for (let index = 0; index < 20; index += 1) host.queueResponse(apiResponse({ tracks: [searchHit(`t${index}`)] }));
+
+            const results = await plugin.searchTracks('', { genre: 'soul', limit: 50 });
+
+            // The profile, the artist search, and one call per artist taken.
+            expect(host.calls.length).toBeLessThanOrEqual(8);
+            expect(results.length).toBeLessThanOrEqual(6);
         });
 
         it('getTrack returns the mapped track on success', async () => {

@@ -139,7 +139,7 @@ export class CatalogSearchTool implements ToolSource {
                             genre: {
                                 type: 'string',
                                 description:
-                                    'Narrow to a style, e.g. "jazz". Use this instead of putting the style in query: query only matches titles and artist names.',
+                                    'A style, e.g. "jazz". On its own, with no query, it browses that style\'s best-known artists and their biggest records — which is how to ask for hits. Alongside a query the query wins, so search by artist name when you know who you want.',
                             },
                             yearFrom: { type: 'number', description: 'Narrow to records released in or after this year.' },
                             yearTo: { type: 'number', description: 'Narrow to records released in or before this year.' },

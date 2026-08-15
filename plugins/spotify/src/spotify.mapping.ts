@@ -20,6 +20,8 @@ interface SpotifyArtist {
 interface SpotifyAlbum {
     name?: string;
     images?: SpotifyImage[];
+    /** `YYYY`, `YYYY-MM` or `YYYY-MM-DD`, per Spotify's own precision field. */
+    release_date?: string;
 }
 
 interface SpotifyTrack {
@@ -228,22 +230,27 @@ export function clampSearchLimit(limit: number | undefined): MaxInt<50> {
  * The caller's free text plus Spotify's own field filters, as one `q`.
  *
  * Spotify's search is a text match against titles and artist names, so a station's brief handed
- * straight over comes back as records with those words in the title. `genre:` and `year:` are a
- * different axis and the only way to ask the question the caller meant. The SDK keeps them
- * structured and provider-neutral precisely so this translation lives here, in the one plugin that
- * knows this dialect — the host never learns it, the same way it never learns a speech engine's
- * knobs.
+ * straight over comes back as records with those words in the title. `year:` is a different axis and
+ * the only way to ask the question the caller meant. The SDK keeps the filters structured and
+ * provider-neutral precisely so this translation lives here, in the one plugin that knows this
+ * dialect — the host never learns it, the same way it never learns a speech engine's knobs.
  *
- * Values are quoted when they contain a space, because `genre:new wave` parses as a genre of `new`
- * and a stray term `wave`. A year range is `year:1955-1965`, and either end alone is `year:1955`
- * (Spotify reads a bare year as that year, so an open-ended `yearFrom` is expressed by ranging it to
- * the other bound rather than left dangling).
+ * **`genre:` is deliberately NOT emitted here, and that is a fix rather than an omission.** It went
+ * onto every track search for as long as this function existed, and measured against the real API it
+ * does not narrow a track search, it destroys it: `Snoop Dogg genre:"hip hop"` answered with NOTHING
+ * for an artist the account can certainly play, and `Dr Dre genre:"hip hop"` answered with ten
+ * records by nobody of that name. With no text at all it returned the same two dozen obscure records
+ * whatever year range came with it. A model narrowing exactly as it had been told to was getting
+ * junk or silence, and the station could not tell either from a thin catalogue. Genre is a real
+ * filter on an ARTIST search, which is how {@link SpotifyPlugin.searchTracks} serves one now.
+ *
+ * Values are quoted when they contain a space, because `year:new wave` parses as a stray term. A
+ * year range is `year:1955-1965`, and either end alone is `year:1955` (Spotify reads a bare year as
+ * that year, so an open-ended `yearFrom` is expressed by ranging it to the other bound rather than
+ * left dangling).
  */
 export function buildSearchQuery(query: string, options: SearchTracksOptions | undefined): string {
     const parts = [query.trim()];
-
-    const genre = options?.genre?.trim();
-    if (genre) parts.push(`genre:${quoteIfNeeded(genre)}`);
 
     const from = year(options?.yearFrom);
     const to = year(options?.yearTo);
@@ -265,11 +272,33 @@ function year(value: number | undefined): number | undefined {
     return rounded >= YEAR_MIN && rounded <= YEAR_MAX ? rounded : undefined;
 }
 
+/**
+ * Whether a track falls inside a caller's year range, read off its album's release date.
+ *
+ * For the browse path, which cannot express a year to Spotify at all: an artist's top tracks are
+ * whatever they are, so a period asked for has to be applied here or silently ignored. A record
+ * whose release date Spotify does not give is KEPT — the filter narrows what is known to fall
+ * outside, rather than dropping everything unlabelled.
+ */
+export function withinYears(released: number | undefined, options: SearchTracksOptions | undefined): boolean {
+    if (released === undefined) return true;
+
+    const from = year(options?.yearFrom);
+    const to = year(options?.yearTo);
+    return (from === undefined || released >= from) && (to === undefined || released <= to);
+}
+
+/** The four-digit year off a Spotify release date, whatever precision it came at. */
+export const releaseYearOf = (album: { release_date?: string } | undefined): number | undefined => {
+    const match = /^(\d{4})/.exec(album?.release_date ?? '');
+    return match ? Number(match[1]) : undefined;
+};
+
 /** A usable 0-100 ranking. Anything else is Spotify not having said. */
 const isRanking = (value: number | undefined): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100;
 
 /** A double quote is what Spotify's parser takes, and a value carrying one cannot be quoted at all. */
-const quoteIfNeeded = (value: string): string => (value.includes(' ') && !value.includes('"') ? `"${value}"` : value.replace(/"/g, ''));
+export const quoteIfNeeded = (value: string): string => (value.includes(' ') && !value.includes('"') ? `"${value}"` : value.replace(/"/g, ''));
 
 /** Holds a caller's search offset inside the window Spotify will page over. */
 export function clampSearchOffset(offset: number | undefined): number | undefined {

@@ -202,15 +202,17 @@ describe('searching', () => {
         expect(result.tracks.map(item => item.title)).toEqual(['One']);
     });
 
-    it('offers the filters, and says why the query alone will not do', async () => {
+    it('offers the filters, and says what a style on its own does', async () => {
         // A parameter a model does not know the point of is a parameter it does not use, and the
         // point here is not inferable: `query` matches titles and artist names, so "jazz club hits"
-        // came back as records literally titled "Jazz Club".
+        // came back as records literally titled "Jazz Club". What a genre does is not inferable
+        // either — on its own it browses the style's best-known artists, which is how to ask for
+        // hits, and beside a query it is the query that decides.
         const tool = await offered([fakeCatalog()]);
         const properties = (tool?.declaration.parameters as { properties: Record<string, { description?: string }> }).properties;
 
         expect(Object.keys(properties)).toEqual(expect.arrayContaining(['genre', 'yearFrom', 'yearTo']));
-        expect(properties.genre?.description).toContain('only matches titles and artist names');
+        expect(properties.genre?.description).toContain('best-known artists');
     });
 
     it('hands a filter to the provider untranslated', async () => {

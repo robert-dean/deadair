@@ -29,6 +29,30 @@ describe('hostFetch', () => {
         expect(calls[0]?.url).toBe('https://models.example/v1/chat/completions');
     });
 
+    it('asks for the whole of what the call has left, because a model may be slow to start answering', async () => {
+        // The host's default is ten seconds to the response ARRIVING, which is the wrong bound for
+        // a self-hosted model loading weights before its first token. It killed a real refill:
+        // `POST … timed out after 10000ms`, reported upward as a model that named no records.
+        const { host, calls } = hostWithSpy();
+        host.seedRemainingMs(120_000);
+
+        await hostFetch(host)('https://models.example/v1/chat/completions', { method: 'POST', body: '{}' });
+
+        expect(calls[0]?.init?.timeoutMs).toBe(120_000);
+    });
+
+    it('reads the budget per call, since one provider serves a refill and a break writer alike', async () => {
+        const { host, calls } = hostWithSpy();
+        const fetch = hostFetch(host);
+
+        host.seedRemainingMs(120_000);
+        await fetch('https://models.example/v1/chat/completions', { method: 'POST', body: '{}' });
+        host.seedRemainingMs(8_000);
+        await fetch('https://models.example/v1/chat/completions', { method: 'POST', body: '{}' });
+
+        expect(calls.map(call => call.init?.timeoutMs)).toEqual([120_000, 8_000]);
+    });
+
     it('flattens a URL object, which the SDK is entitled to pass', async () => {
         const { host, calls } = hostWithSpy();
 

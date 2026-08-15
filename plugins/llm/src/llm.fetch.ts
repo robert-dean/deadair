@@ -29,10 +29,30 @@ import { PluginError, headersToRecord, hostFetchMethod, type HostFetchInit, type
  *
  * Bound to the host rather than reading it per call, so a provider built at load
  * time keeps working without reaching back through `this`.
+ *
+ * ## The generation gets the whole call's budget, and it has to
+ *
+ * `host.fetch` bounds getting the RESPONSE — connect, headers, the redirect chain — and defaults
+ * that to ten seconds when a plugin does not say. Ten seconds is a sensible default for an API that
+ * answers, and it is the wrong one for this: a self-hosted model that has to load weights into VRAM
+ * before it emits its first token routinely spends longer than that before the response begins, and
+ * the call died on a station whose model host is a machine on the LAN — `POST … timed out after
+ * 10000ms`, reported upward as a model that named no records, which is indistinguishable from a
+ * model that declined.
+ *
+ * So the budget asked for is whatever the invocation has LEFT, which is the honest answer to "how
+ * long may this take": the host caps it at exactly that anyway (`Math.min(timeoutMs, ceilingMs)`),
+ * a background refill carries minutes of it, and a break writer carries the seconds it is allowed
+ * before the floor writes instead. Reading it per call rather than once is the point — the same
+ * provider object serves both callers, and the second tool round of a conversation has less left
+ * than the first.
+ *
+ * Note this bounds the response ARRIVING and not the answer streaming, which the host bounds
+ * separately with its own body idle and lifetime limits.
  */
 export function hostFetch(host: PluginHost): typeof fetch {
     return (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-        return await host.fetch(urlOf(input), toHostInit(init));
+        return await host.fetch(urlOf(input), { ...toHostInit(init), timeoutMs: host.remainingMs() });
     }) as typeof fetch;
 }
 

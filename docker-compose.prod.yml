@@ -58,7 +58,7 @@ services:
             - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
             - ./nginx/snippets:/etc/nginx/snippets:ro
             # Built SPA, served directly by nginx. Requires `pnpm --filter
-            # @app/web build` to have run on the host first.
+            # @deadair/web build` to have run on the host first.
             - ./apps/web/dist:/srv/web:ro
         depends_on:
             app:

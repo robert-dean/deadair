@@ -5,7 +5,7 @@
             "Bash(wizard:*)",
             "Bash(pnpm --filter @deadair/cli wizard:*)",
             "Bash(pnpm --filter @deadair/api dev)",
-            "Bash(pnpm --filter @app/web dev)",
+            "Bash(pnpm --filter @deadair/web dev)",
             "Bash(pnpm test *)",
             "Bash(pnpm vitest:*)",
             "Bash(pnpm exec vitest *)",

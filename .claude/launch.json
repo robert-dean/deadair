@@ -10,7 +10,7 @@
         {
             "name": "web",
             "runtimeExecutable": "pnpm",
-            "runtimeArgs": ["--filter", "@app/web", "dev"],
+            "runtimeArgs": ["--filter", "@deadair/web", "dev"],
             "port": 3002
         }
     ]

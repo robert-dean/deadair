@@ -1,5 +1,5 @@
 {
-    "name": "@app/web",
+    "name": "@deadair/web",
     "private": true,
     "type": "module",
     "scripts": {

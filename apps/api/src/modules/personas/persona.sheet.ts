@@ -95,13 +95,24 @@ const MAX_EXAMPLES = 3;
 const REMINDER_CLAUSES = 2;
 
 /**
- * How many distinct markers a script must carry to count as still in character.
+ * How much evidence of character a script must carry to count as still in character.
  *
- * Two rather than one, because a single hit is as likely to be a coincidence as a dialect — "you"
- * appears in plain English too, and several sheets legitimately list it. Two rather than more,
- * because a break is forty words and a strict floor would decline good ones.
+ * One, and the argument for two did not survive being measured. It was that a single hit is as
+ * likely to be a coincidence as a dialect, which was true while the markers were counted but never
+ * sent: a model that has not been told which words are being marked can only hit one by accident.
+ * Now that {@link personaLines} names them, a hit is a followed instruction.
+ *
+ * What settled it is that two declined the station's OWN writing. Six of the twenty sample lines in
+ * `persona.defaults.ts` carry exactly one marker, including both of `wisecrack`'s — so the prompt
+ * handed a model two examples, told it to reuse their grammar, and the guard refused what came
+ * back. A sheet whose diction says "one aside per record, and only one" cannot also be asked for two
+ * marked words in fifteen. A floor its author's own reference lines fail is measuring the floor
+ * rather than the script.
+ *
+ * One still catches the failure this exists for, which is a break that came back in flat plain
+ * English with no trace of the character at all.
  */
-export const MIN_DICTION_MARKERS = 2;
+export const MIN_DICTION_MARKERS = 1;
 
 export interface PersonaLineOptions {
     /** Example lines woven in. Defaults to {@link MAX_EXAMPLES}. */
@@ -134,7 +145,7 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
     const markers = cleanList(sheet.dictionMarkers, PERSONA_SHEET_LIMITS.dictionMarkers);
     if (markers.length > 0) {
         lines.push(
-            `These words are yours. At least ${MIN_DICTION_MARKERS} of them belong in anything you say, worked in where they fall naturally — ` +
+            `These words are yours. Work at least ${MIN_DICTION_MARKERS} of them into anything you say, where it falls naturally — ` +
                 `never listed, and never all at once: ${markers.join(', ')}`,
         );
     }
@@ -219,6 +230,20 @@ export function matchesDictionMarker(marker: string, text: string): boolean {
     return new RegExp(pattern).test(straightenApostrophes(text.toLowerCase()));
 }
 
+/**
+ * The distinct catchphrases a script carries.
+ *
+ * Matched as a plain substring rather than on word boundaries, because a catchphrase is a phrase and
+ * already carries its own edges. Apostrophes are straightened on both sides for the same reason they
+ * are in {@link matchesDictionMarker}.
+ */
+export function catchphrasesIn(catchphrases: readonly string[] | undefined, script: string): string[] {
+    const text = straightenApostrophes(script.toLowerCase());
+    return cleanList(catchphrases, PERSONA_SHEET_LIMITS.catchphrases).filter(phrase =>
+        text.includes(straightenApostrophes(phrase.trim().toLowerCase())),
+    );
+}
+
 /** The distinct markers a script carries. Its length is what a caller judges. */
 export function dictionMarkersIn(markers: readonly string[] | undefined, script: string): string[] {
     return cleanList(markers, PERSONA_SHEET_LIMITS.dictionMarkers).filter(marker => matchesDictionMarker(marker, script));
@@ -230,12 +255,23 @@ export function dictionMarkersIn(markers: readonly string[] | undefined, script:
  * True for a sheet that named no markers, and deliberately: a persona whose author gave nothing to
  * check against has made no checkable claim, and refusing its scripts would punish the operator for
  * filling in fewer boxes.
+ *
+ * A CATCHPHRASE counts as evidence beside a marker, because it is the least ambiguous evidence there
+ * is — a marker can appear in plain English by chance and a signature phrase cannot. A break ending
+ * "Make of that what you will" was being declined as out of character while carrying the persona's
+ * own signature, which is the guard contradicting the sheet three lines above it.
+ *
+ * The claim is still keyed on MARKERS alone. Catchphrases only ever add evidence and never create
+ * the requirement, because the prompt asks for one "at most one, and not every time" — so a sheet
+ * carrying catchphrases and no markers has still made no checkable claim, and a script that used no
+ * catchphrase has done exactly what it was told.
  */
 export function keepsCharacter(sheet: PersonaSheet, script: string): boolean {
     const markers = cleanList(sheet.dictionMarkers, PERSONA_SHEET_LIMITS.dictionMarkers);
     if (markers.length === 0) return true;
 
-    return dictionMarkersIn(markers, script).length >= MIN_DICTION_MARKERS;
+    const evidence = dictionMarkersIn(markers, script).length + catchphrasesIn(sheet.catchphrases, script).length;
+    return evidence >= MIN_DICTION_MARKERS;
 }
 
 /** Trim, drop blanks, de-duplicate case-insensitively, and cap. The sheet's one normalizer. */

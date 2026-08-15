@@ -35,7 +35,7 @@ describe('personaLines', () => {
         const lines = personaLines({ diction: ['Ye for you'], dictionMarkers: ['ye', 'aye', 'matey'] });
 
         expect(lines[1]).toContain('ye, aye, matey');
-        expect(lines[1]).toContain(`At least ${MIN_DICTION_MARKERS}`);
+        expect(lines[1]).toContain(`at least ${MIN_DICTION_MARKERS}`);
         // Not a list to work through: a break using all of them is a parody of the character.
         expect(lines[1]).toContain('never all at once');
     });
@@ -163,8 +163,33 @@ describe('keepsCharacter', () => {
         expect(keepsCharacter(sheet, "Aye, ye just heard Pink Moon, and there be more comin'.")).toBe(true);
     });
 
-    it('is not fooled by a single hit, which is as likely to be a coincidence as a dialect', () => {
-        expect(keepsCharacter({ dictionMarkers: ['you', 'ye', 'matey'] }, 'That was Pink Moon, and you can hear it again later.')).toBe(false);
+    // The floor is one, because two declined the station's own sample lines. See MIN_DICTION_MARKERS.
+    it('accepts a single hit, now that the markers are named in the prompt that asked for them', () => {
+        expect(keepsCharacter({ dictionMarkers: ['you', 'ye', 'matey'] }, 'Ye just heard Pink Moon.')).toBe(true);
+    });
+
+    it('still refuses a script with no trace of the character at all', () => {
+        expect(keepsCharacter({ dictionMarkers: ['ye', 'aye', 'matey'] }, 'That was Pink Moon, and it is on again later.')).toBe(false);
+    });
+
+    // A marker can appear in plain English by chance; a signature phrase cannot. A break ending in
+    // the persona's own catchphrase was being declined as out of character.
+    it('counts a catchphrase as evidence beside a marker', () => {
+        const sheet = { dictionMarkers: ['genuinely', 'apparently'], catchphrases: ['Make of that what you will'] };
+
+        expect(keepsCharacter(sheet, 'Four minutes of Kreator. Make of that what you will.')).toBe(true);
+    });
+
+    it('matches a catchphrase through the writer’s own apostrophe', () => {
+        const sheet = { dictionMarkers: ['ye'], catchphrases: ["Here's another"] };
+
+        expect(keepsCharacter(sheet, 'Here’s another one for the pile.')).toBe(true);
+    });
+
+    // Catchphrases add evidence and never create the requirement: the prompt asks for one "at most
+    // once, and not every time", so a script that used none did as it was told.
+    it('makes no claim from catchphrases alone, when the sheet named no markers', () => {
+        expect(keepsCharacter({ catchphrases: ['Arrr'] }, 'That was Pink Moon, from Nick Drake.')).toBe(true);
     });
 
     // A sheet whose diction says "always contract" had every one of its markers unmatchable against

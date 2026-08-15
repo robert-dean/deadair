@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { SEED_PERSONAS } from '../../../src/modules/personas/persona.defaults.js';
-import { MIN_DICTION_MARKERS, personaLines } from '../../../src/modules/personas/persona.sheet.js';
+import { keepsCharacter, MIN_DICTION_MARKERS, personaLines } from '../../../src/modules/personas/persona.sheet.js';
 import { parseTemplates, unknownPlaceholders, usable } from '../../../src/modules/director/break.templates.js';
 import { spoken } from '../../../src/modules/director/talk.break.writer.js';
 
@@ -49,6 +49,19 @@ describe('the seeded personas', () => {
             expect(persona.dictionMarkers?.length ?? 0, `${persona.key} has too few markers to judge a break by`).toBeGreaterThanOrEqual(
                 MIN_DICTION_MARKERS * 3,
             );
+        }
+    });
+
+    // The calibration test, and the one that caught the floor being wrong. `samples` are the lines
+    // the prompt hands a model saying "reuse the grammar" — so a sample its own sheet would decline
+    // is the station asking for something and then refusing it. At a floor of two, six of these
+    // failed, including both of `wisecrack`'s, and the floor was what was wrong rather than the
+    // writing. Anything that raises MIN_DICTION_MARKERS or tightens the match has to face this.
+    it('write sample lines their own guard would let on air', () => {
+        for (const persona of SEED_PERSONAS) {
+            for (const sample of persona.samples ?? []) {
+                expect(keepsCharacter(persona, sample), `${persona.key} would decline its own sample: "${sample}"`).toBe(true);
+            }
         }
     });
 });

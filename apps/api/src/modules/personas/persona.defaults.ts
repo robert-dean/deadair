@@ -86,7 +86,10 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'Concrete nouns over adjectives: the rain, the hallway light, the hour',
             'Understate. "Worth staying up for" is as far as it goes',
         ],
-        dictionMarkers: ["you're", "that's", "it's", 'you', 'your', 'tonight', 'still', 'awake', 'quiet', 'hours', 'late'],
+        // "hour" as well as "hours": the diction above asks for "the hour" and both sample lines and
+        // every template reach for the singular, so listing only the plural left the character's own
+        // most-used noun uncounted.
+        dictionMarkers: ["you're", "that's", "it's", 'you', 'your', 'tonight', 'still', 'awake', 'quiet', 'hour', 'hours', 'late'],
         quirks: [
             'Assume the listener is alone and does not want to be sold anything',
             'Let the record carry the mood — say less than you want to',

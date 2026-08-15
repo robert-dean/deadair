@@ -21,6 +21,16 @@
 export interface TrackRef {
     /** Recording ISRC. When set, prefer it over the string fields. */
     isrc?: string;
+    /**
+     * MusicBrainz RECORDING id, when the catalog has resolved one.
+     *
+     * The mirror of {@link ArtistRef.mbid} and {@link AlbumRef.mbid}, and it
+     * arrives the same way: something already resolved it and the host promoted
+     * it onto `tracks.mbid`, so a later pass gets it for free. Prefer it over
+     * every other field here when your source can take one, because it is the
+     * only identifier in this shape that cannot match the wrong record.
+     */
+    mbid?: string;
     /** Primary artist name, as the source provider spells it. */
     artist: string;
     title: string;
@@ -48,6 +58,36 @@ export interface ExternalId {
 export interface ExternalLink {
     label: string;
     url: string;
+}
+
+/**
+ * A piece of PROSE about this thing, handed over for the host to read rather
+ * than for anyone to say.
+ *
+ * The difference between this and {@link TrackEnrichment.facts} is who wrote
+ * the sentence. A `fact` is a line your plugin composed and is willing to have
+ * spoken on air unchanged. A document is somebody else's article, verbatim: the
+ * host extracts claims from it, checks each claim against the text, and keeps
+ * the provenance. Nothing reads a document aloud, and nothing shows one on a
+ * page.
+ *
+ * Hand over the prose rather than your own summary of it. The host stores it,
+ * so a better extraction later costs no request to your upstream, and
+ * `sourceQuote` on the claims it produces has to be a span that really occurs
+ * in `text` or the claim is dropped.
+ *
+ * Plain text, not HTML and not wiki markup. Strip the furniture (navigation,
+ * licence footers, reference markers) the way a reader would ignore it.
+ */
+export interface SourceDocument {
+    /** Where this text can be read by a person. Becomes the claim's citation, so it must be public. */
+    url: string;
+    /** The document's own title, e.g. the article name. */
+    title: string;
+    /** The prose, as plain text. */
+    text: string;
+    /** ISO-8601 instant. Never a `Date`. */
+    retrievedAt: string;
 }
 
 /**
@@ -113,6 +153,8 @@ export interface TrackEnrichment {
     biography: string;
     /** Short trivia lines, each independently speakable. */
     facts: string[];
+    /** Source prose for the host to extract claims from. See {@link SourceDocument}. */
+    documents: SourceDocument[];
 
     /** Beats per minute. */
     bpm: number;
@@ -145,6 +187,8 @@ export interface ArtistEnrichment {
     biography: string;
     /** Short trivia lines, each independently speakable. */
     facts: string[];
+    /** Source prose for the host to extract claims from. See {@link SourceDocument}. */
+    documents: SourceDocument[];
     genres: string[];
     imageUrl: string;
     externalIds: ExternalId[];
@@ -173,6 +217,8 @@ export interface AlbumEnrichment {
     label: string;
     genres: string[];
     facts: string[];
+    /** Source prose for the host to extract claims from. See {@link SourceDocument}. */
+    documents: SourceDocument[];
     artworkUrl: string;
     externalIds: ExternalId[];
     links: ExternalLink[];

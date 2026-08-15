@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    forTheWire,
     mergeAlbumEnrichment,
     mergeArtistEnrichment,
     mergeEnrichment,
@@ -125,6 +126,63 @@ describe('providerRef', () => {
         expect(mergeEnrichment([{ providerRef: 'mb-1', artist: 'Portishead' }, { providerRef: 'local-42' }])).toEqual({ artist: 'Portishead' });
         expect(mergeArtistEnrichment([{ providerRef: 'mb-1', name: 'Portishead' }])).toEqual({ name: 'Portishead' });
         expect(mergeAlbumEnrichment([{ providerRef: 'rg-1', name: 'Dummy' }])).toEqual({ name: 'Dummy' });
+    });
+});
+
+describe('source documents', () => {
+    const article = {
+        url: 'https://en.wikipedia.org/wiki/Glory_Box',
+        title: 'Glory Box',
+        text: 'Glory Box is a song by the English band Portishead.',
+        retrievedAt: '2026-08-15T09:00:00.000Z',
+    };
+
+    it('survives sanitizing on all three levels, since prose is a fact about any of them', () => {
+        expect(sanitizeEnrichment({ documents: [article] }).documents).toEqual([article]);
+        expect(sanitizeArtistEnrichment({ documents: [article] }).documents).toEqual([article]);
+        expect(sanitizeAlbumEnrichment({ documents: [article] }).documents).toEqual([article]);
+    });
+
+    it('drops an entry that is missing any part of itself, rather than storing half of one', () => {
+        // Each of the four is load-bearing: no url is a claim nobody can check, no text is nothing
+        // to extract from, and a document with neither title nor timestamp cannot be reported.
+        for (const missing of ['url', 'title', 'text', 'retrievedAt']) {
+            expect(sanitizeEnrichment({ documents: [{ ...article, [missing]: undefined }] }).documents).toBeUndefined();
+        }
+    });
+
+    it('refuses a url that is not http(s), because this one becomes a citation', () => {
+        expect(sanitizeEnrichment({ documents: [{ ...article, url: 'javascript:alert(1)' }] }).documents).toBeUndefined();
+        expect(sanitizeEnrichment({ documents: [{ ...article, url: 'not a url' }] }).documents).toBeUndefined();
+    });
+
+    it('refuses a retrievedAt that is not a date, and keeps the string rather than converting it', () => {
+        expect(sanitizeEnrichment({ documents: [{ ...article, retrievedAt: 'last tuesday' }] }).documents).toBeUndefined();
+        expect(sanitizeEnrichment({ documents: [article] }).documents?.[0]?.retrievedAt).toBe(article.retrievedAt);
+    });
+
+    it('trims a very long article rather than refusing it, since the long ones carry the trivia', () => {
+        const long = sanitizeEnrichment({ documents: [{ ...article, text: 'x'.repeat(100_000) }] });
+
+        expect(long.documents?.[0]?.text).toHaveLength(60_000);
+    });
+
+    it('caps how many one plugin may contribute about one thing', () => {
+        const many = sanitizeEnrichment({ documents: Array.from({ length: 9 }, (_, at) => ({ ...article, url: `${article.url}?${at}` })) });
+
+        expect(many.documents).toHaveLength(4);
+    });
+
+    it('accumulates across plugins and deduplicates by url, the way links do', () => {
+        const other = { ...article, url: 'https://en.wikipedia.org/wiki/Dummy_(album)' };
+
+        expect(mergeEnrichment([{ documents: [article] }, { documents: [article, other] }]).documents).toEqual([article, other]);
+    });
+
+    it('is stored and then deliberately not sent, because nothing on the wire renders an article', () => {
+        const stored = sanitizeEnrichment({ artist: 'Portishead', providerRef: 'mb-1', documents: [article] });
+
+        expect(forTheWire(stored)).toEqual({ artist: 'Portishead' });
     });
 });
 

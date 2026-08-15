@@ -260,6 +260,13 @@ interface TrackAccumulator {
  */
 export const toTrackRef = (track: EnrichableTrack): TrackRef => ({
     isrc: track.isrc,
+    // Free, and the only key here that cannot match the wrong recording. The
+    // track pass promotes it onto `tracks.mbid` from whichever source resolved
+    // one, exactly as the artist and album passes have always been handed theirs
+    // — so a plugin arriving after MusicBrainz gets an exact question rather
+    // than a title to guess with, and the first pass over a fresh catalog is the
+    // only one where it is absent.
+    mbid: track.mbid,
     artist: track.artistName,
     title: track.title,
     album: track.albumName,

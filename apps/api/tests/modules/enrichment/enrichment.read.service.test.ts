@@ -207,6 +207,45 @@ describe('EnrichmentReadService', () => {
         }
     });
 
+    it('keeps source documents off the wire, since nothing here draws an article', async () => {
+        const article = {
+            url: 'https://en.wikipedia.org/wiki/Glory_Box',
+            title: 'Glory Box',
+            text: 'Glory Box is a song by the English band Portishead.',
+            retrievedAt: '2026-08-15T09:00:00.000Z',
+        };
+        const read = service({ track: [payload(MUSICBRAINZ, { artist: 'Portishead', documents: [article] })] });
+
+        const detail = await read.getTrackEnrichment(TRACK_ID);
+
+        expect(detail.sources[0]?.data).not.toHaveProperty('documents');
+        expect(detail.merged).not.toHaveProperty('documents');
+        // And not swept into `extra` on the way past, which would put the whole article back on the
+        // wire under another name.
+        expect(detail.sources[0]?.data.extra).toBeUndefined();
+    });
+
+    it('still calls a source that answered with prose ALONE a hit, not a recorded miss', async () => {
+        // The wire drops its only field, so judging `found` on what travels would have the console
+        // reporting "asked and had nothing" about the one source that had the most.
+        const read = service({
+            track: [
+                payload(MUSICBRAINZ, {
+                    documents: [
+                        {
+                            url: 'https://en.wikipedia.org/wiki/Glory_Box',
+                            title: 'Glory Box',
+                            text: 'Glory Box is a song by the English band Portishead.',
+                            retrievedAt: '2026-08-15T09:00:00.000Z',
+                        },
+                    ],
+                }),
+            ],
+        });
+
+        expect((await read.getTrackEnrichment(TRACK_ID)).sources[0]?.found).toBe(true);
+    });
+
     it('reads a payload that is nothing but a ref as a miss, since it says nothing about the record', async () => {
         const read = service({ track: [payload(MUSICBRAINZ, {}, { providerRef: 'mb:ref', data: { providerRef: 'mb:ref' } })] });
 

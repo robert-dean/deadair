@@ -315,12 +315,17 @@ describe('toTrackRef', () => {
     it('asks about the canonical artist rather than the printed credit', () => {
         expect(toTrackRef(catalogTrack)).toEqual({
             isrc: undefined,
+            mbid: undefined,
             artist: 'Portishead',
             title: 'Glory Box',
             album: 'Dummy',
             durationMs: 301_000,
             year: undefined,
         });
+    });
+
+    it('hands over the recording mbid once a pass has promoted one, since it cannot match the wrong record', () => {
+        expect(toTrackRef({ ...catalogTrack, mbid: 'rec-1' }).mbid).toBe('rec-1');
     });
 });
 

@@ -12,7 +12,7 @@ A plugin extends deadair by declaring capabilities:
 | `catalog`    | supply music: list playlists, list their tracks                |
 | `stream`     | get the station the audio to play (`resolveStreamUrl`)         |
 | `steer`      | own your audio output and let deadair only tell you what to do |
-| `enrichment` | supply facts about a track: year, genre, label, trivia, links  |
+| `enrichment` | supply facts about a track: year, genre, label, trivia, prose  |
 | `speech`     | say something out loud: text in, audio out                     |
 | `llm`        | produce words: a conversation in, text out                     |
 | `analysis`   | measure a track's audio: bytes in, cue points and loudness out |
@@ -473,6 +473,45 @@ question: what this thing is called _elsewhere_. List those in whatever order
 you like, including ids that are not yours. A local library that reads a
 MusicBrainz id out of a file's tags should absolutely report it, and doing so
 must not cost it its own ref.
+
+## Facts, and the prose facts are extracted from
+
+`facts` and `documents` are both things to say about a record, and the
+difference between them is who wrote the sentence.
+
+A **fact** is a line you composed and are willing to have read out on air
+unchanged. Keep them short and independently speakable, because that is what
+happens to them: a talk break is shown a couple of them and the DJ works one
+in. Compose them only out of things you actually know — a fact assembled from
+a field you guessed at is a station saying something untrue in a confident
+voice.
+
+A **document** is somebody else's prose, verbatim: an encyclopaedia article, a
+song description, a set of sleeve notes. Nothing reads one aloud and nothing
+renders one on a page. The host extracts claims from it, checks each claim
+against the text it came from, and keeps the citation. So:
+
+```ts
+return {
+    documents: [{ url: article.url, title: article.title, text: article.extract, retrievedAt: new Date().toISOString() }],
+};
+```
+
+Three rules make that worth doing.
+
+**Hand over the prose, not your summary of it.** The host stores the document,
+so a better extraction later costs your upstream nothing, and a claim's quoted
+span has to occur in the text you supplied or the claim is dropped. A summary
+you wrote is a span nobody can check.
+
+**Plain text.** Strip the furniture a reader ignores anyway: navigation,
+licence footers, reference markers, markup. What is left reaches a language
+model, and eventually a mouth.
+
+**`url` is a citation, not a link.** It is the address an operator opens to
+check whether the station is telling the truth about a record, so it has to be
+somewhere a person can actually read the text you sent. A document whose URL
+is not http(s) is dropped whole.
 
 ## Music providers
 

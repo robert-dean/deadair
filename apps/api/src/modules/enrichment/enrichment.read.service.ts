@@ -4,13 +4,13 @@ import { httpError } from '@maroonedsoftware/errors';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { AlbumEnrichmentDetail, ArtistEnrichmentDetail, TrackEnrichmentDetail } from '#src/modules/catalog/types/catalog.types.js';
 import {
+    forTheWire,
     mergeAlbumEnrichment,
     mergeArtistEnrichment,
     mergeEnrichment,
     sanitizeAlbumEnrichment,
     sanitizeArtistEnrichment,
     sanitizeEnrichment,
-    withoutPerProviderFields,
 } from './enrichment.merge.js';
 import { EnrichmentRepository, type FactPayload, type StoredProviderPayload } from './enrichment.repository.js';
 import { EnrichmentService } from './enrichment.service.js';
@@ -225,18 +225,28 @@ export class EnrichmentReadService {
      * promoted from it; hiding it would make the console disagree with them.
      * What it does not get is a say over a running provider.
      *
-     * The per-provider fields come OFF the payload here. `providerRef` is
-     * stored twice on purpose — in the payload because that is what the plugin
-     * said, and in its own column because something queries it — and the
-     * contract carries it on the source rather than inside `data`. See
-     * {@link withoutPerProviderFields}.
+     * Some of what was stored does not go on the wire: `providerRef`, which the
+     * contract carries on the source rather than inside `data`, and
+     * `documents`, which is raw article text nothing here renders. See
+     * {@link forTheWire}.
      */
     private read<T extends object>(stored: StoredProviderPayload[], order: string[], sanitize: (value: unknown) => T): ReadSource<T>[] {
         const now = DateTime.now();
 
         return stored
             .map(payload => {
-                const data = withoutPerProviderFields(sanitize(payload.data));
+                const clean = sanitize(payload.data);
+                const data = forTheWire(clean);
+                // What travels, plus the one thing that is deliberately kept
+                // back: a source that answered with prose alone is a source
+                // that answered, and calling it a recorded miss because the
+                // wire drops its only field would have the console
+                // contradicting the walk. A payload that is nothing but a
+                // `providerRef` stays a miss, because that says nothing about
+                // the record — which is the opposite case and why this is not
+                // simply "did the plugin return anything".
+                const documents = (clean as { documents?: unknown[] }).documents;
+                const found = Object.keys(data).length > 0 || (documents?.length ?? 0) > 0;
                 return {
                     provider: payload.provider,
                     providerRef: payload.providerRef,
@@ -250,7 +260,7 @@ export class EnrichmentReadService {
                     // An empty payload is a recorded miss: the provider was
                     // asked and had nothing. Not a failure, and not an empty
                     // card for the console to puzzle over.
-                    found: Object.keys(data).length > 0,
+                    found,
                     data,
                 };
             })

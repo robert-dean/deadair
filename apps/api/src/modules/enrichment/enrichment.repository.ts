@@ -15,6 +15,8 @@ export interface EnrichableTrack {
     durationMs?: number;
     year?: number;
     isrc?: string;
+    /** MusicBrainz RECORDING id, once a pass has promoted one onto `tracks.mbid`. */
+    mbid?: string;
 }
 
 /**
@@ -223,6 +225,7 @@ export class EnrichmentRepository extends DataRepository {
             durationMs: number | null;
             year: number | null;
             isrc: string | null;
+            mbid: string | null;
             outstanding: string[];
         }>`
             select t.id,
@@ -234,6 +237,7 @@ export class EnrichmentRepository extends DataRepository {
                    t.duration_ms,
                    t.year,
                    src.isrc,
+                   t.mbid,
                    pending.providers as outstanding
               from deadair.tracks t
               join deadair.artists ar on ar.id = t.artist_id
@@ -271,6 +275,7 @@ export class EnrichmentRepository extends DataRepository {
             durationMs: nullable(row.durationMs),
             year: nullable(row.year),
             isrc: nullable(row.isrc),
+            mbid: nullable(row.mbid),
             outstanding: row.outstanding,
         }));
     }

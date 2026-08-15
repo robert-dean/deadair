@@ -1,4 +1,4 @@
-import type { AlbumEnrichment, ArtistEnrichment, ExternalId, ExternalLink, TrackEnrichment } from '@deadair/plugin-sdk';
+import type { AlbumEnrichment, ArtistEnrichment, ExternalId, ExternalLink, SourceDocument, TrackEnrichment } from '@deadair/plugin-sdk';
 
 /**
  * Taking several plugins' answers about one track and turning them into one
@@ -47,7 +47,7 @@ const TRACK_FIELDS: FieldSpec = {
     text: ['artist', 'title', 'album', 'releaseDate', 'biography', 'musicalKey', 'label', 'isrc', 'artworkUrl'],
     number: ['year', 'bpm'],
     strings: ['genres', 'moods', 'facts'],
-    lists: ['genres', 'moods', 'facts', 'externalIds', 'links'],
+    lists: ['genres', 'moods', 'facts', 'documents', 'externalIds', 'links'],
     perProvider: PER_PROVIDER_FIELDS,
 };
 
@@ -55,7 +55,7 @@ const ARTIST_FIELDS: FieldSpec = {
     text: ['name', 'biography', 'imageUrl'],
     number: [],
     strings: ['genres', 'facts'],
-    lists: ['genres', 'facts', 'externalIds', 'links'],
+    lists: ['genres', 'facts', 'documents', 'externalIds', 'links'],
     perProvider: PER_PROVIDER_FIELDS,
 };
 
@@ -63,7 +63,7 @@ const ALBUM_FIELDS: FieldSpec = {
     text: ['name', 'artist', 'releaseDate', 'label', 'artworkUrl'],
     number: ['year'],
     strings: ['genres', 'facts'],
-    lists: ['genres', 'facts', 'externalIds', 'links'],
+    lists: ['genres', 'facts', 'documents', 'externalIds', 'links'],
     perProvider: PER_PROVIDER_FIELDS,
 };
 
@@ -75,6 +75,28 @@ const ALBUM_FIELDS: FieldSpec = {
 const MAX_TEXT = 2_000;
 const MAX_BIOGRAPHY = 20_000;
 const MAX_LIST = 50;
+
+/**
+ * How much of one source document is kept.
+ *
+ * Larger than a biography because this is a whole article rather than a
+ * paragraph, and an encyclopaedia article about a well-documented record runs
+ * past twenty thousand characters before it reaches the sections worth reading
+ * ("In popular culture" is near the bottom). Trimmed rather than refused: a
+ * truncated article still extracts, and the alternative is that the longest
+ * articles — which are the ones with the most trivia in them — are the only ones
+ * that contribute nothing.
+ */
+const MAX_DOCUMENT_TEXT = 60_000;
+
+/**
+ * How many documents one plugin may contribute about one thing.
+ *
+ * Small on purpose. A source that has read six articles about one record is
+ * describing something other than that record, and every one of these is stored
+ * per provider and then read by a model.
+ */
+const MAX_DOCUMENTS = 4;
 
 /** How deep a nested value in {@link StoredEnrichment.extra} may go before it is refused. */
 const MAX_EXTRA_DEPTH = 5;
@@ -166,6 +188,47 @@ const links = (value: unknown): ExternalLink[] | undefined => {
     }
 
     return list.length > 0 ? list.slice(0, MAX_LIST) : undefined;
+};
+
+/**
+ * Source prose, checked the way a link is and then some.
+ *
+ * `url` goes through the same http(s) narrowing as {@link links}, and for a
+ * sharper reason: this one becomes a claim's citation, so it is the address an
+ * operator clicks to check whether the station is telling the truth. A document
+ * that cannot be cited is not evidence, so a bad URL drops the whole entry
+ * rather than being blanked.
+ *
+ * `retrievedAt` must parse as a date, and is kept as the ISO string it arrived
+ * as. Parsing it here is a check, not a conversion: the SDK's rule is that a
+ * stored payload carries dates as strings, and turning one into a `DateTime` on
+ * the way into a jsonb column is exactly what that rule forbids.
+ */
+const documents = (value: unknown): SourceDocument[] | undefined => {
+    if (!Array.isArray(value)) return undefined;
+
+    const list: SourceDocument[] = [];
+    for (const entry of value) {
+        const document = entry as Partial<SourceDocument> | undefined;
+        const url = text(document?.url);
+        const title = text(document?.title, 500);
+        const body = text(document?.text, MAX_DOCUMENT_TEXT);
+        const retrievedAt = text(document?.retrievedAt, 100);
+        if (!url || !title || !body || !retrievedAt) continue;
+
+        try {
+            const parsed = new URL(url);
+            if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') continue;
+        } catch {
+            continue;
+        }
+
+        if (Number.isNaN(Date.parse(retrievedAt))) continue;
+
+        list.push({ url, title, text: body, retrievedAt });
+    }
+
+    return list.length > 0 ? list.slice(0, MAX_DOCUMENTS) : undefined;
 };
 
 /** Every key a spec understands. Anything else is `extra`. */
@@ -281,6 +344,8 @@ function sanitize(value: unknown, spec: FieldSpec, onDrop?: (reason: string) => 
     if (ids) clean.externalIds = ids;
     const linkList = links(raw.links);
     if (linkList) clean.links = linkList;
+    const documentList = documents(raw.documents);
+    if (documentList) clean.documents = documentList;
 
     const extra = extraFields(raw, spec, onDrop);
     if (extra) clean.extra = extra;
@@ -289,22 +354,38 @@ function sanitize(value: unknown, spec: FieldSpec, onDrop?: (reason: string) => 
 }
 
 /**
- * A stored payload as the WIRE carries it: everything the plugin said, minus the fields that belong
- * to the plugin rather than to the thing it described.
+ * Fields that are stored and then deliberately not sent.
  *
- * `providerRef` is the whole category, and it lives in two places on purpose — in the payload,
- * because that is what the plugin actually said, and in `*_enrichment.provider_ref`, because
- * something queries it. The read contracts put it on the SOURCE for that reason, and their `data` is
- * a strict object that has never had a field for it: handing the payload over untouched failed its
- * own response validation with `providerRef: Unrecognized key`, which is every enrichment panel in
- * the console reading "the enrichment could not be loaded".
+ * Two different reasons, and both end at the same strict contract.
+ *
+ * `providerRef` belongs to the plugin rather than to the thing it described, and lives in two places
+ * on purpose — in the payload, because that is what the plugin actually said, and in
+ * `*_enrichment.provider_ref`, because something queries it. The read contracts put it on the SOURCE
+ * for that reason.
+ *
+ * `documents` is raw source prose: tens of thousands of characters of somebody else's article, per
+ * provider, per record. Nothing in the console renders one, and putting them on the wire would make
+ * every enrichment panel fetch an encyclopaedia to draw a card. What a reader wants out of them is
+ * the claims the host extracted, which are their own thing with their own provenance.
+ */
+const WIRE_OMITTED_FIELDS = [...PER_PROVIDER_FIELDS, 'documents'] as const;
+
+/**
+ * A stored payload as the WIRE carries it: everything the plugin said, minus {@link
+ * WIRE_OMITTED_FIELDS}.
+ *
+ * The read contracts' `data` is a strict object with no field for either, so handing the payload
+ * over untouched failed its own response validation with `providerRef: Unrecognized key` — which is
+ * every enrichment panel in the console reading "the enrichment could not be loaded". That is the
+ * failure this exists to prevent, and it is why a new stored-but-not-sent field belongs in the list
+ * above on the day it is added rather than on the day a panel breaks.
  *
  * Here rather than in {@link sanitize}, which is about what is SAFE to store and would otherwise
- * throw away provenance the merge already knows to skip.
+ * throw away both the provenance the merge already knows to skip and the prose the extractor needs.
  */
-export const withoutPerProviderFields = <T extends object>(data: T): T => {
+export const forTheWire = <T extends object>(data: T): T => {
     const clean = { ...data } as Record<string, unknown>;
-    for (const field of PER_PROVIDER_FIELDS) delete clean[field];
+    for (const field of WIRE_OMITTED_FIELDS) delete clean[field];
     return clean as T;
 };
 

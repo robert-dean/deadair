@@ -1,8 +1,10 @@
 # Deferred: the news on air, and the watcher that would put it there
 
 **Written:** 2026-08-15, the day the source half landed.
-**State of the tree:** the SOURCE half is BUILT and is described below as fact. Everything under
-"What is deferred" is not built, and each piece names the seam it drops into.
+**Revised:** 2026-08-15, when the bulletin landed too. **§1 is now BUILT**; what shipped is
+described in its place, and the sections below it are the ones still open.
+**State of the tree:** the source half and the bulletin are built and are described as fact.
+Everything under "What is deferred" is not built, and each piece names the seam it drops into.
 
 ---
 
@@ -34,30 +36,48 @@ state per caller is the version of this that would have to be redesigned first.
 
 ## What is deferred
 
-### 1. The bulletin: a `news` segment kind
+### 1. The bulletin — BUILT 2026-08-15
 
-The station can already be told to take one. `clock.bands.ts` parses `:30 news` today, and
-`BreakPlanner.refuse` turns it down with "nothing on this station knows how to write a news" —
-which is the whole of what is missing.
+A `news` segment kind, with two writers ranked the way every other kind is: `ModelNewsBreakWriter`
+in front, `NewsBreakWriter` as the floor. `:30 news` in `rotation.clockBands` now produces one, and
+the planner's "nothing on this station knows how to write a news" refusal is gone.
 
-What it needs, all on seams that exist:
+Six things are load-bearing, and four of them were not obvious before it was built:
 
-- **A `NewsBreakWriter`**, registered in `director.module.ts` under the kind `news`, with a
-  `ModelNewsBreakWriter` in front of it. Registration order is preference order, and the FLOOR
-  CANNOT FAIL: a deterministic writer that reads two or three headlines aloud is the thing that
-  makes a slow model cost a better bulletin rather than a silent slot.
-- **`BreakWriteRequest.context`** is where the stories go. Its doc comment already says a news
-  bulletin is what it exists for, and the shape is per-kind, so nothing generic has to agree on it.
-- **The caller fetches**, not the writer. `BreakTrack.facts` sets the rule: a writer is a pure
-  function of what it was told, so `WriteBreakJob` reads `NewsService` and hands the stories over.
-  A writer reaching into a service for itself is the thing that makes bindings disagree about what
-  they may know.
-- **Freshness is `claimsTime`'s problem, and it is already solved.** A bulletin written fifteen
-  minutes before its slot is a statement about the hour, so it uses the same expiry the clock
-  phrasings use rather than inventing a second one.
+- **The floor is not merely a safety net here, it is arguably the better product.** It reads
+  published headlines AS PUBLISHED, which cannot be wrong about the news; every other way of
+  producing a bulletin — summarising, reordering by importance, joining two stories — is a way of
+  being wrong in a voice that sounds certain. The model earns its place by making three headlines
+  sound like a bulletin rather than a list, and is checked harder for it.
+- **Both writers DECLINE when there is nothing to report.** An empty feed, a publisher that is down,
+  a plugin uninstalled between planting and writing, and nothing newer than the freshness window all
+  arrive the same way. A bulletin that announces itself and then says nothing is worse than a slot
+  the station passes over, which is something it is already built to absorb — and asking a model to
+  fill an empty bulletin is asking for a fabricated one. The floor logs that decline itself, because
+  it is the one an operator has to be able to act on.
+- **`BulletinSource` is the substrate seam**, exactly as `EnrichmentReadService.factsForTracks` is
+  for a talk break: the CALLER fetches, once, and both writers see the same stories. It answers
+  `undefined` for every kind that does not report, which is what keeps the branch about news inside
+  a file about news rather than in the job that serves every kind.
+- **Freshness is judged against when the break AIRS**, not when it is written. A bulletin is written
+  up to `WRITE_AHEAD` items early, so measuring the window from `Date.now()` would read stories that
+  are already over the operator's limit by the time anybody hears them.
+- **A headline is made speakable once**, at the source: the publisher's own furniture comes off the
+  end (" — BBC News" is a real shape and is not a sentence anybody says), and a full stop goes on so
+  three headlines do not run into one sentence.
+- **The floor withholds `previous`**, for `WelcomeWriter`'s reason: `usable` insists a phrasing say
+  something about the record just finished, and a bulletin that back-announces on its way into the
+  headlines is a presenter who has not decided what this break is.
 
-Open, and genuinely open: **how many stories one bulletin reads**, and whether the model gets the
-summaries or only the headlines. Both are cheap to change and neither is worth deciding on paper.
+The settings are `rotation.newsTemplates` (with `{{news.headlines}}`, the first new row in the
+template vocabulary since it was written), `rotation.newsStories`, `rotation.newsMaxAgeHours` and
+`rotation.newsFeed`. `rotation.clockBands` was registered as a setting at the same time: it is how
+an operator schedules any of this and it had existed only in `psql`.
+
+What is still open here, and was deliberately not decided on paper: whether a bulletin should
+attribute its sources out loud. Nothing offers the publisher's name to a writer today (`BreakStory`
+carries it, and neither the prompt nor a phrasing uses it), because attribution is a station's own
+decision and a model shown a publisher's name will credit it in a sentence nobody asked for.
 
 ### 2. Breaking news, and it is NOT a news feature
 

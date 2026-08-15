@@ -143,7 +143,7 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
 
                     <Textarea
                         label="What they play"
-                        description="In your own words, for the model that chooses records. A running order's own brief still beats this where the two disagree."
+                        description="In your own words, for the model that chooses records. It is used only when a broadcast was not briefed: brief the station and this is ignored entirely, so the persona is purely the presenter."
                         rows={3}
                         {...form.getInputProps('music')}
                     />

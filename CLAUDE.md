@@ -271,9 +271,17 @@ payload.** `station_lineup.brief` is what they asked for in their own words ("he
 distinct from `name`, which is only a label. It rides the running order because `onEnd: 'extend'`
 keeps asking for more: a theme held in a refill's payload would last one batch and drift back to
 ordinary rotation within the hour with nothing saying so. It reaches the model in the USER turn (this
-refill's instruction, where the system turn is the standing job) and beats the active persona's
-`music` line where the two disagree, since a persona is a description and a brief is somebody
-deciding tonight.
+refill's instruction, where the system turn is the standing job), and a briefed refill is not sent
+the presenting persona's `music` line AT ALL. That is structural rather than an instruction, and
+deliberately so: it read "where the two disagree, follow this" until a local model handed both
+"ambient and nothing else" and "heavy metal hits" was observed to split the difference, and the
+cheapest way to make a brief win is not to hand over the competing text. So the rule is one rule with
+no switch — **brief the station and the persona is purely the presenter; leave it unbriefed and the
+persona programmes** — which is what makes a persona a DJ rather than a second opinion.
+`station_lineup.persona_id` rides the row beside the brief for the same reason the brief is there,
+and `PersonaRepository.presenting` is the ONE place the precedence lives (this broadcast's host, then
+the station's active one, then nothing) because the break writer and the record chooser both read it
+and a station whose DJ depends on which one you ask is two stations.
 `CatalogSetGenerator` ignores it deliberately — approximating an instruction would make the thing
 that cannot fail depend on how well a guess landed — so a briefed station whose model produced
 nothing gets an ordinary hour rather than a bad impression of the one it asked for.

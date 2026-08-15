@@ -142,12 +142,27 @@ describe('setPrompt', () => {
         expect(systemOf(messages)).not.toMatch(/heavy metal hits/);
     });
 
-    it('says the brief beats the station description where the two disagree', () => {
-        // They genuinely can: a station described as ambient whose operator asked for metal. The
-        // person in the room wins.
-        const user = userOf(setPrompt({ count: 5, avoid: [], brief: 'heavy metal hits' }, { music: 'Ambient and nothing else.' }));
+    it('does not send the station description at all once the operator has briefed it', () => {
+        // Structural rather than an instruction, and that is the point. A local model handed
+        // "ambient and nothing else" AND "heavy metal hits" splits the difference, so the cheapest
+        // way to make the brief win is not to hand it both. Brief the station and the persona is
+        // purely the presenter; leave it unbriefed and the persona programmes.
+        const briefed = setPrompt({ count: 5, avoid: [], brief: 'heavy metal hits' }, { music: 'Ambient and nothing else.' });
 
-        expect(user).toMatch(/follow this/i);
+        expect(systemOf(briefed)).not.toMatch(/Ambient and nothing else/);
+        expect(userOf(briefed)).toMatch(/heavy metal hits/);
+    });
+
+    it('still sends it when nobody briefed the broadcast', () => {
+        const bare = setPrompt({ count: 5, avoid: [] }, { music: 'Ambient and nothing else.' });
+
+        expect(systemOf(bare)).toMatch(/Ambient and nothing else/);
+    });
+
+    it('treats a blank brief as no brief, so the persona still programmes', () => {
+        const blank = setPrompt({ count: 5, avoid: [], brief: '   ' }, { music: 'Ambient and nothing else.' });
+
+        expect(systemOf(blank)).toMatch(/Ambient and nothing else/);
     });
 
     it('says nothing about a brief that is absent or blank', () => {

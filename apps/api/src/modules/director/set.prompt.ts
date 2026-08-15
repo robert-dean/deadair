@@ -57,11 +57,14 @@ export interface SetPromptSettings {
     /** What the station calls itself, from `stream.title`. */
     station?: string;
     /**
-     * What the station plays, in the operator's own words, from the active persona's `music`.
+     * What the station plays, in the operator's own words, from the presenting persona's `music`.
      *
      * The MUSIC half of a persona and deliberately not the rest of it: what a character sounds like
      * has nothing to do with what it programmes, and handing a record chooser a page of diction
      * would spend context on a question nobody asked it.
+     *
+     * **Not sent at all when the refill was briefed.** See {@link setPrompt}: a persona is what the
+     * station plays when nobody said, and a brief is somebody saying.
      */
     music?: string;
     /**
@@ -98,13 +101,19 @@ export interface SetPromptRequest {
  * is the standing job and its rules, the user turn is this particular refill.
  */
 export function setPrompt(request: SetPromptRequest, settings: SetPromptSettings = {}): LlmMessage[] {
+    // The system turn is told whether this refill was BRIEFED, which is the one thing about a
+    // particular refill that changes the standing job: a briefed broadcast has already been told
+    // what it is for, so the station's own description of its music is not a second opinion to
+    // weigh, it is noise.
+    const briefed = (request.brief?.trim().length ?? 0) > 0;
+
     return [
-        { role: 'system', content: systemPrompt(settings) },
+        { role: 'system', content: systemPrompt(settings, briefed) },
         { role: 'user', content: userPrompt(request) },
     ];
 }
 
-function systemPrompt(settings: SetPromptSettings): string {
+function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
     const station = settings.station?.trim();
     const music = settings.music?.trim();
 
@@ -169,7 +178,13 @@ function systemPrompt(settings: SetPromptSettings): string {
         'Copy each title and artist exactly as the search gave them to you.',
     ];
 
-    if (music) lines.push('', 'The station describes its music this way, and you should choose to match it:', music);
+    // Dropped entirely when the operator briefed this broadcast, rather than sent with an
+    // instruction to prefer the brief. That instruction was here and it was the wrong shape: a local
+    // model handed "long, strange and deliberate deep cuts" AND "80s synthpop" splits the
+    // difference, and the cheapest way to stop it is not to hand it both. So the precedence is
+    // structural now — brief the station and the persona is purely the presenter, do not brief it
+    // and the persona programmes. One rule, and no switch.
+    if (music && !briefed) lines.push('', 'The station describes its music this way, and you should choose to match it:', music);
     lines.push(...tasteLines(settings.taste));
 
     return lines.join('\n');
@@ -216,15 +231,7 @@ function userPrompt(request: SetPromptRequest): string {
 
     const brief = request.brief?.trim();
     if (brief) {
-        lines.push(
-            '',
-            'The operator has asked for this, and it is what these records are for:',
-            brief,
-            // Said explicitly because the two genuinely can disagree — a station whose persona is
-            // ambient and whose operator asked for heavy metal — and the operator is the one in the
-            // room. The persona is a standing description; this is somebody deciding tonight.
-            'Where this and the station description disagree, follow this.',
-        );
+        lines.push('', 'The operator has asked for this, and it is what these records are for:', brief);
     }
 
     if (request.avoid.length > 0) {

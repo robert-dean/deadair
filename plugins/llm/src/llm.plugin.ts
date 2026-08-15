@@ -380,11 +380,41 @@ export interface SpokenCandidates {
  * its reasoning is not its answer, and the fallback is reached only where there is no answer at all.
  */
 export function spokenAnswer({ text, reasoningText, toolCalls, finishReason }: SpokenCandidates): string {
-    if (text.trim().length > 0) return text;
+    if (!isEmptyAnswer(text)) return text;
     if (toolCalls > 0 || finishReason === 'tool-calls') return text;
     if ((reasoningText?.trim().length ?? 0) === 0) return text;
 
     return reasoningText!;
+}
+
+/**
+ * Whether a turn said anything, where an EMPTY CONTAINER counts as nothing.
+ *
+ * The widening that `''` alone missed, and it cost an hour of a briefed station. Asked for two
+ * dozen records after three searches that returned thirty-six, gpt-oss answered `[]` — the same
+ * failure as the empty text above with a bracket pair in front of it, since a model that puts its
+ * answer in the reasoning channel still has to emit SOMETHING as the final content. From the
+ * caller that is a model declining to programme, so the deterministic floor filled the hour and
+ * the operator got a set with nothing to do with what they asked for.
+ *
+ * Only the containers a "there is nothing here" answer takes: an empty array, an empty object, an
+ * empty string, and any of those inside a code fence. Never prose — a model that wrote a sentence
+ * said something, even if the something was a refusal, and promoting its reasoning over that would
+ * be overruling an answer rather than finding one.
+ *
+ * The risk this takes is worth naming: reasoning contains records the model CONSIDERED, so what is
+ * recovered may include ones it went on to reject. Every pick still passes the rotation rules and
+ * the bans at `PickResolver`, so the cost of a bad one is a single record; the cost of reading `[]`
+ * as an answer is the whole set.
+ */
+function isEmptyAnswer(text: string): boolean {
+    const bare = text
+        .trim()
+        .replace(/^```[a-z]*\s*/i, '')
+        .replace(/```$/, '')
+        .trim();
+
+    return bare.length === 0 || bare === '[]' || bare === '{}' || bare === '""';
 }
 
 /**

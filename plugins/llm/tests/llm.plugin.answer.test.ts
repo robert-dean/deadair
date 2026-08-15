@@ -50,6 +50,29 @@ describe('spokenAnswer', () => {
         expect(turn({ text: '   \n ', reasoningText: 'the actual answer' })).toBe('the actual answer');
     });
 
+    it('reads an empty array as nothing said, because that is the same failure with a bracket pair', () => {
+        // The live one: asked for two dozen records after three searches that returned thirty-six,
+        // gpt-oss answered `[]` and put its picks in the reasoning channel. Read as an answer, that
+        // cost a briefed hour — the floor filled it, and the floor cannot act on a brief.
+        expect(turn({ text: '[]', reasoningText: '[{"title": "A", "artist": "One"}]' })).toBe('[{"title": "A", "artist": "One"}]');
+    });
+
+    it('reads an empty container inside a code fence the same way', () => {
+        expect(turn({ text: '```json\n[]\n```', reasoningText: '[{"title": "A", "artist": "One"}]' })).toBe('[{"title": "A", "artist": "One"}]');
+    });
+
+    it('keeps a refusal in prose, because a model that wrote a sentence said something', () => {
+        // The line this draws. Overruling an answer is not the same as finding one, and a model
+        // that declined in words has been understood rather than lost.
+        expect(turn({ text: 'I could not find anything that fits.', reasoningText: '[{"title": "A", "artist": "One"}]' })).toBe(
+            'I could not find anything that fits.',
+        );
+    });
+
+    it('keeps an empty array when there is no reasoning to prefer over it', () => {
+        expect(turn({ text: '[]' })).toBe('[]');
+    });
+
     it('is unaffected by a length finish, which is a real answer that got cut off', () => {
         // A truncated answer is still the answer, and the caller's own guard decides whether it is
         // usable. Only `tool-calls` means "this was not a reply".

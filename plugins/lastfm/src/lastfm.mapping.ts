@@ -54,26 +54,6 @@ export function readWiki(wiki: LastfmWiki | undefined): string | undefined {
     return text.length > 0 ? text : undefined;
 }
 
-/**
- * A listener count as a sentence a DJ could say.
- *
- * Rounded hard, and that is the point: "1,203,847 listeners" is a number nobody
- * can say out loud, and the fact worth saying is the order of magnitude. Only
- * produced above a threshold, because "42 listeners" is true, unflattering, and
- * not what the operator put the record on for.
- */
-export function audienceFact(listeners: number | undefined, subject: string): string | undefined {
-    if (listeners === undefined || listeners < 10_000) return undefined;
-
-    if (listeners >= 1_000_000) {
-        const millions = Math.round(listeners / 100_000) / 10;
-        return `${subject} has around ${millions} million listeners on Last.fm.`;
-    }
-
-    const thousands = Math.round(listeners / 10_000) * 10_000;
-    return `${subject} has around ${thousands.toLocaleString('en-GB')} listeners on Last.fm.`;
-}
-
 /** What Last.fm knows about a recording. */
 export function mapTrack(track: LastfmTrack, minTagWeight: number, includeTags: boolean): Partial<TrackEnrichment> {
     const mapped: Partial<TrackEnrichment> = {};
@@ -93,15 +73,17 @@ export function mapTrack(track: LastfmTrack, minTagWeight: number, includeTags: 
     // artist's is about them, and the merge would take whichever arrived first.
     // The track's goes in `facts`, where a writer reads it as one line among
     // several, and the artist's is the one that fills `biography`.
-    const facts: string[] = [];
     const wiki = readWiki(track.wiki);
-    if (wiki) facts.push(wiki);
+    if (wiki) mapped.facts = [wiki];
 
+    // The listener count stops here, in `extra` where the console can still read
+    // it. It was a `fact` for as long as this file existed, and a fact is a thing
+    // the DJ says out loud: on this catalog that came out as seven hundred rows of
+    // "has around 160,000 listeners on Last.fm", which crowded the real facts out
+    // of every break — a track's facts are preferred over its record's and its
+    // artist's, so the one line worth saying lost to the one line that is not.
+    // How popular a record is is a fact about Last.fm, not about the record.
     const listeners = asNumber(track.listeners);
-    const said = audienceFact(listeners, title ? `"${title}"` : 'This record');
-    if (said) facts.push(said);
-    if (facts.length > 0) mapped.facts = facts;
-
     if (listeners !== undefined) extra.listeners = listeners;
     const playcount = asNumber(track.playcount);
     if (playcount !== undefined) extra.playcount = playcount;
@@ -135,12 +117,10 @@ export function mapArtist(artist: LastfmArtist, minTagWeight: number, includeTag
     const bio = readWiki(artist.bio);
     if (bio) mapped.biography = bio;
 
-    const facts: string[] = [];
+    // No `facts` at all from this source now: see the note in `mapTrack`. What
+    // Last.fm has to say about an artist is the biography above, which is prose
+    // somebody wrote, and the numbers below, which are not.
     const listeners = asNumber(artist.stats?.listeners);
-    const said = audienceFact(listeners, name ?? 'This artist');
-    if (said) facts.push(said);
-    if (facts.length > 0) mapped.facts = facts;
-
     if (listeners !== undefined) extra.listeners = listeners;
     const playcount = asNumber(artist.stats?.playcount);
     if (playcount !== undefined) extra.playcount = playcount;

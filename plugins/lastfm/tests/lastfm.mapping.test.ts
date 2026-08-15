@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { audienceFact, mapAlbum, mapArtist, mapTrack, readRef, readWiki, trackRef } from '../src/lastfm.mapping.js';
+import { mapAlbum, mapArtist, mapTrack, readRef, readWiki, trackRef } from '../src/lastfm.mapping.js';
 import type { LastfmAlbum, LastfmArtist, LastfmTrack } from '../src/lastfm.types.js';
 
 const WEIGHT = 10;
@@ -34,24 +34,6 @@ describe('a wiki body', () => {
     });
 });
 
-describe('an audience as a sentence', () => {
-    it('rounds a big number to something a person can say', () => {
-        expect(audienceFact(1_203_847, 'Portishead')).toBe('Portishead has around 1.2 million listeners on Last.fm.');
-    });
-
-    it('rounds a smaller one to the nearest ten thousand', () => {
-        expect(audienceFact(324_119, 'Portishead')).toBe('Portishead has around 320,000 listeners on Last.fm.');
-    });
-
-    it('says nothing at all about a small audience, which is true and unflattering', () => {
-        expect(audienceFact(412, 'Some Band')).toBeUndefined();
-    });
-
-    it('says nothing when the service did not count', () => {
-        expect(audienceFact(undefined, 'Some Band')).toBeUndefined();
-    });
-});
-
 describe('a track', () => {
     const track: LastfmTrack = {
         name: 'Glory Box',
@@ -71,12 +53,27 @@ describe('a track', () => {
         wiki: { summary: 'Released as the third single from Dummy.' },
     };
 
-    it('contributes the two vocabularies and the facts', () => {
+    it('contributes the two vocabularies and the wiki, which is the only prose here', () => {
         const mapped = mapTrack(track, WEIGHT, true);
 
         expect(mapped.genres).toEqual(['trip hop']);
         expect(mapped.moods).toEqual(['melancholy']);
-        expect(mapped.facts).toEqual(['Released as the third single from Dummy.', '"Glory Box" has around 980,000 listeners on Last.fm.']);
+        expect(mapped.facts).toEqual(['Released as the third single from Dummy.']);
+    });
+
+    it('never says the listener count out loud, however large it is', () => {
+        // It was a `fact` once, and on a real catalog it was seven hundred rows of "has around
+        // 160,000 listeners on Last.fm" — which then beat every album and artist fact to the break,
+        // since a track's own facts are preferred. It is a fact about Last.fm, not about the record.
+        const mapped = mapTrack(track, WEIGHT, true);
+
+        expect(mapped.facts?.join(' ')).not.toMatch(/listener/i);
+    });
+
+    it('says nothing at all when the wiki is the only prose and it is absent', () => {
+        const mapped = mapTrack({ ...track, wiki: undefined }, WEIGHT, true);
+
+        expect(mapped.facts).toBeUndefined();
     });
 
     it('keeps the counts under `extra`, which survives per provider', () => {
@@ -127,6 +124,13 @@ describe('an artist', () => {
 
     it('contributes the biography, which is the richest thing this service has', () => {
         expect(mapArtist(artist, WEIGHT, true).biography).toBe('Formed in Bristol in 1991.');
+    });
+
+    it('contributes no facts at all, since its only candidate was the listener count', () => {
+        const mapped = mapArtist(artist, WEIGHT, true) as { extra?: Record<string, unknown> };
+
+        expect(mapped.facts).toBeUndefined();
+        expect(mapped.extra).toMatchObject({ listeners: 2_400_000 });
     });
 
     it('NEVER fills imageUrl, because every artist answers with the same placeholder', () => {

@@ -8,6 +8,7 @@ import { BreakRequestRepository } from './break.request.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
+import { WelcomeAnnouncer } from './welcome.announcer.js';
 import { WelcomeWriter } from './welcome.writer.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
@@ -135,6 +136,12 @@ export const DirectorModule: ServerKitModule = {
         // Its request-facing half is scoped like any other service, and only holds a
         // reference to the singleton above.
         registry.register(DirectorConsoleService).useClass(DirectorConsoleService).asScoped();
+
+        // The first producer on the station bus: somebody tuned in, so ask for a greeting. A
+        // singleton because it holds a subscription, and its own class rather than a branch in the
+        // director because what the station does about a listener arriving is a programming decision
+        // and should be one readable file.
+        registry.register(WelcomeAnnouncer).useClass(WelcomeAnnouncer).asSingleton();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {
@@ -144,9 +151,15 @@ export const DirectorModule: ServerKitModule = {
         // which is work the first request does not depend on, and it drives a rundown
         // whose own pusher only begins in PlayoutModule's ready.
         await container.get(DirectorService).start();
+
+        // After the director, and it has to be: a greeting asked for before the running order has
+        // been read back is one declined for a station that is not airing anything.
+        container.get(WelcomeAnnouncer).start();
     },
 
     shutdown: async (container: Container) => {
+        // First, so nothing asks for a greeting while the director is flushing what it holds.
+        container.get(WelcomeAnnouncer).stop();
         // Awaited: the stop flushes whatever the persist throttle owes, and a shutdown that did
         // not wait would cost the station its last couple of seconds of transitions and replay a
         // record for them.

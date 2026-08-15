@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { BreakPlanner, INTERRUPT_OVER_AT_MS, PLANT_AHEAD, WRITE_AHEAD, type AirClock } from '../../../src/modules/director/break.planner.js';
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
+import { WELCOME_KIND } from '../../../src/modules/director/welcome.writer.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { resolveRules } from '../../../src/modules/director/rotation.rules.js';
@@ -795,6 +796,29 @@ describe('BreakPlanner.ripen', () => {
             const quiet = build({ canWrite: true });
             const silenced = await quiet.planner.plantRequested(lineup, rules({ breaks: false }), { now, anchorAt: now, from: 0 }, asking());
             expect(silenced.accepted).toBe(false);
+        });
+
+        it('declines a welcome on a station that has been told not to greet anybody', async () => {
+            // Judged here rather than in whatever asked, so the rule is true for a console button and
+            // a scheduler as well as for the audience watch — and resolved against the running order,
+            // so a broadcast may turn greetings off without touching the station's own setting.
+            const { planner } = build({ canWrite: true });
+            const lineup = await lineupOf(6, 1);
+            const now = Date.UTC(2026, 7, 13, 9, 0);
+            const asking = { id: 'req-1', kind: WELCOME_KIND, urgency: 'next', source: 'audience', state: 'placed' } as StoredBreakRequest;
+
+            const off = await planner.plantRequested(lineup, rules({ welcome: false }), { now, anchorAt: now, from: 0 }, asking);
+            expect(off.accepted).toBe(false);
+            expect(off.reason).toContain('not to greet');
+
+            // And a talk break on the same station is unaffected: the rule is about greetings.
+            const talk = await planner.plantRequested(
+                lineup,
+                rules({ welcome: false }),
+                { now, anchorAt: now, from: 0 },
+                { ...asking, kind: TALK_BREAK_KIND },
+            );
+            expect(talk.accepted).toBe(true);
         });
 
         it('stamps the projected air time and the request it came from onto the row', async () => {

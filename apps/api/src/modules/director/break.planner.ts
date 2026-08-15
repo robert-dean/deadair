@@ -420,6 +420,12 @@ export class BreakPlanner {
      */
     private refuse(kind: string, rules: ResolvedRules): string | undefined {
         if (!rules.breaks) return 'the station has been told not to interrupt itself';
+        // Judged HERE rather than in whatever asked, for the reason a pick is judged where it becomes
+        // a track: this is the one place every welcome passes through, so the rule is true for a
+        // console button and a scheduler as well as for the audience watch — and it is resolved
+        // against the running order, so a broadcast may turn greetings off without touching the
+        // station's own setting.
+        if (kind === WELCOME_KIND && !rules.welcome) return 'the station has been told not to greet new listeners';
         if (!this.writers.canWrite(kind)) return `nothing on this station knows how to write a ${kind}`;
         if (this.speech.speaker() === undefined) return 'the station has no voice to speak with';
 

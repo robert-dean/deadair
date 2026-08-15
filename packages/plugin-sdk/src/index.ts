@@ -8,6 +8,7 @@ export * from './capabilities/scrobble.js';
 export * from './capabilities/similarity.js';
 export * from './capabilities/speech.js';
 export * from './define.plugin.js';
+export * from './feed.parse.js';
 export * from './match.text.js';
 export * from './plugin.api.version.js';
 export * from './plugin.base.js';

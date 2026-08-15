@@ -41,5 +41,8 @@
         "@repo/config-typescript": "workspace:*",
         "vitest": "^4.1.10",
         "zod": "^4.4.3"
+    },
+    "dependencies": {
+        "fast-xml-parser": "^5.10.1"
     }
 }

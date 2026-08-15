@@ -33,6 +33,47 @@ import type { LlmMessage } from '@deadair/plugin-sdk';
 import { keepsCharacter, personaLines, personaVoiceReminder, type PersonaSheet } from '#modules/personas/persona.sheet.js';
 import type { BreakTrack, BreakWriteRequest } from './break.writer.js';
 
+/**
+ * What makes one KIND of break's prompt different from another's.
+ *
+ * The seam that keeps this file from growing a branch per kind. `BreakWriter` is already a registry
+ * over kinds rather than one writer with parameters, on the argument that a fifth kind of break is a
+ * fifth writer; a `greeting?: boolean` here would have been that same mistake made a second time,
+ * one flag at a time, until the prompt builder was a switch statement.
+ *
+ * So a kind brings its own shape and the shared discipline stays here. Everything a break owes
+ * whatever it is — the grounding rules, the persona sheet and its diction reminder, the word ceiling,
+ * the notes rule, the recent-scripts rule, the clock instruction — is in {@link systemPrompt} and
+ * {@link userPrompt}, where no kind can opt out of it. What a shape may change is what the break IS,
+ * which is one sentence and one opening.
+ *
+ * Shapes live beside their writers, so this file imports the interface and none of them.
+ */
+export interface BreakPromptShape {
+    /** What this sort of break is, in one sentence, in the system turn. */
+    job: string;
+    /**
+     * Whether the record that has just finished is shown at all.
+     *
+     * Not every break is about what just played. A greeting is about somebody who has only now
+     * arrived, so what they missed is not theirs to be back-announced — and showing it anyway is an
+     * invitation for a model to cue a record its listener never heard.
+     */
+    showsPrevious: boolean;
+    /** What the user turn opens with, before the records. Absent for a break that needs no framing. */
+    opening?: (request: BreakWriteRequest) => string | undefined;
+}
+
+/**
+ * The shape of an ordinary talk break: the link between two records.
+ *
+ * The wording is exactly what this file said before there were shapes, moved rather than rewritten.
+ */
+export const TALK_BREAK_SHAPE: BreakPromptShape = {
+    job: 'You write one short spoken link between records. It is read aloud exactly as you write it.',
+    showsPrevious: true,
+};
+
 /** How the station wants this break to sound, and how long it may run. */
 export interface PromptSettings {
     /** What the station calls itself, from `stream.title`. */
@@ -77,14 +118,14 @@ const WORDS_PER_SECOND = 2.6;
  * never do; the user turn is this particular moment. Split that way so the rules read as standing
  * instructions rather than as something about these two records, which is what they are.
  */
-export function breakPrompt(request: BreakWriteRequest, settings: PromptSettings = {}): LlmMessage[] {
+export function breakPrompt(request: BreakWriteRequest, settings: PromptSettings, shape: BreakPromptShape): LlmMessage[] {
     return [
-        { role: 'system', content: systemPrompt(settings) },
-        { role: 'user', content: userPrompt(request, settings) },
+        { role: 'system', content: systemPrompt(settings, shape) },
+        { role: 'user', content: userPrompt(request, settings, shape) },
     ];
 }
 
-function systemPrompt(settings: PromptSettings): string {
+function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string {
     const station = settings.station?.trim();
     const dj = settings.dj?.trim();
     const persona = settings.persona;
@@ -104,7 +145,7 @@ function systemPrompt(settings: PromptSettings): string {
         // The sheet sits between the role and the rules, which leaves the grounding discipline in
         // the recency position it has always had.
         ...(persona === undefined ? [] : personaLines(persona)),
-        'You write one short spoken link between records. It is read aloud exactly as you write it.',
+        shape.job,
         '',
         'Rules:',
         // The §9 pair, stated as two rules rather than one, because they fail independently.
@@ -126,24 +167,33 @@ function systemPrompt(settings: PromptSettings): string {
     return lines.join('\n');
 }
 
-function userPrompt(request: BreakWriteRequest, settings: PromptSettings): string {
+function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape: BreakPromptShape): string {
     const parts: string[] = [];
 
-    if (request.previous) parts.push(`The record that has just finished:\n${describe(request.previous)}`);
+    const opening = shape.opening?.(request);
+    if (opening !== undefined) parts.push(opening);
+
+    // A kind that does not look backwards never sees the record behind it, rather than seeing it and
+    // being told not to mention it: a model shown a record will find a way to cue it.
+    const previous = shape.showsPrevious ? request.previous : undefined;
+
+    if (previous) parts.push(`The record that has just finished:\n${describe(previous)}`);
     if (request.next) parts.push(`The record coming up next:\n${describe(request.next)}`);
 
     // Both absent is a legitimate moment — the top of an order with nothing behind it — and the
     // rules above are what stop it being filled with a record from nowhere.
     if (parts.length === 0) parts.push('You have no records to talk about. Say something brief that identifies the station and nothing more.');
 
-    if (request.previous && !request.next) {
+    if (previous && !request.next) {
         // Said explicitly, because a model handed one record will reach for a second. This is the
         // same withholding the deterministic writer does by choosing a phrasing with no `next` in
         // it, and the reason the caller left the next record out is that it could not be trusted.
         parts.push('You have not been told what plays next. Do not say what is coming up.');
     }
 
-    if (hasFacts(request)) {
+    // Asked of what the model can actually SEE: a rule about reading notes aloud is a rule about
+    // nothing when the only record carrying any was withheld by the shape.
+    if (hasFacts(previous, request.next)) {
         // Only when there are notes, because the thing this guards against cannot happen without
         // them. Two failures: reading a database line out as it stands ("Active as a recording
         // artist from 1948 to 2025" is a real row in this install's enrichment), and treating a
@@ -195,7 +245,8 @@ function describe(track: BreakTrack): string {
 }
 
 /** Whether either record came with anything to say about it. */
-const hasFacts = (request: BreakWriteRequest): boolean => (request.previous?.facts?.length ?? 0) > 0 || (request.next?.facts?.length ?? 0) > 0;
+const hasFacts = (previous: BreakTrack | undefined, next: BreakTrack | undefined): boolean =>
+    (previous?.facts?.length ?? 0) > 0 || (next?.facts?.length ?? 0) > 0;
 
 /** What a model's answer has to survive to become a script. */
 export interface AnswerGuard {

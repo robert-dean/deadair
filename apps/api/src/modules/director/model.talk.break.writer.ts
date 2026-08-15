@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer } from './break.prompt.js';
+import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
@@ -119,13 +119,19 @@ export class ModelTalkBreakWriter extends BreakWriter {
         }
 
         const model = this.config.get(MODEL_WRITER_KEYS.model, '').trim();
-        const messages = breakPrompt(request, {
-            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            // The persona's own name where it has one, and the station's behind it. A persona that
-            // is a manner rather than a character has no reason to rename the presenter.
-            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
-            ...(request.persona === undefined ? {} : { persona: request.persona }),
-        });
+        const messages = breakPrompt(
+            request,
+            {
+                station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
+                // The persona's own name where it has one, and the station's behind it. A persona
+                // that is a manner rather than a character has no reason to rename the presenter.
+                dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
+                ...(request.persona === undefined ? {} : { persona: request.persona }),
+            },
+            // Named rather than defaulted: what this binding writes is a link between two records,
+            // and a writer that said nothing about its shape would silently get that whatever it was.
+            TALK_BREAK_SHAPE,
+        );
 
         const result = await this.llm.converse(
             {

@@ -7,17 +7,26 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer } from '../../../src/modules/director/break.prompt.js';
+import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE, type PromptSettings } from '../../../src/modules/director/break.prompt.js';
+import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
 
-const system = (messages: ReturnType<typeof breakPrompt>) => messages.find(message => message.role === 'system')?.content ?? '';
-const user = (messages: ReturnType<typeof breakPrompt>) => messages.find(message => message.role === 'user')?.content ?? '';
+/**
+ * The talk break's shape, since these cases are about the rules EVERY kind owes rather than about
+ * what makes one kind different. A shape is named explicitly here for the same reason there is no
+ * default in `breakPrompt` itself: a kind that forgot to bring one would silently be written as an
+ * ordinary link between two records.
+ */
+const prompt = (request: BreakWriteRequest, settings: PromptSettings = {}) => breakPrompt(request, settings, TALK_BREAK_SHAPE);
+
+const system = (messages: ReturnType<typeof prompt>) => messages.find(message => message.role === 'system')?.content ?? '';
+const user = (messages: ReturnType<typeof prompt>) => messages.find(message => message.role === 'user')?.content ?? '';
 
 describe('breakPrompt', () => {
     it('is a system turn and a user turn, in that order', () => {
-        const messages = breakPrompt({ kind: 'talkbreak', previous });
+        const messages = prompt({ kind: 'talkbreak', previous });
 
         expect(messages.map(message => message.role)).toEqual(['system', 'user']);
     });
@@ -25,14 +34,14 @@ describe('breakPrompt', () => {
     it('bans naming any record it was not given, and asks for certainty separately', () => {
         // Two rules rather than one, because they fail independently: inventing a credit and
         // mis-cueing a real record are different mistakes and a single instruction gets neither.
-        const rules = system(breakPrompt({ kind: 'talkbreak', previous, next }));
+        const rules = system(prompt({ kind: 'talkbreak', previous, next }));
 
         expect(rules).toMatch(/never name, cue, or allude to any other song/i);
         expect(rules).toMatch(/not certain/i);
     });
 
     it('shows the model both records it was given', () => {
-        const said = user(breakPrompt({ kind: 'talkbreak', previous, next }));
+        const said = user(prompt({ kind: 'talkbreak', previous, next }));
 
         expect(said).toContain('Solid Air');
         expect(said).toContain('John Martyn');
@@ -43,26 +52,26 @@ describe('breakPrompt', () => {
     it('says outright that there is no next record when there is not', () => {
         // A model handed one record will reach for a second. The caller withheld the next one
         // because it could not be trusted, and silence about that is not the same as saying so.
-        const said = user(breakPrompt({ kind: 'talkbreak', previous }));
+        const said = user(prompt({ kind: 'talkbreak', previous }));
 
         expect(said).toMatch(/do not say what is coming up/i);
         expect(said).not.toContain('Pink Moon');
     });
 
     it('does not claim there is no next record when there is one', () => {
-        const said = user(breakPrompt({ kind: 'talkbreak', previous, next }));
+        const said = user(prompt({ kind: 'talkbreak', previous, next }));
 
         expect(said).not.toMatch(/do not say what is coming up/i);
     });
 
     it('gives the model something true to do when it has no records at all', () => {
-        const said = user(breakPrompt({ kind: 'talkbreak', station: 'Deadair' }));
+        const said = user(prompt({ kind: 'talkbreak', station: 'Deadair' }));
 
         expect(said).toMatch(/no records to talk about/i);
     });
 
     it('passes the recent scripts through as an avoid-list', () => {
-        const said = user(breakPrompt({ kind: 'talkbreak', previous, recent: ['That was Solid Air.'] }));
+        const said = user(prompt({ kind: 'talkbreak', previous, recent: ['That was Solid Air.'] }));
 
         expect(said).toContain('That was Solid Air.');
         expect(said).toMatch(/do not reuse/i);
@@ -71,7 +80,7 @@ describe('breakPrompt', () => {
     it('states the length as words and as seconds', () => {
         // A model reasons about a spoken length better than about a count; the count is what can
         // actually be checked afterwards.
-        const rules = system(breakPrompt({ kind: 'talkbreak', previous }, { maxWords: 26 }));
+        const rules = system(prompt({ kind: 'talkbreak', previous }, { maxWords: 26 }));
 
         expect(rules).toContain('26 words');
         expect(rules).toMatch(/10 seconds/);
@@ -79,7 +88,7 @@ describe('breakPrompt', () => {
 
     it('carries the station, the presenter and the persona when they are set', () => {
         const rules = system(
-            breakPrompt(
+            prompt(
                 { kind: 'talkbreak', previous },
                 { station: 'Deadair', dj: 'Sam', persona: { style: 'a dry crate-digger', quirks: ['Never smug'], catchphrases: ['Worth the dig'] } },
             ),
@@ -95,7 +104,7 @@ describe('breakPrompt', () => {
     it('replaces the station-voice role sentence rather than saying both', () => {
         // A model handed "you are the voice of a radio station" AND "you are a pirate captain"
         // hedges between them. The persona takes the slot; it does not queue behind it.
-        const rules = system(breakPrompt({ kind: 'talkbreak', previous }, { persona: { style: 'a pirate captain' } }));
+        const rules = system(prompt({ kind: 'talkbreak', previous }, { persona: { style: 'a pirate captain' } }));
 
         expect(rules).toContain('You are a pirate captain');
         expect(rules).not.toContain('You are the voice of a radio station');
@@ -104,13 +113,13 @@ describe('breakPrompt', () => {
     it('restates the dialect AFTER the content rules, which is the whole reason it exists', () => {
         // The failure is caused by the rules: a host reads seven careful instructions about naming
         // records accurately and answers them in careful, plain English.
-        const rules = system(breakPrompt({ kind: 'talkbreak', previous }, { persona: { style: 'a pirate captain', diction: ['Ye for you'] } }));
+        const rules = system(prompt({ kind: 'talkbreak', previous }, { persona: { style: 'a pirate captain', diction: ['Ye for you'] } }));
 
         expect(rules.indexOf('Plain English is wrong here')).toBeGreaterThan(rules.indexOf('Only ever refer to the records listed below'));
     });
 
     it('says nothing about a presenter or a persona nobody has set', () => {
-        const rules = system(breakPrompt({ kind: 'talkbreak', previous }));
+        const rules = system(prompt({ kind: 'talkbreak', previous }));
 
         expect(rules).not.toMatch(/your name is\s*[,.]/i);
         expect(rules).not.toMatch(/describes its presenter/i);
@@ -120,7 +129,7 @@ describe('breakPrompt', () => {
         const withFacts = { ...previous, facts: ['John Martyn was born in New Malden in 1948.'] };
 
         it('puts a record’s notes under that record and nowhere else', () => {
-            const said = user(breakPrompt({ kind: 'talkbreak', previous: withFacts, next }));
+            const said = user(prompt({ kind: 'talkbreak', previous: withFacts, next }));
 
             expect(said).toMatch(/Artist: John Martyn\n- Notes:\n {2}- John Martyn was born in New Malden in 1948\./);
             // The record with nothing known about it is shown exactly as it was before.
@@ -131,29 +140,64 @@ describe('breakPrompt', () => {
             // The second failure the notes bring: a model handed "Active as a recording artist from
             // 1948 to 2025" will say it, and that is a database entry rather than something a
             // person says. Wanted rather than required, and never a licence to cue.
-            const said = user(breakPrompt({ kind: 'talkbreak', previous: withFacts }));
+            const said = user(prompt({ kind: 'talkbreak', previous: withFacts }));
 
             expect(said).toMatch(/raw material, not lines to read out/i);
             expect(said).toMatch(/at most one/i);
             expect(said).toMatch(/never something to cue or play/i);
             // And it does NOT take back the cue the model is allowed to make: it was given the next
             // record precisely so it could name it, and the caller withholds it when it may not.
-            expect(user(breakPrompt({ kind: 'talkbreak', previous: withFacts, next }))).not.toMatch(/do not say what is coming up/i);
+            expect(user(prompt({ kind: 'talkbreak', previous: withFacts, next }))).not.toMatch(/do not say what is coming up/i);
         });
 
         it('says none of that for a station that knows nothing about either record', () => {
             // Every break on a fresh install. A rule about notes that do not exist is a rule about
             // nothing, and it costs the model tokens to read.
-            const said = user(breakPrompt({ kind: 'talkbreak', previous, next }));
+            const said = user(prompt({ kind: 'talkbreak', previous, next }));
 
             expect(said).not.toMatch(/notes/i);
             expect(said).not.toMatch(/raw material/i);
         });
 
         it('treats an empty list as nothing known, rather than as an empty heading', () => {
-            const said = user(breakPrompt({ kind: 'talkbreak', previous: { ...previous, facts: [] } }));
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, facts: [] } }));
 
             expect(said).not.toMatch(/notes/i);
+        });
+    });
+
+    // What a KIND may change, and what it may not. The shared half is everything that keeps a break
+    // truthful, and no shape can opt out of it.
+    describe('a kind bringing its own shape', () => {
+        const greeting = {
+            job: 'You greet somebody who has just tuned in.',
+            showsPrevious: false,
+            opening: () => 'Somebody has just started listening.',
+        };
+
+        it('says what this sort of break is, in place of the link sentence', () => {
+            const rules = system(breakPrompt({ kind: 'welcome', previous, next }, {}, greeting));
+
+            expect(rules).toContain('You greet somebody who has just tuned in.');
+            expect(rules).not.toContain('one short spoken link between records');
+        });
+
+        it('withholds the record just finished rather than asking the model to ignore it', () => {
+            // Shown and forbidden is an invitation: a model handed a record will find a way to cue
+            // it, which for a greeting means cueing something the listener never heard.
+            const said = user(breakPrompt({ kind: 'welcome', previous, next }, {}, greeting));
+
+            expect(said).toContain('Somebody has just started listening.');
+            expect(said).not.toContain(previous.title);
+            expect(said).toContain(next.title);
+        });
+
+        it('keeps every rule a break owes whatever it is', () => {
+            const rules = system(breakPrompt({ kind: 'welcome', next }, {}, greeting));
+
+            expect(rules).toMatch(/Only ever refer to the records listed below/);
+            expect(rules).toMatch(/Write only the words to be spoken/);
+            expect(rules).toMatch(new RegExp(`under ${DEFAULT_MAX_WORDS} words`));
         });
     });
 });

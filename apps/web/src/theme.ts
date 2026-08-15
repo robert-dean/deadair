@@ -52,6 +52,18 @@ const standby: MantineColorsTuple = ['#E7F2FF', '#CBE3FF', '#9DC9FF', '#78B5FF',
 /** Fault amber: installed but wrong, stalled, or unreachable. Never used for "off". */
 const fault: MantineColorsTuple = ['#FFF6E5', '#FFE9C2', '#FFD68A', '#FFC452', '#FFB224', '#F09C0C', '#DB8A00', '#B57200', '#8A5700', '#603D00'];
 
+/**
+ * The two hues that are not statuses, retuned so they belong to the same console.
+ *
+ * `grape` marks a thing the STATION authored — a break, a talk-over, a model's work — which is a
+ * kind rather than a state, and giving it a status colour would make a perfectly healthy segment
+ * read as a condition. `orange` is the one deliberate half-step in the status set: the running
+ * order draws `skipped` in amber and `unavailable` in orange because a skip is the station doing
+ * its job and an unavailable record is one an operator can go and fix.
+ */
+const authored: MantineColorsTuple = ['#F4EDFF', '#E5D8FF', '#CBB2FF', '#B08CFF', '#9A72F5', '#8459E0', '#7047C4', '#5A379E', '#432878', '#2D1A52'];
+const alarm: MantineColorsTuple = ['#FFEFE5', '#FFDAC2', '#FFB98A', '#FF9C57', '#FF8330', '#F06A14', '#DB5A05', '#B54800', '#8A3700', '#602600'];
+
 export const theme = createTheme({
     primaryColor: 'phosphor',
     primaryShade: 4,
@@ -68,6 +80,11 @@ export const theme = createTheme({
         // `active` reads as phosphor: a plugin that is running is the same "good" as the accent,
         // and two greens a shade apart would look like a mistake rather than a distinction.
         teal: phosphor,
+        // For the same reason: anything reaching for a plain `green` means "this one is good", and
+        // there is one of those on this desk.
+        green: phosphor,
+        grape: authored,
+        orange: alarm,
     },
     fontFamily: '"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif',
     fontFamilyMonospace: '"IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',

@@ -1,4 +1,5 @@
 import { Anchor, Badge, Button, Card, Divider, Group, Stack, Switch, Text, Title } from '@mantine/core';
+import { IconArrowLeft } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
@@ -29,7 +30,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
         return (
             <Stack gap="md" align="flex-start">
                 <ErrorAlert title="Plugin unavailable" error={plugin.error} fallback={`No plugin with the id "${id}" answered.`} />
-                <Anchor component={Link} to="/plugins" size="sm">
+                <Anchor renderRoot={props => <Link to="/plugins" {...props} />} size="sm">
                     Back to plugins
                 </Anchor>
             </Stack>
@@ -41,8 +42,13 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
 
     return (
         <Stack gap="lg" maw={720}>
-            <Anchor component={Link} to="/plugins" size="sm">
-                ← Plugins
+            {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
+                router's own types, and with them the check that this route still exists. */}
+            <Anchor renderRoot={props => <Link to="/plugins" {...props} />} size="sm">
+                <Group gap={4} wrap="nowrap">
+                    <IconArrowLeft size={14} stroke={1.8} />
+                    Plugins
+                </Group>
             </Anchor>
 
             <Stack gap="xs">

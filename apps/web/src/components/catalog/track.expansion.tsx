@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActionIcon, Collapse, Table } from '@mantine/core';
+import { IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 
 import { catalogTrackEnrichmentOptions } from '../../api/catalog.queries';
@@ -30,7 +31,7 @@ export interface TrackExpandButtonProps {
     onToggle: () => void;
 }
 
-/** The control that opens a row. A chevron, since no icon set is installed. */
+/** The control that opens a row. */
 export function TrackExpandButton({ open, title, onToggle }: TrackExpandButtonProps) {
     return (
         <ActionIcon
@@ -40,7 +41,7 @@ export function TrackExpandButton({ open, title, onToggle }: TrackExpandButtonPr
             aria-label={`${open ? 'Hide' : 'Show'} what is known about ${title}`}
             onClick={onToggle}
         >
-            {open ? '▾' : '▸'}
+            {open ? <IconChevronDown size={15} stroke={1.8} /> : <IconChevronRight size={15} stroke={1.8} />}
         </ActionIcon>
     );
 }

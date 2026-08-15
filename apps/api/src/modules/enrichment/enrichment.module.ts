@@ -4,6 +4,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { EnrichmentReadService } from './enrichment.read.service.js';
 import { EnrichmentRepository } from './enrichment.repository.js';
 import { EnrichmentService } from './enrichment.service.js';
+import { FactExtractionService } from './fact.extraction.service.js';
+import { FactRepository } from './fact.repository.js';
 
 export const EnrichmentModule: ServerKitModule = {
     name: 'Enrichment',
@@ -18,5 +20,13 @@ export const EnrichmentModule: ServerKitModule = {
         // for the same reason, and separate so that reading a track's enrichment can
         // never turn into a fan-out at request time.
         registry.register(EnrichmentReadService).useClass(EnrichmentReadService).asScoped();
+
+        // The claims the host extracted out of what those plugins handed over,
+        // which is a different kind of thing from a provider's payload and so a
+        // separate store. Scoped for the same reason as everything above: the
+        // job runner gives every run its own scope, and the read side of this is
+        // reached from the break writer's own.
+        registry.register(FactRepository).useClass(FactRepository).asScoped();
+        registry.register(FactExtractionService).useClass(FactExtractionService).asScoped();
     },
 };

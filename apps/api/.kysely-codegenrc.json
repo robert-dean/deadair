@@ -32,7 +32,10 @@
             "deadair.station_events.module": "'playout' | 'director' | 'render' | 'catalog' | 'plugins'",
             "deadair.station_events.severity": "Generated<'info' | 'warn' | 'fault'>",
             "deadair.break_requests.urgency": "'interrupt' | 'next' | 'soon' | 'whenever'",
-            "deadair.break_requests.state": "Generated<'pending' | 'ready' | 'placed' | 'expired' | 'failed'>"
+            "deadair.break_requests.state": "Generated<'pending' | 'ready' | 'placed' | 'expired' | 'failed'>",
+            "deadair.facts.category": "Generated<'summary' | 'placement' | 'chart' | 'recording' | 'personnel' | 'controversy' | 'cover_or_sample' | 'ending'>",
+            "deadair.facts.source": "'lead' | 'model'",
+            "deadair.fact_extractions.source": "'lead' | 'model'"
         }
     },
     "partitions": false,

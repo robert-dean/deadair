@@ -3,6 +3,7 @@ export type JobNames =
     | 'catalog.sync'
     | 'catalog.resolve_placeholders'
     | 'catalog.enrich'
+    | 'catalog.extract_facts'
     | 'catalog.cache_art'
     | 'catalog.analyze'
     | 'playout.cache_track'

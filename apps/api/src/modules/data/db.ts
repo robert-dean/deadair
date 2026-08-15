@@ -221,6 +221,38 @@ export interface DeadairBreakRequests {
   urgency: "interrupt" | "next" | "soon" | "whenever";
 }
 
+export interface DeadairFactExtractions {
+  albumId: string | null;
+  artistId: string | null;
+  claims: Generated<number>;
+  createdAt: Generated<DateTime>;
+  documentUrl: string;
+  id: Generated<string>;
+  source: "lead" | "model";
+  stationKey: Generated<string>;
+  trackId: string | null;
+}
+
+export interface DeadairFacts {
+  albumId: string | null;
+  artistId: string | null;
+  category: Generated<"summary" | "placement" | "chart" | "recording" | "personnel" | "controversy" | "cover_or_sample" | "ending">;
+  claim: string;
+  confidence: number | null;
+  createdAt: Generated<DateTime>;
+  extractedAt: Generated<DateTime>;
+  id: Generated<string>;
+  lastUsedAt: DateTime | null;
+  model: string | null;
+  source: "lead" | "model";
+  sourceProvider: string;
+  sourceQuote: string;
+  sourceUrl: string;
+  stationKey: Generated<string>;
+  trackId: string | null;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairLoginEvents {
   actorId: string;
   factorId: string | null;
@@ -551,6 +583,8 @@ export interface DB {
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
   "deadair.breakRequests": DeadairBreakRequests;
+  "deadair.factExtractions": DeadairFactExtractions;
+  "deadair.facts": DeadairFacts;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;

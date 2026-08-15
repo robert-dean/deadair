@@ -6,6 +6,7 @@ import type { PgBossJobRegistration } from '@maroonedsoftware/jobbroker/pgboss';
 import { CatalogPlaceholderJob } from '#modules/catalog/ingest/catalog.placeholder.job.js';
 import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
+import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
 import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
@@ -93,6 +94,27 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: EnrichmentJob,
         cron: '*/15 * * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 13 }) },
+    },
+
+    // Every quarter hour, offset from the walk above so it reads what that one
+    // has just stored rather than racing it. The offset is the only relationship
+    // between them: a document read a quarter of an hour late costs nothing,
+    // because nothing is waiting on a fact.
+    //
+    // Its queue is documents with no extraction row, which is why it needs no
+    // trigger from the walk the way `catalog.cache_art` does — an article that
+    // arrived a minute ago is simply outstanding, exactly like one that arrived
+    // last week.
+    //
+    // One retry, no dead-letter queue, for the reason every walk here gives: a
+    // document that failed keeps no mark, so it is still outstanding and the
+    // next pass picks it up. `expiresIn` sits above a full run
+    // (`RUN_BUDGET_MS`, 4 minutes) and below the interval, so a wedged run is
+    // reclaimed before the next one starts.
+    'catalog.extract_facts': {
+        job: FactExtractionJob,
+        cron: '7-59/15 * * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 6 }) },
     },
 
     // Every ten minutes, and also sent by the sync whenever it added tracks, so a new arrival's

@@ -2,7 +2,14 @@ import { useState } from 'react';
 import { Alert, Badge, Button, Card, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
 import type { Persona, PersonaInput } from '@deadair/sdk';
 
-import { useCreatePersona, useDeletePersona, usePersonas, usePutPersonaOnAir, useUpdatePersona } from '../../api/personas.queries';
+import {
+    useCreatePersona,
+    useDeletePersona,
+    usePersonas,
+    usePutPersonaOnAir,
+    useRestorePersonas,
+    useUpdatePersona,
+} from '../../api/personas.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { PersonaEditor } from './persona.editor';
 
@@ -24,6 +31,7 @@ export function PersonasPage() {
     const update = useUpdatePersona();
     const remove = useDeletePersona();
     const putOnAir = usePutPersonaOnAir();
+    const restore = useRestorePersonas();
 
     // `undefined` is closed; a persona is editing that one; `null` is a new one. The one place in
     // this app where null earns its keep: "no editor" and "an editor with nothing in it" are
@@ -52,7 +60,15 @@ export function PersonasPage() {
                         voice reads it, and what the station programmes towards. A change is heard on the next break.
                     </Text>
                 </Stack>
-                <Button onClick={() => setEditing(null)}>New persona</Button>
+                <Group gap="xs">
+                    {/* Safe to press twice: it writes only what is missing, overwrites nothing an
+                        operator has rewritten, and puts nothing on air. That is what keeps it a
+                        plain button rather than something behind a confirmation. */}
+                    <Button variant="default" loading={restore.isPending} onClick={() => restore.mutate(undefined)}>
+                        Restore built-ins
+                    </Button>
+                    <Button onClick={() => setEditing(null)}>New persona</Button>
+                </Group>
             </Group>
 
             {personas.error ? (
@@ -64,6 +80,12 @@ export function PersonasPage() {
             {putOnAir.error ? (
                 <Alert color="red" title="That persona could not be put on air">
                     {apiErrorMessage(putOnAir.error, 'The station is still in the character it was.')}
+                </Alert>
+            ) : undefined}
+
+            {restore.error ? (
+                <Alert color="red" title="The station personas could not be restored">
+                    {apiErrorMessage(restore.error, 'Nothing was written.')}
                 </Alert>
             ) : undefined}
 

@@ -28,6 +28,15 @@ export class PersonasClient {
     }
 
     /**
+     * @name Restore station personas
+     * @description Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
+     */
+    async restoreStationPersonas(): Promise<PersonaList> {
+        const result = await this.fetch(`/personas/restore`, { method: 'POST' });
+        return await parseJson<PersonaList>(result);
+    }
+
+    /**
      * @name Update persona
      * @description Rewrites one persona. An edit to the one on air is heard on the next break
      */

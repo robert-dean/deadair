@@ -48,3 +48,11 @@ export const useUpdatePersona = () => useListWrite(({ id, body }: { id: string; 
 export const useDeletePersona = () => useListWrite((id: string) => sdk.personas.deletePersona(id));
 
 export const usePutPersonaOnAir = () => useListWrite((id: string) => sdk.personas.putPersonaOnAir(id));
+
+/**
+ * Put back whichever of the station's own personas are missing.
+ *
+ * Touches nothing already here and puts nothing on air, so it is safe to press twice — which is
+ * what makes it a plain button rather than something behind a confirmation.
+ */
+export const useRestorePersonas = () => useListWrite(() => sdk.personas.restoreStationPersonas());

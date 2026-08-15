@@ -186,6 +186,33 @@ export class PersonaRepository extends DataRepository {
 
         return rows.length;
     }
+
+    /**
+     * Write the seeds this station does not already have, whatever else it has.
+     *
+     * The deliberate exception to {@link seed}'s emptiness guard, and the reason it is safe is that
+     * nothing calls it on its own: an operator asked. A boot that quietly restored a deleted persona
+     * would make deletion inexpressible, but an operator pressing "restore" is saying exactly what
+     * they want, and a station that has been running since before a seed was written has no other
+     * way to reach it.
+     *
+     * **A persona that already exists is left completely alone**, including one an operator has
+     * rewritten under a seeded key — the conflict does nothing rather than updating, so this can
+     * never overwrite somebody's work with the shipped sheet. Nothing is put on air either: what is
+     * already there stays there. Answers the keys it actually wrote.
+     */
+    async restoreMissing(drafts: readonly PersonaDraft[]): Promise<string[]> {
+        if (drafts.length === 0) return [];
+
+        const rows = await this.db
+            .insertInto('deadair.personas')
+            .values(drafts.map(draft => ({ stationKey: this.station.stationKey, ...columnsOf(draft), active: false })))
+            .onConflict(conflict => conflict.columns(['stationKey', 'key']).doNothing())
+            .returning('key')
+            .execute();
+
+        return rows.map(row => row.key);
+    }
 }
 
 /** A draft as columns. `active` is deliberately absent: it moves through {@link PersonaRepository.setActive} alone. */

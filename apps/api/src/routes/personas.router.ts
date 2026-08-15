@@ -38,8 +38,21 @@ PersonasRouter.post('/personas', requirePolicy({ policy: 'platform.manage' }), b
 });
 
 /**
+ * Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L50)
+ */
+PersonasRouter.post('/personas/restore', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(PersonasService);
+    const result: PersonaList = await service.restore();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Rewrites one persona. An edit to the one on air is heard on the next break
- * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L53)
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L65)
  */
 PersonasRouter.put('/personas/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -61,7 +74,7 @@ PersonasRouter.put('/personas/:id', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Removes a persona, including the one on air, which leaves the station with none
- * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L65)
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L77)
  */
 PersonasRouter.delete('/personas/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -81,7 +94,7 @@ PersonasRouter.delete('/personas/:id', requirePolicy({ policy: 'platform.manage'
 
 /**
  * Puts this persona on air and takes the previous one off
- * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L80)
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L92)
  */
 PersonasRouter.put('/personas/:id/active', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

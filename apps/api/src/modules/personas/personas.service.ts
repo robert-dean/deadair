@@ -65,6 +65,24 @@ export class PersonasService {
     }
 
     /**
+     * Put back whichever of the station's own personas are missing.
+     *
+     * The operator asking for the thing `seed` refuses to do on its own. A boot that restored a
+     * deleted persona would make deleting one inexpressible; a button that does it is somebody
+     * saying what they want, and it is the only way a station that has been running since before a
+     * persona was written can ever reach it.
+     *
+     * Nothing already here is touched, including a persona rewritten under a seeded key, and nothing
+     * is put on air.
+     */
+    async restore(): Promise<PersonaList> {
+        const written = await this.personas.restoreMissing(SEED_PERSONAS);
+        this.logger.info('personas: an operator restored the station personas', { written: written.length, keys: written });
+
+        return this.answer();
+    }
+
+    /**
      * Write the seeds on a station that has none.
      *
      * Called from `ready()` rather than from the migration, so the sheets have ONE source: a SQL

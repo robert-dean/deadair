@@ -46,6 +46,18 @@ operation /personas: {
     }
 }
 
+operation /personas/restore: {
+    post: { # Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
+        name: Restore station personas
+        service: PersonasService.restore
+        response: {
+            200: {
+                application/json: PersonaList
+            }
+        }
+    }
+}
+
 operation /personas/{id}: {
     params: {
         id: string(min=1, max=100)

@@ -1,6 +1,7 @@
 import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { Heartbeat } from '#modules/shared/heartbeat.js';
+import { StationBus } from '#modules/shared/station.bus.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { AfterCommit } from './after.commit.js';
 import { DB } from './db.js';
@@ -118,6 +119,12 @@ export const DataModule: ServerKitModule = {
         // it. A singleton because there is one station airing one broadcast at a time, and a
         // per-request copy would answer `undefined` to every job that asked.
         registry.register(StationIdentity).useClass(StationIdentity).asSingleton();
+
+        // The station's moments as they happen, for anything that wants to react to one. Registered
+        // here for the same reason as the two above: its producers and its subscribers sit on
+        // opposite sides of the module list — the audience watch is in `playout` and the thing that
+        // acts on an arrival is in `director` — and neither may reach for the other.
+        registry.register(StationBus).useClass(StationBus).asSingleton();
     },
 };
 

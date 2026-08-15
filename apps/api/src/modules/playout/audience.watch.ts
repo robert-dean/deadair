@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { IcecastStatsClient } from '#modules/stream/icecast.stats.client.js';
 import { IcecastEventFeed } from '#modules/stream/icecast.eventfeed.client.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
+import { StationBus } from '#modules/shared/station.bus.js';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from './air.mode.js';
 import { errorText } from '#modules/shared/error.text.js';
 
@@ -78,6 +79,16 @@ export class AudienceWatch {
     private lastReadAt?: number;
     /** What {@link hasAudience} said at the previous evaluation, so an edge can be announced once. */
     private announced = false;
+    /**
+     * Who wants to know when the GATE moves, as opposed to when somebody arrives.
+     *
+     * Deliberately still a list of its own rather than a `StationBus` event, and the two edges this
+     * class has are the clearest example of the line that bus draws. The gate is a hot, in-module
+     * coupling: its one subscriber is `PlayoutPusher`, which has to bring its reconcile forward in
+     * the same breath, and which is registered beside this class rather than six modules away. An
+     * arrival is the opposite — a fact about the station that anything might want to act on, and the
+     * things that act on it are all downstream of here.
+     */
     private readonly listeners = new Set<(open: boolean) => void>();
     /** One poll at a time: a slow Icecast must not stack requests behind the interval. */
     private polling = false;
@@ -87,6 +98,10 @@ export class AudienceWatch {
         private readonly feed: IcecastEventFeed,
         private readonly config: AppConfig,
         private readonly heartbeat: Heartbeat,
+        // Where an ARRIVAL goes. What the station does about somebody tuning in is a programming
+        // decision, and the things that make one are registered after this module and may not be
+        // reached for. The gate edge beside it stays a direct seam; see {@link listeners}.
+        private readonly bus: StationBus,
         private readonly logger: Logger,
     ) {}
 
@@ -252,6 +267,14 @@ export class AudienceWatch {
         const before = this.count;
         this.count = Math.max(0, count);
         if (this.count > 0) this.lastHeardAt = Date.now();
+
+        // Somebody walked into an empty room. Announced from here because this is where every source
+        // of a count meets, and off the RAW count rather than off the gate: in `always` mode the gate
+        // never moves, so a station on that setting could never greet anybody, and `hasAudience()`
+        // lingers for five minutes because that is about holding the mount rather than about anybody
+        // being there. `undefined` before counts as empty — the first reading of a room with somebody
+        // in it is somebody having arrived, which is exactly what a restart mid-broadcast looks like.
+        if ((before ?? 0) === 0 && this.count > 0) this.bus.publish('audience.arrived', { count: this.count });
         // Every path into here carries a number from something that knows one: a poll
         // Icecast answered, an event feed message, or a hook call Icecast is holding a
         // listener's connection open for. All three are proof it is alive, which is why

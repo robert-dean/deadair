@@ -1216,6 +1216,20 @@ export class DirectorService {
                         many: 'no longer said anything true about the running order',
                     });
                 }
+                if (ripened.rerendered.length > 0) {
+                    // Not a fault: the words are intact and the engine may well answer this time.
+                    // Worth a line at all because it is the only place a listener's silent boundary
+                    // is connected to the speech server that was down when it was written.
+                    void this.activity.record({
+                        module: 'director',
+                        kind: 'break.rerendering',
+                        detail:
+                            ripened.rerendered.length === 1
+                                ? 'A break that never got its audio is being spoken again.'
+                                : `${ripened.rerendered.length} breaks that never got their audio are being spoken again.`,
+                        data: { segmentIds: ripened.rerendered },
+                    });
+                }
                 if (ripened.released.length > 0) {
                     // Its own kind rather than a rewrite: this is the station noticing that a job
                     // died holding a break, which is a fault an operator never saw happen and the

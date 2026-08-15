@@ -123,6 +123,31 @@ async function releasesAStrandedRender(): Promise<void> {
     check((await segments.claimForRender(id)) !== undefined, 'and the render job can claim it again');
 }
 
+/** A render that failed with the words intact, and one that failed with nothing to say. */
+async function findsWhatCanBeSpokenAgain(): Promise<void> {
+    const spoken = await written('item-1');
+    await segments.claimForRender(spoken);
+    await segments.markFailed(spoken, 'render: no active plugin can speak', 'rendering');
+
+    const wordless = await segments.plan({ kind: KIND, label: 'Smoke' });
+    await segments.claimForWrite(wordless.id);
+    await segments.markFailed(wordless.id, 'nothing wrote this talkbreak', 'writing');
+
+    const found = await segments.failedWithScript([spoken, wordless.id]);
+
+    check(found.length === 1 && found[0]?.id === spoken, 'failedWithScript answers with the break whose words survived');
+    check(found[0]?.failures === 1, `and counts what it has been through (it says ${found[0]?.failures})`);
+    check(
+        !found.some(row => row.id === wordless.id),
+        'a break that failed with nothing to say is not offered, because asking again does not change that',
+    );
+
+    // A second failure has to move the count, or the cap can never be reached.
+    await segments.claimForRender(spoken);
+    await segments.markFailed(spoken, 'render: no active plugin can speak', 'rendering');
+    check((await segments.failedWithScript([spoken]))[0]?.failures === 2, 'the count follows the row rather than a process');
+}
+
 /** Nothing outside the window the caller named may move. */
 async function staysInsideItsWindow(): Promise<void> {
     const mine = await written('item-1');
@@ -142,6 +167,7 @@ try {
     await refusesAClaimedRow();
     await releasesAStrandedWrite();
     await releasesAStrandedRender();
+    await findsWhatCanBeSpokenAgain();
     await staysInsideItsWindow();
 } finally {
     const { numDeletedRows } = await db.deleteFrom('deadair.segments').where('kind', '=', KIND).executeTakeFirst();

@@ -201,10 +201,23 @@ export interface RipenResult {
     rewritten: string[];
     /** Breaks whose writer or renderer died holding them, now back in the pool. */
     released: string[];
+    /** Breaks whose words survived a render that did not, being spoken again. */
+    rerendered: string[];
 }
 
 /** A pass with no segments in its window at all, which is most of them. */
-const NOTHING_RIPENED: RipenResult = { offered: 0, rewritten: [], released: [] };
+const NOTHING_RIPENED: RipenResult = { offered: 0, rewritten: [], released: [], rerendered: [] };
+
+/**
+ * How many times the station will ask for the audio of one break before letting it go.
+ *
+ * Three, counted over the row's whole history rather than a recent window. The failure it is
+ * bounding is an engine that is not there, which does not get better by being asked again on the
+ * next boundary and the one after that — and the cost of asking forever is a job queue and an event
+ * table filling up for as long as the engine stays down. Three is enough to cover a restart, which
+ * is the case worth recovering.
+ */
+const MAX_RENDER_ATTEMPTS = 3;
 
 /**
  * The station putting its own segments into a lineup.
@@ -644,21 +657,23 @@ export class BreakPlanner {
         // what it says has ALSO stopped being true it should be re-written rather than re-spoken.
         // The other order would leave it queued to say the wrong thing correctly.
         const unstuck = await this.releaseStranded(ids);
-        const rewritten = await this.rewriteStale(lineup, window, segments);
+        const stale = this.staleClaims(lineup, window, segments);
+        const rewritten = await this.rewriteStale([...stale]);
+        const rerendered = await this.retryRenders(ids, stale, unstuck.rendering);
 
         // `planned`, and what this pass has just returned to `planned`. A break already being
         // written belongs to whoever claimed it, one already written needs no words, and a failed
-        // one is not retried by asking again — the usual reason it failed is that there was nothing
-        // true to say, and that does not change.
+        // one with nothing on it is not retried by asking again — the reason it failed is that there
+        // was nothing true to say, and that does not change.
         const revived = new Set([...unstuck.writing, ...rewritten]);
         const unwritten = ids.filter(id => segments.get(id)?.state === 'planned' || revived.has(id));
         const released = [...unstuck.writing, ...unstuck.rendering];
-        if (unwritten.length === 0) return { offered: 0, rewritten, released };
+        if (unwritten.length === 0) return { offered: 0, rewritten, released, rerendered };
 
         for (const segmentId of unwritten) await this.jobs.send('director.write_break', { segmentId });
 
         this.logger.info('director: asked for the words of breaks coming up', { count: unwritten.length });
-        return { offered: unwritten.length, rewritten, released };
+        return { offered: unwritten.length, rewritten, released, rerendered };
     }
 
     /**
@@ -708,18 +723,44 @@ export class BreakPlanner {
      * beside what, and a break that named a time is overtaken by nothing but the clock. Both used to
      * end at a dropped break and a boundary of silence.
      *
-     * Two things keep it honest. The verdict is `brokenClaim`, the same expression the hand-over
-     * check reads, so this can never throw away a break that would have aired. And a segment sitting
-     * at more than one position is reopened only when its promise is broken at EVERY one of them:
-     * idents come from a shared library and the same row is legitimately at three slots in an hour,
-     * so judging it at the first position would un-write a break that is perfectly correct at the
-     * other two.
+     * Which breaks those are is {@link staleClaims}'s answer, because the render retry needs the
+     * same verdict and two readings of one claim that could disagree would be two bugs waiting.
      *
      * Failures are swallowed here rather than left to the caller's catch, because they are not the
      * same failure: a repair that could not run costs one break its rewrite, and the words of every
      * OTHER break in this window are still worth asking for.
      */
-    private async rewriteStale(lineup: StationLineup, window: readonly StationLineupItem[], segments: Map<string, Segment>): Promise<string[]> {
+    private async rewriteStale(stale: readonly string[]): Promise<string[]> {
+        if (stale.length === 0) return [];
+
+        try {
+            // Nothing is filtered by state first: `reopenSegments` will not touch a row a job has
+            // claimed, and keeping that rule in one place is what stops the two from drifting.
+            const reopened = await this.segments.reopenSegments(stale);
+            if (reopened.length > 0) {
+                this.logger.info('director: a break in the window no longer says anything true, so it will be written again', {
+                    segments: reopened,
+                });
+            }
+            return reopened;
+        } catch (error) {
+            this.logger.warn(`director: could not re-open a break whose words had gone stale (${errorText(error)})`);
+            return [];
+        }
+    }
+
+    /**
+     * Which breaks in this window no longer say anything true.
+     *
+     * The verdict is `brokenClaim`, the same expression the hand-over check reads, so nothing here
+     * can throw away a break that would have aired perfectly well.
+     *
+     * A segment sitting at more than one position counts as broken only when its promise is broken
+     * at EVERY one of them: idents come from a shared library and the same row is legitimately at
+     * three slots in an hour, so judging it at the first position would condemn a break that is
+     * correct at the other two.
+     */
+    private staleClaims(lineup: StationLineup, window: readonly StationLineupItem[], segments: Map<string, Segment>): Set<string> {
         const now = Date.now();
         // Segment id to whether every position it holds is broken. Seeded true by the first
         // position and narrowed by the rest, so one position that still holds spares the row.
@@ -737,21 +778,54 @@ export class BreakPlanner {
             verdicts.set(item.segmentId, (verdicts.get(item.segmentId) ?? true) && stale);
         }
 
-        const stale = [...verdicts].flatMap(([segmentId, broken]) => (broken ? [segmentId] : []));
-        if (stale.length === 0) return [];
+        return new Set([...verdicts].flatMap(([segmentId, broken]) => (broken ? [segmentId] : [])));
+    }
+
+    /**
+     * Ask again for the audio of a break whose words survived a render that did not.
+     *
+     * Every failed segment on this station is the same thing: a speech server that was not running,
+     * with a perfectly good script sitting beside the error. `claimForRender` has always accepted
+     * `failed` and re-spoken the words on the row — that is what the operator's own retry does — and
+     * nothing ever asked on the station's behalf, so a break lost to a restart stayed lost.
+     *
+     * Three bounds, and each one closes a way this could churn.
+     *
+     * **No speaker, no asking.** A station with no speech plugin installed cannot render anything,
+     * and four of the six failures in this station's history are exactly that. Checked first because
+     * it costs nothing and removes the loudest case entirely.
+     *
+     * **Three failures and it stops.** A break that has failed three times is more likely to be one
+     * nothing can speak than a run of bad luck, and without a cap a dead engine would have every
+     * failed break in the window re-sent on every boundary, for as long as it stays dead.
+     *
+     * **Nothing whose claim has broken.** Those words are wrong as well as unspoken, so paying for
+     * the audio would buy a break the hand-over check drops anyway. They are left `failed`, which is
+     * what they already were: `reopenSegments` deliberately does not reach a failed row, and
+     * widening it to would be a different argument than this one.
+     *
+     * A send is idempotent, because `claimForRender` is a conditional update — so a duplicate is
+     * free, exactly as it is for the write job.
+     */
+    private async retryRenders(ids: readonly string[], stale: ReadonlySet<string>, alsoRender: readonly string[]): Promise<string[]> {
+        if (this.speech.speaker() === undefined) return [];
 
         try {
-            // Nothing is filtered by state first: `reopenSegments` will not touch a row a job has
-            // claimed, and keeping that rule in one place is what stops the two from drifting.
-            const reopened = await this.segments.reopenSegments(stale);
-            if (reopened.length > 0) {
-                this.logger.info('director: a break in the window no longer says anything true, so it will be written again', {
-                    segments: reopened,
-                });
-            }
-            return reopened;
+            const failed = await this.segments.failedWithScript(ids);
+            const retry = [
+                ...failed.filter(row => row.failures < MAX_RENDER_ATTEMPTS && !stale.has(row.id)).map(row => row.id),
+                // A render handed back by the sweep above: it is `written` with its words intact and
+                // nothing else would ever ask for its audio.
+                ...alsoRender.filter(id => !stale.has(id)),
+            ];
+            if (retry.length === 0) return [];
+
+            for (const segmentId of retry) await this.jobs.send('render.segment', { segmentId });
+
+            this.logger.info('director: asking again for the audio of a break that never got any', { segments: retry });
+            return retry;
         } catch (error) {
-            this.logger.warn(`director: could not re-open a break whose words had gone stale (${errorText(error)})`);
+            this.logger.warn(`director: could not ask again for the audio of a failed break (${errorText(error)})`);
             return [];
         }
     }

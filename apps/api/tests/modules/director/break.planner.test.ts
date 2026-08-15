@@ -107,13 +107,22 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
         return released;
     });
 
+    // Failures counted the way the SQL counts them, off a row's own history rather than a column.
+    const failures = new Map<string, number>();
+    const failedWithScript = vi.fn(async (ids: readonly string[]) =>
+        ids.flatMap(id => {
+            const segment = known.get(id);
+            return segment?.state === 'failed' && segment.script !== undefined ? [{ id, failures: failures.get(id) ?? 1 }] : [];
+        }),
+    );
+
     const writers = { canWrite: vi.fn(() => options.canWrite ?? false) };
     const speech = { speaker: vi.fn(() => ((options.speaker ?? options.canWrite) ? { record: { id: 'deadair.kokoro' } } : undefined)) };
     const send = vi.fn(async () => {});
 
     return {
         planner: new BreakPlanner(
-            { listReady, plan, markFailed, findByIds, reopenSegments, releaseStranded } as unknown as SegmentRepository,
+            { listReady, plan, markFailed, findByIds, reopenSegments, releaseStranded, failedWithScript } as unknown as SegmentRepository,
             writers as never,
             speech as never,
             { send } as never,
@@ -125,9 +134,11 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
         markFailed,
         reopenSegments,
         releaseStranded,
+        failedWithScript,
         send,
         known,
         touched,
+        failures,
     };
 };
 
@@ -888,6 +899,94 @@ describe('BreakPlanner.ripen', () => {
             built.releaseStranded.mockRejectedValueOnce(new Error('the database said no'));
 
             await expect(built.planner.ripen(lineup)).resolves.toMatchObject({ released: [] });
+        });
+    });
+
+    // Every failed segment in this station's history is the same thing: a speech server that was not
+    // running, with a perfectly good script sitting beside the error. The words are not the problem
+    // and nothing ever asked for the audio again.
+    describe('a break that never got its audio', () => {
+        /** One planted break, written and then failed at the render. */
+        const failedRender = async (options: { failures?: number; speaker?: boolean } = {}) => {
+            const built = build({ canWrite: true, speaker: options.speaker ?? true });
+            const lineup = await lineupOf(12);
+            await built.planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+            const at = lineup.all().findIndex(item => item.kind === 'segment');
+            const segmentId = (lineup.all()[at] as { segmentId: string }).segmentId;
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'failed', script: 'That was the last one.' });
+            built.failures.set(segmentId, options.failures ?? 1);
+
+            return { built, lineup, segmentId, at };
+        };
+
+        /** Every segment id a render was asked for. */
+        const rendered = (send: { mock: { calls: unknown[][] } }): string[] =>
+            send.mock.calls.filter(([name]) => name === 'render.segment').map(([, payload]) => (payload as { segmentId: string }).segmentId);
+
+        it('asks again for the audio of a break whose words survived', async () => {
+            const { built, lineup, segmentId } = await failedRender();
+
+            expect((await built.planner.ripen(lineup)).rerendered).toEqual([segmentId]);
+            expect(rendered(built.send)).toEqual([segmentId]);
+            // And it is NOT offered for writing: the words are not what failed.
+            expect(asked(built.send)).toEqual([]);
+        });
+
+        it('gives up after three failures', async () => {
+            // A break that has failed three times is more likely to be one nothing can speak than a
+            // run of bad luck, and asking forever fills a job queue for as long as an engine is down.
+            const { built, lineup } = await failedRender({ failures: 3 });
+
+            expect((await built.planner.ripen(lineup)).rerendered).toEqual([]);
+            expect(rendered(built.send)).toEqual([]);
+        });
+
+        it('asks for nothing at all when no plugin can speak', async () => {
+            // Four of this station's six failures are exactly this, so the check is worth making
+            // before the query rather than after it.
+            const { built, lineup } = await failedRender({ speaker: false });
+
+            expect((await built.planner.ripen(lineup)).rerendered).toEqual([]);
+            expect(built.failedWithScript).not.toHaveBeenCalled();
+        });
+
+        it('leaves a break that failed with nothing to say', async () => {
+            // The other failure entirely: no writer had anything true to say about these two
+            // records, and asking again does not change that.
+            const { built, lineup, segmentId } = await failedRender();
+            const { script, ...wordless } = built.known.get(segmentId)!;
+            expect(script).toBeDefined();
+            built.known.set(segmentId, wordless);
+
+            expect((await built.planner.ripen(lineup)).rerendered).toEqual([]);
+        });
+
+        it('will not pay for the audio of a break whose promise has broken', async () => {
+            // Those words are wrong as well as unspoken, so the audio would buy a break the
+            // hand-over check drops anyway.
+            const { built, lineup, segmentId, at } = await failedRender();
+            const promised = lineup.nextTrackAfter(lineup.all()[at]!.id)!.id;
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, claimsItemId: promised });
+            lineup.move(promised, lineup.all().length - 1);
+
+            expect((await built.planner.ripen(lineup)).rerendered).toEqual([]);
+        });
+
+        it('speaks a stranded render that the sweep handed back', async () => {
+            // The other half of the sweep: a released render is `written` with its words intact, and
+            // nothing else would ever ask for its audio.
+            const built = build({ canWrite: true });
+            const lineup = await lineupOf(12);
+            await built.planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+            const segmentId = (lineup.all().find(item => item.kind === 'segment') as { segmentId: string }).segmentId;
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'rendering', script: 'Coming up.' });
+            built.touched.set(segmentId, Date.now() - 1_800_000);
+
+            const result = await built.planner.ripen(lineup);
+
+            expect(result.released).toEqual([segmentId]);
+            expect(result.rerendered).toEqual([segmentId]);
         });
     });
 

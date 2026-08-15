@@ -613,6 +613,39 @@ export class SegmentRepository extends DataRepository {
         };
     }
 
+    /**
+     * The breaks here whose words survived a render that did not, and how often each has failed.
+     *
+     * `claimForRender` already accepts `failed` and re-speaks what is on the row, because "an
+     * operator asking again for a segment whose engine was down is asking for exactly that". This is
+     * what lets the station ask on its own behalf. Every failed segment on this station is that
+     * exact case: a speech server that was not running, with a perfectly good script beside it.
+     *
+     * **A row with no script is deliberately not here.** That is the other failure — nothing had
+     * anything true to say — and asking again does not change it.
+     *
+     * The count comes from `segment_events` rather than from a column, because the table that
+     * records every transition already knows: no migration, and the number stays true across a
+     * restart, which an in-memory tally would not. It counts every failure this row has ever had
+     * rather than a recent window, which is the conservative direction — a break that has failed
+     * three times is more likely to be a break nothing can speak than a run of bad luck.
+     */
+    async failedWithScript(ids: readonly string[]): Promise<Array<{ id: string; failures: number }>> {
+        if (ids.length === 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.segments as s')
+            .leftJoin('deadair.segmentEvents as e', join => join.onRef('e.segmentId', '=', 's.id').on('e.toState', '=', 'failed'))
+            .select(['s.id', sql<string>`count(e.id)`.as('failures')])
+            .where('s.id', 'in', [...ids])
+            .where('s.state', '=', 'failed')
+            .where('s.script', 'is not', null)
+            .groupBy('s.id')
+            .execute();
+
+        return rows.map(row => ({ id: row.id, failures: Number(row.failures) }));
+    }
+
     /** One stranded state, back to where its work starts. */
     private async release(ids: readonly string[], from: SegmentState, to: SegmentState, before: number, reason: string): Promise<string[]> {
         let query = this.db

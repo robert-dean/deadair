@@ -52,6 +52,29 @@ export const EnrichmentLink = z.strictObject({
 export type EnrichmentLink = z.infer<typeof EnrichmentLink>;
 
 /**
+ * One thing the station believes, and the words it read that say so. Extracted by the host out of
+ * an article a plugin handed over, rather than said by any plugin: `sourceUrl` is where a person
+ * checks it and `sourceQuote` is the span that supports it, and neither is ever absent.
+ * generated from [FactClaim](file://./../../../../data/contracts/catalog/catalog.types.ck#L191)
+ */
+export const FactClaim = z.strictObject({
+    id: z.uuid(),
+    claim: z.string().min(1).max(500).describe('One sentence, as the DJ would say it'),
+    category: z.string().min(1).max(40),
+    source: z.string().min(1).max(20).describe("`lead` for the article's own opening, `model` for what a model found"),
+    sourceProvider: z.string().min(1).max(200),
+    sourceUrl: z.string().min(1).max(2000),
+    sourceQuote: z.string().min(1).max(2000),
+    confidence: z.coerce.number().optional(),
+    model: z.string().max(200).optional(),
+    lastUsedAt: _ZodDatetime.optional().describe('Absent means never said on air'),
+});
+export type FactClaim = z.infer<typeof FactClaim>;
+
+export const FactClaimInput = z.strictObject({});
+export type FactClaimInput = z.infer<typeof FactClaimInput>;
+
+/**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
  * generated from [RateInput](file://./../../../../data/contracts/catalog/catalog.types.ck#L13)
@@ -323,49 +346,59 @@ export type AlbumEnrichmentSourceInput = z.infer<typeof AlbumEnrichmentSourceInp
  * Every provider's answer, plus the same merge the promotion step used, so the console and the
  * canonical columns cannot tell different stories. `sources` is empty on a row the walk has not
  * reached yet.
- * generated from [TrackEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L191)
+ *
+ * `claims` sits beside them rather than inside `merged`, because a claim is the host's own and not
+ * any provider's. The articles they were read out of are deliberately NOT here: raw source prose is
+ * stored and never sent.
+ * generated from [TrackEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L211)
  */
 export const TrackEnrichmentDetail = z.strictObject({
     trackId: z.uuid(),
     merged: TrackEnrichmentData,
     sources: z.array(TrackEnrichmentSource),
+    claims: z.array(FactClaim),
 });
 export type TrackEnrichmentDetail = z.infer<typeof TrackEnrichmentDetail>;
 
 export const TrackEnrichmentDetailInput = z.strictObject({
     merged: TrackEnrichmentData,
     sources: z.array(TrackEnrichmentSourceInput),
+    claims: z.array(FactClaimInput),
 });
 export type TrackEnrichmentDetailInput = z.infer<typeof TrackEnrichmentDetailInput>;
 
 /**
- * generated from [ArtistEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L197)
+ * generated from [ArtistEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L218)
  */
 export const ArtistEnrichmentDetail = z.strictObject({
     artistId: z.uuid(),
     merged: ArtistEnrichmentData,
     sources: z.array(ArtistEnrichmentSource),
+    claims: z.array(FactClaim),
 });
 export type ArtistEnrichmentDetail = z.infer<typeof ArtistEnrichmentDetail>;
 
 export const ArtistEnrichmentDetailInput = z.strictObject({
     merged: ArtistEnrichmentData,
     sources: z.array(ArtistEnrichmentSourceInput),
+    claims: z.array(FactClaimInput),
 });
 export type ArtistEnrichmentDetailInput = z.infer<typeof ArtistEnrichmentDetailInput>;
 
 /**
- * generated from [AlbumEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L203)
+ * generated from [AlbumEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L225)
  */
 export const AlbumEnrichmentDetail = z.strictObject({
     albumId: z.uuid(),
     merged: AlbumEnrichmentData,
     sources: z.array(AlbumEnrichmentSource),
+    claims: z.array(FactClaim),
 });
 export type AlbumEnrichmentDetail = z.infer<typeof AlbumEnrichmentDetail>;
 
 export const AlbumEnrichmentDetailInput = z.strictObject({
     merged: AlbumEnrichmentData,
     sources: z.array(AlbumEnrichmentSourceInput),
+    claims: z.array(FactClaimInput),
 });
 export type AlbumEnrichmentDetailInput = z.infer<typeof AlbumEnrichmentDetailInput>;

@@ -78,6 +78,7 @@ function TrackEnrichment({ trackId }: { trackId: string }) {
         <EnrichmentPanel
             merged={enrichment.data?.merged}
             sources={enrichment.data?.sources}
+            claims={enrichment.data?.claims}
             isPending={enrichment.isPending}
             error={enrichment.error}
             emptyMessage="No provider has been asked about this track yet. The enrichment pass picks up what it has not seen, oldest first."

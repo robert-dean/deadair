@@ -14,6 +14,7 @@ import {
 } from './enrichment.merge.js';
 import { EnrichmentRepository, type FactPayload, type StoredProviderPayload } from './enrichment.repository.js';
 import { EnrichmentService } from './enrichment.service.js';
+import { FactRepository, type FactSubjectType, type StoredFact } from './fact.repository.js';
 
 /**
  * How many facts one record contributes to a talk break.
@@ -124,6 +125,7 @@ export class EnrichmentReadService {
     constructor(
         private readonly enrichmentRepository: EnrichmentRepository,
         private readonly enrichmentService: EnrichmentService,
+        private readonly factRepository: FactRepository,
     ) {}
 
     /** @throws 404 when no such track exists, and equally when it was merged into another. */
@@ -134,7 +136,7 @@ export class EnrichmentReadService {
         const sources = this.read(stored, this.enrichmentService.providerIds(), sanitizeEnrichment);
         const merged = mergeEnrichment(sources.filter(source => source.found).map(source => source.data));
 
-        return parseAndValidate({ trackId: id, merged, sources }, TrackEnrichmentDetail);
+        return parseAndValidate({ trackId: id, merged, sources, claims: await this.claimsFor('track', id) }, TrackEnrichmentDetail);
     }
 
     /** @throws 404 when no such artist exists, and equally when they were merged into another. */
@@ -145,7 +147,7 @@ export class EnrichmentReadService {
         const sources = this.read(stored, this.enrichmentService.artistProviderIds(), sanitizeArtistEnrichment);
         const merged = mergeArtistEnrichment(sources.filter(source => source.found).map(source => source.data));
 
-        return parseAndValidate({ artistId: id, merged, sources }, ArtistEnrichmentDetail);
+        return parseAndValidate({ artistId: id, merged, sources, claims: await this.claimsFor('artist', id) }, ArtistEnrichmentDetail);
     }
 
     /** @throws 404 when no such album exists, and equally when it was merged into another. */
@@ -156,7 +158,30 @@ export class EnrichmentReadService {
         const sources = this.read(stored, this.enrichmentService.albumProviderIds(), sanitizeAlbumEnrichment);
         const merged = mergeAlbumEnrichment(sources.filter(source => source.found).map(source => source.data));
 
-        return parseAndValidate({ albumId: id, merged, sources }, AlbumEnrichmentDetail);
+        return parseAndValidate({ albumId: id, merged, sources, claims: await this.claimsFor('album', id) }, AlbumEnrichmentDetail);
+    }
+
+    /**
+     * What the station BELIEVES about this thing, as opposed to what a provider said about it.
+     *
+     * A plain read of rows that already exist, which is the same promise the rest of this service
+     * makes: a page view must never be able to start work. It is on the detail response rather than
+     * folded into `merged` because a claim is the host's own — extracted here, checked here, and
+     * carrying the citation that makes it worth anything.
+     *
+     * The articles the claims were read out of are deliberately not here. `forTheWire` drops them
+     * from every payload above, and a claim carries the one span of an article that matters.
+     *
+     * Shaped field by field rather than handed over whole. `subject` is on the stored row because
+     * the store is keyed by it and is redundant on the wire — the response already says which track
+     * this is — and the contract is a STRICT object, so passing it through fails the response's own
+     * validation with `subject: Unrecognized key`. That is the same failure `forTheWire` exists to
+     * prevent, arriving from the other direction.
+     */
+    private async claimsFor(type: FactSubjectType, id: string): Promise<Omit<StoredFact, 'subject'>[]> {
+        const claims = await this.factRepository.findFacts([{ type, id }]);
+
+        return claims.map(({ subject: _subject, ...claim }) => claim);
     }
 
     /**

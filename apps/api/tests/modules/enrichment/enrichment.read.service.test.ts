@@ -9,6 +9,7 @@ import { DateTime } from 'luxon';
 import { EnrichmentReadService, MAX_FACT_CHARS } from '../../../src/modules/enrichment/enrichment.read.service.js';
 import type { EnrichmentRepository, StoredProviderPayload, TrackFactPayloads } from '../../../src/modules/enrichment/enrichment.repository.js';
 import type { EnrichmentService } from '../../../src/modules/enrichment/enrichment.service.js';
+import type { FactRepository, StoredFact } from '../../../src/modules/enrichment/fact.repository.js';
 
 const TRACK_ID = '11111111-1111-4111-8111-111111111111';
 const ARTIST_ID = '22222222-2222-4222-8222-222222222222';
@@ -59,8 +60,16 @@ function fakeService(order: string[]) {
     } as unknown as EnrichmentService;
 }
 
-const service = (rows: Record<string, StoredProviderPayload[] | undefined>, order: string[] = [MUSICBRAINZ, OTHER]) =>
-    new EnrichmentReadService(fakeRepository(rows), fakeService(order));
+/**
+ * The claim store as a canned answer.
+ *
+ * Its own fixture rather than a field on {@link fakeRepository}, because the two are separate
+ * stores: one holds what a plugin said and the other what this host concluded from it.
+ */
+const fakeFacts = (claims: StoredFact[] = []) => ({ findFacts: vi.fn(async () => claims) }) as unknown as FactRepository;
+
+const service = (rows: Record<string, StoredProviderPayload[] | undefined>, order: string[] = [MUSICBRAINZ, OTHER], claims: StoredFact[] = []) =>
+    new EnrichmentReadService(fakeRepository(rows), fakeService(order), fakeFacts(claims));
 
 /** One track's stored payloads, in the shape {@link EnrichmentRepository.findFactPayloadsForTracks} answers. */
 function factRows(levels: Partial<Record<'track' | 'album' | 'artist', unknown[]>>, trackId = TRACK_ID): TrackFactPayloads[] {
@@ -69,7 +78,7 @@ function factRows(levels: Partial<Record<'track' | 'album' | 'artist', unknown[]
 }
 
 const factReader = (facts: TrackFactPayloads[], order: string[] = [MUSICBRAINZ, OTHER]) =>
-    new EnrichmentReadService(fakeRepository({}, facts), fakeService(order));
+    new EnrichmentReadService(fakeRepository({}, facts), fakeService(order), fakeFacts());
 
 describe('EnrichmentReadService', () => {
     it('gives a scalar to the higher-priority provider and accumulates the lists across both', async () => {
@@ -152,7 +161,30 @@ describe('EnrichmentReadService', () => {
     it('answers a track nothing has been stored about with an empty set rather than a 404', async () => {
         const read = service({ track: [] });
 
-        await expect(read.getTrackEnrichment(TRACK_ID)).resolves.toEqual({ trackId: TRACK_ID, merged: {}, sources: [] });
+        await expect(read.getTrackEnrichment(TRACK_ID)).resolves.toEqual({ trackId: TRACK_ID, merged: {}, sources: [], claims: [] });
+    });
+
+    it('carries the claims the host extracted, beside the payloads the plugins supplied', async () => {
+        // Beside rather than inside `merged`: a claim is this host's own conclusion, with the
+        // citation that makes it worth anything, and no provider said it.
+        const claim: StoredFact = {
+            id: '44444444-4444-4444-8444-444444444444',
+            subject: { type: 'track', id: TRACK_ID },
+            claim: 'It was used in Ace Ventura.',
+            category: 'placement',
+            source: 'model',
+            sourceProvider: 'deadair.wikipedia',
+            sourceUrl: 'https://en.wikipedia.org/wiki/Rusty_Cage',
+            sourceQuote: 'The song appeared in the 1994 film Ace Ventura: Pet Detective.',
+        };
+        const read = service({ track: [payload(MUSICBRAINZ, { artist: 'Soundgarden' })] }, [MUSICBRAINZ], [claim]);
+
+        const detail = await read.getTrackEnrichment(TRACK_ID);
+
+        expect(detail.claims).toHaveLength(1);
+        expect(detail.claims[0]?.claim).toBe('It was used in Ace Ventura.');
+        expect(detail.claims[0]?.sourceUrl).toBe('https://en.wikipedia.org/wiki/Rusty_Cage');
+        expect(detail.merged).not.toHaveProperty('claims');
     });
 
     it('404s a track that is not in the catalog, and equally one that was merged away', async () => {
@@ -320,7 +352,7 @@ describe('EnrichmentReadService', () => {
 
         it('asks nothing of the database when there are no tracks to ask about', async () => {
             const repository = fakeRepository({}, []);
-            const read = new EnrichmentReadService(repository, fakeService([MUSICBRAINZ]));
+            const read = new EnrichmentReadService(repository, fakeService([MUSICBRAINZ]), fakeFacts());
 
             await expect(read.factsForTracks([])).resolves.toEqual(new Map());
             expect(repository.findFactPayloadsForTracks).not.toHaveBeenCalled();

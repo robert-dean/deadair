@@ -38,9 +38,26 @@ export interface EnrichmentProvenance {
     found: boolean;
 }
 
+/**
+ * One thing the station believes, and the words it read that say so.
+ *
+ * Not a provider's payload: the host extracted this out of an article a plugin handed over, which
+ * is why it carries a citation and a quote where the fields above carry only a source name.
+ */
+export interface EnrichmentClaim {
+    id: string;
+    claim: string;
+    category: string;
+    source: string;
+    sourceUrl: string;
+    sourceQuote: string;
+    lastUsedAt?: string;
+}
+
 export interface EnrichmentPanelProps {
     merged?: EnrichmentFacts;
     sources?: EnrichmentProvenance[];
+    claims?: EnrichmentClaim[];
     isPending: boolean;
     error: unknown;
     /** What to say when the walk has stored nothing for this row. Names the entity. */
@@ -106,7 +123,52 @@ function UnmappedFields({ extra }: { extra: Record<string, unknown> }) {
     );
 }
 
-export function EnrichmentPanel({ merged, sources, isPending, error, emptyMessage }: EnrichmentPanelProps) {
+/**
+ * What the station believes, and where it read it.
+ *
+ * The quote is the reason this section exists at all. Everything else on this card is somebody
+ * else's structured data, where being wrong looks like a missing genre; a claim is a sentence the
+ * DJ will say out loud, and the only way to know whether it is true is to read the words it came
+ * from and follow the link. So the quote is always there, one click away, rather than behind a
+ * debugging affordance.
+ *
+ * `lead` and `model` are marked apart because they fail differently: the first is an article's own
+ * opening sentence copied verbatim and can only be wrong if the article was, and the second is a
+ * model's reading of one, checked but not certain.
+ */
+function Claims({ claims }: { claims: EnrichmentClaim[] }) {
+    return (
+        <Stack gap="sm">
+            {claims.map(claim => (
+                <Stack key={claim.id} gap={4}>
+                    <Group gap="xs" wrap="nowrap" align="baseline">
+                        {/* `flexShrink: 0` because the claim beside it is a whole sentence and a
+                            nowrap row squeezes the badge instead, which turns `summary` into
+                            `SUMMA…` on exactly the long claims worth reading. */}
+                        <Badge variant="light" color={claim.source === 'lead' ? 'gray' : 'grape'} size="sm" style={{ flexShrink: 0 }}>
+                            {claim.category.replace(/_/g, ' ')}
+                        </Badge>
+                        <Text size="sm">{claim.claim}</Text>
+                    </Group>
+                    <Spoiler maxHeight={0} showLabel="Show the source" hideLabel="Hide the source">
+                        <Stack gap={2} pt={4}>
+                            <Text size="xs" c="dimmed" fs="italic">
+                                {`“${claim.sourceQuote}”`}
+                            </Text>
+                            {/* Where an operator goes when something sounds wrong on air, which is
+                                the entire reason a claim is worth anything. */}
+                            <Anchor href={claim.sourceUrl} target="_blank" rel="noreferrer" size="xs">
+                                {claim.sourceUrl}
+                            </Anchor>
+                        </Stack>
+                    </Spoiler>
+                </Stack>
+            ))}
+        </Stack>
+    );
+}
+
+export function EnrichmentPanel({ merged, sources, claims, isPending, error, emptyMessage }: EnrichmentPanelProps) {
     if (isPending) return <PageSkeleton variant="card" />;
 
     if (error) {
@@ -115,11 +177,12 @@ export function EnrichmentPanel({ merged, sources, isPending, error, emptyMessag
 
     const facts = merged ?? {};
     const rows = sources ?? [];
+    const beliefs = claims ?? [];
     const pairs = detailPairs(facts);
     const tags = [...(facts.genres ?? []), ...(facts.moods ?? [])];
     const extraKeys = Object.keys(facts.extra ?? {});
 
-    if (rows.length === 0) {
+    if (rows.length === 0 && beliefs.length === 0) {
         return (
             <Card padding="lg">
                 <Text size="sm" c="dimmed">
@@ -154,6 +217,10 @@ export function EnrichmentPanel({ merged, sources, isPending, error, emptyMessag
                         ))}
                     </SimpleGrid>
                 ) : undefined}
+
+                {/* Above the providers' own `facts`, because these are the ones with a source
+                    behind them and the ones the DJ reaches for first. */}
+                {beliefs.length > 0 ? <Claims claims={beliefs} /> : undefined}
 
                 {facts.facts && facts.facts.length > 0 ? (
                     <List size="sm" spacing={4}>

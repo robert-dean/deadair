@@ -100,6 +100,7 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                 <EnrichmentPanel
                     merged={enrichment.data?.merged}
                     sources={enrichment.data?.sources}
+                    claims={enrichment.data?.claims}
                     isPending={enrichment.isPending}
                     error={enrichment.error}
                     emptyMessage="No provider has been asked about this record yet. The enrichment pass picks up what it has not seen, oldest first."
@@ -108,9 +109,7 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
 
             {tracks.isPending && !album.error ? <PageSkeleton variant="table" /> : undefined}
 
-            {tracks.data && rows.length === 0 ? (
-                <EmptyState>This album has no tracks in the catalog.</EmptyState>
-            ) : undefined}
+            {tracks.data && rows.length === 0 ? <EmptyState>This album has no tracks in the catalog.</EmptyState> : undefined}
 
             {tracks.data && rows.length > 0 ? (
                 <>

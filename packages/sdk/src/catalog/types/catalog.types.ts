@@ -41,6 +41,30 @@ export interface EnrichmentLink {
 }
 
 /**
+ * One thing the station believes, and the words it read that say so. Extracted by the host out of
+ * an article a plugin handed over, rather than said by any plugin: `sourceUrl` is where a person
+ * checks it and `sourceQuote` is the span that supports it, and neither is ever absent.
+ * generated from [FactClaim](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L191)
+ */
+export interface FactClaim {
+    id: string;
+    /** One sentence, as the DJ would say it */
+    claim: string;
+    category: string;
+    /** `lead` for the article's own opening, `model` for what a model found */
+    source: string;
+    sourceProvider: string;
+    sourceUrl: string;
+    sourceQuote: string;
+    confidence?: number;
+    model?: string;
+    /** Absent means never said on air */
+    lastUsedAt?: string;
+}
+
+export interface FactClaimInput {}
+
+/**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
  * generated from [RateInput](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L13)
@@ -307,43 +331,53 @@ export interface AlbumEnrichmentSourceInput {
  * Every provider's answer, plus the same merge the promotion step used, so the console and the
  * canonical columns cannot tell different stories. `sources` is empty on a row the walk has not
  * reached yet.
- * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L191)
+ *
+ * `claims` sits beside them rather than inside `merged`, because a claim is the host's own and not
+ * any provider's. The articles they were read out of are deliberately NOT here: raw source prose is
+ * stored and never sent.
+ * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L211)
  */
 export interface TrackEnrichmentDetail {
     trackId: string;
     merged: TrackEnrichmentData;
     sources: TrackEnrichmentSource[];
+    claims: FactClaim[];
 }
 
 export interface TrackEnrichmentDetailInput {
     merged: TrackEnrichmentData;
     sources: TrackEnrichmentSourceInput[];
+    claims: FactClaimInput[];
 }
 
 /**
- * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L197)
+ * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L218)
  */
 export interface ArtistEnrichmentDetail {
     artistId: string;
     merged: ArtistEnrichmentData;
     sources: ArtistEnrichmentSource[];
+    claims: FactClaim[];
 }
 
 export interface ArtistEnrichmentDetailInput {
     merged: ArtistEnrichmentData;
     sources: ArtistEnrichmentSourceInput[];
+    claims: FactClaimInput[];
 }
 
 /**
- * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L203)
+ * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L225)
  */
 export interface AlbumEnrichmentDetail {
     albumId: string;
     merged: AlbumEnrichmentData;
     sources: AlbumEnrichmentSource[];
+    claims: FactClaim[];
 }
 
 export interface AlbumEnrichmentDetailInput {
     merged: AlbumEnrichmentData;
     sources: AlbumEnrichmentSourceInput[];
+    claims: FactClaimInput[];
 }

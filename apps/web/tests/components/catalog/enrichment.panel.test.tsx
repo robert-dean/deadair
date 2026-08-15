@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SdkError } from '@deadair/sdk';
 
-import { EnrichmentPanel, type EnrichmentProvenance } from '../../../src/components/catalog/enrichment.panel';
+import { EnrichmentPanel, type EnrichmentClaim, type EnrichmentProvenance } from '../../../src/components/catalog/enrichment.panel';
 import { render, screen } from '../../utils/render';
 
 vi.mock('../../../src/api/client', () => ({ BASE_URL: '/api' }));
@@ -96,5 +96,50 @@ describe('EnrichmentPanel', () => {
         render(panel({ merged: { extra: { listeners: 412_000 } }, sources: [source()] }));
 
         expect(screen.getByText('Show 1 unmapped field')).toBeInTheDocument();
+    });
+
+    describe('the claims the station extracted', () => {
+        const claim = (overrides: Partial<EnrichmentClaim> = {}): EnrichmentClaim => ({
+            id: 'fact-1',
+            claim: 'It was used in Ace Ventura.',
+            category: 'placement',
+            source: 'model',
+            sourceUrl: 'https://en.wikipedia.org/wiki/Rusty_Cage',
+            sourceQuote: 'The song appeared in the 1994 film Ace Ventura: Pet Detective.',
+            ...overrides,
+        });
+
+        it('shows the sentence, and the words it was read out of', () => {
+            // The quote is the whole reason this section exists. Everything else on the card is
+            // structured data, where being wrong looks like a missing genre; this is a sentence the
+            // DJ will say out loud, and the only check available is reading the source.
+            render(panel({ claims: [claim()], sources: [source()] }));
+
+            expect(screen.getByText('It was used in Ace Ventura.')).toBeInTheDocument();
+            expect(screen.getByText(/The song appeared in the 1994 film/)).toBeInTheDocument();
+        });
+
+        it('links out to where a person can check it', () => {
+            render(panel({ claims: [claim()], sources: [source()] }));
+
+            const citation = screen.getByRole('link', { name: 'https://en.wikipedia.org/wiki/Rusty_Cage' });
+            expect(citation).toHaveAttribute('href', 'https://en.wikipedia.org/wiki/Rusty_Cage');
+            expect(citation).toHaveAttribute('rel', 'noreferrer');
+        });
+
+        it('says what kind of fact it is, spelled for a reader rather than for a column', () => {
+            render(panel({ claims: [claim({ category: 'cover_or_sample' })], sources: [source()] }));
+
+            expect(screen.getByText('cover or sample')).toBeInTheDocument();
+        });
+
+        it('shows them for a record no provider has answered about, since the claims are the host’s own', () => {
+            // A source could be uninstalled, or the walk could have stored prose and nothing else.
+            // Either way what the station believes is still worth showing.
+            render(panel({ claims: [claim()], sources: [] }));
+
+            expect(screen.getByText('It was used in Ace Ventura.')).toBeInTheDocument();
+            expect(screen.queryByText('No provider has been asked about this track yet.')).not.toBeInTheDocument();
+        });
     });
 });

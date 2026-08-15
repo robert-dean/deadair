@@ -185,23 +185,46 @@ contract AlbumEnrichmentSource: {
     data: AlbumEnrichmentData
 }
 
+# One thing the station believes, and the words it read that say so. Extracted by the host out of
+# an article a plugin handed over, rather than said by any plugin: `sourceUrl` is where a person
+# checks it and `sourceQuote` is the span that supports it, and neither is ever absent.
+contract FactClaim: {
+    id: readonly uuid
+    claim: readonly string(min=1, max=500) # One sentence, as the DJ would say it
+    category: readonly string(min=1, max=40)
+    source: readonly string(min=1, max=20) # `lead` for the article's own opening, `model` for what a model found
+    sourceProvider: readonly string(min=1, max=200)
+    sourceUrl: readonly string(min=1, max=2000)
+    sourceQuote: readonly string(min=1, max=2000)
+    confidence?: readonly number
+    model?: readonly string(max=200)
+    lastUsedAt?: readonly datetime # Absent means never said on air
+}
+
 # Every provider's answer, plus the same merge the promotion step used, so the console and the
 # canonical columns cannot tell different stories. `sources` is empty on a row the walk has not
 # reached yet.
+#
+# `claims` sits beside them rather than inside `merged`, because a claim is the host's own and not
+# any provider's. The articles they were read out of are deliberately NOT here: raw source prose is
+# stored and never sent.
 contract TrackEnrichmentDetail: {
     trackId: readonly uuid
     merged: TrackEnrichmentData
     sources: array(TrackEnrichmentSource)
+    claims: array(FactClaim)
 }
 
 contract ArtistEnrichmentDetail: {
     artistId: readonly uuid
     merged: ArtistEnrichmentData
     sources: array(ArtistEnrichmentSource)
+    claims: array(FactClaim)
 }
 
 contract AlbumEnrichmentDetail: {
     albumId: readonly uuid
     merged: AlbumEnrichmentData
     sources: array(AlbumEnrichmentSource)
+    claims: array(FactClaim)
 }

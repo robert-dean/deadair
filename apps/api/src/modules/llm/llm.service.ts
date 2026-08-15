@@ -5,6 +5,7 @@ import {
     collectGeneration,
     PluginError,
     type LlmHandle,
+    type LlmMessage,
     type LlmModelInfo,
     type LlmRequest,
     type LlmResult,
@@ -93,6 +94,21 @@ export interface LlmConverseOptions extends LlmCallOptions {
 export interface LlmConversation extends LlmResult {
     /** How many tool calls the loop actually ran, across every step. */
     toolCallsMade: number;
+    /**
+     * Everything the model was SHOWN, in order: the caller's own turns, each assistant turn that
+     * asked for a tool, and every tool result the loop fed back.
+     *
+     * The count above says how many searches happened and this says what they returned, which is
+     * the difference between a diagnosable failure and a guess. A model that searched three times,
+     * was handed thirty-six records and then named none is indistinguishable — from the count alone
+     * — from one handed nothing, and the two want opposite fixes. That exact run cost a briefed hour.
+     *
+     * It stops before the final answer, deliberately: this is the conversation as the model last saw
+     * it, and what it then said is {@link LlmResult.text} beside it. Handed back on every
+     * conversation because it is the array the loop was building anyway, and it is nobody's business
+     * to store — the one caller that reads it does so only while `llm.captureWrites` is on.
+     */
+    transcript: readonly LlmMessage[];
 }
 
 /** Fold one generation's usage into a conversation's running total. */
@@ -328,7 +344,7 @@ export class LlmService {
             addUsage(usage, result.usage);
 
             if (result.toolCalls.length === 0 || lastStep) {
-                return { ...result, usage, toolCallsMade };
+                return { ...result, usage, toolCallsMade, transcript: messages };
             }
 
             if (signal.aborted) {
@@ -336,7 +352,7 @@ export class LlmService {
                 // model has said so far rather than throwing: a partial line is worth more to a
                 // writer that can fall back than an exception is.
                 this.logger.info('llm: a conversation ran out of budget mid-loop', { plugin: plugin.record.id, step });
-                return { ...result, usage, toolCallsMade, finishReason: 'length' };
+                return { ...result, usage, toolCallsMade, transcript: messages, finishReason: 'length' };
             }
 
             // The assistant turn AND its calls, as one message. A model that cannot see its own

@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
 import { LlmService } from '#modules/llm/llm.service.js';
+import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { artistKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
@@ -233,6 +234,26 @@ export class ModelSetGenerator extends SetGenerator {
                 asked: inputs.count,
                 named: picks.length,
                 limit: MAX_OUTPUT_TOKENS,
+            });
+        }
+
+        // Everything the model saw and everything it said, while the operator has the switch on.
+        //
+        // The same switch the break writers fill `script_history`'s two capture columns from, and
+        // for the same evening: this is prompt tuning, not a record. It goes to the LOG rather than
+        // to a table because a set has no row of its own — the picks become a running order and the
+        // conversation that produced them is not a thing the station keeps.
+        //
+        // A zero-pick run is what this was added for and it deliberately captures every run anyway:
+        // the useful comparison when a refill declines is against the one before it that worked,
+        // and a capture that starts once something has already gone wrong never has that.
+        if (captureWrites(this.config)) {
+            this.logger.info('director: what the model was shown and what it said', {
+                asked: inputs.count,
+                named: picks.length,
+                // The transcript stops before the answer, so the two are logged side by side.
+                transcript: JSON.stringify(result.transcript),
+                said: result.text,
             });
         }
 

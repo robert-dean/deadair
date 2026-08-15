@@ -177,6 +177,23 @@ describe('a conversation that uses a tool', () => {
         expect(second[2]?.content).toBe('"found"');
     });
 
+    it('hands back everything the model was shown, results included', async () => {
+        // What makes a declining model diagnosable at all. From `toolCallsMade` alone, a model that
+        // searched three times and was handed thirty-six records looks exactly like one handed
+        // nothing, and the two want opposite fixes. A live run turned on that distinction.
+        const { record } = scriptedPlugin([{ text: 'let me check', toolCalls: [searchCall] }, { text: 'done' }]);
+        const { service } = serviceFor(record, [tool('search', async () => ({ tracks: ['Roygbiv'] }))]);
+
+        const result = await service.converse(ask());
+
+        expect(result.transcript.map(message => message.role)).toEqual(['user', 'assistant', 'tool']);
+        expect(result.transcript.at(-1)?.content).toContain('Roygbiv');
+        // It stops before the answer: the conversation as the model last saw it, with what it then
+        // said beside it rather than inside it.
+        expect(result.transcript.at(-1)?.content).not.toContain('done');
+        expect(result.text).toBe('done');
+    });
+
     it('answers several calls in one turn, each against its own id', async () => {
         const two: LlmToolCall[] = [
             { id: 'a', name: 'search', arguments: { query: 'one' } },

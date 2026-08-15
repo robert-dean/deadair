@@ -33,6 +33,8 @@ interface Options {
     taste?: Partial<StationTaste>;
     /** A catalog that cannot answer what the operator likes. */
     tasteFails?: boolean;
+    /** What the model was shown, for the capture switch. */
+    transcript?: LlmConversation['transcript'];
 }
 
 /** An empty side of the operator's taste: nothing said, and nothing hidden behind a limit. */
@@ -47,6 +49,7 @@ function build(options: Options = {}) {
             toolCallsMade: options.toolCallsMade ?? 1,
             finishReason: options.finishReason ?? 'stop',
             usage: { totalTokens: 500 },
+            transcript: options.transcript ?? [],
         };
     });
 
@@ -301,6 +304,39 @@ describe('ModelSetGenerator', () => {
         await generator.generate(inputs(5));
 
         expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/ran out of room/), expect.objectContaining({ named: 1 }));
+    });
+
+    it('keeps what the model was shown and what it said while capture is on', async () => {
+        // The gap this closes. A model that searched three times, was handed thirty-six records and
+        // then answered `[]` left a 400-character log line behind it, and "it found nothing", "it
+        // answered in prose" and "its answer went somewhere this does not read" are three different
+        // fixes that look identical from there.
+        const { generator } = build({
+            enabled: true,
+            settings: { 'llm.captureWrites': 'true' },
+            text: '[]',
+            toolCallsMade: 3,
+            transcript: [
+                { role: 'user', content: 'Choose 5 records.' },
+                { role: 'tool', toolCallId: 'call_1', content: '[{"title":"Atrophy"}]' },
+            ],
+        });
+
+        await generator.generate(inputs(5));
+
+        expect(logger.info).toHaveBeenCalledWith(
+            expect.stringMatching(/what the model was shown/),
+            expect.objectContaining({ transcript: expect.stringContaining('Atrophy'), said: '[]' }),
+        );
+    });
+
+    it('keeps nothing while the switch is off, which is every ordinary night', async () => {
+        vi.mocked(logger.info).mockClear();
+        const { generator } = build({ enabled: true, text: picks(['A', 'One']) });
+
+        await generator.generate(inputs(5));
+
+        expect(logger.info).not.toHaveBeenCalledWith(expect.stringMatching(/what the model was shown/), expect.anything());
     });
 
     it('lets a model failure reach the chain, which is what absorbs it', async () => {

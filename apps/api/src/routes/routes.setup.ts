@@ -5,6 +5,7 @@ import { ActivityRouter } from './activity.router.js';
 import { ArtRouter } from './art.router.js';
 import { CatalogRouter } from './catalog.router.js';
 import { ChartsRouter } from './charts.router.js';
+import { NewsRouter } from './news.router.js';
 import { HealthRouter } from './health.router.js';
 import { DirectorRouter } from './director.router.js';
 import { PlaylistsRouter } from './playlists.router.js';
@@ -25,6 +26,7 @@ export const routers = [
     ActivityRouter,
     CatalogRouter,
     ChartsRouter,
+    NewsRouter,
     PlaylistsRouter,
     PlayoutRouter,
     NowplayingRouter,

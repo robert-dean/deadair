@@ -6,6 +6,7 @@ import { AuthenticationClient } from './authentication/authentication.client.js'
 import { CatalogClient } from './catalog/catalog.client.js';
 import { ChartsClient } from './charts/charts.client.js';
 import { DirectorClient } from './director/director.client.js';
+import { NewsClient } from './news/news.client.js';
 import { NowplayingClient } from './nowplaying/nowplaying.client.js';
 import { OnboardingClient } from './onboarding/onboarding.client.js';
 import { PersonasClient } from './personas/personas.client.js';
@@ -22,6 +23,7 @@ export class DeadairSdk {
     readonly catalog: CatalogClient;
     readonly charts: ChartsClient;
     readonly director: DirectorClient;
+    readonly news: NewsClient;
     readonly nowplaying: NowplayingClient;
     readonly onboarding: OnboardingClient;
     readonly personas: PersonasClient;
@@ -39,6 +41,7 @@ export class DeadairSdk {
         this.catalog = new CatalogClient(sdkFetch);
         this.charts = new ChartsClient(sdkFetch);
         this.director = new DirectorClient(sdkFetch);
+        this.news = new NewsClient(sdkFetch);
         this.nowplaying = new NowplayingClient(sdkFetch);
         this.onboarding = new OnboardingClient(sdkFetch);
         this.personas = new PersonasClient(sdkFetch);

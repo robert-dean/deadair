@@ -13,6 +13,8 @@ export * from './charts/types/index.js';
 export * from './deadair.sdk.js';
 export * from './director/director.client.js';
 export * from './director/types/index.js';
+export * from './news/news.client.js';
+export * from './news/types/index.js';
 export * from './nowplaying/nowplaying.client.js';
 export * from './nowplaying/types/index.js';
 export * from './onboarding/onboarding.client.js';

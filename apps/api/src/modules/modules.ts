@@ -12,6 +12,7 @@ import { StreamModule } from './stream/stream.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { ChartsModule } from './charts/charts.module.js';
+import { NewsModule } from './news/news.module.js';
 import { SimilarityModule } from './similarity/similarity.module.js';
 import { ScrobbleModule } from './scrobble/scrobble.module.js';
 import { LlmModule } from './llm/llm.module.js';
@@ -80,6 +81,12 @@ const ordered: ServerKitModule[] = [
     // is popular, the other who sounds alike, and both answer in names that the pick
     // path judges.
     SimilarityModule,
+    // Beside the two above and for the same reasons: after PluginsModule, before
+    // the LLM that reads it as a tool, no loop of its own. What it answers with is
+    // not a name the pick path can judge but a FACT, and the only thing anything
+    // does with a fact is say it — which is why nothing below it schedules from
+    // this one.
+    NewsModule,
     // After PluginsModule, and before DirectorModule, which resolves it on the aired
     // edge. Unlike its two neighbours above this one SENDS, so its queue is durable —
     // but it still starts nothing: the queue fills on a track boundary and drains on

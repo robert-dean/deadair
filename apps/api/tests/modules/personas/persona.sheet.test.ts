@@ -281,6 +281,16 @@ describe('spentCatchphrases', () => {
         expect(spentCatchphrases(sheet, undefined)).toEqual([]);
         expect(spentCatchphrases(sheet, [])).toEqual([]);
     });
+
+    // The seeded `wisecrack` carried "Anyway" as both, so the guard would have refused a script for
+    // using a word the marker line demands of every break. Diction governs every sentence; a
+    // signature is rationed. A word doing both jobs is doing the bigger one.
+    it('never spends a signature that is also a diction marker', () => {
+        const both = { catchphrases: ['Anyway', 'Make of that what you will'], dictionMarkers: ['anyway', 'apparently'] };
+        const recent = ['Anyway, that was Kreator. Make of that what you will.'];
+
+        expect(spentCatchphrases(both, recent)).toEqual(['Make of that what you will']);
+    });
 });
 
 describe('characterFault', () => {

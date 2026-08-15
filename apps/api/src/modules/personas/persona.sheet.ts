@@ -393,11 +393,21 @@ export function echoedSample(sheet: PersonaSheet, script: string): string | unde
  * `recent` is the last few scripts of this KIND, which is what makes "not every time" a question
  * about what a listener has actually heard rather than about a counter. A persona with no
  * catchphrases, or a station with nothing behind it, spends nothing.
+ *
+ * **A catchphrase that is also a diction marker can never be spent.** The seeded `wisecrack` carries
+ * "Anyway" as both, which is a sheet contradicting itself: the marker line asks for that word in
+ * every break and the catchphrase line rations it, and without this the guard would refuse a script
+ * for obeying the first. Diction wins, on the argument this whole file is built on — a quirk applies
+ * to the sentences it fits and diction applies to every sentence there will ever be, so a word doing
+ * both jobs is doing the bigger one.
  */
 export function spentCatchphrases(sheet: PersonaSheet, recent: readonly string[] | undefined): string[] {
     if (recent === undefined || recent.length === 0) return [];
 
-    return catchphrasesIn(sheet.catchphrases, recent.join('\n'));
+    const markers = new Set(cleanList(sheet.dictionMarkers, PERSONA_SHEET_LIMITS.dictionMarkers).map(marker => marker.toLowerCase()));
+    const spendable = cleanList(sheet.catchphrases, PERSONA_SHEET_LIMITS.catchphrases).filter(phrase => !markers.has(phrase.toLowerCase()));
+
+    return catchphrasesIn(spendable, recent.join('\n'));
 }
 
 /** What a script did that means it is not this character speaking. See {@link characterFault}. */

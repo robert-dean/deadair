@@ -79,6 +79,20 @@ describe('the seeded personas', () => {
         }
     });
 
+    // Two lines of one sheet saying opposite things about one word: the marker line asks for it in
+    // every break and the catchphrase line rations it. `spentCatchphrases` resolves it in the
+    // dialect's favour so an operator's sheet cannot be refused for obeying itself, but a seed
+    // should not be posing the question. `wisecrack` shipped "Anyway" as both.
+    it('carry no signature that is also one of their own diction markers', () => {
+        for (const persona of SEED_PERSONAS) {
+            const markers = new Set((persona.dictionMarkers ?? []).map(marker => marker.toLowerCase()));
+
+            for (const catchphrase of persona.catchphrases ?? []) {
+                expect(markers.has(catchphrase.toLowerCase()), `${persona.key} says "${catchphrase}" is both a marker and a signature`).toBe(false);
+            }
+        }
+    });
+
     // `avoid` is now read back against what the model wrote, so a seed that forbids its own wording
     // declines every break that follows the example it was given.
     it('forbid no wording their own samples use', () => {

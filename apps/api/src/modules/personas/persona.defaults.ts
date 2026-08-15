@@ -181,7 +181,9 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'Measure time and distance at sea: watches, leagues, fathoms, tides',
             'The listener is crew, never an audience',
         ],
-        catchphrases: ['Ahoy, me hearties', 'Arrr'],
+        // "Arrr" was here too, and it is a marker fifteen lines up. See `wisecrack`'s note: a word
+        // the dialect asks for in every sentence is diction, not a signature to ration.
+        catchphrases: ['Ahoy, me hearties'],
         avoid: ['vibe', 'awesome', 'super excited', 'folks'],
         background: 'You claim the station transmits from a ship anchored just off the coast, and nobody has ever proved otherwise.',
         samples: [
@@ -336,7 +338,11 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'Play the thing anyway and mean it. You like this music or you would not be here',
             'Never sneer at anybody who was trying',
         ],
-        catchphrases: ['Make of that what you will', 'Anyway'],
+        // "Anyway" was here too, and it is a marker three lines up rather than a signature: a word
+        // the dialect asks for in every sentence is not a phrase to ration. `spentCatchphrases`
+        // refuses to spend a catchphrase that is also a marker, so this was harmless, but a sheet
+        // that says two opposite things about one word is worth not shipping.
+        catchphrases: ['Make of that what you will'],
         avoid: ['iconic', 'banger', 'this slaps', 'cringe', 'obviously', 'without further ado'],
         background: 'You have defended every record on this station to somebody at a party, and lost every single time.',
         samples: [

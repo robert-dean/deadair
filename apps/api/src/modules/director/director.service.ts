@@ -1205,7 +1205,17 @@ export class DirectorService {
                 // WORDS only once its slot is near, which is what keeps an hour of forward planning
                 // from costing an hour of model and speech work that an operator edit can throw
                 // away. It touches no running order, so it needs no persist of its own.
-                await planner.ripen(lineup);
+                //
+                // It also repairs what it finds. The feed line is written from here rather than
+                // from the planner, because the planner has no recorder and because this is where
+                // the other producer of the same event already lives.
+                const ripened = await planner.ripen(lineup);
+                if (ripened.rewritten.length > 0) {
+                    this.reportRewriting(ripened.rewritten, {
+                        one: 'no longer said anything true about the running order',
+                        many: 'no longer said anything true about the running order',
+                    });
+                }
             });
         } catch (error) {
             this.logger.warn(`director: could not plan breaks for the running order (${errorText(error)})`);
@@ -1459,18 +1469,31 @@ export class DirectorService {
             this.logger.info('director: a break promised a record that will not air, so it will be written again', {
                 segments: reopened,
             });
-            void this.activity.record({
-                module: 'director',
-                kind: 'break.rewriting',
-                detail:
-                    reopened.length === 1
-                        ? 'A break promised a record that will not air, so it is being written again.'
-                        : `${reopened.length} breaks promised records that will not air, so they are being written again.`,
-                data: { segmentIds: reopened },
-            });
+            this.reportRewriting(reopened, { one: 'promised a record that will not air', many: 'promised records that will not air' });
         } catch (error) {
             this.logger.warn(`director: could not re-offer a break whose promise broke (${errorText(error)})`);
         }
+    }
+
+    /**
+     * Tell the operator that a break is being written a second time, and why.
+     *
+     * Two things reopen a break now — a record leaving the order, and the window pass finding words
+     * that have stopped being true — and they are the same event with a different cause, so the
+     * sentence is built in one place. It is worth a line at all because a rewrite is usually the
+     * consequence of an edit somebody made a moment ago, and the alternative reading of the same
+     * moment is a station that has gone quiet for no reason.
+     */
+    private reportRewriting(segmentIds: readonly string[], because: { one: string; many: string }): void {
+        void this.activity.record({
+            module: 'director',
+            kind: 'break.rewriting',
+            detail:
+                segmentIds.length === 1
+                    ? `A break ${because.one}, so it is being written again.`
+                    : `${segmentIds.length} breaks ${because.many}, so they are being written again.`,
+            data: { segmentIds: [...segmentIds] },
+        });
     }
 
     /** Prepare these items and mark whatever the station will pass over. */

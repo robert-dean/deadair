@@ -69,6 +69,21 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
     });
     const markFailed = vi.fn(async () => {});
     const findByIds = vi.fn(async (ids: readonly string[]) => new Map([...known].filter(([id]) => ids.includes(id))));
+    // The SQL's own state guard, mirrored: `writing` and `rendering` are a job's claim and are never
+    // reset underneath one. Kept here rather than in the planner for exactly that reason — one rule,
+    // one place — so a case about a claimed row is really testing the rule the database enforces.
+    const reopenSegments = vi.fn(async (ids: readonly string[]) => {
+        const reopened: string[] = [];
+        for (const id of ids) {
+            const segment = known.get(id);
+            if (segment === undefined || !['planned', 'written', 'ready'].includes(segment.state)) continue;
+
+            const { script, writer, claimsItemId, claimsTime, ...rest } = segment;
+            known.set(id, { ...rest, state: 'planned' });
+            reopened.push(id);
+        }
+        return reopened;
+    });
 
     const writers = { canWrite: vi.fn(() => options.canWrite ?? false) };
     const speech = { speaker: vi.fn(() => ((options.speaker ?? options.canWrite) ? { record: { id: 'deadair.kokoro' } } : undefined)) };
@@ -76,7 +91,7 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
 
     return {
         planner: new BreakPlanner(
-            { listReady, plan, markFailed, findByIds } as unknown as SegmentRepository,
+            { listReady, plan, markFailed, findByIds, reopenSegments } as unknown as SegmentRepository,
             writers as never,
             speech as never,
             { send } as never,
@@ -86,6 +101,7 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
         listReady,
         plan,
         markFailed,
+        reopenSegments,
         send,
         known,
     };
@@ -653,7 +669,7 @@ describe('BreakPlanner.ripen', () => {
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
         for (const [id, segment] of known) if (id.startsWith('planned-')) known.set(id, { ...segment, state });
 
-        expect(await planner.ripen(lineup)).toBe(0);
+        expect((await planner.ripen(lineup)).offered).toBe(0);
         expect(asked(send)).toEqual([]);
     });
 
@@ -663,7 +679,7 @@ describe('BreakPlanner.ripen', () => {
         const { planner, send } = build({ canWrite: true });
         const lineup = await lineupOf(12);
 
-        expect(await planner.ripen(lineup)).toBe(0);
+        expect((await planner.ripen(lineup)).offered).toBe(0);
         expect(send).not.toHaveBeenCalled();
     });
 
@@ -699,6 +715,99 @@ describe('BreakPlanner.ripen', () => {
 
         expect(asked(often.send).length).toBeGreaterThan(asked(rarely.send).length);
         expect(asked(often.send).length).toBeLessThanOrEqual(WRITE_AHEAD);
+    });
+
+    // A break already written can still go wrong before its slot, and this window is the last place
+    // that is worth doing anything about: the hand-over check drops it, and a dropped break is a
+    // boundary of silence. Everything here is about un-writing one early enough to say something
+    // true instead.
+    describe('the words that stopped being true', () => {
+        /** Plant one break, write it, and have it promise whatever plays next. */
+        const written = async (): Promise<{ built: ReturnType<typeof build>; lineup: StationLineup; segmentId: string; promised: string }> => {
+            const built = build({ canWrite: true });
+            const lineup = await lineupOf(12);
+            await built.planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+            const at = lineup.all().findIndex(item => item.kind === 'segment');
+            const segmentId = (lineup.all()[at] as { segmentId: string }).segmentId;
+            const promised = lineup.nextTrackAfter(lineup.all()[at]!.id)!.id;
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'written', script: 'Coming up.', claimsItemId: promised });
+
+            return { built, lineup, segmentId, promised };
+        };
+
+        it('leaves a break alone while its promise still holds', async () => {
+            const { built, lineup } = await written();
+
+            const result = await built.planner.ripen(lineup);
+
+            expect(result.rewritten).toEqual([]);
+            // And it is not re-offered either: a written break needs no words.
+            expect(asked(built.send)).toEqual([]);
+        });
+
+        it('un-writes a break the running order has moved under, and asks for its words in the same pass', async () => {
+            const { built, lineup, segmentId, promised } = await written();
+            // The operator's edit. The record the break named is no longer what plays after it.
+            lineup.move(promised, lineup.all().length - 1);
+
+            const result = await built.planner.ripen(lineup);
+
+            expect(result.rewritten).toEqual([segmentId]);
+            expect(asked(built.send)).toEqual([segmentId]);
+            // Back to exactly the state a freshly planted break is in, so the job writes it against
+            // the order as it now stands rather than editing what it said before.
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'planned' });
+            expect(built.known.get(segmentId)!.script).toBeUndefined();
+            expect(built.known.get(segmentId)!.claimsItemId).toBeUndefined();
+        });
+
+        it('un-writes a break whose words are no longer true of the time', async () => {
+            const { built, lineup, segmentId } = await written();
+            const segment = built.known.get(segmentId)!;
+            const { claimsItemId, ...rest } = segment;
+            // A break that said "it's just after nine" at ten past. Nothing moved; the clock did.
+            built.known.set(segmentId, { ...rest, claimsTime: { from: Date.now() - 7_200_000, until: Date.now() - 3_600_000 } });
+
+            expect((await built.planner.ripen(lineup)).rewritten).toEqual([segmentId]);
+        });
+
+        it('will not touch a break somebody is in the middle of rendering', async () => {
+            // The state guard lives in the repository, because a row moved underneath a job finishes
+            // into a state its caller no longer owns.
+            const { built, lineup, segmentId, promised } = await written();
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'rendering' });
+            lineup.move(promised, lineup.all().length - 1);
+
+            expect((await built.planner.ripen(lineup)).rewritten).toEqual([]);
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'rendering' });
+        });
+
+        it('keeps a segment that is still correct at one of its positions', async () => {
+            // Idents come from a shared library, so the same row is legitimately at three slots in an
+            // hour. Judging it at the first position would un-write a break that is perfectly correct
+            // at the others.
+            const { built, lineup, segmentId, promised } = await written();
+            const at = lineup.all().findIndex(item => item.kind === 'segment');
+            // A second appearance of the same row, further down the window, promising nothing that
+            // has moved: `nextTrackAfter` there still answers with the line it claims.
+            lineup.insertSegment(segmentId, at + 2);
+            const second = lineup.all()[at + 2]!;
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, claimsItemId: lineup.nextTrackAfter(second.id)!.id });
+            lineup.move(promised, lineup.all().length - 1);
+
+            expect((await built.planner.ripen(lineup)).rewritten).toEqual([]);
+        });
+
+        it('carries on with the pass when the repair itself fails', async () => {
+            const { built, lineup, promised } = await written();
+            built.reopenSegments.mockRejectedValueOnce(new Error('the database said no'));
+            lineup.move(promised, lineup.all().length - 1);
+
+            // Answers rather than throwing, so a repair that could not run costs one break its
+            // rewrite and does not take the words of everything else in the window with it.
+            await expect(built.planner.ripen(lineup)).resolves.toMatchObject({ rewritten: [] });
+        });
     });
 
     // Where a break somebody ASKED for goes. A different question from the spacing above: that one

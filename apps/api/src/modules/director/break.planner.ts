@@ -3,6 +3,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
+import { brokenClaim } from './break.claims.js';
+import { errorText } from '#modules/shared/error.text.js';
 import { isAnchored, nextOccurrence, stationBands } from './clock.bands.js';
 import { stationZone } from './clock.words.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
@@ -166,6 +168,22 @@ const NOMINAL_TRACK_MS = 270_000;
  * missed the slot, and the next occurrence is the honest answer.
  */
 const BAND_LATENESS_MS = 600_000;
+
+/**
+ * What one pass over the write-ahead window did.
+ *
+ * `offered` is what it asked for the words of, which is the number this used to answer with on its
+ * own. `rewritten` is what it had to un-write first, and it is a list rather than a count because
+ * an operator is told about those: a break being written a second time is a consequence of their
+ * own edit, and the segment ids are how the activity feed says which.
+ */
+export interface RipenResult {
+    offered: number;
+    rewritten: string[];
+}
+
+/** A pass with no segments in its window at all, which is most of them. */
+const NOTHING_RIPENED: RipenResult = { offered: 0, rewritten: [] };
 
 /**
  * The station putting its own segments into a lineup.
@@ -582,26 +600,96 @@ export class BreakPlanner {
      * Because the pass that calls this only runs while the director is driving. That is the right
      * answer rather than an accident: a station nobody is listening to should not be paying a model
      * to write breaks nobody will hear.
+     *
+     * ## It repairs before it asks
+     *
+     * A break already written can still go wrong before its slot: the order moves under it and what
+     * it promised stops being what plays next. The window this walks is exactly where that is worth
+     * doing something about — there is still time for a rewrite — so {@link rewriteStale} runs first
+     * and whatever it returns to `planned` is offered in the same pass. See `break.claims.ts` for
+     * the question, which the director asks again at hand-over for the breaks this did not reach in
+     * time.
      */
-    async ripen(lineup: StationLineup): Promise<number> {
+    async ripen(lineup: StationLineup): Promise<RipenResult> {
         const items = lineup.all();
         const from = lineup.committedThrough();
         const window = items.slice(Math.max(0, from), Math.max(0, from) + WRITE_AHEAD);
 
-        const ids = window.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : []));
-        if (ids.length === 0) return 0;
+        const ids = [...new Set(window.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])))];
+        if (ids.length === 0) return NOTHING_RIPENED;
 
         const segments = await this.segments.findByIds(ids);
-        // `planned` and nothing else. A break already being written belongs to whoever claimed it,
-        // one already written needs no words, and a failed one is not retried by asking again — the
-        // usual reason it failed is that there was nothing true to say, and that does not change.
-        const unwritten = ids.filter(id => segments.get(id)?.state === 'planned');
-        if (unwritten.length === 0) return 0;
+        const rewritten = await this.rewriteStale(lineup, window, segments);
+
+        // `planned`, and what this pass has just returned to `planned`. A break already being
+        // written belongs to whoever claimed it, one already written needs no words, and a failed
+        // one is not retried by asking again — the usual reason it failed is that there was nothing
+        // true to say, and that does not change.
+        const reopened = new Set(rewritten);
+        const unwritten = ids.filter(id => segments.get(id)?.state === 'planned' || reopened.has(id));
+        if (unwritten.length === 0) return { offered: 0, rewritten };
 
         for (const segmentId of unwritten) await this.jobs.send('director.write_break', { segmentId });
 
         this.logger.info('director: asked for the words of breaks coming up', { count: unwritten.length });
-        return unwritten.length;
+        return { offered: unwritten.length, rewritten };
+    }
+
+    /**
+     * Un-write the breaks in this window whose words have stopped being true.
+     *
+     * The counterpart of `SegmentRepository.reopenClaims`, which catches the case a RECORD announces
+     * for itself by leaving the order. This catches the rest, which the database cannot see: an
+     * operator's move or shuffle leaves every row exactly as it was and changes only what sits
+     * beside what, and a break that named a time is overtaken by nothing but the clock. Both used to
+     * end at a dropped break and a boundary of silence.
+     *
+     * Two things keep it honest. The verdict is `brokenClaim`, the same expression the hand-over
+     * check reads, so this can never throw away a break that would have aired. And a segment sitting
+     * at more than one position is reopened only when its promise is broken at EVERY one of them:
+     * idents come from a shared library and the same row is legitimately at three slots in an hour,
+     * so judging it at the first position would un-write a break that is perfectly correct at the
+     * other two.
+     *
+     * Failures are swallowed here rather than left to the caller's catch, because they are not the
+     * same failure: a repair that could not run costs one break its rewrite, and the words of every
+     * OTHER break in this window are still worth asking for.
+     */
+    private async rewriteStale(lineup: StationLineup, window: readonly StationLineupItem[], segments: Map<string, Segment>): Promise<string[]> {
+        const now = Date.now();
+        // Segment id to whether every position it holds is broken. Seeded true by the first
+        // position and narrowed by the rest, so one position that still holds spares the row.
+        const verdicts = new Map<string, boolean>();
+
+        for (const item of window) {
+            if (item.kind !== 'segment') continue;
+
+            const segment = segments.get(item.segmentId);
+            // A break that claimed nothing cannot be wrong, which is most of them, and skipping
+            // them here keeps the ordinary pass free of any question at all.
+            if (segment === undefined || (segment.claimsItemId === undefined && segment.claimsTime === undefined)) continue;
+
+            const stale = brokenClaim(segment, lineup.nextTrackAfter(item.id)?.id, now) !== undefined;
+            verdicts.set(item.segmentId, (verdicts.get(item.segmentId) ?? true) && stale);
+        }
+
+        const stale = [...verdicts].flatMap(([segmentId, broken]) => (broken ? [segmentId] : []));
+        if (stale.length === 0) return [];
+
+        try {
+            // Nothing is filtered by state first: `reopenSegments` will not touch a row a job has
+            // claimed, and keeping that rule in one place is what stops the two from drifting.
+            const reopened = await this.segments.reopenSegments(stale);
+            if (reopened.length > 0) {
+                this.logger.info('director: a break in the window no longer says anything true, so it will be written again', {
+                    segments: reopened,
+                });
+            }
+            return reopened;
+        } catch (error) {
+            this.logger.warn(`director: could not re-open a break whose words had gone stale (${errorText(error)})`);
+            return [];
+        }
     }
 
     /**

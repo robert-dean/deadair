@@ -520,6 +520,35 @@ export class SegmentRepository extends DataRepository {
     async reopenClaims(itemIds: readonly string[]): Promise<string[]> {
         if (itemIds.length === 0) return [];
 
+        return await this.reopen('claimsItemId', itemIds, 'the record it promised is no longer going to air');
+    }
+
+    /**
+     * The same repair, for a caller that has already worked out WHICH breaks are stale.
+     *
+     * {@link reopenClaims} asks the question in the database, which it can because a record leaving
+     * the order names itself. The other half cannot: whether a break's promise still holds depends
+     * on where it sits in the running order and on the clock, and neither is in this table. So
+     * `BreakPlanner` answers that with `brokenClaim` over the window it is already reading and hands
+     * the verdict here.
+     *
+     * Everything above about the state guard and the absent deadline applies unchanged. It is the
+     * same statement with a different `where`.
+     */
+    async reopenSegments(ids: readonly string[]): Promise<string[]> {
+        if (ids.length === 0) return [];
+
+        return await this.reopen('id', ids, 'what it said is no longer true of the running order');
+    }
+
+    /**
+     * Back to `planned`, for whichever rows the caller named.
+     *
+     * The state guard is the load-bearing part and is why this is one method rather than two
+     * similar ones: `writing` and `rendering` must never be reset, because both are a job's claim
+     * and a row moved underneath one finishes into a state its caller no longer owns.
+     */
+    private async reopen(by: 'id' | 'claimsItemId', values: readonly string[], reason: string): Promise<string[]> {
         const rows = await this.db
             .updateTable('deadair.segments')
             .set({
@@ -530,12 +559,12 @@ export class SegmentRepository extends DataRepository {
                 claimsTimeFrom: null,
                 claimsTimeUntil: null,
             })
-            .where('claimsItemId', 'in', [...itemIds])
+            .where(by, 'in', [...values])
             .where('state', 'in', ['planned', 'written', 'ready'])
             .returning('id')
             .execute();
 
-        for (const row of rows) await this.record(row.id, 'written', 'planned', 'the record it promised is no longer going to air');
+        for (const row of rows) await this.record(row.id, 'written', 'planned', reason);
         return rows.map(row => row.id);
     }
 

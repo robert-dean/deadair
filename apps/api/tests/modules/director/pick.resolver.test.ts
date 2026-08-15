@@ -327,6 +327,48 @@ describe('PickResolver discovering a record at a provider', () => {
         expect(resolved[0]).toMatchObject({ trackId: 'cat-sp_1', pluginId: 'deadair.spotify' });
     });
 
+    it('carries the provider’s lead artist as identity and its credit line only for display', async () => {
+        // Two different jobs, and the item used to do both with one field. A discovered record
+        // shows the whole credit and is IDENTIFIED by the lead, so the keys it airs under are the
+        // ones a repeat window and an artist cooldown are written with.
+        const { resolver } = build({
+            byName: {},
+            atProvider: {
+                'Drake — One Dance': {
+                    pluginId: 'deadair.spotify',
+                    track: { id: 'sp_2', title: 'One Dance', artists: ['Drake', 'Wizkid', 'Kyla'] },
+                },
+            },
+            bindings: { 'cat-sp_2': binding('cat-sp_2') },
+            metadata: { 'cat-sp_2': { title: 'One Dance', credit: 'Drake, Wizkid, Kyla' } },
+        });
+
+        const [resolved] = await resolve(resolver, [{ title: 'One Dance', artist: 'Drake' }]);
+
+        expect(resolved).toMatchObject({ artist: 'Drake', artists: ['Drake, Wizkid, Kyla'] });
+    });
+
+    it('judges a discovered record by the row it became, not by the words that found it', async () => {
+        // The provider spells the title with its guests in it and the pick did not. Keying the
+        // pick meant the rules asked about a song the station would never write to
+        // `play_history`, so a record inside the repeat window resolved cleanly and aired twice.
+        const { resolver } = build({
+            byName: {},
+            atProvider: {
+                'Usher — Yeah!': {
+                    pluginId: 'deadair.spotify',
+                    track: { id: 'sp_3', title: 'Yeah! (feat. Lil Jon & Ludacris)', artists: ['USHER', 'Lil Jon', 'Ludacris'] },
+                },
+            },
+            bindings: { 'cat-sp_3': binding('cat-sp_3') },
+            metadata: { 'cat-sp_3': { title: 'Yeah! (feat. Lil Jon & Ludacris)', credit: 'USHER, Lil Jon, Ludacris' } },
+            recentSongs: ['usher:yeah feat lil jon ludacris'],
+        });
+
+        const withWindow: ResolvedRules = { ...OPEN_RULES, repeatWindowDays: 3 };
+        expect(await resolver.resolve([{ title: 'Yeah!', artist: 'Usher' }], withWindow)).toEqual([]);
+    });
+
     it('marks the copy as discovered, so the sync sweep cannot bench it', async () => {
         // It is in no playlist and a walk will never see it, so the sweep would mark it missing
         // within the hour of the station finding it.

@@ -91,4 +91,7 @@ export const planRecords = async (generator: SetGenerator, resolver: PickResolve
  * reshuffle with extra steps, since `play_history` only knows what actually aired.
  */
 export const songKeysOf = (items: readonly StationLineupItem[]): Set<string> =>
-    new Set(items.filter(isTrackItem).map(item => songKey(item.track.title, item.track.artists)));
+    // `artist` and not `artists`: the same key `play_history` is written from, and the same one
+    // `PickResolver` judges a pick by. These three have to agree byte for byte or the avoid list
+    // silently stops matching anything credited to more than one act.
+    new Set(items.filter(isTrackItem).map(item => songKey(item.track.title, [item.track.artist])));

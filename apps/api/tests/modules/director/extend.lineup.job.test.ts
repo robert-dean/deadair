@@ -185,6 +185,26 @@ describe('ExtendLineupJob', () => {
         expect(generate.mock.calls[0]![0]!.avoidSongKeys).toContain(songKey('Already Here', ['One']));
     });
 
+    it('keys a collaboration by its lead, not by the credit line the item displays', async () => {
+        // The item shows "Drake, Wizkid, Kyla" and is one artist named Drake. Keying the credit
+        // put a three-act string in the key space, where it could never match `play_history` or a
+        // pick — so the record the station had just queued was offered back to the generator, and
+        // no repeat window or artist cooldown could see a collaboration at all.
+        const collaboration: RundownTrack = {
+            pluginId: 'deadair.spotify',
+            externalId: 'ext-One Dance',
+            title: 'One Dance',
+            artists: ['Drake, Wizkid, Kyla'],
+            artist: 'Drake',
+        };
+        const { job, seed, generate } = build({ existing: [collaboration] });
+        await seed();
+
+        await job.run({ count: 1 });
+
+        expect(generate.mock.calls[0]![0]!.avoidSongKeys).toContain(songKey('One Dance', ['Drake']));
+    });
+
     it('does not exclude artists already in the lineup', async () => {
         // Excluding them would starve a long rotation of its own library: a hundred
         // tracks is sixty artists, and after two refills there is nobody left.

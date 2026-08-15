@@ -82,8 +82,12 @@ export class PlayHistoryRepository extends DataRepository {
                 title: item.title,
                 // The credit as written, for display. Identity comes from the keys below.
                 artists: item.artists.join(', '),
-                songKey: songKey(item.title, item.artists),
-                artistKey: artistKey(item.artists),
+                // Off `artist`, the item's lead, and never off `artists` — which is a credit line
+                // in one element for everything a generator resolved, so keying it wrote
+                // "drake wizkid kyla" as one artist and no repeat window or cooldown could match a
+                // collaboration again.
+                songKey: songKey(item.title, [item.artist]),
+                artistKey: artistKey([item.artist]),
                 source: entry.source,
             })
             .execute();

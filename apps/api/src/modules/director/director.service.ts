@@ -1834,8 +1834,9 @@ export class DirectorService {
                 title: item.title,
                 // The LEAD artist, which is what a scrobbling service matches on. The whole credit
                 // line is in `play_history.artists` for a human to read and is the wrong thing to
-                // send.
-                artist: item.artists[0] ?? '',
+                // send — and reading it out of `artists[0]` was sending exactly that, since a
+                // resolved item carries its credit there as a single element.
+                artist: item.artist,
                 ...(item.album === undefined ? {} : { album: item.album }),
                 ...(item.durationMs === undefined ? {} : { durationMs: item.durationMs }),
                 playedAt: Date.now(),

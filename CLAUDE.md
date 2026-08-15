@@ -511,7 +511,10 @@ colour for itself — and `status.lamp.tsx` draws it two ways, a quiet dot on a 
 chip for the one state worth seeing across the room. And `src/components/shared/` holds
 `PageHeader`, `ErrorAlert`, `EmptyState`, `Eyebrow`, `PageSkeleton`: the console had these
 hand-rolled 20, 44, 9, 5 and 12 times, which is how it ended up with three letter-spacings for one
-label and six heights of skeleton. **Do not hand-roll one of these again**, and put a `Card` or
+label and six heights of skeleton. **Type is Mantine's own scale and stays that way** — it was set a
+step smaller for one pass to buy density, which is a uniform scale-down, reads as the browser being
+zoomed out, and costs legibility rather than earning rows; density belongs in `spacing`, table
+`verticalSpacing` and card padding. **Do not hand-roll one of these again**, and put a `Card` or
 `Table` convention in `theme.components` rather than in a wrapper. Two rules that are not cosmetic:
 a nav or back link uses `renderRoot={props => <Link to="..." {...props} />}` and never
 `component={Link}`, because the polymorphic form erases the router's typing and hid a `/lineups`

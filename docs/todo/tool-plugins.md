@@ -8,6 +8,16 @@ one: catalog search, over
 
 ---
 
+## News and RSS took a different route, 2026-08-15
+
+Two of the three rows in the table below are built, and NOT as `tool` plugins. News arrived as a
+`news` capability with a host-side adapter (`modules/llm/news.tool.ts`) in front of it, which is the
+same arrangement `charts` has. That is worth knowing before building the capability below, because
+it says something this file did not anticipate: a plugin that answers a QUESTION the station has is
+better modelled as a capability, and `tool` is for a plugin that wants to offer the model something
+the host has no concept of. Weather is still the case that argues for it. See
+[news-and-bulletins.md](news-and-bulletins.md).
+
 ## The shape
 
 A `tool` capability in the plugin SDK:

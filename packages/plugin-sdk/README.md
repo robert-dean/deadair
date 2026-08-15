@@ -15,6 +15,11 @@ A plugin extends deadair by declaring capabilities:
 | `enrichment` | supply facts about a track: year, genre, label, trivia, links  |
 | `speech`     | say something out loud: text in, audio out                     |
 | `llm`        | produce words: a conversation in, text out                     |
+| `analysis`   | measure a track's audio: bytes in, cue points and loudness out |
+| `charts`     | say what is popular: a chart id in, ranked names out           |
+| `similarity` | say who else sounds like this: an artist in, artists out       |
+| `news`       | say what happened outside the station: a feed in, entries out  |
+| `scrobble`   | report what the station played to somebody else's service      |
 | `oauth`      | hold operator tokens, obtained through the host's redirect     |
 
 There is no second axis. `capabilities` is the whole declaration, and the host
@@ -336,6 +341,32 @@ Order it after the hostname you know, as above. First match wins, so an
 operator who points `baseUrl` back at the canonical service still gets the
 strict rate rather than the mirror's.
 
+A setting holding SEVERAL addresses contributes one entry each, which is how a
+plugin pointed at a list the operator pasted — a reader of feeds — declares
+upstreams it cannot know at authoring time. One address per line (a `text`
+field), or the JSON array a `multiselect` stores, and where a line carries more
+than the address the address is its last `|`-separated field:
+
+```ts
+configFields: [{ key: 'feeds', label: 'Feeds', type: 'text' }],
+permissions: {
+    network: [{ fromConfig: 'feeds', ratePerSecond: 1, bucket: 'rss' }],
+    ...
+}
+```
+
+```
+https://example.com/rss.xml
+world|World news|https://example.com/world.xml
+```
+
+Every rule above is applied per address rather than to the value as a whole, so
+one mistyped line costs its own upstream and not the rest. Repeats collapse into
+one entry, or two feeds at one publisher would install a second limiter and
+quietly double the rate you asked to be paced at. A shared `bucket` is usually
+right here, because what is being paced is your own outbound rate rather than
+any one publisher's published limit.
+
 The rate is a floor on the interval, not a promise of throughput: the host caps
 every bucket at its own ceiling, so asking to go faster than the host allows
 does nothing. Parking is spent from the call's budget, which is the other half
@@ -467,6 +498,7 @@ ones it implements in `manifest.capabilities`:
     marks which rows honoured it. And `limit` is a TOTAL rather than a page
     size: page internally if your upstream's own ceiling is lower, since a
     short answer is indistinguishable from a genuinely thin search.
+
 - **`stream`** — `resolveStreamUrl`: hand back a complete URL the audio consumer
   can fetch directly, carrying its own authentication, because it is fetched
   with no headers from us. A provider that cannot answer it plays its own audio
@@ -650,16 +682,16 @@ plugins it is the only place an operator can learn them.
 `configFields` is a declarative form description. The host renders it; plugins
 never ship UI.
 
-| type          | notes                                                        |
-| ------------- | ------------------------------------------------------------ |
-| `string`      | free text                                                    |
-| `url`         | free text, validated as a URL                                |
-| `secret`      | write-only, encrypted, read via `host.secrets.get()`         |
-| `number`      | numeric input                                                |
-| `boolean`     | toggle                                                       |
-| `select`      | one of `options`                                             |
-| `multiselect` | any number of `options`, stored as a JSON array              |
-| `note`        | not an input; static help text in the form                   |
+| type          | notes                                                |
+| ------------- | ---------------------------------------------------- |
+| `string`      | free text                                            |
+| `url`         | free text, validated as a URL                        |
+| `secret`      | write-only, encrypted, read via `host.secrets.get()` |
+| `number`      | numeric input                                        |
+| `boolean`     | toggle                                               |
+| `select`      | one of `options`                                     |
+| `multiselect` | any number of `options`, stored as a JSON array      |
+| `note`        | not an input; static help text in the form           |
 
 Use `dependsOn` to hide a field until another one is filled in. Use
 `configSchema` for anything the form cannot express: the host parses the

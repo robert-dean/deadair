@@ -6,10 +6,17 @@ points at that file. Checked against the tree on 2026-08-11.
 
 - [ ] shows should use personas
 - [ ] more voices, add phonetics
-- [ ] inject news/weather breaks — the seam is a `tool` capability (`tool-plugins.md`); what the
-      station knows about the hour and the season is `station-moment.md`
+- [~] inject news/weather breaks — half done for news, 2026-08-15. The SOURCE is built (`news`
+      capability, `plugins/rss`, `NewsService`, a `read_news` tool the DJ can call mid-break), and it
+      arrived as a capability of its own rather than behind the `tool` capability `tool-plugins.md`
+      expected. What is left is the BULLETIN — a `news` segment kind and its writers — scoped in
+      `news-and-bulletins.md`. Weather is still unstarted; what the station knows about the hour and
+      the season is `station-moment.md`
 - [ ] traffic breaks?
-- [ ] breaking news instant breaks
+- [ ] breaking news instant breaks — scoped in `news-and-bulletins.md` §2, and deliberately not a
+      news feature: a host-side watcher over any polled source that posts a `BreakRequest`, so a new
+      number one and a weather warning are the same loop. The de-duplication contract it needs is
+      already on the `news` capability
 - [ ] persona memory
 - [ ] talkshows with callers (can we do real and fake like a conspiracy theories )
 - [ ] telegram bot for "requests"

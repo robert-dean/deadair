@@ -29,6 +29,11 @@
  * for a dialect and hoping is not a design; counting distinct hits in what came back is. The caller
  * decides what to do about a shortfall — here, that is declining to the floor, which is in character
  * anyway.
+ *
+ * They are also SENT, in the sheet beside the diction they evidence. They were checked and never
+ * asked for at first, which made the shortfall a trick question: the station declined good scripts
+ * for missing words it had never named, and the floor wrote more than half the breaks on the day
+ * the first persona went on air.
  */
 
 /**
@@ -48,6 +53,10 @@ export interface PersonaSheet {
      *
      * Matched case-insensitively on word boundaries, except an entry ending in an apostrophe
      * ("in'"), which matches as a word SUFFIX so every dropped-g verb counts without listing them.
+     * A curly apostrophe on either side is the same character here; see {@link matchesDictionMarker}.
+     *
+     * They reach the prompt as well as the check ({@link personaLines}), because a writer marked
+     * against words it was never shown is being graded on a rubric it cannot read.
      */
     dictionMarkers?: readonly string[];
     /** What they always and never do on air, and what they care about. */
@@ -115,6 +124,21 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
     const diction = cleanList(sheet.diction, PERSONA_SHEET_LIMITS.diction);
     if (diction.length > 0) lines.push(`How you speak — every sentence, no exceptions: ${joinClauses(diction)}`);
 
+    // Beside the diction, because they are the same instruction said twice: the clauses above are
+    // the rule and these are the evidence of it. Sent at all because they are what `keepsCharacter`
+    // COUNTS, and for as long as they were checked but never asked for, the station was declining
+    // scripts for missing words it had not named — a model writing a perfectly good line in
+    // character had no way to know which of its words were being marked. Phrased as a floor rather
+    // than a list to work through: {@link MIN_DICTION_MARKERS} is what the guard wants, and a break
+    // that used all sixteen would be a parody of the character rather than the character.
+    const markers = cleanList(sheet.dictionMarkers, PERSONA_SHEET_LIMITS.dictionMarkers);
+    if (markers.length > 0) {
+        lines.push(
+            `These words are yours. At least ${MIN_DICTION_MARKERS} of them belong in anything you say, worked in where they fall naturally — ` +
+                `never listed, and never all at once: ${markers.join(', ')}`,
+        );
+    }
+
     const quirks = cleanList(sheet.quirks, PERSONA_SHEET_LIMITS.quirks);
     if (quirks.length > 0) lines.push(`In character: ${joinClauses(quirks)}`);
 
@@ -155,21 +179,44 @@ export function personaVoiceReminder(sheet: PersonaSheet): string | undefined {
 }
 
 /**
+ * Every character a writer might use where the sheet wrote a plain `'`.
+ *
+ * A model emits U+2019 far more often than it emits an ASCII apostrophe — measured at 35 of 47
+ * written breaks on this station — and a sheet is typed by hand, so the two sides of this comparison
+ * disagree by default rather than by accident. See {@link straightenApostrophes}.
+ */
+const CURLY_APOSTROPHES = /[‘’ʼ′]/g;
+
+/**
+ * One apostrophe, so a marker and a script can be compared at all.
+ *
+ * This is not tidying. Without it `matchesDictionMarker` failed in BOTH directions at once, and the
+ * two failures hid each other: every marker carrying an apostrophe ("that's", "in'", "'tis") could
+ * never match a model's `that’s`, while the boundary below — which excluded `'` from a word but not
+ * `’` — let a bare "you" match inside `you’re`. So a sheet whose diction says "always contract" had
+ * its markers structurally unmatchable, and the one persona that appeared to work was passing on an
+ * accident. Six of the ten seeded sheets carry apostrophe markers.
+ */
+const straightenApostrophes = (text: string): string => text.replace(CURLY_APOSTROPHES, "'");
+
+/**
  * Whether a marker appears in `text`, case-insensitively.
  *
  * A marker ending in an apostrophe ("in'") matches as a word SUFFIX, so every dropped-g verb counts
  * without the sheet listing them all. Anything else matches whole-word, so "aye" is not found inside
  * "player" — which is not a hypothetical, since a station's own vocabulary is full of near misses.
+ *
+ * Both sides are straightened first, because a curly apostrophe is the same word said the same way.
  */
 export function matchesDictionMarker(marker: string, text: string): boolean {
-    const needle = marker.trim().toLowerCase();
+    const needle = straightenApostrophes(marker.trim().toLowerCase());
     if (needle.length === 0) return false;
 
     const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // An apostrophe is a word character to no regex engine, so a trailing one needs its own
     // boundary: preceded by letters, followed by a non-letter.
     const pattern = needle.endsWith("'") ? `[a-z]${escaped}(?![a-z])` : `(?<![a-z'])${escaped}(?![a-z'])`;
-    return new RegExp(pattern).test(text.toLowerCase());
+    return new RegExp(pattern).test(straightenApostrophes(text.toLowerCase()));
 }
 
 /** The distinct markers a script carries. Its length is what a caller judges. */

@@ -10,6 +10,7 @@ import {
     dictionMarkersIn,
     keepsCharacter,
     matchesDictionMarker,
+    MIN_DICTION_MARKERS,
     personaLines,
     personaVoiceReminder,
     PERSONA_SHEET_LIMITS,
@@ -26,6 +27,21 @@ describe('personaLines', () => {
         expect(lines[0]).toContain('every sentence');
         expect(lines[0]).toContain('Ye for you');
         expect(lines[1]).toContain('Every record is plunder');
+    });
+
+    // They are what `keepsCharacter` counts, so a sheet that did not send them was grading a writer
+    // on a rubric it could not read.
+    it('names the markers it will be counting, right after the diction they evidence', () => {
+        const lines = personaLines({ diction: ['Ye for you'], dictionMarkers: ['ye', 'aye', 'matey'] });
+
+        expect(lines[1]).toContain('ye, aye, matey');
+        expect(lines[1]).toContain(`At least ${MIN_DICTION_MARKERS}`);
+        // Not a list to work through: a break using all of them is a parody of the character.
+        expect(lines[1]).toContain('never all at once');
+    });
+
+    it('renders no marker line for a sheet that named none, which is the sheet that makes no claim', () => {
+        expect(personaLines({ diction: ['Ye for you'] })).toHaveLength(1);
     });
 
     it('caps each list, so a sheet stays a sheet', () => {
@@ -95,6 +111,27 @@ describe('matchesDictionMarker', () => {
     it('ignores a blank marker rather than matching everything', () => {
         expect(matchesDictionMarker('   ', 'anything at all')).toBe(false);
     });
+
+    // A model writes `that’s` far more often than `that's`, and a sheet is typed by hand. Both
+    // directions, because the two failures used to hide each other.
+    describe('a curly apostrophe', () => {
+        it('matches a marker the sheet wrote straight', () => {
+            expect(matchesDictionMarker("that's", 'That’s Sepultura, and it’s a big one')).toBe(true);
+            expect(matchesDictionMarker("in'", 'You’re listenin’ to it')).toBe(true);
+        });
+
+        it('matches a script that wrote it straight, whichever way round the sheet has it', () => {
+            expect(matchesDictionMarker('that’s', "That's Sepultura")).toBe(true);
+        });
+
+        // The other half: the word boundary excluded a straight apostrophe and not a curly one, so
+        // "you" was found inside "you’re" and the guard passed on an accident.
+        it('still keeps a bare word out of a longer contraction', () => {
+            expect(matchesDictionMarker('you', 'You’re listening to this')).toBe(false);
+            expect(matchesDictionMarker('you', "You're listening to this")).toBe(false);
+            expect(matchesDictionMarker('you', 'This one is for you')).toBe(true);
+        });
+    });
 });
 
 describe('dictionMarkersIn', () => {
@@ -128,5 +165,13 @@ describe('keepsCharacter', () => {
 
     it('is not fooled by a single hit, which is as likely to be a coincidence as a dialect', () => {
         expect(keepsCharacter({ dictionMarkers: ['you', 'ye', 'matey'] }, 'That was Pink Moon, and you can hear it again later.')).toBe(false);
+    });
+
+    // A sheet whose diction says "always contract" had every one of its markers unmatchable against
+    // a model's own apostrophe, so it declined exactly the script it asked for.
+    it('accepts a contracted script from a sheet whose markers are contractions', () => {
+        const sheet = { dictionMarkers: ["you're", "that's", "it's", 'record'] };
+
+        expect(keepsCharacter(sheet, 'That’s Pink Moon, and you’re hearing it here.')).toBe(true);
     });
 });

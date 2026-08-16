@@ -21,7 +21,8 @@ import {
     PluginStorageRepository,
 } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
-import { PluginNetworkPolicy } from '../../../src/modules/plugins/plugin.network.policy.js';
+import { PluginGrantsService } from '../../../src/modules/plugins/plugin.grants.service.js';
+import { NETWORK_OPEN } from '../../../src/modules/plugins/plugin.grants.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
@@ -116,20 +117,21 @@ const unusedConfigService = (): PluginConfigService =>
  * returns.
  */
 /**
- * The operator's escape hatch, off unless a test says otherwise.
+ * What the operator has allowed, as a stub.
  *
- * A stub rather than a real `PluginNetworkPolicy` over a config double, because
- * what every test here cares about is the ANSWER — whether this plugin is
- * listed — and the parsing of the setting that produces it is its own test in
- * `plugin.network.policy.test.ts`.
+ * A stub rather than a real `PluginGrantsService` over a repository double, because what every test
+ * here cares about is the ANSWER — does this plugin hold this capability — and how that answer is
+ * loaded and cached is its own test in `plugin.grants.service.test.ts`.
  */
-const stubNetworkPolicy = (unrestricted: readonly string[] = []): PluginNetworkPolicy =>
-    ({ isUnrestricted: (pluginId: string) => unrestricted.includes(pluginId) }) as unknown as PluginNetworkPolicy;
+const stubGrants = (allowed: readonly string[] = []): PluginGrantsService =>
+    ({
+        holds: (pluginId: string, capability: string) => capability === NETWORK_OPEN && allowed.includes(pluginId),
+    }) as unknown as PluginGrantsService;
 
 function scopedFactory(
     storage: PluginStorageRepository = new FakeStorageRepository() as unknown as PluginStorageRepository,
     configService: PluginConfigService = unusedConfigService(),
-    networkPolicy: PluginNetworkPolicy = stubNetworkPolicy(),
+    grants: PluginGrantsService = stubGrants(),
 ) {
     const stub = stubContainer([
         [PluginConfigService, configService],
@@ -139,13 +141,7 @@ function scopedFactory(
     return {
         ...stub,
         pluginLog,
-        factory: new PluginHostFactory(
-            new PluginHostFactoryOptions('https://host.example'),
-            stub.container,
-            pluginLog.log,
-            stubShimClient(),
-            networkPolicy,
-        ),
+        factory: new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), stub.container, pluginLog.log, stubShimClient(), grants),
     };
 }
 
@@ -1136,17 +1132,22 @@ describe('PluginHostFactory config-derived allowlist', () => {
 });
 
 /**
- * The operator's escape hatch: a plugin whose upstreams are decided by the
- * DATA it reads rather than by anything anybody could write down in advance.
- * A feed reader is the case — the entries are on one host and the stories they
- * point at are on another, and only the feed knows which.
+ * The `network.open` grant: a plugin whose upstreams are decided by the DATA it reads rather than by
+ * anything anybody could write down in advance. A feed reader is the case — the entries are on one
+ * host and the stories they point at are on another, and only the feed knows which.
+ *
+ * Two things have to be true for any of this: the manifest ASKED, and the operator said yes.
  */
-describe('PluginHostFactory unrestricted network', () => {
-    const declaring = (...network: string[]): PluginManifest => manifest({ permissions: { network, storage: false, oauth: false } });
+describe('PluginHostFactory network.open grant', () => {
+    const asking = { capability: NETWORK_OPEN, reason: 'Follows the links in the feeds you gave it.' };
 
-    const unrestrictedFactory = (): ReturnType<typeof scopedFactory> => scopedFactory(undefined, undefined, stubNetworkPolicy(['test.plugin']));
+    /** A manifest that names hostnames and asks for the open web on top of them. */
+    const declaring = (...network: string[]): PluginManifest =>
+        manifest({ permissions: { network, storage: false, oauth: false, grants: [asking] } });
 
-    it('reaches a host the manifest never named, for a plugin the operator listed', async () => {
+    const unrestrictedFactory = (): ReturnType<typeof scopedFactory> => scopedFactory(undefined, undefined, stubGrants(['test.plugin']));
+
+    it('reaches a host the manifest never named, for a plugin the operator allowed', async () => {
         const fetchMock = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
         vi.stubGlobal('fetch', fetchMock);
         const host = unrestrictedFactory().factory.createHost(declaring('feeds.example.org'));
@@ -1155,10 +1156,23 @@ describe('PluginHostFactory unrestricted network', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it('still refuses a plugin the operator has not listed', async () => {
+    it('still refuses a plugin nobody has answered for', async () => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
-        const host = scopedFactory(undefined, undefined, stubNetworkPolicy(['some.other.plugin'])).factory.createHost(declaring('feeds.example.org'));
+        const host = scopedFactory(undefined, undefined, stubGrants(['some.other.plugin'])).factory.createHost(declaring('feeds.example.org'));
+
+        await expectPluginError(host.fetch('https://www.example.com/story'), 'forbidden', /not allowed to reach/);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    // The half that keeps the store honest. A row for a plugin whose manifest never asked must grant
+    // nothing, or a capability could be turned on for a plugin that has no idea it exists — by
+    // reaching into the database, or by a manifest that used to ask and no longer does.
+    it('grants nothing to a plugin that never asked, however the row got there', async () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        const silent = manifest({ permissions: { network: ['feeds.example.org'], storage: false, oauth: false } });
+        const host = unrestrictedFactory().factory.createHost(silent);
 
         await expectPluginError(host.fetch('https://www.example.com/story'), 'forbidden', /not allowed to reach/);
         expect(fetchMock).not.toHaveBeenCalled();
@@ -1176,7 +1190,7 @@ describe('PluginHostFactory unrestricted network', () => {
         ['localhost by name', 'http://localhost:5432/'],
         ['a .local name', 'http://printer.local/status'],
         ['IPv6 loopback', 'http://[::1]:9000/'],
-    ])('refuses %s even for a listed plugin', async (_what, url) => {
+    ])('refuses %s even for a plugin that holds the grant', async (_what, url) => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
         const host = unrestrictedFactory().factory.createHost(declaring('feeds.example.org'));
@@ -1221,19 +1235,42 @@ describe('PluginHostFactory unrestricted network', () => {
         expect(bypassLines[1]?.[1]).toMatchObject({ hostname: 'other.example.net' });
     });
 
-    // A manifest that declared a rate for an upstream still gets it: the
-    // synthetic entry is only ever consulted after every declared one has
-    // failed to match.
+    // A manifest that declared a rate for an upstream still gets it: the synthetic entry is only
+    // ever consulted after every declared one has failed to match.
     it('keeps the manifest pacing for a host the manifest did name', async () => {
         vi.useFakeTimers();
         vi.stubGlobal('fetch', okFetch());
-        const host = scopedFactory(undefined, undefined, stubNetworkPolicy(['test.plugin'])).factory.createHost(
-            manifest({ permissions: { network: [{ host: 'feeds.example.org', ratePerSecond: 0.5 }], storage: false, oauth: false } }),
+        const host = scopedFactory(undefined, undefined, stubGrants(['test.plugin'])).factory.createHost(
+            manifest({
+                permissions: { network: [{ host: 'feeds.example.org', ratePerSecond: 0.5 }], storage: false, oauth: false, grants: [asking] },
+            }),
         );
 
         await host.fetch('https://feeds.example.org/1');
 
         const second = host.fetch('https://feeds.example.org/2', { timeoutMs: 10_000 });
+        expect(await settlesWithin(second, 700)).toBe(false);
+    });
+
+    // A grant is not a way to shed a limit the plugin set for itself: plugins/rss asks to be held to
+    // the same one-per-second bucket its feeds are paced at.
+    it('paces the granted hosts at the rate the REQUEST named', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('fetch', okFetch());
+        const paced = manifest({
+            permissions: {
+                network: ['feeds.example.org'],
+                storage: false,
+                oauth: false,
+                grants: [{ ...asking, ratePerSecond: 0.5, bucket: 'rss' }],
+            },
+        });
+        const host = scopedFactory(undefined, undefined, stubGrants(['test.plugin'])).factory.createHost(paced);
+
+        await host.fetch('https://www.example.com/one');
+
+        // A DIFFERENT host, to prove the bucket is shared rather than per hostname.
+        const second = host.fetch('https://other.example.net/two', { timeoutMs: 10_000 });
         expect(await settlesWithin(second, 700)).toBe(false);
     });
 });

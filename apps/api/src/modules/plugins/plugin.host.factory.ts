@@ -20,7 +20,8 @@ import { PluginConfigService } from './plugin.config.service.js';
 import { invocationRemainingMs, invocationSignal } from './plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
 import { PluginLog } from './plugin.log.js';
-import { isPrivateAddress, PluginNetworkPolicy } from './plugin.network.policy.js';
+import { isPrivateAddress, NETWORK_OPEN } from './plugin.grants.js';
+import { PluginGrantsService } from './plugin.grants.service.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -618,7 +619,7 @@ export class PluginHostFactory {
         private readonly container: Container,
         private readonly pluginLog: PluginLog,
         private readonly spotifyShimClient: SpotifyShimClient,
-        private readonly networkPolicy: PluginNetworkPolicy,
+        private readonly grants: PluginGrantsService,
     ) {}
 
     // `PluginConfigService` and `PluginStorageRepository` are scoped, so every capability call
@@ -1082,7 +1083,7 @@ export class PluginHostFactory {
         }
 
         const hostname = target.hostname.toLowerCase();
-        const matched = entries.find(entry => matchesHost(hostname, entry.pattern)) ?? this.unrestrictedEntry(manifest, logger, hostname, from);
+        const matched = entries.find(entry => matchesHost(hostname, entry.pattern)) ?? this.openWebEntry(manifest, logger, hostname, from);
         if (matched === undefined) {
             const message = `plugin "${manifest.id}" is not allowed to reach "${hostname}"; add it to permissions.network`;
             if (from !== undefined) {
@@ -1104,39 +1105,54 @@ export class PluginHostFactory {
     }
 
     /**
-     * The synthetic allowlist entry an unrestricted plugin gets for a host its
-     * manifest never named, or `undefined` when it gets nothing.
+     * The synthetic allowlist entry a plugin holding `network.open` gets for a
+     * host its manifest never named, or `undefined` when it gets nothing.
      *
      * Consulted only after every declared entry has failed to match, so nothing
-     * about a plugin the operator has not listed changes, and a plugin that has
-     * been listed still keeps its manifest's own pacing wherever the manifest
-     * had something to say. The synthetic bucket is per plugin rather than per
-     * host: what is being paced here is the station's own outbound rate to
-     * addresses nobody declared a published limit for, and one limiter is what
-     * keeps a plugin walking a site from becoming a burst.
+     * about a plugin with no grant changes, and a plugin that holds one still
+     * keeps its manifest's own pacing wherever the manifest had something to
+     * say. Where the manifest paced its REQUEST, that pacing applies here too —
+     * `plugins/rss` asks to be held to the same one-per-second bucket as its
+     * feeds, and a grant should not be a way to shed a limit the plugin set for
+     * itself. Absent that, the bucket is per plugin rather than per host: what
+     * is being paced is the station's own outbound rate to addresses nobody
+     * published a limit for, and one limiter is what keeps a plugin walking a
+     * site from becoming a burst.
      *
-     * A private address is refused here as if the plugin were not listed at
-     * all — see {@link isPrivateAddress} for why that survives the bypass — and
-     * the refusal falls through to the ordinary message, which is the honest one
-     * for it: the address is not on the allowlist and naming it there is exactly
-     * the fix.
+     * **Both halves are required, and that is the point.** The manifest must
+     * have ASKED and the operator must have said yes. A row for a plugin whose
+     * manifest never asked grants nothing, so a capability cannot be turned on
+     * by reaching into the database for a plugin that has no idea it exists.
+     *
+     * A private address is refused here as if there were no grant at all — see
+     * {@link isPrivateAddress}, and the capability's own description says so to
+     * the operator in the same words — and the refusal falls through to the
+     * ordinary message, which is the honest one for it: the address is not on
+     * the allowlist and naming it there is exactly the fix.
      */
-    private unrestrictedEntry(manifest: PluginManifest, logger: PluginLogger, hostname: string, from: URL | undefined): NetworkEntry | undefined {
+    private openWebEntry(manifest: PluginManifest, logger: PluginLogger, hostname: string, from: URL | undefined): NetworkEntry | undefined {
         if (isPrivateAddress(hostname)) return undefined;
-        if (!this.networkPolicy.isUnrestricted(manifest.id)) return undefined;
+
+        const asked = manifest.permissions.grants?.find(request => request.capability === NETWORK_OPEN);
+        if (asked === undefined) return undefined;
+        if (!this.grants.holds(manifest.id, NETWORK_OPEN)) return undefined;
 
         const pair = `${manifest.id} ${hostname}`;
         if (!this.auditedBypasses.has(pair)) {
             this.auditedBypasses.add(pair);
             // At info and once per pair. The allowlist's remaining job is
-            // disclosure, and a bypass nobody can see in a log has ended it.
-            logger.info('plugin reached a host off its allowlist, permitted by plugins.unrestrictedNetwork', {
+            // disclosure, and a grant nobody can see exercised has ended it.
+            logger.info('plugin reached a host off its allowlist, permitted by the network.open grant', {
                 hostname,
                 ...(from === undefined ? {} : { redirectedFrom: from.hostname.toLowerCase() }),
             });
         }
 
-        return { pattern: hostname, bucket: `unrestricted:${manifest.id}` };
+        return {
+            pattern: hostname,
+            bucket: asked.bucket ?? `${NETWORK_OPEN}:${manifest.id}`,
+            ...(asked.ratePerSecond === undefined ? {} : { ratePerSecond: asked.ratePerSecond }),
+        };
     }
 
     /**

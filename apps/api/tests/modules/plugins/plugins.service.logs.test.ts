@@ -143,6 +143,8 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture, readModel: P
         new PluginInvoker(registry, stubPluginLog().log),
         lifecycleManager,
         new PluginOAuthStateStore(),
+        // What the operator has allowed. Nothing in this file asks about a grant.
+        { holds: () => false, decisionFor: () => undefined } as never,
         accessControl,
         pluginLog,
         new AfterCommit(),
@@ -236,6 +238,8 @@ describe('PluginsService: downloadPluginLogs Content-Disposition', () => {
             new PluginInvoker(registry, stubPluginLog().log),
             { rescan: vi.fn(), reinitPlugin: vi.fn() } as unknown as PluginLifecycleManager,
             new PluginOAuthStateStore(),
+            // What the operator has allowed. Nothing in this file asks about a grant.
+            { holds: () => false, decisionFor: () => undefined } as never,
             accessControl,
             pluginLog,
             new AfterCommit(),

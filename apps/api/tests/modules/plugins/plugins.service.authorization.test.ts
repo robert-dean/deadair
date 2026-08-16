@@ -187,6 +187,8 @@ function makeService(
         new PluginInvoker(registry, stubPluginLog().log),
         lifecycleManager,
         new PluginOAuthStateStore(),
+        // What the operator has allowed. Nothing in this file asks about a grant.
+        { holds: () => false, decisionFor: () => undefined } as never,
         accessControl,
         stubPluginLog().log,
         afterCommit,

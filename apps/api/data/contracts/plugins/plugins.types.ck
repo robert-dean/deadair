@@ -83,6 +83,29 @@ contract PluginConfigInput: {
 }
 
 # Outcome of the plugin's own `testConnection()`
+contract GrantDecision: enum(allowed, denied, undecided) # What the operator has said. `undecided` is the absence of an answer, and it refuses exactly as `denied` does
+
+# One capability a plugin asked for, with the station's answer. The ask is the plugin's manifest and
+# the answer is a row, so a plugin that stops asking stops appearing here whatever was stored
+contract PluginGrant: {
+    pluginId: string(min=1, max=200)
+    pluginName: string(min=1, max=200)
+    capability: string(min=1, max=100) # The host's own id for it, e.g. `network.open`
+    label: string(min=1, max=200) # What the host calls the capability
+    describes: string(min=1, max=2000) # What allowing it opens up, in the station's words
+    reason: string(min=1, max=2000) # Why this plugin says it needs it, in the plugin's words
+    decision: GrantDecision
+}
+
+contract PluginGrantList: {
+    grants: array(PluginGrant) # Every capability every installed plugin is asking for, undecided ones included
+}
+
+contract PluginGrantInput: {
+    capability: string(min=1, max=100)
+    decision: GrantDecision
+}
+
 contract PluginTestResult: {
     ok: boolean
     message?: string(max=4000)

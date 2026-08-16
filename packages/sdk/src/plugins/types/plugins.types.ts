@@ -40,7 +40,12 @@ export interface PluginConfigInput {
 
 /**
  * Outcome of the plugin's own `testConnection()`
- * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L86)
+ * generated from [GrantDecision](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L86)
+ */
+export type GrantDecision = 'allowed' | 'denied' | 'undecided';
+
+/**
+ * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L109)
  */
 export interface PluginTestResult {
     ok: boolean;
@@ -50,7 +55,7 @@ export interface PluginTestResult {
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L104)
+ * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L127)
  */
 export interface PluginOAuthStart {
     url: string;
@@ -58,7 +63,7 @@ export interface PluginOAuthStart {
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L109)
+ * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L132)
  */
 export interface PluginOAuthResult {
     pluginId: string;
@@ -67,7 +72,7 @@ export interface PluginOAuthResult {
 }
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L115)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L138)
  */
 export interface PluginOAuthCallbackQuery {
     code?: string;
@@ -106,7 +111,7 @@ export interface ConfigFieldDescriptor {
  * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
  * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
  * was written, where these are whatever the operator's own server currently says
- * generated from [PluginFieldSuggestions](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L94)
+ * generated from [PluginFieldSuggestions](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L117)
  */
 export interface PluginFieldSuggestions {
     /** Keys the plugin had nothing to say about are simply absent, rather than present and empty */
@@ -144,6 +149,33 @@ export interface PluginLogLevelInput {
 }
 
 /**
+ * One capability a plugin asked for, with the station's answer. The ask is the plugin's manifest and
+ * the answer is a row, so a plugin that stops asking stops appearing here whatever was stored
+ * generated from [PluginGrant](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L90)
+ */
+export interface PluginGrant {
+    pluginId: string;
+    pluginName: string;
+    /** The host's own id for it, e.g. `network.open` */
+    capability: string;
+    /** What the host calls the capability */
+    label: string;
+    /** What allowing it opens up, in the station's words */
+    describes: string;
+    /** Why this plugin says it needs it, in the plugin's words */
+    reason: string;
+    decision: GrantDecision;
+}
+
+/**
+ * generated from [PluginGrantInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L104)
+ */
+export interface PluginGrantInput {
+    capability: string;
+    decision: GrantDecision;
+}
+
+/**
  * A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set
  * generated from [PluginSummary](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L36)
  */
@@ -168,6 +200,14 @@ export interface PluginLogPage {
     pluginId: string;
     level: PluginLogLevel;
     entries: PluginLogEntry[];
+}
+
+/**
+ * generated from [PluginGrantList](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L100)
+ */
+export interface PluginGrantList {
+    /** Every capability every installed plugin is asking for, undecided ones included */
+    grants: PluginGrant[];
 }
 
 /**

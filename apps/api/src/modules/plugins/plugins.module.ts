@@ -11,7 +11,8 @@ import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginLoader, PluginLoaderOptions } from './plugin.loader.js';
 import { PluginLog, PluginLogOptions } from './plugin.log.js';
-import { PluginNetworkPolicy } from './plugin.network.policy.js';
+import { PluginGrantsRepository } from './plugin.grants.repository.js';
+import { PluginGrantsService } from './plugin.grants.service.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
 import { PluginRegistry } from './plugin.registry.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
@@ -101,16 +102,18 @@ export const PluginsModule: ServerKitModule = {
             .register(PluginHostFactoryOptions)
             .useFactory(() => new PluginHostFactoryOptions(config.get('APP_BASE_URL', '')))
             .asSingleton();
-        // Singletons that read the four scoped registrations above, and therefore
+        // Scoped like every other repository, and reached through `inScope` by the
+        // singleton below it: what the host asks on every fetch is an in-memory
+        // map, and this table is only what that map is built from.
+        registry.register(PluginGrantsRepository).useClass(PluginGrantsRepository).asScoped();
+
+        // Singletons that read the scoped registrations above, and therefore
         // inject `Container` and open a scope per call rather than holding one of
         // them. A singleton holding a scoped service is a captive dependency the
         // container rejects at `build()`, and the reason it rejects it is exactly
-        // what these two would do with a request's transaction: keep using it
-        // after the request that opened it had committed.
-        // A singleton reading `deadair.settings` live through `AppConfig`, which
-        // needs no scope: the operator's answer has to take effect on the next
-        // fetch rather than on the next plugin reload.
-        registry.register(PluginNetworkPolicy).useClass(PluginNetworkPolicy).asSingleton();
+        // what these would do with a request's transaction: keep using it after
+        // the request that opened it had committed.
+        registry.register(PluginGrantsService).useClass(PluginGrantsService).asSingleton();
         registry.register(PluginHostFactory).useClass(PluginHostFactory).asSingleton();
 
         registry.register(PluginLifecycleManager).useClass(PluginLifecycleManager).asSingleton();
@@ -129,6 +132,17 @@ export const PluginsModule: ServerKitModule = {
     ready: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
         const logger = container.get(Logger);
+
+        // Before anything is initialized, because `init` is where a plugin first talks to its
+        // upstream and a grant read afterwards would be read after the first fetch that needed it.
+        // A failure here leaves the map empty, which refuses every capability: a host that cannot
+        // read what it granted should not be granting, and the cost is a plugin doing the job it
+        // can do without one.
+        try {
+            await container.get(PluginGrantsService).refresh();
+        } catch (error) {
+            logger.error('plugin grants could not be read; every capability stays refused', { error: errorText(error) });
+        }
 
         try {
             await container.get(PluginLifecycleManager).initAllEnabled();

@@ -360,6 +360,16 @@ export interface DeadairPluginConfigs {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairPluginGrants {
+  capability: string;
+  createdAt: Generated<DateTime>;
+  decidedAt: Generated<DateTime>;
+  decidedBy: string | null;
+  decision: "allowed" | "denied";
+  pluginId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairPluginStorage {
   createdAt: Generated<DateTime>;
   key: string;
@@ -596,6 +606,7 @@ export interface DB {
   "deadair.playlists": DeadairPlaylists;
   "deadair.playlistTracks": DeadairPlaylistTracks;
   "deadair.pluginConfigs": DeadairPluginConfigs;
+  "deadair.pluginGrants": DeadairPluginGrants;
   "deadair.pluginStorage": DeadairPluginStorage;
   "deadair.scriptHistory": DeadairScriptHistory;
   "deadair.scrobbleQueue": DeadairScrobbleQueue;

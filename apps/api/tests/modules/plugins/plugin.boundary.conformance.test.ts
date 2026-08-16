@@ -6,7 +6,7 @@ import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.
 import { PluginStorageRepository } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
-import type { PluginNetworkPolicy } from '../../../src/modules/plugins/plugin.network.policy.js';
+import type { PluginGrantsService } from '../../../src/modules/plugins/plugin.grants.service.js';
 import { stubContainer } from '../../utils/stub.container.js';
 
 const PLUGIN_ID = 'test.conformance';
@@ -27,8 +27,8 @@ interface Harness {
  * This is the boundary the SDK's fixture-driven test cannot see: the real
  * factory output, so the host cannot drift from the SDK's JSON-safe promise.
  */
-/** The operator's escape hatch, off. Nothing in this file is about it. */
-const restrictedNetwork = (): PluginNetworkPolicy => ({ isUnrestricted: () => false }) as unknown as PluginNetworkPolicy;
+/** What the operator has allowed: nothing. No manifest in this file asks for a capability. */
+const restrictedNetwork = (): PluginGrantsService => ({ holds: () => false }) as unknown as PluginGrantsService;
 
 function harness(): Harness {
     const getSecrets = vi.fn(async (_pluginId: string) => ({}) as Record<string, string>);

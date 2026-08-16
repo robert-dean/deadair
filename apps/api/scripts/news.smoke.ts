@@ -8,7 +8,7 @@
  *
  * - whether the operator's feed carries anything beyond titles, which most do not;
  * - whether the article pages are reachable, which needs this plugin listed under
- *   `plugins.unrestrictedNetwork` because the stories live on a different host from the feed;
+ *   the `network.open` grant, because the stories live on a different host from the feed;
  * - what the floor would say with what came back, which is the read a listener gets whenever the
  *   model declines, is slow, or is not configured at all.
  *
@@ -37,7 +37,7 @@ import { BulletinSource } from '../src/modules/director/bulletin.source.js';
 import { breakPrompt } from '../src/modules/director/break.prompt.js';
 import { NEWS_KIND, NewsBreakWriter } from '../src/modules/director/news.break.writer.js';
 import { NEWS_MAX_WORDS, NEWS_SHAPE } from '../src/modules/director/model.news.break.writer.js';
-import { isPrivateAddress, PLUGIN_NETWORK_KEYS } from '../src/modules/plugins/plugin.network.policy.js';
+import { isPrivateAddress, NETWORK_OPEN } from '../src/modules/plugins/plugin.grants.js';
 import type { NewsService } from '../src/modules/news/news.service.js';
 
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
@@ -80,10 +80,16 @@ if (pluginConfig === undefined) {
 }
 
 const settings = pluginConfig.config as Record<string, unknown>;
-const unrestricted = String(config.get(PLUGIN_NETWORK_KEYS.unrestricted, ''))
-    .split('\n')
-    .map(line => line.trim().toLowerCase())
-    .includes(manifest.id.toLowerCase());
+// The real grant, read from the real table, because whether the stories are reachable is the
+// question. `undefined` and `denied` are the same answer here and differ only on the settings page.
+const granted = await db
+    .selectFrom('deadair.pluginGrants')
+    .select('decision')
+    .where('pluginId', '=', manifest.id)
+    .where('capability', '=', NETWORK_OPEN)
+    .executeTakeFirst();
+
+const allowsOpenWeb = granted?.decision === 'allowed';
 
 /**
  * A host with the real policy, built by hand.
@@ -113,8 +119,8 @@ const host: PluginHost = {
     fetch: async (url: string, init?: { headers?: Record<string, string> }) => {
         const target = new URL(url);
         const hostname = target.hostname.toLowerCase();
-        const permitted = allowed.has(hostname) || (unrestricted && !isPrivateAddress(hostname));
-        if (!permitted) throw new Error(`refused: "${hostname}" is not on the allowlist and ${manifest.id} is not unrestricted`);
+        const permitted = allowed.has(hostname) || (allowsOpenWeb && !isPrivateAddress(hostname));
+        if (!permitted) throw new Error(`refused: "${hostname}" is not on the allowlist and ${manifest.id} does not hold ${NETWORK_OPEN}`);
 
         return fetch(target, { headers: { 'user-agent': `${manifest.id}/${manifest.version} (deadair)`, ...init?.headers } });
     },
@@ -147,7 +153,9 @@ const news = {
 
 const stories = (await new BulletinSource(news, config, loud).storiesFor(NEWS_KIND)) ?? [];
 
-console.log(`\n${manifest.id}: ${allowed.size} feed host(s), unrestricted=${unrestricted}, stories=${settings.fetchArticles !== false}`);
+console.log(
+    `\n${manifest.id}: ${allowed.size} feed host(s), ${NETWORK_OPEN}=${granted?.decision ?? 'undecided'}, stories=${settings.fetchArticles !== false}`,
+);
 console.log(`${stories.length} stor${stories.length === 1 ? 'y' : 'ies'} for a bulletin\n`);
 
 for (const [at, story] of stories.entries()) {

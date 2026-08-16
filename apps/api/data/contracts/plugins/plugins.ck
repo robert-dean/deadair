@@ -41,6 +41,24 @@ operation /plugins: {
 }
 
 # Declared before /plugins/{id} so the literal segment is matched first.
+operation /plugins/grants: {
+    get: { # Every capability an installed plugin is asking the operator for, with the answer so far
+        name: List plugin grants
+        service: PluginsService.listGrants
+        # A read, and one the settings page makes on load. It carries what a plugin asked for and
+        # what was said, never a credential.
+        security: {
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: PluginGrantList
+            }
+        }
+    }
+}
+
+# Declared before /plugins/{id} so the literal segment is matched first.
 operation /plugins/rescan: {
     post: { # Rescans the mounted plugin directory: registers new plugins, unloads removed ones
         name: Rescan plugins
@@ -116,6 +134,24 @@ operation /plugins/{id}/disable: {
         response: {
             200: {
                 application/json: PluginDetail
+            }
+        }
+    }
+}
+
+operation /plugins/{id}/grants: {
+    params: {
+        id: string(min=1, max=200)
+    }
+    put: { # Answers one capability this plugin asked for. Takes effect on the next fetch, with no reload
+        name: Decide plugin grant
+        service: PluginsService.decideGrant
+        request: {
+            application/json: PluginGrantInput
+        }
+        response: {
+            200: {
+                application/json: PluginGrantList
             }
         }
     }

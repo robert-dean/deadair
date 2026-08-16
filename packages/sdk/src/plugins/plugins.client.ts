@@ -4,6 +4,8 @@ import type {
     PluginConfigInput,
     PluginDetail,
     PluginFieldSuggestions,
+    PluginGrantInput,
+    PluginGrantList,
     PluginLogLevelInput,
     PluginLogPage,
     PluginLogQuery,
@@ -24,6 +26,15 @@ export class PluginsClient {
     async listPlugins(): Promise<PluginSummary[]> {
         const result = await this.fetch(`/plugins`, { method: 'GET' });
         return await parseJson<PluginSummary[]>(result);
+    }
+
+    /**
+     * @name List plugin grants
+     * @description Every capability an installed plugin is asking the operator for, with the answer so far
+     */
+    async listPluginGrants(): Promise<PluginGrantList> {
+        const result = await this.fetch(`/plugins/grants`, { method: 'GET' });
+        return await parseJson<PluginGrantList>(result);
     }
 
     /**
@@ -73,6 +84,19 @@ export class PluginsClient {
     async disablePlugin(id: string): Promise<PluginDetail> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/disable`, { method: 'POST' });
         return await parseJson<PluginDetail>(result);
+    }
+
+    /**
+     * @name Decide plugin grant
+     * @description Answers one capability this plugin asked for. Takes effect on the next fetch, with no reload
+     */
+    async decidePluginGrant(id: string, body: PluginGrantInput): Promise<PluginGrantList> {
+        const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/grants`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PluginGrantList>(result);
     }
 
     /**

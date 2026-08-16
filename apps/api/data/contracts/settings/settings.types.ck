@@ -4,7 +4,7 @@ options {
     }
 }
 
-contract SettingGroup: enum(station, rotation, playout, render, llm, analysis, plugins) # Which section of the settings page a setting belongs in
+contract SettingGroup: enum(station, rotation, playout, render, llm, analysis) # Which section of the settings page a setting belongs in
 
 # A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
 # and shared deliberately: a plugin's settings form and the station's are the same problem, and the

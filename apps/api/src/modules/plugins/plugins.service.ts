@@ -15,10 +15,15 @@ import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginLog } from './plugin.log.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
 import { PluginRegistry } from './plugin.registry.js';
+import { capabilityOf, type GrantDecision } from './plugin.grants.js';
+import { PluginGrantsService } from './plugin.grants.service.js';
 import type { PluginRecord } from './types/plugin.record.js';
 import type {
     PluginConfigInput,
     PluginDetail,
+    PluginGrant,
+    PluginGrantInput,
+    PluginGrantList,
     PluginLogEntry,
     PluginLogLevel,
     PluginLogLevelInput,
@@ -131,6 +136,7 @@ export class PluginsService {
         private readonly pluginInvoker: PluginInvoker,
         private readonly pluginLifecycleManager: PluginLifecycleManager,
         private readonly pluginOAuthStateStore: PluginOAuthStateStore,
+        private readonly pluginGrants: PluginGrantsService,
         private readonly accessControl: AccessControlService,
         private readonly pluginLog: PluginLog,
         private readonly afterCommit: AfterCommit,
@@ -240,6 +246,103 @@ export class PluginsService {
         await this.requirePluginPermission(id, 'enable');
         const { record } = this.requireLoaded(id);
         return this.setEnabled(record, true);
+    }
+
+    /**
+     * Every capability every installed plugin is asking for, with the answer so far.
+     *
+     * **Built from the manifests and folded over the stored decisions, never the other way round.**
+     * A plugin's manifest is the request, so this walks what is installed and asks the grant service
+     * what was said about each — which means a row for a plugin that has been uninstalled, or for a
+     * capability its manifest no longer asks for, simply does not appear. The alternative, listing
+     * the rows, would show an operator a permission nothing is asking for and let them allow it.
+     *
+     * A capability this host does not publish is skipped too, with a warning: an id nothing enforces
+     * would draw a control that protects nothing.
+     *
+     * Ordered by plugin and then by capability, which is the registry's order rather than any
+     * ranking — nothing here is more urgent than anything else, and a table that reordered itself as
+     * decisions were made would move the row under the operator's cursor.
+     */
+    async listGrants(): Promise<PluginGrantList> {
+        const visible = await this.accessControl.listVisibleIds('plugin', 'view');
+        const records = this.pluginRegistry.list();
+        const narrowed = isAllVisible(visible) ? records : records.filter(record => new Set(visible.ids).has(record.id));
+
+        const grants: PluginGrant[] = [];
+        for (const record of [...narrowed].sort((left, right) => left.id.localeCompare(right.id))) {
+            for (const asked of record.manifest?.permissions.grants ?? []) {
+                const capability = capabilityOf(asked.capability);
+                if (capability === undefined) {
+                    this.pluginLog
+                        .for(record.id)
+                        .warn('plugin asked for a capability this host does not publish, so nothing can grant it', { capability: asked.capability });
+                    continue;
+                }
+
+                grants.push({
+                    pluginId: record.id,
+                    pluginName: record.manifest?.name ?? record.id,
+                    capability: capability.id,
+                    label: capability.label,
+                    describes: capability.describes,
+                    reason: asked.reason,
+                    decision: this.pluginGrants.decisionFor(record.id, capability.id) ?? 'undecided',
+                });
+            }
+        }
+
+        return { grants };
+    }
+
+    /**
+     * Answers one capability a plugin asked for.
+     *
+     * Gated on `plugin.configure` rather than merely on being signed in, because deciding what a
+     * plugin may reach is the same weight of decision as handing it a credential.
+     *
+     * Refuses a capability the plugin did not ask for, which is the half that keeps the store
+     * honest: a row nothing is asking for grants nothing (`openWebEntry` checks the manifest too),
+     * so writing one would only put a lie in the table.
+     *
+     * `undecided` is a real answer here — it is how an operator takes back a decision without
+     * pretending they said no — and it deletes the row rather than storing a third value, because
+     * the absence IS that state everywhere else.
+     *
+     * @throws 404 unknown plugin. 400 for a capability this plugin never asked for.
+     */
+    async decideGrant(id: string, input: PluginGrantInput): Promise<PluginGrantList> {
+        await this.requirePluginPermission(id, 'configure');
+        const record = this.requireRecord(id);
+
+        const asked = record.manifest?.permissions.grants?.some(request => request.capability === input.capability) === true;
+        if (!asked || capabilityOf(input.capability) === undefined) {
+            throw httpError(400).withDetails({ message: `plugin "${id}" is not asking for "${input.capability}"` });
+        }
+
+        const actorId = this.context.actor.kind === 'user' ? this.context.actor.actorId : undefined;
+        // After the commit, for `reinitAfterCommit`'s reason in reverse: the grant service is a
+        // singleton that reads on its own pooled connection, so a refresh inside this transaction
+        // would rebuild its map from the rows as they stood BEFORE the write.
+        this.afterCommit.add(async () => {
+            if (input.decision === 'undecided') await this.pluginGrants.forget(id, input.capability);
+            else await this.pluginGrants.decide(id, input.capability, input.decision as GrantDecision, actorId);
+        });
+
+        this.note(
+            id,
+            `grant.${input.decision}`,
+            `${input.capability} was ${input.decision === 'undecided' ? 'left undecided' : input.decision} for ${id}`,
+        );
+
+        // Built from what was asked rather than re-read, since the write above has not run yet. The
+        // console refetches, exactly as it does after a config write.
+        const current = await this.listGrants();
+        return {
+            grants: current.grants.map(grant =>
+                grant.pluginId === id && grant.capability === input.capability ? { ...grant, decision: input.decision } : grant,
+            ),
+        };
     }
 
     /**

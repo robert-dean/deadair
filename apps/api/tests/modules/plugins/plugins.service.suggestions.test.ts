@@ -43,6 +43,8 @@ function serviceWith(instance: Record<string, unknown> | undefined) {
         new PluginInvoker(registry, stubPluginLog().log),
         { rescan: vi.fn(), reinitPlugin: vi.fn() } as unknown as PluginLifecycleManager,
         new PluginOAuthStateStore(),
+        // What the operator has allowed. Nothing in this file asks about a grant.
+        { holds: () => false, decisionFor: () => undefined } as never,
         permissive(),
         stubPluginLog().log,
         new AfterCommit(),

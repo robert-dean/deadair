@@ -65,6 +65,8 @@ function harness(): Harness {
         new PluginInvoker(registry, stubPluginLog().log),
         unused,
         store,
+        // What the operator has allowed. Nothing in this file asks about a grant.
+        { holds: () => false, decisionFor: () => undefined } as never,
         accessControl,
         pluginLog.log,
         new AfterCommit(),

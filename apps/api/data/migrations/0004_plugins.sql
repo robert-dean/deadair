@@ -23,7 +23,38 @@ create table deadair.plugin_storage (
 );
 select deadair.add_updated_at_trigger('deadair.plugin_storage');
 
+-- What the operator answered when a plugin asked for a capability.
+--
+-- The rest of a manifest's permissions are disclosure: a plugin states what it reaches and the host
+-- holds it to that, with nobody asked anything. `permissions.grants` is the other kind — a
+-- capability wide enough that a person decides, per install — and this is where the decision lives.
+--
+-- **Only decisions are stored.** There is no `pending` row and no record of the asking, because the
+-- manifest IS the request: the host reads it on every discovery, so a row saying "this plugin asked"
+-- would be a second writer of one fact, going stale the moment a plugin's manifest changed and
+-- leaving a capability enabled by a row nobody can see. So the three states are `allowed`, `denied`,
+-- and no row at all, and the last two differ only on the operator's page: both refuse.
+--
+-- `capability` is the HOST's vocabulary rather than free text (see `plugin.grants.ts`), and it is
+-- deliberately not a foreign key to anything: a capability is code, not data, and a row for one the
+-- host has since retired should be ignored rather than block a deploy.
+--
+-- `decided_by` is nullable and set null on delete, like `station_events.actor_id`: who said yes is
+-- worth keeping and is not worth keeping an actor row alive for.
+create table deadair.plugin_grants (
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now() check (updated_at >= created_at),
+    plugin_id text not null,
+    capability text not null,
+    decision text not null check (decision in ('allowed', 'denied')),
+    decided_at timestamptz not null default now(),
+    decided_by uuid references deadair.actors (id) on delete set null,
+    primary key (plugin_id, capability)
+);
+select deadair.add_updated_at_trigger('deadair.plugin_grants');
+
 -- migrate:down
 
+drop table if exists deadair.plugin_grants;
 drop table if exists deadair.plugin_storage;
 drop table if exists deadair.plugin_configs;

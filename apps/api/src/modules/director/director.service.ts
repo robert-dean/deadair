@@ -28,6 +28,7 @@ import {
     StationLineup,
     isTrackItem,
     type EditResult,
+    type ShuffleResult,
     type StationLineupBinding,
     type StationLineupItem,
     type StationLineupSnapshot,
@@ -959,7 +960,7 @@ export class DirectorService {
         const lineup = this.lineup;
         if (!lineup) return { ok: false, reason: 'not-found', message: 'the station has nothing on air to edit' };
 
-        const result = this.applyTo(lineup, edit);
+        const { result, dropped } = this.applyTo(lineup, edit);
         if (!result.ok) return result;
 
         await this.persist();
@@ -967,6 +968,10 @@ export class DirectorService {
         // edit rather than off this: a break whose words are never collected is untidy, and one
         // whose removal was not written down is the bug.
         if (edit.kind === 'remove') await this.collectRemoved(lineup, edit.itemId);
+        // The same half for a shuffle, which drops every break planted into the sequence it just
+        // replaced. `BreakPlanner` plants the shuffled tail again on the commit pass below, so what
+        // is retired here is only the rows behind the breaks that were describing the old one.
+        if (dropped.length > 0) await this.retireSegments(lineup, dropped, 'the operator shuffled the running order');
         // An edit to the tail says nothing about what is already with the player, so nothing is
         // retracted. It can leave room for something new, though — a removal shortens the order —
         // so the pass runs.
@@ -1045,24 +1050,34 @@ export class DirectorService {
         }
     }
 
-    private applyTo(lineup: StationLineup, edit: OrderEdit): EditResult {
+    /**
+     * Apply one edit, and say what it took out of the order.
+     *
+     * `dropped` is empty for every edit but the shuffle: the others leave every item where it was,
+     * or — for a removal — leave it in the order carrying a mark. Answering in one shape keeps
+     * {@link edit} from having to know which of the four is the odd one.
+     */
+    private applyTo(lineup: StationLineup, edit: OrderEdit): ShuffleResult {
         switch (edit.kind) {
             case 'shuffle':
                 return lineup.shuffleRemaining();
 
             case 'move':
-                return lineup.move(edit.itemId, edit.toIndex);
+                return { result: lineup.move(edit.itemId, edit.toIndex), dropped: [] };
 
             case 'remove':
-                return lineup.remove(edit.itemId);
+                return { result: lineup.remove(edit.itemId), dropped: [] };
 
             case 'insertSegment':
-                return lineup.insertSegment(
-                    edit.segmentId,
-                    edit.atIndex ?? lineup.size(),
-                    edit.overAtMs === undefined ? undefined : { atMs: edit.overAtMs },
-                    edit.segmentKind,
-                );
+                return {
+                    result: lineup.insertSegment(
+                        edit.segmentId,
+                        edit.atIndex ?? lineup.size(),
+                        edit.overAtMs === undefined ? undefined : { atMs: edit.overAtMs },
+                        edit.segmentKind,
+                    ),
+                    dropped: [],
+                };
         }
     }
 

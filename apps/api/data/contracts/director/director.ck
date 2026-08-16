@@ -117,7 +117,7 @@ operation /director/air/replan: {
 }
 
 operation /director/air/shuffle: {
-    post: { # Shuffles everything not yet handed to the player. The head is already in the player's hands and is left alone
+    post: { # Shuffles the records not yet handed to the player, and plants the breaks again around the new sequence. The head is already in the player's hands and is left alone
         name: Shuffle the running order
         service: DirectorConsoleService.shuffleOrder
         security: {

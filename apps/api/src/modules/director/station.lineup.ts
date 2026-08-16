@@ -259,6 +259,18 @@ export type EditRefusal = 'not-found' | 'already-aired' | 'empty';
 /** The outcome of an edit: it happened, or precisely why it did not. */
 export type EditResult = { ok: true } | { ok: false; reason: EditRefusal; message: string };
 
+/**
+ * The outcome of a shuffle, which is the one edit that takes items OUT of the running order.
+ *
+ * Everything else answers with an {@link EditResult} alone because it leaves every row where it
+ * was. A shuffle drops the breaks planted into the sequence it has just replaced, so the segment
+ * rows behind them have to be retired by whoever asked for it.
+ */
+export interface ShuffleResult {
+    readonly result: EditResult;
+    readonly dropped: readonly StationLineupItem[];
+}
+
 const OK: EditResult = { ok: true };
 
 const refuse = (reason: EditRefusal, message: string): EditResult => ({ ok: false, reason, message });
@@ -762,15 +774,31 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
-     * Shuffle everything not yet committed.
+     * Shuffle the records not yet committed, and drop the breaks planted among them.
      *
-     * Only the tail, because the head is already in the player's hands. Refuses an
-     * empty tail rather than reporting a shuffle that could not have changed anything.
+     * Only the tail, because the head is already in the player's hands. Refuses a tail with
+     * fewer than two RECORDS in it rather than reporting a shuffle that could not have changed
+     * anything: the breaks are not what is being reordered.
+     *
+     * **A break is not shuffled with the records, it is dropped and planted again.** A break sits
+     * where it does because of what is on either side of it — an interval of records since the last
+     * one, a link naming the record it introduces — and carrying it along to a random new position
+     * keeps none of that: the spacing it was planted for is gone and the words, if they had been
+     * written, are about two records it no longer sits between. So the planned segments come out
+     * here and `BreakPlanner` plants the shuffled tail on the commit pass that follows, which is the
+     * same shape {@link replacePlanned} leaves behind and for the same reason. The planner counts
+     * records since the last segment ALREADY in the order, so a tail with no segments in it is
+     * exactly the state it is built to plant into.
+     *
+     * @returns the items it dropped along with the outcome, because the caller has work to do on
+     *   them: the segments among them own `deadair.segments` rows now describing a break that will
+     *   never air.
      */
-    shuffleRemaining(): EditResult {
+    shuffleRemaining(): ShuffleResult {
         const head = this.itemList.filter(item => item.state !== 'planned');
-        const tail = this.itemList.filter(item => item.state === 'planned');
-        if (tail.length < 2) return refuse('empty', 'there is nothing left to shuffle');
+        const planned = this.itemList.filter(item => item.state === 'planned');
+        const tail = planned.filter(isTrackItem);
+        if (tail.length < 2) return { result: refuse('empty', 'there is nothing left to shuffle'), dropped: [] };
 
         for (let index = tail.length - 1; index > 0; index--) {
             const swap = Math.floor(Math.random() * (index + 1));
@@ -779,7 +807,7 @@ export class StationLineup implements LiveOrder {
         // The committed head keeps its own order and stays in front, which is the one
         // thing a shuffle must not touch: those items are already with the player.
         this.itemList = [...head, ...tail];
-        return OK;
+        return { result: OK, dropped: planned.filter(item => !isTrackItem(item)) };
     }
 
     /**

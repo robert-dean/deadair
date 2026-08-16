@@ -84,7 +84,7 @@ export class DirectorClient {
 
     /**
      * @name Shuffle the running order
-     * @description Shuffles everything not yet handed to the player. The head is already in the player's hands and is left alone
+     * @description Shuffles the records not yet handed to the player, and plants the breaks again around the new sequence. The head is already in the player's hands and is left alone
      */
     async shuffleTheRunningOrder(): Promise<StationOrder> {
         const result = await this.fetch(`/director/air/shuffle`, { method: 'POST' });

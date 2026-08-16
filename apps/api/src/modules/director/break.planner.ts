@@ -719,9 +719,10 @@ export class BreakPlanner {
      *
      * The counterpart of `SegmentRepository.reopenClaims`, which catches the case a RECORD announces
      * for itself by leaving the order. This catches the rest, which the database cannot see: an
-     * operator's move or shuffle leaves every row exactly as it was and changes only what sits
-     * beside what, and a break that named a time is overtaken by nothing but the clock. Both used to
-     * end at a dropped break and a boundary of silence.
+     * operator's move leaves every row exactly as it was and changes only what sits beside what, and
+     * a break that named a time is overtaken by nothing but the clock. Both used to end at a dropped
+     * break and a boundary of silence. (A shuffle is not one of these any more: it drops its breaks
+     * and has them planted again, so there is no row left holding words about the old sequence.)
      *
      * Which breaks those are is {@link staleClaims}'s answer, because the render retry needs the
      * same verdict and two readings of one claim that could disagree would be two bugs waiting.

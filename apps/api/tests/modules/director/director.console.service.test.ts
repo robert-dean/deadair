@@ -55,7 +55,7 @@ function build(options: Options = {}) {
         order: vi.fn(() => order?.toSnapshot()),
         applyEdit: vi.fn(async (edit: OrderEdit) => {
             if (!order) return { ok: false, reason: 'not-found', message: 'nothing on air' } as const;
-            if (edit.kind === 'shuffle') return order.shuffleRemaining();
+            if (edit.kind === 'shuffle') return order.shuffleRemaining().result;
             if (edit.kind === 'move') return order.move(edit.itemId, edit.toIndex);
             if (edit.kind === 'remove') return order.remove(edit.itemId);
             return order.insertSegment(edit.segmentId, edit.atIndex ?? order.size());

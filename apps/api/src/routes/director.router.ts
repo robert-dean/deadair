@@ -101,7 +101,7 @@ DirectorRouter.post('/director/air/replan', requirePolicy({ policy: 'platform.ma
 });
 
 /**
- * Shuffles everything not yet handed to the player. The head is already in the player's hands and is left alone
+ * Shuffles the records not yet handed to the player, and plants the breaks again around the new sequence. The head is already in the player's hands and is left alone
  * from [director.ck](file://./../../data/contracts/director/director.ck#L120)
  */
 DirectorRouter.post('/director/air/shuffle', requirePolicy({ policy: 'platform.manage' }), async ctx => {

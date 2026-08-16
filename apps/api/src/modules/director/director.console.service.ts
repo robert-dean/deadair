@@ -306,7 +306,13 @@ export class DirectorConsoleService {
         });
     }
 
-    /** Shuffle everything on air that has not been handed to the player. */
+    /**
+     * Shuffle the records on air that have not been handed to the player.
+     *
+     * The breaks among them are dropped rather than carried to a random new position, and the
+     * planner plants the shuffled tail again on the pass that follows: see
+     * `StationLineup.shuffleRemaining`.
+     */
     async shuffleOrder(): Promise<StationOrder> {
         return await this.editOrder({ kind: 'shuffle' });
     }
@@ -527,7 +533,7 @@ const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undef
 function describeEdit(edit: OrderEdit): string {
     switch (edit.kind) {
         case 'shuffle':
-            return 'An operator shuffled everything the player is not already holding.';
+            return 'An operator shuffled the records the player is not already holding, and the breaks were planted again around them.';
         case 'move':
             return 'An operator moved an item in the running order.';
         case 'remove':

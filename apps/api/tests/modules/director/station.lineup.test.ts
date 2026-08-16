@@ -321,7 +321,7 @@ describe('StationLineup editing', () => {
         const lineup = lineupWith(['a']);
 
         expect(lineup.remove('no-such-item')).toMatchObject({ ok: false, reason: 'not-found' });
-        expect(lineup.shuffleRemaining()).toMatchObject({ ok: false, reason: 'empty' });
+        expect(lineup.shuffleRemaining().result).toMatchObject({ ok: false, reason: 'empty' });
         expect(lineup.insertSegments([])).toMatchObject({ ok: false, reason: 'empty' });
     });
 
@@ -329,9 +329,50 @@ describe('StationLineup editing', () => {
         const lineup = lineupWith(['a', 'b', 'c', 'd']);
         hand(lineup, 2);
 
-        expect(lineup.shuffleRemaining()).toEqual({ ok: true });
+        expect(lineup.shuffleRemaining().result).toEqual({ ok: true });
         expect(idsOf(lineup.all()).slice(0, 2)).toEqual(['a', 'b']);
         expect(idsOf(lineup.all()).slice(2).sort()).toEqual(['c', 'd']);
+    });
+
+    it('drops the breaks planted into the tail rather than shuffling them along with the records', () => {
+        // A break sits where it does because of what is either side of it: an interval of records
+        // since the last one, and the record it introduces. Carried to a random new position it
+        // keeps neither, so it comes out and the planner plants the new sequence on the next pass.
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+        lineup.insertSegment('ident', 2);
+
+        const { result, dropped } = lineup.shuffleRemaining();
+
+        expect(result).toEqual({ ok: true });
+        expect(idsOf(dropped)).toEqual(['segment:ident']);
+        expect(idsOf(lineup.all()).sort()).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('leaves a break the player is already holding exactly where it is', () => {
+        // Same line the records are judged by: the head is not this edit's to touch, so a committed
+        // segment is neither moved nor written off.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('ident', 1);
+        hand(lineup, 2);
+
+        const { dropped } = lineup.shuffleRemaining();
+
+        expect(dropped).toEqual([]);
+        expect(idsOf(lineup.all()).slice(0, 2)).toEqual(['a', 'segment:ident']);
+    });
+
+    it('refuses a tail of one record however many breaks are planted around it', () => {
+        // The records are what a shuffle reorders. Answering `ok` here would drop the breaks and
+        // report a reordering that could not have happened.
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('ident', 1);
+        hand(lineup, 1);
+
+        const { result, dropped } = lineup.shuffleRemaining();
+
+        expect(result).toMatchObject({ ok: false, reason: 'empty' });
+        expect(dropped).toEqual([]);
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:ident', 'b']);
     });
 
     it('inserts segments from the highest index down, so every position still means what it meant', () => {

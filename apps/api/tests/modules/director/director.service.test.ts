@@ -1773,6 +1773,25 @@ describe('DirectorService editing what is on air', () => {
         expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('removed'), 'planned');
     });
 
+    it('retires the segment rows behind the breaks a shuffle drops', async () => {
+        // The same quiet half, for the edit that takes a whole tail's breaks out at once: a break
+        // planted into the old sequence is describing a boundary that no longer exists, and one
+        // being written right now would finish and sit in the library looking like it is still
+        // coming.
+        const { director, lineup, segmentStub, seed } = build({
+            items: ['a', 'b', 'c', 'd'],
+            segments: [{ id: 'talk-1', kind: 'talk', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertSegment('talk-1', lineup.size());
+
+        expect(await director.applyEdit({ kind: 'shuffle' })).toEqual({ ok: true });
+
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('shuffled'), 'planned');
+        expect(lineup.all().some(item => item.kind === 'segment')).toBe(false);
+    });
+
     it('leaves an ident alone, because the same recording is at three slots in an hour', async () => {
         const { director, lineup, segmentStub, seed } = build({
             segments: [{ id: 'ident-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],

@@ -12,6 +12,7 @@ import { AnalysisJob } from '#modules/analysis/analysis.job.js';
 import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { ReplanLineupJob } from '#modules/director/replan.lineup.job.js';
+import { ProduceProductionJob } from '#modules/productions/produce.production.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
@@ -244,6 +245,25 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'director.write_break': {
         job: WriteBreakJob,
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 3 }) },
+    },
+
+    // No cron: a pass runs because the pass before it finished, or because something commissioned a
+    // production. Walking the table on a timer would re-attempt every production whose model is down
+    // on every tick.
+    //
+    // NO retry, which is the one policy here that differs from its neighbours, and the row is why: a
+    // pass that threw has already recorded the reason on the production and moved it to `failed`, so
+    // a retry finds a settled row, claims nothing and does nothing. Worse, a pass that got half way
+    // through drafting and then threw would, on a retry, re-claim and write its beats a second time.
+    // Resuming is a decision an operator makes against a row they can see, not something a broker
+    // does silently.
+    //
+    // `expiresIn` covers the longest pass: drafting is one model call per beat, sequentially, on a
+    // host that is slow by design. Generous rather than tight, because the cost of a run being
+    // reclaimed underneath a production that was nearly finished is the whole production.
+    'director.produce': {
+        job: ProduceProductionJob,
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ hours: 2 }) },
     },
 
     // No cron: a segment is rendered because something planned one, and walking

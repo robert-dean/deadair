@@ -1,5 +1,6 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { ProduceProductionJob } from './produce.production.job.js';
 import { ProductionRepository } from './production.repository.js';
 
 /**
@@ -22,5 +23,8 @@ export const ProductionsModule: ServerKitModule = {
         // Scoped, like every other repository: per-request on the request path, per-run inside the
         // scope a pass job opens.
         registry.register(ProductionRepository).useClass(ProductionRepository).asScoped();
+        // Scoped with the repositories and the LLM service it resolves. One instance per run, which
+        // is what every job in this tree is.
+        registry.register(ProduceProductionJob).useClass(ProduceProductionJob).asScoped();
     },
 };

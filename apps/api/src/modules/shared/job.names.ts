@@ -11,6 +11,7 @@ export type JobNames =
     | 'director.extend_lineup'
     | 'director.replan_lineup'
     | 'director.write_break'
+    | 'director.produce'
     | 'render.segment'
     | 'render.prune_script_history'
     | 'activity.prune_events'

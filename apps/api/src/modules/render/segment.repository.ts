@@ -52,6 +52,14 @@ export interface Segment {
      */
     voice?: string;
     /**
+     * The production this is a beat of, and where it comes in it.
+     *
+     * Read together or not at all: the table constrains them to be both set or both null, because a
+     * beat with no place in its own programme is not a beat.
+     */
+    productionId?: string;
+    productionOrdinal?: number;
+    /**
      * What decided the words: `deterministic` for the station's own templates, later the id of the
      * plugin whose model wrote them. Absent for an imported recording and for a segment nothing has
      * written yet.
@@ -133,6 +141,14 @@ export interface PlannedSegment {
     reason?: string;
     /** When a rule on the station clock placed this. See {@link Segment.airsAt}. */
     airsAt?: number;
+    /**
+     * The production this is a beat of, and where it comes in it.
+     *
+     * Both together or neither, which the table enforces: a beat with no place in its own programme
+     * is not a beat. Absent for every ordinary break, which is almost every segment.
+     */
+    productionId?: string;
+    productionOrdinal?: number;
     /** The request that asked for this break. See {@link Segment.requestId}. */
     requestId?: string;
 }
@@ -189,6 +205,8 @@ interface SegmentRow {
     claimsTimeFrom: DateTime | null;
     claimsTimeUntil: DateTime | null;
     requestId: string | null;
+    productionId: string | null;
+    productionOrdinal: number | null;
 }
 
 const SEGMENT_COLUMNS = [
@@ -211,6 +229,8 @@ const SEGMENT_COLUMNS = [
     'claimsTimeFrom',
     'claimsTimeUntil',
     'requestId',
+    'productionId',
+    'productionOrdinal',
 ] as const;
 
 /**
@@ -264,6 +284,9 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.writer == null ? {} : { writer: row.writer }),
         ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),
         ...(row.requestId == null ? {} : { requestId: row.requestId }),
+        ...(row.productionId == null || row.productionOrdinal == null
+            ? {}
+            : { productionId: row.productionId, productionOrdinal: row.productionOrdinal }),
         ...(millisOf(row.airsAt) === undefined ? {} : { airsAt: millisOf(row.airsAt)! }),
         ...(millisOf(row.claimsTimeFrom) === undefined || millisOf(row.claimsTimeUntil) === undefined
             ? {}
@@ -302,6 +325,26 @@ export class SegmentRepository extends DataRepository {
         private readonly identity: StationIdentity,
     ) {
         super(db);
+    }
+
+    /**
+     * A production's beats, in the order they are meant to be heard.
+     *
+     * The read every pass makes, and the reason `production_ordinal` exists: a production is an
+     * ORDER rather than a set, so a beat being drafted can be shown the ones already written without
+     * being shown the ones that are not.
+     *
+     * Ordered in SQL rather than by the caller, so the sequence cannot depend on which pass asked.
+     */
+    async beatsOf(productionId: string): Promise<Segment[]> {
+        const rows = await this.db
+            .selectFrom('deadair.segments')
+            .select(SEGMENT_COLUMNS)
+            .where('productionId', '=', productionId)
+            .orderBy('productionOrdinal', 'asc')
+            .execute();
+
+        return rows.map(row => toSegment(row as SegmentRow));
     }
 
     /** One segment, whatever state it is in. */
@@ -412,6 +455,8 @@ export class SegmentRepository extends DataRepository {
                 writer: planned.writer ?? null,
                 airsAt: planned.airsAt === undefined ? null : instant(planned.airsAt),
                 requestId: planned.requestId ?? null,
+                productionId: planned.productionId ?? null,
+                productionOrdinal: planned.productionOrdinal ?? null,
                 source: RENDER_SOURCE,
                 state,
             })

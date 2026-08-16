@@ -10,6 +10,7 @@ import { TrackAudioService, bindingKey } from '#modules/playout/audio/track.audi
 import { Epoch } from '#modules/shared/epoch.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
+import { ProductionRepository } from '#modules/productions/production.repository.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { inScope } from '#modules/shared/scoped.work.js';
@@ -698,6 +699,109 @@ export class DirectorService {
      *
      * Everything is swallowed, exactly as `plantBreaks` is: the records either side play regardless.
      */
+    /**
+     * Put a finished production into the running order, whole.
+     *
+     * **Nothing is placed until EVERY beat is `ready`.** A production with beat 4 still rendering is
+     * not a shorter production, it is a programme that stops mid-sentence — the opposite of the rule
+     * governing an ordinary break, which is skipped when it is not ready precisely because another
+     * one is along shortly and silence is the worse outcome.
+     *
+     * That all-or-nothing wait is what lets the rest of the transport stay exactly as it was. Since
+     * a block only ever enters the order with every beat already spoken, the ordinary "a segment that
+     * is not ready is skipped, never waited for" rule needs no exception for productions, and nothing
+     * downstream of here had to learn what one is.
+     *
+     * It NOTICES rather than being told, like {@link injectReady}: the produce job could post when
+     * the last beat is spoken and deliberately does not, because `productions` is registered after
+     * `director` in `modules.ts` and a job reaching for this class would invert the module edge.
+     * Reading the rows here needs nothing from that module and cannot be lost the way a message can.
+     *
+     * Everything is swallowed, as with planting and break injection: a production that could not be
+     * placed this pass is placed on the next one, and the records either side play regardless.
+     */
+    private async injectProductions(lineup: StationLineup): Promise<void> {
+        try {
+            await inScope(this.container, async scope => {
+                const productions = scope.get(ProductionRepository);
+                const waiting = (await productions.unfinished()).filter(production => production.state === 'rendering');
+                if (waiting.length === 0) return;
+
+                const segments = scope.get(SegmentRepository);
+                let placed = 0;
+
+                for (const production of waiting) {
+                    const beats = await segments.beatsOf(production.id);
+                    if (beats.length === 0) continue;
+
+                    // A beat that could not be spoken takes the production with it, because the
+                    // alternative is airing a programme with a hole where that beat was. The row
+                    // carries the reason for whoever asks.
+                    const broken = beats.find(beat => beat.state === 'failed');
+                    if (broken !== undefined) {
+                        await productions.fail(production.id, `a beat could not be spoken: ${broken.error ?? 'no reason recorded'}`);
+                        continue;
+                    }
+
+                    // Still being spoken. The ordinary state on most passes, since the whole point is
+                    // that the audio comes before the position.
+                    if (!beats.every(beat => beat.state === 'ready')) continue;
+
+                    const at = this.slotForProduction(lineup);
+                    // No room yet. Left `rendering` rather than failed: the beats still exist, and
+                    // the next pass has a longer order to put them in.
+                    if (at === undefined) continue;
+
+                    const result = lineup.insertGroup(
+                        production.id,
+                        beats.map(beat => beat.id),
+                        at,
+                        production.kind,
+                    );
+                    if (!result.ok) continue;
+
+                    await productions.moveTo(production.id, 'aired', 'rendering');
+                    placed += 1;
+                    this.logger.info('director: put a production into the running order', {
+                        production: production.id,
+                        title: production.title,
+                        beats: beats.length,
+                        at,
+                    });
+                    void this.activity.record({
+                        module: 'director',
+                        kind: 'production.aired',
+                        detail: `"${production.title}" went into the running order, ${beats.length} beats long.`,
+                        data: { productionId: production.id, beats: beats.length },
+                    });
+                }
+
+                // Written through rather than soon, for the reason the break injection is: the order
+                // now holds something a later pass in this same second would otherwise not see.
+                if (placed > 0) await this.flushPersist();
+            });
+        } catch (error) {
+            this.logger.warn(`director: could not place a finished production (${errorText(error)})`);
+        }
+    }
+
+    /**
+     * Where a production can go: the first boundary past what is committed.
+     *
+     * The same answer `injectRequested` gives a break whose audio already exists, and for the same
+     * reason — the words are spoken and the only thing left is a position, so it takes the earliest
+     * one the order will accept. A boundary already holding a segment is walked past, because putting
+     * a programme immediately after a talk break is two lots of talking in a row.
+     */
+    private slotForProduction(lineup: StationLineup): number | undefined {
+        const items = lineup.all();
+        for (let index = Math.max(0, lineup.committedThrough()); index < items.length; index++) {
+            if (items[index]!.kind === 'segment') continue;
+            return index;
+        }
+        return undefined;
+    }
+
     private async injectReady(lineup: StationLineup): Promise<void> {
         try {
             await inScope(this.container, async scope => {
@@ -1123,6 +1227,11 @@ export class DirectorService {
         // or puts breaks into it. It also retires the ones whose moment has passed, which is what
         // stops a request held back for its audio being held back forever.
         await this.injectReady(lineup);
+
+        // Beside the break injection above and for the same reason: a production whose beats are all
+        // spoken is waiting for a position, and everything below either takes items out of the order
+        // or puts breaks into it.
+        await this.injectProductions(lineup);
 
         // BEFORE committing, so a break planted this pass is in the order before anything is
         // taken from it. The other way round, the tail would be topped up first and the break

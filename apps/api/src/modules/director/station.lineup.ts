@@ -150,6 +150,19 @@ export interface StationLineupSegmentItem extends StationLineupLine {
      * schedules against a clock.
      */
     over?: { atMs: number };
+    /**
+     * The block this belongs to, when it is one beat of something bigger.
+     *
+     * A production is several segments that only mean anything together: beat 4 missing is not a
+     * shorter programme, it is a programme with a hole in the middle. So the beats carry a shared id
+     * and the two operations that could break them up read it — {@link StationLineup.insertGroup}
+     * puts them in all at once, and {@link StationLineup.remove} takes the whole block out rather
+     * than leaving the rest to air around the gap.
+     *
+     * Absent for every ordinary break and ident, which is almost every segment: they stand alone by
+     * design, and that is exactly what makes them disposable when one cannot be produced in time.
+     */
+    groupId?: string;
 }
 
 export type StationLineupItem = StationLineupTrackItem | StationLineupSegmentItem;
@@ -160,6 +173,8 @@ export interface SegmentPlacement {
     atIndex: number;
     segmentKind?: string;
     over?: { atMs: number };
+    /** The block this is one beat of. See {@link StationLineupSegmentItem.groupId}. */
+    groupId?: string;
 }
 
 export type StationLineupItemKind = 'track' | 'segment';
@@ -702,8 +717,50 @@ export class StationLineup implements LiveOrder {
                 segmentId: placement.segmentId,
                 ...(placement.segmentKind === undefined ? {} : { segmentKind: placement.segmentKind }),
                 ...(placement.over === undefined ? {} : { over: placement.over }),
+                ...(placement.groupId === undefined ? {} : { groupId: placement.groupId }),
             });
         }
+        return OK;
+    }
+
+    /**
+     * Put a whole block of segments in at one position, in order, or put none of them in.
+     *
+     * What a production needs, and the difference from {@link insertSegments} is the word BLOCK.
+     * That one takes placements at positions a caller computed independently — a refill's three
+     * breaks scattered through fifteen records — and each is its own thing. This takes segments that
+     * only mean anything together and lays them out contiguously from one index, tagged with a
+     * shared {@link StationLineupSegmentItem.groupId} so nothing downstream can break them apart.
+     *
+     * **All or nothing.** A production with beat 4 missing is not a shorter production; it is a
+     * programme with a hole in the middle, which is the exact opposite of the rule that governs an
+     * ordinary break. That asymmetry is the same one `bytes-before-air.md` already argues when it
+     * holds a cold record and skips a cold segment — a break is disposable and this is not.
+     *
+     * The block goes in AT `atIndex` and pushes everything from there back, so the records either
+     * side keep their order. Refused whole if that position is already with the player.
+     */
+    insertGroup(groupId: string, segmentIds: readonly string[], atIndex: number, segmentKind?: string): EditResult {
+        if (segmentIds.length === 0) return refuse('empty', 'there is nothing to put in');
+        if (atIndex < this.committedThrough()) return refuse('already-aired', 'that position has already been handed to the player');
+
+        // Built as one list and spliced once, rather than through `insertSegments`: that one applies
+        // highest-index-first so independent placements do not drift, which is exactly wrong here.
+        // These are contiguous and ordered, and beat 2 must land after beat 1.
+        const index = Math.min(atIndex, this.itemList.length);
+        this.itemList.splice(
+            index,
+            0,
+            ...segmentIds.map(segmentId => ({
+                id: randomUUID(),
+                kind: 'segment' as const,
+                state: 'planned' as const,
+                segmentId,
+                groupId,
+                ...(segmentKind === undefined ? {} : { segmentKind }),
+            })),
+        );
+
         return OK;
     }
 
@@ -768,8 +825,31 @@ export class StationLineup implements LiveOrder {
         const item = this.itemList[index]!;
         if (item.state !== 'planned') return refuse('already-aired', 'that item has already been handed to the player');
 
-        if (item.kind === 'segment') item.state = 'removed';
-        else this.itemList.splice(index, 1);
+        if (item.kind !== 'segment') {
+            this.itemList.splice(index, 1);
+            return OK;
+        }
+
+        // A beat of a production takes the whole production with it. Cutting one beat out of a
+        // programme does not leave a shorter programme, it leaves one that stops mid-sentence and
+        // starts again — so an operator who deletes a beat has asked to drop the production, which
+        // is the only thing that request can sensibly mean.
+        //
+        // Every member is MARKED rather than spliced, exactly as a lone break is, and for the same
+        // reason: `BreakPlanner` counts records since the last segment already in the order, so a
+        // spliced-out block leaves a gap it cannot tell from one never planted into and plants a
+        // fresh break a boundary later. The mark ages out with the rest of the past.
+        const group = item.groupId;
+        if (group === undefined) {
+            item.state = 'removed';
+            return OK;
+        }
+
+        // Only what has not aired. A block half of which is already with the player is not something
+        // an operator can un-broadcast, and marking those would rewrite what actually happened.
+        for (const member of this.itemList) {
+            if (member.kind === 'segment' && member.groupId === group && member.state === 'planned') member.state = 'removed';
+        }
         return OK;
     }
 

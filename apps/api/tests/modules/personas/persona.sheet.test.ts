@@ -126,6 +126,24 @@ describe('matchesDictionMarker', () => {
         expect(matchesDictionMarker('ye', "That's yer lot")).toBe(false);
     });
 
+    // Measured: a break under `wisecrack` wrote "ambitiously" where the sheet lists "ambitious",
+    // scored no evidence at all and went to the floor. A model asked for a word inflects it to fit
+    // the sentence, and a marker list is written in one form because writing six is unreadable.
+    describe('an inflected marker', () => {
+        it('counts the same word wearing an ordinary ending', () => {
+            expect(matchesDictionMarker('ambitious', 'That was ambitiously produced')).toBe(true);
+            expect(matchesDictionMarker('record', 'Two records off the same shelf')).toBe(true);
+            expect(matchesDictionMarker('howl', "It's been howling at the door")).toBe(true);
+            expect(matchesDictionMarker('press', 'The pressed copies went out late')).toBe(true);
+        });
+
+        it('still refuses a different word that merely starts the same way', () => {
+            expect(matchesDictionMarker('aye', 'The player was cut short')).toBe(false);
+            expect(matchesDictionMarker('you', 'Young bands do this')).toBe(false);
+            expect(matchesDictionMarker('low', 'That one is lovely')).toBe(false);
+        });
+    });
+
     it('ignores a blank marker rather than matching everything', () => {
         expect(matchesDictionMarker('   ', 'anything at all')).toBe(false);
     });

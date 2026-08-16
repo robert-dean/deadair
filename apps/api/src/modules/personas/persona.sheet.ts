@@ -316,11 +316,27 @@ const CURLY_APOSTROPHES = /[‘’ʼ′]/g;
 const straightenApostrophes = (text: string): string => text.replace(CURLY_APOSTROPHES, "'");
 
 /**
+ * Endings a marker may pick up and still be the same word.
+ *
+ * Whole-word matching refused `ambitiously` under a sheet whose marker is `ambitious`, which is the
+ * character surviving and the guard not seeing it: a model asked for a word will inflect it to fit
+ * the sentence, and a marker list is written in one form because writing six is unreadable. Measured
+ * on this station, that near miss was the whole reason a break went to the floor.
+ *
+ * Deliberately only the inflections, and never a prefix: these all leave the stem where a reader
+ * hears it, whereas anything looser reintroduces the "aye" inside "player" this rule exists to stop.
+ * Longest first, because the alternation is tried in order and `ed` would otherwise claim `ing`'s
+ * first letter and leave `g` to fail the boundary.
+ */
+const MARKER_INFLECTIONS = ['ing', 'es', 'ed', 'ly', 'er', 's', 'd'] as const;
+
+/**
  * Whether a marker appears in `text`, case-insensitively.
  *
  * A marker ending in an apostrophe ("in'") matches as a word SUFFIX, so every dropped-g verb counts
- * without the sheet listing them all. Anything else matches whole-word, so "aye" is not found inside
- * "player" — which is not a hypothetical, since a station's own vocabulary is full of near misses.
+ * without the sheet listing them all. Anything else matches whole-word plus an inflection from
+ * {@link MARKER_INFLECTIONS}, so "aye" is still not found inside "player" — which is not a
+ * hypothetical, since a station's own vocabulary is full of near misses.
  *
  * Both sides are straightened first, because a curly apostrophe is the same word said the same way.
  */
@@ -330,8 +346,11 @@ export function matchesDictionMarker(marker: string, text: string): boolean {
 
     const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // An apostrophe is a word character to no regex engine, so a trailing one needs its own
-    // boundary: preceded by letters, followed by a non-letter.
-    const pattern = needle.endsWith("'") ? `[a-z]${escaped}(?![a-z])` : `(?<![a-z'])${escaped}(?![a-z'])`;
+    // boundary: preceded by letters, followed by a non-letter. A marker that already carries one is
+    // a suffix rule of its own and takes no inflection on top.
+    const pattern = needle.endsWith("'")
+        ? `[a-z]${escaped}(?![a-z])`
+        : `(?<![a-z'])${escaped}(?:${MARKER_INFLECTIONS.join('|')})?(?![a-z'])`;
     return new RegExp(pattern).test(straightenApostrophes(text.toLowerCase()));
 }
 

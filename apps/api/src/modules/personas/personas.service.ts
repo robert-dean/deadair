@@ -1,10 +1,13 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
-import type { Persona as PersonaView, PersonaInput, PersonaList } from './types/personas.types.js';
+import { LlmService } from '#modules/llm/llm.service.js';
+import type { GeneratedPersona, Persona as PersonaView, PersonaDraftView, PersonaInput, PersonaList, PersonaRequest } from './types/personas.types.js';
 import type { Persona, PersonaDraft } from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
+import { BUDGET_MS, MAX_OUTPUT_TOKENS, MAX_WAIT_MS, PERSONA_MODEL_KEY, personaPrompt, readPersona } from './persona.writer.js';
 
 /**
  * The operator's surface over who the station is.
@@ -27,6 +30,8 @@ import { SEED_PERSONAS } from './persona.defaults.js';
 export class PersonasService {
     constructor(
         private readonly personas: PersonaRepository,
+        private readonly llm: LlmService,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -93,6 +98,71 @@ export class PersonasService {
     async seed(): Promise<void> {
         const written = await this.personas.seed(SEED_PERSONAS, 'classic');
         if (written > 0) this.logger.info('personas: seeded a station that had none', { written });
+    }
+
+    /**
+     * Turn a description into a persona, and hand it back UNSAVED.
+     *
+     * Nothing is written. The console opens the draft in the editor and the operator saves it through
+     * the ordinary create route, which is what keeps this a way of filling in a form rather than a
+     * second writer of the table — and what makes an answer that got the character slightly wrong an
+     * edit instead of a delete.
+     *
+     * A model that is absent is an ordinary state and not a fault, so it is answered as a 503 with
+     * the sentence `LlmService` already writes for it, rather than as a crash. The console keeps the
+     * button and says why it will not work.
+     */
+    async generate(body: PersonaRequest): Promise<GeneratedPersona> {
+        if (!this.llm.canGenerate()) throw httpError(503).withDetails({ message: this.llm.explainGenerator() });
+
+        const model = this.config.get(PERSONA_MODEL_KEY, '').trim();
+        const result = await this.llm.converse(
+            {
+                messages: personaPrompt(body.description),
+                ...(model.length === 0 ? {} : { model }),
+                maxOutputTokens: MAX_OUTPUT_TOKENS,
+                // The same call the break writer makes, and for a sharper reason. Inventing a
+                // character is not a reasoning problem, and a model that thinks out loud here spends
+                // the ceiling on deliberation and gets truncated mid-object — which costs the WHOLE
+                // persona, because unlike a list of picks there is only one object to lose. Measured
+                // on this station: without it the answer ran to all 4000 tokens and parsed to
+                // nothing.
+                reasoningEffort: 'low',
+            },
+            {
+                // Nothing to look up: a character is invented rather than researched, and a tool round
+                // trip here would spend another whole generation on nothing.
+                tools: false,
+                budgetMs: BUDGET_MS,
+                maxWaitMs: MAX_WAIT_MS,
+            },
+        );
+
+        const generated = readPersona(result.text);
+        if (generated === undefined) {
+            // The head of the answer rides the log line, because "the model did not answer with a
+            // persona" is unactionable on its own: a model that refused, one that wrote prose and one
+            // that hit its ceiling mid-object want three different fixes and are one message
+            // otherwise. Truncated, since the whole answer belongs in a capture rather than a log.
+            this.logger.info('personas: the model answered with nothing a persona could be read from', {
+                tokens: result.usage?.outputTokens,
+                finish: result.finishReason,
+                answer: result.text.trim().slice(0, 300),
+            });
+            throw httpError(502).withDetails({ message: 'the model did not answer with a persona. Try again, or describe the character differently' });
+        }
+
+        this.logger.info('personas: a model wrote a persona', {
+            key: generated.draft.key,
+            droppedMarkers: generated.droppedMarkers.length,
+            droppedTemplates: generated.droppedTemplates.length,
+        });
+
+        return {
+            persona: toDraftView(generated.draft),
+            droppedMarkers: [...generated.droppedMarkers],
+            droppedTemplates: [...generated.droppedTemplates],
+        };
     }
 
     private async answer(): Promise<PersonaList> {
@@ -176,6 +246,35 @@ function toView(persona: Persona): PersonaView {
             catchphrases: mutable(persona.catchphrases),
             avoid: mutable(persona.avoid),
             samples: mutable(persona.samples),
+        }),
+    };
+}
+
+/**
+ * A generated draft as the editor takes it.
+ *
+ * The saved view minus `id` and `active`, which a draft has neither of. Written out rather than
+ * derived from {@link toView} because the two answer different questions — one is a row and one is a
+ * form's contents — and folding them together would mean inventing an id for something that is not
+ * a persona yet.
+ */
+function toDraftView(draft: PersonaDraft): PersonaDraftView {
+    return {
+        key: draft.key,
+        label: draft.label,
+        style: draft.style,
+        ...omitUndefined({
+            djName: draft.djName,
+            voice: draft.voice,
+            background: draft.background,
+            templates: draft.templates,
+            music: draft.music,
+            diction: mutable(draft.diction),
+            dictionMarkers: mutable(draft.dictionMarkers),
+            quirks: mutable(draft.quirks),
+            catchphrases: mutable(draft.catchphrases),
+            avoid: mutable(draft.avoid),
+            samples: mutable(draft.samples),
         }),
     };
 }

@@ -47,6 +47,28 @@ operation /personas: {
     }
 }
 
+# Writes nothing. A sheet is eight fields and its markers have to be words the character would
+# actually say — get those wrong and every break declines, which looks exactly like a model that is
+# switched off — so the cost of authoring one by hand is what stands between the design and an
+# operator using it. This fills the form in; saving it is still POST /personas.
+#
+# A model that is absent answers 503 with the sentence the LLM module writes for it, because a
+# station with no model plugin is an ordinary state rather than a fault.
+operation /personas/generate: {
+    post: { # Turns a description of a character into a whole persona, checked against its own sample lines and handed back unsaved
+        name: Generate persona
+        service: PersonasService.generate
+        request: {
+            application/json: PersonaRequest
+        }
+        response: {
+            200: {
+                application/json: GeneratedPersona
+            }
+        }
+    }
+}
+
 operation /personas/restore: {
     post: { # Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
         name: Restore station personas

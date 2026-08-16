@@ -65,10 +65,43 @@ export const PersonaInput = z.strictObject({
 export type PersonaInput = z.infer<typeof PersonaInput>;
 
 /**
+ * A description of a character, in the operator's own words
+ * generated from [PersonaRequest](file://./../../../../data/contracts/personas/personas.types.ck#L32)
+ */
+export const PersonaRequest = z.strictObject({
+    description: z.string().min(1).max(2000),
+});
+export type PersonaRequest = z.infer<typeof PersonaRequest>;
+
+/**
+ * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
+ * saved. The console opens this in the editor and the operator saves it through POST /personas, which
+ * is what keeps generating a way of filling in the form rather than a second writer of the table
+ * generated from [PersonaDraftView](file://./../../../../data/contracts/personas/personas.types.ck#L39)
+ */
+export const PersonaDraftView = z.strictObject({
+    key: z.string().min(1).max(100),
+    label: z.string().min(1).max(200),
+    style: z.string().min(1).max(2000),
+    djName: z.string().max(200).optional(),
+    voice: z.string().max(200).optional(),
+    diction: z.array(z.string().min(1).max(500)).optional(),
+    dictionMarkers: z.array(z.string().min(1).max(100)).optional(),
+    quirks: z.array(z.string().min(1).max(500)).optional(),
+    catchphrases: z.array(z.string().min(1).max(200)).optional(),
+    avoid: z.array(z.string().min(1).max(200)).optional(),
+    background: z.string().max(2000).optional(),
+    samples: z.array(z.string().min(1).max(500)).optional(),
+    templates: z.string().max(20000).optional(),
+    music: z.string().max(2000).optional(),
+});
+export type PersonaDraftView = z.infer<typeof PersonaDraftView>;
+
+/**
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L34)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L66)
  */
 export const PersonaRehearsalAttempt = z.strictObject({
     writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
@@ -99,8 +132,27 @@ export const PersonaListInput = z.strictObject({
 export type PersonaListInput = z.infer<typeof PersonaListInput>;
 
 /**
+ * What a model wrote, and what had to be dropped to make it usable
+ * generated from [GeneratedPersona](file://./../../../../data/contracts/personas/personas.types.ck#L57)
+ */
+export const GeneratedPersona = z.strictObject({
+    persona: PersonaDraftView,
+    droppedMarkers: z
+        .array(z.string().min(1).max(100))
+        .describe(
+            'Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off',
+        ),
+    droppedTemplates: z
+        .array(z.string().min(1).max(500))
+        .describe(
+            'Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings',
+        ),
+});
+export type GeneratedPersona = z.infer<typeof GeneratedPersona>;
+
+/**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L43)
+ * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L75)
  */
 export const PersonaRehearsal = z.strictObject({
     personaId: z.string().min(1).max(100),

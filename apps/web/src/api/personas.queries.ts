@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { PersonaInput, PersonaList, PersonaRehearsal } from '@deadair/sdk';
+import type { GeneratedPersona, PersonaInput, PersonaList, PersonaRehearsal } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -69,4 +69,16 @@ export const useRestorePersonas = () => useListWrite(() => sdk.personas.restoreS
 export const useRehearsePersona = () =>
     useMutation<PersonaRehearsal, Error, string>({
         mutationFn: (id: string) => sdk.personas.rehearsePersona(id),
+    });
+
+/**
+ * Turn a description into a persona.
+ *
+ * A mutation for the reason a rehearsal is one — it spends a generation — and it writes nothing into
+ * the persona cache, because nothing has been saved. What comes back is a form's contents, which the
+ * editor drops into its fields for the operator to edit and save themselves.
+ */
+export const useGeneratePersona = () =>
+    useMutation<GeneratedPersona, Error, string>({
+        mutationFn: (description: string) => sdk.personas.generatePersona({ description }),
     });

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { PersonaRehearsalService } from '#src/modules/personas/persona.rehearsal.service.js';
 import { PersonasService } from '#src/modules/personas/personas.service.js';
-import { Persona, PersonaInput, PersonaList, PersonaRehearsal } from '../modules/personas/types/personas.types.js';
+import { GeneratedPersona, Persona, PersonaInput, PersonaList, PersonaRehearsal, PersonaRequest } from '../modules/personas/types/personas.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -39,8 +39,23 @@ PersonasRouter.post('/personas', requirePolicy({ policy: 'platform.manage' }), b
 });
 
 /**
+ * Turns a description of a character into a whole persona, checked against its own sample lines and handed back unsaved
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L58)
+ */
+PersonasRouter.post('/personas/generate', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, PersonaRequest);
+
+    const service = ctx.container.get(PersonasService);
+    const result: GeneratedPersona = await service.generate(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
- * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L51)
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L73)
  */
 PersonasRouter.post('/personas/restore', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PersonasService);
@@ -53,7 +68,7 @@ PersonasRouter.post('/personas/restore', requirePolicy({ policy: 'platform.manag
 
 /**
  * Rewrites one persona. An edit to the one on air is heard on the next break
- * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L66)
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L88)
  */
 PersonasRouter.put('/personas/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -75,7 +90,7 @@ PersonasRouter.put('/personas/:id', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Removes a persona, including the one on air, which leaves the station with none
- * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L78)
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L100)
  */
 PersonasRouter.delete('/personas/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -95,7 +110,7 @@ PersonasRouter.delete('/personas/:id', requirePolicy({ policy: 'platform.manage'
 
 /**
  * Puts this persona on air and takes the previous one off
- * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L93)
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L115)
  */
 PersonasRouter.put('/personas/:id/active', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -115,7 +130,7 @@ PersonasRouter.put('/personas/:id/active', requirePolicy({ policy: 'platform.man
 
 /**
  * Writes a talk break under this persona against two fixed invented records, and answers with every writer that was asked
- * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L115)
+ * from [personas.ck](file://./../../data/contracts/personas/personas.ck#L137)
  */
 PersonasRouter.post('/personas/:id/rehearse', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

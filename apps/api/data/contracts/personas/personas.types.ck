@@ -28,6 +28,38 @@ contract PersonaList: {
     personas: array(Persona)
 }
 
+# A description of a character, in the operator's own words
+contract PersonaRequest: {
+    description: string(min=1, max=2000)
+}
+
+# A persona as a form's contents rather than a row: no id and not on air, because nothing has been
+# saved. The console opens this in the editor and the operator saves it through POST /personas, which
+# is what keeps generating a way of filling in the form rather than a second writer of the table
+contract PersonaDraftView: {
+    key: string(min=1, max=100)
+    label: string(min=1, max=200)
+    style: string(min=1, max=2000)
+    djName?: string(max=200)
+    voice?: string(max=200)
+    diction?: array(string(min=1, max=500))
+    dictionMarkers?: array(string(min=1, max=100))
+    quirks?: array(string(min=1, max=500))
+    catchphrases?: array(string(min=1, max=200))
+    avoid?: array(string(min=1, max=200))
+    background?: string(max=2000)
+    samples?: array(string(min=1, max=500))
+    templates?: string(max=20000)
+    music?: string(max=2000)
+}
+
+# What a model wrote, and what had to be dropped to make it usable
+contract GeneratedPersona: {
+    persona: PersonaDraftView
+    droppedMarkers: array(string(min=1, max=100)) # Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off
+    droppedTemplates: array(string(min=1, max=500)) # Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings
+}
+
 # One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
 # model that declined and a floor that covered for it are two facts, and the second on its own reads
 # as a station that never had a model configured

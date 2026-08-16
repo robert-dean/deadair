@@ -1,9 +1,12 @@
-import { Button, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { useState } from 'react';
+import { Alert, Button, Card, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import type { Persona, PersonaInput } from '@deadair/sdk';
+import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 
+import { useGeneratePersona } from '../../api/personas.queries';
 import { useVoices } from '../../api/voices.queries';
 import { ErrorAlert } from '../shared/error.alert';
+import { Eyebrow } from '../shared/eyebrow';
 
 /**
  * Writing one persona.
@@ -21,9 +24,21 @@ import { ErrorAlert } from '../shared/error.alert';
  * list exists is `GET /voices`. When no speech plugin can answer, the field falls back to a plain
  * text box rather than disappearing: a station configuring its personas before its voice is a
  * perfectly ordinary order to do things in, and hiding the field would lose what they typed.
+ *
+ * ## A description fills the form in, and only on a NEW persona
+ *
+ * The fourteen boxes below are the reason the station shipped ten personas and no eleventh, so the
+ * model is offered as a way of filling them rather than as a way of saving one: what comes back
+ * lands in the fields and the operator saves it themselves, edits and all.
+ *
+ * Offered only when writing a new one, deliberately. On an existing persona the same button would
+ * overwrite an operator's own work with no way back, and "regenerate this character" is a different
+ * feature from "start me off".
  */
 export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, error }: Props) {
     const voices = useVoices(opened);
+    const generate = useGeneratePersona();
+    const [description, setDescription] = useState('');
 
     const form = useForm<FormValues>({
         initialValues: valuesOf(persona),
@@ -46,6 +61,52 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                     {error === undefined ? undefined : (
                         <ErrorAlert title="That could not be saved" error={error} fallback="The persona could not be saved." />
                     )}
+
+                    {persona === undefined ? (
+                        <Card withBorder padding="sm">
+                            <Stack gap="xs">
+                                <Eyebrow>Start from a description</Eyebrow>
+                                <Textarea
+                                    placeholder="a 1970s northern soul DJ who broadcasts from the back of a chip shop"
+                                    description="Fills in the fields below. Nothing is saved until you press Save, and you can change any of it first."
+                                    rows={2}
+                                    value={description}
+                                    onChange={event => setDescription(event.currentTarget.value)}
+                                />
+                                {/* Truthiness rather than `=== undefined`: a mutation that has never
+                                    failed carries `error: null`, so an identity check against
+                                    undefined renders the alert on every success. */}
+                                {generate.error ? (
+                                    <ErrorAlert
+                                        title="Nothing was written"
+                                        error={generate.error}
+                                        fallback="The station could not write a persona. Your own fields are untouched."
+                                    />
+                                ) : undefined}
+                                {generate.data ? <GenerationNotes generated={generate.data} /> : undefined}
+                                <Group justify="flex-end">
+                                    <Button
+                                        variant="light"
+                                        loading={generate.isPending}
+                                        // Disabled while one is in flight as well as while there is
+                                        // nothing to send. A second press starts a second generation
+                                        // whose answer can land after the first, which shows an
+                                        // operator the older of the two outcomes.
+                                        disabled={description.trim().length === 0 || generate.isPending}
+                                        onClick={() =>
+                                            generate.mutate(description, {
+                                                // Straight into the fields. Nothing is saved and nothing is
+                                                // locked: what arrives is a starting point to edit.
+                                                onSuccess: written => form.setValues(valuesOf(written.persona)),
+                                            })
+                                        }
+                                    >
+                                        Write me one
+                                    </Button>
+                                </Group>
+                            </Stack>
+                        </Card>
+                    ) : undefined}
 
                     <Group grow align="flex-start">
                         <TextInput label="Name" placeholder="Late-night companion" {...form.getInputProps('label')} />
@@ -94,7 +155,7 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
 
                     <Textarea
                         label="Words that prove it"
-                        description="One per line. A break that comes back carrying fewer than two of these is treated as out of character and the phrasings below write it instead. An entry ending in an apostrophe matches as a suffix, so in' catches every dropped g. Leave empty to check nothing."
+                        description="One per line. A break that comes back carrying none of these is treated as out of character and the phrasings below write it instead. An entry ending in an apostrophe matches as a suffix, so in' catches every dropped g. Leave empty to check nothing."
                         placeholder={"ye\naye\nmatey\nin'"}
                         rows={4}
                         {...form.getInputProps('dictionMarkers')}
@@ -166,6 +227,37 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
     );
 }
 
+/**
+ * What the station had to drop out of what the model wrote.
+ *
+ * Shown rather than quietly applied, because both of these are things an operator would otherwise
+ * discover by putting the persona on air: a marker nothing says declines every break, and a phrasing
+ * naming a value that does not exist is never picked. Neither looks like a fault from the outside —
+ * they look like a model that is switched off and a phrasing the station never happens to choose.
+ */
+function GenerationNotes({ generated }: { generated: { droppedMarkers: string[]; droppedTemplates: string[] } }) {
+    if (generated.droppedMarkers.length === 0 && generated.droppedTemplates.length === 0) return undefined;
+
+    return (
+        <Alert color="yellow" variant="light" title="Some of it was dropped">
+            <Stack gap={4}>
+                {generated.droppedMarkers.length === 0 ? undefined : (
+                    <Text size="sm">
+                        The model called these words its own and then never used them, so they were left out:{' '}
+                        {generated.droppedMarkers.join(', ')}. A word the character does not actually say would refuse every break it writes.
+                    </Text>
+                )}
+                {generated.droppedTemplates.length === 0 ? undefined : (
+                    <Text size="sm">
+                        {generated.droppedTemplates.length} phrasing{generated.droppedTemplates.length === 1 ? '' : 's'} named something the station
+                        cannot fill in, so {generated.droppedTemplates.length === 1 ? 'it was' : 'they were'} left out.
+                    </Text>
+                )}
+            </Stack>
+        </Alert>
+    );
+}
+
 interface Props {
     /** The persona being edited, or absent for a new one. */
     persona?: Persona;
@@ -196,7 +288,14 @@ interface FormValues {
 
 const linesOf = (values: string[] | undefined): string => (values ?? []).join('\n');
 
-function valuesOf(persona: Persona | undefined): FormValues {
+/**
+ * A saved persona or a generated draft, as the form's values.
+ *
+ * Takes the DRAFT shape rather than `Persona`, since a saved one is that plus `id` and `active` and
+ * this reads neither. That is what lets one function serve opening an existing persona and dropping
+ * a generated one into the same fields.
+ */
+function valuesOf(persona: PersonaDraftView | undefined): FormValues {
     return {
         key: persona?.key ?? '',
         label: persona?.label ?? '',

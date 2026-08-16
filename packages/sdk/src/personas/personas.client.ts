@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { Persona, PersonaInput, PersonaList, PersonaRehearsal } from './types/personas.types.js';
+import type { GeneratedPersona, Persona, PersonaInput, PersonaList, PersonaRehearsal, PersonaRequest } from './types/personas.types.js';
 
 export class PersonasClient {
     constructor(private fetch: SdkFetch) {}
@@ -25,6 +25,19 @@ export class PersonasClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<PersonaList>(result);
+    }
+
+    /**
+     * @name Generate persona
+     * @description Turns a description of a character into a whole persona, checked against its own sample lines and handed back unsaved
+     */
+    async generatePersona(body: PersonaRequest): Promise<GeneratedPersona> {
+        const result = await this.fetch(`/personas/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<GeneratedPersona>(result);
     }
 
     /**

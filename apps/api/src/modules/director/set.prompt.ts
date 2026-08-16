@@ -24,6 +24,7 @@
  */
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
+import { jsonObjects } from '#modules/shared/json.objects.js';
 import type { TrackPick } from './set.generator.js';
 
 /**
@@ -337,52 +338,6 @@ function fromJson(answer: string): TrackPick[] | undefined {
         picks.push({ title: title.trim(), artist: artist.trim() });
     }
     return picks;
-}
-
-/**
- * The complete `{...}` spans in a string, ignoring braces inside JSON strings.
- *
- * A scanner rather than a regex because a title legitimately contains a brace, a quote or an escaped
- * quote, and because the LAST object is the one that matters here: it is where a truncated answer
- * stops, and an unterminated span must be left out rather than half-read.
- *
- * Depth is tracked so a nested brace closes its own object rather than its parent's, which means
- * what comes back is the OUTERMOST objects. That is right for the shape the prompt asks for — a flat
- * array of `{title, artist}` — and is why an answer wrapped in `{"picks": [...]}` would read as one
- * unusable object rather than as its contents. Nothing produces that shape, and the fix if anything
- * ever does is to ask this for depth-1 spans, not to unwrap here.
- */
-function jsonObjects(text: string): string[] {
-    const spans: string[] = [];
-    let depth = 0;
-    let start = -1;
-    let inString = false;
-    let escaped = false;
-
-    for (let index = 0; index < text.length; index += 1) {
-        const character = text[index]!;
-
-        if (inString) {
-            if (escaped) escaped = false;
-            else if (character === '\\') escaped = true;
-            else if (character === '"') inString = false;
-            continue;
-        }
-
-        if (character === '"') inString = true;
-        else if (character === '{') {
-            if (depth === 0) start = index;
-            depth += 1;
-        } else if (character === '}' && depth > 0) {
-            depth -= 1;
-            if (depth === 0 && start >= 0) {
-                spans.push(text.slice(start, index + 1));
-                start = -1;
-            }
-        }
-    }
-
-    return spans;
 }
 
 /**

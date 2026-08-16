@@ -66,10 +66,41 @@ export interface PersonaInput {
 }
 
 /**
+ * A description of a character, in the operator's own words
+ * generated from [PersonaRequest](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L32)
+ */
+export interface PersonaRequest {
+    description: string;
+}
+
+/**
+ * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
+ * saved. The console opens this in the editor and the operator saves it through POST /personas, which
+ * is what keeps generating a way of filling in the form rather than a second writer of the table
+ * generated from [PersonaDraftView](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L39)
+ */
+export interface PersonaDraftView {
+    key: string;
+    label: string;
+    style: string;
+    djName?: string;
+    voice?: string;
+    diction?: string[];
+    dictionMarkers?: string[];
+    quirks?: string[];
+    catchphrases?: string[];
+    avoid?: string[];
+    background?: string;
+    samples?: string[];
+    templates?: string;
+    music?: string;
+}
+
+/**
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L34)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L66)
  */
 export interface PersonaRehearsalAttempt {
     /** Which binding was asked, as `segments.writer` would record it */
@@ -96,8 +127,20 @@ export interface PersonaListInput {
 }
 
 /**
+ * What a model wrote, and what had to be dropped to make it usable
+ * generated from [GeneratedPersona](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L57)
+ */
+export interface GeneratedPersona {
+    persona: PersonaDraftView;
+    /** Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off */
+    droppedMarkers: string[];
+    /** Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings */
+    droppedTemplates: string[];
+}
+
+/**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L43)
+ * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L75)
  */
 export interface PersonaRehearsal {
     personaId: string;

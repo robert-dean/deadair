@@ -11,7 +11,7 @@ import { ScriptHistoryRepository } from '#modules/render/script.history.reposito
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { BreakRequestRepository } from './break.request.repository.js';
-import { isRenderedFirst, type BreakContext, type StoredBreakRequest } from './break.request.js';
+import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './break.request.js';
 import { BulletinSource } from './bulletin.source.js';
 import type { BreakTrack } from './break.writer.js';
 import { dayGreeting, roughTime, stationZone } from './clock.words.js';
@@ -170,7 +170,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // carried in the payload, for the reason the neighbours are: the row is the record, and a job
         // re-sent after a restart has to be able to find out what it is writing about. A break the
         // station planted for itself has no request and no context, which is most of them.
-        const context = await this.contextFor(segment.requestId, request);
+        const asked = await this.requestFor(segment.requestId, request);
+        const context = asked?.context;
 
         // What a bulletin has to report, for the kinds that report. `undefined` for every other
         // kind, which is how the branch about news stays inside a file about news: this job serves
@@ -195,6 +196,13 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // different half of it. Read per break, so an operator putting a different persona on
             // air hears it on the next one rather than after a restart.
             ...(persona === undefined ? {} : { persona }),
+            // What this break's words are worth at the one model slot. Absent for a planted break,
+            // which is the gate's `air` default: it has a deadline like everything on air, and no
+            // claim to jump the ones in front of it. A REQUESTED break is worth what its urgency
+            // says, and `priorityForUrgency` is the only place that judgement is made — an
+            // `interrupt` or a `next` exists because something happened and its moment does not come
+            // round again, so it goes in front of the station's routine talk.
+            ...(asked === undefined ? {} : { priority: priorityForUrgency(asked.urgency) }),
         });
 
         // Before the row is touched, and before any early return below, so an attempt is recorded
@@ -298,17 +306,21 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     }
 
     /**
-     * What the break is about, without reading the request row twice.
+     * The request this break is being written for, without reading the row twice.
      *
      * {@link requestBehind} has already fetched it on the one path that runs, so this is a lookup
      * only for a break that WAS in the order — which is every planted break, and none of them has a
      * request at all.
+     *
+     * Answers the whole row rather than only its context, because two things are read off it now:
+     * what the break is about, and how much the model slot is worth to it. Keeping them one lookup
+     * is the point of the method.
      */
-    private async contextFor(requestId: string | undefined, known: StoredBreakRequest | undefined): Promise<BreakContext | undefined> {
+    private async requestFor(requestId: string | undefined, known: StoredBreakRequest | undefined): Promise<StoredBreakRequest | undefined> {
         if (requestId === undefined) return undefined;
-        if (known?.id === requestId) return known.context;
+        if (known?.id === requestId) return known;
 
-        return (await this.requests.findById(requestId))?.context;
+        return await this.requests.findById(requestId);
     }
 
     /**

@@ -64,15 +64,25 @@ export interface SpeechGateOptions {
     label?: string;
 
     /**
-     * Who is asking. Absent means {@link GatePriority} `station`, which is every render.
+     * Who is asking. Absent means {@link GatePriority} `air`, which is every on-air render.
      *
-     * Unlike the model's gate, a preview here is never PREEMPTED once it holds the engine, only
-     * ordered behind the station in the queue. That is not an oversight and not worth fixing: a
-     * voice sample is one fixed short line, so the longest the station can be kept waiting by one is
-     * a single synthesis of it, and there is nothing to abort anyway — `writeStream` takes no
-     * signal. The model's gate is the opposite case on both counts, which is why it does preempt.
+     * Unlike the model's gate, nothing here is ever PREEMPTED once it holds the engine, only
+     * ordered behind work with a deadline. That is not an oversight and not worth fixing: a
+     * synthesis is one short line, so the longest the station can be kept waiting by one is a single
+     * pass of it, and there is nothing to abort anyway — `writeStream` takes no signal. The model's
+     * gate is the opposite case on both counts, which is why it does preempt.
      */
     priority?: GatePriority;
+
+    /**
+     * Give up waiting when this aborts, for a caller whose work has stopped being wanted.
+     *
+     * The same withdrawal `LlmGate` takes and for the same reason: a beat of a cancelled production
+     * queued for the engine should leave the queue rather than be admitted, synthesized and thrown
+     * away while a break that is still wanted waits behind it. Only the QUEUE is withdrawn from —
+     * there is nothing to abort once the engine has started.
+     */
+    signal?: AbortSignal;
 }
 
 /** A caller waiting for the one engine. */
@@ -82,6 +92,8 @@ interface Waiter {
     priority: GatePriority;
     /** Cleared on admission, so a caller that got in is never also timed out. */
     timer?: NodeJS.Timeout;
+    /** Stop listening for the caller's withdrawal. Run on admission and on every rejection. */
+    unwatch?: () => void;
 }
 
 @Injectable()
@@ -125,30 +137,42 @@ export class SpeechGate {
 
     /** Wait for the one slot: priority first, then arrival. */
     private async acquire(options: SpeechGateOptions): Promise<void> {
+        // Checked before the free-slot fast path as well as inside the queue: a caller whose work
+        // stopped being wanted before it ever asked should not be admitted just because the engine
+        // happened to be idle.
+        if (options.signal?.aborted === true) throw withdrawn(options.signal);
+
         if (!this.busy) {
             this.busy = true;
             return;
         }
 
-        const priority = options.priority ?? 'station';
+        const priority = options.priority ?? 'air';
         this.logger.debug('render: waiting for the speech engine', { label: options.label, priority, ahead: this.waiting.length });
 
         await new Promise<void>((resolve, reject) => {
             const waiter: Waiter = {
                 admit: () => {
                     if (waiter.timer) clearTimeout(waiter.timer);
+                    waiter.unwatch?.();
                     resolve();
                 },
                 reject,
                 priority,
             };
 
+            /** Leave the queue and answer, for the two reasons a waiter ever gives up. */
+            const giveUp = (error: PluginError) => {
+                const index = this.waiting.indexOf(waiter);
+                if (index >= 0) this.waiting.splice(index, 1);
+                if (waiter.timer) clearTimeout(waiter.timer);
+                waiter.unwatch?.();
+                reject(error);
+            };
+
             if (options.maxWaitMs !== undefined) {
                 waiter.timer = setTimeout(() => {
-                    const index = this.waiting.indexOf(waiter);
-                    if (index >= 0) this.waiting.splice(index, 1);
-
-                    reject(
+                    giveUp(
                         new PluginError(`waited ${options.maxWaitMs}ms for the speech engine and it is still busy`)
                             .withCode('timeout')
                             .withRetry(options.maxWaitMs!),
@@ -156,6 +180,16 @@ export class SpeechGate {
                 }, options.maxWaitMs);
                 // Not a reason to hold the process open at shutdown.
                 waiter.timer.unref?.();
+            }
+
+            if (options.signal !== undefined) {
+                const signal = options.signal;
+                const onAbort = () => giveUp(withdrawn(signal));
+                signal.addEventListener('abort', onAbort, { once: true });
+                // Removed on every exit, admission included: a waiter that got in and left a
+                // listener behind keeps this closure — and the queue it closes over — alive for as
+                // long as the caller's signal lives.
+                waiter.unwatch = () => signal.removeEventListener('abort', onAbort);
             }
 
             // By priority, then arrival. A station caller goes in front of every waiting preview
@@ -187,4 +221,18 @@ export class SpeechGate {
         // slot the queue was already owed.
         next.admit();
     }
+}
+
+/**
+ * What a caller that left the queue is told.
+ *
+ * `unavailable` rather than `timeout`: nothing ran out of time, the work stopped being wanted. No
+ * retry hint, because asking again later is exactly what a withdrawn caller must not do. The
+ * signal's own reason is preferred when it is one of ours, so a cancelled production says it was
+ * cancelled rather than inheriting a sentence about a queue.
+ */
+function withdrawn(signal: AbortSignal): PluginError {
+    return signal.reason instanceof PluginError
+        ? signal.reason
+        : new PluginError('this was no longer wanted before the speech engine came free').withCode('unavailable');
 }

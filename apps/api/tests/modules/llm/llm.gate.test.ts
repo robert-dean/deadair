@@ -8,7 +8,7 @@
 //    presents as a hung model rather than as a bug, so every ending is asserted separately.
 
 import { describe, expect, it, vi } from 'vitest';
-import { isPluginError } from '@deadair/plugin-sdk';
+import { isPluginError, PluginError } from '@deadair/plugin-sdk';
 
 import { LlmGate, type GatedGeneration } from '../../../src/modules/llm/llm.gate.js';
 
@@ -334,13 +334,18 @@ describe('giving up in the queue', () => {
     });
 });
 
-// The station outranks the console, in the queue and in the slot.
+// Work with a deadline outranks work without one, in the queue and in the slot.
 //
-// Ordering alone would not have been enough, which is the point of the second group: a generation
-// is minutes, so a preview that got in first still costs a break its model unless something takes
-// the model back off it.
+// Ordering alone would not have been enough, which is the point of the preemption group: a
+// generation is minutes, so a refill or a preview that got in first still costs a break its model
+// unless something takes the model back off it. That was measured — 17 of 24 `failed` script rows on
+// 2026-08-16 were a writer timing out behind a refill.
+//
+// The one asymmetry worth holding on to: `breaking` outranks `air` in the QUEUE and deliberately
+// does not preempt it, because evicting a nearly-written break destroys that work and returns the
+// slot no sooner.
 describe('priority', () => {
-    it('puts an arriving station caller in front of a waiting preview', async () => {
+    it('puts an arriving on-air caller in front of a waiting preview', async () => {
         const subject = gate();
         const first = manualStream();
         const admitted: string[] = [];
@@ -348,9 +353,12 @@ describe('priority', () => {
         const one = await subject.run(async () => gated(first.stream));
 
         // The preview queues first and still goes second.
-        const preview = subject.hold(async () => {
-            admitted.push('preview');
-        }, { priority: 'preview' });
+        const preview = subject.hold(
+            async () => {
+                admitted.push('preview');
+            },
+            { priority: 'preview' },
+        );
         const station = subject.hold(async () => {
             admitted.push('station');
         });
@@ -362,7 +370,61 @@ describe('priority', () => {
         expect(admitted).toEqual(['station', 'preview']);
     });
 
-    it('keeps arrival order among the station\'s own callers, which is what it always did', async () => {
+    it('orders the whole queue by tier, then by arrival inside each one', async () => {
+        const subject = gate();
+        const first = manualStream();
+        const admitted: string[] = [];
+
+        const one = await subject.run(async () => gated(first.stream));
+
+        // Deliberately queued worst-first, so the answer can only come from the ordering.
+        const waiting = [
+            subject.hold(async () => void admitted.push('preview'), { priority: 'preview' }),
+            subject.hold(async () => void admitted.push('background'), { priority: 'background' }),
+            subject.hold(async () => void admitted.push('air-one'), { priority: 'air' }),
+            subject.hold(async () => void admitted.push('air-two'), { priority: 'air' }),
+            subject.hold(async () => void admitted.push('breaking'), { priority: 'breaking' }),
+        ];
+
+        first.finish();
+        await drain(one.stream);
+        await Promise.all(waiting);
+
+        expect(admitted).toEqual(['breaking', 'air-one', 'air-two', 'background', 'preview']);
+    });
+
+    it('takes the model back from a refill when a break arrives', async () => {
+        const subject = gate();
+        const refill = manualStream();
+
+        const held = await subject.run(async () => gated(refill.stream), { priority: 'background' });
+        const breakWriter = subject.hold(async () => 'wrote a break');
+
+        refill.push('two picks so f');
+        await expect(drain(held.stream)).rejects.toThrow(/the station needed the model/);
+        await expect(breakWriter).resolves.toBe('wrote a break');
+    });
+
+    // The one place the rank table and the preemption rule disagree, and it is deliberate: aborting
+    // a half-written break would throw that work away AND return the slot no sooner, because a
+    // holder stops when its own work returns rather than when its signal aborts. So an interrupt
+    // jumps the queue and waits out whatever is speaking.
+    it('does NOT preempt a break for breaking news, only queues in front of it', async () => {
+        const subject = gate();
+        const writing = manualStream();
+
+        const held = await subject.run(async () => gated(writing.stream), { priority: 'air' });
+        const breaking = subject.hold(async () => 'the bulletin', { priority: 'breaking' });
+
+        writing.push('a whole sentence');
+        writing.finish();
+
+        // Ended on its own terms rather than being cut off.
+        await expect(drain(held.stream)).resolves.toBeUndefined();
+        await expect(breaking).resolves.toBe('the bulletin');
+    });
+
+    it("keeps arrival order among the station's own callers, which is what it always did", async () => {
         const subject = gate();
         const first = manualStream();
         const admitted: string[] = [];
@@ -483,5 +545,84 @@ describe('priority', () => {
         await expect(preview).resolves.toBe('gave up');
         expect(sawAbort).toBe(true);
         await expect(station).resolves.toBe('the station');
+    });
+});
+
+// Leaving the queue, for work that stopped being wanted before it ever got the model.
+//
+// Without this a cancelled production's next pass, an expired break request and a break whose
+// forward claim went stale all wait their turn, take the slot, and generate something that is thrown
+// away — while a break that IS still wanted queues behind them. The queue is the only thing withdrawn
+// from: a caller already holding the slot is stopped by its own budget signal.
+describe('withdrawal', () => {
+    it('drops a queued caller that gives up, and admits the next one instead', async () => {
+        const subject = gate();
+        const first = manualStream();
+        const giving = new AbortController();
+        const admitted: string[] = [];
+
+        const one = await subject.run(async () => gated(first.stream));
+
+        const abandoned = subject.hold(async () => void admitted.push('abandoned'), { signal: giving.signal });
+        const wanted = subject.hold(async () => void admitted.push('wanted'));
+
+        giving.abort();
+        await expect(abandoned).rejects.toThrow(/no longer wanted/);
+
+        first.finish();
+        await drain(one.stream);
+        await wanted;
+
+        // Never admitted, rather than admitted and ignored: the whole point is that no model time
+        // is spent on it.
+        expect(admitted).toEqual(['wanted']);
+    });
+
+    it('refuses a caller whose signal was already aborted, even with the model standing free', async () => {
+        const subject = gate();
+        const giving = new AbortController();
+        giving.abort();
+
+        let ran = false;
+        await expect(
+            subject.hold(
+                async () => {
+                    ran = true;
+                    return 'should not happen';
+                },
+                { signal: giving.signal },
+            ),
+        ).rejects.toThrow(/no longer wanted/);
+
+        expect(ran).toBe(false);
+        // And the gate is not left holding a slot it never handed out.
+        await expect(subject.hold(async () => 'next')).resolves.toBe('next');
+    });
+
+    it("carries the caller's own reason when it gave one, rather than a sentence about a queue", async () => {
+        const subject = gate();
+        const first = manualStream();
+        const giving = new AbortController();
+
+        const one = await subject.run(async () => gated(first.stream));
+        const abandoned = subject.hold(async () => 'unreachable', { signal: giving.signal });
+
+        giving.abort(new PluginError('this production was cancelled').withCode('unavailable'));
+        await expect(abandoned).rejects.toThrow(/this production was cancelled/);
+
+        first.finish();
+        await drain(one.stream);
+    });
+
+    it('does not fire for a caller that was admitted before it gave up', async () => {
+        const subject = gate();
+        const giving = new AbortController();
+
+        // Admitted immediately: the gate is free, so the signal is never watched at all.
+        await expect(subject.hold(async () => 'done', { signal: giving.signal })).resolves.toBe('done');
+
+        // Aborting afterwards must not reject anything, and must not wedge the next caller.
+        giving.abort();
+        await expect(subject.hold(async () => 'next')).resolves.toBe('next');
     });
 });

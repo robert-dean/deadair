@@ -19,6 +19,8 @@
  * what is committed, what is airing, and where a break can still legally go.
  */
 
+import type { GatePriority } from '#modules/shared/gate.priority.js';
+
 /** What the writers for a kind are handed to write about. See {@link BreakRequest.context}. */
 export type BreakContext = Record<string, string | number | boolean>;
 
@@ -38,6 +40,32 @@ export type BreakContext = Record<string, string | number | boolean>;
  * a break that exists because something happened: the moment does not come round again.
  */
 export type BreakUrgency = 'interrupt' | 'next' | 'soon' | 'whenever';
+
+/**
+ * What a request of this urgency is worth at the model and the speech engine.
+ *
+ * **The ONE place `BreakUrgency` and `GatePriority` meet**, the way `PersonaRepository.presenting`
+ * is the one place persona precedence lives. The two vocabularies stay separate because they answer
+ * different questions — an urgency is about when a break must be HEARD, a tier is about who gets a
+ * one-slot resource — and merging them would make `background` and `preview` lie, since a refill and
+ * a console preview are not going on air at all and have no urgency to name.
+ *
+ * The split is the same one the doc above already draws, which is why this is a mapping and not a
+ * judgement: `interrupt` and `next` are the two that exist because something HAPPENED and whose
+ * moment does not come round again, and they are exactly the two worth putting in front of the
+ * station's routine talk. `soon` and `whenever` have time, and take their turn.
+ *
+ * **This is also the only route to `breaking`**, and that is what keeps the top tier rare without a
+ * policy anyone has to remember: nothing hands a gate `'breaking'` directly, so reaching it means
+ * going through a request that `BreakPlanner.cannotProduce`, a lead time and an expiry have all
+ * already judged. A production never reaches it at any distance from its slot.
+ *
+ * It lives here rather than beside the tiers because the edge points this way: `modules/shared` must
+ * not import the director's vocabulary, and this file already owns half the mapping.
+ */
+export function priorityForUrgency(urgency: BreakUrgency): GatePriority {
+    return urgency === 'interrupt' || urgency === 'next' ? 'breaking' : 'air';
+}
 
 /** Somebody asking the station to say something. */
 export interface BreakRequest {

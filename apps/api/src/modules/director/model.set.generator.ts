@@ -65,8 +65,13 @@ import { errorText } from '#modules/shared/error.text.js';
  * `LlmGate` holds one generation at a time, and `ModelTalkBreakWriter` gives up on the queue after
  * ten seconds and lets the floor write. A refill is a background job nobody is waiting on, and a
  * break is a slot in a running order that will be handed over whether or not the words arrive — so
- * when the two want the model at once, this is the one that should lose. Hence a bounded
- * {@link BUDGET_MS}: not to make this fast, but to bound how long a break can be degraded by it.
+ * when the two want the model at once, this is the one that should lose.
+ *
+ * It says so now, as `background` on the call below, and that is a change from how this used to
+ * work. The yielding was expressed only by bounding {@link BUDGET_MS}, which was never sufficient:
+ * a bound of three minutes is still three minutes in front of a writer that waits ten seconds, and
+ * 17 of the 24 `failed` script rows on 2026-08-16 were exactly that. A tier lets a break take the
+ * model BACK rather than merely be ahead in a queue it never reaches the front of.
  *
  * **Do not widen `LlmGate` to a pool to avoid that trade.** It is a small change (`busy` becomes a
  * counter) and it is the wrong one: the model is one process with one set of weights on one GPU, so
@@ -91,11 +96,15 @@ export const MAX_WAIT_MS = 60_000;
 /**
  * How long the whole conversation may take once it has the slot.
  *
- * This is the number that decides how long a talk break can be degraded to the deterministic
- * writer, because a break arriving mid-refill waits ten seconds and then gives up. Three minutes is
- * roughly one refill's worth of searching and answering on the station's own remote host, and about
- * twelve records' worth of breaks in the worst case — which fall through to a correct sentence
- * rather than to silence.
+ * This used to be the number that decided how long a talk break could be degraded to the
+ * deterministic writer, because a break arriving mid-refill waited ten seconds and gave up. **It is
+ * no longer that number**: a break now preempts this, so the worst a refill costs one is however
+ * long the model takes to notice its signal and stop.
+ *
+ * What the bound is still for is this job's own sake — a wedged generation must not run until the
+ * process restarts — and as the ceiling on how long a refill may spend before the chain gives up on
+ * it. Three minutes is roughly one refill's worth of searching and answering on the station's own
+ * remote host.
  */
 export const BUDGET_MS = 180_000;
 
@@ -209,7 +218,12 @@ export class ModelSetGenerator extends SetGenerator {
                 // for the model is choosing between rows it has been handed.
                 reasoningEffort: 'low',
             },
-            { budgetMs: BUDGET_MS, maxWaitMs: MAX_WAIT_MS, maxToolSteps: MAX_TOOL_STEPS },
+            // `background` is what makes this yield rather than compete: nobody is waiting on a
+            // refill, so it queues behind every break AND is told to stop when one arrives while it
+            // holds the model. Losing a refill mid-answer costs nothing that lasts — the chain asks
+            // the next pass for whatever is still missing, and `CatalogSetGenerator` is underneath
+            // it either way.
+            { budgetMs: BUDGET_MS, maxWaitMs: MAX_WAIT_MS, maxToolSteps: MAX_TOOL_STEPS, priority: 'background' },
         );
 
         const named = readPicks(result.text, inputs.count);

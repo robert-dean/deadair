@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PluginError } from '@deadair/plugin-sdk';
-import { insertionIndex, priorityRank, type GatePriority } from '#modules/shared/gate.priority.js';
+import { insertionIndex, shouldPreempt, type GatePriority } from '#modules/shared/gate.priority.js';
 
 /**
  * One generation at a time, and a budget that starts when it really starts.
@@ -37,8 +37,15 @@ import { insertionIndex, priorityRank, type GatePriority } from '#modules/shared
  *   above and is not theoretical on a host whose context already spills VRAM.
  *
  * The real asymmetry between those two callers is PRIORITY, not throughput: one is a background job
- * nobody waits on and the other has a deadline. That is expressed by bounding the background one —
- * see `ModelSetGenerator`'s `BUDGET_MS` — and it needs nothing from this class.
+ * nobody waits on and the other has a deadline.
+ *
+ * That used to say the asymmetry "is expressed by bounding the background one — see
+ * `ModelSetGenerator`'s `BUDGET_MS` — and it needs nothing from this class". Bounding it is
+ * necessary and it was not sufficient, because a bound of three minutes is still three minutes in
+ * front of a writer that gives up after ten seconds. Of 24 `failed` rows in `script_history` on
+ * 2026-08-16, 17 were this: `waited 10000ms for the model and it is still busy`. So the tiers in
+ * `gate.priority.ts` now say it instead, and {@link preempt} is what makes them bite — a refill can
+ * be told to stop, which is safe because the set chain tops up whatever is missing on the next pass.
  *
  * ## Fix one: the slot is held until the words STOP
  *
@@ -92,15 +99,30 @@ export interface LlmGateOptions {
     label?: string;
 
     /**
-     * Who is asking. Absent means {@link GatePriority} `station`, which is every writer.
+     * Who is asking. Absent means {@link GatePriority} `air`, which is every on-air writer.
      *
-     * A `preview` is ordered behind the station in the queue AND given up on when the station
-     * arrives while it holds the slot: see {@link LlmGate.preempt}. Both halves are needed, and the
-     * second is the one that matters. A generation is minutes, not seconds, so queue order alone
-     * would still let a preview that got in first cost a break its model — which is the exact
-     * failure the ordering was added to stop, one step later.
+     * Deadline-free work is ordered behind the station in the queue AND given up on when work with
+     * a deadline arrives while it holds the slot: see {@link LlmGate.preempt}. Both halves are
+     * needed, and the second is the one that matters. A generation is minutes, not seconds, so queue
+     * order alone would still let a refill or a preview that got in first cost a break its model —
+     * which is the exact failure the ordering was added to stop, one step later.
      */
     priority?: GatePriority;
+
+    /**
+     * Give up waiting when this aborts, for a caller whose work has stopped being wanted.
+     *
+     * Separate from every other bound here because it is about RELEVANCE rather than time. A
+     * cancelled production's next pass, a break request past its expiry and a break whose
+     * `claims_item_id` is no longer what plays next are all work that should not be admitted at all,
+     * and without this each of them waits its turn, takes the slot and generates something that is
+     * thrown away — while a break that is still wanted queues behind it.
+     *
+     * Only the QUEUE is withdrawn from. A caller that already holds the slot is stopped by its own
+     * budget signal, which is the same mechanism {@link LlmGate.preempt} uses and needs nothing
+     * here.
+     */
+    signal?: AbortSignal;
 }
 
 /** What the gated work hands back: something to read, and the answer once it has been read. */
@@ -116,6 +138,8 @@ interface Waiter {
     priority: GatePriority;
     /** Cleared on admission, so a caller that got in is never also timed out. */
     timer?: NodeJS.Timeout;
+    /** Stop listening for the caller's withdrawal. Run on admission and on every rejection. */
+    unwatch?: () => void;
 }
 
 /** Whoever currently holds the slot, and how to ask them to stop. */
@@ -239,19 +263,24 @@ export class LlmGate {
      */
     private takeSlot(options: LlmGateOptions): Budget {
         const budget = startBudget(options.budgetMs);
-        this.holder = { priority: options.priority ?? 'station', yield: budget.preempt };
+        this.holder = { priority: options.priority ?? 'air', yield: budget.preempt };
 
         return budget;
     }
 
     /**
-     * Ask a lower-ranked holder to stop, if there is one.
+     * Ask the holder to stop, when the arriving caller has a deadline and the holder does not.
      *
      * **This does not free the slot, and cannot.** It aborts the holder's signal; the slot comes
-     * back when their `work` actually returns, or when their stream ends on the next chunk. So a
-     * station caller still queues, it simply queues behind something that has been told to stop
-     * rather than behind something running to completion. A preview reading its own stream sees the
+     * back when their `work` actually returns, or when their stream ends on the next chunk. So an
+     * on-air caller still queues, it simply queues behind something that has been told to stop
+     * rather than behind something running to completion. A caller reading its own stream sees the
      * error at once, which is the case this is for.
+     *
+     * **Outranking is not enough**, which is why the test is {@link shouldPreempt} rather than a
+     * comparison: `breaking` outranks `air` and must not evict it. Aborting a nearly-written break
+     * would destroy that work and return the slot no sooner — see the reasoning in
+     * `gate.priority.ts`.
      *
      * **It can also land before the holder's `work` has started**, because taking the slot is
      * synchronous and calling the work is a microtask later. So anything handed one of these
@@ -265,9 +294,12 @@ export class LlmGate {
     private preempt(arriving: GatePriority): void {
         const holder = this.holder;
         if (holder === undefined) return;
-        if (priorityRank[arriving] <= priorityRank[holder.priority]) return;
+        if (!shouldPreempt(arriving, holder.priority)) return;
 
-        this.logger.info('llm: taking the model back from a preview, because the station wants it');
+        this.logger.info('llm: taking the model back, because something with a deadline wants it', {
+            from: holder.priority,
+            for: arriving,
+        });
         holder.priority = arriving;
         holder.yield();
     }
@@ -279,12 +311,17 @@ export class LlmGate {
      * budget have to happen in the same synchronous step. See {@link takeSlot}.
      */
     private async acquire(options: LlmGateOptions): Promise<Budget> {
+        // Checked before the free-slot fast path as well as inside the queue: a caller whose work
+        // stopped being wanted before it ever asked should not be admitted just because the model
+        // happened to be idle.
+        if (options.signal?.aborted === true) throw withdrawn(options.signal);
+
         if (!this.busy) {
             this.busy = true;
             return this.takeSlot(options);
         }
 
-        const priority = options.priority ?? 'station';
+        const priority = options.priority ?? 'air';
 
         // Before queueing, not after: whoever holds the slot should be told to stop as soon as
         // somebody who outranks them arrives, rather than when they reach the front.
@@ -296,6 +333,7 @@ export class LlmGate {
             const waiter: Waiter = {
                 admit: () => {
                     if (waiter.timer) clearTimeout(waiter.timer);
+                    waiter.unwatch?.();
                     // Taken here rather than after the await, for {@link takeSlot}'s reason: the
                     // slot changes hands synchronously inside `releaseSlot`, so the holder has to
                     // be recorded there too or the same window reopens on the queued path.
@@ -306,12 +344,18 @@ export class LlmGate {
                 priority,
             };
 
+            /** Leave the queue and answer, for the two reasons a waiter ever gives up. */
+            const giveUp = (error: PluginError) => {
+                const index = this.waiting.indexOf(waiter);
+                if (index >= 0) this.waiting.splice(index, 1);
+                if (waiter.timer) clearTimeout(waiter.timer);
+                waiter.unwatch?.();
+                reject(error);
+            };
+
             if (options.maxWaitMs !== undefined) {
                 waiter.timer = setTimeout(() => {
-                    const index = this.waiting.indexOf(waiter);
-                    if (index >= 0) this.waiting.splice(index, 1);
-
-                    reject(
+                    giveUp(
                         new PluginError(`waited ${options.maxWaitMs}ms for the model and it is still busy`)
                             .withCode('timeout')
                             .withRetry(options.maxWaitMs!),
@@ -319,6 +363,16 @@ export class LlmGate {
                 }, options.maxWaitMs);
                 // Not a reason to hold the process open at shutdown.
                 waiter.timer.unref?.();
+            }
+
+            if (options.signal !== undefined) {
+                const signal = options.signal;
+                const onAbort = () => giveUp(withdrawn(signal));
+                signal.addEventListener('abort', onAbort, { once: true });
+                // Removed on every exit, admission included: a waiter that got in and left a
+                // listener behind keeps this closure — and the whole queue array it closes over —
+                // alive for as long as the caller's signal lives.
+                waiter.unwatch = () => signal.removeEventListener('abort', onAbort);
             }
 
             // By priority, then arrival. A station caller goes in front of every waiting preview
@@ -367,6 +421,22 @@ interface Budget {
     /** Stop this holder because somebody who outranks it wants the model. */
     preempt: () => void;
     dispose: () => void;
+}
+
+/**
+ * What a caller that left the queue is told.
+ *
+ * `unavailable` rather than `timeout`, on the same reasoning as a preemption: nothing ran out of
+ * time, the work simply stopped being wanted. It carries no retry hint for the same reason — asking
+ * again later is exactly what a withdrawn caller must not do.
+ *
+ * The signal's own `reason` is preferred when it is one of ours, so a cancelled production says it
+ * was cancelled rather than inheriting a sentence about a queue.
+ */
+function withdrawn(signal: AbortSignal): PluginError {
+    return signal.reason instanceof PluginError
+        ? signal.reason
+        : new PluginError('this was no longer wanted before the model came free').withCode('unavailable');
 }
 
 /**

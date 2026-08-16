@@ -158,4 +158,68 @@ describe('SpeechGate', () => {
         await Promise.all([one, two, three]);
         expect(order).toEqual(['two', 'three']);
     });
+
+    it('orders the whole queue by tier, then by arrival inside each one', async () => {
+        const speech = gate();
+        const first = deferred();
+        const order: string[] = [];
+
+        const one = speech.hold(async () => await first.promise);
+
+        // Queued worst-first, so the answer can only come from the ordering.
+        const waiting = [
+            speech.hold(async () => void order.push('preview'), { priority: 'preview' }),
+            speech.hold(async () => void order.push('background'), { priority: 'background' }),
+            speech.hold(async () => void order.push('air'), { priority: 'air' }),
+            speech.hold(async () => void order.push('breaking'), { priority: 'breaking' }),
+        ];
+        await settle();
+
+        first.resolve();
+        await Promise.all([one, ...waiting]);
+
+        expect(order).toEqual(['breaking', 'air', 'background', 'preview']);
+    });
+
+    // Nothing here is ever preempted — a synthesis is one short line and `writeStream` takes no
+    // signal to abort — so withdrawal is the only way a caller leaves before its turn.
+    it('drops a queued caller that gives up, and admits the next one instead', async () => {
+        const speech = gate();
+        const first = deferred();
+        const giving = new AbortController();
+        const spoke: string[] = [];
+
+        const one = speech.hold(async () => await first.promise);
+        const abandoned = speech.hold(async () => void spoke.push('abandoned'), { signal: giving.signal });
+        const wanted = speech.hold(async () => void spoke.push('wanted'));
+        await settle();
+
+        giving.abort();
+        await expect(abandoned).rejects.toThrow(/no longer wanted/);
+
+        first.resolve();
+        await Promise.all([one, wanted]);
+
+        expect(spoke).toEqual(['wanted']);
+    });
+
+    it('refuses a caller whose signal was already aborted, even with the engine standing free', async () => {
+        const speech = gate();
+        const giving = new AbortController();
+        giving.abort();
+
+        let ran = false;
+        await expect(
+            speech.hold(
+                async () => {
+                    ran = true;
+                },
+                { signal: giving.signal },
+            ),
+        ).rejects.toThrow(/no longer wanted/);
+
+        expect(ran).toBe(false);
+        // And the engine is not left held by a caller that never got it.
+        await expect(speech.hold(async () => 'next')).resolves.toBe('next');
+    });
 });

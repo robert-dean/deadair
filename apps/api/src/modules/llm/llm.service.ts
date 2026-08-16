@@ -15,6 +15,7 @@ import { asLlmPlugin, type LlmPlugin } from '#modules/plugins/plugin.capabilitie
 import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
+import type { GatePriority } from '#modules/shared/gate.priority.js';
 import { LlmGate } from './llm.gate.js';
 import { explainNoGenerator, LLM_PLUGIN_KEY, selectLlmPlugin } from './llm.settings.js';
 import { ToolRegistry, type StationTool } from './llm.tools.js';
@@ -67,6 +68,27 @@ export interface LlmCallOptions {
      * finishes should say so here.
      */
     maxWaitMs?: number;
+
+    /**
+     * Who is asking, for the one model slot. Absent means `air`, which is every on-air writer.
+     *
+     * **This was silently dropped for as long as it existed anywhere.** `ModelTalkBreakWriter` has
+     * always passed a `priority` down for a rehearsal, and `LlmCallOptions` had no such field and
+     * neither {@link generateWith} nor {@link converse} forwarded one — a spread into an object
+     * literal skips TypeScript's excess-property check, so it compiled and did nothing. The effect
+     * was that `PersonaRehearsalService`'s promise never to outrank the station held at `SpeechGate`
+     * and never once held at `LlmGate`, which is the gate that matters: a rehearsal is minutes of
+     * generation and a sample is one short line.
+     */
+    priority?: GatePriority;
+
+    /**
+     * Leave the model's queue when this aborts, for work that stopped being wanted.
+     *
+     * Forwarded to `LlmGate` and bounding the QUEUE only; a generation already in flight is stopped
+     * by its own budget. See `LlmGateOptions.signal`.
+     */
+    signal?: AbortSignal;
 }
 
 /** {@link LlmCallOptions}, plus what a conversation may do with tools. */
@@ -254,6 +276,8 @@ export class LlmService {
             {
                 budgetMs: options.budgetMs ?? GENERATION_BUDGET_MS,
                 ...(options.maxWaitMs === undefined ? {} : { maxWaitMs: options.maxWaitMs }),
+                ...(options.priority === undefined ? {} : { priority: options.priority }),
+                ...(options.signal === undefined ? {} : { signal: options.signal }),
                 label: plugin.record.id,
             },
         );
@@ -297,6 +321,8 @@ export class LlmService {
         return await this.gate.hold(async signal => await this.runConversation(plugin, request, tools, maxSteps, signal), {
             budgetMs: options.budgetMs ?? GENERATION_BUDGET_MS,
             ...(options.maxWaitMs === undefined ? {} : { maxWaitMs: options.maxWaitMs }),
+            ...(options.priority === undefined ? {} : { priority: options.priority }),
+            ...(options.signal === undefined ? {} : { signal: options.signal }),
             label: plugin.record.id,
         });
     }

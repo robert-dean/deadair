@@ -51,6 +51,14 @@ function harness(
         request?: StoredBreakRequest;
         /** What a bulletin has to report, for the one test about handing the stories over. */
         stories?: readonly BreakStory[];
+        /** What this broadcast has played, for the tests about the writer's memory of the show. */
+        played?: readonly { title: string; artist: string }[];
+        /** What the station has already said this broadcast. */
+        said?: readonly string[];
+        /** Present and `undefined` for the off-air case, which falls back to the per-kind read. */
+        broadcastId?: string;
+        /** For the one test that proves a broken history read still produces a break. */
+        spokenThrows?: boolean;
     } = {},
 ) {
     const segments = {
@@ -68,6 +76,9 @@ function harness(
     const requests = { findById: vi.fn(async () => options.request) };
     const history = {
         recordAll: vi.fn(async (_writes: readonly ScriptWrite[]) => options.historyThrows && Promise.reject(new Error('the history table is gone'))),
+        spokenDuring: vi.fn(async () =>
+            options.spokenThrows === true ? Promise.reject(new Error('the history table is gone')) : (options.said ?? []),
+        ),
     };
     const wrote = (script: string, label: string, writer: string) => ({
         written: { script, label },
@@ -91,6 +102,13 @@ function harness(
     // What a bulletin is written from. `undefined` for every kind that does not report, which is
     // every kind these assertions are about.
     const bulletin = { storiesFor: vi.fn(async (_kind: string, _now?: number) => options.stories) };
+    // What this broadcast has played, for the writer's memory of the show it is presenting. Empty
+    // unless a test asks otherwise, which is the state every other assertion here was written
+    // against.
+    const plays = { duringBroadcast: vi.fn(async () => options.played ?? []) };
+    // Whether a broadcast is on at all. Present by default, because a break being written is
+    // overwhelmingly a break on a station that is airing — the `undefined` case has its own test.
+    const identity = { current: vi.fn(() => ('broadcastId' in options ? options.broadcastId : 'broadcast-1')) };
 
     const job = new WriteBreakJob(
         lineups as never,
@@ -101,6 +119,8 @@ function harness(
         enrichment as never,
         bulletin as never,
         personas as never,
+        plays as never,
+        identity as never,
         activity as never,
         jobs as never,
         config as never,
@@ -109,7 +129,7 @@ function harness(
         logger as never,
     );
 
-    return { job, segments, lineups, requests, history, writers, enrichment, personas, jobs, logger, activity, bulletin };
+    return { job, segments, lineups, requests, history, writers, enrichment, personas, jobs, logger, activity, bulletin, plays, identity };
 }
 
 describe('WriteBreakJob', () => {
@@ -689,5 +709,72 @@ describe('WriteBreakJob', () => {
 
         expect(segments.claimForWrite).not.toHaveBeenCalled();
         expect(logger.warn).toHaveBeenCalledTimes(2);
+    });
+
+    // What the station remembers of the show it is in the middle of. Every read here is keyed by the
+    // BROADCAST rather than by a time window, because "what have we played tonight" is a question
+    // about a programme: a window answers it with the tail of the previous show whenever one has
+    // just started.
+    describe('the memory of this broadcast', () => {
+        it('hands the writers what this broadcast played and said, rather than the last few of this kind', async () => {
+            const { job, writers, segments, plays, history } = harness({
+                lineup: await lineupWithBreak(),
+                played: [{ title: 'Yeah!', artist: 'USHER' }],
+                said: ['that was the one before'],
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(plays.duringBroadcast).toHaveBeenCalledWith('broadcast-1', expect.any(Number));
+            expect(history.spokenDuring).toHaveBeenCalledWith('broadcast-1', expect.any(Number));
+            // The per-kind read is what this REPLACES, so it must not also happen: two sources of
+            // "what did I say" is two lists that can disagree.
+            expect(segments.recentScripts).not.toHaveBeenCalled();
+
+            expect(writers.write).toHaveBeenCalledWith(
+                expect.objectContaining({ played: [{ title: 'Yeah!', artist: 'USHER' }], recent: ['that was the one before'] }),
+            );
+        });
+
+        it('leaves the played list off entirely when the broadcast has aired nothing yet', async () => {
+            const { job, writers } = harness({ lineup: await lineupWithBreak(), played: [] });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            // Absent rather than empty, which is the rule everywhere in this tree: a prompt renders
+            // the block on what the moment HOLDS, and an empty heading is a heading with nothing
+            // under it.
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }));
+        });
+
+        // The fallback is not a nicety: handing an empty `recent` would quietly disarm the
+        // spent-signature rule, and a writer repeating a catchphrase because nothing told it not to
+        // is the failure `characterFault` exists for.
+        it('falls back to the per-kind scripts when no broadcast is on', async () => {
+            const { job, writers, segments, plays, history } = harness({
+                lineup: await lineupWithBreak(),
+                broadcastId: undefined,
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.recentScripts).toHaveBeenCalledWith('talkbreak', expect.any(Number));
+            expect(plays.duringBroadcast).not.toHaveBeenCalled();
+            expect(history.spokenDuring).not.toHaveBeenCalled();
+
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ played: expect.anything() }));
+        });
+
+        // Memory makes a break better and never makes it possible, which is the same trade the facts
+        // one file over already make.
+        it('still writes the break, on the per-kind scripts, when the history read fails', async () => {
+            const { job, writers, segments, logger } = harness({ lineup: await lineupWithBreak(), spokenThrows: true });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalled();
+            expect(segments.recentScripts).toHaveBeenCalledWith('talkbreak', expect.any(Number));
+            expect(logger.warn).toHaveBeenCalled();
+        });
     });
 });

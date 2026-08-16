@@ -9,6 +9,7 @@ import { LlmService } from './llm.service.js';
 import { NewsTool } from './news.tool.js';
 import { SimilarArtistsTool } from './similar.artists.tool.js';
 import { ToolRegistry } from './llm.tools.js';
+import { ShowSoFarTool } from './show.so.far.tool.js';
 import { StationTasteTool } from './station.taste.tool.js';
 
 /**
@@ -57,6 +58,10 @@ export const LlmModule: ServerKitModule = {
         // Also a catalog read rather than a plugin one, and offered to every caller rather than to
         // selection alone: "the station loves this band" is a thing a break writer says on air.
         registry.register(StationTasteTool).useClass(StationTasteTool).asScoped();
+        // Two history reads rather than a catalog one, and the only source here that answers about
+        // the broadcast in progress rather than about the library. Scoped with the repositories it
+        // reads, both of which are scoped themselves.
+        registry.register(ShowSoFarTool).useClass(ShowSoFarTool).asScoped();
         // Scoped with the `ChartsService` it adapts, which is scoped with the plugin registry it
         // reads. Unlike the three above, the thing behind this one is somebody else's service, which
         // is exactly why the fetching half is a plugin and only the adapter lives here.
@@ -88,6 +93,10 @@ export const LlmModule: ServerKitModule = {
                             container.get(LibrarySearchTool),
                             container.get(CatalogSearchTool),
                             container.get(StationTasteTool),
+                            // Ahead of the plugin-backed three, behind the two that answer with
+                            // records: a writer reaching for context about the show it is in the
+                            // middle of should find this before anything that goes off the station.
+                            container.get(ShowSoFarTool),
                             container.get(SimilarArtistsTool),
                             container.get(ChartsTool),
                             // Last, and for a different reason than the charts: this one does not

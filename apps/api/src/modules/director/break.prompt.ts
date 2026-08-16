@@ -67,6 +67,20 @@ export interface BreakPromptShape {
      * invitation for a model to cue a record its listener never heard.
      */
     showsPrevious: boolean;
+    /**
+     * Whether the rest of this broadcast's records are offered as something to refer back to.
+     *
+     * Off unless a shape asks for it, and the two kinds that decline are instructive. A WELCOME must
+     * not have it for the same reason it has `showsPrevious: false` — an arriving listener did not
+     * hear any of it, so a presenter reminiscing about the last half hour is talking to the room it
+     * just lost. A BULLETIN must not have it because a list of records in front of a model that has
+     * been asked to report the news is a list it will find a way to read out.
+     *
+     * What it is FOR is the ordinary link, where the failure it fixes is a station that sounds like
+     * it walked in halfway through its own show: every break knew the record either side of it and
+     * nothing before that, so nothing could ever be referred back to.
+     */
+    showsPlayed?: boolean;
     /** What the user turn opens with, before the records. Absent for a break that needs no framing. */
     opening?: (request: BreakWriteRequest) => string | undefined;
     /**
@@ -89,6 +103,9 @@ export interface BreakPromptShape {
 export const TALK_BREAK_SHAPE: BreakPromptShape = {
     job: 'You write one short spoken link between records. It is read aloud exactly as you write it.',
     showsPrevious: true,
+    // The one kind that is presenting a SHOW rather than an arrival or a bulletin, so it is the one
+    // that has anything to refer back to.
+    showsPlayed: true,
     // The one rule here that ASKS FOR LESS, and it is what buys a character room to exist. Measured:
     // the word ceiling is not what bounds a break — 2 of 137 answers reached it and the median came
     // in at 28 words — so a break is short because the model stops, and what it spends those 28
@@ -311,6 +328,25 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
                 "The text is the publisher's own wording — use it to know what happened, not as lines to read out. " +
                 'Where a story has no text under it, read its headline and move on rather than filling the gap. ' +
                 'If a story is unclear, leave it out rather than guessing at it. Do not say how you feel about any of it.',
+        );
+    }
+
+    // What the show has played, for a kind that is presenting one. OFFERED, and the wording of that
+    // is the whole of this block: the measured failure of handing a model material is that the model
+    // gets through it. "Work at most one of them in" read as an instruction to work one in, which is
+    // why the notes rule two blocks up says "You do not have to use any of them" — and a list of
+    // titles is that hazard one size larger, because a list is the one shape a model will simply
+    // read out. So it says what the list is FOR (there is a show behind this record) and then says
+    // plainly that using it is optional, and "make one point" in the rules is what holds the line.
+    const played = shape.showsPlayed === true ? (request.played ?? []) : [];
+    if (played.length > 0) {
+        parts.push(
+            [
+                'Earlier in the show you played these, most recent first:',
+                ...played.map(record => `- ${record.title} by ${record.artist}`),
+                'This is here so you know there is a show behind this record, not a list to get through. ' +
+                    'Refer back to one of them only if you have something to say about it. You do not have to mention any of them.',
+            ].join('\n'),
         );
     }
 

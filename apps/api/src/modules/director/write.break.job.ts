@@ -9,11 +9,13 @@ import { PlainJob } from '#modules/jobs/plain.job.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { BreakRequestRepository } from './break.request.repository.js';
+import { PlayHistoryRepository } from './play.history.repository.js';
 import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './break.request.js';
 import { BulletinSource } from './bulletin.source.js';
-import type { BreakTrack } from './break.writer.js';
+import type { BreakTrack, PlayedRecord } from './break.writer.js';
 import { dayGreeting, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
@@ -22,6 +24,21 @@ import { errorText } from '#modules/shared/error.text.js';
 
 /** How many recent scripts a writer is shown, so it can avoid repeating itself. */
 const RECENT_WINDOW = 6;
+
+/**
+ * How many of this broadcast's records a writer is shown.
+ *
+ * Small, and the size is the whole argument. This is a hint that there IS a show behind the current
+ * record, not a playlist to work through: a model handed twelve titles reads them out, which is the
+ * listing-with-decoration failure `BreakPromptShape.rules` carries "make one point" to stop. A model
+ * that genuinely wants the rest can call `show_so_far`, which answers up to forty and costs its own
+ * context rather than every station's — the same split `StationTasteTool` and its prompt block
+ * already run between them.
+ *
+ * The other bound is the host: a context that spills VRAM drops the station's model to a couple of
+ * tokens a second, which is a slow break rather than a rich one.
+ */
+const PLAYED_WINDOW = 5;
 
 export interface WriteBreakPayload {
     /**
@@ -80,6 +97,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly enrichment: EnrichmentReadService,
         private readonly bulletin: BulletinSource,
         private readonly personas: PersonaRepository,
+        private readonly plays: PlayHistoryRepository,
+        private readonly identity: StationIdentity,
         private readonly activity: ActivityRecorder,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
@@ -190,7 +209,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            recent: await this.segments.recentScripts(segment.kind, RECENT_WINDOW),
+            ...(await this.memory(segment.kind)),
             // Read here rather than held by any writer, for the reason the facts above are: the
             // character the station is in is a property of the moment, and every binding uses a
             // different half of it. Read per break, so an operator putting a different persona on
@@ -302,6 +321,41 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         } catch (error) {
             this.logger.warn(`director: could not tell whether this break is waiting for a slot (${errorText(error)})`);
             return undefined;
+        }
+    }
+
+    /**
+     * What the station remembers of the show it is in the middle of.
+     *
+     * Two reads, both keyed by the BROADCAST rather than by a time window, because "what have we
+     * played tonight" and "what have we already said" are questions about a programme: a window
+     * answers them with the tail of the previous show whenever one has just started, which is a
+     * presenter referring back to something this audience never heard.
+     *
+     * **The fallback is not a nicety.** A break written while no broadcast is on has no show to
+     * remember, so `recent` falls back to what it always was — the last few scripts of this kind —
+     * rather than to nothing. Handing an empty list would quietly disarm the spent-signature rule,
+     * and a writer that repeats a catchphrase because nothing told it not to is the exact failure
+     * `characterFault` exists for.
+     *
+     * Best-effort in the same sense the facts are: memory makes a break better and never makes it
+     * possible, so a read that fails costs the recall rather than the break. The deterministic floor
+     * underneath never wanted any of it.
+     */
+    private async memory(kind: string): Promise<{ recent: readonly string[]; played?: readonly PlayedRecord[] }> {
+        const broadcastId = this.identity.current();
+        if (broadcastId === undefined) return { recent: await this.segments.recentScripts(kind, RECENT_WINDOW) };
+
+        try {
+            const [recent, played] = await Promise.all([
+                this.history.spokenDuring(broadcastId, RECENT_WINDOW),
+                this.plays.duringBroadcast(broadcastId, PLAYED_WINDOW),
+            ]);
+
+            return { recent, ...(played.length === 0 ? {} : { played }) };
+        } catch (error) {
+            this.logger.warn(`director: could not read what the station has said this broadcast (${errorText(error)})`);
+            return { recent: await this.segments.recentScripts(kind, RECENT_WINDOW) };
         }
     }
 

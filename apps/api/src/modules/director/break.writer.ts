@@ -98,6 +98,13 @@ export interface BreakStory {
 }
 
 /** What a writer is told before it writes. */
+/** One record this broadcast has already aired, as a writer is shown it. */
+export interface PlayedRecord {
+    title: string;
+    /** The lead credit alone. See {@link BreakWriteRequest.played}. */
+    artist: string;
+}
+
 export interface BreakWriteRequest {
     /** Which sort of break this is. The same string as `segments.kind`. */
     kind: string;
@@ -131,8 +138,33 @@ export interface BreakWriteRequest {
      * still ringing in a listener's ears, and a station that says the same sentence every fourth
      * record stops sounding like a person within an hour. A model binding later reads the same field
      * to avoid repeating a signature line, which is why it is scripts and not template names.
+     *
+     * **This is the broadcast's own memory now**, where it used to be the last few scripts of this
+     * KIND across all time. Both halves of that changed for the same reason. A listener who tuned in
+     * twenty minutes ago has heard this show and none of the one before it, so a phrase is spent
+     * only if it was spent tonight — which also means a station that has just gone on air honestly
+     * has nothing spent yet, rather than inheriting a ban from a programme nobody heard. And a talk
+     * break repeating what the bulletin before it just said is the same failure as one repeating
+     * another talk break, which only a kind-agnostic list can catch.
      */
     recent?: readonly string[];
+    /**
+     * What this broadcast has played, newest first, as title and LEAD artist.
+     *
+     * The other half of a presenter's memory, and the half the station could never answer before: a
+     * writer saw the record either side of it and nothing else, so it could not refer back to
+     * anything and could not tell an hour it had presented from one it had just walked into.
+     *
+     * Lead artist rather than the credit line, by the rule the search tools already follow — a break
+     * naming "USHER, Lil Jon, Ludacris" as an artist puts a name on air that nothing else in the
+     * station agrees exists.
+     *
+     * **Offered, never requested.** It is material a writer MAY reach back into, and every prompt
+     * that carries it says so, because the measured failure of handing a model a list is that the
+     * model reads it out: the notes rule was rewritten for exactly this after "work at most one of
+     * them in" turned out to read as an instruction to work one in.
+     */
+    played?: readonly PlayedRecord[];
     /**
      * What this break is ABOUT, when something asked for it and said.
      *

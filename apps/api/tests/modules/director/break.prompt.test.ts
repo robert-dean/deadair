@@ -7,7 +7,14 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE, writeDecline, type PromptSettings } from '../../../src/modules/director/break.prompt.js';
+import {
+    breakPrompt,
+    DEFAULT_MAX_WORDS,
+    readAnswer,
+    TALK_BREAK_SHAPE,
+    writeDecline,
+    type PromptSettings,
+} from '../../../src/modules/director/break.prompt.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
@@ -238,6 +245,49 @@ describe('breakPrompt', () => {
             const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, facts: [] } }));
 
             expect(said).not.toMatch(/notes/i);
+        });
+    });
+
+    // The show behind the current record. Every assertion here is really about one risk: a list is
+    // the one shape a model will simply read out, which is the failure "make one point" exists to
+    // stop and the same one the notes rule above was rewritten for.
+    describe('what the broadcast has already played', () => {
+        const played = [
+            { title: 'Yeah!', artist: 'USHER' },
+            { title: 'One More Time', artist: 'Daft Punk' },
+        ];
+
+        it('shows them newest first, as title and lead artist', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next, played }));
+
+            expect(said).toMatch(/Earlier in the show you played these, most recent first:/);
+            expect(said).toMatch(/- Yeah! by USHER\n- One More Time by Daft Punk/);
+        });
+
+        it('offers them rather than asking for one, and says what they are for', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, played }));
+
+            expect(said).toMatch(/not a list to get through/i);
+            expect(said).toMatch(/you do not have to mention any of them/i);
+            // The positive half: without it a model is handed material and told only what not to do
+            // with it, which is how the notes rule failed the first time.
+            expect(said).toMatch(/only if you have something to say about it/i);
+        });
+
+        it('says nothing at all when the broadcast has played nothing yet', () => {
+            // The first break of a show, and every break on a station whose history read failed.
+            expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toMatch(/earlier in the show/i);
+            expect(user(prompt({ kind: 'talkbreak', previous, played: [] }))).not.toMatch(/earlier in the show/i);
+        });
+
+        // A kind opts in, and the two that do not are the interesting half. A welcome is for somebody
+        // who heard none of it — the same reason it withholds the record that just finished — and a
+        // bulletin handed a list of records will find a way to read it out.
+        it('is withheld from a kind whose shape did not ask for it', () => {
+            const quiet = { ...TALK_BREAK_SHAPE, showsPlayed: false };
+            const said = user(breakPrompt({ kind: 'welcome', previous, played }, {}, quiet));
+
+            expect(said).not.toMatch(/earlier in the show/i);
         });
     });
 

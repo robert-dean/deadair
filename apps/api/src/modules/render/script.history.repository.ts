@@ -227,6 +227,52 @@ export class ScriptHistoryRepository extends DataRepository {
     }
 
     /**
+     * What the station has actually SAID during one broadcast, newest first.
+     *
+     * The memory a presenter has of the show it is in the middle of, and the reason it is read here
+     * rather than from `segments`: that table deliberately carries no `broadcast_id`, because an
+     * ident legitimately sits at three slots in one hour and in every broadcast after it, so a
+     * column naming one would be a lie by its second play. This table has the broadcast, the words
+     * and the writer already.
+     *
+     * Two filters and a deduplication, and the last one is the trap. **This table is one row per
+     * ATTEMPT**, which is the property that makes it worth keeping — but a break the model declined
+     * and the floor then wrote is two rows, and a break re-written after its claim went stale is two
+     * more. Handed over raw, a writer is told the station said the same thing twice when it said it
+     * once, and then avoids repeating a line it never actually used. So: only `written` attempts
+     * with words, and only the LATEST per segment.
+     *
+     * The dedup key falls back to the row's own id, so an attempt with no segment — one whose
+     * segment was deleted, since the reference is `on delete set null` — stays its own row rather
+     * than collapsing every orphan in the broadcast into one.
+     *
+     * Kind-agnostic on purpose. A talk break repeating what the bulletin before it just said is the
+     * same failure as one repeating another talk break, and only a reader that sees both can catch
+     * it.
+     */
+    async spokenDuring(broadcastId: string, limit: number): Promise<string[]> {
+        if (limit <= 0) return [];
+
+        // `distinct on` rather than a window function: it is the cheapest way Postgres expresses
+        // "the first row of each group" and it needs no subquery for the filter. The outer select
+        // re-sorts, because `distinct on` forces its own leading order-by key.
+        const rows = await sql<{ script: string }>`
+            select script from (
+                select distinct on (coalesce(segment_id::text, id::text)) script, created_at
+                from deadair.script_history
+                where broadcast_id = ${broadcastId}
+                  and outcome = 'written'
+                  and script is not null
+                order by coalesce(segment_id::text, id::text), created_at desc
+            ) said
+            order by said.created_at desc
+            limit ${Math.floor(limit)}
+        `.execute(this.db);
+
+        return rows.rows.map(row => row.script);
+    }
+
+    /**
      * One page of what the station has written, newest first.
      *
      * A keyset over `(created_at, id)` rather than an offset, for the reason `ActivityRepository`

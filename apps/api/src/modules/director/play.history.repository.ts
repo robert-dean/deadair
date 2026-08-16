@@ -194,6 +194,37 @@ export class PlayHistoryRepository extends DataRepository {
     }
 
     /**
+     * What this broadcast has played, newest first: the show a presenter is in the middle of.
+     *
+     * Keyed by BROADCAST rather than by a time window, which is the whole point — "what have we
+     * played tonight" is a question about a programme, and a window would answer it with the tail of
+     * the one before whenever a show had just started. That is what `broadcast_id` is on this table
+     * for.
+     *
+     * The LEAD credit, never the credit line, by the rule the search tools already follow: `record`
+     * writes `artists.join(', ')` and everything that looks an artist up matches the first alone, so
+     * handing a writer "USHER, Lil Jon, Ludacris" as an artist would put a name on air that nothing
+     * else in the station agrees exists.
+     *
+     * Deliberately NOT deduplicated. A record played twice in one broadcast is a fact worth a
+     * presenter knowing, and collapsing it would hide exactly the case somebody would want to
+     * mention or apologise for.
+     */
+    async duringBroadcast(broadcastId: string, limit: number): Promise<{ title: string; artist: string }[]> {
+        if (limit <= 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.playHistory')
+            .select(['title', 'artists'])
+            .where('broadcastId', '=', broadcastId)
+            .orderBy('airedAt', 'desc')
+            .limit(Math.floor(limit))
+            .execute();
+
+        return rows.map(row => ({ title: row.title, artist: row.artists.split(',')[0]?.trim() ?? row.artists }));
+    }
+
+    /**
      * When one record has aired, newest first, and how many times in all.
      *
      * The one read here keyed by the canonical track rather than by a rotation key, and deliberately

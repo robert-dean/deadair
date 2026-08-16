@@ -8,6 +8,8 @@ import type { Logger } from '@maroonedsoftware/logger';
 
 import { parseReading, PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
 import { annotateUri, itemAnnotations, HARD_JOIN_MS, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
+import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
+import { speechGainFor } from '../../../src/modules/playout/gain.js';
 import { DEFAULT_TARGET_LUFS } from '../../../src/modules/playout/gain.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 import type { StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.js';
@@ -509,6 +511,33 @@ describe('itemAnnotations: gain', () => {
 
         expect(uri).toContain('liq_amplify="3 dB"');
         expect(uri).toContain('liq_cue_out="213.6"');
+    });
+});
+
+// A break aired BETWEEN two records is an ordinary running-order item -- it goes down the playout
+// queue, through the same annotations, and never touches the mic chain that the talk-over path's
+// `VOICE_GAIN_DB` sits in. It is the half that had nothing holding its level at all.
+describe('itemAnnotations: a break the station spoke', () => {
+    const segment = (extra: Record<string, unknown> = {}) =>
+        ({ id: 'item-1', pluginId: RENDER_PLUGIN_ID, externalId: 'seg_1', title: 'Talk break', artists: [], ...extra }) as never;
+
+    it('stamps an unmeasured break rather than leaving it where the engine put it', () => {
+        // The opposite call from the unmeasured RECORD above, and the reason the two are
+        // separate functions: nothing else in the graph will lift this.
+        expect(itemAnnotations(segment(), CONTEXT).liq_amplify).toBe(`${speechGainFor({}, -16)} dB`);
+    });
+
+    it('stamps every break, including one that needs nothing', () => {
+        // No dead band: an unstamped push would leave the previous break's override standing.
+        expect(itemAnnotations(segment({ loudnessLufs: -16 }), CONTEXT).liq_amplify).toBe('0 dB');
+    });
+
+    it('uses the measurement when the segment carries one', () => {
+        expect(itemAnnotations(segment({ loudnessLufs: -22 }), CONTEXT).liq_amplify).toBe('6 dB');
+    });
+
+    it('is not capped by the peak the way a record is', () => {
+        expect(itemAnnotations(segment({ loudnessLufs: -26, truePeakDb: -9 }), CONTEXT).liq_amplify).toBe('10 dB');
     });
 });
 

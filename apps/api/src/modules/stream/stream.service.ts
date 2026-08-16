@@ -28,6 +28,21 @@ import { StreamConfigWatch } from './stream.staleness.js';
 const TALK_OVER_TRACKS = true;
 const DUCK_GAIN_DB = -12;
 const DUCK_FADE_MS = 300;
+
+/**
+ * The operator's trim on the DJ voice, on top of the gain the app decides for
+ * each segment.
+ *
+ * Zero, and it is the only one of these four that is zero because it has nothing
+ * to correct rather than because nobody has tuned it. The level itself is
+ * `liq_amplify`, stamped per segment by `playout/annotate.ts` from that
+ * segment's level against `playout.targetLufs` and applied in the mic chain —
+ * which is what makes this a trim again. It was briefly +10, carrying the whole
+ * correction for a speech engine that measures around -26.5 LUFS against records
+ * airing at -16; that number belongs in the app, where it can be a measurement
+ * rather than a constant, and where it also reaches a break aired BETWEEN two
+ * records, which never touches the mic chain at all.
+ */
 const VOICE_GAIN_DB = 0;
 
 /** Where Liquidsoap finds the local music bed inside its own container. */

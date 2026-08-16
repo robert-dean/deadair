@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
-import { annotateUri, blendOutOf, itemAnnotations } from './annotate.js';
+import { annotateUri, blendOutOf, itemAnnotations, voiceAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
 import { TARGET_LUFS_KEY, resolveTargetLufs } from './gain.js';
 import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
@@ -371,7 +371,14 @@ export class PlayoutPusher {
                 // whether or not the DJ talks over it, and holding the push up for a cue would
                 // trade the thing that matters for the thing that does not.
                 if (landed && pulled.voice) {
-                    void this.control.armVoice(pulled.voice.url, pulled.item.id, pulled.voice.atMs).catch(() => undefined);
+                    // Annotated for its level, exactly as the item above is. A talk-over goes to
+                    // the mic chain rather than to the playout queue, so `itemAnnotations` never
+                    // sees it and this is the only place its gain can be stamped.
+                    //
+                    // Nothing measured travels with a cue yet, so this is the assumed speech level;
+                    // `voiceAnnotations` is what both paths agree through.
+                    const uri = annotateUri(voiceAnnotations({}, this.targetLufs()), pulled.voice.url);
+                    void this.control.armVoice(uri, pulled.item.id, pulled.voice.atMs).catch(() => undefined);
                 }
 
                 if (!landed) {

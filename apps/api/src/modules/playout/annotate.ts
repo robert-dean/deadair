@@ -15,8 +15,9 @@
  * kept pure and unit-tested.
  */
 
+import { isRenderItem } from '#modules/render/segment.source.js';
 import { blendFor } from './crossfade.js';
-import { gainFor } from './gain.js';
+import { gainFor, speechGainFor, type MeasuredLoudness } from './gain.js';
 import type { RundownItem } from './rundown.js';
 
 /** The metadata key carrying the rundown item id. Must match `radio.liq`. */
@@ -172,9 +173,34 @@ const seconds = (ms: number): string => String(Math.round(ms) / 1000);
  * a correction too small to hear. See `gainFor`, which decides all three.
  */
 function gainAnnotations(item: RundownItem, { targetLufs }: AnnotationContext): Record<string, string> {
+    // A break the station wrote and spoke, which is a different level question from a record
+    // somebody else mastered: see `speechGainFor`, and {@link voiceAnnotations} for the other
+    // path the same audio can take to the player.
+    if (isRenderItem(item)) return voiceAnnotations(item, targetLufs);
+
     const gainDb = gainFor(item, targetLufs);
 
     return gainDb === undefined ? {} : { liq_amplify: `${gainDb} dB` };
+}
+
+/**
+ * `liq_amplify` for a break, whichever way it reaches the player.
+ *
+ * A break has TWO routes and they meet nothing in common downstream. Between two
+ * records it is an ordinary running-order item, pushed onto the playout queue and
+ * levelled by the `amplify` there. Over a record it is a cue armed against that
+ * record, pushed onto the voice queue, and it goes through the mic chain instead
+ * — a graph the playout queue's annotations never reach.
+ *
+ * So the gain is decided HERE, once, and both paths stamp what this returns. The
+ * alternative was what the station actually did: a `VOICE_GAIN_DB` trim in
+ * `radio.liq` that only the mic chain applied, which left a break between two
+ * records ten decibels under the music with nothing in the mixer able to say so.
+ *
+ * Exported for the pusher, which arms the cue and has no `RundownItem` to hand.
+ */
+export function voiceAnnotations(measured: MeasuredLoudness, targetLufs: number): Record<string, string> {
+    return { liq_amplify: `${speechGainFor(measured, targetLufs)} dB` };
 }
 
 /**

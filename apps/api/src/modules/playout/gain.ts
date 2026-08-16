@@ -158,6 +158,60 @@ export function gainFor(measured: MeasuredLoudness, targetLufs: number): number 
 }
 
 /**
+ * What the station assumes its own voice arrives at, in LUFS, until something
+ * measures it.
+ *
+ * Measured rather than chosen, and it is the whole reason this constant is not
+ * simply "no opinion": four voices of the bundled speech engine saying the same
+ * line came in at -25.9, -26.4 (raw), -28.3 and -25.5 LUFS to BS.1770, true
+ * peaks around -9 to -11 dBFS. A speech engine aims at nothing, so this is the
+ * shape of every one of them: a level that is whatever the model happened to
+ * produce, a long way under the -16 the station's records air at.
+ *
+ * It is an ASSUMPTION and a poor one by design — the spread above is 2.8 dB, so
+ * it is wrong by a decibel or so for most voices. It exists to be the fallback
+ * once each segment is measured for itself, which is the point of expressing it
+ * as a level rather than as a gain: the same subtraction serves both, and an
+ * operator who moves `playout.targetLufs` moves the assumed case with it.
+ */
+export const ASSUMED_SPEECH_LUFS = -26.5;
+
+/**
+ * The gain for a break, in dB, and never nothing.
+ *
+ * Three deliberate differences from {@link gainFor} beside it, all of them
+ * because this is the station's own voice rather than somebody's master:
+ *
+ * - **It always answers.** A stamp that is sometimes absent is fine for records,
+ *   where `amplify`'s override is one of several things holding the level. Here
+ *   it is the only one, and whether Liquidsoap's override persists from the last
+ *   track that carried one is not a thing worth depending on: an unstamped break
+ *   inheriting the previous break's correction would be silently wrong in the
+ *   direction nobody checks. Always stamping makes the question moot, which is
+ *   the same call `crossAnnotations` makes and for the same reason.
+ * - **An unmeasured break is still corrected**, from {@link ASSUMED_SPEECH_LUFS},
+ *   where an unmeasured record is left alone. A record the station knows nothing
+ *   about might be anything; a break came out of a speech engine, which is a
+ *   thing whose level is knowable in advance and consistently low.
+ * - **The boost is not capped by the peak.** A record's peak cap protects a
+ *   master the station has no editorial claim on. This audio IS the station, its
+ *   peaks are plosives rather than music, and the bus limiter at -1 dBFS is
+ *   downstream of everything — shaving a plosive there is what a broadcast desk
+ *   is for and is inaudible, where leaving the DJ several dB under the record
+ *   either side is the thing a listener actually notices.
+ *
+ * {@link MAX_GAIN_DB} still bounds it, on the same argument as above: it is a
+ * bound on being wrong, and a measurement of the wrong file asks for a
+ * correction of tens of decibels with total confidence.
+ */
+export function speechGainFor(measured: MeasuredLoudness, targetLufs: number): number {
+    const target = isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS;
+    const level = isFinite(measured.loudnessLufs) ? measured.loudnessLufs : ASSUMED_SPEECH_LUFS;
+
+    return round(clamp(target - level, MAX_GAIN_DB));
+}
+
+/**
  * How much a record can be turned up before it reaches the ceiling.
  *
  * Never negative: a master that already runs above {@link CEILING_DBTP} — and

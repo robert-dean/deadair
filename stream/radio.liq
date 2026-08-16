@@ -93,9 +93,14 @@ end
 duck_gain_db = env_float("DUCK_GAIN_DB", -12.)
 duck_fade_ms = max(1., env_float("DUCK_FADE_MS", 300.))
 
-# The operator's trim on the DJ voice, in dB, applied after the mic chain in step 3. Zero by
-# default, because the chain below is meant to land the voice at a usable level on its own and this
-# is the correction for a renderer that runs consistently hot or quiet — not the main level control.
+# The operator's trim on the DJ voice, in dB, applied after the mic chain in step 3, on TOP of
+# whatever the app decided for the segment itself.
+#
+# Zero, and it means zero now that it is no longer the only thing holding the voice up: the app
+# stamps `liq_amplify` on every cue it arms, from the segment's own level against the station's
+# target, and the mic chain applies that per segment. This is the trim left over for an operator
+# who has heard the result and wants the DJ a decibel forward of it — not a per-engine correction,
+# which is a thing the app now works out for itself.
 voice_gain_db = env_float("VOICE_GAIN_DB", 0.)
 
 # The app fills a rundown and PUSHES it here item by item, whichever source the tracks came from:
@@ -1038,13 +1043,24 @@ thread.run(every=voice_tick, voice_cue_check)
 #      and multiplies it to silence — every segment airs as dead air. A tail click has to be faded
 #      at render time instead, where the length is known.
 #
-#   2. compress. Fast attack and a gentle ratio: it tames the peaks a speech synthesiser puts on
+#   2. amplify, override="liq_amplify" — the app's own decision about THIS segment, stamped on the
+#      `annotate:` uri the cue was armed with, exactly as it stamps one on every record pushed to
+#      the playout queue. It is what actually lands the voice at the station's level, and it is
+#      here rather than after the compressor because it is the thing that MAKES the input
+#      consistent: the compressor's threshold is a fixed number, so a segment arriving three
+#      decibels low is a segment being compressed three decibels less.
+#
+#      An unstamped push is left alone (`amplify(1., …)`), which is the ordinary state for a
+#      station whose app is older than this. The app stamps every cue, so it should not arise.
+#
+#   3. compress. Fast attack and a gentle ratio: it tames the peaks a speech synthesiser puts on
 #      plosives and brings the body of the voice forward, without the pumping a broadcast-depth
 #      ratio would give a source that is nothing but speech.
 #
-#   3. amplify, the operator trim. Last, so the compressor sees a consistent input and the knob
+#   4. amplify, the operator trim. Last, so the compressor sees a consistent input and the knob
 #      moves the finished voice rather than how hard it is being worked.
 voice_bus = fade.in(duration=0.04, voice)
+voice_bus = amplify(1., override="liq_amplify", voice_bus)
 voice_bus = compress(attack=5.0, release=120.0, threshold=-18.0, ratio=4.0, knee=2.0, gain=0.0, voice_bus)
 voice_bus = amplify(lin_of_dB(voice_gain_db), voice_bus)
 

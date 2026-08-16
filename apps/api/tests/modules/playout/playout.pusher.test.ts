@@ -6,6 +6,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_TARGET_LUFS, speechGainFor } from '../../../src/modules/playout/gain.js';
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
 import { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
@@ -770,7 +771,20 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         await pusher.reconcile();
 
-        expect(control.armVoice).toHaveBeenCalledWith('https://example.test/seg-1.ogg', itemId, 8000);
+        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining('https://example.test/seg-1.ogg'), itemId, 8000);
+    });
+
+    it('arms the cue with the gain the break is to air at', async () => {
+        // The mic chain is the only thing between this uri and the mount, and the playout queue's
+        // annotations never reach it -- so an unstamped cue is a break at whatever the speech
+        // engine happened to produce, which measured about ten decibels under the music.
+        const { pusher, control, rundown } = build({ url: 'https://example.test/seg-1.ogg', atMs: 8000 });
+        const itemId = rundown.upcoming()[0]!.id;
+
+        await pusher.reconcile();
+
+        const armed = `annotate:liq_amplify="${speechGainFor({}, DEFAULT_TARGET_LUFS)} dB":https://example.test/seg-1.ogg`;
+        expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000);
     });
 
     it('arms nothing for a record with no cue', async () => {

@@ -166,6 +166,20 @@ the level of a segment is entirely whatever the speech plugin produced. The fade
 time, so `fade.out` treats the whole clip as inside the fade zone and multiplies it to silence. Fade
 a tail at render time instead.
 
+**The level itself is decided by the app, per segment, and stamped.** The compressor runs with no
+makeup gain, so the chain can only ever make a segment quieter, and a speech engine aims at nothing:
+four voices of the bundled one measure between -25.5 and -28.3 LUFS (BS.1770) against records the
+station airs at -16. So the app stamps `liq_amplify` on the `annotate:` uri it arms the cue with,
+exactly as it does on every record it pushes, and the `amplify(1., override="liq_amplify", …)` at the
+head of the chain applies it. `VOICE_GAIN_DB` is the operator's trim on top of that and is 0 because
+it has nothing to correct, not because nobody tuned it.
+
+**It is stamped on both routes, and that is the point.** A break aired between two records is an
+ordinary running-order item: it goes down the playout queue and never touches this chain at all. A
+per-engine number in `radio.env` reaches the talk-over half and misses that one entirely, which is
+how a station can have a DJ who sits right over a record and ten decibels under the gap between two.
+One decision, in `playout/annotate.ts`, is what keeps the two halves at the same level.
+
 The **broadcast bus** is one operator: a brick-wall limiter at -1 dBFS, between the programme and
 the encoder. MP3 encoding generates inter-sample peaks around 0.5-1 dB over the source, so a modern
 master clips in the listener's decoder without it; in ordinary programme it does nothing at all.

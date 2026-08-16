@@ -97,9 +97,12 @@ export interface StreamPlayoutConfig {
      * Trim on the DJ voice, in dB, applied after the mic chain in `radio.liq`.
      *
      * Zero leaves the chain's own compressor and the renderer's level as they
-     * are. It exists because the speech engine is a plugin and a replacement is
-     * expected, so an engine that runs consistently hot or quiet needs a
-     * correction that is not a code change to the mixer.
+     * are, which is not the neutral it sounds like: that chain has no makeup
+     * gain, so zero airs a break at whatever the engine produced. It exists
+     * because the speech engine is a plugin and a replacement is expected, so an
+     * engine that runs consistently hot or quiet needs a correction that is not
+     * a code change to the mixer. See `VOICE_GAIN_DB` in `stream.service.ts` for
+     * what the bundled one measures and why the default is +10.
      */
     voiceGainDb: number;
     /**

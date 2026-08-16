@@ -35,6 +35,12 @@ interface SpotifyTrack {
      * below treats a missing value as "no opinion" rather than as unpopular.
      */
     popularity?: number;
+    /**
+     * Spotify's own parental advisory marking. Like {@link SpotifyTrack.popularity} it is present
+     * on a full track object and absent from the simplified ones, which is why the mapping below
+     * reads a non-boolean as "did not say" rather than as clean.
+     */
+    explicit?: boolean;
 }
 
 /**
@@ -66,6 +72,14 @@ interface SpotifyPlaylist {
 export interface SpotifyPlaylistedItem {
     item?: SpotifyTrack | null;
     track?: SpotifyTrack | null;
+}
+
+/**
+ * The half of `GET /me` this file reads. All-optional for the reason the other shapes here are:
+ * the SDK declares `explicit_content` non-optional and the responses do not always agree.
+ */
+export interface SpotifyUserProfile {
+    explicit_content?: { filter_enabled?: boolean; filter_locked?: boolean };
 }
 
 interface SpotifyPlaybackStateItem {
@@ -103,6 +117,11 @@ export function mapTrack(track: SpotifyTrack | null | undefined): ProviderTrack 
         // Carried rather than dropped, and only when it is a real reading: a caller ordering by it
         // must be able to tell "Spotify says this is obscure" from "Spotify did not say".
         ...(isRanking(track.popularity) ? { popularity: track.popularity } : {}),
+        // Only when Spotify actually said. A simplified track object carries no `explicit` at all,
+        // and reading a missing field as `false` would report every album cut as clean — which is
+        // the one mistake a clean-only station cannot survive, since it would be told the record
+        // was vouched for.
+        ...(typeof track.explicit === 'boolean' ? { advisory: track.explicit ? ('explicit' as const) : ('clean' as const) } : {}),
     };
 }
 
@@ -147,6 +166,36 @@ function playlistPermissions(playlist: SpotifyPlaylist, currentUserId?: string):
     if (playlist.collaborative) return ['read', 'edit'];
     if (!currentUserId || !playlist.owner?.id) return undefined;
     return playlist.owner.id === currentUserId ? ['read', 'edit'] : [];
+}
+
+/**
+ * The account-level explicit filter, as a sentence for the operator, or nothing to say.
+ *
+ * A decision made ABOVE the station: the account holder turned explicit content off, and no
+ * setting on this end overrides it. It costs nothing to read — `user-read-private` is already
+ * requested and the profile is already fetched for the account id — and it is the only way an
+ * operator finds out, because the failure it causes is mute. An explicit record that will not serve
+ * simply fails, four consecutive times, and `TrackAudioService` benches the binding with nothing in
+ * the log connecting that to a checkbox in somebody's Spotify settings.
+ *
+ * **Reported, never enforced.** The station's audio does not come off the Web API, so whether this
+ * filter binds on the fetch path is not something this plugin can observe. Hence "may refuse": the
+ * sentence names the setting and lets the operator draw the conclusion, rather than marking copies
+ * unplayable on a guess.
+ *
+ * `filter_locked` earns its place by changing the ADVICE rather than the fact. Unlocked, the
+ * operator can go and turn it off. Locked — a managed or family account — they cannot, and the
+ * station's own `clean-only` policy is the only setting that will not spend every hour fighting it.
+ *
+ * Narrowed defensively despite the SDK typing `explicit_content` as required, for the reason stated
+ * at the top of this file: these responses really do arrive partial.
+ */
+export function explicitFilterNotice(profile: SpotifyUserProfile | null | undefined): string | undefined {
+    if (profile?.explicit_content?.filter_enabled !== true) return undefined;
+
+    return profile.explicit_content.filter_locked === true
+        ? 'This account has explicit content turned off and locked, so it may refuse to serve explicit records. It cannot be changed from here; set the station to clean-only if you want it to stop choosing them.'
+        : 'This account has explicit content turned off, so it may refuse to serve explicit records. Change it in your Spotify account settings, or set the station to clean-only.';
 }
 
 /**

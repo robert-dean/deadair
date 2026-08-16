@@ -40,6 +40,25 @@ export interface ProviderTrack {
      * unservable however well the model behaved. See `CatalogSearchTool`.
      */
     popularity?: number;
+    /**
+     * The parental advisory this copy carries, when the provider reports one.
+     *
+     * A LABEL and not a reading of the words. A provider is passing on the marking a release
+     * carries; nothing here has looked at a lyric. That is why the field is not called `lyrics`,
+     * which stays free for the text itself — a thing a future enrichment source may genuinely fetch,
+     * the way `plugins/wikipedia` fetches article prose.
+     *
+     * It is about LYRICS rather than about LENGTH, which is the other half of the same confusion. A
+     * radio edit is a length cut and may still be explicit, so an edit-length preference is a
+     * separate axis and belongs in a separate field on the day something needs one. Do not widen
+     * this one to carry it.
+     *
+     * Optional because most sources have nothing like it — a file on a disk carries no marking, and
+     * Subsonic has no such field — and absent must read as "the provider did not say" rather than as
+     * clean. A host enforcing a clean-only policy has to demand a positive `'clean'`: treating
+     * silence as consent is how a station promises something it cannot deliver.
+     */
+    advisory?: 'explicit' | 'clean';
 }
 
 /**

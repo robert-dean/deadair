@@ -171,7 +171,24 @@ create table deadair.track_sources (
     --
     -- A discovered copy that later turns up in a playlist is re-marked `sync` by the upsert, so it
     -- rejoins the sweep rather than being exempt for good.
-    origin text not null default 'sync' constraint track_sources_origin_check check (origin in ('sync', 'discovered'))
+    origin text not null default 'sync' constraint track_sources_origin_check check (origin in ('sync', 'discovered')),
+    -- The parental advisory this COPY carries, as the provider reports it. Per binding rather
+    -- than per track for the same reason isrc is: a clean edit and the explicit original are two
+    -- copies of one work, and they collapse to a single deadair.tracks row (resolveTrack matches
+    -- on title_key + artist, and the clean edit's own isrc misses). So the binding is the version,
+    -- and preferring one over the other is binding selection.
+    --
+    --   explicit  the provider says this copy is marked
+    --   clean     the provider says it is not
+    --   null      the provider did not say
+    --
+    -- Nullable is load-bearing and is NOT "clean". Subsonic has no such field, so a library from
+    -- one is entirely null, and a station set to clean-only demands a positive 'clean' rather than
+    -- reading silence as consent. See CandidatesRepository.bindingsFor.
+    --
+    -- Named for the LABEL rather than the words: nothing here has read a lyric, and `lyrics` stays
+    -- reserved for the text should anything ever fetch it.
+    advisory text constraint track_sources_advisory_check check (advisory in ('explicit', 'clean'))
 );
 select deadair.add_updated_at_trigger('deadair.track_sources');
 -- Deliberately (plugin_id, external_id) and not (track_id, plugin_id): one canonical

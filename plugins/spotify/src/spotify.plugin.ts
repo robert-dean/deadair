@@ -23,6 +23,7 @@ import {
     clampSearchLimit,
     clampSearchOffset,
     clampSearchTotal,
+    explicitFilterNotice,
     mapPlaybackState,
     mapPlaylist,
     mapTrack,
@@ -115,7 +116,11 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
         try {
             const profile = await this.getApi().currentUser.profile();
             const who = profile.display_name || profile.id;
-            return { ok: true, message: who ? `Connected as ${who}.` : 'Connected.' };
+            const connected = who ? `Connected as ${who}.` : 'Connected.';
+            // Appended rather than replacing: the connection genuinely IS fine, and this is the one
+            // moment an operator is looking at this plugin's own words. See `explicitFilterNotice`.
+            const advisory = explicitFilterNotice(profile);
+            return { ok: true, message: advisory === undefined ? connected : `${connected} ${advisory}` };
         } catch (error) {
             if (error instanceof SpotifyRequestError) return { ok: false, message: `Spotify replied HTTP ${error.status}.` };
             return { ok: false, message: errorText(error) };
@@ -291,6 +296,11 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
         try {
             const profile = await this.getApi().currentUser.profile();
             this.currentUserIdCache = profile.id;
+            // Once per connection, which is what the cache above already buys: this is reached on
+            // the first listing or the first fetch and not again until a reload. An operator who
+            // never opens the settings card still gets told, in the plugin's own log.
+            const advisory = explicitFilterNotice(profile);
+            if (advisory !== undefined) this.host.logger.warn(advisory);
             return profile.id;
         } catch (error) {
             this.host.logger.warn('could not resolve the Spotify account id; playlist permissions will be left unreported', {

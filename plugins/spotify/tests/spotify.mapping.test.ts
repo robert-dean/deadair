@@ -6,6 +6,7 @@ import {
     clampSearchLimit,
     clampSearchOffset,
     clampSearchTotal,
+    explicitFilterNotice,
     mapPlaybackState,
     mapPlaylist,
     mapTrack,
@@ -100,6 +101,56 @@ describe('mapTrack', () => {
         const track = mapTrack({ id: 'track-1', name: 'Song Title', album: { name: 'Album', images: [] } });
 
         expect(track?.artworkUrl).toBeUndefined();
+    });
+
+    it('carries the advisory both ways round', () => {
+        expect(mapTrack({ id: 'track-1', name: 'Marked', explicit: true })?.advisory).toBe('explicit');
+        expect(mapTrack({ id: 'track-1', name: 'Not Marked', explicit: false })?.advisory).toBe('clean');
+    });
+
+    it('says nothing when Spotify did not mark it, rather than calling it clean', () => {
+        // The same shape as the popularity case above and a sharper failure. A simplified track
+        // object carries no `explicit` at all, and reading absent as `false` would report every
+        // album cut as vouched-for clean -- which is exactly the claim a clean-only station acts on.
+        expect(mapTrack({ id: 'track-1', name: 'Album Cut' })).not.toHaveProperty('advisory');
+    });
+});
+
+describe('explicitFilterNotice', () => {
+    it('says nothing when the account does not filter', () => {
+        expect(explicitFilterNotice({ explicit_content: { filter_enabled: false, filter_locked: false } })).toBeUndefined();
+    });
+
+    it('says nothing when the profile did not carry the field at all', () => {
+        // The SDK types `explicit_content` as required and the responses do not always agree, so a
+        // partial payload has to read as "did not say" rather than tripping the warning.
+        expect(explicitFilterNotice({})).toBeUndefined();
+        expect(explicitFilterNotice({ explicit_content: {} })).toBeUndefined();
+        expect(explicitFilterNotice(undefined)).toBeUndefined();
+        expect(explicitFilterNotice(null)).toBeUndefined();
+    });
+
+    it('tells an operator who can change it where to go', () => {
+        const notice = explicitFilterNotice({ explicit_content: { filter_enabled: true, filter_locked: false } });
+
+        expect(notice).toContain('Spotify account settings');
+    });
+
+    it('tells an operator who cannot change it to use clean-only instead', () => {
+        // The whole reason `filter_locked` is read: on a managed or family account the advice
+        // "go and turn it off" is one the operator cannot take.
+        const notice = explicitFilterNotice({ explicit_content: { filter_enabled: true, filter_locked: true } });
+
+        expect(notice).toContain('cannot be changed from here');
+        expect(notice).not.toContain('Spotify account settings');
+    });
+
+    it('never claims the record will definitely fail, because that is not observable from here', () => {
+        // The station's audio does not come off the Web API, so whether this filter binds on the
+        // fetch path is unmeasured. The sentence names the setting and stops there.
+        for (const locked of [true, false]) {
+            expect(explicitFilterNotice({ explicit_content: { filter_enabled: true, filter_locked: locked } })).toContain('may refuse');
+        }
     });
 });
 

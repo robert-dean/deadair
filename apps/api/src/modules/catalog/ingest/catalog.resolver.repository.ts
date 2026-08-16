@@ -317,6 +317,17 @@ export class CatalogResolverRepository extends DataRepository {
         const seen = {
             durationMs: track.durationMs ?? null,
             isrc: track.isrc ?? null,
+            // Per binding for the same reason `isrc` is: a clean edit and the explicit original
+            // collapse to one canonical track and stay two copies, so the marking belongs to the
+            // copy. Absent becomes null rather than 'clean' — the SDK is explicit that a silent
+            // provider has said nothing, and a clean-only station demands a positive answer.
+            //
+            // `?? null` rather than letting `undefined` through, which is the plugin-side spelling
+            // of the same absence. This object is spread into the UPDATE arm as well, and Kysely
+            // drops an `undefined` from a `set` rather than writing it, so a provider that stopped
+            // reporting would leave a stale mark standing instead of clearing it. Null here is
+            // "clear the column", which is the one thing null is for.
+            advisory: track.advisory ?? null,
             raw: toJsonb(track),
             lastSeenAt: sql<never>`now()`,
             missingAt: null,

@@ -10,7 +10,19 @@ import { parseArgs } from 'node:util';
 //
 // Invoked from apps/api (cwd), so the defaults are relative to this package.
 
-type Column = { name: string; default?: string; values?: string[] };
+type Column = { name: string; default?: string; nullable?: boolean; values?: string[] };
+
+/**
+ * An override REPLACES the generated type outright, so it has to carry everything kysely-codegen
+ * would otherwise have worked out: the `Generated<>` wrapper for a column with a default, and the
+ * `| null` for a nullable one. Every enum column in the schema was `not null` until
+ * `track_sources.advisory`, which is why the second half of that only arrived with it — a nullable
+ * column typed without its null is a column the code cannot write null to and always reads as set.
+ */
+const overrideType = (union: string, col: { default?: string; nullable?: boolean }): string => {
+    const base = col.nullable ? `${union} | null` : union;
+    return col.default ? `Generated<${base}>` : base;
+};
 
 const { values: opts } = parseArgs({
     options: {
@@ -34,16 +46,21 @@ for (const file of files) {
     for (const table of extractTables(sql)) {
         for (const col of extractEnumColumns(table.body)) {
             const union = col.values!.map(v => `'${v}'`).join(' | ');
-            columns[`${table.schema}.${table.name}.${col.name}`] = col.default ? `Generated<${union}>` : union;
+            columns[`${table.schema}.${table.name}.${col.name}`] = overrideType(union, col);
         }
     }
     // A later migration can widen/replace an enum CHECK via ALTER TABLE ... ADD CONSTRAINT; files
-    // iterate in timestamp order, so the ALTER overwrites the CREATE's override. The Generated<>
-    // wrapper (column has a default) is preserved from the original definition.
+    // iterate in timestamp order, so the ALTER overwrites the CREATE's override. An ALTER states
+    // only the new value list, so the two facts it does NOT restate -- the default and the
+    // nullability -- are read back off the override the CREATE already wrote and carried across.
     for (const alter of extractAlterEnumChecks(sql)) {
         const key = `${alter.schema}.${alter.table}.${alter.column}`;
+        const existing = columns[key];
         const union = alter.values.map(v => `'${v}'`).join(' | ');
-        columns[key] = columns[key]?.startsWith('Generated<') ? `Generated<${union}>` : union;
+        columns[key] = overrideType(union, {
+            ...(existing?.startsWith('Generated<') ? { default: 'carried' } : {}),
+            nullable: existing?.includes('| null') ?? false,
+        });
     }
 }
 
@@ -169,7 +186,9 @@ function extractEnumColumns(body: string): Column[] {
         const colType = colMatch[2]!.toLowerCase();
         if (colType !== 'text') continue;
 
-        const col: Column = { name: colName };
+        // Absent `not null` is the default in SQL and the interesting case here: the type has to
+        // carry the `| null` itself, because an override replaces whatever kysely-codegen inferred.
+        const col: Column = { name: colName, nullable: !/\bnot\s+null\b/i.test(part) };
 
         const defMatch = part.match(/\bdefault\s+('[^']*'|[a-zA-Z_]\w*(?:\([^)]*\))?|-?[0-9.]+|true|false|null)/i);
         if (defMatch && defMatch[1]) col.default = defMatch[1];

@@ -556,6 +556,7 @@ export interface DeadairTracks {
 }
 
 export interface DeadairTrackSources {
+  advisory: "explicit" | "clean" | null;
   bitrate: number | null;
   coverArtId: string | null;
   createdAt: Generated<DateTime>;

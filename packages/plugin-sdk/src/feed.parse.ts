@@ -1,4 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
+import { plainText as asPlainText } from './html.text.js';
 import { PluginError } from './plugin.error.js';
 import { pluginCodeForStatus, retryAfterMs, upstreamDetail } from './plugin.http.js';
 import type { HostFetchInit, PluginHost } from './plugin.host.js';
@@ -285,55 +286,16 @@ function readCategories(value: unknown): string[] {
 }
 
 /**
- * Markup as something a person could be read aloud.
+ * An element's markup as something a person could be read aloud.
  *
- * Tags out, entities decoded, whitespace collapsed, length capped. Done here
- * rather than by each consumer because the alternative is a model being handed
- * `<p>` and a voice being handed `&amp;`, and neither of those is a mistake a
- * consumer would notice until it is on air.
- *
- * Entities are decoded AFTER the tags come out, and that order matters: the XML
- * parser leaves CDATA exactly as written, so an escaped `&lt;script&gt;` inside
- * one would otherwise be turned into a tag by the decode and then survive the
- * strip.
+ * The stripping, decoding and capping are `html.text.ts`'s, shared with the
+ * article reader; what is left here is reaching the element's text first, which
+ * is this file's own problem. See that file for why the decode runs after the
+ * strip and not before.
  */
 function plainText(value: unknown): string | undefined {
     const raw = text(value);
-    if (raw === undefined) return undefined;
-
-    const stripped = decodeEntities(raw.replace(/<[^>]*>/g, ' '))
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    if (stripped.length === 0) return undefined;
-    // Cut at a word boundary where there is one nearby, because a summary that
-    // ends mid-word reads as a broken feed rather than as a truncation.
-    if (stripped.length <= FEED_SUMMARY_MAX_CHARS) return stripped;
-
-    const cut = stripped.slice(0, FEED_SUMMARY_MAX_CHARS);
-    const lastSpace = cut.lastIndexOf(' ');
-    return `${(lastSpace > FEED_SUMMARY_MAX_CHARS - 40 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
-}
-
-/**
- * The five XML entities plus numeric escapes.
- *
- * Not an HTML entity table: the parser has already decoded everything that was
- * markup, so what reaches here is what a publisher wrote inside CDATA. A named
- * entity this does not know is left exactly as it was, which reads as the
- * publisher's own text rather than as a hole.
- */
-const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
-
-function decodeEntities(value: string): string {
-    return value.replace(/&(#x?[0-9a-f]+|\w+);/gi, (whole, body: string) => {
-        if (body.startsWith('#')) {
-            const code = body[1]?.toLowerCase() === 'x' ? Number.parseInt(body.slice(2), 16) : Number.parseInt(body.slice(1), 10);
-            return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
-        }
-
-        return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
-    });
+    return raw === undefined ? undefined : asPlainText(raw, FEED_SUMMARY_MAX_CHARS);
 }
 
 /**

@@ -98,6 +98,29 @@ export interface NewsItem {
      * only noticed on air. `parseFeed` in `feed.parse.ts` already guarantees it.
      */
     summary?: string;
+    /**
+     * The story itself, as PLAIN TEXT, when the plugin could read it.
+     *
+     * Distinct from {@link summary} rather than replacing it, because they are
+     * two different things a publisher wrote: a summary is the teaser attached
+     * to the entry and this is the article. In practice the teaser is often one
+     * sentence restating the title, which is why a caller wanting to say what
+     * HAPPENED needs somewhere else to look.
+     *
+     * Still the publisher's own words in the publisher's own order, never a
+     * plugin's paraphrase. A plugin fetches and the host thinks — the same
+     * boundary `capabilities/enrichment.ts` keeps with `SourceDocument`, for
+     * the same reason: only the host can check a claim against the text it came
+     * from, and prose that has been through a plugin's own summariser is prose
+     * nothing can check.
+     *
+     * Absent is entirely ordinary. An entry that links to an audio piece, a
+     * page a plugin was refused, and one it had no budget left to read all
+     * arrive the same way, and every caller's fallback is the entry's own
+     * words. `extractArticle` in `article.parse.ts` is what produces this for
+     * a plugin reading pages.
+     */
+    content?: string;
     url?: string;
     /** ISO-8601. Never a `Date`, and absent when the source published no readable one. */
     publishedAt?: string;

@@ -15,6 +15,7 @@ const source = (overrides: Partial<EnrichmentProvenance> = {}): EnrichmentProven
     expiresAt: '2026-10-31T09:00:00.000Z',
     stale: false,
     found: true,
+    failed: false,
     ...overrides,
 });
 
@@ -70,6 +71,23 @@ describe('EnrichmentPanel', () => {
         render(panel({ merged: {}, sources: [source({ found: false })] }));
 
         expect(screen.getByText(/nothing found/)).toBeInTheDocument();
+    });
+
+    // Both arrive as an empty payload and they are opposite facts: one is settled, the other is the
+    // walk still owing this record an answer. Reading them as one another is what "nothing found"
+    // did for as long as it covered both.
+    it('says a provider could not be asked, rather than that it had nothing', () => {
+        render(panel({ merged: {}, sources: [source({ found: false, failed: true })] }));
+
+        expect(screen.getByText(/could not ask/)).toBeInTheDocument();
+        expect(screen.queryByText(/nothing found/)).not.toBeInTheDocument();
+    });
+
+    it('keeps showing what a now-failing source said before it broke', () => {
+        render(panel({ merged: { label: 'Go! Beat' }, sources: [source({ failed: true })] }));
+
+        expect(screen.getByText(/deadair\.musicbrainz/)).toHaveTextContent(/2026/);
+        expect(screen.getByText(/could not re-ask/)).toBeInTheDocument();
     });
 
     it('marks a payload that is past its TTL as due again', () => {

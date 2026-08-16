@@ -36,6 +36,8 @@ export interface EnrichmentProvenance {
     expiresAt?: string;
     stale: boolean;
     found: boolean;
+    /** The last attempt errored. Distinct from `found: false`, which is the provider having nothing. */
+    failed: boolean;
 }
 
 /**
@@ -63,6 +65,26 @@ export interface EnrichmentPanelProps {
     /** What to say when the walk has stored nothing for this row. Names the entity. */
     emptyMessage: string;
 }
+
+/**
+ * What one provider's badge says, which is three states rather than two.
+ *
+ * "Nothing found" used to cover both a source that answered with nothing and a source that could
+ * not be reached, and they are opposite facts: the first is settled and the second is the walk
+ * still owing this record an answer. Only one of them is worth an operator's attention.
+ */
+const sourceState = (source: EnrichmentProvenance): string => {
+    // A source can be both: what it said in May is still the best answer there is, and the walk
+    // still could not reach it today. Showing only the date would hide the second half, and showing
+    // only the failure would suggest the panel above it came from nowhere.
+    if (source.failed) return source.found ? `${formatDate(source.fetchedAt)} • could not re-ask` : 'could not ask';
+    return source.found ? formatDate(source.fetchedAt) : 'nothing found';
+};
+
+const badgeColor = (source: EnrichmentProvenance): string | undefined => {
+    if (source.failed) return 'yellow';
+    return source.found ? undefined : 'gray';
+};
 
 /** The scalar fields, in the order they are worth reading, dropping the ones nobody resolved. */
 function detailPairs(merged: EnrichmentFacts): [string, string][] {
@@ -262,8 +284,8 @@ export function EnrichmentPanel({ merged, sources, claims, isPending, error, emp
 
                 <Group gap="xs">
                     {rows.map(source => (
-                        <Badge key={source.provider} variant="outline" color={source.found ? undefined : 'gray'}>
-                            {`${source.provider} • ${source.found ? formatDate(source.fetchedAt) : 'nothing found'}${source.stale ? ' • due again' : ''}`}
+                        <Badge key={source.provider} variant="outline" color={badgeColor(source)}>
+                            {`${source.provider} • ${sourceState(source)}${source.stale ? ' • due again' : ''}`}
                         </Badge>
                     ))}
                 </Group>

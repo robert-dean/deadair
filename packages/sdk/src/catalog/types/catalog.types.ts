@@ -177,7 +177,7 @@ export interface EnrichmentLink {
  * One thing the station believes, and the words it read that say so. Extracted by the host out of
  * an article a plugin handed over, rather than said by any plugin: `sourceUrl` is where a person
  * checks it and `sourceQuote` is the span that supports it, and neither is ever absent.
- * generated from [FactClaim](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L317)
+ * generated from [FactClaim](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L321)
  */
 export interface FactClaim {
     id: string;
@@ -450,12 +450,13 @@ export interface TrackRow extends Track {
     enriched: boolean;
 }
 
-export type TrackRowInput = TrackInput
+export interface TrackRowInput extends TrackInput {}
 
 /**
  * One provider's stored answer. `found: false` is a recorded miss, which is a fact rather than a
- * failure: the provider was asked, had nothing, and is not asked again until `expiresAt`.
- * generated from [TrackEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L284)
+ * failure: the provider was asked, had nothing, and is not asked again until `expiresAt`. A provider
+ * that could not be asked at all is `failed` instead, and the two never both hold.
+ * generated from [TrackEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L285)
  */
 export interface TrackEnrichmentSource {
     provider: string;
@@ -466,6 +467,8 @@ export interface TrackEnrichmentSource {
     /** Past its TTL, so the next pass will ask again */
     stale: boolean;
     found: boolean;
+    /** The last attempt errored, so `expiresAt` is a backoff rather than a TTL */
+    failed: boolean;
     data: TrackEnrichmentData;
 }
 
@@ -474,7 +477,7 @@ export interface TrackEnrichmentSourceInput {
 }
 
 /**
- * generated from [ArtistEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L294)
+ * generated from [ArtistEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L296)
  */
 export interface ArtistEnrichmentSource {
     provider: string;
@@ -483,6 +486,8 @@ export interface ArtistEnrichmentSource {
     expiresAt?: string;
     stale: boolean;
     found: boolean;
+    /** The last attempt errored, so `expiresAt` is a backoff rather than a TTL */
+    failed: boolean;
     data: ArtistEnrichmentData;
 }
 
@@ -491,7 +496,7 @@ export interface ArtistEnrichmentSourceInput {
 }
 
 /**
- * generated from [AlbumEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L304)
+ * generated from [AlbumEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L307)
  */
 export interface AlbumEnrichmentSource {
     provider: string;
@@ -500,6 +505,8 @@ export interface AlbumEnrichmentSource {
     expiresAt?: string;
     stale: boolean;
     found: boolean;
+    /** The last attempt errored, so `expiresAt` is a backoff rather than a TTL */
+    failed: boolean;
     data: AlbumEnrichmentData;
 }
 
@@ -531,7 +538,7 @@ export interface TrackPageInput {
  * `claims` sits beside them rather than inside `merged`, because a claim is the host's own and not
  * any provider's. The articles they were read out of are deliberately NOT here: raw source prose is
  * stored and never sent.
- * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L337)
+ * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L341)
  */
 export interface TrackEnrichmentDetail {
     trackId: string;
@@ -547,7 +554,7 @@ export interface TrackEnrichmentDetailInput {
 }
 
 /**
- * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L344)
+ * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L348)
  */
 export interface ArtistEnrichmentDetail {
     artistId: string;
@@ -563,7 +570,7 @@ export interface ArtistEnrichmentDetailInput {
 }
 
 /**
- * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L351)
+ * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L355)
  */
 export interface AlbumEnrichmentDetail {
     albumId: string;

@@ -280,7 +280,8 @@ contract AlbumEnrichmentData: {
 }
 
 # One provider's stored answer. `found: false` is a recorded miss, which is a fact rather than a
-# failure: the provider was asked, had nothing, and is not asked again until `expiresAt`.
+# failure: the provider was asked, had nothing, and is not asked again until `expiresAt`. A provider
+# that could not be asked at all is `failed` instead, and the two never both hold.
 contract TrackEnrichmentSource: {
     provider: readonly string(min=1, max=200)
     providerRef?: readonly string(max=200) # The id it was fetched under. Provenance, not identity
@@ -288,6 +289,7 @@ contract TrackEnrichmentSource: {
     expiresAt?: readonly datetime
     stale: readonly boolean # Past its TTL, so the next pass will ask again
     found: readonly boolean
+    failed: readonly boolean # The last attempt errored, so `expiresAt` is a backoff rather than a TTL
     data: TrackEnrichmentData
 }
 
@@ -298,6 +300,7 @@ contract ArtistEnrichmentSource: {
     expiresAt?: readonly datetime
     stale: readonly boolean
     found: readonly boolean
+    failed: readonly boolean # The last attempt errored, so `expiresAt` is a backoff rather than a TTL
     data: ArtistEnrichmentData
 }
 
@@ -308,6 +311,7 @@ contract AlbumEnrichmentSource: {
     expiresAt?: readonly datetime
     stale: readonly boolean
     found: readonly boolean
+    failed: readonly boolean # The last attempt errored, so `expiresAt` is a backoff rather than a TTL
     data: AlbumEnrichmentData
 }
 

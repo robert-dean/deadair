@@ -112,6 +112,7 @@ interface ReadSource<T> {
     expiresAt?: DateTime;
     stale: boolean;
     found: boolean;
+    failed: boolean;
     data: T;
 }
 
@@ -341,6 +342,12 @@ export class EnrichmentReadService {
                     // asked and had nothing. Not a failure, and not an empty
                     // card for the console to puzzle over.
                     found,
+                    // The failure the sentence above is careful to say this is
+                    // not. `attempts` counts consecutive ones and any answer
+                    // clears it, so this is the state of the LAST attempt
+                    // rather than a history — which is what makes it safe to
+                    // read beside a payload the source gave before it broke.
+                    failed: payload.attempts > 0,
                     data,
                 };
             })

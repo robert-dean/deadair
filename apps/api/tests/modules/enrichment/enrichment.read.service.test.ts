@@ -126,7 +126,33 @@ describe('EnrichmentReadService', () => {
 
         expect(detail.sources).toHaveLength(1);
         expect(detail.sources[0]?.found).toBe(false);
+        expect(detail.sources[0]?.failed).toBe(false);
         expect(detail.merged).toEqual({});
+    });
+
+    // A miss and a failure both arrive as an empty payload, and the console draws them differently
+    // because they are opposite facts: one is the provider having nothing, the other is the walk
+    // still owing this record an answer.
+    it('tells a provider that could not be asked apart from one that had nothing', async () => {
+        const read = service({ track: [payload(MUSICBRAINZ, {}, { attempts: 3 })] });
+
+        const detail = await read.getTrackEnrichment(TRACK_ID);
+
+        expect(detail.sources[0]?.failed).toBe(true);
+        expect(detail.sources[0]?.found).toBe(false);
+    });
+
+    // The counter is about the last ATTEMPT, not the payload, so a source that answered in May and
+    // broke in August still hands over what it said. Overwriting that would let one timeout cost a
+    // record its whole biography.
+    it('keeps handing back a payload from before the failure', async () => {
+        const read = service({ track: [payload(MUSICBRAINZ, { artist: 'Portishead' }, { attempts: 1 })] });
+
+        const detail = await read.getTrackEnrichment(TRACK_ID);
+
+        expect(detail.sources[0]?.failed).toBe(true);
+        expect(detail.sources[0]?.found).toBe(true);
+        expect(detail.merged.artist).toBe('Portishead');
     });
 
     it('flags a payload past its TTL as stale, and still hands it back', async () => {

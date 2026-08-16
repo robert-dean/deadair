@@ -1479,6 +1479,13 @@ export class DirectorService {
         // Only a record the CATALOG holds can be judged: a pick straight from a provider playlist
         // has no `trackId` and no binding row to be missing, so it is left alone and answers for
         // itself at hand-over.
+        //
+        // Deliberately NOT passed the station's advisory policy, which is not an oversight. This
+        // asks whether a record is still AVAILABLE; the policy is about which copy to PROGRAMME,
+        // and it was applied when `PickResolver` chose this item. Handing it in here would mean an
+        // operator switching to clean-only mid-broadcast marks everything already in the running
+        // order `unavailable` and splices it out, which is the wrong word for it and the wrong
+        // moment. The policy takes effect on the next refill, exactly as a rating change does.
         const catalogued = items.flatMap(item => (item.kind === 'track' && item.track.trackId !== undefined ? [item.track.trackId] : []));
         const bindings =
             catalogued.length === 0

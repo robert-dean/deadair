@@ -15,6 +15,7 @@ import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
 import { WelcomeWriter } from './welcome.writer.js';
 import { CandidatesRepository } from './candidates.repository.js';
+import { AdvisoryWatch } from './advisory.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
 import { ModelSetGenerator } from './model.set.generator.js';
@@ -60,6 +61,11 @@ export const DirectorModule: ServerKitModule = {
         registry.register(ModelSetGenerator).useClass(ModelSetGenerator).asScoped();
         registry.register(ChartSetGenerator).useClass(ChartSetGenerator).asScoped();
         registry.register(SimilarSetGenerator).useClass(SimilarSetGenerator).asScoped();
+        // A SINGLETON among scoped generators, and only because it holds one boolean. The draw
+        // below discovers that the advisory policy has left the station nothing to play, and a feed
+        // producer writes on edges — so the flag saying "already said this" has to outlive the
+        // per-refill scope the discovery happens in. See `AdvisoryWatch`.
+        registry.register(AdvisoryWatch).useClass(AdvisoryWatch).asSingleton();
         registry.register(CatalogSetGenerator).useClass(CatalogSetGenerator).asScoped();
         registry
             .register(SetGenerator)

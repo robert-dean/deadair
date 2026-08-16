@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
+import { ADVISORY_DEFAULT, advisoryRank, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 
 /**
  * The catalog, read the way the director needs it: tracks that can actually be
@@ -91,11 +92,19 @@ export class CandidatesRepository extends DataRepository {
      *   places: this one keeps a disliked track out of the sample at all, and that
      *   one catches anything arriving by another route.
      *
+     * Under `clean-only` the live-binding test gains one more condition, so a work
+     * whose only playable copies are explicit or unmarked is not drawn at all. The
+     * two `prefer-` states narrow NOTHING here, which is the same call the repeat
+     * window makes: they are satisfied by choosing the right copy in
+     * {@link bindingsFor}, and dropping a work from the draw because its preferred
+     * version is missing would shrink the pool for a preference that was going to
+     * be met by the other copy anyway.
+     *
      * `order by random()` reads the whole candidate set, which is honest at the
      * scale this runs at — a station's library is thousands of rows, and this runs
      * once per refill in a background job, not per request.
      */
-    async sample(count: number): Promise<CandidateTrack[]> {
+    async sample(count: number, policy: AdvisoryPolicy = ADVISORY_DEFAULT): Promise<CandidateTrack[]> {
         const limit = Math.min(SAMPLE_CEILING, Math.max(1, count) * SAMPLE_MULTIPLIER);
 
         const rows = await this.db
@@ -112,7 +121,9 @@ export class CandidatesRepository extends DataRepository {
                         .selectFrom('deadair.trackSources')
                         .select('deadair.trackSources.id')
                         .whereRef('deadair.trackSources.trackId', '=', 'deadair.tracks.id')
-                        .where('deadair.trackSources.missingAt', 'is', null),
+                        .where('deadair.trackSources.missingAt', 'is', null)
+                        // A POSITIVE 'clean'. Null is "the provider did not say", never consent.
+                        .$if(demandsClean(policy), qb => qb.where('deadair.trackSources.advisory', '=', 'clean')),
                 ),
             )
             .where('deadair.tracks.rating', '<>', -1)
@@ -164,38 +175,72 @@ export class CandidatesRepository extends DataRepository {
     /**
      * The playable copies of a batch of works, best first.
      *
-     * "Best" is: a binding the provider still offers, then the operator's own
-     * order of preference, then the most recently seen. A row carrying
+     * "Best" is: a binding the provider still offers, then the station's advisory
+     * policy, then the operator's own order of preference. A row carrying
      * `missing_at` is excluded outright rather than ranked last — the provider has
-     * said it no longer has it, and handing that to the player is a gap.
+     * said it no longer has it, and handing that to the player is a gap. Under
+     * `clean-only` a row that is not positively `clean` is excluded the same way,
+     * and a work left with no rows at all simply gets no binding, which the caller
+     * already treats as "nothing can play this".
+     *
+     * ## The advisory outranks the provider preference, and that order matters
+     *
+     * This is the decision here that is easiest to get backwards and has no symptom
+     * when it is. The policy is a rule about CONTENT and the provider list is a
+     * preference about DELIVERY — which machine the bytes come from — so content
+     * wins and delivery breaks the tie. Ranked the other way, a station set to
+     * `prefer-clean` whose clean copy sits on the second-choice provider is handed
+     * the explicit one from the first, and nothing anywhere says why a station that
+     * was told to keep it clean is not.
      *
      * @param preference - Plugin ids in the operator's order. Anything unlisted
      *   sorts after everything listed, so an unconfigured station still gets a
      *   deterministic answer rather than a random one.
+     * @param policy - The station's advisory policy. Defaults to `prefer-explicit`,
+     *   which is the closest this type has to "no opinion" — that is what a caller
+     *   asking whether a record is still AVAILABLE rather than which copy to
+     *   programme should pass. See `DirectorService.toPlayerItems`.
      */
-    async bindingsFor(trackIds: readonly string[], preference: readonly string[] = []): Promise<Map<string, TrackBinding>> {
+    async bindingsFor(
+        trackIds: readonly string[],
+        preference: readonly string[] = [],
+        policy: AdvisoryPolicy = ADVISORY_DEFAULT,
+    ): Promise<Map<string, TrackBinding>> {
         const best = new Map<string, TrackBinding>();
         if (trackIds.length === 0) return best;
 
         const rows = await this.db
             .selectFrom('deadair.trackSources')
-            .select(['trackId', 'pluginId', 'externalId', 'durationMs', 'lastSeenAt'])
+            .select(['trackId', 'pluginId', 'externalId', 'durationMs', 'lastSeenAt', 'advisory'])
             .where('trackId', 'in', [...trackIds])
             .where('missingAt', 'is', null)
+            // A POSITIVE 'clean'. Null is "the provider did not say", never consent.
+            .$if(demandsClean(policy), qb => qb.where('advisory', '=', 'clean'))
             .execute();
 
         const rank = (pluginId: string): number => {
             const index = preference.indexOf(pluginId);
             return index < 0 ? preference.length : index;
         };
+        // Advisory first, provider second. See the note above; the tuple is compared in this
+        // order and reversing the two is the whole of that mistake.
+        const better = (candidate: (typeof rows)[number], incumbent: (typeof rows)[number]): boolean => {
+            const byAdvisory = advisoryRank(policy, candidate.advisory) - advisoryRank(policy, incumbent.advisory);
+            if (byAdvisory !== 0) return byAdvisory < 0;
+            return rank(candidate.pluginId) < rank(incumbent.pluginId);
+        };
 
+        // Ranked in memory rather than in SQL: the order depends on an array the operator
+        // supplies, and a CASE built from it would have to be assembled per call anyway for a
+        // list this short.
+        const chosen = new Map<string, (typeof rows)[number]>();
         for (const row of rows) {
-            const current = best.get(row.trackId);
-            // Ranked in memory rather than in SQL: the order depends on an array the
-            // operator supplies, and a CASE built from it would have to be assembled per
-            // call anyway for a list this short.
-            if (current && rank(current.pluginId) <= rank(row.pluginId)) continue;
+            const current = chosen.get(row.trackId);
+            if (current && !better(row, current)) continue;
+            chosen.set(row.trackId, row);
+        }
 
+        for (const row of chosen.values()) {
             best.set(row.trackId, {
                 trackId: row.trackId,
                 pluginId: row.pluginId,

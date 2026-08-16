@@ -5,7 +5,10 @@
 // repeating itself.
 
 import { describe, expect, it, vi } from 'vitest';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 
+import type { AdvisoryWatch } from '../../../src/modules/director/advisory.watch.js';
+import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { CatalogSetGenerator } from '../../../src/modules/director/catalog.set.generator.js';
 import type { CandidatesRepository, CandidateTrack } from '../../../src/modules/director/candidates.repository.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
@@ -25,6 +28,7 @@ interface Options {
     sample?: CandidateTrack[];
     songKeys?: Set<string>;
     artistKeys?: Set<string>;
+    settings?: Record<string, unknown>;
 }
 
 function build(options: Options = {}) {
@@ -37,7 +41,14 @@ function build(options: Options = {}) {
         artistKeysSince: vi.fn(async (minutes: number) => (minutes > 0 ? (options.artistKeys ?? new Set()) : new Set())),
     } as unknown as PlayHistoryRepository;
 
-    return { generator: new CatalogSetGenerator(candidates, history, new StationIdentity()), candidates, history };
+    const settings: Record<string, unknown> = { ...options.settings };
+    const config = {
+        get: vi.fn((key: string, fallback?: unknown) => (key in settings ? settings[key] : fallback)),
+    } as unknown as AppConfig;
+
+    const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as AdvisoryWatch;
+
+    return { generator: new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch), candidates, history, watch };
 }
 
 const rotation = resolveRules('rotation');
@@ -141,5 +152,50 @@ describe('CatalogSetGenerator', () => {
         const { generator } = build({ sample: [candidate('A', 'One', -1), candidate('B', 'Two')] });
 
         expect((await generator.generate({ count: 2, rules: rotation })).map(pick => pick.title)).toEqual(['B']);
+    });
+
+    it('hands the station advisory policy to the draw, so the SQL can narrow on it', async () => {
+        const { generator, candidates } = build({ sample: [candidate('A', 'One')], settings: { [ADVISORY_KEY]: 'clean-only' } });
+        await generator.generate({ count: 1, rules: rotation });
+
+        expect(candidates.sample).toHaveBeenCalledWith(1, 'clean-only');
+    });
+
+    it('says the policy starved it when the draw is empty and the same draw without it is not', async () => {
+        // The whole point of the second query: a clean-only station with nothing marked clean and
+        // one with an empty catalog are the same silence and want opposite fixes.
+        const settings = { [ADVISORY_KEY]: 'clean-only' };
+        const { generator, candidates, watch } = build({ settings });
+        vi.mocked(candidates.sample)
+            .mockImplementationOnce(async () => [])
+            .mockImplementationOnce(async () => [candidate('A', 'One'), candidate('B', 'Two')]);
+
+        expect(await generator.generate({ count: 4, rules: rotation })).toEqual([]);
+        expect(watch.starved).toHaveBeenCalledWith(2);
+    });
+
+    it('blames nothing when the library is empty either way', async () => {
+        // An empty catalog is not the policy's doing, and saying it was would send the operator to
+        // change a setting that was never the problem.
+        const { generator, watch } = build({ settings: { [ADVISORY_KEY]: 'clean-only' } });
+
+        await generator.generate({ count: 4, rules: rotation });
+        expect(watch.starved).not.toHaveBeenCalled();
+    });
+
+    it('does not go looking for a cause when the policy is not clean-only', async () => {
+        // The second query is bought only in the state the station cannot programme out of.
+        const { generator, candidates, watch } = build();
+
+        await generator.generate({ count: 4, rules: rotation });
+        expect(candidates.sample).toHaveBeenCalledTimes(1);
+        expect(watch.starved).not.toHaveBeenCalled();
+    });
+
+    it('clears the mark as soon as it can draw again', async () => {
+        const { generator, watch } = build({ sample: [candidate('A', 'One')], settings: { [ADVISORY_KEY]: 'clean-only' } });
+
+        await generator.generate({ count: 1, rules: rotation });
+        expect(watch.clear).toHaveBeenCalled();
     });
 });

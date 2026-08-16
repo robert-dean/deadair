@@ -9,6 +9,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 
+import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { discoveryCap, DISCOVER_KEY, MAX_DISCOVERIES, MIN_DISCOVERIES, PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import type { ProviderTrackLookup } from '../../../src/modules/director/provider.track.lookup.js';
 import type { CatalogResolverService } from '../../../src/modules/catalog/ingest/catalog.resolver.service.js';
@@ -67,6 +68,8 @@ interface Options {
     atProvider?: Record<string, { pluginId: string; track: { id: string; title: string; artists: string[] } }>;
     /** Whether `rotation.discover` is on. On is the default, as it is in the registry. */
     discover?: boolean;
+    /** Anything else in `deadair.settings`, for a test about a setting rather than about resolution. */
+    settings?: Record<string, unknown>;
     /** Whether any plugin can be searched at all. */
     canLookUp?: boolean;
     /** An ingest that refuses the item, as one with no credited artist does. */
@@ -151,7 +154,7 @@ function build(options: Options = {}) {
     const ingested: { pluginId: string; externalId: string; origin: string }[] = [];
     const ingest = { ingestTrack } as unknown as CatalogResolverService;
 
-    const values: Record<string, boolean> = { [DISCOVER_KEY]: options.discover ?? true };
+    const values: Record<string, unknown> = { [DISCOVER_KEY]: options.discover ?? true, ...options.settings };
     const config = { get: (key: string, fallback: unknown) => values[key] ?? fallback } as unknown as AppConfig;
 
     return {
@@ -290,7 +293,21 @@ describe('PickResolver', () => {
 
         await resolve(resolver, [{ title: 'A', artist: 'One', trackId: 'track-1' }], ['deadair.navidrome']);
 
-        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], ['deadair.navidrome']);
+        // The advisory policy rides alongside it, because the copy a work resolves to is decided by
+        // both: the policy chooses the VERSION and the preference chooses where it comes from.
+        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], ['deadair.navidrome'], 'prefer-explicit');
+    });
+
+    it('hands the station advisory policy to the binding choice', async () => {
+        const { resolver, candidates } = build({
+            bindings: { 'track-1': binding('track-1') },
+            metadata: {},
+            settings: { [ADVISORY_KEY]: 'prefer-clean' },
+        });
+
+        await resolve(resolver, [{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(candidates.bindingsFor).toHaveBeenCalledWith(['track-1'], [], 'prefer-clean');
     });
 
     it('answers an empty batch without touching the database', async () => {

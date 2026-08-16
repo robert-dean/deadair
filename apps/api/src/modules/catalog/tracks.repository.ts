@@ -268,8 +268,17 @@ export class TracksRepository extends DataRepository {
      * The three exclusions are the same ones `CandidatesRepository.sample` applies, for the same
      * reasons, and they are stated in both places rather than shared: a sample and a search are
      * different questions, and a helper spanning them would have to grow a flag per caller.
+     *
+     * `cleanOnly` joins the bans rather than the rotation rules, on the same split. A station that
+     * may only play positively-clean copies must not be OFFERED anything else, because a record it
+     * cannot air is a record the model will name and lose. The two `prefer-` states deliberately do
+     * not narrow this at all: they are a preference between two copies of one work, and the work is
+     * playable either way.
+     *
+     * @param cleanOnly - Whether the station demands a positively `clean` copy. Null means the
+     *   provider did not say and is excluded here too; see `advisory.policy.ts`.
      */
-    async searchPlayable(search: string, limit: number) {
+    async searchPlayable(search: string, limit: number, cleanOnly = false) {
         const pattern = likeContains(search);
 
         return await this.db
@@ -309,7 +318,9 @@ export class TracksRepository extends DataRepository {
                         .selectFrom('deadair.trackSources')
                         .select('deadair.trackSources.id')
                         .whereRef('deadair.trackSources.trackId', '=', 'deadair.tracks.id')
-                        .where('deadair.trackSources.missingAt', 'is', null),
+                        .where('deadair.trackSources.missingAt', 'is', null)
+                        // A POSITIVE 'clean'; null is "the provider did not say", never consent.
+                        .$if(cleanOnly, qb => qb.where('deadair.trackSources.advisory', '=', 'clean')),
                 ),
             )
             .where('deadair.tracks.rating', '<>', -1)

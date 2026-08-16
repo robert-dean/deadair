@@ -1,6 +1,8 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
+import { advisoryPolicy, demandsClean } from '#modules/director/advisory.policy.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 
 /**
@@ -33,6 +35,11 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  * the point of choice, and a tool that pre-filtered it would return a worse pool on a small library
  * while hiding from the model the very thing it is supposed to be reasoning about. See
  * `docs/todo/station-intelligence.md` §1.
+ *
+ * A `clean-only` station falls on the BAN side of that line, and the two `prefer-` states fall on
+ * the rotation-rule side. The split is the same one: clean-only means a record with no clean copy
+ * cannot air at all, so offering it is offering something that will be named and lost, while a
+ * preference is satisfied by choosing between two copies of a work that is playable either way.
  */
 
 /** How many records come back at most, whatever was asked for. */
@@ -51,6 +58,7 @@ interface LibraryTrack {
 export class LibrarySearchTool implements ToolSource {
     constructor(
         private readonly tracks: TracksRepository,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -96,7 +104,9 @@ export class LibrarySearchTool implements ToolSource {
         const query = typeof args.query === 'string' ? args.query.trim() : '';
         if (query.length === 0) throw new Error('a search needs a "query" string');
 
-        const rows = await this.tracks.searchPlayable(query, clampLimit(args.limit));
+        // Read per call, like every other setting: an operator switching the station to clean-only
+        // is obeyed by the next thing the model asks rather than after a restart.
+        const rows = await this.tracks.searchPlayable(query, clampLimit(args.limit), demandsClean(advisoryPolicy(this.config)));
         this.logger.debug('llm: searched the library', { query, found: rows.length });
 
         return {

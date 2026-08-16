@@ -6,17 +6,22 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
+import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { LibrarySearchTool } from '../../../src/modules/llm/library.search.tool.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
 type Row = { title: string; artistName: string; albumName?: string | null; year?: number | null; genre?: string | null };
 
-function build(rows: Row[] = []) {
+function build(rows: Row[] = [], settings: Record<string, unknown> = {}) {
     const searchPlayable = vi.fn(async () => rows);
     const tracks = { searchPlayable } as unknown as TracksRepository;
-    return { tool: new LibrarySearchTool(tracks, logger), searchPlayable };
+    const config = {
+        get: (key: string, fallback?: unknown) => (key in settings ? settings[key] : fallback),
+    } as unknown as AppConfig;
+    return { tool: new LibrarySearchTool(tracks, config, logger), searchPlayable };
 }
 
 /** The one tool this source offers, since every test needs it. */
@@ -59,7 +64,7 @@ describe('LibrarySearchTool', () => {
 
         await (await only(tool)).run({ query: 'a', limit: 400 });
 
-        expect(searchPlayable).toHaveBeenCalledWith('a', 25);
+        expect(searchPlayable).toHaveBeenCalledWith('a', 25, false);
     });
 
     it('takes a smaller limit at its word', async () => {
@@ -67,7 +72,7 @@ describe('LibrarySearchTool', () => {
 
         await (await only(tool)).run({ query: 'a', limit: 5 });
 
-        expect(searchPlayable).toHaveBeenCalledWith('a', 5);
+        expect(searchPlayable).toHaveBeenCalledWith('a', 5, false);
     });
 
     it('falls back to the ceiling for a nonsense limit rather than failing the search', async () => {
@@ -76,7 +81,7 @@ describe('LibrarySearchTool', () => {
 
         await (await only(tool)).run({ query: 'a', limit: 'lots' as unknown as number });
 
-        expect(searchPlayable).toHaveBeenCalledWith('a', 25);
+        expect(searchPlayable).toHaveBeenCalledWith('a', 25, false);
     });
 
     it('reports a missing query as something the model can correct', async () => {
@@ -98,7 +103,7 @@ describe('LibrarySearchTool', () => {
 
         await (await only(tool)).run({ query: '  aphex  ' });
 
-        expect(searchPlayable).toHaveBeenCalledWith('aphex', 25);
+        expect(searchPlayable).toHaveBeenCalledWith('aphex', 25, false);
     });
 
     it('answers with nothing rather than failing when the library has no match', async () => {
@@ -107,5 +112,25 @@ describe('LibrarySearchTool', () => {
         const { tool } = build([]);
 
         expect(await (await only(tool)).run({ query: 'nothing' })).toEqual({ tracks: [] });
+    });
+
+    it('narrows to clean copies when the station may play nothing else', async () => {
+        // Same side of the line as the bans: a record that cannot air must not be offered, because
+        // the model will name it and the resolver will drop it.
+        const { tool, searchPlayable } = build([], { [ADVISORY_KEY]: 'clean-only' });
+
+        await (await only(tool)).run({ query: 'a' });
+
+        expect(searchPlayable).toHaveBeenCalledWith('a', 25, true);
+    });
+
+    it('does not narrow for a mere preference, which is settled when the copy is chosen', async () => {
+        // The rotation-rules side of the line. The work is playable either way, so pre-filtering
+        // would return a worse pool for a preference `bindingsFor` is going to honour anyway.
+        const { tool, searchPlayable } = build([], { [ADVISORY_KEY]: 'prefer-clean' });
+
+        await (await only(tool)).run({ query: 'a' });
+
+        expect(searchPlayable).toHaveBeenCalledWith('a', 25, false);
     });
 });

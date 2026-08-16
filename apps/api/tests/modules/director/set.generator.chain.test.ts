@@ -184,7 +184,12 @@ describe('SetGeneratorChain with the real bindings', () => {
             artistKeysSince: vi.fn(async () => new Set<string>()),
         } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[1];
 
-        return new CatalogSetGenerator(candidates, history, new StationIdentity());
+        // No advisory setting stored, so the policy resolves to its default and narrows nothing:
+        // this helper exists to be the chain's floor, not to exercise the policy.
+        const config = { get: (_key: string, fallback?: unknown) => fallback } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[3];
+        const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[4];
+
+        return new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch);
     }
 
     /** The model binding as an operator who never turned it on has it. */

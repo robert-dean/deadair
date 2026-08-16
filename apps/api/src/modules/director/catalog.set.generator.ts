@@ -1,5 +1,8 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { StationIdentity } from '#modules/shared/station.identity.js';
+import { advisoryPolicy, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
+import { AdvisoryWatch } from './advisory.watch.js';
 import { CandidatesRepository, type CandidateTrack } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { artistKey, songKey } from './rotation.keys.js';
@@ -36,6 +39,8 @@ export class CatalogSetGenerator extends SetGenerator {
         private readonly candidates: CandidatesRepository,
         private readonly history: PlayHistoryRepository,
         private readonly identity: StationIdentity,
+        private readonly config: AppConfig,
+        private readonly watch: AdvisoryWatch,
     ) {
         super();
     }
@@ -57,7 +62,11 @@ export class CatalogSetGenerator extends SetGenerator {
             artistKeys: union(artistKeys, inputs.avoidArtistKeys),
         };
 
-        const sampled = await this.candidates.sample(count);
+        // Read per refill rather than held, like every other setting the director reads, so an
+        // operator changing it is obeyed on the next batch rather than after a restart.
+        const policy = advisoryPolicy(this.config);
+        const sampled = await this.candidates.sample(count, policy);
+        await this.watchStarvation(policy, count, sampled.length);
         const scored = sampled.map(toRotationCandidate);
 
         // The same rules `PickResolver` applies to every pick from every generator, applied
@@ -72,6 +81,32 @@ export class CatalogSetGenerator extends SetGenerator {
             artist: candidate.track.artist,
             trackId: candidate.track.trackId,
         }));
+    }
+
+    /**
+     * Tell an empty draw caused by the policy apart from an empty library, and say which.
+     *
+     * The second query runs ONLY when a clean-only draw came back with nothing, which is a state
+     * the station cannot programme out of anyway — so it costs a round trip in the case where
+     * round trips have stopped mattering, and nothing at all the rest of the time.
+     *
+     * The two are indistinguishable from the outside and want opposite fixes: one is a setting to
+     * change, the other is a library to fill. Without this the operator gets a silent station and
+     * a feed saying the chain came up short, which is true of both.
+     */
+    private async watchStarvation(policy: AdvisoryPolicy, count: number, drawn: number): Promise<void> {
+        if (drawn > 0) {
+            this.watch.clear();
+            return;
+        }
+        if (!demandsClean(policy)) return;
+
+        const withoutPolicy = await this.candidates.sample(count, 'prefer-explicit');
+        // A library that is empty either way is not this rule's doing, and claiming it would send
+        // the operator to change a setting that was never the problem.
+        if (withoutPolicy.length === 0) return;
+
+        this.watch.starved(withoutPolicy.length);
     }
 }
 

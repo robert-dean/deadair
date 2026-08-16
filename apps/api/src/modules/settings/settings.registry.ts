@@ -13,6 +13,7 @@ import { MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
+import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
@@ -232,6 +233,26 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: DISCOVER_DEFAULT,
         help: 'The library holds what your playlists carry, which is a fraction of what a provider knows. With this on, a chosen record the library has never seen is looked up at your providers, taken into the catalog and played. Turning it off makes the library the boundary again: anything outside it is skipped.',
+    },
+    {
+        group: 'rotation',
+        key: ADVISORY_KEY,
+        label: 'Explicit content',
+        type: 'select',
+        default: ADVISORY_DEFAULT,
+        options: [
+            { value: 'prefer-explicit', label: 'Play the original version' },
+            { value: 'prefer-clean', label: 'Prefer a clean version where there is one' },
+            { value: 'clean-only', label: 'Only play records marked clean' },
+        ],
+        help:
+            'Where a record exists both ways, which one the station reaches for. Most music has no clean version at all, ' +
+            'so "prefer a clean version" is a lean rather than a promise: it still plays the original when that is all there is. ' +
+            '"Only play records marked clean" is the promise, and it is strict on purpose — a record is played only if a ' +
+            'provider actually said it was clean, so anything unmarked is skipped. Read what that costs you: most sources ' +
+            'never say, and a library from one of those has nothing marked at all, so the station would play nothing. ' +
+            'It also cannot override your own account: if the account the audio comes from has explicit content turned ' +
+            'off, that decision is above this one, and the plugin says so when it connects.',
     },
     {
         group: 'rotation',

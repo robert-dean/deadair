@@ -8,6 +8,7 @@ import { CatalogResolverService } from '#modules/catalog/ingest/catalog.resolver
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import type { MeasuredLoudness } from '#modules/playout/gain.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
+import { advisoryPolicy, demandsClean } from './advisory.policy.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { ProviderTrackLookup } from './provider.track.lookup.js';
@@ -274,6 +275,8 @@ export class PickResolver {
     async resolve(picks: readonly TrackPick[], rules: ResolvedRules, preference: readonly string[] = []): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
+        const policy = advisoryPolicy(this.config);
+
         const identified = await this.identify(picks);
         if (identified.length === 0) return [];
 
@@ -287,7 +290,12 @@ export class PickResolver {
         // failure, a partial file, an older schema version -- so a miss here and an
         // unmeasured track are the same thing to the code below, which is the point.
         const [bindings, metadata, measured] = await Promise.all([
-            this.candidates.bindingsFor(trackIds, preference),
+            // The advisory policy applies HERE, at the one step every pick from every generator
+            // reaches, for exactly the reason the rotation rules do: a pick is a NAME, so a model
+            // or an operator's request hands over records nothing has judged. Under `clean-only` a
+            // work with no clean copy gets no binding and falls into the drop below, which is the
+            // existing "nothing can play this" path rather than a second mechanism.
+            this.candidates.bindingsFor(trackIds, preference, policy),
             this.tracks.findByIds(trackIds),
             this.analysis.trustedAnalysisFor(trackIds, ANALYSIS_SCHEMA_VERSION),
         ]);
@@ -297,11 +305,19 @@ export class PickResolver {
             const { pick, trackId } = entry;
             const binding = bindings.get(trackId);
             if (!binding) {
-                // Every provider that carried it has stopped. The catalog still knows the
-                // work; nothing can play it, so it is one track skipped rather than a gap.
-                this.logger.warn('director: no provider still serves a chosen track; skipping it', {
-                    track: `${pick.artist} — ${pick.title}`,
-                });
+                // Every provider that carried it has stopped, OR the station is clean-only and no
+                // copy is positively marked clean. The catalog still knows the work; nothing that
+                // may air can play it, so it is one track skipped rather than a gap.
+                //
+                // The two are named separately because they want opposite fixes and are otherwise
+                // indistinguishable in a log: one is an upstream that dropped a record, the other
+                // is the operator's own policy doing exactly what it was set to do.
+                this.logger.warn(
+                    demandsClean(policy)
+                        ? 'director: no clean copy of a chosen track, and the station is clean-only; skipping it'
+                        : 'director: no provider still serves a chosen track; skipping it',
+                    { track: `${pick.artist} — ${pick.title}` },
+                );
                 continue;
             }
 

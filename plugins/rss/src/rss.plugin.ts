@@ -336,7 +336,7 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
 
             return ` Stories read from ${host}.`;
         } catch (error) {
-            return ` Stories could not be read from ${host} (${message(error)}). Add this plugin to "Plugins allowed to reach the open web" in settings.`;
+            return ` Stories could not be read from ${host} (${message(error)}). Allow this plugin the open web, under what it has asked for on this page.`;
         }
     }
 }

@@ -129,7 +129,7 @@ export const rssManifest: PluginManifest = {
             default: DEFAULT_FETCH_ARTICLES,
             help:
                 "A feed usually carries titles and a one-line teaser, so a bulletin built from it alone reads out a list. With this on, the station also opens each story's own page and keeps its paragraphs, which is what a presenter needs to say what actually happened. " +
-                'The stories are on a different address from the feed, so this needs the plugin listed under "Plugins allowed to reach the open web" in the station settings. Costs one request per story read, and never more than four per bulletin.',
+                'The stories are on a different address from the feed, so this needs the open web allowed under what this plugin has asked for, below. Costs one request per story read, and never more than four per bulletin.',
         },
         {
             key: 'cacheSeconds',

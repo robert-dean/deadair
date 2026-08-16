@@ -6,12 +6,14 @@ diction split (`persona.sheet.ts`), the templates chain, the voice on the row, t
 one-active partial unique index, `PersonaRepository.presenting`, the console page and editor, and the
 four seeds in `persona.defaults.ts`. None of that is re-opened here.
 
-What follows is the four things a persona cannot do yet. Two of them (§1, §2) are the raw list's
+What follows is the five things a persona cannot do yet. Two of them (§1, §2) are the raw list's
 `shows should use personas` and `persona memory` scoped against real code; §3 is what those two are
-for; §4 is the smallest and has no design question in it.
+for; §4 is the smallest and has no design question in it. §5 was added a day later and is what §3
+leaves unsaid.
 
 They are ordered by what blocks what. §1 is a schema change §2 wants to be made before it writes its
-own; §3 needs both; §4 needs neither and can be taken on any afternoon.
+own; §3 needs both; §4 needs neither and can be taken on any afternoon. §5 needs §3 to exist and
+nothing else.
 
 ## 1. One station, one persona, and the newsreader is the case that broke it
 
@@ -138,6 +140,55 @@ Two constraints, both of which are why this is a considered piece of work rather
 Whether a rehearsal is also SPOKEN is a separate call. The words are the expensive half to get right
 and the cheap half to produce; speaking them costs a synthesis per click and can be added later
 behind the same route.
+
+## 5. The changeover: a schedule swaps the host and the station says nothing
+
+**Scoped 2026-08-16**, from reading §3 back. §3 answers who is presenting after a daypart boundary
+and stops there, which leaves the boundary itself as a hard cut: the warm host is talking over one
+record and the late-night one is talking over the next, with no line between them saying so. Every
+other thing the station does about a change in its own state has a sentence attached — a listener
+arriving gets `WELCOME_KIND`, a silence cause changing gets a `station_events` row — and the one
+moment a LISTENER can actually hear has none.
+
+The shape is one break, written and spoken by the INCOMING persona, naming the outgoing one. Not two,
+and that is a constraint rather than a preference: `segments.voice` is one id and a segment is one
+render, so a sign-off answered by a greeting is the two-voice exchange this file already excludes,
+and it would want a `kind` with turns rather than a persona feature. One break in the new host's
+voice is the whole of what a schedule can say without that.
+
+Three things make it real work rather than a fifth writer.
+
+**The old order is retracted before the new one exists.** A changeover is a new running order (§3),
+which is `putOnAir`, and `putOnAir` opens by calling `rundown.retract()` — so anything the OUTGOING
+persona was to say has to have already aired, not merely be committed, or it goes out with the
+programme it belonged to. That is why the incoming host carries the line: a break rendered under the
+new order is on the near side of the retraction and needs no ordering argument at all. A genuine
+sign-off would need the schedule to write, render and WAIT for a segment on an order it is about to
+throw away, which is a lot of machinery for the less interesting half of the moment.
+
+**It is `next`, never `interrupt`.** A daypart boundary is not urgent and the changeover policy in
+[director-and-lineups.md](director-and-lineups.md) already names the moment: finish the track, then
+swap. So this is `prepareRequested`'s rendered-before-injected path with the urgency that lands on a
+record boundary, and the audio exists before the slot does — which is the same guarantee that keeps
+a welcome from arriving as silence.
+
+**The floor has no phrasing for it.** `rotation.breakTemplates` says nothing about a host changing,
+and a persona's own `templates` are that character's ordinary breaks. A changeover template needs to
+name the outgoing host, so `break.templates.ts` gains a value the way `{{next.album}}` will —
+`{{previous.host}}`, resolving to the retiring persona's `djName` — and the seeds gain one phrasing
+each. Without that a model-less station gets a silent changeover, which is the same station it has
+today and is an acceptable first cut, but it is the half that decides whether this is a character
+feature or a model feature.
+
+Two decisions, neither settled:
+
+- **Whether the same persona across a boundary says anything.** It should not: a schedule that swaps
+  only the source is a change in the music and the host has no news to report. So the request is
+  gated on `presenting` actually differing, which means the scheduler compares two persona ids it
+  already holds and usually posts nothing.
+- **Whether a changeover is also a `station_events` row.** Leaning yes and independent of the
+  spoken half — "why did the station change character at 9" is exactly the question the activity
+  feed exists to answer, and it is one `ActivityRecorder` call whether or not anybody is listening.
 
 ## What this file does not cover
 

@@ -7,8 +7,8 @@ points at that file. Checked against the tree on 2026-08-11.
 - [~] shows should use personas — personas are BUILT (`deadair.personas`, the sheet, the voice, the
       templates chain, the `music` line), and `station_lineup.persona_id` already lets a broadcast
       name its own host. What is left is scoped in `personas.md`: §3 is the schedule writing that
-      column, and §1 is the newsreader, which is the first case one-persona-per-station could not
-      express
+      column, §5 is what the station says when a boundary changes the host, and §1 is the
+      newsreader, which is the first case one-persona-per-station could not express
 - [ ] more voices, add phonetics
 - [~] inject news/weather breaks — **news is done, 2026-08-15**: the `news` capability, `plugins/rss`
       and `NewsService` under a `read_news` tool the DJ can call mid-break, plus a `news` segment kind

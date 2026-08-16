@@ -104,6 +104,11 @@ The original entry, still true of the mechanism: The director already re-reads
 behaviour a scheduler needs. What is deferred is the `Programme` seam (`current(): { slot, lineupId }`)
 and the changeover policy: finish the track, then swap.
 
+A slot naming a PERSONA as well as a playlist is [personas.md](personas.md) §3, and costs the
+scheduler one uuid on the row it is already building. What the station SAYS at a boundary that
+changes the host is §5 of the same file, and it is the half with an ordering constraint in it: the
+sign-off cannot ride the order `putOnAir` is about to retract.
+
 ## The station's own permission surface
 
 Routes use `platform.view` / `platform.manage` for now. Deferred: a `station` namespace in

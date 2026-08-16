@@ -182,6 +182,27 @@ export class ContentStore<Ext extends string> {
             .catch(() => false);
     }
 
+    /**
+     * Deletes the file, and says whether there was one.
+     *
+     * Declines rather than throwing on a malformed checksum or extension, exactly as {@link read}
+     * and {@link exists} do and for the same reason: both halves come off a database row. A file
+     * that is already gone is `false` rather than an error, because every caller here is trying to
+     * reach a state rather than perform an act, and "it was not there" is that state.
+     *
+     * **Content addressing makes this shared**, which is the trap: two rows that resolved to
+     * identical audio are ONE file, so whatever decides to call this owes a check that no other row
+     * still points at the same checksum. This class cannot make that check — it holds no rows — and
+     * it deliberately does not pretend to.
+     */
+    async remove(checksum: string, ext: string): Promise<boolean> {
+        if (!CHECKSUM_PATTERN.test(checksum) || !this.isExtension(ext)) return false;
+
+        return await rm(this.pathFor(checksum, ext))
+            .then(() => true)
+            .catch(() => false);
+    }
+
     /** Absolute path for a checksum. Throws rather than guessing if either half is not what it claims. */
     pathFor(checksum: string, ext: Ext): string {
         if (!CHECKSUM_PATTERN.test(checksum)) throw new Error(`Not a sha256 checksum: ${checksum}`);

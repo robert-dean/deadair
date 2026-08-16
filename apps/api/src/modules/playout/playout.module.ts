@@ -71,7 +71,14 @@ export const PlayoutModule: ServerKitModule = {
         registry
             .register(TrackAudioService)
             .useFactory(
-                container => new TrackAudioService(container, container.get(TrackStore), container.get(PluginTrackResolver), container.get(Logger)),
+                container =>
+                    new TrackAudioService(
+                        container,
+                        container.get(TrackStore),
+                        container.get(PluginTrackResolver),
+                        container.get(AppConfig),
+                        container.get(Logger),
+                    ),
             )
             .asSingleton();
 

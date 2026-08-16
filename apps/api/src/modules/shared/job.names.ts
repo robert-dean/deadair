@@ -7,6 +7,7 @@ export type JobNames =
     | 'catalog.cache_art'
     | 'catalog.analyze'
     | 'playout.cache_track'
+    | 'playout.sweep_track_cache'
     | 'director.extend_lineup'
     | 'director.replan_lineup'
     | 'director.write_break'

@@ -52,6 +52,19 @@ const NOTHING: RipenResult = { asked: 0, unfetchable: [] };
 const COMMITTED_LEAD_MS = 4 * 60 * 1000;
 
 /**
+ * How far BEHIND the window the eviction sweep is told to keep its hands off, in items.
+ *
+ * The warm window opens at the first uncommitted item, so everything the player is holding sits in
+ * front of it — including the record airing right now, whose bytes Liquidsoap may still be pulling
+ * and which a `MAX_HAND_OVERS` retry may ask for again. Evicting any of that would produce exactly
+ * the silence the commit gate exists to prevent.
+ *
+ * Small, because this is the past: a handful of items covers the committed lead and the retry window
+ * with room to spare, and protecting more would be protecting records the station has finished with.
+ */
+const PROTECT_BEHIND = 4;
+
+/**
  * Getting the next few records in hand before their slots arrive.
  *
  * The same shape as `BreakPlanner.ripen`, on the same commit pass, and for the same reason: the
@@ -114,15 +127,32 @@ export class TrackCachePlanner {
         // Records only. A segment's audio is the render module's business and is either `ready` by the
         // time the director looks at it or skipped.
         const records = window.filter(isTrackItem);
-        const bindings = records.map(item => ({ pluginId: item.track.pluginId, externalId: item.track.externalId }));
-        if (bindings.length === 0) return NOTHING;
 
-        // One query for the window. Anything the catalog has written off is absent from the answer
-        // rather than reported as missing, which is the same thing as far as this is concerned: not
-        // worth a fetch. The order of the answer is the query's, so the walk below is over the window's
-        // order rather than the row order — nearest slot first.
+        // The span the sweep may not touch: the warm window plus what the player is already holding.
+        // Wider than the window this pass fetches for, which is why it is read separately and why the
+        // decisions below still walk `records` — a record already airing is nothing to fetch and
+        // everything to protect.
+        const guarded = items.slice(Math.max(0, from - PROTECT_BEHIND), from + CACHE_AHEAD).filter(isTrackItem);
+        const bindings = guarded.map(item => ({ pluginId: item.track.pluginId, externalId: item.track.externalId }));
+        if (bindings.length === 0) {
+            // Nothing in the window, so nothing is protected either. Said explicitly rather than left
+            // to expire, because an order with no records ahead of it is a real state and a stale set
+            // would go on speaking for it.
+            this.service.protect([]);
+            return NOTHING;
+        }
+
+        // One query for the whole guarded span. Anything the catalog has written off is absent from
+        // the answer rather than reported as missing, which is the same thing as far as this is
+        // concerned: not worth a fetch. The order of the answer is the query's, so the walk below is
+        // over the window's order rather than the row order — nearest slot first.
         const states = await this.audio.findForBindings(bindings);
         const byBinding = new Map(states.map(state => [`${state.pluginId} ${state.externalId}`, state]));
+
+        // Published before anything else can fail, because the cost of not publishing is a sweep that
+        // evicts a record about to air, and the cost of publishing too much is that one pass keeps a
+        // few more records than it needed to.
+        this.service.protect(states.map(state => state.sourceId));
 
         const wanted: string[] = [];
         const unfetchable: string[] = [];

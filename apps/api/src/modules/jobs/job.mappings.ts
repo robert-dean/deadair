@@ -16,6 +16,7 @@ import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
+import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
 
 /**
@@ -182,6 +183,27 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'playout.cache_track': {
         job: CacheTrackJob,
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 15 }) },
+    },
+
+    // The other end of the job above: what the station keeps, bounded. Every fifteen
+    // minutes, on a minute nothing else uses, because the cache grows only when a
+    // record is fetched — a few an hour on an airing station — so this bounds the
+    // overshoot at a few records' worth of bytes. Rarer lets a discovery burst run
+    // away between passes; denser polls a number that has usually not moved.
+    //
+    // A CRON here is not the "evicting on a schedule" that `track-cache-eviction.md`
+    // refuses. That argues against evicting on AGE. The cap is the trigger and age is
+    // only the order, so an under-cap run reads one aggregate and stops, and a station
+    // with no cap set does not get that far.
+    //
+    // NO retry, like the two prune jobs below and for the same reason: a sweep that
+    // did not run leaves a cache that will be swept in fifteen minutes and nothing is
+    // waiting on it, so the cron IS the retry. `expiresIn` sits above a full run —
+    // several rounds of a batched delete plus the unlinks — and below the interval.
+    'playout.sweep_track_cache': {
+        job: SweepTrackCacheJob,
+        cron: '3-59/15 * * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 
     // No cron: the director sends this when a lineup it is airing runs short, which

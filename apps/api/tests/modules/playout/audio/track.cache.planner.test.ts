@@ -48,15 +48,18 @@ const build = (states: SourceAudio[], options: { fetching?: string[]; error?: Er
     });
     const send = vi.fn(async () => 'job-1');
     const isFetching = vi.fn((sourceId: string) => (options.fetching ?? []).includes(sourceId));
+    // What the eviction sweep is told it may not touch. Published here rather than looked up there,
+    // because a job reaching for the running order would be `playout` depending on `director`.
+    const protect = vi.fn((sourceIds: readonly string[]) => sourceIds);
 
     const planner = new TrackCachePlanner(
         { findForBindings } as unknown as TrackAudioRepository,
-        { isFetching } as unknown as TrackAudioService,
+        { isFetching, protect } as unknown as TrackAudioService,
         { send } as unknown as PgBossJobBroker,
         logger,
     );
 
-    return { planner, findForBindings, send };
+    return { planner, findForBindings, send, protect };
 };
 
 describe('TrackCachePlanner.ripen', () => {
@@ -80,14 +83,39 @@ describe('TrackCachePlanner.ripen', () => {
         expect(send).toHaveBeenCalledTimes(2);
     });
 
-    it('starts at the cursor rather than at the top of the order', async () => {
-        const { planner, findForBindings, send } = build([state(3)]);
+    it('fetches from the cursor rather than from the top of the order', async () => {
+        const { planner, send } = build([state(3)]);
 
         // Two records already handed over, so the window opens at the third.
         await planner.ripen(lineupOf([trackItem(1, 'played'), trackItem(2, 'played'), trackItem(3)], 2));
 
-        expect(findForBindings).toHaveBeenCalledWith([{ pluginId: 'deadair.spotify', externalId: 'spotify-3' }]);
         expect(send).toHaveBeenCalledExactlyOnceWith('playout.cache_track', { sourceId: 'source-3' });
+    });
+
+    // The READ is deliberately wider than the fetch window: everything the player is already holding
+    // sits behind the cursor, including the record airing now, and the eviction sweep has to be told
+    // about all of it. One query covers both, and only the forward half is a candidate to fetch.
+    it('reads behind the cursor as well, so what is already playing can be protected', async () => {
+        const { planner, findForBindings, protect } = build([state(1), state(2), state(3)]);
+
+        await planner.ripen(lineupOf([trackItem(1, 'played'), trackItem(2, 'played'), trackItem(3)], 2));
+
+        expect(findForBindings).toHaveBeenCalledWith([
+            { pluginId: 'deadair.spotify', externalId: 'spotify-1' },
+            { pluginId: 'deadair.spotify', externalId: 'spotify-2' },
+            { pluginId: 'deadair.spotify', externalId: 'spotify-3' },
+        ]);
+        expect(protect).toHaveBeenCalledExactlyOnceWith(['source-1', 'source-2', 'source-3']);
+    });
+
+    // An order with no records ahead of it is a real state, and a set left over from whenever there
+    // last was one would go on speaking for it.
+    it('protects nothing at all when the window holds no records', async () => {
+        const { planner, protect } = build([]);
+
+        await planner.ripen(lineupOf([]));
+
+        expect(protect).toHaveBeenCalledExactlyOnceWith([]);
     });
 
     it('looks no further ahead than the window', async () => {

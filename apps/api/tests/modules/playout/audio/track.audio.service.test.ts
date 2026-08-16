@@ -7,11 +7,12 @@ import { readdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Container } from 'injectkit';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MAX_TRACK_BYTES, TrackAudioService } from '../../../../src/modules/playout/audio/track.audio.service.js';
-import { TrackAudioRepository, type SourceAudio } from '../../../../src/modules/playout/audio/track.audio.repository.js';
+import { TrackAudioRepository, type CachedFile, type SourceAudio } from '../../../../src/modules/playout/audio/track.audio.repository.js';
 import { TrackStore } from '../../../../src/modules/playout/audio/track.store.js';
 import type { PluginTrackResolver } from '../../../../src/modules/playout/providers/plugin.resolver.js';
 import { TracksRepository } from '../../../../src/modules/catalog/tracks.repository.js';
@@ -46,7 +47,7 @@ afterEach(async () => {
  * No default on `source`, because "the catalog does not know this binding" is one of the cases here
  * and a default would quietly turn it into the happy path.
  */
-const build = (options: { source: SourceAudio | undefined; url?: string }) => {
+const build = (options: { source: SourceAudio | undefined; url?: string; capBytes?: number; cached?: CachedFile[] }) => {
     const findForSource = vi.fn(async () => options.source);
     // The bulk read `readyFor` goes through. Defaults to answering with whatever `source` is, since
     // the window and the single binding are the same record in every test here that uses both.
@@ -57,11 +58,44 @@ const build = (options: { source: SourceAudio | undefined; url?: string }) => {
     const markBindingMissing = vi.fn(async () => true);
     const disposeAsync = vi.fn(async () => {});
 
+    // A cache the sweep can actually eat into: rows in the order the LRU index would answer, minus
+    // whatever the sweep has already cleared and whatever it was told not to touch.
+    const held = [...(options.cached ?? [])];
+    const cleared = new Set<string>();
+    const totalCachedBytes = vi.fn(async () => held.filter(file => !cleared.has(file.sourceId)).reduce((sum, file) => sum + file.byteSize, 0));
+    const leastRecentlyServed = vi.fn(async (limit: number, exclude: readonly string[]) =>
+        held.filter(file => !cleared.has(file.sourceId) && !exclude.includes(file.sourceId)).slice(0, limit),
+    );
+    const clearBytes = vi.fn(async (sourceIds: readonly string[]) => {
+        sourceIds.forEach(sourceId => cleared.add(sourceId));
+        return sourceIds.length;
+    });
+    // What another row still claims, which is the real repository's answer minus the rows just
+    // cleared — the same exclusion the caller passes.
+    const checksumsReferenced = vi.fn(
+        async (checksums: readonly string[], excluding: readonly string[]) =>
+            new Set(
+                held
+                    .filter(file => !cleared.has(file.sourceId) && !excluding.includes(file.sourceId) && checksums.includes(file.checksum))
+                    .map(file => file.checksum),
+            ),
+    );
+
     const container = {
         createScopedContainer: () => ({
             get: (token: unknown) =>
                 token === TrackAudioRepository
-                    ? { findForSource, findForBindings, recordSuccess, recordFailure, markServed }
+                    ? {
+                          findForSource,
+                          findForBindings,
+                          recordSuccess,
+                          recordFailure,
+                          markServed,
+                          totalCachedBytes,
+                          leastRecentlyServed,
+                          clearBytes,
+                          checksumsReferenced,
+                      }
                     : token === TracksRepository
                       ? { markBindingMissing }
                       : undefined,
@@ -71,9 +105,10 @@ const build = (options: { source: SourceAudio | undefined; url?: string }) => {
 
     const resolveBinding = vi.fn(async () => options.url ?? AUDIO_URL);
     const resolver = { resolveBinding } as unknown as PluginTrackResolver;
+    const config = { get: vi.fn((_key: string, fallback: unknown) => options.capBytes ?? fallback) } as unknown as AppConfig;
 
     return {
-        service: new TrackAudioService(container, store, resolver, logger),
+        service: new TrackAudioService(container, store, resolver, config, logger),
         findForSource,
         findForBindings,
         recordSuccess,
@@ -81,6 +116,9 @@ const build = (options: { source: SourceAudio | undefined; url?: string }) => {
         markServed,
         markBindingMissing,
         resolveBinding,
+        totalCachedBytes,
+        leastRecentlyServed,
+        clearBytes,
     };
 };
 
@@ -310,6 +348,139 @@ describe('noting that a record was served', () => {
         markServed.mockRejectedValue(new Error('the pool is gone'));
 
         await expect(service.ensure(SOURCE_ID)).resolves.toEqual({ contentType: 'audio/ogg', body: RECORD, checksum });
+    });
+});
+
+// The cap is the trigger and age is only the order, so nothing here evicts because a record is old.
+// What it must never take is a record about to air or one being fetched: the director commits a
+// record on its audio being present, so pulling a file out from under a committed item produces
+// exactly the silence the commit gate exists to prevent.
+describe('TrackAudioService.sweep', () => {
+    const MB = 1024 * 1024;
+
+    /** A cached record, oldest first in the order the LRU index would answer. */
+    const file = (n: number, bytes = 10 * MB): CachedFile => ({
+        sourceId: `source-${n}`,
+        checksum: String(n).repeat(64).slice(0, 64),
+        ext: 'ogg',
+        byteSize: bytes,
+    });
+
+    /** The store, holding a file per row so a deletion is observable. */
+    const fill = async (files: readonly CachedFile[]) => {
+        for (const held of files) {
+            await store.writeStreamAs(held.checksum, (async function* () { yield new Uint8Array(RECORD); })(), held.ext);
+        }
+    };
+
+    it('does nothing at all when no cap is set', async () => {
+        const { service, totalCachedBytes, leastRecentlyServed } = build({ source: BINDING, cached: [file(1), file(2)] });
+
+        const result = await service.sweep();
+
+        expect(result).toMatchObject({ evicted: 0, capBytes: 0, stillOver: false });
+        // One aggregate at most, and nothing chosen: a station with no cap must not pay for a walk.
+        expect(leastRecentlyServed).not.toHaveBeenCalled();
+        expect(totalCachedBytes).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing while the station is under its cap', async () => {
+        const { service, leastRecentlyServed } = build({ source: BINDING, capBytes: 100 * MB, cached: [file(1), file(2)] });
+
+        expect(await service.sweep()).toMatchObject({ evicted: 0, stillOver: false });
+        expect(leastRecentlyServed).not.toHaveBeenCalled();
+    });
+
+    // Only as many as it takes: the batch is a query size, not a quota.
+    it('drops the coldest records and stops as soon as it is under', async () => {
+        const cached = [file(1), file(2), file(3), file(4)];
+        await fill(cached);
+        const { service, clearBytes } = build({ source: BINDING, capBytes: 25 * MB, cached });
+
+        const result = await service.sweep();
+
+        expect(result).toMatchObject({ evicted: 2, freedBytes: 20 * MB, heldBytes: 20 * MB, stillOver: false });
+        expect(clearBytes).toHaveBeenCalledWith(['source-1', 'source-2']);
+        expect(await store.exists(cached[0]!.checksum, 'ogg')).toBe(false);
+        expect(await store.exists(cached[1]!.checksum, 'ogg')).toBe(false);
+        // The two it did not need are untouched, files and rows alike.
+        expect(await store.exists(cached[2]!.checksum, 'ogg')).toBe(true);
+        expect(await store.exists(cached[3]!.checksum, 'ogg')).toBe(true);
+    });
+
+    it('will not touch a record the running order is about to need', async () => {
+        const cached = [file(1), file(2), file(3)];
+        await fill(cached);
+        const { service, clearBytes } = build({ source: BINDING, capBytes: 25 * MB, cached });
+        service.protect(['source-1']);
+
+        const result = await service.sweep();
+
+        expect(clearBytes).toHaveBeenCalledWith(['source-2']);
+        expect(result).toMatchObject({ evicted: 1, stillOver: false });
+        expect(await store.exists(cached[0]!.checksum, 'ogg')).toBe(true);
+    });
+
+    // A set nobody has refreshed is a station that went off air, and it must not go on protecting
+    // whatever it happened to have planned at the time.
+    it('stops trusting a protected set nobody has refreshed', async () => {
+        const cached = [file(1), file(2), file(3)];
+        await fill(cached);
+        const { service, clearBytes } = build({ source: BINDING, capBytes: 25 * MB, cached });
+        service.protect(['source-1']);
+
+        vi.useFakeTimers();
+        try {
+            vi.setSystemTime(Date.now() + 5 * 60 * 1000);
+            await service.sweep();
+        } finally {
+            vi.useRealTimers();
+        }
+
+        expect(clearBytes).toHaveBeenCalledWith(['source-1']);
+    });
+
+    it('will not touch a record something is fetching right now', async () => {
+        const cached = [file(1), file(2), file(3)];
+        await fill(cached);
+        const { service, clearBytes } = build({ source: BINDING, capBytes: 25 * MB, cached });
+        respondWith(RECORD, { contentType: 'audio/ogg' });
+
+        // `ensure` keys the in-flight map by source id, so this is what a download in progress looks
+        // like from the sweep's side.
+        const fetching = service.ensure('source-1');
+        await service.sweep();
+        await fetching;
+
+        expect(clearBytes).toHaveBeenCalledWith(['source-2']);
+    });
+
+    // Two bindings that resolved to identical audio are ONE file. Dropping the row for one of them
+    // must not delete the bytes the other is still claiming, or the second record fails at the
+    // moment it is wanted rather than at the moment it was evicted.
+    it('keeps a file another binding still claims', async () => {
+        const shared = { ...file(1), sourceId: 'source-1' };
+        const twin = { ...shared, sourceId: 'source-2' };
+        const cached = [shared, twin, file(3)];
+        await fill(cached);
+        const { service } = build({ source: BINDING, capBytes: 25 * MB, cached });
+
+        await service.sweep();
+
+        // One row cleared, and the bytes stay because the twin still holds them.
+        expect(await store.exists(shared.checksum, 'ogg')).toBe(true);
+    });
+
+    // Everything left is about to air. That is an ordinary outcome and the caller says so once,
+    // rather than the sweep forcing its way to the cap.
+    it('reports being stuck over the cap rather than taking what it may not', async () => {
+        const cached = [file(1), file(2)];
+        await fill(cached);
+        const { service, clearBytes } = build({ source: BINDING, capBytes: 5 * MB, cached });
+        service.protect(['source-1', 'source-2']);
+
+        expect(await service.sweep()).toMatchObject({ evicted: 0, stillOver: true, heldBytes: 20 * MB, capBytes: 5 * MB });
+        expect(clearBytes).not.toHaveBeenCalled();
     });
 });
 

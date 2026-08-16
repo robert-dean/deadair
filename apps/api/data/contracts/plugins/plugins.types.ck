@@ -8,6 +8,10 @@ contract PluginStatus: enum(discovered, disabled, misconfigured, active, failed)
 
 contract ConfigFieldType: enum(string, text, url, secret, number, boolean, select, multiselect, note)
 
+# What a `number` field's value is measured in. The stored value is always in this unit; only the
+# control the operator touches changes, so a byte count stays a byte count everywhere it is read
+contract ConfigFieldUnit: enum(bytes)
+
 # One choice of a `select` config field
 contract ConfigFieldOption: {
     value: string(min=1, max=200)
@@ -21,6 +25,7 @@ contract ConfigFieldDescriptor: {
     type: ConfigFieldType
     required?: boolean
     default?: string | number | boolean
+    unit?: ConfigFieldUnit # `number` only, and ignored elsewhere
     placeholder?: string(max=400)
     help?: string(max=2000)
     options?: array(ConfigFieldOption)

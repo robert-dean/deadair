@@ -1,10 +1,12 @@
 import { Container } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PluginTrackResolver } from '../providers/plugin.resolver.js';
 import { inScope } from '#modules/shared/scoped.work.js';
-import { TrackAudioRepository, type SourceAudio } from './track.audio.repository.js';
+import { TrackAudioRepository, type CachedFile, type SourceAudio } from './track.audio.repository.js';
+import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY, resolveTrackCacheMaxBytes } from './track.cache.limit.js';
 import { TRACK_CONTENT_TYPES, TRACK_SOURCE_TYPES, TrackContentType, TrackExtension, TrackStore } from './track.store.js';
 
 /**
@@ -86,6 +88,38 @@ const MISSING_AFTER_ATTEMPTS = 4;
  */
 export const CACHE_AHEAD = 6;
 
+/**
+ * How many records one sweep may consider at a time.
+ *
+ * The sweep evicts in batches and asks again, so this is a query size rather than a limit on what
+ * can be freed: a station a long way over its cap works its way down over several rounds within the
+ * one run. Small because the common case is being a record or two over, and reading the whole
+ * library's worth of rows to delete one file is the shape this avoids.
+ */
+const SWEEP_BATCH = 50;
+
+/**
+ * How many rounds one run may take before it gives up and says so.
+ *
+ * A backstop rather than a budget. Every round frees something or stops, so the only way to reach
+ * this is a bug, and a loop that deletes files is the wrong place to find out that a termination
+ * argument was wrong.
+ */
+const SWEEP_MAX_ROUNDS = 20;
+
+/**
+ * How long a published protected set is trusted for.
+ *
+ * The set comes from the director's commit pass, which runs on every rundown change while the
+ * station is driving. An off-air station therefore stops publishing, and a set left over from
+ * whenever it went off must not go on protecting records forever — otherwise a station stopped for
+ * the night would refuse to evict the last hour it planned.
+ *
+ * Two minutes is comfortably longer than the gap between passes on a station that is airing and
+ * comfortably shorter than anything an operator would call stale.
+ */
+const PROTECTED_FOR_MS = 2 * 60 * 1000;
+
 /** Which copy of a record: the pair that keys `deadair.track_sources`. */
 export interface TrackBinding {
     pluginId: string;
@@ -100,6 +134,25 @@ export interface TrackBinding {
  * so the reader and the writer of that set cannot spell the key differently.
  */
 export const bindingKey = (binding: TrackBinding): string => `${binding.pluginId} ${binding.externalId}`;
+
+/** What one run of the eviction sweep did. */
+export interface SweepResult {
+    /** How many records had their bytes dropped. */
+    evicted: number;
+    /** How many bytes that freed, by the rows' own account. */
+    freedBytes: number;
+    /** What the station is holding now. */
+    heldBytes: number;
+    /** The cap this was measured against. Zero means there is none, in which case nothing ran. */
+    capBytes: number;
+    /**
+     * Whether the sweep ran out of things it was allowed to evict while still over the cap.
+     *
+     * Not a failure: it means everything left is either about to air or being fetched, which is the
+     * one thing a cache must never take. The caller says so once rather than every fifteen minutes.
+     */
+    stillOver: boolean;
+}
 
 /** Audio ready to hand to a caller, however it was come by. */
 export interface ServedAudio {
@@ -178,6 +231,9 @@ export class TrackAudioService {
     /** Fetches in flight, by source id. The value is shared: everybody waiting gets the same bytes. */
     private readonly inFlight = new Map<string, Promise<ServedAudio | undefined>>();
 
+    /** Records no sweep may touch, and when that was last said. See {@link protect}. */
+    private protected: { sourceIds: Set<string>; at: number } = { sourceIds: new Set(), at: 0 };
+
     constructor(
         // The ROOT container: this is a singleton, so its scoped dependencies have to be resolved per
         // call rather than injected. The same reasoning `SegmentTrackResolver` spells out — it is
@@ -186,6 +242,9 @@ export class TrackAudioService {
         private readonly container: Container,
         private readonly store: TrackStore,
         private readonly resolver: PluginTrackResolver,
+        // The live view, so the cap an operator just typed applies on the next sweep with no restart
+        // and no DI scope — `deadair.settings` is a layer of `AppConfig`.
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -309,6 +368,130 @@ export class TrackAudioService {
     /** Whether this one binding's audio is on this machine. {@link readyFor} for a single record. */
     async has(binding: TrackBinding): Promise<boolean> {
         return (await this.readyFor([binding])).size > 0;
+    }
+
+    /**
+     * Say which records are about to be needed, so nothing throws them away.
+     *
+     * Published by `TrackCachePlanner` on the director's commit pass, which is the one place that
+     * knows what has been committed and what is coming. It is a publication rather than a lookup on
+     * purpose: the sweep runs from a job, and a job reaching into the director for the running order
+     * would be `playout` depending on `director`, which is a cycle — `DirectorService` already
+     * imports the planner.
+     *
+     * The set is STAMPED, and {@link protectedNow} stops trusting it after {@link PROTECTED_FOR_MS}.
+     * A station that goes off air stops publishing, and a set nobody refreshed must not go on
+     * protecting the last hour it happened to have planned.
+     */
+    protect(sourceIds: readonly string[]): void {
+        this.protected = { sourceIds: new Set(sourceIds), at: Date.now() };
+    }
+
+    /** The protected set if it is still current, and nothing at all if it is not. */
+    private protectedNow(): Set<string> {
+        return Date.now() - this.protected.at <= PROTECTED_FOR_MS ? this.protected.sourceIds : new Set();
+    }
+
+    /**
+     * Drop the coldest records until the station is under its cap.
+     *
+     * Zero or unset means no cap, which is what the station has always done, and this returns having
+     * read one aggregate. That is the whole shape of it: **the cap is the trigger and age is only
+     * the order**, so a station under its cap is untouched however often this runs, and nothing here
+     * ever evicts because something is old.
+     *
+     * ## What it will not take
+     *
+     * A record inside the committable window ({@link protect}) and a record being fetched right now
+     * ({@link inFlight}). The first is the important one: the director commits a record on its audio
+     * being present, so taking a file out from under a committed item produces exactly the silence
+     * the commit gate exists to prevent. Running out of things it is allowed to evict is an ordinary
+     * outcome and is reported as {@link SweepResult.stillOver} rather than forced.
+     *
+     * ## The row survives its file
+     *
+     * `clearBytes` keeps the row, so an evicted record is a binding the station knows about and does
+     * not currently hold — the same state a fetch that never happened leaves — and the next play
+     * fetches it again. Nothing is lost but the bytes, which is what makes an eviction cheap enough
+     * to be automatic.
+     *
+     * ## The file goes last, and only if nothing else claims it
+     *
+     * The store is content-addressed, so two bindings that resolved to identical audio are one file.
+     * The rows are cleared first, then the checksums that no SURVIVING row still references are
+     * deleted from disk. Doing it the other way round would leave a live row pointing at a file that
+     * had already gone.
+     */
+    async sweep(): Promise<SweepResult> {
+        const capBytes = resolveTrackCacheMaxBytes(this.config.get(TRACK_CACHE_MAX_BYTES_KEY, DEFAULT_TRACK_CACHE_MAX_BYTES));
+
+        let heldBytes = await inScope(this.container, scope => scope.get(TrackAudioRepository).totalCachedBytes());
+        const nothing: SweepResult = { evicted: 0, freedBytes: 0, heldBytes, capBytes, stillOver: false };
+        if (capBytes <= 0 || heldBytes <= capBytes) return nothing;
+
+        let evicted = 0;
+        let freedBytes = 0;
+
+        for (let round = 0; round < SWEEP_MAX_ROUNDS && heldBytes > capBytes; round++) {
+            // Read fresh on every round: a fetch that finished mid-sweep is a record that must not be
+            // taken, and the in-flight map is the only place that is known.
+            const untouchable = [...this.protectedNow(), ...this.inFlight.keys()];
+            const candidates = await inScope(this.container, scope =>
+                scope.get(TrackAudioRepository).leastRecentlyServed(SWEEP_BATCH, untouchable),
+            );
+            if (candidates.length === 0) break;
+
+            // Only as many as it takes. The batch is a query size, not a quota.
+            const taking: typeof candidates = [];
+            let projected = heldBytes;
+            for (const candidate of candidates) {
+                if (projected <= capBytes) break;
+                taking.push(candidate);
+                projected -= candidate.byteSize;
+            }
+            if (taking.length === 0) break;
+
+            const freed = await this.drop(taking);
+            evicted += taking.length;
+            freedBytes += freed;
+            heldBytes -= freed;
+        }
+
+        return { evicted, freedBytes, heldBytes, capBytes, stillOver: heldBytes > capBytes };
+    }
+
+    /**
+     * Clear these rows' file columns and delete the files nothing else is holding on to.
+     *
+     * The order is the load-bearing part, and it is rows first: a file deleted before its row was
+     * cleared is a window in which the station believes it holds bytes that are gone, and that window
+     * is a request the player is waiting on.
+     */
+    private async drop(taking: readonly CachedFile[]): Promise<number> {
+        const sourceIds = taking.map(candidate => candidate.sourceId);
+        await this.inScope(async repository => {
+            await repository.clearBytes(sourceIds);
+        });
+
+        // Which of these files another binding still claims. Asked AFTER the clear, so the rows just
+        // cleared cannot answer for themselves — and excluding them as well, because a repository
+        // read is not inside the same statement.
+        const checksums = [...new Set(taking.map(candidate => candidate.checksum))];
+        const stillClaimed = await inScope(this.container, scope =>
+            scope.get(TrackAudioRepository).checksumsReferenced(checksums, sourceIds),
+        );
+
+        let freed = 0;
+        const deleted = new Set<string>();
+        for (const candidate of taking) {
+            freed += candidate.byteSize;
+            if (stillClaimed.has(candidate.checksum) || deleted.has(candidate.checksum)) continue;
+
+            deleted.add(candidate.checksum);
+            await this.store.remove(candidate.checksum, candidate.ext);
+        }
+
+        return freed;
     }
 
     /**

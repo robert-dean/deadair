@@ -48,6 +48,19 @@ export interface SourceAudio extends TrackAudio {
     externalId: string;
 }
 
+/**
+ * One row that currently holds a file, as an eviction sweep needs it.
+ *
+ * Everything required to stop claiming the bytes and to find them on disk, and nothing else: the
+ * sweep does not care what record this is, only what it costs and when it was last wanted.
+ */
+export interface CachedFile {
+    sourceId: string;
+    checksum: string;
+    ext: TrackExtension;
+    byteSize: number;
+}
+
 /** What the caller hands back after a successful download that is being kept. */
 export interface TrackAudioBytes {
     checksum: string;
@@ -238,6 +251,102 @@ export class TrackAudioRepository extends DataRepository {
             .values({ sourceId, ...values })
             .onConflict(oc => oc.column('sourceId').doUpdateSet(values))
             .execute();
+    }
+
+    /**
+     * How many bytes of records the station is holding, by its own account.
+     *
+     * The rows' sum rather than the disk's, deliberately: this is the number the cap is compared
+     * against, and the cap is about what the station has decided to keep. A file on disk that no row
+     * claims is a different question with a different answer (see `GET /storage`), and folding the
+     * two together would have a sweep evicting real records to make room for orphans.
+     */
+    async totalCachedBytes(): Promise<number> {
+        const row = await this.db
+            .selectFrom('deadair.trackAudio')
+            .select(eb => eb.fn.coalesce(eb.fn.sum<number>('byteSize'), sql<number>`0`).as('total'))
+            .where('checksum', 'is not', null)
+            .executeTakeFirstOrThrow();
+
+        return Number(row.total);
+    }
+
+    /**
+     * The coldest records the station holds, oldest serve first.
+     *
+     * What the sweep evicts from, straight off `track_audio_lru_idx`. It answers a BATCH rather than
+     * everything, because a station a long way over its cap should free what it needs and stop: the
+     * sweep asks again if the first batch was not enough, and a query that returned ten thousand
+     * rows to use forty of them would be paying for the whole library on every pass.
+     *
+     * `exclude` is what must not be touched — the committable window and anything being fetched —
+     * and it is applied in SQL rather than by the caller so a protected record cannot use up a slot
+     * in the batch and leave the sweep with nothing to evict.
+     */
+    async leastRecentlyServed(limit: number, exclude: readonly string[]): Promise<CachedFile[]> {
+        let query = this.db
+            .selectFrom('deadair.trackAudio')
+            .select(['sourceId', 'checksum', 'ext', 'byteSize'])
+            .where('checksum', 'is not', null)
+            .orderBy('lastServedAt', 'asc')
+            .limit(limit);
+
+        if (exclude.length > 0) query = query.where('sourceId', 'not in', [...exclude]);
+
+        const rows = await query.execute();
+
+        // A row whose `ext` is not one the store holds cannot name a file, so it is not something to
+        // evict — it is something for the storage report to notice. Filtered rather than trusted,
+        // for the reason `toTrackAudio` validates the same column.
+        return rows.flatMap(row =>
+            row.checksum == null || !isTrackExtension(row.ext ?? undefined)
+                ? []
+                : [{ sourceId: row.sourceId, checksum: row.checksum, ext: row.ext as TrackExtension, byteSize: Number(row.byteSize ?? 0) }],
+        );
+    }
+
+    /**
+     * Which of these checksums some OTHER row still claims.
+     *
+     * The check a content-addressed store cannot make for itself. Two bindings that resolved to
+     * identical audio are one file on disk, so deleting it for one of them would silently unmake the
+     * other — the second row would go on saying it holds bytes that are gone, and the record would
+     * fail at the moment it was wanted rather than at the moment it was evicted.
+     */
+    async checksumsReferenced(checksums: readonly string[], excludingSourceIds: readonly string[]): Promise<Set<string>> {
+        if (checksums.length === 0) return new Set();
+
+        let query = this.db.selectFrom('deadair.trackAudio').select('checksum').distinct().where('checksum', 'in', [...checksums]);
+
+        if (excludingSourceIds.length > 0) query = query.where('sourceId', 'not in', [...excludingSourceIds]);
+
+        const rows = await query.execute();
+
+        return new Set(rows.flatMap(row => (row.checksum == null ? [] : [row.checksum])));
+    }
+
+    /**
+     * Forgets the FILE half of these rows, keeping the rows.
+     *
+     * The same shape {@link recordFailure} leaves behind, and for the same reason: the row is the
+     * record of a BINDING, not of a file. Keeping it is what lets the station tell a record it has
+     * never fetched from one it fetched and later dropped, and it is what `attempts` and
+     * `last_error` hang off.
+     *
+     * `last_served_at` is deliberately left where it is. It says when this record was last wanted,
+     * which is still true after the bytes go, and it is what stops a record evicted and re-fetched
+     * from immediately looking like the coldest thing the station holds.
+     */
+    async clearBytes(sourceIds: readonly string[]): Promise<number> {
+        if (sourceIds.length === 0) return 0;
+
+        const result = await this.db
+            .updateTable('deadair.trackAudio')
+            .set({ checksum: null, ext: null, contentType: null, byteSize: null, fetchedAt: null })
+            .where('sourceId', 'in', [...sourceIds])
+            .executeTakeFirst();
+
+        return Number(result.numUpdatedRows ?? 0n);
     }
 
     /**

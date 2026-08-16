@@ -1,6 +1,7 @@
 import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
 import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
+import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY } from '#modules/playout/audio/track.cache.limit.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
@@ -383,6 +384,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_TARGET_LUFS,
         help: 'Where measured records are set before they air, so a quiet master and a loud one arrive at the same level. A record the station has not measured is left to the live leveller instead. Changing this needs the same number set in the stream config, which the player levels everything else against.',
+    },
+    {
+        group: 'playout',
+        key: TRACK_CACHE_MAX_BYTES_KEY,
+        label: 'Keep at most (of the station’s own copies)',
+        type: 'number',
+        unit: 'bytes',
+        default: DEFAULT_TRACK_CACHE_MAX_BYTES,
+        help: 'The station keeps every record it fetches, so playing one twice costs one download and a record can be committed to the running order the moment its audio is here. Left empty it keeps everything, which is the old behaviour; set it and the least recently played records are dropped once the total goes over. A record about to air is never dropped, and the row is kept either way, so a record that goes is simply fetched again next time it comes round.',
     },
 
     // ── render ─────────────────────────────────────────────────────────────────

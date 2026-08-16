@@ -358,7 +358,11 @@ export function ConfigFieldsForm({
             case 'boolean':
                 return <Switch key={field.key} {...common} description={undefined} {...form.getInputProps(name, { type: 'checkbox' })} />;
             case 'number':
-                return <NumberInput key={field.key} {...common} placeholder={field.placeholder} {...form.getInputProps(name)} />;
+                return field.unit === 'bytes' ? (
+                    <BytesField key={field.key} common={common} field={field} inputProps={form.getInputProps(name)} />
+                ) : (
+                    <NumberInput key={field.key} {...common} placeholder={field.placeholder} {...form.getInputProps(name)} />
+                );
             // Stored and submitted exactly like a `string`, so nothing outside this line knows it
             // is different. What it buys is that a setting somebody WRITES — a list of phrasings, a
             // persona, a prompt — is editable here rather than in psql, which is where a paragraph
@@ -461,6 +465,54 @@ export function ConfigFieldsForm({
                 </Group>
             </Stack>
         </form>
+    );
+}
+
+/** One gigabyte, as the operator means it and as the figures beside it are drawn. */
+const BYTES_PER_GB = 1024 * 1024 * 1024;
+
+interface BytesFieldProps {
+    field: ConfigFieldDescriptor;
+    inputProps: GetInputPropsReturnType;
+    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean };
+}
+
+/**
+ * A byte count, typed in gigabytes.
+ *
+ * The value stored and submitted is BYTES, unchanged — the conversion lives here and nowhere else,
+ * so every reader on the server compares against the unit the row holds. What it buys is that a
+ * cache limit is "20" rather than 21474836480, which is a number nobody can type correctly or check
+ * at a glance.
+ *
+ * Driven by `unit` on the descriptor rather than by the field's key, which is the whole reason the
+ * SDK grew that property: a form that special-cased one setting by name would be a thing nobody
+ * finds when the second one arrives.
+ *
+ * Fractions are allowed and rounded to whole bytes on the way out, because half a gigabyte is a
+ * perfectly ordinary thing to want and the alternative is asking for it in a unit the label does not
+ * mention. Empty stays empty rather than becoming zero: for a cap, "unset" is a real answer and it
+ * is the default one.
+ */
+function BytesField({ field, inputProps, common }: BytesFieldProps) {
+    const { value, onChange, ...rest } = inputProps;
+    const bytes = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+
+    return (
+        <NumberInput
+            {...common}
+            {...rest}
+            suffix=" GB"
+            min={0}
+            step={1}
+            decimalScale={2}
+            placeholder={field.placeholder ?? 'No limit'}
+            value={Number.isFinite(bytes) && bytes > 0 ? bytes / BYTES_PER_GB : ''}
+            onChange={next => {
+                const gigabytes = typeof next === 'number' ? next : Number.parseFloat(next);
+                onChange(Number.isFinite(gigabytes) && gigabytes > 0 ? Math.round(gigabytes * BYTES_PER_GB) : 0);
+            }}
+        />
     );
 }
 

@@ -10,8 +10,15 @@ export type PluginStatus = 'discovered' | 'disabled' | 'misconfigured' | 'active
 export type ConfigFieldType = 'string' | 'text' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'note';
 
 /**
+ * What a `number` field's value is measured in. The stored value is always in this unit; only the
+ * control the operator touches changes, so a byte count stays a byte count everywhere it is read
+ * generated from [ConfigFieldUnit](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L13)
+ */
+export type ConfigFieldUnit = 'bytes';
+
+/**
  * One choice of a `select` config field
- * generated from [ConfigFieldOption](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L12)
+ * generated from [ConfigFieldOption](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L16)
  */
 export interface ConfigFieldOption {
     value: string;
@@ -19,13 +26,13 @@ export interface ConfigFieldOption {
 }
 
 /**
- * generated from [PluginLogLevel](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L44)
+ * generated from [PluginLogLevel](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L49)
  */
 export type PluginLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * A submitted settings form. Secret values arrive in here and are never echoed back
- * generated from [PluginConfigInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L76)
+ * generated from [PluginConfigInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L81)
  */
 export interface PluginConfigInput {
     config: Record<string, unknown>;
@@ -33,7 +40,7 @@ export interface PluginConfigInput {
 
 /**
  * Outcome of the plugin's own `testConnection()`
- * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L81)
+ * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L86)
  */
 export interface PluginTestResult {
     ok: boolean;
@@ -43,7 +50,7 @@ export interface PluginTestResult {
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L99)
+ * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L104)
  */
 export interface PluginOAuthStart {
     url: string;
@@ -51,7 +58,7 @@ export interface PluginOAuthStart {
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L104)
+ * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L109)
  */
 export interface PluginOAuthResult {
     pluginId: string;
@@ -60,7 +67,7 @@ export interface PluginOAuthResult {
 }
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L110)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L115)
  */
 export interface PluginOAuthCallbackQuery {
     code?: string;
@@ -78,7 +85,7 @@ export interface PluginOAuthCallbackQuery {
 
 /**
  * Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
- * generated from [ConfigFieldDescriptor](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L18)
+ * generated from [ConfigFieldDescriptor](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L22)
  */
 export interface ConfigFieldDescriptor {
     key: string;
@@ -86,6 +93,8 @@ export interface ConfigFieldDescriptor {
     type: ConfigFieldType;
     required?: boolean;
     default?: string | number | boolean;
+    /** `number` only, and ignored elsewhere */
+    unit?: ConfigFieldUnit;
     placeholder?: string;
     help?: string;
     options?: ConfigFieldOption[];
@@ -97,7 +106,7 @@ export interface ConfigFieldDescriptor {
  * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
  * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
  * was written, where these are whatever the operator's own server currently says
- * generated from [PluginFieldSuggestions](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L89)
+ * generated from [PluginFieldSuggestions](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L94)
  */
 export interface PluginFieldSuggestions {
     /** Keys the plugin had nothing to say about are simply absent, rather than present and empty */
@@ -110,7 +119,7 @@ export interface PluginFieldSuggestions {
 }
 
 /**
- * generated from [PluginLogEntry](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L46)
+ * generated from [PluginLogEntry](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L51)
  */
 export interface PluginLogEntry {
     ts: string;
@@ -120,7 +129,7 @@ export interface PluginLogEntry {
 }
 
 /**
- * generated from [PluginLogQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L58)
+ * generated from [PluginLogQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L63)
  */
 export interface PluginLogQuery {
     limit?: number;
@@ -128,7 +137,7 @@ export interface PluginLogQuery {
 }
 
 /**
- * generated from [PluginLogLevelInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L63)
+ * generated from [PluginLogLevelInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L68)
  */
 export interface PluginLogLevelInput {
     level: PluginLogLevel;
@@ -136,7 +145,7 @@ export interface PluginLogLevelInput {
 
 /**
  * A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set
- * generated from [PluginSummary](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L31)
+ * generated from [PluginSummary](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L36)
  */
 export interface PluginSummary {
     id: string;
@@ -153,7 +162,7 @@ export interface PluginSummary {
 }
 
 /**
- * generated from [PluginLogPage](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L52)
+ * generated from [PluginLogPage](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L57)
  */
 export interface PluginLogPage {
     pluginId: string;
@@ -163,7 +172,7 @@ export interface PluginLogPage {
 
 /**
  * A summary plus the stored NON-SECRET configuration and the last recorded failure
- * generated from [PluginDetail](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L68)
+ * generated from [PluginDetail](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L73)
  */
 export interface PluginDetail extends PluginSummary {
     config: Record<string, unknown>;

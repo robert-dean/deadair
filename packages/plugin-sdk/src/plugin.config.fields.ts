@@ -22,6 +22,21 @@ import { z } from 'zod';
  */
 export type ConfigFieldType = 'string' | 'text' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'note';
 
+/**
+ * What a `number` field's value is measured in, so the form can offer a control a person can use.
+ *
+ * The VALUE is always stored in the unit named here — `bytes` means the row holds bytes — and the
+ * console converts on the way in and out. That is the whole point: a byte count is the right thing
+ * for code to compare against and a terrible thing to type, and the alternative to declaring it is
+ * either storing a friendlier unit (and doing the multiplication at every reader) or special-casing
+ * a particular setting key inside the form, which is the kind of thing nobody finds later.
+ *
+ * One member today. It is an enum rather than a boolean because the next one is obvious (a
+ * duration in milliseconds has exactly the same problem) and because a closed set is what the
+ * contract mirroring this can express.
+ */
+export type ConfigFieldUnit = 'bytes';
+
 /** One choice in a `select`, a `multiselect`, or a suggestion list. */
 export interface ConfigFieldOption {
     value: string;
@@ -68,6 +83,14 @@ export interface ConfigField {
     /** Prefilled value. Never provide a default for a `secret`. */
     default?: string | number | boolean;
 
+    /**
+     * What a `number`'s value is measured in. Ignored on every other type.
+     *
+     * See {@link ConfigFieldUnit}: the stored value stays in this unit and only the control the
+     * operator touches changes.
+     */
+    unit?: ConfigFieldUnit;
+
     /** Ghost text inside the input. */
     placeholder?: string;
 
@@ -98,12 +121,15 @@ export const configFieldOptionSchema = z.object({
 
 export const configFieldTypeSchema = z.enum(['string', 'text', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'note']);
 
+export const configFieldUnitSchema = z.enum(['bytes']);
+
 export const configFieldSchema = z.object({
     key: z.string().min(1),
     label: z.string().min(1),
     type: configFieldTypeSchema,
     required: z.boolean().optional(),
     default: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    unit: configFieldUnitSchema.optional(),
     placeholder: z.string().optional(),
     help: z.string().optional(),
     options: z.array(configFieldOptionSchema).optional(),

@@ -37,6 +37,9 @@ function payload(provider: string, data: unknown, overrides: Partial<StoredProvi
         ...(empty ? {} : { providerRef: `${provider}:ref` }),
         fetchedAt,
         expiresAt: fetchedAt.plus({ days: 90 }),
+        // The write path only leaves this above zero on a row nobody could ask for, so the default
+        // here is what every ordinary row carries. A test about a failure overrides it.
+        attempts: 0,
         ...overrides,
     };
 }

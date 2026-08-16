@@ -12,6 +12,8 @@ import {
     ENRICH_ALBUM_TIMEOUT_MS,
     ENRICH_ARTIST_TIMEOUT_MS,
     ENRICH_TRACK_TIMEOUT_MS,
+    ENRICHMENT_FAILURE_MAX_RETRY_MS,
+    ENRICHMENT_FAILURE_RETRY_MS,
     ENRICHMENT_MISS_TTL_MS,
     ENRICHMENT_TTL_MS,
     EnrichmentService,
@@ -86,6 +88,9 @@ function fakeRepository() {
         recordTrackEnrichmentMiss: vi.fn(async () => {}),
         recordArtistEnrichmentMiss: vi.fn(async () => {}),
         recordAlbumEnrichmentMiss: vi.fn(async () => {}),
+        recordTrackEnrichmentFailure: vi.fn(async () => {}),
+        recordArtistEnrichmentFailure: vi.fn(async () => {}),
+        recordAlbumEnrichmentFailure: vi.fn(async () => {}),
         listArtistsNeedingEnrichment: vi.fn(async () => []),
         saveArtistEnrichment: vi.fn(async () => {}),
         listAlbumsNeedingEnrichment: vi.fn(async () => []),
@@ -546,6 +551,16 @@ describe('artist enrichment', () => {
 
         expect(outcome.providers).toEqual([OTHER]);
         expect(outcome.failures).toHaveLength(1);
+        // Only the one that threw is benched. The one that answered gets its ordinary TTL, so a
+        // single bad upstream cannot slow the walk down for the sources standing beside it.
+        expect(repository.recordArtistEnrichmentFailure).toHaveBeenCalledTimes(1);
+        expect(repository.recordArtistEnrichmentFailure).toHaveBeenCalledWith(
+            'artist-1',
+            MUSICBRAINZ,
+            expect.stringContaining('down'),
+            ENRICHMENT_FAILURE_RETRY_MS,
+            ENRICHMENT_FAILURE_MAX_RETRY_MS,
+        );
     });
 });
 
@@ -600,6 +615,40 @@ describe('album enrichment', () => {
         expect(repository.promoteAlbum).not.toHaveBeenCalled();
         expect(repository.recordAlbumEnrichmentMiss).toHaveBeenCalledWith('album-1', MUSICBRAINZ, ENRICHMENT_MISS_TTL_MS);
         expect(outcome.promoted).toEqual([]);
+    });
+
+    // The walk asks whoever has no unexpired row, so a provider that threw and left nothing behind
+    // is asked again on the very next pass and every pass after it. Measured before this existed:
+    // 47 albums re-asked every quarter of an hour, indefinitely, over an id that could not resolve.
+    it('remembers a provider that could not be asked, so the next pass does not ask it again', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichAlbum: vi.fn(async () => Promise.reject(new PluginError('HTTP 404 Not Found'))) })]);
+
+        const outcome = await service.enrichCatalogAlbum(album);
+
+        expect(repository.recordAlbumEnrichmentFailure).toHaveBeenCalledWith(
+            'album-1',
+            MUSICBRAINZ,
+            expect.stringContaining('HTTP 404 Not Found'),
+            ENRICHMENT_FAILURE_RETRY_MS,
+            ENRICHMENT_FAILURE_MAX_RETRY_MS,
+        );
+        expect(outcome.failures).toHaveLength(1);
+    });
+
+    it('does not call a failure a miss, because one is settled and the other is still owed', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichAlbum: vi.fn(async () => Promise.reject(new PluginError('upstream is down'))) })]);
+
+        await service.enrichCatalogAlbum(album);
+
+        expect(repository.recordAlbumEnrichmentMiss).not.toHaveBeenCalled();
+    });
+
+    it('does not call a miss a failure either', async () => {
+        service = build([record(MUSICBRAINZ, {}, { enrichAlbum: vi.fn(async () => ({})) })]);
+
+        await service.enrichCatalogAlbum(album);
+
+        expect(repository.recordAlbumEnrichmentFailure).not.toHaveBeenCalled();
     });
 
     it('walks the batch with each album its own outstanding list and refs', async () => {
@@ -685,12 +734,22 @@ describe('enrichCatalogTrack', () => {
         expect(outcome).toEqual({ trackId: 'track-1', providers: [], promoted: [], failures: [] });
     });
 
-    it('remembers nothing about a provider that threw, because a bad minute is not evidence', async () => {
+    // A bad minute is not evidence about the RECORD, which is why this is never a miss. It is
+    // evidence about the provider, though, and remembering none of it is what left the walk asking
+    // an upstream that could not answer on every pass forever.
+    it('remembers a provider that threw as a failure, and never as a miss', async () => {
         service = build([record(MUSICBRAINZ, {}, { enrichTrack: vi.fn(async () => Promise.reject(new PluginError('down'))) })]);
 
         await service.enrichCatalogTrack(catalogTrack);
 
         expect(repository.recordTrackEnrichmentMiss).not.toHaveBeenCalled();
+        expect(repository.recordTrackEnrichmentFailure).toHaveBeenCalledWith(
+            'track-1',
+            MUSICBRAINZ,
+            expect.stringContaining('down'),
+            ENRICHMENT_FAILURE_RETRY_MS,
+            ENRICHMENT_FAILURE_MAX_RETRY_MS,
+        );
     });
 
     it('remembers a miss only for the provider that had nothing', async () => {

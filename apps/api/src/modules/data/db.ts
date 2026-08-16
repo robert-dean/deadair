@@ -113,11 +113,13 @@ export interface DeadairActorsPasswordFactorsArchive {
 
 export interface DeadairAlbumEnrichment {
   albumId: string;
+  attempts: Generated<number>;
   createdAt: Generated<DateTime>;
   data: Json;
   expiresAt: DateTime | null;
   fetchedAt: Generated<DateTime>;
   id: Generated<string>;
+  lastError: string | null;
   provider: string;
   providerRef: string | null;
   updatedAt: Generated<DateTime>;
@@ -168,11 +170,13 @@ export interface DeadairArtAssets {
 
 export interface DeadairArtistEnrichment {
   artistId: string;
+  attempts: Generated<number>;
   createdAt: Generated<DateTime>;
   data: Json;
   expiresAt: DateTime | null;
   fetchedAt: Generated<DateTime>;
   id: Generated<string>;
+  lastError: string | null;
   provider: string;
   providerRef: string | null;
   updatedAt: Generated<DateTime>;
@@ -527,11 +531,13 @@ export interface DeadairTrackAudio {
 }
 
 export interface DeadairTrackEnrichment {
+  attempts: Generated<number>;
   createdAt: Generated<DateTime>;
   data: Json;
   expiresAt: DateTime | null;
   fetchedAt: Generated<DateTime>;
   id: Generated<string>;
+  lastError: string | null;
   provider: string;
   providerRef: string | null;
   trackId: string;

@@ -2,7 +2,18 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import { DateTime } from 'luxon';
 import { DataRepository } from '../data/data.repository.js';
+import { failureBackoff } from '../data/failure.backoff.js';
 import { toJsonb } from '../data/jsonb.js';
+
+/**
+ * What an answer clears, whatever kind of answer it was.
+ *
+ * A payload and a recorded miss are both the provider ANSWERING, so both end a run of failures:
+ * `attempts` counts CONSECUTIVE ones, which is the only reading under which a source that fails
+ * every few months is not eventually benched for a week over failures it long since recovered from.
+ * Same rule, and the same sentence, as `deadair.track_audio`'s `recordSuccess`.
+ */
+const ANSWERED = { attempts: 0, lastError: null } as const;
 
 /** A canonical track, in the shape the enrichment fan-out needs to ask about it. */
 export interface EnrichableTrack {
@@ -91,6 +102,8 @@ export interface StoredProviderPayload {
     data: unknown;
     fetchedAt: DateTime;
     expiresAt?: DateTime;
+    /** Consecutive failed attempts. Above zero means `expiresAt` is a backoff rather than a TTL. */
+    attempts: number;
 }
 
 /** One provider's payload, as the fact read hands it over: everything else about the row is noise. */
@@ -136,6 +149,7 @@ interface JoinedEnrichmentRow {
     data: unknown;
     fetchedAt: DateTime | null;
     expiresAt: DateTime | null;
+    attempts: number | null;
 }
 
 /**
@@ -155,6 +169,7 @@ function storedPayloads(rows: JoinedEnrichmentRow[]): StoredProviderPayload[] | 
             data: row.data,
             fetchedAt: row.fetchedAt,
             expiresAt: nullable(row.expiresAt),
+            attempts: row.attempts ?? 0,
         });
     }
 
@@ -324,6 +339,7 @@ export class EnrichmentRepository extends DataRepository {
             data: toJsonb(data),
             fetchedAt: sql<never>`now()`,
             expiresAt: sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`,
+            ...ANSWERED,
         };
 
         await this.db
@@ -352,8 +368,8 @@ export class EnrichmentRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.trackEnrichment')
-            .values({ trackId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt })
-            .onConflict(oc => oc.columns(['trackId', 'provider']).doUpdateSet({ expiresAt }))
+            .values({ trackId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt, ...ANSWERED })
+            .onConflict(oc => oc.columns(['trackId', 'provider']).doUpdateSet({ expiresAt, ...ANSWERED }))
             .execute();
     }
 
@@ -363,8 +379,8 @@ export class EnrichmentRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.artistEnrichment')
-            .values({ artistId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt })
-            .onConflict(oc => oc.columns(['artistId', 'provider']).doUpdateSet({ expiresAt }))
+            .values({ artistId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt, ...ANSWERED })
+            .onConflict(oc => oc.columns(['artistId', 'provider']).doUpdateSet({ expiresAt, ...ANSWERED }))
             .execute();
     }
 
@@ -374,8 +390,77 @@ export class EnrichmentRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.albumEnrichment')
-            .values({ albumId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt })
-            .onConflict(oc => oc.columns(['albumId', 'provider']).doUpdateSet({ expiresAt }))
+            .values({ albumId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt, ...ANSWERED })
+            .onConflict(oc => oc.columns(['albumId', 'provider']).doUpdateSet({ expiresAt, ...ANSWERED }))
+            .execute();
+    }
+
+    /**
+     * A provider that could not be ASKED, which is the opposite fact from one that had nothing.
+     *
+     * The walk asks whoever has no unexpired row, so a failure that writes nothing is a subject
+     * that is outstanding again on the very next pass: an upstream that will never answer is
+     * re-asked forever, at a request each, against a limiter shared by every other record waiting
+     * behind it. {@link failureBackoff} is the same doubling the art and audio caches use, for the
+     * same reason spelled out in its own header — this is the third cache that could not tell a
+     * subject it had never seen from one that fails every time.
+     *
+     * `expires_at` carries the backoff rather than a `next_attempt_at` beside it, because that
+     * column is ALREADY the question the walk asks. Two clocks would need a rule about which wins.
+     *
+     * **On conflict the payload is left alone**, exactly as a miss leaves it alone and for a
+     * sharper version of the same reason: a source that answered last month and could not be
+     * reached today has not retracted anything, and overwriting a good payload with `{}` would let
+     * one timeout cost the station a record's whole biography. What moves is the counter, the
+     * error and the clock. `fetched_at` does not move either — a failure fetched nothing.
+     */
+    async recordTrackEnrichmentFailure(trackId: string, provider: string, error: string, baseRetryMs: number, maxRetryMs: number): Promise<void> {
+        const retry = failureBackoff('deadair.track_enrichment.attempts', baseRetryMs, maxRetryMs);
+
+        await this.db
+            .insertInto('deadair.trackEnrichment')
+            .values({ trackId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt: retry.first, attempts: 1, lastError: error })
+            .onConflict(oc =>
+                oc.columns(['trackId', 'provider']).doUpdateSet(eb => ({
+                    attempts: eb('deadair.trackEnrichment.attempts', '+', 1),
+                    lastError: error,
+                    expiresAt: retry.again,
+                })),
+            )
+            .execute();
+    }
+
+    /** {@link recordTrackEnrichmentFailure} for an artist. */
+    async recordArtistEnrichmentFailure(artistId: string, provider: string, error: string, baseRetryMs: number, maxRetryMs: number): Promise<void> {
+        const retry = failureBackoff('deadair.artist_enrichment.attempts', baseRetryMs, maxRetryMs);
+
+        await this.db
+            .insertInto('deadair.artistEnrichment')
+            .values({ artistId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt: retry.first, attempts: 1, lastError: error })
+            .onConflict(oc =>
+                oc.columns(['artistId', 'provider']).doUpdateSet(eb => ({
+                    attempts: eb('deadair.artistEnrichment.attempts', '+', 1),
+                    lastError: error,
+                    expiresAt: retry.again,
+                })),
+            )
+            .execute();
+    }
+
+    /** {@link recordTrackEnrichmentFailure} for an album. */
+    async recordAlbumEnrichmentFailure(albumId: string, provider: string, error: string, baseRetryMs: number, maxRetryMs: number): Promise<void> {
+        const retry = failureBackoff('deadair.album_enrichment.attempts', baseRetryMs, maxRetryMs);
+
+        await this.db
+            .insertInto('deadair.albumEnrichment')
+            .values({ albumId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt: retry.first, attempts: 1, lastError: error })
+            .onConflict(oc =>
+                oc.columns(['albumId', 'provider']).doUpdateSet(eb => ({
+                    attempts: eb('deadair.albumEnrichment.attempts', '+', 1),
+                    lastError: error,
+                    expiresAt: retry.again,
+                })),
+            )
             .execute();
     }
 
@@ -499,6 +584,7 @@ export class EnrichmentRepository extends DataRepository {
             data: toJsonb(data),
             fetchedAt: sql<never>`now()`,
             expiresAt: sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`,
+            ...ANSWERED,
         };
 
         await this.db
@@ -594,6 +680,7 @@ export class EnrichmentRepository extends DataRepository {
             data: toJsonb(data),
             fetchedAt: sql<never>`now()`,
             expiresAt: sql<never>`now() + make_interval(secs => ${ttlMs / 1000})`,
+            ...ANSWERED,
         };
 
         await this.db
@@ -678,7 +765,7 @@ export class EnrichmentRepository extends DataRepository {
             .leftJoin('deadair.trackEnrichment as te', 'te.trackId', 't.id')
             .where('t.id', '=', trackId)
             .where('t.mergedIntoId', 'is', null)
-            .select(['te.provider', 'te.providerRef', 'te.data', 'te.fetchedAt', 'te.expiresAt'])
+            .select(['te.provider', 'te.providerRef', 'te.data', 'te.fetchedAt', 'te.expiresAt', 'te.attempts'])
             .orderBy('te.fetchedAt', 'desc')
             .execute();
 
@@ -723,7 +810,7 @@ export class EnrichmentRepository extends DataRepository {
             .leftJoin('deadair.artistEnrichment as ae', 'ae.artistId', 'a.id')
             .where('a.id', '=', artistId)
             .where('a.mergedIntoId', 'is', null)
-            .select(['ae.provider', 'ae.providerRef', 'ae.data', 'ae.fetchedAt', 'ae.expiresAt'])
+            .select(['ae.provider', 'ae.providerRef', 'ae.data', 'ae.fetchedAt', 'ae.expiresAt', 'ae.attempts'])
             .orderBy('ae.fetchedAt', 'desc')
             .execute();
 
@@ -737,7 +824,7 @@ export class EnrichmentRepository extends DataRepository {
             .leftJoin('deadair.albumEnrichment as ale', 'ale.albumId', 'al.id')
             .where('al.id', '=', albumId)
             .where('al.mergedIntoId', 'is', null)
-            .select(['ale.provider', 'ale.providerRef', 'ale.data', 'ale.fetchedAt', 'ale.expiresAt'])
+            .select(['ale.provider', 'ale.providerRef', 'ale.data', 'ale.fetchedAt', 'ale.expiresAt', 'ale.attempts'])
             .orderBy('ale.fetchedAt', 'desc')
             .execute();
 

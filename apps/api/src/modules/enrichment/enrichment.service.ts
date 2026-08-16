@@ -101,6 +101,30 @@ export const ENRICH_TRACK_BATCH_TIMEOUT_MS = 4 * UPSTREAM_REQUEST_BUDGET_MS;
 export const ENRICHMENT_MISS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
+ * The first wait after a provider could not be asked at all, doubling per consecutive failure.
+ *
+ * An hour, because the failures worth recovering from quickly are outages — a timeout, a 503, a
+ * plugin the breaker has quarantined — and every one of those is measured in minutes. Enrichment
+ * has no deadline: nothing on air waits for it, so buying quiet with an hour costs a record
+ * nothing it will notice.
+ *
+ * The paragraph above {@link ENRICHMENT_MISS_TTL_MS} describes the same convergence problem for a
+ * provider that ANSWERED with nothing. A failure had no such row at all, which is why it was the
+ * half that never converged.
+ */
+export const ENRICHMENT_FAILURE_RETRY_MS = 60 * 60 * 1000;
+
+/**
+ * Where the doubling stops, which is the miss TTL and deliberately not longer.
+ *
+ * A source that has failed nine times running is telling the same story a miss tells — there is
+ * nothing to be had here for now — so it earns the same week, and no more than it. Anything longer
+ * would be this walk deciding on its own that a record is beyond help, which is a judgement the
+ * operator makes by uninstalling a plugin.
+ */
+export const ENRICHMENT_FAILURE_MAX_RETRY_MS = ENRICHMENT_MISS_TTL_MS;
+
+/**
  * The `externalIds` sources the host promotes onto canonical columns.
  *
  * Naming MusicBrainz here is not the host playing favourites with a plugin:
@@ -642,6 +666,19 @@ export class EnrichmentService {
             await this.enrichmentRepository.recordAlbumEnrichmentMiss(album.id, pluginId, ENRICHMENT_MISS_TTL_MS);
         }
 
+        // A failure is remembered for the same reason a miss is, and separately from one. See
+        // `recordAlbumEnrichmentFailure`: without this the album is outstanding again immediately
+        // and the walk re-asks an upstream that cannot answer, on every pass, forever.
+        for (const failure of result.failures) {
+            await this.enrichmentRepository.recordAlbumEnrichmentFailure(
+                album.id,
+                failure.pluginId,
+                failure.message,
+                ENRICHMENT_FAILURE_RETRY_MS,
+                ENRICHMENT_FAILURE_MAX_RETRY_MS,
+            );
+        }
+
         const ids = result.enrichment.externalIds ?? [];
         const promoted =
             result.contributions.length === 0
@@ -729,6 +766,17 @@ export class EnrichmentService {
             await this.enrichmentRepository.recordTrackEnrichmentMiss(track.id, pluginId, ENRICHMENT_MISS_TTL_MS);
         }
 
+        // See the same loop in `enrichCatalogAlbum`.
+        for (const failure of result.failures) {
+            await this.enrichmentRepository.recordTrackEnrichmentFailure(
+                track.id,
+                failure.pluginId,
+                failure.message,
+                ENRICHMENT_FAILURE_RETRY_MS,
+                ENRICHMENT_FAILURE_MAX_RETRY_MS,
+            );
+        }
+
         const promoted = result.contributions.length === 0 ? [] : await this.promote(track, result.enrichment);
 
         return { trackId: track.id, providers: result.contributions.map(contribution => contribution.pluginId), promoted, failures: result.failures };
@@ -757,6 +805,17 @@ export class EnrichmentService {
 
         for (const pluginId of result.misses) {
             await this.enrichmentRepository.recordArtistEnrichmentMiss(artist.id, pluginId, ENRICHMENT_MISS_TTL_MS);
+        }
+
+        // See the same loop in `enrichCatalogAlbum`.
+        for (const failure of result.failures) {
+            await this.enrichmentRepository.recordArtistEnrichmentFailure(
+                artist.id,
+                failure.pluginId,
+                failure.message,
+                ENRICHMENT_FAILURE_RETRY_MS,
+                ENRICHMENT_FAILURE_MAX_RETRY_MS,
+            );
         }
 
         const promoted =

@@ -213,6 +213,22 @@ create table deadair.artist_enrichment (
     data jsonb not null,
     fetched_at timestamptz not null default now(),
     expires_at timestamptz,
+    -- What a failed ATTEMPT leaves behind, and the reason it is not what a miss leaves behind.
+    --
+    -- "Outstanding" means no unexpired row, so a failure that writes nothing is indistinguishable
+    -- from a subject nobody has ever asked about: it comes round again on the very next pass, and
+    -- an upstream that will never answer is re-asked forever against a one-request-per-second
+    -- limiter. Measured: 47 albums, every pass, for as long as the wrong id had been on them.
+    --
+    -- Recording it as a MISS instead would stop the loop and buy it with a lie — a miss is the
+    -- provider answering "nothing", this is the provider not answering, and those are opposite
+    -- facts about whether anything is known. The contract says so in as many words.
+    --
+    -- So: consecutive failures, counted the way deadair.track_audio counts them and reset the same
+    -- way by the next answer, with expires_at doing the backoff. One gate rather than a second
+    -- clock beside it, because the walk already asks exactly that column when it decides who to ask.
+    attempts integer not null default 0,
+    last_error text,
     constraint artist_enrichment_provider_key unique (artist_id, provider)
 );
 select deadair.add_updated_at_trigger('deadair.artist_enrichment');
@@ -228,6 +244,9 @@ create table deadair.album_enrichment (
     data jsonb not null,
     fetched_at timestamptz not null default now(),
     expires_at timestamptz,
+    -- A remembered failure. See artist_enrichment.attempts.
+    attempts integer not null default 0,
+    last_error text,
     constraint album_enrichment_provider_key unique (album_id, provider)
 );
 select deadair.add_updated_at_trigger('deadair.album_enrichment');
@@ -243,6 +262,9 @@ create table deadair.track_enrichment (
     data jsonb not null,
     fetched_at timestamptz not null default now(),
     expires_at timestamptz,
+    -- A remembered failure. See artist_enrichment.attempts.
+    attempts integer not null default 0,
+    last_error text,
     constraint track_enrichment_provider_key unique (track_id, provider)
 );
 select deadair.add_updated_at_trigger('deadair.track_enrichment');

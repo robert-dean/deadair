@@ -92,6 +92,54 @@ describe('ContentStore', () => {
     });
 });
 
+// What a disk report and an eviction sweep are built on. Between them they are the only two callers
+// that care about a file this store did NOT name, which is why `list` reports one rather than
+// skipping it.
+describe('ContentStore.list and remove', () => {
+    it('answers with every file it named, and what each one weighs', async () => {
+        const first = await store.write(Buffer.from('hello'), 'one');
+        const second = await store.write(Buffer.from('a longer body'), 'two');
+
+        const listed = await store.list();
+
+        expect(listed).toHaveLength(2);
+        expect(listed).toContainEqual({ checksum: first, ext: 'one', bytes: 5 });
+        expect(listed).toContainEqual({ checksum: second, ext: 'two', bytes: 13 });
+    });
+
+    // The `.tmp-` an interrupted streaming write leaves, or something a person dropped in. Reported
+    // without a checksum, which is what makes it visible as unclaimed rather than invisible.
+    it('reports a file it did not name, without pretending to know what it is', async () => {
+        await writeFile(join(root, 'notes.txt'), 'left behind');
+
+        expect(await store.list()).toEqual([{ bytes: 11 }]);
+    });
+
+    it('is empty for a store nothing has written to yet', async () => {
+        await rm(root, { recursive: true, force: true });
+
+        expect(await store.list()).toEqual([]);
+    });
+
+    it('deletes a file and says it did', async () => {
+        const checksum = await store.write(Buffer.from('hello'), 'one');
+
+        expect(await store.remove(checksum, 'one')).toBe(true);
+        expect(await store.exists(checksum, 'one')).toBe(false);
+    });
+
+    // Every caller is reaching a state rather than performing an act, so "it was not there" is that
+    // state and not an error.
+    it('is content for a file that is already gone', async () => {
+        expect(await store.remove('f'.repeat(64), 'one')).toBe(false);
+    });
+
+    it('refuses to delete anything that is not one of its own names', async () => {
+        expect(await store.remove('../../etc/passwd', 'one')).toBe(false);
+        expect(await store.remove('a'.repeat(64), 'three')).toBe(false);
+    });
+});
+
 describe('ContentStore.writeStream', () => {
     /** Chunks as a plugin's drain would hand them over. */
     async function* chunks(...parts: string[]): AsyncGenerator<Uint8Array> {

@@ -22,6 +22,7 @@ import { PlayoutModule } from './playout/playout.module.js';
 import { DirectorModule } from './director/director.module.js';
 import { NowPlayingModule } from './nowplaying/nowplaying.module.js';
 import { ActivityModule } from './activity/activity.module.js';
+import { StorageModule } from './storage/storage.module.js';
 import { EnrichmentModule } from './enrichment/enrichment.module.js';
 import { AnalysisModule } from './analysis/analysis.module.js';
 import { ArtModule } from './art/art.module.js';
@@ -131,6 +132,11 @@ const ordered: ServerKitModule[] = [
     // singleton rundown, and its lineups are built from catalog tracks and from
     // playlists read through the plugin host. Also after AnalysisModule, above.
     DirectorModule,
+    // After ArtModule, RenderModule and PlayoutModule, whose stores it resolves to
+    // ask each one what is actually on disk. Nothing depends on it in turn: it owns
+    // no loop, starts nothing, and is resolved only by a request, so this is a
+    // dependency order rather than a lifecycle one.
+    StorageModule,
     // After DirectorModule, which is the last module that produces events. The
     // position matters less here than anywhere else in this list: it starts
     // nothing and nothing resolves it during another module's start() or

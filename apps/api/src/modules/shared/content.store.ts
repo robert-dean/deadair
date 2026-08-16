@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
@@ -7,6 +7,19 @@ import { join } from 'node:path';
 
 /** sha256 hex, exactly. Both halves of a path are checked against this before any filesystem call. */
 const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
+
+/**
+ * One file on disk, as {@link ContentStore.list} found it.
+ *
+ * `checksum` and `ext` are absent for a file this store did not name — the only two ways that
+ * happens are an interrupted streaming write leaving a `.tmp-` file and something a person put
+ * there — and their absence is exactly what makes such a file visible to a report.
+ */
+export interface StoredFile {
+    checksum?: string;
+    ext?: string;
+    bytes: number;
+}
 
 /**
  * Bytes on disk, content-addressed, with one mime per format.
@@ -39,7 +52,14 @@ const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
  */
 export class ContentStore<Ext extends string> {
     constructor(
-        private readonly root: string,
+        /**
+         * Where these bytes live.
+         *
+         * Readable because a disk report has to name the directory it is describing — an operator
+         * comparing a figure against `du` needs to know which path to run it on, and the answer is
+         * configuration this class was handed rather than anything it should keep to itself.
+         */
+        readonly root: string,
         private readonly contentTypes: Readonly<Record<Ext, string>>,
     ) {}
 
@@ -180,6 +200,48 @@ export class ContentStore<Ext extends string> {
         return await access(this.pathFor(checksum, ext))
             .then(() => true)
             .catch(() => false);
+    }
+
+    /**
+     * Everything actually on disk under this store, with what each file costs.
+     *
+     * The one operation here that does not take a checksum, because the question it answers is the
+     * opposite one: not "where do these bytes live" but "what is down there at all". That is what a
+     * disk figure needs, and it is also the only way to see a file NO row claims — which is the
+     * state a crash between writing bytes and writing a row leaves, and the state an operator
+     * emptying a directory by hand leaves in reverse.
+     *
+     * `checksum` and `ext` are absent for anything that is not one of this store's own names: a
+     * `.tmp-` file an interrupted write left behind, or something a person dropped in. They are
+     * reported rather than hidden or cleaned up, for the reason `docs/todo/track-cache-eviction.md`
+     * gives — a store that quietly deletes files it cannot account for is a bad thing to debug.
+     *
+     * A directory that does not exist yet is empty rather than an error: every store is created
+     * lazily by its first write, so a station that has never cached a record has no `TRACKS_DIR`.
+     */
+    async list(): Promise<StoredFile[]> {
+        const entries = await readdir(this.root, { recursive: true, withFileTypes: true }).catch(() => []);
+        const files: StoredFile[] = [];
+
+        for (const entry of entries) {
+            if (!entry.isFile()) continue;
+
+            const bytes = await stat(join(entry.parentPath, entry.name))
+                .then(stats => stats.size)
+                .catch(() => undefined);
+            // Gone between the listing and the stat, which on a live station is an eviction or a
+            // rewrite. Not there is not a size.
+            if (bytes === undefined) continue;
+
+            const dot = entry.name.lastIndexOf('.');
+            const checksum = dot <= 0 ? '' : entry.name.slice(0, dot);
+            const ext = dot <= 0 ? '' : entry.name.slice(dot + 1);
+            const named = CHECKSUM_PATTERN.test(checksum) && this.isExtension(ext);
+
+            files.push(named ? { checksum, ext, bytes } : { bytes });
+        }
+
+        return files;
     }
 
     /**

@@ -42,6 +42,13 @@ export const queryKeys = {
         all: () => ['settings', 'all'] as const,
     },
     /**
+     * What the station is using the disk for. One key: the API answers with every store at once,
+     * and there is no slice of it worth invalidating on its own.
+     */
+    storage: {
+        all: () => ['storage', 'all'] as const,
+    },
+    /**
      * The voices the station can speak in. One key: it is the current speech plugin's answer, and
      * there is only ever one of those.
      */

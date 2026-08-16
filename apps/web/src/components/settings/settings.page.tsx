@@ -5,6 +5,7 @@ import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { ConfigFieldsForm } from './config.fields.form';
+import { StorageCard } from './storage.card';
 
 /** The sections, in the order an operator should meet them, and what each one is for. */
 const GROUPS: { key: StationSettingDescriptor['group']; title: string; blurb: string }[] = [
@@ -74,6 +75,10 @@ export function SettingsPage() {
             {GROUPS.map(group => (
                 <SettingsGroupCard key={group.key} group={group} settings={data} />
             ))}
+
+            {/* Last, and read-only: everything above is something to change, and this is the number
+                the one limit up there is set against. */}
+            <StorageCard />
         </Stack>
     );
 }

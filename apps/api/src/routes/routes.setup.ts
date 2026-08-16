@@ -15,6 +15,7 @@ import { PlayoutRouter } from './playout.router.js';
 import { PluginsRouter } from './plugins.router.js';
 import { RenderRouter } from './render.router.js';
 import { SettingsRouter } from './settings.router.js';
+import { StorageRouter } from './storage.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
 
 export const routers = [
@@ -35,5 +36,6 @@ export const routers = [
     PersonasRouter,
     PluginsRouter,
     SettingsRouter,
+    StorageRouter,
     OnboardingRouter,
 ];

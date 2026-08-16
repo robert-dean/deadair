@@ -33,3 +33,5 @@ export * from './sdk-options.js';
 export * from './settings/settings.client.js';
 export * from './settings/types/index.js';
 export * from './shared/types/index.js';
+export * from './storage/storage.client.js';
+export * from './storage/types/index.js';

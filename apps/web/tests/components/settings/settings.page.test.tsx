@@ -13,12 +13,19 @@ import { render, screen, waitFor } from '../../utils/render';
 
 const getSettings = vi.fn();
 const updateSettings = vi.fn();
+// The page also draws the disk card, which is a read of its own. Stubbed to nothing here rather
+// than left undefined, so this file's failures are about settings and not about a card it happens
+// to contain — `storage.card.test.tsx` is where that one is pinned.
+const readStorage = vi.fn(async () => ({ readAt: '2026-08-16T13:43:48.367Z', totalFiles: 0, totalBytes: 0, stores: [] }));
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         settings: {
             getSettings: (...args: unknown[]) => getSettings(...args),
             updateSettings: (...args: unknown[]) => updateSettings(...args),
+        },
+        storage: {
+            readStorage: () => readStorage(),
         },
     },
 }));

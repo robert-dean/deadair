@@ -15,6 +15,7 @@ import { PlayoutClient } from './playout/playout.client.js';
 import { PluginsClient } from './plugins/plugins.client.js';
 import { RenderClient } from './render/render.client.js';
 import { SettingsClient } from './settings/settings.client.js';
+import { StorageClient } from './storage/storage.client.js';
 
 export class DeadairSdk {
     readonly activity: ActivityClient;
@@ -32,6 +33,7 @@ export class DeadairSdk {
     readonly plugins: PluginsClient;
     readonly render: RenderClient;
     readonly settings: SettingsClient;
+    readonly storage: StorageClient;
 
     constructor(options: SdkOptions) {
         const sdkFetch = options.fetch ?? createSdkFetch(options);
@@ -50,5 +52,6 @@ export class DeadairSdk {
         this.plugins = new PluginsClient(sdkFetch);
         this.render = new RenderClient(sdkFetch);
         this.settings = new SettingsClient(sdkFetch);
+        this.storage = new StorageClient(sdkFetch);
     }
 }

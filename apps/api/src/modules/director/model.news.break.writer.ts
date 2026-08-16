@@ -41,20 +41,26 @@ import { NEWS_KIND } from './news.break.writer.js';
 /**
  * How long a bulletin may run, in words.
  *
- * Raised from 120 when the stories arrived. That number was three stories' HEADLINES plus the words
- * around them, and it was the right size for exactly as long as a headline was all a writer had; a
- * bulletin now has the article under each one and is asked for a sentence of what happened, which is
- * three sentences this did not previously have room for.
+ * Raised from 120 when the stories arrived, and from 170 after that. 120 was three stories'
+ * HEADLINES plus the words around them, and it was the right size for exactly as long as a headline
+ * was all a writer had; a bulletin now has the article under each one and is asked for a sentence of
+ * what happened, which is three sentences this did not previously have room for. 170 turned out to
+ * still be inside that ask rather than outside it: the first bulletin this station ever captured came
+ * back at 203 words, correctly reported, and lost the slot for being eleven words a story too
+ * generous.
  *
  * Raising a ceiling is otherwise the wrong move here and the persona work argues it at length — a
  * ceiling permits, it does not ask, and 2 of 137 captured breaks ever reached one. The difference is
  * that this ceiling was measurably in the way of something the prompt now explicitly asks for, which
- * is the one condition under which raising one is not just permitting slop.
+ * is the one condition under which raising one is not just permitting slop. So it is set clear of the
+ * ask rather than just above the last answer, because a bulletin refused for one story running long
+ * is the same failure again a fortnight later. What bounds a bulletin's length is the prompt asking
+ * for a sentence a story, and this is only the backstop under it.
  *
  * `readAnswer` still DECLINES anything past it rather than cutting, so a model that turned the news
  * into an essay loses the slot to the floor, which reads it in twenty seconds and is never wrong.
  */
-export const NEWS_MAX_WORDS = 170;
+export const NEWS_MAX_WORDS = 300;
 
 /**
  * What the model is told a bulletin IS.

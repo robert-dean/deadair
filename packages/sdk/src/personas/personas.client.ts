@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { Persona, PersonaInput, PersonaList } from './types/personas.types.js';
+import type { Persona, PersonaInput, PersonaList, PersonaRehearsal } from './types/personas.types.js';
 
 export class PersonasClient {
     constructor(private fetch: SdkFetch) {}
@@ -65,5 +65,14 @@ export class PersonasClient {
     async putPersonaOnAir(id: string): Promise<PersonaList> {
         const result = await this.fetch(`/personas/${encodeURIComponent(id)}/active`, { method: 'PUT' });
         return await parseJson<PersonaList>(result);
+    }
+
+    /**
+     * @name Rehearse persona
+     * @description Writes a talk break under this persona against two fixed invented records, and answers with every writer that was asked
+     */
+    async rehearsePersona(id: string): Promise<PersonaRehearsal> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/rehearse`, { method: 'POST' });
+        return await parseJson<PersonaRehearsal>(result);
     }
 }

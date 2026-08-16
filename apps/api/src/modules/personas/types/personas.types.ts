@@ -65,6 +65,27 @@ export const PersonaInput = z.strictObject({
 export type PersonaInput = z.infer<typeof PersonaInput>;
 
 /**
+ * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
+ * model that declined and a floor that covered for it are two facts, and the second on its own reads
+ * as a station that never had a model configured
+ * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L34)
+ */
+export const PersonaRehearsalAttempt = z.strictObject({
+    writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
+    outcome: z.string().min(1).max(20).describe('written, declined or failed. Declined is the station working; failed is something to go and fix'),
+    durationMs: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .describe(
+            'Kept for every writer rather than only a slow one: "the model got slower" can only be asked of numbers gathered before anybody suspected it',
+        ),
+    script: z.string().max(5000).optional().describe('What it produced, when it produced anything usable'),
+    reason: z.string().max(1000).optional().describe('Why it did not, when it did not. A sentence, because its destination is a person'),
+});
+export type PersonaRehearsalAttempt = z.infer<typeof PersonaRehearsalAttempt>;
+
+/**
  * generated from [PersonaList](file://./../../../../data/contracts/personas/personas.types.ck#L27)
  */
 export const PersonaList = z.strictObject({
@@ -76,3 +97,22 @@ export const PersonaListInput = z.strictObject({
     personas: z.array(PersonaInput),
 });
 export type PersonaListInput = z.infer<typeof PersonaListInput>;
+
+/**
+ * What a persona says when it is asked for a break it will never air
+ * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L43)
+ */
+export const PersonaRehearsal = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    previous: z.string().min(1).max(500).describe('The invented record the break follows. Fixed, so two readings of the same sheet can be compared'),
+    next: z.string().min(1).max(500).describe('The invented record it leads into'),
+    attempts: z.array(PersonaRehearsalAttempt),
+    script: z.string().max(5000).optional().describe('The words a listener would have heard, from whichever writer answered first'),
+    writer: z.string().min(1).max(100).optional().describe('Which one that was. Present exactly when `script` is'),
+    reason: z
+        .string()
+        .max(1000)
+        .optional()
+        .describe('Why there are no words, when every writer had nothing. Not a fault: a break nothing could write is one the station does not take'),
+});
+export type PersonaRehearsal = z.infer<typeof PersonaRehearsal>;

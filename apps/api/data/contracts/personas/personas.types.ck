@@ -27,3 +27,25 @@ contract Persona: {
 contract PersonaList: {
     personas: array(Persona)
 }
+
+# One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
+# model that declined and a floor that covered for it are two facts, and the second on its own reads
+# as a station that never had a model configured
+contract PersonaRehearsalAttempt: {
+    writer: string(min=1, max=100) # Which binding was asked, as `segments.writer` would record it
+    outcome: string(min=1, max=20) # written, declined or failed. Declined is the station working; failed is something to go and fix
+    durationMs: int(min=0) # Kept for every writer rather than only a slow one: "the model got slower" can only be asked of numbers gathered before anybody suspected it
+    script?: string(max=5000) # What it produced, when it produced anything usable
+    reason?: string(max=1000) # Why it did not, when it did not. A sentence, because its destination is a person
+}
+
+# What a persona says when it is asked for a break it will never air
+contract PersonaRehearsal: {
+    personaId: string(min=1, max=100)
+    previous: string(min=1, max=500) # The invented record the break follows. Fixed, so two readings of the same sheet can be compared
+    next: string(min=1, max=500) # The invented record it leads into
+    attempts: array(PersonaRehearsalAttempt)
+    script?: string(max=5000) # The words a listener would have heard, from whichever writer answered first
+    writer?: string(min=1, max=100) # Which one that was. Present exactly when `script` is
+    reason?: string(max=1000) # Why there are no words, when every writer had nothing. Not a fault: a break nothing could write is one the station does not take
+}

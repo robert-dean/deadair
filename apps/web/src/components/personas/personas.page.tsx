@@ -7,6 +7,7 @@ import {
     useDeletePersona,
     usePersonas,
     usePutPersonaOnAir,
+    useRehearsePersona,
     useRestorePersonas,
     useUpdatePersona,
 } from '../../api/personas.queries';
@@ -15,6 +16,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PersonaEditor } from './persona.editor';
+import { PersonaRehearsalPanel } from './persona.rehearsal';
 
 /**
  * Who the station is when it opens its mouth.
@@ -35,6 +37,7 @@ export function PersonasPage() {
     const remove = useDeletePersona();
     const putOnAir = usePutPersonaOnAir();
     const restore = useRestorePersonas();
+    const rehearse = useRehearsePersona();
 
     // `undefined` is closed; a persona is editing that one; `null` is a new one. The one place in
     // this app where null earns its keep: "no editor" and "an editor with nothing in it" are
@@ -96,6 +99,14 @@ export function PersonasPage() {
                 <ErrorAlert title="That persona could not be deleted" error={remove.error} fallback="Nothing was removed." />
             ) : undefined}
 
+            {rehearse.error ? (
+                <ErrorAlert
+                    title="That persona could not be rehearsed"
+                    error={rehearse.error}
+                    fallback="Nothing was changed — a rehearsal writes no row and cannot air."
+                />
+            ) : undefined}
+
             {personas.isPending ? (
                 <Stack gap="sm">
                     <PageSkeleton variant="card" />
@@ -146,6 +157,18 @@ export function PersonasPage() {
                                         Put on air
                                     </Button>
                                 )}
+                                {/* Spends a generation and changes nothing, so it is a plain button
+                                    rather than something behind a confirmation — but it takes the
+                                    one model slot, which is why only one runs at a time. */}
+                                <Button
+                                    variant="subtle"
+                                    size="compact-sm"
+                                    loading={rehearse.isPending && rehearse.variables === persona.id}
+                                    disabled={rehearse.isPending}
+                                    onClick={() => rehearse.mutate(persona.id)}
+                                >
+                                    Rehearse
+                                </Button>
                                 <Button variant="subtle" size="compact-sm" onClick={() => setEditing(persona)}>
                                     Edit
                                 </Button>
@@ -160,6 +183,12 @@ export function PersonasPage() {
                                 </Button>
                             </Group>
                         </Group>
+
+                        {/* Keyed on the persona it was actually run for rather than simply rendered
+                            under whichever card is last: one result is held at a time, and a panel
+                            that stayed put while a different persona was rehearsed would attribute
+                            one character's words to another. */}
+                        {rehearse.data?.personaId === persona.id ? <PersonaRehearsalPanel rehearsal={rehearse.data} /> : undefined}
                     </Card>
                 ))}
             </Stack>

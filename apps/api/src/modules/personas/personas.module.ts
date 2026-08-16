@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { PersonaRepository } from './persona.repository.js';
+import { PersonaRehearsalService } from './persona.rehearsal.service.js';
 import { PersonasService } from './personas.service.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 
@@ -26,6 +27,11 @@ export const PersonasModule: ServerKitModule = {
         // scope the boot seed opens.
         registry.register(PersonaRepository).useClass(PersonaRepository).asScoped();
         registry.register(PersonasService).useClass(PersonasService).asScoped();
+        // Scoped like the two above, and it resolves `BreakWriterRegistry` out of the director's
+        // registrations at REQUEST time — which is why this module being registered before that one
+        // costs nothing. The list is a lifecycle order (start, ready, shutdown), not a resolution
+        // order, and nothing here reaches into the director at boot.
+        registry.register(PersonaRehearsalService).useClass(PersonaRehearsalService).asScoped();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {

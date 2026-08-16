@@ -4,6 +4,7 @@ options {
     }
     services: {
         PersonasService: "#src/modules/personas/personas.service.js"
+        PersonaRehearsalService: "#src/modules/personas/persona.rehearsal.service.js"
     }
     security: {
         # The floor for this file is the WRITE end, unlike settings beside it, because this file is
@@ -95,6 +96,28 @@ operation /personas/{id}/active: {
         response: {
             200: {
                 application/json: PersonaList
+            }
+        }
+    }
+}
+
+# A rehearsal, never something that can air. It writes no segment, no script history and no request:
+# the service reaches the writers and the persona table and nothing else, so "this cannot be planted"
+# is a fact about what it holds rather than a rule to remember. The voice sample under
+# `/voices/{id}/sample` is the same shape for the same reason.
+#
+# A POST rather than a GET despite reading nothing, because it spends a generation: it is not safe to
+# retry, not cacheable, and a console that prefetched it would take the model slot off a real break.
+operation /personas/{id}/rehearse: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    post: { # Writes a talk break under this persona against two fixed invented records, and answers with every writer that was asked
+        name: Rehearse persona
+        service: PersonaRehearsalService.rehearse
+        response: {
+            200: {
+                application/json: PersonaRehearsal
             }
         }
     }

@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { PersonaInput, PersonaList } from '@deadair/sdk';
+import type { PersonaInput, PersonaList, PersonaRehearsal } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -56,3 +56,17 @@ export const usePutPersonaOnAir = () => useListWrite((id: string) => sdk.persona
  * what makes it a plain button rather than something behind a confirmation.
  */
 export const useRestorePersonas = () => useListWrite(() => sdk.personas.restoreStationPersonas());
+
+/**
+ * Ask a persona for a break it will never air.
+ *
+ * A mutation rather than a query despite reading nothing, because it spends a generation: it must
+ * not be prefetched, retried on a window focus, or served from a cache. Every click is meant to be
+ * a fresh reading, since the point of pressing it twice is to hear what an edit changed.
+ *
+ * Nothing is written into the persona cache — a rehearsal changes no row.
+ */
+export const useRehearsePersona = () =>
+    useMutation<PersonaRehearsal, Error, string>({
+        mutationFn: (id: string) => sdk.personas.rehearsePersona(id),
+    });

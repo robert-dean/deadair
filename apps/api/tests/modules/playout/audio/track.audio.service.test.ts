@@ -56,6 +56,7 @@ const build = (options: { source: SourceAudio | undefined; url?: string; capByte
     const recordFailure = vi.fn(async () => {});
     const markServed = vi.fn(async () => {});
     const markBindingMissing = vi.fn(async () => true);
+    const markBindingUnplayable = vi.fn(async () => true);
     const disposeAsync = vi.fn(async () => {});
 
     // A cache the sweep can actually eat into: rows in the order the LRU index would answer, minus
@@ -97,7 +98,7 @@ const build = (options: { source: SourceAudio | undefined; url?: string; capByte
                           checksumsReferenced,
                       }
                     : token === TracksRepository
-                      ? { markBindingMissing }
+                      ? { markBindingMissing, markBindingUnplayable }
                       : undefined,
             disposeAsync,
         }),
@@ -115,6 +116,7 @@ const build = (options: { source: SourceAudio | undefined; url?: string; capByte
         recordFailure,
         markServed,
         markBindingMissing,
+        markBindingUnplayable,
         resolveBinding,
         totalCachedBytes,
         leastRecentlyServed,
@@ -549,6 +551,52 @@ describe('benching a binding that will not serve', () => {
         expect(await service.ensure(SOURCE_ID)).toBeDefined();
         expect(recordSuccess).toHaveBeenCalledWith(SOURCE_ID, expect.objectContaining({ ext: 'ogg' }));
         expect(markBindingMissing).not.toHaveBeenCalled();
+    });
+
+    // The other kind of giving up, and the two must not be confused: a bench is the station's own
+    // guess from repeated failures and heals on the next sync, where this is the provider answering
+    // and must not. Four records on this install failed, were benched, were un-benched by the sync
+    // and failed again, once an hour, for days — because a 502 was all the shim would say.
+    it('writes a copy off for good when the provider says it will never serve it', async () => {
+        const { service, markBindingUnplayable, markBindingMissing } = build({ source: BINDING });
+        respondWith(undefined, { status: 410 });
+
+        expect(await service.ensure(SOURCE_ID)).toBeUndefined();
+
+        expect(markBindingUnplayable).toHaveBeenCalledExactlyOnceWith('deadair.spotify', 'track-42');
+        // NOT the temporary mark: that one the hourly sync clears, which is the whole bug.
+        expect(markBindingMissing).not.toHaveBeenCalled();
+    });
+
+    // No ladder, no fourth attempt: the attempts exist to find out whether a failure is transient,
+    // and a 410 has already answered that.
+    it('does not wait for four failures before writing one off', async () => {
+        const { service, markBindingUnplayable } = build({ source: { ...BINDING, attempts: 0 } });
+        respondWith(undefined, { status: 410 });
+
+        await service.ensure(SOURCE_ID);
+
+        expect(markBindingUnplayable).toHaveBeenCalled();
+    });
+
+    // The status is read narrowly on purpose. A signed URL that has expired answers 404 and the next
+    // attempt mints a fresh one, so only 410 — which means exactly this — is permanent.
+    it('still treats a 404 as something to try again', async () => {
+        const { service, markBindingUnplayable, recordFailure } = build({ source: BINDING });
+        respondWith(RECORD, { status: 404, contentType: 'audio/ogg' });
+
+        await service.ensure(SOURCE_ID);
+
+        expect(markBindingUnplayable).not.toHaveBeenCalled();
+        expect(recordFailure).toHaveBeenCalled();
+    });
+
+    it('swallows a failure to write a copy off', async () => {
+        const { service, markBindingUnplayable } = build({ source: BINDING });
+        markBindingUnplayable.mockRejectedValue(new Error('the pool is gone'));
+        respondWith(undefined, { status: 410 });
+
+        await expect(service.ensure(SOURCE_ID)).resolves.toBeUndefined();
     });
 
     // Not being able to write the mark must not fail a request that has already answered.

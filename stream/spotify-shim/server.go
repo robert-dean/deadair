@@ -266,8 +266,23 @@ func (s *server) handleTrack(w http.ResponseWriter, r *http.Request) {
 
 	stream, err := s.openWithRetry(ctx, id)
 	if err != nil {
-		// 502, not 500: what failed is upstream of us. Liquidsoap treats any non-2xx the same way
-		// (the request fails to resolve and the item is dropped), so this is for the log.
+		// 410, not 502, when the failure is about the TRACK rather than the connection carrying it:
+		// this account has no audio for it and no alternative, so trying again next hour and every
+		// hour after that will fail in exactly the same way.
+		//
+		// The distinction already existed for the reconnect decision (see isUnplayable) and used to
+		// be thrown away here, on the argument that Liquidsoap treats every non-2xx alike. That
+		// argument is spent: the app is now the only thing that fetches this endpoint, and it very
+		// much cares — a 502 means "the upstream had a moment" and is retried, where this means
+		// "never", and only the caller can act on the difference. It writes the copy off for good.
+		if isUnplayable(err) {
+			s.log.WithError(err).Warnf("this account cannot play %s, and no retry will change that", id)
+			http.Error(w, "this account cannot play that track", http.StatusGone)
+			return
+		}
+
+		// Everything else IS the connection: an audio-key quota, a dropped accesspoint, a login that
+		// needs redoing. 502, not 500, because what failed is upstream of us.
 		s.log.WithError(err).Errorf("failed opening %s", id)
 		http.Error(w, "upstream fetch failed", http.StatusBadGateway)
 		return

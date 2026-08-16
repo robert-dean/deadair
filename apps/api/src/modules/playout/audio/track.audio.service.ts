@@ -179,6 +179,22 @@ function extensionFor(contentType: string | null): TrackExtension | undefined {
  * is the only evidence anybody gets: an item that fails here is skipped by the player and the station
  * carries on. A `last_error` reading "fetch failed" costs an operator the whole diagnosis.
  */
+/**
+ * A copy this provider is never going to serve, however many times it is asked.
+ *
+ * Its own type because the two failures are opposite instructions and the status code alone is too
+ * quiet to carry that: an audio-key quota, a dropped accesspoint and an expired login all mean "come
+ * back later", and this means "there is no audio here and there never was". Retrying the first kind
+ * is the whole point of the backoff; retrying this one is a request an hour, forever, on a record
+ * that cannot air.
+ *
+ * `410 Gone` is how an upstream says it, which is what the status means and what the station's own
+ * shim now answers when Spotify reports no audio file and no alternative. Nothing else is read this
+ * way — a 404 stays a retryable failure, because a signed URL that has expired answers one and the
+ * next attempt will mint a fresh one.
+ */
+class UnplayableCopy extends Error {}
+
 const errorText = (error: unknown): string => {
     if (!(error instanceof Error)) return String(error);
 
@@ -541,6 +557,14 @@ export class TrackAudioService {
             const reason = errorText(error);
             await this.inScope(repository => repository.recordFailure(source.sourceId, reason, BASE_RETRY_MS, MAX_RETRY_MS));
 
+            // A copy the provider will never serve does not get the ladder. Written off here rather
+            // than after four attempts, because the attempts are the mechanism for finding out
+            // whether a failure is transient and this one has already answered that question.
+            if (error instanceof UnplayableCopy) {
+                await this.writeOff(source, reason);
+                return undefined;
+            }
+
             // Warn rather than debug, unlike the old background-only version: this fetch is on the air
             // path now, so a failure here is an item the player will skip.
             this.logger.warn('playout: could not get a record from its provider', {
@@ -554,6 +578,57 @@ export class TrackAudioService {
             if (source.attempts + 1 >= MISSING_AFTER_ATTEMPTS) await this.bench(source, reason);
 
             return undefined;
+        }
+    }
+
+    /**
+     * Stop offering a copy the provider has told us it will never serve.
+     *
+     * `playable = false`, which is the mark NOTHING clears — deliberately, and it is the whole
+     * difference from {@link bench} below. That one writes `missing_at`, which the hourly sync
+     * clears on every re-sighting, so a copy the provider still lists comes back for another
+     * attempt. That is right when the station is guessing from repeated failures. It is wrong here,
+     * where the provider has answered the question: these four records failed, were benched, were
+     * un-benched by the next sync and failed again, once an hour, for days.
+     *
+     * `upsertTrackSource` documents leaving `playable` alone on update for exactly this: "when
+     * something does [set it false], that decision should not be quietly reverted by the next sync".
+     * This is the something.
+     *
+     * Swallows its own failure, like the bench: not being able to write the mark is not a reason to
+     * fail a request that has already answered.
+     */
+    private async writeOff(source: SourceAudio, reason: string): Promise<void> {
+        try {
+            await inScope(this.container, async scope => {
+                // Already written off, by an earlier attempt or by ingest: say nothing rather than
+                // repeating a line an operator has seen.
+                if (!(await scope.get(TracksRepository).markBindingUnplayable(source.pluginId, source.externalId))) return;
+
+                this.logger.warn('playout: a provider will never serve this copy, so the station has stopped offering it', {
+                    plugin: source.pluginId,
+                    track: source.externalId,
+                    reason,
+                });
+
+                // A `fault`, like the bench, and for the same reason: the station has narrowed its
+                // own rotation without being asked. Worth telling apart from the bench on the feed,
+                // because this one does not heal — if the record is meant to air, it needs another
+                // copy rather than another attempt.
+                void scope.get(ActivityRecorder).record({
+                    module: 'catalog',
+                    kind: 'binding.unplayable',
+                    severity: 'fault',
+                    detail: `A provider said it will never serve a copy of a record, so the station stopped offering it: ${reason}. Nothing will bring this copy back; the record needs another source.`,
+                    data: { pluginId: source.pluginId, externalId: source.externalId },
+                });
+            });
+        } catch (error) {
+            this.logger.warn('playout: could not write off a copy a provider will never serve', {
+                plugin: source.pluginId,
+                track: source.externalId,
+                error: errorText(error),
+            });
         }
     }
 
@@ -670,6 +745,7 @@ export class TrackAudioService {
             signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
         });
 
+        if (response.status === 410) throw new UnplayableCopy('the provider has no audio for this copy and no alternative');
         if (!response.ok) throw new Error(`upstream answered ${response.status}`);
 
         const contentType = response.headers.get('content-type');

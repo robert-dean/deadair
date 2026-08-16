@@ -100,10 +100,15 @@ const isBenched = (eb: TrackScope) =>
     ]);
 
 /**
- * A fetch has failed and is backing off.
+ * A fetch has failed on a copy the station is STILL OFFERING, and is backing off.
  *
  * Not the same as benched and usually the state before it: four consecutive failures is what writes
  * a copy off, so this is the window in which an operator can still do something about the upstream.
+ *
+ * The `playable` and `missing_at` conditions are what keep the two apart once a copy has been given
+ * up on. Without them a written-off copy reads as failing forever — its attempts and its missing
+ * checksum are still on the row, and both are true statements about the past — which would leave the
+ * one actionable filter permanently full of records nothing is trying any more.
  */
 const isFailing = (eb: TrackScope) =>
     eb.exists(
@@ -112,6 +117,8 @@ const isFailing = (eb: TrackScope) =>
             .innerJoin('deadair.trackAudio as a', 'a.sourceId', 's.id')
             .select('s.id')
             .whereRef('s.trackId', '=', 'deadair.tracks.id')
+            .where('s.playable', '=', true)
+            .where('s.missingAt', 'is', null)
             .where('a.checksum', 'is', null)
             .where('a.attempts', '>', 0),
     );
@@ -430,6 +437,33 @@ export class TracksRepository extends DataRepository {
             .where('pluginId', '=', pluginId)
             .where('externalId', '=', externalId)
             .where('missingAt', 'is', null)
+            .executeTakeFirst();
+
+        return (result.numUpdatedRows ?? 0n) > 0n;
+    }
+
+    /**
+     * Stop offering a copy for good, because the provider says it has no audio for it.
+     *
+     * The permanent twin of {@link markBindingMissing}, and the difference is which column: this
+     * writes `playable`, which **nothing clears** — not the hourly sync, not a re-sighting, not the
+     * operator's retry, which is deliberate on all three counts. `missing_at` is the station's own
+     * guess from repeated failures and has to be revisable; this is the provider answering, and a
+     * mark that healed itself would put the record back in rotation to fail again next hour.
+     *
+     * `upsertTrackSource` leaves `playable` alone on update precisely so this survives, and has said
+     * so since before anything wrote it.
+     *
+     * Idempotent, and answers whether it changed anything, so a caller can say something once rather
+     * than on every later attempt that finds the copy already written off.
+     */
+    async markBindingUnplayable(pluginId: string, externalId: string): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.trackSources')
+            .set({ playable: false })
+            .where('pluginId', '=', pluginId)
+            .where('externalId', '=', externalId)
+            .where('playable', '=', true)
             .executeTakeFirst();
 
         return (result.numUpdatedRows ?? 0n) > 0n;

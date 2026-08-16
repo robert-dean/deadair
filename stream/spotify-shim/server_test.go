@@ -314,3 +314,35 @@ func TestHealthReportsAStoredLoginWithoutOpeningOne(t *testing.T) {
 		t.Fatalf("health said %q", body)
 	}
 }
+
+// Which failures are about the TRACK rather than the connection carrying it. This decided nothing
+// but a reconnect until the answer started deciding a status code as well: the app writes a copy off
+// FOR GOOD on the 410 this now produces, and reads every other failure as worth retrying. A false
+// positive here permanently benches a record over a dropped connection.
+func TestFailuresAboutTheTrackAreToldFromFailuresAboutTheConnection(t *testing.T) {
+	unplayable := []string{
+		`"Me So Horny" is not playable by this account (no audio files on the track or any of its 0 alternative(s))`,
+		"no Ogg Vorbis file for this track",
+		"invalid track uri",
+	}
+	for _, msg := range unplayable {
+		if !isUnplayable(errors.New(msg)) {
+			t.Fatalf("expected %q to be about the track", msg)
+		}
+	}
+
+	// Every one of these was in this install's shim log, and every one is worth another attempt: an
+	// audio-key quota, a dropped accesspoint, a login that needs redoing.
+	retryable := []string{
+		"failed retrieving audio key: 5",
+		"failed reading packet header: EOF",
+		"dial tcp 34.158.255.62:4070: connect: connection reset by peer",
+		"failed authenticating with login5: 429",
+		"failed getting track metadata: invalid status code 500",
+	}
+	for _, msg := range retryable {
+		if isUnplayable(errors.New(msg)) {
+			t.Fatalf("expected %q to be worth retrying", msg)
+		}
+	}
+}

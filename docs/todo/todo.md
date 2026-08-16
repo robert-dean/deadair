@@ -61,7 +61,15 @@ points at that file. Checked against the tree on 2026-08-11.
 - [ ] view saved track metadata
 - [ ] like/dislike artist/song/album maybe genre — operator dislikes and never-play predicates are
       `station-intelligence.md` §5, the accountless listener version is §7
-- [ ] integrate with genuis for enrichment
+- [ ] integrate with genuis for enrichment — note that the Genius API returns no lyric TEXT, only
+      metadata and annotation anchors, so this is an annotations integration and belongs to
+      `fact-enrichment.md` (third-party prose the host can extract sourced claims from) rather than
+      to lyrics. `track-lyrics.md` says so under "Where lyrics come from"
+- [ ] track lyrics as enrichment — scoped in `track-lyrics.md`. The rule everything follows from is
+      that a lyric may be read by the host and never said on air, which is why it must not arrive as
+      a `SourceDocument`: the deterministic fact floor would take the song's first line as a sourced
+      claim and the DJ would recite it with a citation. The phase worth building first needs no model
+      at all, a synced lyric's first timestamp as the talk-up limit
 - [x] drop the plugin kind and only use capabilities — done; a manifest has one axis and
       `plugin.manifest.ts` records why
 - [ ] fix the render race on plugin reload — scoped in `render-plugin-readiness.md`, with the log

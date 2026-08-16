@@ -210,6 +210,21 @@ the guard is that the station is EMPTY rather than that each key is missing — 
 deleting a seeded persona expressible. None of them names a voice: which ids exist is a question only
 the installed engine can answer.
 
+**What buys a character room is what the break does not have to say, never the word ceiling.**
+Measured before changing anything: 2 of 137 captured answers reached `DEFAULT_MAX_WORDS` and the
+median break came in at 28 words, so the ceiling was never what bounded one — the model stops on its
+own, and the question is what it spends those 28 words on. It was spending them on content (both
+titles, both artists, a note recited) with a marker at the front and a signature at the end, which is
+a listing with decoration rather than somebody talking. So the three things that changed all ASK FOR
+LESS: a break may hand over ONE of the two records it was shown, the notes are offered rather than
+requested (`You do not have to use any of them` — "work at most one of them in" read as an
+instruction to work one in, and notes reached 108 of those 137 prompts), and "make one point" is a
+rule. Raising the ceiling was considered and rejected on the measurement: it would have permitted
+something nothing was asking for. **A rule true of one kind and false of the next belongs on
+`BreakPromptShape.rules`**, which is what "make one point" forced into existence — it is exactly
+right for a link between two records and a licence to drop two thirds of a bulletin if the news shape
+had to read it.
+
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
 words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next

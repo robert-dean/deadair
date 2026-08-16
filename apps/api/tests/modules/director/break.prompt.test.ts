@@ -100,6 +100,38 @@ describe('breakPrompt', () => {
         });
     });
 
+    // The room for a character is not at the end of the break, it is in what the break does not
+    // have to say. Measured on this station: only 2 of 137 answers reached the word ceiling and the
+    // median came in at 28, so the ceiling was never what bounded a break — what it spent those 28
+    // words on was, and it spent them on both titles, both artists and a note read out.
+    describe('leaving the character somewhere to live', () => {
+        it('asks for one point rather than everything it was shown', () => {
+            expect(system(prompt({ kind: 'talkbreak', previous, next }))).toMatch(/make one point/i);
+        });
+
+        // On the shape rather than in the shared list, because it is true of a link between two
+        // records and false of a bulletin: a news writer reading "make one point" has been handed a
+        // licence to drop two of its three stories.
+        it('keeps a kind’s own rule off the kinds that do not owe it', () => {
+            const bulletin = { job: 'You read the news.', showsPrevious: false };
+
+            expect(system(breakPrompt({ kind: 'news', next }, {}, bulletin))).not.toMatch(/make one point/i);
+        });
+
+        it('lets a break hand over one record when it was shown two', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next }));
+
+            expect(said).toMatch(/do not have to mention both records/i);
+        });
+
+        it('says nothing of the sort when there is only one record to talk about', () => {
+            // A rule about choosing between two records is noise when there is one, and the top of
+            // an order is every station's first break.
+            expect(user(prompt({ kind: 'talkbreak', next }))).not.toMatch(/both records/i);
+            expect(user(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/both records/i);
+        });
+    });
+
     it('states the length as words and as seconds', () => {
         // A model reasons about a spoken length better than about a count; the count is what can
         // actually be checked afterwards.
@@ -162,15 +194,25 @@ describe('breakPrompt', () => {
         it('says what the notes are for, so they are not read out as they stand', () => {
             // The second failure the notes bring: a model handed "Active as a recording artist from
             // 1948 to 2025" will say it, and that is a database entry rather than something a
-            // person says. Wanted rather than required, and never a licence to cue.
+            // person says. Never a licence to cue, either.
             const said = user(prompt({ kind: 'talkbreak', previous: withFacts }));
 
-            expect(said).toMatch(/raw material, not lines to read out/i);
-            expect(said).toMatch(/at most one/i);
+            expect(said).toMatch(/never read out as it stands/i);
+            expect(said).toMatch(/never more than one/i);
             expect(said).toMatch(/never something to cue or play/i);
             // And it does NOT take back the cue the model is allowed to make: it was given the next
             // record precisely so it could name it, and the caller withholds it when it may not.
             expect(user(prompt({ kind: 'talkbreak', previous: withFacts, next }))).not.toMatch(/do not say what is coming up/i);
+        });
+
+        // "Work at most one of them in" was read as an instruction to work one in, and notes reached
+        // 108 of 137 captured prompts: the answers recited dates and credits, which at 28 words is a
+        // third of the break spent on the part no listener needed.
+        it('offers the notes rather than asking for one', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: withFacts }));
+
+            expect(said).toMatch(/you do not have to use any of them/i);
+            expect(said).toMatch(/most breaks are better without one/i);
         });
 
         it('says none of that for a station that knows nothing about either record', () => {

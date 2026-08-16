@@ -51,8 +51,8 @@ import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.j
  * So a kind brings its own shape and the shared discipline stays here. Everything a break owes
  * whatever it is — the grounding rules, the persona sheet and its diction reminder, the word ceiling,
  * the notes rule, the recent-scripts rule, the clock instruction — is in {@link systemPrompt} and
- * {@link userPrompt}, where no kind can opt out of it. What a shape may change is what the break IS,
- * which is one sentence and one opening.
+ * {@link userPrompt}, where no kind can opt out of it. What a shape may change is what the break IS:
+ * one sentence, one opening, and any rule that is true of this kind and false of the one beside it.
  *
  * Shapes live beside their writers, so this file imports the interface and none of them.
  */
@@ -69,6 +69,16 @@ export interface BreakPromptShape {
     showsPrevious: boolean;
     /** What the user turn opens with, before the records. Absent for a break that needs no framing. */
     opening?: (request: BreakWriteRequest) => string | undefined;
+    /**
+     * Rules this kind owes on top of the shared ones, rendered at the end of the same list.
+     *
+     * For a rule that is true of one kind and FALSE of another, which is a narrower thing than it
+     * sounds: almost everything a break owes is owed by all of them, which is why the shared list is
+     * as long as it is and why this is empty on most shapes. The one that forced it is "make one
+     * point" — exactly right for a link between two records, and a licence to drop two thirds of a
+     * bulletin if the news shape had to read it.
+     */
+    rules?: readonly string[];
 }
 
 /**
@@ -79,6 +89,13 @@ export interface BreakPromptShape {
 export const TALK_BREAK_SHAPE: BreakPromptShape = {
     job: 'You write one short spoken link between records. It is read aloud exactly as you write it.',
     showsPrevious: true,
+    // The one rule here that ASKS FOR LESS, and it is what buys a character room to exist. Measured:
+    // the word ceiling is not what bounds a break — 2 of 137 answers reached it and the median came
+    // in at 28 words — so a break is short because the model stops, and what it spends those 28
+    // words on is the whole question. It was spending them on content: both titles, both artists and
+    // a note read out, with a marker at the front and a signature at the end, which is a listing with
+    // decoration rather than somebody talking.
+    rules: ['Make one point. A break is a single thought said well, not everything you know about both records.'],
 };
 
 /** How the station wants this break to sound, and how long it may run. */
@@ -163,6 +180,9 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         '- Write only the words to be spoken. No stage directions, no speaker labels, no quotation marks around the whole thing, no emoji.',
         '- Write numbers, times and symbols the way they should be read out loud.',
         '- Do not greet the listener by name, promise anything you have not been told, or mention the time unless you are given it.',
+        // Last in the list, because a rule true of this kind alone should not push the shared ones
+        // further from the end than they already are.
+        ...(shape.rules ?? []).map(rule => `- ${rule}`),
     ];
 
     // AFTER the rules, and that position is the whole reason it exists. The failure it addresses is
@@ -198,18 +218,39 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         parts.push('You have not been told what plays next. Do not say what is coming up.');
     }
 
+    if (previous && request.next) {
+        // Shown two records, a model names two records, and at 28 words naming both leaves room for
+        // nothing else — which is why what came back was a credit line with a marker on the front.
+        // Permission rather than instruction: the station's own phrasings already work this way (a
+        // template whose optional chunk was dropped mentions one record and is a perfectly good
+        // break), and the model was the only writer that had never been told it could.
+        //
+        // It costs nothing downstream. `claimsNext` over-stamps deliberately — told what plays next
+        // means allowed to name it, so a break that chose not to is stamped anyway and at worst
+        // loses itself to a drift it never promised anything about.
+        parts.push(
+            'You do not have to mention both records. One of them, handed over the way only you would say it, is better than both said flatly.',
+        );
+    }
+
     // Asked of what the model can actually SEE: a rule about reading notes aloud is a rule about
     // nothing when the only record carrying any was withheld by the shape.
     if (hasFacts(previous, request.next)) {
         // Only when there are notes, because the thing this guards against cannot happen without
         // them. Two failures: reading a database line out as it stands ("Active as a recording
         // artist from 1948 to 2025" is a real row in this install's enrichment), and treating a
-        // true fact as a licence to cue whatever it mentions. Working one in is WANTED rather than
-        // required — a break that used none of them is still a break, and one that used two is a
-        // listing.
+        // true fact as a licence to cue whatever it mentions.
+        //
+        // The optionality is stated FIRST and in as many words, because "work at most one of them
+        // in" was read as an instruction to work one in: notes reached 108 of 137 captured prompts
+        // and the answers recite them, which is where "Mastodon kicked off in Atlanta in
+        // two-hundred-eighty-two" and "Juggernaut of Justice, crafted by Bob Marlette" came from. A
+        // model that spends a third of a 28-word break on a fact it was shown has spent it on the
+        // one part of the break no listener needed and the character could not survive.
         parts.push(
-            'The notes are things the station knows to be true. They are raw material, not lines to read out: ' +
-                'work at most one of them in, in your own words, and leave out any that would sound like a database read aloud. ' +
+            'The notes are things the station knows to be true, offered in case one is worth saying. ' +
+                'You do not have to use any of them, and most breaks are better without one: a note earns its place only if you can ' +
+                'say it as yourself. Never more than one, never read out as it stands, never a date or a credit for its own sake. ' +
                 'Anything a note mentions that is not one of the records above is background, never something to cue or play.',
         );
     }

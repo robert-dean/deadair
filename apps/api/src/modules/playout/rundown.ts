@@ -112,7 +112,7 @@ export interface RundownItem {
      * commit would have two cues overwrite each other. The pusher hands items over
      * one at a time.
      */
-    voice?: { segmentId: string; atMs: number };
+    voice?: { segmentId: string; atMs: number; loudnessLufs?: number };
 
     /**
      * Where the audio actually starts and stops in the file, in milliseconds.
@@ -164,8 +164,15 @@ export interface RundownItem {
 export interface PulledItem {
     item: RundownItem;
     url: string;
-    /** The cue to arm alongside it, resolved to something the player can fetch. */
-    voice?: { url: string; atMs: number };
+    /**
+     * The cue to arm alongside it, resolved to something the player can fetch.
+     *
+     * `loudnessLufs` travels with it for the same reason the item's own does: a talk-over never
+     * becomes a player item, so the annotations on the record it rides over say nothing about it,
+     * and this is the only route by which what the segment MEASURED reaches the thing that stamps
+     * its gain. Absent for an unmeasured segment, which `speechGainFor` reads as an assumed level.
+     */
+    voice?: { url: string; atMs: number; loudnessLufs?: number };
     /**
      * What the running order says comes after it, when anything does.
      *
@@ -604,7 +611,11 @@ export class Rundown {
      * pusher building the URL itself — would put a second opinion about where
      * segment audio lives next to the first.
      */
-    private async resolveVoice(voice: { segmentId: string; atMs: number }): Promise<{ url: string; atMs: number } | undefined> {
+    private async resolveVoice(voice: {
+        segmentId: string;
+        atMs: number;
+        loudnessLufs?: number;
+    }): Promise<{ url: string; atMs: number; loudnessLufs?: number } | undefined> {
         const url = await this.resolver
             .resolve({ id: `voice:${voice.segmentId}`, pluginId: RENDER_PLUGIN_ID, externalId: voice.segmentId, title: '', artists: [], artist: '' })
             .catch(() => undefined);
@@ -613,7 +624,7 @@ export class Rundown {
             this.logger.warn('rundown: a talk-over segment could not be resolved; the record airs without it', { segment: voice.segmentId });
             return undefined;
         }
-        return { url, atMs: voice.atMs };
+        return { url, atMs: voice.atMs, ...(voice.loudnessLufs === undefined ? {} : { loudnessLufs: voice.loudnessLufs }) };
     }
 
     /**

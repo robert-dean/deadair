@@ -220,7 +220,7 @@ export class DirectorService {
      * running order, and one held across a stand-down or a new order would attach itself to the
      * first record of something else entirely.
      */
-    private pendingVoice?: { itemId: string; segmentId: string; atMs: number };
+    private pendingVoice?: { itemId: string; segmentId: string; atMs: number; loudnessLufs?: number };
     private readonly unsubscribes: (() => void)[] = [];
     /**
      * Since when the commit window has held candidates and committed none of them, because none of
@@ -1523,7 +1523,15 @@ export class DirectorService {
                 playable.push({
                     ...item.track,
                     id: item.id,
-                    ...(pending === undefined ? {} : { voice: { segmentId: pending.segmentId, atMs: pending.atMs } }),
+                    ...(pending === undefined
+                        ? {}
+                        : {
+                              voice: {
+                                  segmentId: pending.segmentId,
+                                  atMs: pending.atMs,
+                                  ...(pending.loudnessLufs === undefined ? {} : { loudnessLufs: pending.loudnessLufs }),
+                              },
+                          }),
                 });
                 pending = undefined;
                 continue;
@@ -1622,7 +1630,14 @@ export class DirectorService {
                 // still hands over itself, because a cue is never given to the player in its own
                 // right and so the transport never reaches it.
                 this.lineup?.markHanded(item.id);
-                pending = { itemId: item.id, segmentId: segment.id, atMs: item.over.atMs };
+                // Carried from the row here rather than looked up at hand-over: this is the only
+                // place a talk-over's segment is read at all, since it never becomes a player item.
+                pending = {
+                    itemId: item.id,
+                    segmentId: segment.id,
+                    atMs: item.over.atMs,
+                    ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
+                };
                 continue;
             }
 

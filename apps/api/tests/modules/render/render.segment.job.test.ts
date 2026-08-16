@@ -9,6 +9,8 @@ import { PluginError } from '@deadair/plugin-sdk';
 import { RenderSegmentJob } from '../../../src/modules/render/render.segment.job.js';
 import type { SegmentRepository, Segment } from '../../../src/modules/render/segment.repository.js';
 import type { SpeechService } from '../../../src/modules/render/speech.service.js';
+import type { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -23,23 +25,36 @@ const segment = (overrides: Partial<Segment> = {}): Segment =>
         ...overrides,
     }) as Segment;
 
-function harness(options: { claimed?: Segment | undefined; speak?: () => Promise<unknown> } = {}) {
+function harness(
+    options: {
+        claimed?: Segment | undefined;
+        speak?: () => Promise<unknown>;
+        measure?: () => Promise<unknown>;
+    } = {},
+) {
     const claimed = 'claimed' in options ? options.claimed : segment();
 
     const segments = {
         claimForRender: vi.fn(async () => claimed),
         markReady: vi.fn(async () => {}),
         markFailed: vi.fn(async () => {}),
+        recordLoudness: vi.fn(async () => {}),
     } as unknown as SegmentRepository;
 
     const speech = {
         speak: vi.fn(options.speak ?? (async () => ({ checksum: 'abc', ext: 'mp3', pluginId: 'deadair.kokoro' }))),
     } as unknown as SpeechService;
 
-    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
-    const job = new RenderSegmentJob(segments, speech, { id: 'job-1' } as never, {} as never, logger as never);
+    const analysis = {
+        measureAudio: vi.fn(options.measure ?? (async () => ({ schemaVersion: 1, complete: true, data: { loudnessLufs: -24.5 } }))),
+    } as unknown as AnalysisService;
 
-    return { job, segments, speech, logger };
+    const config = { get: vi.fn((_key: string, fallback: string) => fallback) } as unknown as AppConfig;
+
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
+    const job = new RenderSegmentJob(segments, speech, analysis, config, { id: 'job-1' } as never, {} as never, logger as never);
+
+    return { job, segments, speech, analysis, logger };
 }
 
 describe('RenderSegmentJob', () => {
@@ -117,5 +132,71 @@ describe('RenderSegmentJob', () => {
 
         expect(segments.claimForRender).not.toHaveBeenCalled();
         expect(logger.warn).toHaveBeenCalledTimes(2);
+    });
+});
+
+// A speech engine aims at no level, so this is the only thing that can say where the station's own
+// voice actually landed. Everything here is about it never costing the break: the measurement runs
+// after the row is airable, and every way it can fail is a break at the assumed level rather than
+// no break.
+describe('RenderSegmentJob: measuring what it made', () => {
+    it('measures the audio and writes the loudness down', async () => {
+        const { job, segments, analysis } = harness();
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(analysis.measureAudio).toHaveBeenCalledWith('seg-1', expect.stringContaining('seg-1'));
+        expect(segments.recordLoudness).toHaveBeenCalledWith('seg-1', -24.5);
+    });
+
+    it('marks the segment ready before it measures it', async () => {
+        // The ordering is the whole design: a break is airable the moment the audio exists, and a
+        // round trip to a sidecar that may be slow or absent must not hold that up.
+        const order: string[] = [];
+        const { job, segments, analysis } = harness();
+        vi.mocked(segments.markReady).mockImplementation(async () => void order.push('ready'));
+        vi.mocked(analysis.measureAudio).mockImplementation(async () => {
+            order.push('measured');
+            return undefined;
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(order).toEqual(['ready', 'measured']);
+    });
+
+    it('leaves the segment alone when there is no analyzer', async () => {
+        // A station with none is an ordinary state, not a fault: `speechGainFor` falls back to an
+        // assumed speech level and the break airs.
+        const { job, segments } = harness({ measure: async () => undefined });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.recordLoudness).not.toHaveBeenCalled();
+        expect(segments.markFailed).not.toHaveBeenCalled();
+    });
+
+    it('ignores a measurement that carries no loudness', async () => {
+        // Allowed by the contract -- the cue points are required and the loudness is not -- and
+        // what near-silence legitimately produces.
+        const { job, segments } = harness({ measure: async () => ({ schemaVersion: 1, complete: true, data: {} }) });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.recordLoudness).not.toHaveBeenCalled();
+    });
+
+    it('costs the break nothing when the measurement throws', async () => {
+        const { job, segments, logger } = harness({
+            measure: async () => {
+                throw new Error('the analyzer is not there');
+            },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.markReady).toHaveBeenCalled();
+        expect(segments.markFailed).not.toHaveBeenCalled();
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('could not measure'), expect.anything());
     });
 });

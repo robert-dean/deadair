@@ -737,9 +737,22 @@ describe('PlayoutPusher pushing across a change underneath it', () => {
 // exists and the item is committed, and the script waits for that record to actually start before
 // it counts anything.
 describe('PlayoutPusher arming a talk-over', () => {
-    const build = (voice?: { url: string; atMs: number }) => {
+    const build = (voice?: { url: string; atMs: number; loudnessLufs?: number }) => {
         const rundown = new Rundown(new StubResolver(), logger);
-        seed(rundown, [{ ...track('a'), ...(voice ? { voice: { segmentId: 'seg-1', atMs: voice.atMs } } : {}) }]);
+        seed(rundown, [
+            {
+                ...track('a'),
+                ...(voice
+                    ? {
+                          voice: {
+                              segmentId: 'seg-1',
+                              atMs: voice.atMs,
+                              ...(voice.loudnessLufs === undefined ? {} : { loudnessLufs: voice.loudnessLufs }),
+                          },
+                      }
+                    : {}),
+            },
+        ]);
 
         const reading: QueueStatus = { queued: 0, ready: false, remainingMs: -1, driving: true };
         const control = {
@@ -785,6 +798,16 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         const armed = `annotate:liq_amplify="${speechGainFor({}, DEFAULT_TARGET_LUFS)} dB":https://example.test/seg-1.ogg`;
         expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000);
+    });
+
+    it('arms the cue against the segment\'s own measurement where there is one', async () => {
+        // The talk-over never becomes a player item, so this is the ONLY route by which what the
+        // segment measured reaches the thing that stamps its gain.
+        const { pusher, control } = build({ url: 'https://example.test/seg-1.ogg', atMs: 8000, loudnessLufs: -22 });
+
+        await pusher.reconcile();
+
+        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining('liq_amplify="6 dB"'), expect.any(String), 8000);
     });
 
     it('arms nothing for a record with no cue', async () => {

@@ -375,9 +375,13 @@ export class PlayoutPusher {
                     // the mic chain rather than to the playout queue, so `itemAnnotations` never
                     // sees it and this is the only place its gain can be stamped.
                     //
-                    // Nothing measured travels with a cue yet, so this is the assumed speech level;
-                    // `voiceAnnotations` is what both paths agree through.
-                    const uri = annotateUri(voiceAnnotations({}, this.targetLufs()), pulled.voice.url);
+                    // Against the segment's own measurement where it has one, and the assumed speech
+                    // level where it does not; `voiceAnnotations` is what both routes agree through.
+                    const measured = pulled.voice.loudnessLufs;
+                    const uri = annotateUri(
+                        voiceAnnotations(measured === undefined ? {} : { loudnessLufs: measured }, this.targetLufs()),
+                        pulled.voice.url,
+                    );
                     void this.control.armVoice(uri, pulled.item.id, pulled.voice.atMs).catch(() => undefined);
                 }
 

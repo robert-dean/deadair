@@ -44,5 +44,11 @@ export function segmentRundownTrack(segment: Segment): RundownTrack {
         // window rather than needing a rule of its own.
         artist: '',
         ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
+        // The one measurement a segment carries, and it rides the item for the same reason a
+        // record's does: `annotate.ts` decides the gain per hand-over, against a target that is a
+        // live setting, so what travels is what was MEASURED rather than what was computed from it.
+        // Absent until something measures it, which `speechGainFor` treats as an assumed level
+        // rather than as no opinion — a break with no gain at all is ten decibels under the music.
+        ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
     };
 }

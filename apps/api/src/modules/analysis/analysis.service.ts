@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { ANALYSIS_SCHEMA_VERSION, type AnalysisRef } from '@deadair/plugin-sdk';
+import { ANALYSIS_SCHEMA_VERSION, type AnalysisRef, type TrackAnalysis } from '@deadair/plugin-sdk';
 import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -113,6 +113,42 @@ export class AnalysisService {
             this.logger.info('analysis: nothing to measure with', { reason: explainNoAnalyzer(candidates, configured) });
         }
         return chosen;
+    }
+
+    /**
+     * Measure one file the caller already has a URL for.
+     *
+     * The narrow half of {@link measureOne}: no queue, no pace, no repository, no
+     * failure row. It exists for audio the station MADE rather than found — a
+     * rendered segment, measured once, immediately, by the caller that produced
+     * it — where every one of those things is machinery for a walk that does not
+     * apply. There is no second copy to prefer, no upstream to be polite to, and
+     * nothing to re-measure on a later pass, so a failure here is worth a log
+     * line and nothing else.
+     *
+     * `undefined` for every failure, including having no analyzer at all, and the
+     * caller is expected to carry on: a station with no analyzer measures nothing
+     * and still airs everything, which is the rule the whole measurement path is
+     * held to.
+     *
+     * @param id - What this audio is, for the plugin's own logging. Not read back.
+     * @param audioUrl - Reachable from wherever the decoding happens, which is a sidecar container
+     *                   rather than this process. See {@link AnalysisRef.audioUrl}.
+     */
+    async measureAudio(id: string, audioUrl: string, durationMs?: number): Promise<TrackAnalysis | undefined> {
+        const analyzer = this.analyzer();
+        if (analyzer === undefined) return undefined;
+
+        const ref: AnalysisRef = { trackId: id, audioUrl, ...(durationMs === undefined ? {} : { durationMs }) };
+
+        try {
+            return await this.invoker.invoke(analyzer.record.id, 'analysis.analyzeTrack', async () => analyzer.instance.analyzeTrack(ref), {
+                timeoutMs: ANALYZE_INVOKE_TIMEOUT_MS,
+            });
+        } catch (error) {
+            this.logger.warn('analysis: could not measure a file', { id, error: errorText(error) });
+            return undefined;
+        }
     }
 
     /** How many measurements to keep in flight. See {@link resolveAnalysisConcurrency}. */

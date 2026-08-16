@@ -36,6 +36,15 @@ export interface Segment {
     audioChecksum?: string;
     audioExt?: SegmentExtension;
     durationMs?: number;
+    /**
+     * How loud it came out, in LUFS, once something measured it.
+     *
+     * Absent until the measurement lands, and absent for good on a station with no analyzer — which
+     * is an ordinary state rather than a fault, exactly as it is for a record. What reads it is
+     * `speechGainFor`, which falls back to an assumed speech level, so the only cost of absence is
+     * a break a decibel or two off rather than a break at the wrong level entirely.
+     */
+    loudnessLufs?: number;
     error?: string;
     /**
      * The station's own name for the voice this should be said in, not any engine's. Absent means
@@ -171,6 +180,7 @@ interface SegmentRow {
     audioChecksum: string | null;
     audioExt: string | null;
     durationMs: number | null;
+    loudnessLufs: number | null;
     error: string | null;
     voice: string | null;
     writer: string | null;
@@ -192,6 +202,7 @@ const SEGMENT_COLUMNS = [
     'audioChecksum',
     'audioExt',
     'durationMs',
+    'loudnessLufs',
     'error',
     'voice',
     'writer',
@@ -247,6 +258,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.script == null ? {} : { script: row.script }),
         ...(row.sourcePath == null ? {} : { sourcePath: row.sourcePath }),
         ...(row.durationMs == null ? {} : { durationMs: row.durationMs }),
+        ...(row.loudnessLufs == null ? {} : { loudnessLufs: row.loudnessLufs }),
         ...(row.error == null ? {} : { error: row.error }),
         ...(row.voice == null ? {} : { voice: row.voice }),
         ...(row.writer == null ? {} : { writer: row.writer }),
@@ -731,6 +743,24 @@ export class SegmentRepository extends DataRepository {
             .execute();
 
         await this.record(id, 'rendering', 'ready');
+    }
+
+    /**
+     * How loud the audio turned out, once the analyzer has said.
+     *
+     * Its own write rather than part of {@link markReady}, and that ordering is the point: the
+     * segment is airable the moment the audio exists, and measuring it is a round trip to a sidecar
+     * that may be slow, may fail, or may not exist. Holding `ready` back for it would trade a break
+     * at slightly the wrong level for no break at all.
+     *
+     * Deliberately unconditional on state. A segment re-rendered between the measurement being
+     * asked for and it arriving would be measured against audio it no longer has — the window is
+     * the length of one decode of a few seconds of speech, and the cost of losing that race is one
+     * break at the previous take's level. Guarding it with a checksum comparison would be a column
+     * read, a race of its own, and a defence against something inaudible.
+     */
+    async recordLoudness(id: string, loudnessLufs: number): Promise<void> {
+        await this.db.updateTable('deadair.segments').set({ loudnessLufs }).where('id', '=', id).execute();
     }
 
     /**

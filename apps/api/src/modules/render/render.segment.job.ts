@@ -1,7 +1,10 @@
 import { Container, Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
+import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
+import { resolvePlayoutBaseUrl, segmentAudioUrl } from '#modules/playout/playout.urls.js';
 import { SegmentRepository } from './segment.repository.js';
 import { SpeechService } from './speech.service.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -49,6 +52,11 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
     constructor(
         private readonly segments: SegmentRepository,
         private readonly speech: SpeechService,
+        // The analyzer, for how loud the result came out. A module later in the list than this one,
+        // which is a lifecycle order rather than a wiring one: everything registers before anything
+        // resolves, and this is resolved when a job runs.
+        private readonly analysis: AnalysisService,
+        private readonly config: AppConfig,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -99,6 +107,10 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                 plugin: audio.pluginId,
                 ext: audio.ext,
             });
+
+            // AFTER the row is ready, and deliberately not part of the same statement. The break can
+            // air from this moment; how loud it is can catch up. See `measure`.
+            await this.measure(segment.id);
         } catch (error) {
             const message = errorText(error);
 
@@ -107,6 +119,45 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
             // spend the job's one retry on a plugin that is usually still down.
             await this.segments.markFailed(segment.id, message, 'rendering');
             this.logger.warn('render: could not speak a segment', { job: this.context.id, segment: segment.id, error: message });
+        }
+    }
+
+    /**
+     * Find out how loud the break came out, and write it down.
+     *
+     * A speech engine aims at no particular level, so this is the only thing that can tell the
+     * station where its own voice actually landed — and the level is not the engine's constant
+     * either: it moves with the voice, and to a lesser extent with the line. `speechGainFor` turns
+     * this into the gain both routes to the mount are stamped with.
+     *
+     * **Nothing here may cost the break.** Every failure is a log line: the analyzer is optional
+     * (a station with none measures nothing and airs everything), the sidecar is another container,
+     * and the fallback underneath is an assumed speech level that is wrong by a decibel or so
+     * rather than wrong by ten. So this is awaited but never thrown from, and the segment is
+     * already `ready` before it is called.
+     *
+     * The URL is the station's OWN route, for the same reason the catalog's measurements use it:
+     * the bytes measured are the bytes that air, and it is reachable from a sidecar container where
+     * a path on this machine's disk is not.
+     */
+    private async measure(segmentId: string): Promise<void> {
+        try {
+            const url = segmentAudioUrl(resolvePlayoutBaseUrl(this.config), segmentId);
+            const result = await this.analysis.measureAudio(segmentId, url);
+            const loudnessLufs = result?.data.loudnessLufs;
+
+            // A measurement without a loudness figure is allowed by the contract — the cue points
+            // are required and this is not — and near-silence legitimately has none.
+            if (typeof loudnessLufs !== 'number' || !Number.isFinite(loudnessLufs)) return;
+
+            await this.segments.recordLoudness(segmentId, loudnessLufs);
+            this.logger.debug('render: measured a segment', { job: this.context.id, segment: segmentId, loudnessLufs });
+        } catch (error) {
+            this.logger.warn('render: could not measure a segment; it will air at the assumed speech level', {
+                job: this.context.id,
+                segment: segmentId,
+                error: errorText(error),
+            });
         }
     }
 }

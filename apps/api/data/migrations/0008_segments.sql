@@ -75,6 +75,30 @@ create table deadair.segments (
     -- How long it runs. A display value only. Nothing schedules against it: Liquidsoap measures
     -- the request itself, which is the only reading that cannot be thrown off by a bad tag.
     duration_ms integer constraint segments_duration_check check (duration_ms is null or duration_ms >= 0),
+    -- How loud it actually came out, as integrated loudness to ITU-R BS.1770 in LUFS.
+    --
+    -- A record's loudness lives in `deadair.track_analysis`, keyed by the binding measured, because
+    -- a record is one work with several copies and each encode is its own measurement. A segment
+    -- has no copies: the row IS the audio, one checksum, made once. So this is a column here rather
+    -- than a row over there, and it needs none of that table's machinery — no schema version to
+    -- re-measure against, no failure row to keep a walk from paying twice, because there is no
+    -- walk. It is measured once, immediately after the audio is stored.
+    --
+    -- What it is FOR is one number on the way to the mount. A speech engine aims at nothing, so a
+    -- break arrives at whatever the model produced — measured across four voices of the bundled
+    -- engine, between -25.5 and -28.3 LUFS against records the station airs at -16 — and nothing
+    -- else in the mixer will lift it: the mic chain compresses without makeup gain, and a break
+    -- aired BETWEEN two records does not go through that chain at all. `playout/gain.ts` turns this
+    -- into the `liq_amplify` both paths are stamped with, and falls back to an assumed speech level
+    -- where it is null, which is what keeps an unmeasured break airing at a sane level.
+    --
+    -- Only the loudness. A peak is what bounds a boost for a RECORD, whose master the station has no
+    -- claim on; a break is the station's own voice and its boost is bounded by nothing but the
+    -- limiter on the bus, so a peak column here would be stored and never read.
+    --
+    -- Unconstrained: negative in every real case, but a clipped measurement of something that is
+    -- not speech should read as the nonsense it is rather than be rejected on the way in.
+    loudness_lufs double precision,
     -- Why `state` is 'failed'. Cleared when a later attempt works, so the table never reads as
     -- broken for a fault that has since been fixed.
     error text,

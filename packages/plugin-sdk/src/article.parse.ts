@@ -62,6 +62,26 @@ const MIN_PARAGRAPH_CHARS = 60;
 /** Everything whose text is never the story, taken out with its contents. */
 const FURNITURE = /<(script|style|noscript|template|svg|figure|figcaption|aside|nav|header|footer|form)\b[^>]*>[\s\S]*?<\/\1>/gi;
 
+/**
+ * The same thing again, for publishers who mark furniture with a CLASS rather
+ * than with an element.
+ *
+ * Not optional polish. Measured on a real wire story: the photo caption and its
+ * credit sit in `<div class="credit-caption">…<p>…</p>`, which is an ordinary
+ * paragraph by every structural test, and the station read "A view of the rising
+ * water levels at the Wainaku Street Bridge in Hilo, Saturday, Aug. 15" out loud
+ * as its first item of news.
+ *
+ * A heuristic over somebody else's markup, and it is allowed to be one because
+ * it can only ever cut: the vocabulary is small, every word in it names
+ * something that is furniture on any site that uses the word at all, and a false
+ * positive costs one paragraph out of a story that has others. Non-greedy to the
+ * first matching close tag, which on nested markup ends EARLY — that is the safe
+ * direction, since the text being removed is in the innermost element.
+ */
+const FURNITURE_CLASSES =
+    /<(div|section|span|p|ul|ol)\b[^>]*(?:class|id|aria-label)="[^"]*\b(caption|credit|byline|promo|newsletter|related|recirc|sidebar|share|social|advert|subscribe|paywall|tags?)\b[^"]*"[^>]*>[\s\S]*?<\/\1>/gi;
+
 /** The containers a publisher marks the story with, in the order they are worth trusting. */
 const CONTAINERS = [/<article\b[^>]*>([\s\S]*?)<\/article>/i, /<main\b[^>]*>([\s\S]*?)<\/main>/i];
 
@@ -81,7 +101,7 @@ export function extractArticle(html: string, maxChars: number = ARTICLE_MAX_CHAR
     // Furniture first, and before the container is picked: a `<figure>` inside
     // the article is exactly the case this is for, and its caption is a full
     // sentence that would otherwise pass every test below.
-    const cleaned = html.replace(FURNITURE, ' ');
+    const cleaned = html.replace(FURNITURE, ' ').replace(FURNITURE_CLASSES, ' ');
 
     // A publisher that marked the story is trusted about where it is. One that
     // did not gets the whole document, which is safe only because the paragraph

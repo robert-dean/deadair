@@ -86,6 +86,51 @@ export function truncateWords(value: string, maxChars: number): string {
 }
 
 /**
+ * Where one sentence ends and the next begins.
+ *
+ * A terminator, any closing quote or bracket after it, whitespace, and then
+ * something that starts a sentence. The lookahead is what does the work: a
+ * full stop followed by a digit or a lowercase letter is an abbreviation or a
+ * decimal, not an ending. Measured on a real wire story — "Saturday, Aug. 15,
+ * 2026" was being read as a complete sentence and a bulletin said it out loud.
+ */
+const SENTENCE_END = /[.!?]["'”’)\]]*\s+(?=["'“‘(]?[A-Z0-9])/g;
+
+/**
+ * The abbreviations the lookahead cannot catch, because a name follows them and
+ * a name is capitalised.
+ *
+ * Short and deliberately not a gazetteer: every entry here is one that turns up
+ * in news copy, and the cost of a miss is one sentence cut early rather than
+ * anything false. Matched with the full stop already consumed.
+ */
+const ABBREVIATIONS =
+    /\b(mr|mrs|ms|dr|prof|rev|st|jr|sr|gov|sen|rep|lt|sgt|col|gen|capt|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec|no|vs|approx|est|inc|ltd|co|dept|univ|u\.s|u\.k)$/i;
+
+/** Whether the stop at `at` really ends a sentence, or belongs to an abbreviation. */
+const endsSentence = (value: string, at: number): boolean => !ABBREVIATIONS.test(value.slice(Math.max(0, at - 12), at));
+
+/**
+ * The first sentence of a passage, as published, or the whole thing when it is
+ * one sentence.
+ *
+ * Here rather than in a caller because both consumers of prose need it and
+ * neither should be splitting sentences by hand: a station reads the opening
+ * line of a story aloud, and a truncation cuts at the last one that fits.
+ */
+export function firstSentence(value: string): string {
+    const text = value.trim();
+
+    SENTENCE_END.lastIndex = 0;
+    for (let match = SENTENCE_END.exec(text); match !== null; match = SENTENCE_END.exec(text)) {
+        const stop = match.index;
+        if (endsSentence(text, stop)) return text.slice(0, stop + 1).trim();
+    }
+
+    return text;
+}
+
+/**
  * Text cut at the last SENTENCE that fits, with no ellipsis.
  *
  * The other kind of cut, and the one that belongs on anything a voice will read
@@ -98,9 +143,13 @@ export function truncateWords(value: string, maxChars: number): string {
 export function truncateSentences(value: string, maxChars: number): string {
     if (value.length <= maxChars) return value;
 
-    const cut = value.slice(0, maxChars);
-    const lastStop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
-    if (lastStop <= 0) return truncateWords(value, maxChars);
+    let lastStop = -1;
+    SENTENCE_END.lastIndex = 0;
+    for (let match = SENTENCE_END.exec(value); match !== null; match = SENTENCE_END.exec(value)) {
+        if (match.index >= maxChars) break;
+        if (endsSentence(value, match.index)) lastStop = match.index;
+    }
 
-    return cut.slice(0, lastStop + 1).trimEnd();
+    if (lastStop <= 0) return truncateWords(value, maxChars);
+    return value.slice(0, lastStop + 1).trimEnd();
 }

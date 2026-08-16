@@ -46,6 +46,21 @@ describe('extractArticle', () => {
         );
     });
 
+    // The markup a real wire story actually uses: the caption and its credit are an ordinary
+    // `<p>` inside a `<div class="credit-caption">`, which passes every structural test there is.
+    // Before this was handled, the station opened its bulletin by reading a photo caption.
+    it('drops a caption marked by class rather than by element', () => {
+        const captioned = `<article>
+            <div class="credit-caption"><div class="caption" aria-label="Image caption">
+                <p>A view of the rising water levels at the Wainaku Street Bridge in Hilo, Saturday, Aug. 15, 2026.
+                   <b class="credit">Taylor Cozloff/AP</b><b class="hide-caption">hide caption</b></p>
+            </div></div>
+            <p>The storm weakened on Sunday after skirting the islands without ever making landfall.</p>
+        </article>`;
+
+        expect(extractArticle(captioned)).toBe('The storm weakened on Sunday after skirting the islands without ever making landfall.');
+    });
+
     it('drops a caption, a byline, the navigation and the script payload', () => {
         const text = extractArticle(STORY_PAGE) ?? '';
 

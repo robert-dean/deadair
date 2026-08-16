@@ -129,12 +129,11 @@ export function CatalogTracksPage({ page, search, state, onPageChange, onSearchC
                                         <Table.Td>
                                             {/* `renderRoot` rather than `component={Link}`: the
                                                 polymorphic form erases the router's own typing. */}
-                                            <Anchor
-                                                renderRoot={props => <Link to="/catalog/tracks/$trackId" params={{ trackId: track.id }} {...props} />}
-                                                size="sm"
-                                                c="inherit"
-                                                underline="hover"
-                                            >
+                                            {/* Drawn like the artist and album links beside it rather
+                                                than as plain text: the title is now the way into
+                                                everything a record has accumulated, and a link
+                                                nobody can see is a page nobody finds. */}
+                                            <Anchor renderRoot={props => <Link to="/catalog/tracks/$trackId" params={{ trackId: track.id }} {...props} />}>
                                                 {track.title}
                                             </Anchor>
                                         </Table.Td>

@@ -105,9 +105,9 @@ const CatalogTracksIndexRoute = CatalogTracksIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogTracksTrackIdRoute = CatalogTracksTrackIdRouteImport.update({
-  id: '/$trackId',
-  path: '/$trackId',
-  getParentRoute: () => CatalogTracksRoute,
+  id: '/catalog/tracks/$trackId',
+  path: '/catalog/tracks/$trackId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PlaylistsPluginIdPlaylistIdRoute =
   PlaylistsPluginIdPlaylistIdRouteImport.update({
@@ -271,6 +271,7 @@ export interface RootRouteChildren {
   PluginsIndexRoute: typeof PluginsIndexRoute
   CatalogAlbumsAlbumIdRoute: typeof CatalogAlbumsAlbumIdRoute
   CatalogArtistsArtistIdRoute: typeof CatalogArtistsArtistIdRoute
+  CatalogTracksTrackIdRoute: typeof CatalogTracksTrackIdRoute
   PlaylistsPluginIdPlaylistIdRoute: typeof PlaylistsPluginIdPlaylistIdRoute
   CatalogTracksIndexRoute: typeof CatalogTracksIndexRoute
   PluginsIdIndexRoute: typeof PluginsIdIndexRoute
@@ -386,10 +387,10 @@ declare module '@tanstack/react-router' {
     }
     '/catalog/tracks/$trackId': {
       id: '/catalog/tracks/$trackId'
-      path: '/$trackId'
+      path: '/catalog/tracks/$trackId'
       fullPath: '/catalog/tracks/$trackId'
       preLoaderRoute: typeof CatalogTracksTrackIdRouteImport
-      parentRoute: typeof CatalogTracksRoute
+      parentRoute: typeof rootRouteImport
     }
     '/playlists/$pluginId/$playlistId': {
       id: '/playlists/$pluginId/$playlistId'
@@ -430,6 +431,7 @@ const rootRouteChildren: RootRouteChildren = {
   PluginsIndexRoute: PluginsIndexRoute,
   CatalogAlbumsAlbumIdRoute: CatalogAlbumsAlbumIdRoute,
   CatalogArtistsArtistIdRoute: CatalogArtistsArtistIdRoute,
+  CatalogTracksTrackIdRoute: CatalogTracksTrackIdRoute,
   PlaylistsPluginIdPlaylistIdRoute: PlaylistsPluginIdPlaylistIdRoute,
   CatalogTracksIndexRoute: CatalogTracksIndexRoute,
   PluginsIdIndexRoute: PluginsIdIndexRoute,

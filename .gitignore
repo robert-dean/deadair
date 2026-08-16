@@ -61,3 +61,4 @@ __pycache__/
 
 # Rendered by stream/crossfade.check.liq; regenerate rather than commit.
 stream/*.check.wav
+.tanstack/

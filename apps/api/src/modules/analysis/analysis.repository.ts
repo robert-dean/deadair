@@ -251,6 +251,23 @@ export class AnalysisRepository extends DataRepository {
             .executeTakeFirst();
     }
 
+    /**
+     * Forget a record's measurement, so the walk takes it again.
+     *
+     * A delete rather than a flag, because the walk's queue is "everything with no trustworthy row"
+     * and the absence of a row is exactly that state — the same one every track starts in. Nothing
+     * else has to know this happened.
+     *
+     * The cheapest of the clears to get right and the most useful: a detector that turns out to have
+     * been wrong about a class of records is what `analyzer_plugin_id` exists to attribute, and this
+     * is what does something about it.
+     */
+    async clearFor(trackId: string): Promise<number> {
+        const result = await this.db.deleteFrom('deadair.trackAnalysis').where('trackId', '=', trackId).executeTakeFirst();
+
+        return Number(result.numDeletedRows ?? 0n);
+    }
+
     async trustedAnalysisFor(trackIds: readonly string[], schemaVersion: number): Promise<Map<string, StoredAnalysis>> {
         const found = new Map<string, StoredAnalysis>();
         if (trackIds.length === 0) return found;

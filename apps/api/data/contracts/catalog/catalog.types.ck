@@ -124,6 +124,23 @@ contract TrackDetail: Track & {
     playCount: readonly int(min=0) # How many times in all, which the list above is only the head of
 }
 
+# What a clear actually did.
+#
+# A count rather than a bare 204, because the interesting answers are the small ones: clearing the
+# audio of a record with three copies and being told `1` is the station saying two of them were
+# never here — which is a fact about the record and not about the button.
+contract TrackClearResult: {
+    trackId: readonly uuid
+    cleared: readonly int(min=0) # Rows this affected. Zero is an ordinary answer, not a failure
+    detail: readonly string(min=1, max=400) # What happened, in the words the console shows
+}
+
+# Narrow a clear to one provider's answer, for the case where one source is wrong and the rest are
+# not. Absent clears every provider's.
+contract ClearEnrichmentQuery: {
+    provider?: string(min=1, max=200)
+}
+
 # Pagination plus a name filter. Every list operation here takes it, so the console's search box
 # narrows server-side rather than filtering one page client-side and lying about the total.
 contract CatalogQuery: Pagination & {

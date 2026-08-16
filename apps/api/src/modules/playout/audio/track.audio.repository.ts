@@ -393,6 +393,30 @@ export class TrackAudioRepository extends DataRepository {
     }
 
     /**
+     * The files these bindings are currently holding.
+     *
+     * {@link leastRecentlyServed} narrowed to a set of copies rather than to the coldest, for the
+     * operator's clear: same shape out, so the deletion path is the sweep's and not a second one
+     * that could disagree with it about shared checksums.
+     */
+    async filesForSources(sourceIds: readonly string[]): Promise<CachedFile[]> {
+        if (sourceIds.length === 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.trackAudio')
+            .select(['sourceId', 'checksum', 'ext', 'byteSize'])
+            .where('sourceId', 'in', [...sourceIds])
+            .where('checksum', 'is not', null)
+            .execute();
+
+        return rows.flatMap(row =>
+            row.checksum == null || !isTrackExtension(row.ext ?? undefined)
+                ? []
+                : [{ sourceId: row.sourceId, checksum: row.checksum, ext: row.ext as TrackExtension, byteSize: Number(row.byteSize ?? 0) }],
+        );
+    }
+
+    /**
      * Which of these checksums some OTHER row still claims.
      *
      * The check a content-addressed store cannot make for itself. Two bindings that resolved to
@@ -434,6 +458,41 @@ export class TrackAudioRepository extends DataRepository {
             .executeTakeFirst();
 
         return Number(result.numUpdatedRows ?? 0n);
+    }
+
+    /**
+     * Let every copy of a record be tried again now.
+     *
+     * Two tables in one call because they are two halves of one instruction: the backoff on
+     * `track_audio` is what stops the ripener asking, and `track_sources.missing_at` is what stops
+     * anything offering the copy at all. Clearing one and not the other leaves a record that is
+     * either still benched or still waiting.
+     *
+     * `attempts` goes back to zero as well, which matters more than it looks: four CONSECUTIVE
+     * failures is what writes a copy off, so a record left at three would be one blip from being
+     * benched again the moment an operator finished fixing the upstream.
+     *
+     * The `missing_at` clear is the same one the hourly sync makes on re-sighting a copy. This is
+     * that, on demand.
+     */
+    async retryForTrack(trackId: string): Promise<number> {
+        const sources = await this.db.selectFrom('deadair.trackSources').select('id').where('trackId', '=', trackId).execute();
+        if (sources.length === 0) return 0;
+
+        const ids = sources.map(source => source.id);
+        await this.db
+            .updateTable('deadair.trackAudio')
+            .set({ attempts: 0, nextAttemptAt: null, lastError: null })
+            .where('sourceId', 'in', ids)
+            .execute();
+
+        await this.db.updateTable('deadair.trackSources').set({ missingAt: null }).where('id', 'in', ids).where('missingAt', 'is not', null).execute();
+
+        // The COPIES this reopened, which is what an operator is looking at. Not the rows touched:
+        // a copy with no `track_audio` row at all was never failing and is still reopened by this,
+        // and counting statements rather than copies would say so twice for some and once for
+        // others.
+        return ids.length;
     }
 
     /**

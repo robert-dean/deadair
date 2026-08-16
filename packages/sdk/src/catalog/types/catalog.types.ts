@@ -83,9 +83,36 @@ export interface TrackPlay {
 export interface TrackPlayInput {}
 
 /**
+ * What a clear actually did.
+ *
+ * A count rather than a bare 204, because the interesting answers are the small ones: clearing the
+ * audio of a record with three copies and being told `1` is the station saying two of them were
+ * never here — which is a fact about the record and not about the button.
+ * generated from [TrackClearResult](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L132)
+ */
+export interface TrackClearResult {
+    trackId: string;
+    /** Rows this affected. Zero is an ordinary answer, not a failure */
+    cleared: number;
+    /** What happened, in the words the console shows */
+    detail: string;
+}
+
+export interface TrackClearResultInput {}
+
+/**
+ * Narrow a clear to one provider's answer, for the case where one source is wrong and the rest are
+ * not. Absent clears every provider's.
+ * generated from [ClearEnrichmentQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L140)
+ */
+export interface ClearEnrichmentQuery {
+    provider?: string;
+}
+
+/**
  * Pagination plus a name filter. Every list operation here takes it, so the console's search box
  * narrows server-side rather than filtering one page client-side and lying about the total.
- * generated from [CatalogQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L129)
+ * generated from [CatalogQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L146)
  */
 export interface CatalogQuery extends Pagination {
     search?: string;
@@ -103,7 +130,7 @@ export interface CatalogQueryInput extends PaginationInput {
  *   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
  *   benched     every copy written off, which is the one state that means it CANNOT air
  *   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
- * generated from [TrackState](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L140)
+ * generated from [TrackState](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L157)
  */
 export type TrackState = 'cached' | 'uncached' | 'unmeasured' | 'benched' | 'failing';
 
@@ -114,7 +141,7 @@ export type TrackState = 'cached' | 'uncached' | 'unmeasured' | 'benched' | 'fai
  * `docs/todo/analysis-queue-ordering.md` necessary, and it was a psql query then. `total` is the
  * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
  * read as N of M without reaching into the pager.
- * generated from [TrackStateCounts](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L156)
+ * generated from [TrackStateCounts](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L173)
  */
 export interface TrackStateCounts {
     total: number;
@@ -128,7 +155,7 @@ export interface TrackStateCounts {
 export interface TrackStateCountsInput {}
 
 /**
- * generated from [EnrichmentExternalId](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L204)
+ * generated from [EnrichmentExternalId](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L221)
  */
 export interface EnrichmentExternalId {
     /** e.g. `musicbrainz`, `wikidata` */
@@ -139,7 +166,7 @@ export interface EnrichmentExternalId {
 /**
  * Narrowed to http(s) by the host before it is stored, since the console renders these as
  * something a human clicks.
- * generated from [EnrichmentLink](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L211)
+ * generated from [EnrichmentLink](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L228)
  */
 export interface EnrichmentLink {
     label: string;
@@ -150,7 +177,7 @@ export interface EnrichmentLink {
  * One thing the station believes, and the words it read that say so. Extracted by the host out of
  * an article a plugin handed over, rather than said by any plugin: `sourceUrl` is where a person
  * checks it and `sourceQuote` is the span that supports it, and neither is ever absent.
- * generated from [FactClaim](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L300)
+ * generated from [FactClaim](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L317)
  */
 export interface FactClaim {
     id: string;
@@ -278,7 +305,7 @@ export interface TrackInput {
  *
  * Its own contract rather than a field on `CatalogQuery`, because that one is shared with the artist
  * and album lists where none of these states means anything.
- * generated from [TrackQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L146)
+ * generated from [TrackQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L163)
  */
 export interface TrackQuery extends CatalogQuery {
     state?: TrackState;
@@ -293,7 +320,7 @@ export interface TrackQueryInput extends CatalogQueryInput {
  * `1997`, `1997-06` or `1997-06-24` depending on what is actually known about the release, and the
  * SDK types it the same way. A `datetime` would reject the first two or invent a day and a time
  * for them, which is a precision the source never claimed.
- * generated from [TrackEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L220)
+ * generated from [TrackEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L237)
  */
 export interface TrackEnrichmentData {
     artist?: string;
@@ -319,7 +346,7 @@ export interface TrackEnrichmentData {
 }
 
 /**
- * generated from [ArtistEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L240)
+ * generated from [ArtistEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L257)
  */
 export interface ArtistEnrichmentData {
     name?: string;
@@ -333,7 +360,7 @@ export interface ArtistEnrichmentData {
 }
 
 /**
- * generated from [AlbumEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L251)
+ * generated from [AlbumEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L268)
  */
 export interface AlbumEnrichmentData {
     name?: string;
@@ -353,7 +380,7 @@ export interface AlbumEnrichmentData {
 
 /**
  * One page of artists, with the totals the request was counted against
- * generated from [ArtistPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L184)
+ * generated from [ArtistPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L201)
  */
 export interface ArtistPage {
     meta: Pagination;
@@ -367,7 +394,7 @@ export interface ArtistPageInput {
 
 /**
  * One page of albums
- * generated from [AlbumPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L189)
+ * generated from [AlbumPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L206)
  */
 export interface AlbumPage {
     meta: Pagination;
@@ -412,7 +439,7 @@ export interface TrackDetailInput extends TrackInput {
  * the query that was already running — and everything wider (which providers, how many bytes, why the
  * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
  * the detail page in a table cell.
- * generated from [TrackRow](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L171)
+ * generated from [TrackRow](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L188)
  */
 export interface TrackRow extends Track {
     /** The bytes are on this machine */
@@ -428,7 +455,7 @@ export type TrackRowInput = TrackInput
 /**
  * One provider's stored answer. `found: false` is a recorded miss, which is a fact rather than a
  * failure: the provider was asked, had nothing, and is not asked again until `expiresAt`.
- * generated from [TrackEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L267)
+ * generated from [TrackEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L284)
  */
 export interface TrackEnrichmentSource {
     provider: string;
@@ -447,7 +474,7 @@ export interface TrackEnrichmentSourceInput {
 }
 
 /**
- * generated from [ArtistEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L277)
+ * generated from [ArtistEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L294)
  */
 export interface ArtistEnrichmentSource {
     provider: string;
@@ -464,7 +491,7 @@ export interface ArtistEnrichmentSourceInput {
 }
 
 /**
- * generated from [AlbumEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L287)
+ * generated from [AlbumEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L304)
  */
 export interface AlbumEnrichmentSource {
     provider: string;
@@ -482,7 +509,7 @@ export interface AlbumEnrichmentSourceInput {
 
 /**
  * One page of tracks, with what the station has of each and of the whole set
- * generated from [TrackPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L194)
+ * generated from [TrackPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L211)
  */
 export interface TrackPage {
     meta: Pagination;
@@ -504,7 +531,7 @@ export interface TrackPageInput {
  * `claims` sits beside them rather than inside `merged`, because a claim is the host's own and not
  * any provider's. The articles they were read out of are deliberately NOT here: raw source prose is
  * stored and never sent.
- * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L320)
+ * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L337)
  */
 export interface TrackEnrichmentDetail {
     trackId: string;
@@ -520,7 +547,7 @@ export interface TrackEnrichmentDetailInput {
 }
 
 /**
- * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L327)
+ * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L344)
  */
 export interface ArtistEnrichmentDetail {
     artistId: string;
@@ -536,7 +563,7 @@ export interface ArtistEnrichmentDetailInput {
 }
 
 /**
- * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L334)
+ * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L351)
  */
 export interface AlbumEnrichmentDetail {
     albumId: string;

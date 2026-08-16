@@ -9,8 +9,10 @@ import type {
     ArtistPage,
     CatalogQuery,
     CatalogQueryInput,
+    ClearEnrichmentQuery,
     RateInput,
     Track,
+    TrackClearResult,
     TrackDetail,
     TrackEnrichmentDetail,
     TrackPage,
@@ -135,12 +137,51 @@ export class CatalogClient {
     }
 
     /**
+     * @name Clear track audio
+     * @description Drop the station's own copies of this record. The next play fetches them again
+     */
+    async clearTrackAudio(id: string): Promise<TrackClearResult> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/audio`, { method: 'DELETE' });
+        return await parseJson<TrackClearResult>(result);
+    }
+
+    /**
+     * @name Clear track analysis
+     * @description Forget the measurement, so the walk takes it again
+     */
+    async clearTrackAnalysis(id: string): Promise<TrackClearResult> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/analysis`, { method: 'DELETE' });
+        return await parseJson<TrackClearResult>(result);
+    }
+
+    /**
+     * @name Retry track audio
+     * @description Try this record's copies again now, rather than when the backoff says
+     */
+    async retryTrackAudio(id: string): Promise<TrackClearResult> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/retry`, { method: 'POST' });
+        return await parseJson<TrackClearResult>(result);
+    }
+
+    /**
      * @name Get track enrichment
      * @description What the providers said about one recording, including everything no canonical column holds
      */
     async getTrackEnrichment(id: string): Promise<TrackEnrichmentDetail> {
         const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/enrichment`, { method: 'GET' });
         return await parseJson<TrackEnrichmentDetail>(result);
+    }
+
+    /**
+     * @name Clear track enrichment
+     * @description Forget what the providers said, so the enrichment pass asks again
+     */
+    async clearTrackEnrichment(id: string, query?: ClearEnrichmentQuery): Promise<TrackClearResult> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/enrichment${qs}`, {
+            method: 'DELETE',
+        });
+        return await parseJson<TrackClearResult>(result);
     }
 
     /**

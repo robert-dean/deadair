@@ -220,6 +220,36 @@ export function useRateAlbum() {
  * Also invalidates the running order, which carries each item's rating so the on-air table can draw
  * a control that is not lying. Without it the row would keep its old answer until the next poll.
  */
+/** Which of a record's derived things to throw away. Each is a verb of its own; see `catalog.ck`. */
+export type TrackClear = 'audio' | 'analysis' | 'enrichment' | 'retry';
+
+/**
+ * Throw away one of the things the station can work out again about a record.
+ *
+ * One mutation for the four rather than four hooks, because they are one gesture with a different
+ * object: the page holds a single pending state and shows a single answer, and a menu of four
+ * buttons wired to four hooks would have four of each.
+ *
+ * The detail read is invalidated and nothing else: a clear changes what the station HAS of a record,
+ * which is what that read describes. The lists get it on their own next fetch, and the enrichment
+ * read is invalidated only when the clear was about enrichment.
+ */
+export function useClearTrack() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, what }: { id: string; what: TrackClear }) => {
+            if (what === 'audio') return sdk.catalog.clearTrackAudio(id);
+            if (what === 'analysis') return sdk.catalog.clearTrackAnalysis(id);
+            if (what === 'enrichment') return sdk.catalog.clearTrackEnrichment(id);
+            return sdk.catalog.retryTrackAudio(id);
+        },
+        onSuccess: (_result, { id, what }) => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.track(id) });
+            if (what === 'enrichment') void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.trackEnrichment(id) });
+        },
+    });
+}
+
 export function useRateTrack() {
     const queryClient = useQueryClient();
     return useMutation({

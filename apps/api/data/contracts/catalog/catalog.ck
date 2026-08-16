@@ -204,6 +204,76 @@ operation /catalog/tracks/{id}: {
     }
 }
 
+# ── throwing away what the station can work out again ──────────────────────────────────
+#
+# Four verbs, and every one of them removes something DERIVED: bytes that can be fetched again, a
+# measurement that can be taken again, a provider's answer that can be asked for again. **Nothing
+# here deletes a canonical row** — deleting a `tracks` row has merge semantics behind it and is a
+# different feature that would say so.
+#
+# All `platform.manage`, because each one makes the station go and do work, and each is stamped on
+# the activity feed with the actor who asked: a re-fetch or a re-measure that appeared from nowhere
+# reads as the station churning for no reason.
+
+operation /catalog/tracks/{id}/audio: {
+    params: {
+        id: uuid
+    }
+    delete: { # Drop the station's own copies of this record. The next play fetches them again
+        name: Clear track audio
+        service: TracksService.clearAudio
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: TrackClearResult
+            }
+            # A record inside the committable window is REFUSED rather than queued: the director
+            # commits on the audio being present, so taking the file would produce exactly the
+            # silence the commit gate exists to prevent. The operator can skip it or take it out of
+            # the running order, both of which they can do from the same console.
+            409:
+        }
+    }
+}
+
+operation /catalog/tracks/{id}/analysis: {
+    params: {
+        id: uuid
+    }
+    delete: { # Forget the measurement, so the walk takes it again
+        name: Clear track analysis
+        service: TracksService.clearAnalysis
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: TrackClearResult
+            }
+        }
+    }
+}
+
+operation /catalog/tracks/{id}/retry: {
+    params: {
+        id: uuid
+    }
+    post: { # Try this record's copies again now, rather than when the backoff says
+        name: Retry track audio
+        service: TracksService.retryAudio
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: TrackClearResult
+            }
+        }
+    }
+}
+
 operation /catalog/tracks/{id}/enrichment: {
     params: {
         id: uuid
@@ -214,6 +284,19 @@ operation /catalog/tracks/{id}/enrichment: {
         response: {
             200: {
                 application/json: TrackEnrichmentDetail
+            }
+        }
+    }
+    delete: { # Forget what the providers said, so the enrichment pass asks again
+        name: Clear track enrichment
+        service: TracksService.clearEnrichment
+        query: ClearEnrichmentQuery
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: TrackClearResult
             }
         }
     }

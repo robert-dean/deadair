@@ -16,6 +16,7 @@ import type { StatusTone } from '../shared/status';
 import { Artwork } from '../shared/artwork';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
+import { TrackClearMenu } from './track.clear.menu';
 
 /** A moment, to the minute. These are all "when did this last happen" rather than dates on a calendar. */
 const MOMENT = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -110,6 +111,10 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
                     </Anchor>
                     <PageHeader
                         title={detail.title}
+                        // On the header rather than beside each card: a clear is one gesture with
+                        // four objects, and putting a button on every panel would read as four
+                        // unrelated features.
+                        actions={<TrackClearMenu trackId={trackId} />}
                         description={
                             <Text c="dimmed" size="sm">
                                 {detail.artists}

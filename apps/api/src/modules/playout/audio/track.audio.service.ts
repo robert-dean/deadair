@@ -461,6 +461,34 @@ export class TrackAudioService {
     }
 
     /**
+     * Throw away the station's own copies of one record, because an operator said so.
+     *
+     * The same three steps the sweep takes — clear the rows, keep them, delete only files no
+     * surviving row claims — with one difference that is the whole point of it being a separate
+     * method: **it refuses rather than choosing for itself.** A record inside the committable window
+     * or being fetched right now is not evicted quietly, because the operator is standing there and
+     * can be told, and because what they do about it (skip it, take it out of the running order) is
+     * a decision only they can make.
+     *
+     * Immediate rather than queued behind the sweep, for the same reason. Somebody is watching the
+     * page: a clear that happened at some unrelated later minute would be a button that appeared to
+     * do nothing.
+     *
+     * `undefined` means refused. The caller turns that into a 409 with a sentence.
+     */
+    async clearForTrack(sourceIds: readonly string[]): Promise<{ cleared: number } | undefined> {
+        const protectedNow = this.protectedNow();
+        if (sourceIds.some(sourceId => protectedNow.has(sourceId) || this.inFlight.has(sourceId))) return undefined;
+
+        const held = await inScope(this.container, scope => scope.get(TrackAudioRepository).filesForSources(sourceIds));
+        if (held.length === 0) return { cleared: 0 };
+
+        await this.drop(held);
+
+        return { cleared: held.length };
+    }
+
+    /**
      * Clear these rows' file columns and delete the files nothing else is holding on to.
      *
      * The order is the load-bearing part, and it is rows first: a file deleted before its row was

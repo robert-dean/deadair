@@ -13,8 +13,10 @@ import {
     ArtistPage,
     CatalogQuery,
     CatalogQueryInput,
+    ClearEnrichmentQuery,
     RateInput,
     Track,
+    TrackClearResult,
     TrackDetail,
     TrackEnrichmentDetail,
     TrackPage,
@@ -245,8 +247,68 @@ CatalogRouter.get('/catalog/tracks/:id', requirePolicy({ policy: 'platform.view'
 });
 
 /**
+ * Drop the station's own copies of this record. The next play fetches them again
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L222)
+ */
+CatalogRouter.delete('/catalog/tracks/:id/audio', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(TracksService);
+    const result: TrackClearResult = await service.clearAudio(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Forget the measurement, so the walk takes it again
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L245)
+ */
+CatalogRouter.delete('/catalog/tracks/:id/analysis', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(TracksService);
+    const result: TrackClearResult = await service.clearAnalysis(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Try this record's copies again now, rather than when the backoff says
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L263)
+ */
+CatalogRouter.post('/catalog/tracks/:id/retry', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(TracksService);
+    const result: TrackClearResult = await service.retryAudio(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * What the providers said about one recording, including everything no canonical column holds
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L211)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L281)
  */
 CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -265,8 +327,30 @@ CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'pla
 });
 
 /**
+ * Forget what the providers said, so the enrichment pass asks again
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L290)
+ */
+CatalogRouter.delete('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const query = await parseAndValidate(ctx.query, ClearEnrichmentQuery.strict());
+
+    const service = ctx.container.get(TracksService);
+    const result: TrackClearResult = await service.clearEnrichment(id, query);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Every track, flat. The only way to answer "do we have this song?" without knowing its artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L223)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L306)
  */
 CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, TrackQueryInput.strict());
@@ -281,7 +365,7 @@ CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: 'platform.view' }),
 
 /**
  * What the station thinks of this song, which is the narrowest thing an opinion can be about
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L239)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L322)
  */
 CatalogRouter.put('/catalog/tracks/:id/rating', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

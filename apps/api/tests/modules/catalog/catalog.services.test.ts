@@ -21,10 +21,16 @@ import type { TracksRepository } from '../../../src/modules/catalog/tracks.repos
 import type { TrackAudioRepository } from '../../../src/modules/playout/audio/track.audio.repository.js';
 import type { AnalysisRepository } from '../../../src/modules/analysis/analysis.repository.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
+import type { EnrichmentRepository } from '../../../src/modules/enrichment/enrichment.repository.js';
+import type { TrackAudioService } from '../../../src/modules/playout/audio/track.audio.service.js';
+import type { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
+import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
 
 const ARTIST_ID = '11111111-1111-4111-8111-111111111111';
 const ALBUM_ID = '22222222-2222-4222-8222-222222222222';
 const TRACK_ID = '33333333-3333-4333-8333-333333333333';
+/** Whoever pressed the button. Every clear is stamped with them; see `station_events.actor_id`. */
+const OPERATOR_ID = '55555555-5555-4555-8555-555555555555';
 
 const artistRow = () => ({ id: ARTIST_ID, name: 'Sigur Rós', rating: 0, albumCount: 3, trackCount: 41 });
 const albumRow = () => ({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 0, trackCount: 8 });
@@ -187,22 +193,43 @@ describe('AlbumsService', () => {
     });
 });
 
+/** What the clear verbs reach, so a test can watch what they did without a database. */
+interface TrackServiceParts {
+    bindings?: unknown[];
+    analysis?: unknown;
+    plays?: unknown[];
+    playCount?: number;
+    /** `undefined` from the service means refused — a record about to air. */
+    clearForTrack?: ReturnType<typeof vi.fn>;
+    retryForTrack?: ReturnType<typeof vi.fn>;
+    clearAnalysis?: ReturnType<typeof vi.fn>;
+    clearEnrichment?: ReturnType<typeof vi.fn>;
+    record?: ReturnType<typeof vi.fn>;
+}
+
 /**
- * A tracks service over a partial repository and three empty readers.
+ * A tracks service over a partial repository and stubbed readers.
  *
- * The three exist for `getTrack`, which composes four independent reads; every other method here
- * touches only the catalog repository, so they default to answering with nothing rather than each
- * test having to say so.
+ * The readers exist for `getTrack`, which composes four independent reads, and for the clears,
+ * which reach three more tables and the file store. Everything defaults to "nothing there and
+ * nothing happened", so a test says only what it is about.
  */
-const tracksService = (
-    repository: Partial<TracksRepository>,
-    extras: { bindings?: unknown[]; analysis?: unknown; plays?: unknown[]; playCount?: number } = {},
-) =>
+const tracksService = (repository: Partial<TracksRepository>, parts: TrackServiceParts = {}) =>
     new TracksService(
         repository as TracksRepository,
-        { bindingsForTrack: vi.fn().mockResolvedValue(extras.bindings ?? []) } as unknown as TrackAudioRepository,
-        { stateFor: vi.fn().mockResolvedValue(extras.analysis) } as unknown as AnalysisRepository,
-        { forTrack: vi.fn().mockResolvedValue({ plays: extras.plays ?? [], total: extras.playCount ?? 0 }) } as unknown as PlayHistoryRepository,
+        {
+            bindingsForTrack: vi.fn().mockResolvedValue(parts.bindings ?? []),
+            retryForTrack: parts.retryForTrack ?? vi.fn().mockResolvedValue(0),
+        } as unknown as TrackAudioRepository,
+        {
+            stateFor: vi.fn().mockResolvedValue(parts.analysis),
+            clearFor: parts.clearAnalysis ?? vi.fn().mockResolvedValue(0),
+        } as unknown as AnalysisRepository,
+        { forTrack: vi.fn().mockResolvedValue({ plays: parts.plays ?? [], total: parts.playCount ?? 0 }) } as unknown as PlayHistoryRepository,
+        { clearTrackEnrichment: parts.clearEnrichment ?? vi.fn().mockResolvedValue(0) } as unknown as EnrichmentRepository,
+        { clearForTrack: parts.clearForTrack ?? vi.fn().mockResolvedValue({ cleared: 0 }) } as unknown as TrackAudioService,
+        { actor: { kind: 'user', actorId: OPERATOR_ID } } as unknown as AuthorizationContext,
+        { record: parts.record ?? vi.fn().mockResolvedValue(undefined) } as unknown as ActivityRecorder,
     );
 
 describe('TracksService', () => {
@@ -351,5 +378,112 @@ describe('TracksService.getTrack', () => {
         const service = tracksService({ findTrack: vi.fn().mockResolvedValue(undefined) });
 
         await expect(service.getTrack(TRACK_ID)).rejects.toMatchObject({ statusCode: 404 });
+    });
+});
+
+// Every one of these removes something DERIVED, and every one is stamped with the operator who
+// asked — a re-fetch or a re-measure that appeared from nowhere reads as the station churning.
+describe('throwing away what the station can work out again', () => {
+    const exists = { findTrack: vi.fn().mockResolvedValue(trackRow()) };
+
+    it('drops the local copies and says how many', async () => {
+        const clearForTrack = vi.fn().mockResolvedValue({ cleared: 2 });
+        const service = tracksService(exists, { bindings: [{ sourceId: 'a' }, { sourceId: 'b' }], clearForTrack });
+
+        const result = await service.clearAudio(TRACK_ID);
+
+        expect(clearForTrack).toHaveBeenCalledWith(['a', 'b']);
+        expect(result).toMatchObject({ trackId: TRACK_ID, cleared: 2 });
+        expect(result.detail).toMatch(/Dropped 2 copies/);
+    });
+
+    // The rule the whole verb is shaped around: the director commits on the audio being present, so
+    // taking a file out from under a committed item produces exactly the silence the commit gate
+    // exists to prevent. The operator is told, rather than the station choosing for them.
+    it('refuses a record that is about to air rather than taking its audio', async () => {
+        const service = tracksService(exists, { bindings: [{ sourceId: 'a' }], clearForTrack: vi.fn().mockResolvedValue(undefined) });
+
+        await expect(service.clearAudio(TRACK_ID)).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    // Not a failure: a record the station was not holding is an ordinary answer, and saying so is
+    // more useful than a silent success.
+    it('says plainly when there was nothing held to drop', async () => {
+        const service = tracksService(exists, { clearForTrack: vi.fn().mockResolvedValue({ cleared: 0 }) });
+
+        const result = await service.clearAudio(TRACK_ID);
+
+        expect(result.cleared).toBe(0);
+        expect(result.detail).toMatch(/not holding any copies/);
+    });
+
+    it('forgets a measurement so the walk takes it again', async () => {
+        const clearAnalysis = vi.fn().mockResolvedValue(1);
+        const service = tracksService(exists, { clearAnalysis });
+
+        const result = await service.clearAnalysis(TRACK_ID);
+
+        expect(clearAnalysis).toHaveBeenCalledWith(TRACK_ID);
+        expect(result.detail).toMatch(/walk will pick it up again/);
+    });
+
+    it('forgets every provider’s answer, or one provider’s', async () => {
+        const clearEnrichment = vi.fn().mockResolvedValue(3);
+        const service = tracksService(exists, { clearEnrichment });
+
+        await service.clearEnrichment(TRACK_ID, {});
+        expect(clearEnrichment).toHaveBeenCalledWith(TRACK_ID, undefined);
+
+        await service.clearEnrichment(TRACK_ID, { provider: 'deadair.lastfm' });
+        expect(clearEnrichment).toHaveBeenCalledWith(TRACK_ID, 'deadair.lastfm');
+    });
+
+    // The station's own claims are its argument with its evidence attached, and deleting one from
+    // the console is a decision `fact-enrichment.md` records as deliberately not made yet.
+    it('says the station’s own facts survive an enrichment clear', async () => {
+        const service = tracksService(exists, { clearEnrichment: vi.fn().mockResolvedValue(2) });
+
+        expect((await service.clearEnrichment(TRACK_ID, {})).detail).toMatch(/facts are untouched/);
+    });
+
+    it('reopens every copy for another attempt', async () => {
+        const retryForTrack = vi.fn().mockResolvedValue(2);
+        const service = tracksService(exists, { retryForTrack });
+
+        const result = await service.retryAudio(TRACK_ID);
+
+        expect(retryForTrack).toHaveBeenCalledWith(TRACK_ID);
+        expect(result.detail).toMatch(/2 copies are available to try again/);
+    });
+
+    it('stamps every clear with the operator who asked', async () => {
+        const record = vi.fn().mockResolvedValue(undefined);
+        const service = tracksService(exists, { record, clearAnalysis: vi.fn().mockResolvedValue(1) });
+
+        await service.clearAnalysis(TRACK_ID);
+
+        expect(record).toHaveBeenCalledWith(
+            expect.objectContaining({ module: 'catalog', kind: 'track.analysisCleared', actorId: OPERATOR_ID, data: expect.objectContaining({ trackId: TRACK_ID }) }),
+        );
+    });
+
+    // Nothing reads these rows to decide anything, so a feed that is down must not cost an operator
+    // the thing they just did.
+    it('answers even when the event cannot be written', async () => {
+        const record = vi.fn().mockRejectedValue(new Error('the feed is gone'));
+        const service = tracksService(exists, { record, clearAnalysis: vi.fn().mockResolvedValue(1) });
+
+        await expect(service.clearAnalysis(TRACK_ID)).resolves.toMatchObject({ cleared: 1 });
+    });
+
+    it.each([
+        ['audio', (service: ReturnType<typeof tracksService>) => service.clearAudio(TRACK_ID)],
+        ['analysis', (service: ReturnType<typeof tracksService>) => service.clearAnalysis(TRACK_ID)],
+        ['enrichment', (service: ReturnType<typeof tracksService>) => service.clearEnrichment(TRACK_ID, {})],
+        ['retry', (service: ReturnType<typeof tracksService>) => service.retryAudio(TRACK_ID)],
+    ])('404s on clearing the %s of a record the catalog does not hold', async (_, call) => {
+        const service = tracksService({ findTrack: vi.fn().mockResolvedValue(undefined) });
+
+        await expect(call(service)).rejects.toMatchObject({ statusCode: 404 });
     });
 });

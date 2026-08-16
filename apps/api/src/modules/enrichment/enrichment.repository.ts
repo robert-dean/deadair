@@ -685,6 +685,37 @@ export class EnrichmentRepository extends DataRepository {
         return storedPayloads(rows);
     }
 
+    /**
+     * Forget what the providers said about a record, so the pass asks them again.
+     *
+     * Three things it deliberately does not touch, each for its own reason.
+     *
+     * **`tracks.mbid` stays.** It is identity rather than enrichment output, even though enrichment
+     * is what resolved it: clearing it would make the record unrecognisable to the next pass, which
+     * is the opposite of asking again.
+     *
+     * **Everything the payloads were PROMOTED into stays** — the year, the genre, the cover. Those
+     * are canonical columns now, and a clear that emptied them would take the console's own display
+     * down while the walk got round to the record again.
+     *
+     * **`deadair.facts` stays**, and that is a decision rather than an oversight. A fact is the
+     * station's own argument with its evidence attached, stored beside these rows precisely because
+     * it is not a provider's payload; `docs/todo/fact-enrichment.md` records that deleting a claim
+     * from the console was not built because it needs a permission decision and a rule about what a
+     * re-extraction does to a claim an operator has touched. Clearing a provider's answer must not
+     * quietly make that decision.
+     *
+     * @param provider - One provider's answer, or every provider's when absent.
+     */
+    async clearTrackEnrichment(trackId: string, provider?: string): Promise<number> {
+        let query = this.db.deleteFrom('deadair.trackEnrichment').where('trackId', '=', trackId);
+        if (provider !== undefined) query = query.where('provider', '=', provider);
+
+        const result = await query.executeTakeFirst();
+
+        return Number(result.numDeletedRows ?? 0n);
+    }
+
     /** {@link findTrackEnrichment} for an artist. */
     async findArtistEnrichment(artistId: string): Promise<StoredProviderPayload[] | undefined> {
         const rows = await this.db

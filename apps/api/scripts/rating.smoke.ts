@@ -35,6 +35,7 @@ import { CandidatesRepository } from '../src/modules/director/candidates.reposit
 import { PlayHistoryRepository } from '../src/modules/director/play.history.repository.js';
 import { TrackAudioRepository } from '../src/modules/playout/audio/track.audio.repository.js';
 import { AnalysisRepository } from '../src/modules/analysis/analysis.repository.js';
+import { EnrichmentRepository } from '../src/modules/enrichment/enrichment.repository.js';
 import { artistKey, songKey } from '../src/modules/director/rotation.keys.js';
 import { weightOf } from '../src/modules/director/rotation.rules.js';
 
@@ -59,10 +60,28 @@ const albums = new AlbumsRepository(db);
 const tracks = new TracksRepository(db);
 const artistsService = new ArtistsService(artists);
 const albumsService = new AlbumsService(albums);
-// The three readers behind `getTrack` are real here, because this script drives real SQL and there
-// is no reason to hand it fakes — nothing below asks for a track's detail, but a service built with
-// stubs would be one this file could not grow into using.
-const tracksService = new TracksService(tracks, new TrackAudioRepository(db), new AnalysisRepository(db), new PlayHistoryRepository(db));
+// The readers behind `getTrack` are real here, because this script drives real SQL and there is no
+// reason to hand it fakes. The last three are not: this file rates records and never clears one, and
+// a real `TrackAudioService` would want a container and a store to build. They are stubbed to
+// something that would fail loudly rather than to something that would quietly do nothing.
+const unused = new Proxy(
+    {},
+    {
+        get: (_target, property) => {
+            throw new Error(`rating.smoke does not clear anything, so nothing here should reach ${String(property)}`);
+        },
+    },
+);
+const tracksService = new TracksService(
+    tracks,
+    new TrackAudioRepository(db),
+    new AnalysisRepository(db),
+    new PlayHistoryRepository(db),
+    new EnrichmentRepository(db),
+    unused as never,
+    unused as never,
+    unused as never,
+);
 const candidates = new CandidatesRepository(db);
 
 const say = (line: string) => process.stdout.write(`${line}\n`);

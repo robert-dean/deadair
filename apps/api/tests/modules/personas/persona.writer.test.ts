@@ -65,11 +65,23 @@ describe('the persona prompt', () => {
     });
 
     it('rules out the nouns a model reaches for, since "frequent" is not a category it can search', () => {
+        expect(personaPrompt('anything')[0]!.content).toContain('never a noun');
+    });
+
+    it('prescribes no slots, and says so — because naming them got them filled in', () => {
         const system = personaPrompt('anything')[0]!.content;
 
-        expect(system).toContain('never a noun');
-        // The four places a word that recurs in EVERY break actually comes from.
-        expect(system).toContain('what this character calls the listener');
+        // Measured over 9 generated personas per arm. Naming "what it calls the listener" and "how
+        // it says yes and no" as places to look put a yes/no marker in 9 of 9 — a 1940s newsreel
+        // announcer came back marked "mate, aye, innit", and "aye" appeared under four unrelated
+        // characters. Without the slots: 2 of 9, and cross-character overlap fell from six shared
+        // words to one.
+        expect(system).toContain('no fixed list of slots');
+        expect(system).toContain('Do not reach for a yes/no word');
+        // The three kinds are offered as ALTERNATIVES rather than as boxes, which is the whole
+        // difference: a dialect and a manner mark themselves with different sorts of word.
+        expect(system).toContain('DIALECT');
+        expect(system).toContain('MANNER');
     });
 
     it('asks for the phrasings as an array, so the one-line rule does not forbid a set of them', () => {

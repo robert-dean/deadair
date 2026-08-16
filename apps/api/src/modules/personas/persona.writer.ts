@@ -175,8 +175,15 @@ export function personaPrompt(description: string): LlmMessage[] {
                 // The whole self-check exists because a model asked for distinctive words hands back
                 // its six most unusual ones and then never uses them again.
                 '- Every marker must appear WORD FOR WORD in at least one sample line, spelled identically. If you wrote "aye" in a sample, the marker is "aye" and never "ay".',
-                '- Markers are FREQUENCY, not novelty. Take them from four places only: what this character calls the listener, how it says yes and no, how it contracts or clips words, and what it reaches for as filler or emphasis.',
-                '- A marker is never a noun and never a subject. "tide", "vinyl" and "midnight" are things this character talks about; "aye", "mate", "in\'" and "reet" are how it talks. Only the second kind belongs here.',
+                '- Markers are FREQUENCY, not novelty: the words this character reaches for most, whatever kind of word that turns out to be. Read your own sample lines back and take the ones you used more than once.',
+                // Measured, and the reason there is no list of slots here any more. A four-slot list
+                // naming an address term and a yes/no put a yes/no marker in 9 of 9 generated
+                // personas — a 1940s newsreel announcer came back marked "mate, aye, innit", and
+                // "aye" turned up under four unrelated characters. The slots were being filled in
+                // rather than the character being read.
+                '- There is no fixed list of slots, because characters mark themselves differently. A DIALECT marks itself with grammar and address ("mate", "aye", "in\'"); a MANNER marks itself with appraisal and hedging ("frightful", "rather", "divine", "frankly"); a MOOD marks itself with pace ("easy", "slow", "hush"). Take whichever kind this character actually uses.',
+                '- Do not reach for a yes/no word or a name for the listener unless this character genuinely says one in nearly every breath. Most do not.',
+                '- A marker is never a noun and never a subject. "tide", "vinyl" and "midnight" are things this character talks about; "aye", "rather", "in\'" and "frankly" are how it talks. Only the second kind belongs here.',
                 '- A marker must fit a break about ANY record. If it would sound wrong introducing a song this character dislikes, it is not a marker.',
                 '- An ending like "in\'" is worth more than any single word, because it matches every dropped g at once. Include one if the diction drops letters.',
                 // Six because the markers are read off these lines and nowhere else, so the sample

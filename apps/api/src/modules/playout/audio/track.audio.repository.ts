@@ -28,6 +28,14 @@ export interface TrackAudio {
      * worked, because {@link TrackAudioRepository.recordSuccess} resets it — see the note there.
      */
     attempts: number;
+    /**
+     * When these bytes were last handed to something that wanted them.
+     *
+     * Optional here although the column is not null, because every read of it comes through a LEFT
+     * join from `track_sources`: a binding nobody has ever fetched has no row at all and reads as a
+     * row of nulls, which is the ordinary state of a fresh catalog.
+     */
+    lastServedAt?: DateTime;
     /** When a failed binding is worth trying again. Absent means now. */
     nextAttemptAt?: DateTime;
     /** Why the last fetch failed, when one did. */
@@ -54,6 +62,7 @@ interface TrackAudioRow {
     contentType: string | null;
     byteSize: number | null;
     attempts: number | null;
+    lastServedAt: DateTime | null;
     nextAttemptAt: DateTime | null;
     lastError: string | null;
 }
@@ -78,6 +87,7 @@ function toTrackAudio(sourceId: string, row: TrackAudioRow): TrackAudio {
         ...(row.contentType == null ? {} : { contentType: row.contentType }),
         ...(row.byteSize == null ? {} : { byteSize: row.byteSize }),
         attempts: row.attempts ?? 0,
+        ...(row.lastServedAt == null ? {} : { lastServedAt: row.lastServedAt }),
         ...(row.nextAttemptAt == null ? {} : { nextAttemptAt: row.nextAttemptAt }),
         ...(row.lastError == null ? {} : { lastError: row.lastError }),
     };
@@ -89,6 +99,7 @@ const AUDIO_SELECTION = [
     'audio.contentType as contentType',
     'audio.byteSize as byteSize',
     'audio.attempts as attempts',
+    'audio.lastServedAt as lastServedAt',
     'audio.nextAttemptAt as nextAttemptAt',
     'audio.lastError as lastError',
 ] as const;
@@ -179,6 +190,7 @@ export class TrackAudioRepository extends DataRepository {
                    audio.content_type,
                    audio.byte_size,
                    audio.attempts,
+                   audio.last_served_at,
                    audio.next_attempt_at,
                    audio.last_error
               from unnest(${sql.val(bindings.map(binding => binding.pluginId))}::text[],
@@ -225,6 +237,25 @@ export class TrackAudioRepository extends DataRepository {
             .insertInto('deadair.trackAudio')
             .values({ sourceId, ...values })
             .onConflict(oc => oc.column('sourceId').doUpdateSet(values))
+            .execute();
+    }
+
+    /**
+     * Notes that these bytes were just handed to something that wanted them.
+     *
+     * The only writer of `last_served_at`, and the whole of what an eviction sweep orders by. It is
+     * a bare timestamp rather than a counter because the question a cache asks is "when, last" and
+     * not "how often": a record played twice last January is colder than one played once this
+     * morning, and a count says the opposite.
+     *
+     * Deliberately not part of {@link recordSuccess}. A fetch is not a serve, and a freshly fetched
+     * row already reads as new through the column's default.
+     */
+    async markServed(sourceId: string): Promise<void> {
+        await this.db
+            .updateTable('deadair.trackAudio')
+            .set({ lastServedAt: sql<never>`now()` })
+            .where('sourceId', '=', sourceId)
             .execute();
     }
 

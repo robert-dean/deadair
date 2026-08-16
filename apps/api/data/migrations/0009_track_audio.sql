@@ -30,6 +30,15 @@ create table deadair.track_audio (
     content_type text,
     byte_size integer constraint track_audio_byte_size_check check (byte_size is null or byte_size > 0),
     fetched_at timestamptz,
+    -- When these bytes were last handed to something that wanted them, which is what an eviction
+    -- sweep has to order by. NOT NULL, defaulting to now(), because the alternative is a row the
+    -- sweep has to have an opinion about: a record fetched and never yet served is honestly as fresh
+    -- as its fetch, and `fetched_at` is null on exactly the rows a sweep ignores anyway (a remembered
+    -- failure holds no file). Evicting on `fetched_at` instead was the trap this column exists to
+    -- avoid — it throws away precisely the records the station plays most.
+    --
+    -- The check mirrors `updated_at`'s above and costs nothing new: every write here is `now()`.
+    last_served_at timestamptz not null default now() check (last_served_at >= created_at),
     attempts integer not null default 0,
     last_error text,
     -- Backoff gate. Null once the bytes are in hand, and what stops a binding the provider will not
@@ -50,6 +59,11 @@ create index track_audio_pending_idx on deadair.track_audio (next_attempt_at nul
 -- Two bindings that turn out to be the same audio share one file on disk. Content addressing makes
 -- that free; this is how anything looking at disk usage can tell.
 create index track_audio_checksum_idx on deadair.track_audio (checksum) where checksum is not null;
+
+-- The eviction order, oldest first. Partial on the same predicate every other read here uses, since
+-- a row holding no file is nothing to evict. Plain rather than an expression index because
+-- `last_served_at` is not nullable: there is no coalesce and no nulls-first trap to get wrong.
+create index track_audio_lru_idx on deadair.track_audio (last_served_at) where checksum is not null;
 
 -- migrate:down
 

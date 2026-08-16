@@ -53,6 +53,7 @@ const build = (options: { source: SourceAudio | undefined; url?: string }) => {
     const findForBindings = vi.fn(async () => (options.source === undefined ? [] : [options.source]));
     const recordSuccess = vi.fn(async () => {});
     const recordFailure = vi.fn(async () => {});
+    const markServed = vi.fn(async () => {});
     const markBindingMissing = vi.fn(async () => true);
     const disposeAsync = vi.fn(async () => {});
 
@@ -60,7 +61,7 @@ const build = (options: { source: SourceAudio | undefined; url?: string }) => {
         createScopedContainer: () => ({
             get: (token: unknown) =>
                 token === TrackAudioRepository
-                    ? { findForSource, findForBindings, recordSuccess, recordFailure }
+                    ? { findForSource, findForBindings, recordSuccess, recordFailure, markServed }
                     : token === TracksRepository
                       ? { markBindingMissing }
                       : undefined,
@@ -77,6 +78,7 @@ const build = (options: { source: SourceAudio | undefined; url?: string }) => {
         findForBindings,
         recordSuccess,
         recordFailure,
+        markServed,
         markBindingMissing,
         resolveBinding,
     };
@@ -264,6 +266,50 @@ describe('TrackAudioService.ensure', () => {
         expect(await service.ensure(SOURCE_ID)).toBeUndefined();
         expect(recordFailure).toHaveBeenCalledWith(SOURCE_ID, expect.stringContaining('larger than'), expect.any(Number), expect.any(Number));
         expect(await filesOnDisk()).toEqual([]);
+    });
+});
+
+// What an eviction sweep orders by, so what counts as "used" is the whole question. A record is used
+// when its bytes are handed over from disk, and at no other moment.
+describe('noting that a record was served', () => {
+    it('stamps the row when the file on disk is served', async () => {
+        const checksum = await store.write(RECORD, 'ogg');
+        const { service, markServed } = build({ source: { ...BINDING, checksum, ext: 'ogg' } });
+
+        await service.ensure(SOURCE_ID);
+
+        // Fire and forget, so it lands a tick behind the bytes.
+        await vi.waitFor(() => expect(markServed).toHaveBeenCalledExactlyOnceWith(SOURCE_ID));
+    });
+
+    // A fetch is not a serve. The row is new, and the column's default already says so; stamping here
+    // as well would only make a just-fetched record look warmer than one played a minute ago.
+    it('does not stamp a record it had to fetch', async () => {
+        const { service, markServed } = build({ source: BINDING });
+        respondWith(RECORD, { contentType: 'audio/ogg' });
+
+        await service.ensure(SOURCE_ID);
+
+        expect(markServed).not.toHaveBeenCalled();
+    });
+
+    // The commit pass stats this same window every few seconds. Stamping there would report the whole
+    // forward order as freshly served and flatten the ordering the sweep depends on.
+    it('does not stamp the window the commit pass asks about', async () => {
+        const checksum = await store.write(RECORD, 'ogg');
+        const { service, markServed } = build({ source: { ...BINDING, checksum, ext: 'ogg' } });
+
+        await service.readyFor([{ pluginId: 'deadair.spotify', externalId: 'track-42' }]);
+
+        expect(markServed).not.toHaveBeenCalled();
+    });
+
+    it('serves the record even when the stamp cannot be written', async () => {
+        const checksum = await store.write(RECORD, 'ogg');
+        const { service, markServed } = build({ source: { ...BINDING, checksum, ext: 'ogg' } });
+        markServed.mockRejectedValue(new Error('the pool is gone'));
+
+        await expect(service.ensure(SOURCE_ID)).resolves.toEqual({ contentType: 'audio/ogg', body: RECORD, checksum });
     });
 });
 

@@ -229,6 +229,16 @@ export class TrackAudioService {
             // the station can perfectly well fetch again — fall through and re-fetch, which also
             // repairs the row. This is the state a manually emptied TRACKS_DIR leaves behind.
             if (bytes !== undefined) {
+                // A cache HIT is the one moment this record can be said to have been used, so it is
+                // the one place `last_served_at` is written — see {@link TrackAudioRepository.markServed}.
+                // Not awaited and never fatal: the bytes are in hand, and a bookkeeping write must
+                // not cost the request that earned it.
+                //
+                // Deliberately not written by `readyFor`, which stats this same window on every
+                // commit pass: marking there would report the whole forward order as freshly served
+                // every few seconds and flatten the ordering an eviction sweep depends on.
+                void this.markServed(source.sourceId);
+
                 return { contentType: TRACK_CONTENT_TYPES[source.ext], body: bytes, checksum: source.checksum };
             }
             this.logger.warn('playout: a cached record is missing its file; fetching it again', { source: sourceId });
@@ -475,6 +485,21 @@ export class TrackAudioService {
         if (total < MIN_TRACK_BYTES) throw new Error(`only ${total} bytes, which is not a record`);
 
         return { body: Buffer.concat(chunks), ext, contentType: contentType!.split(';')[0]!.trim().toLowerCase() };
+    }
+
+    /**
+     * Stamp a cache hit, swallowing whatever goes wrong.
+     *
+     * Its own method rather than an inline `void … .catch()` so the swallow is explained once: this
+     * runs beside a response that has already succeeded, and the worst a failure here can do is
+     * leave one record looking colder than it is to a sweep that has not run yet.
+     */
+    private async markServed(sourceId: string): Promise<void> {
+        try {
+            await this.inScope(repository => repository.markServed(sourceId));
+        } catch (error) {
+            this.logger.debug('playout: could not note that a record was served', { source: sourceId, error: errorText(error) });
+        }
     }
 
     /** One scope, one repository, one statement. This is a singleton, so it cannot hold either. */

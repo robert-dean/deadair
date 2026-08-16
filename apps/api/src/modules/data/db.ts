@@ -508,6 +508,7 @@ export interface DeadairTrackAudio {
   fetchedAt: DateTime | null;
   id: Generated<string>;
   lastError: string | null;
+  lastServedAt: Generated<DateTime>;
   nextAttemptAt: DateTime | null;
   sourceId: string;
   updatedAt: Generated<DateTime>;

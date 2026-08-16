@@ -382,6 +382,28 @@ export interface DeadairPluginStorage {
   value: Json | null;
 }
 
+export interface DeadairProductions {
+  actorId: string | null;
+  brief: string | null;
+  broadcastId: string | null;
+  cancelledAt: DateTime | null;
+  createdAt: Generated<DateTime>;
+  error: string | null;
+  id: Generated<string>;
+  kind: Generated<string>;
+  outline: Json | null;
+  personaId: string | null;
+  plan: Json | null;
+  scheduledFor: DateTime | null;
+  state: Generated<"planned" | "outlining" | "drafting" | "checking" | "rendering" | "ready" | "aired" | "failed" | "cancelled">;
+  stationKey: Generated<string>;
+  targetMs: number;
+  title: string;
+  updatedAt: Generated<DateTime>;
+  voices: Json | null;
+  writingMode: Generated<"quick" | "outlined" | "polished">;
+}
+
 export interface DeadairScriptHistory {
   broadcastId: string | null;
   createdAt: Generated<DateTime>;
@@ -444,6 +466,8 @@ export interface DeadairSegments {
   label: string;
   loudnessLufs: number | null;
   personaId: string | null;
+  productionId: string | null;
+  productionOrdinal: number | null;
   requestId: string | null;
   script: string | null;
   source: Generated<string>;
@@ -615,6 +639,7 @@ export interface DB {
   "deadair.pluginConfigs": DeadairPluginConfigs;
   "deadair.pluginGrants": DeadairPluginGrants;
   "deadair.pluginStorage": DeadairPluginStorage;
+  "deadair.productions": DeadairProductions;
   "deadair.scriptHistory": DeadairScriptHistory;
   "deadair.scrobbleQueue": DeadairScrobbleQueue;
   "deadair.segmentEvents": DeadairSegmentEvents;

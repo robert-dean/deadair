@@ -24,6 +24,7 @@ import { NowPlayingModule } from './nowplaying/nowplaying.module.js';
 import { ActivityModule } from './activity/activity.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { EnrichmentModule } from './enrichment/enrichment.module.js';
+import { ProductionsModule } from './productions/productions.module.js';
 import { AnalysisModule } from './analysis/analysis.module.js';
 import { ArtModule } from './art/art.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
@@ -152,6 +153,12 @@ const ordered: ServerKitModule[] = [
     // play, so the walk can describe those records before the rest of the catalog.
     // It only READS the running order — the director remains its only writer.
     EnrichmentModule,
+    // After RenderModule and DirectorModule, and it is a real edge rather than a tidy one: a
+    // production's beats ARE segments, so making one goes through the render path's claims and its
+    // content store, and a finished production reaches air only through the director, which is the
+    // sole writer of the running order. Nothing in either reaches forward into this, and this owns
+    // no loop — a production is made entirely by jobs, one per pass.
+    ProductionsModule,
     // Registers nothing and starts nothing: it exists to close the database and Redis at the END,
     // because shutdown runs in this list's order and DataModule has to be at the front of it. With
     // the close still up there, every module below tore down against a pool that had already gone —

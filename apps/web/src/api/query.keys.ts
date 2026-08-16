@@ -32,6 +32,14 @@ export const queryKeys = {
          * model server, and every refresh refetched the manifest.
          */
         configSuggestions: (id: string) => ['plugins', 'config-suggestions', id] as const,
+        /**
+         * What every installed plugin is asking the operator for, and the answer so far.
+         *
+         * One key rather than one per plugin, because the API answers with the whole list and a
+         * decision answers with the whole list again: there is never a slice of this to invalidate
+         * on its own. Read by the settings page, which is nowhere near the plugin pages above.
+         */
+        grants: () => ['plugins', 'grants'] as const,
     },
     /**
      * The station's own settings. One key, and no per-group or per-key form: the API answers with

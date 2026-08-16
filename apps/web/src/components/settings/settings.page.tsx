@@ -5,6 +5,7 @@ import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { ConfigFieldsForm } from './config.fields.form';
+import { PluginGrantsCard } from './plugin.grants.card';
 import { StorageCard } from './storage.card';
 
 /** The sections, in the order an operator should meet them, and what each one is for. */
@@ -75,6 +76,11 @@ export function SettingsPage() {
             {GROUPS.map(group => (
                 <SettingsGroupCard key={group.key} group={group} settings={data} />
             ))}
+
+            {/* Below the station's own settings, because these are questions somebody else asked:
+                every card above is a decision the operator went looking for, and this is one waiting
+                for them. Draws nothing when no plugin has asked for anything. */}
+            <PluginGrantsCard />
 
             {/* Last, and read-only: everything above is something to change, and this is the number
                 the one limit up there is set against. */}

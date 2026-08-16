@@ -1,5 +1,14 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { PluginDetail, PluginLogLevel, PluginLogQuery, PluginOAuthCallbackQuery, PluginOAuthResult, PluginSummary } from '@deadair/sdk';
+import type {
+    PluginDetail,
+    PluginGrantInput,
+    PluginGrantList,
+    PluginLogLevel,
+    PluginLogQuery,
+    PluginOAuthCallbackQuery,
+    PluginOAuthResult,
+    PluginSummary,
+} from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -46,6 +55,40 @@ export function pluginLogsOptions(id: string, query?: PluginLogQuery) {
         queryKey: queryKeys.plugins.logs(id, query),
         queryFn: () => sdk.plugins.getPluginLogs(id, query),
         staleTime: PLUGIN_LOGS_STALE_TIME,
+    });
+}
+
+/**
+ * What each plugin is asking for, with the station's answer.
+ *
+ * The same stale time as the catalogue and for the same reason: this list moves when the operator
+ * moves it, or when a plugin is installed or removed, and a decision hands the whole list back to be
+ * written straight into the cache.
+ */
+export const pluginGrantsOptions = queryOptions({
+    queryKey: queryKeys.plugins.grants(),
+    queryFn: () => sdk.plugins.listPluginGrants(),
+    staleTime: PLUGIN_STALE_TIME,
+});
+
+export function usePluginGrants() {
+    return useQuery(pluginGrantsOptions);
+}
+
+/**
+ * Answers one capability a plugin asked for.
+ *
+ * The response is the whole list, written into the cache rather than invalidated: the decision takes
+ * effect on the host's next fetch with no reload, so there is nothing to wait for and a refetch
+ * would only put a spinner in front of an answer already in hand.
+ */
+export function useDecidePluginGrant() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, ...body }: PluginGrantInput & { id: string }) => sdk.plugins.decidePluginGrant(id, body),
+        onSuccess: (grants: PluginGrantList) => {
+            queryClient.setQueryData(queryKeys.plugins.grants(), grants);
+        },
     });
 }
 

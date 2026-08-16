@@ -39,13 +39,15 @@ export interface PluginConfigInput {
 }
 
 /**
- * Outcome of the plugin's own `testConnection()`
- * generated from [GrantDecision](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L86)
+ * What a plugin may do with a capability it asked for. Denied is the default and needs no row: a
+ * capability is refused until somebody allows it, so "never answered" and "refused" are one state
+ * generated from [GrantDecision](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L87)
  */
-export type GrantDecision = 'allowed' | 'denied' | 'undecided';
+export type GrantDecision = 'allowed' | 'denied';
 
 /**
- * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L109)
+ * Outcome of the plugin's own `testConnection()`
+ * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L111)
  */
 export interface PluginTestResult {
     ok: boolean;
@@ -55,7 +57,7 @@ export interface PluginTestResult {
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L127)
+ * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L129)
  */
 export interface PluginOAuthStart {
     url: string;
@@ -63,7 +65,7 @@ export interface PluginOAuthStart {
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L132)
+ * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L134)
  */
 export interface PluginOAuthResult {
     pluginId: string;
@@ -72,7 +74,7 @@ export interface PluginOAuthResult {
 }
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L138)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L140)
  */
 export interface PluginOAuthCallbackQuery {
     code?: string;
@@ -111,7 +113,7 @@ export interface ConfigFieldDescriptor {
  * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
  * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
  * was written, where these are whatever the operator's own server currently says
- * generated from [PluginFieldSuggestions](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L117)
+ * generated from [PluginFieldSuggestions](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L119)
  */
 export interface PluginFieldSuggestions {
     /** Keys the plugin had nothing to say about are simply absent, rather than present and empty */
@@ -151,7 +153,7 @@ export interface PluginLogLevelInput {
 /**
  * One capability a plugin asked for, with the station's answer. The ask is the plugin's manifest and
  * the answer is a row, so a plugin that stops asking stops appearing here whatever was stored
- * generated from [PluginGrant](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L90)
+ * generated from [PluginGrant](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L91)
  */
 export interface PluginGrant {
     pluginId: string;
@@ -168,7 +170,7 @@ export interface PluginGrant {
 }
 
 /**
- * generated from [PluginGrantInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L104)
+ * generated from [PluginGrantInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L105)
  */
 export interface PluginGrantInput {
     capability: string;
@@ -203,10 +205,10 @@ export interface PluginLogPage {
 }
 
 /**
- * generated from [PluginGrantList](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L100)
+ * generated from [PluginGrantList](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L101)
  */
 export interface PluginGrantList {
-    /** Every capability every installed plugin is asking for, undecided ones included */
+    /** Every capability every installed plugin is asking for, refused ones included */
     grants: PluginGrant[];
 }
 

@@ -82,8 +82,9 @@ contract PluginConfigInput: {
     config: record(string, unknown)
 }
 
-# Outcome of the plugin's own `testConnection()`
-contract GrantDecision: enum(allowed, denied, undecided) # What the operator has said. `undecided` is the absence of an answer, and it refuses exactly as `denied` does
+# What a plugin may do with a capability it asked for. Denied is the default and needs no row: a
+# capability is refused until somebody allows it, so "never answered" and "refused" are one state
+contract GrantDecision: enum(allowed, denied)
 
 # One capability a plugin asked for, with the station's answer. The ask is the plugin's manifest and
 # the answer is a row, so a plugin that stops asking stops appearing here whatever was stored
@@ -98,7 +99,7 @@ contract PluginGrant: {
 }
 
 contract PluginGrantList: {
-    grants: array(PluginGrant) # Every capability every installed plugin is asking for, undecided ones included
+    grants: array(PluginGrant) # Every capability every installed plugin is asking for, refused ones included
 }
 
 contract PluginGrantInput: {
@@ -106,6 +107,7 @@ contract PluginGrantInput: {
     decision: GrantDecision
 }
 
+# Outcome of the plugin's own `testConnection()`
 contract PluginTestResult: {
     ok: boolean
     message?: string(max=4000)

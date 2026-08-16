@@ -15,7 +15,7 @@ import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginLog } from './plugin.log.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
 import { PluginRegistry } from './plugin.registry.js';
-import { capabilityOf, type GrantDecision } from './plugin.grants.js';
+import { capabilityOf } from './plugin.grants.js';
 import { PluginGrantsService } from './plugin.grants.service.js';
 import type { PluginRecord } from './types/plugin.record.js';
 import type {
@@ -287,7 +287,7 @@ export class PluginsService {
                     label: capability.label,
                     describes: capability.describes,
                     reason: asked.reason,
-                    decision: this.pluginGrants.decisionFor(record.id, capability.id) ?? 'undecided',
+                    decision: this.pluginGrants.decisionFor(record.id, capability.id),
                 });
             }
         }
@@ -305,9 +305,10 @@ export class PluginsService {
      * honest: a row nothing is asking for grants nothing (`openWebEntry` checks the manifest too),
      * so writing one would only put a lie in the table.
      *
-     * `undecided` is a real answer here — it is how an operator takes back a decision without
-     * pretending they said no — and it deletes the row rather than storing a third value, because
-     * the absence IS that state everywhere else.
+     * There are two answers and denied is the default, so a refusal is written as a row rather than
+     * left as an absence: both refuse, and the row is what records WHO decided and when. Nothing
+     * reads the difference, which is the point — a console that could tell a fresh request from a
+     * settled refusal would have to nag about both.
      *
      * @throws 404 unknown plugin. 400 for a capability this plugin never asked for.
      */
@@ -324,16 +325,9 @@ export class PluginsService {
         // After the commit, for `reinitAfterCommit`'s reason in reverse: the grant service is a
         // singleton that reads on its own pooled connection, so a refresh inside this transaction
         // would rebuild its map from the rows as they stood BEFORE the write.
-        this.afterCommit.add(async () => {
-            if (input.decision === 'undecided') await this.pluginGrants.forget(id, input.capability);
-            else await this.pluginGrants.decide(id, input.capability, input.decision as GrantDecision, actorId);
-        });
+        this.afterCommit.add(() => this.pluginGrants.decide(id, input.capability, input.decision, actorId));
 
-        this.note(
-            id,
-            `grant.${input.decision}`,
-            `${input.capability} was ${input.decision === 'undecided' ? 'left undecided' : input.decision} for ${id}`,
-        );
+        this.note(id, `grant.${input.decision}`, `${input.capability} was ${input.decision} for ${id}`);
 
         // Built from what was asked rather than re-read, since the write above has not run yet. The
         // console refetches, exactly as it does after a config write.

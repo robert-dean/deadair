@@ -47,14 +47,16 @@ export const PluginConfigInput = z.strictObject({
 export type PluginConfigInput = z.infer<typeof PluginConfigInput>;
 
 /**
- * Outcome of the plugin's own `testConnection()`
- * generated from [GrantDecision](file://./../../../../data/contracts/plugins/plugins.types.ck#L86)
+ * What a plugin may do with a capability it asked for. Denied is the default and needs no row: a
+ * capability is refused until somebody allows it, so "never answered" and "refused" are one state
+ * generated from [GrantDecision](file://./../../../../data/contracts/plugins/plugins.types.ck#L87)
  */
-export const GrantDecision = z.enum(['allowed', 'denied', 'undecided']);
+export const GrantDecision = z.enum(['allowed', 'denied']);
 export type GrantDecision = z.infer<typeof GrantDecision>;
 
 /**
- * generated from [PluginTestResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L109)
+ * Outcome of the plugin's own `testConnection()`
+ * generated from [PluginTestResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L111)
  */
 export const PluginTestResult = z.strictObject({
     ok: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
@@ -65,7 +67,7 @@ export type PluginTestResult = z.infer<typeof PluginTestResult>;
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../data/contracts/plugins/plugins.types.ck#L127)
+ * generated from [PluginOAuthStart](file://./../../../../data/contracts/plugins/plugins.types.ck#L129)
  */
 export const PluginOAuthStart = z.strictObject({
     url: z.url(),
@@ -74,7 +76,7 @@ export type PluginOAuthStart = z.infer<typeof PluginOAuthStart>;
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L132)
+ * generated from [PluginOAuthResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L134)
  */
 export const PluginOAuthResult = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -84,7 +86,7 @@ export const PluginOAuthResult = z.strictObject({
 export type PluginOAuthResult = z.infer<typeof PluginOAuthResult>;
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L138)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L140)
  */
 export const PluginOAuthCallbackQuery = z.object({
     code: z.string().max(2048).optional(),
@@ -123,7 +125,7 @@ export type ConfigFieldDescriptor = z.infer<typeof ConfigFieldDescriptor>;
  * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
  * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
  * was written, where these are whatever the operator's own server currently says
- * generated from [PluginFieldSuggestions](file://./../../../../data/contracts/plugins/plugins.types.ck#L117)
+ * generated from [PluginFieldSuggestions](file://./../../../../data/contracts/plugins/plugins.types.ck#L119)
  */
 export const PluginFieldSuggestions = z.strictObject({
     fields: z
@@ -167,7 +169,7 @@ export type PluginLogLevelInput = z.infer<typeof PluginLogLevelInput>;
 /**
  * One capability a plugin asked for, with the station's answer. The ask is the plugin's manifest and
  * the answer is a row, so a plugin that stops asking stops appearing here whatever was stored
- * generated from [PluginGrant](file://./../../../../data/contracts/plugins/plugins.types.ck#L90)
+ * generated from [PluginGrant](file://./../../../../data/contracts/plugins/plugins.types.ck#L91)
  */
 export const PluginGrant = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -181,7 +183,7 @@ export const PluginGrant = z.strictObject({
 export type PluginGrant = z.infer<typeof PluginGrant>;
 
 /**
- * generated from [PluginGrantInput](file://./../../../../data/contracts/plugins/plugins.types.ck#L104)
+ * generated from [PluginGrantInput](file://./../../../../data/contracts/plugins/plugins.types.ck#L105)
  */
 export const PluginGrantInput = z.strictObject({
     capability: z.string().min(1).max(100),
@@ -223,10 +225,10 @@ export const PluginLogPage = z.strictObject({
 export type PluginLogPage = z.infer<typeof PluginLogPage>;
 
 /**
- * generated from [PluginGrantList](file://./../../../../data/contracts/plugins/plugins.types.ck#L100)
+ * generated from [PluginGrantList](file://./../../../../data/contracts/plugins/plugins.types.ck#L101)
  */
 export const PluginGrantList = z.strictObject({
-    grants: z.array(PluginGrant).describe('Every capability every installed plugin is asking for, undecided ones included'),
+    grants: z.array(PluginGrant).describe('Every capability every installed plugin is asking for, refused ones included'),
 });
 export type PluginGrantList = z.infer<typeof PluginGrantList>;
 

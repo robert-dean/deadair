@@ -14,12 +14,12 @@ import { StatusLamp } from '../shared/status.lamp';
  * configuration lives. It is also the page an operator lands on when something is not working, and
  * "this plugin is waiting for an answer" belongs where they will look.
  *
- * ## Three states, and the third is why this is a table
+ * ## Denied is where everything starts
  *
- * `undecided` is drawn as its own thing rather than as a shade of denied. To the host they are the
- * same — both refuse — but to a person they are opposite facts: one is a question nobody has
- * answered and the other is an answer. A control with two positions and no third state would make
- * every fresh install look like a set of deliberate refusals.
+ * A request nobody has answered is drawn exactly as a refusal, because that is what it is: nothing
+ * is granted until somebody says so. There is deliberately no "waiting on you" state — a console
+ * able to tell an unanswered request from a settled refusal would have to flag both, and a
+ * permission surface that nags about decisions already made is one nobody reads.
  *
  * ## Every plugin's requests, where the plugin's own page shows only its own
  *

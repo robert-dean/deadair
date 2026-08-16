@@ -25,7 +25,7 @@ const record = (pluginId: string, capability: string, decision: 'allowed' | 'den
 });
 
 let rows: PluginGrantRecord[];
-let repository: { list: ReturnType<typeof vi.fn>; decide: ReturnType<typeof vi.fn>; forget: ReturnType<typeof vi.fn> };
+let repository: { list: ReturnType<typeof vi.fn>; decide: ReturnType<typeof vi.fn> };
 let service: PluginGrantsService;
 
 beforeEach(() => {
@@ -36,21 +36,19 @@ beforeEach(() => {
             rows = [...rows.filter(row => !(row.pluginId === pluginId && row.capability === capability)), record(pluginId, capability, decision)];
             return rows.at(-1)!;
         }),
-        forget: vi.fn(async (pluginId: string, capability: string) => {
-            rows = rows.filter(row => !(row.pluginId === pluginId && row.capability === capability));
-        }),
     };
     service = new PluginGrantsService(containerServing(repository as unknown as Partial<PluginGrantsRepository>));
 });
 
 describe('PluginGrantsService', () => {
-    // The state the whole design turns on: no row is not the same as a refusal to a person, and is
-    // exactly the same as a refusal to the host.
-    it('refuses a capability nobody has answered for', async () => {
+    // Denied is the default and needs no row. A console able to tell "nobody answered" from "somebody
+    // said no" would have to flag both, and a permission surface that nags about settled decisions is
+    // one nobody reads — so the two are deliberately one state.
+    it('refuses a capability with no row, and calls that denied', async () => {
         await service.refresh();
 
         expect(service.holds('deadair.rss', NETWORK_OPEN)).toBe(false);
-        expect(service.decisionFor('deadair.rss', NETWORK_OPEN)).toBeUndefined();
+        expect(service.decisionFor('deadair.rss', NETWORK_OPEN)).toBe('denied');
     });
 
     it('holds what was allowed and not what was denied', async () => {
@@ -59,7 +57,8 @@ describe('PluginGrantsService', () => {
 
         expect(service.holds('deadair.rss', NETWORK_OPEN)).toBe(true);
         expect(service.holds('deadair.wikipedia', NETWORK_OPEN)).toBe(false);
-        // The difference the table shows and the host does not care about.
+        // A stored refusal and no row at all are the same answer. The row is what records who
+        // decided and when; nothing branches on its existence.
         expect(service.decisionFor('deadair.wikipedia', NETWORK_OPEN)).toBe('denied');
     });
 
@@ -84,16 +83,15 @@ describe('PluginGrantsService', () => {
         expect(repository.decide).toHaveBeenCalledWith('deadair.rss', NETWORK_OPEN, 'allowed', 'actor-1');
     });
 
-    // Taking a decision back is not the same as denying: an operator who wants to think about it
-    // should not have to leave a refusal on the record.
-    it('returns a capability to unanswered rather than storing a third value', async () => {
+    // Reversing an allowance is denying it, which is also the honest thing to leave on the record.
+    it('takes an allowance back by denying it', async () => {
         rows = [record('deadair.rss', NETWORK_OPEN, 'allowed')];
         await service.refresh();
 
-        await service.forget('deadair.rss', NETWORK_OPEN);
+        await service.decide('deadair.rss', NETWORK_OPEN, 'denied', 'actor-1');
 
-        expect(service.decisionFor('deadair.rss', NETWORK_OPEN)).toBeUndefined();
         expect(service.holds('deadair.rss', NETWORK_OPEN)).toBe(false);
+        expect(service.decisionFor('deadair.rss', NETWORK_OPEN)).toBe('denied');
     });
 
     // A host that cannot read what it granted should not be granting: the map is rebuilt wholesale,

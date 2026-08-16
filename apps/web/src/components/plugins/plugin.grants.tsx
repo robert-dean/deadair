@@ -7,32 +7,27 @@ import type { StatusTone } from '../shared/status';
 /**
  * One reading of a grant, shared by every surface that draws one.
  *
- * There are three: the settings table, the plugin's own page, and the catalogue card that only says
- * whether something is waiting. `plugin.status.tsx` exists for exactly this reason one level up — a
- * card and a detail header must not be able to disagree about what a state means — and a permission
- * is the last thing that should be described two ways in one console.
+ * Two of them: the settings table and the plugin's own page. `plugin.status.tsx` exists for exactly
+ * this reason one level up — a card and a detail header must not be able to disagree about what a
+ * state means — and a permission is the last thing that should be described two ways in one console.
  */
 
 /**
  * The tone each answer is drawn in.
  *
- * `fault` for undecided is the same call the silence badge makes: a plugin waiting on an answer is
- * not broken, but it is a reason something is not working, and that is what an operator scanning a
- * page is looking for. `off` for denied, because a settled decision is not an outstanding one.
+ * `off` rather than `fault` for denied, and that is the whole reason there are two states here and
+ * not three. A refused capability is a decision the station is respecting, not a fault to chase:
+ * denied is the DEFAULT, so drawing it as a problem would put a warning on every plugin that has
+ * ever asked for anything, including the ones an operator deliberately said no to.
  */
-export const GRANT_TONES: Record<GrantDecision, StatusTone> = { allowed: 'ok', denied: 'off', undecided: 'fault' };
+export const GRANT_TONES: Record<GrantDecision, StatusTone> = { allowed: 'ok', denied: 'off' };
 
-export const GRANT_WORDS: Record<GrantDecision, string> = { allowed: 'Allowed', denied: 'Denied', undecided: 'Waiting on you' };
+export const GRANT_WORDS: Record<GrantDecision, string> = { allowed: 'Allowed', denied: 'Denied' };
 
 /** Every capability one plugin is asking for, out of the one list the API answers with. */
 export function usePluginGrantsFor(pluginId: string): PluginGrant[] {
     const grants = usePluginGrants();
     return (grants.data?.grants ?? []).filter(grant => grant.pluginId === pluginId);
-}
-
-/** Whether this plugin is waiting on an answer, which is the only thing a catalogue card says. */
-export function useHasUndecidedGrant(pluginId: string): boolean {
-    return usePluginGrantsFor(pluginId).some(grant => grant.decision === 'undecided');
 }
 
 export interface GrantAnswerProps {
@@ -43,10 +38,10 @@ export interface GrantAnswerProps {
 /**
  * The control that answers one request.
  *
- * Three positions rather than a switch, and the third is the point: to the host, denied and
- * unanswered are the same and both refuse, but to a person they are opposite facts. A two-position
- * control would make every fresh install look like a set of deliberate refusals, and would leave an
- * operator who wants to think about it no way to say so.
+ * Two positions, because there are two answers and denied is where everything starts. A third
+ * "later" position was tried and removed: nothing in the station ever asks again, so it promised a
+ * reminder that does not exist, and the only other thing it bought was un-deciding — which an
+ * operator does by clicking Deny, the more honest thing to leave on the record anyway.
  */
 export function GrantAnswer({ grant, size = 'xs' }: GrantAnswerProps) {
     const decide = useDecidePluginGrant();
@@ -62,9 +57,6 @@ export function GrantAnswer({ grant, size = 'xs' }: GrantAnswerProps) {
                 data={[
                     { value: 'allowed', label: 'Allow' },
                     { value: 'denied', label: 'Deny' },
-                    // Answering is not required, and taking an answer back should not mean leaving a
-                    // refusal on the record.
-                    { value: 'undecided', label: 'Ask later' },
                 ]}
             />
             {decide.error ? (

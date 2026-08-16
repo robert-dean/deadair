@@ -6,9 +6,10 @@ import type { GrantDecision } from './plugin.grants.js';
 /**
  * One answer an operator gave, as it is stored.
  *
- * There is no `pending` and no record of the ASK, because the manifest is the request: see the note
- * on `deadair.plugin_grants` in `0004_plugins.sql`. A plugin with no row here has not been answered,
- * which every reader treats as refused.
+ * There is no record of the ASK, because the manifest is the request: see the note on
+ * `deadair.plugin_grants` in `0004_plugins.sql`. A plugin with no row here is refused, which is the
+ * same thing a stored `denied` says — the row exists to record who decided and when, not to make the
+ * refusal true.
  */
 export interface PluginGrantRecord {
     pluginId: string;
@@ -52,11 +53,6 @@ export class PluginGrantsRepository extends DataRepository {
             .executeTakeFirstOrThrow();
 
         return this.toRecord(row);
-    }
-
-    /** Removes an answer. See {@link PluginGrantsService.forget} for why this is a delete. */
-    async forget(pluginId: string, capability: string): Promise<void> {
-        await this.db.deleteFrom('deadair.pluginGrants').where('pluginId', '=', pluginId).where('capability', '=', capability).execute();
     }
 
     private toRecord(row: {

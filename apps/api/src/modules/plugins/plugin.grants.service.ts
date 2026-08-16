@@ -6,12 +6,14 @@ import { PluginGrantsRepository } from './plugin.grants.repository.js';
 /**
  * What each plugin has been allowed to do, as the host asks it.
  *
- * The store is `deadair.plugin_grants` and this is the live view of it. Three states, and the third
- * is the absence of a row: **allowed**, **denied**, and **never answered**, where the last two
- * refuse and differ only on the operator's page. That distinction is the whole reason this is a
- * table rather than a set of relation tuples — a tuple is grant-only, so a refusal and a question
- * nobody has answered would be the same fact, and "this plugin is waiting on you" is exactly what
- * the settings page exists to say.
+ * The store is `deadair.plugin_grants` and this is the live view of it. **Denied is the default and
+ * needs no row**: a capability is refused until somebody allows it, so a plugin nobody has answered
+ * for and one that was refused are one state, deliberately — a console able to tell them apart
+ * would have to flag both, and a permission surface that nags about decisions already made is one
+ * nobody reads.
+ *
+ * A refusal is still written as a row where somebody actually made one, because the row records WHO
+ * decided and when. Nothing reads that difference; an auditor does.
  *
  * ## Held in memory, because of who asks
  *
@@ -34,7 +36,7 @@ import { PluginGrantsRepository } from './plugin.grants.repository.js';
  */
 @Injectable()
 export class PluginGrantsService {
-    /** `pluginId` → `capability` → what was decided. Absent at either level means unanswered. */
+    /** `pluginId` → `capability` → what was decided. Absent at either level means denied. */
     private decisions = new Map<string, Map<string, GrantDecision>>();
 
     constructor(private readonly container: Container) {}
@@ -69,9 +71,15 @@ export class PluginGrantsService {
         return this.decisions.get(pluginId)?.get(capability) === 'allowed';
     }
 
-    /** What was decided, or `undefined` for a question nobody has answered. */
-    decisionFor(pluginId: string, capability: string): GrantDecision | undefined {
-        return this.decisions.get(pluginId)?.get(capability);
+    /**
+     * What this plugin may do, as an answer rather than as a lookup.
+     *
+     * `denied` for a capability with no row, which is the same thing {@link holds} says: the absence
+     * of an allowance IS a refusal, and a caller that had to spell that out per site is a caller
+     * that will eventually forget to.
+     */
+    decisionFor(pluginId: string, capability: string): GrantDecision {
+        return this.decisions.get(pluginId)?.get(capability) ?? 'denied';
     }
 
     /**
@@ -83,21 +91,6 @@ export class PluginGrantsService {
      */
     async decide(pluginId: string, capability: string, decision: GrantDecision, decidedBy?: string): Promise<void> {
         await inScope(this.container, scope => scope.get(PluginGrantsRepository).decide(pluginId, capability, decision, decidedBy));
-        await this.refresh();
-    }
-
-    /**
-     * Takes an answer back, returning the capability to unanswered.
-     *
-     * Deleting the row rather than storing a third value, because the absence of a row IS that
-     * state everywhere else here — and a `decision = 'undecided'` row would be a second way to spell
-     * it that every reader would then have to know about.
-     *
-     * It is not the same as denying. An operator who wants to think about it should not have to
-     * leave a refusal on the record that reads, to anyone looking later, as though they decided.
-     */
-    async forget(pluginId: string, capability: string): Promise<void> {
-        await inScope(this.container, scope => scope.get(PluginGrantsRepository).forget(pluginId, capability));
         await this.refresh();
     }
 }

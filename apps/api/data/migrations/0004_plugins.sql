@@ -29,11 +29,16 @@ select deadair.add_updated_at_trigger('deadair.plugin_storage');
 -- holds it to that, with nobody asked anything. `permissions.grants` is the other kind — a
 -- capability wide enough that a person decides, per install — and this is where the decision lives.
 --
--- **Only decisions are stored.** There is no `pending` row and no record of the asking, because the
--- manifest IS the request: the host reads it on every discovery, so a row saying "this plugin asked"
--- would be a second writer of one fact, going stale the moment a plugin's manifest changed and
--- leaving a capability enabled by a row nobody can see. So the three states are `allowed`, `denied`,
--- and no row at all, and the last two differ only on the operator's page: both refuse.
+-- **Only decisions are stored, and only an allowance changes anything.** There is no record of the
+-- asking, because the manifest IS the request: the host reads it on every discovery, so a row saying
+-- "this plugin asked" would be a second writer of one fact, going stale the moment a plugin's
+-- manifest changed and leaving a capability enabled by a row nobody can see.
+--
+-- Denied is the DEFAULT, so a `denied` row and no row at all are the same answer and nothing reads
+-- the difference. The row still earns its place: it records who refused and when, which an absence
+-- cannot. What the table deliberately does NOT support is a third "not yet answered" state — a
+-- console able to tell that from a refusal would have to flag both, and a permission surface that
+-- nags about settled decisions is one nobody reads.
 --
 -- `capability` is the HOST's vocabulary rather than free text (see `plugin.grants.ts`), and it is
 -- deliberately not a foreign key to anything: a capability is code, not data, and a row for one the

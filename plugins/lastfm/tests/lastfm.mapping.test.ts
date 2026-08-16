@@ -164,6 +164,13 @@ describe('an album', () => {
     it('survives the tags arriving as a bare string, which this endpoint sometimes does', () => {
         expect(mapAlbum({ ...album, tags: 'trip hop' }, WEIGHT, true).genres).toBeUndefined();
     });
+
+    it('calls the mbid a RELEASE, because the host promotes a release group onto the album for good', () => {
+        // Labelled `musicbrainz-release-group` this becomes `albums.mbid`, which MusicBrainz reads
+        // back as a release group and answers 404 to on every pass thereafter — the column is
+        // written once and never revised, so the record never recovers its own identity.
+        expect(mapAlbum(album, WEIGHT, true).externalIds).toEqual([{ source: 'musicbrainz-release', id: 'mb-release-1' }]);
+    });
 });
 
 describe("the plugin's own reference", () => {

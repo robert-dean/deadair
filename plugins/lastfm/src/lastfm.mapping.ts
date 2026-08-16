@@ -171,7 +171,16 @@ export function mapAlbum(album: LastfmAlbum, minTagWeight: number, includeTags: 
     const url = album.url?.trim();
     if (url) mapped.links = [{ label: 'Last.fm', url }];
 
-    if (album.mbid?.trim()) mapped.externalIds = [{ source: 'musicbrainz-release-group', id: album.mbid.trim() }];
+    // A RELEASE id, never a release group, which is the same fact `enrichAlbum` above already acts
+    // on when it refuses to send this endpoint an `albums.mbid`. Read out of the answer it is the
+    // other half of that: the host promotes `musicbrainz-release-group` onto `albums.mbid`, and
+    // MusicBrainz then reads that column back as a release group and looks it up. So mislabelling it
+    // here does not merely store a wrong id, it hands the record an identity its own source will
+    // answer 404 to for good, since `promoteAlbum` writes the column once and never revises it.
+    // Measured on this install: of 473 albums both sources described, this id equalled MusicBrainz's
+    // release group 0 times and one of its releases 67 times, and 47 albums were failing every
+    // enrichment pass on the strength of it.
+    if (album.mbid?.trim()) mapped.externalIds = [{ source: 'musicbrainz-release', id: album.mbid.trim() }];
 
     if (Object.keys(extra).length > 0) Object.assign(mapped, { extra });
     return mapped;

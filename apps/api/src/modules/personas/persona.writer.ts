@@ -33,7 +33,7 @@
  * have is dropped BY THE LINE, because five good phrasings and one broken one is five phrasings.
  */
 
-import { TEMPLATE_VOCABULARY, unknownPlaceholders } from '#modules/director/break.templates.js';
+import { hasStrayBracket, TEMPLATE_VOCABULARY, unknownPlaceholders, unwrapTemplate } from '#modules/director/break.templates.js';
 import { jsonObjects, parseLooseJson, withoutThinking } from '#modules/shared/json.objects.js';
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { PersonaDraft } from './persona.js';
@@ -195,6 +195,9 @@ export function personaPrompt(description: string): LlmMessage[] {
                 // simply one the station never says — a wasted line rather than a wrong one.
                 '- Never put the whole phrasing in brackets. Something must always be left outside them, or there is no sentence when the optional parts drop away.',
                 '- {{clock.rough}} reads as a phrase like "just after nine", so write "It\'s {{clock.rough}}" and never "At the {{clock.rough}}".',
+                // Both are literal text that reaches the script and gets read out. Checked now, so
+                // asking is what stops the station paying for a line it will throw away.
+                '- Use no square brackets except the [[double]] kind, and do not wrap a phrasing in quotation marks. Anything else you type is read out loud exactly as written.',
                 // Named shapes rather than a count alone, because five variations on one shape leave
                 // the station with nothing to say at the top of an order or on the hour.
                 '- Write one of each of these, in this order: (1) what just played and then what is next, (2) only what is next, for the top of a show when nothing has played yet, (3) the station name with both records in [[brackets]], (4) only what just played, (5) one using {{clock.rough}}.',
@@ -275,8 +278,18 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     // which is the station's ordinary length and the right answer for a value nothing recognises.
     const brevity = isPersonaBrevity(raw.brevity) ? raw.brevity : undefined;
 
-    const phrasings = lines(raw.templates);
-    const templates = phrasings.filter(line => unknownPlaceholders(line).length === 0);
+    // Unwrapped BEFORE it is judged, because the quotes are the model's packaging rather than part
+    // of the phrasing — a line refused for marks that were never meant to be there would be a line
+    // thrown away over punctuation.
+    const phrasings = lines(raw.templates).map(unwrapTemplate);
+    // Three ways a phrasing is unusable, and only the first was being caught. A lone bracket is TEXT
+    // that reaches the script and gets read out, and `unknownPlaceholders` cannot see it because it
+    // only ever inspects `{{…}}` — so `[Mate] That was …` passed every check the station had while
+    // being certain to air wrongly. The third is a phrasing with no placeholder at all, which is not
+    // a phrasing: it is one fixed sentence the station would say between every pair of records.
+    const templates = phrasings.filter(
+        line => unknownPlaceholders(line).length === 0 && !hasStrayBracket(line) && line.includes('{{'),
+    );
 
     return {
         draft: {

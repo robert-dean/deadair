@@ -218,6 +218,43 @@ describe('the self-check', () => {
         expect(generated.droppedTemplates).toEqual(['Here comes {{next.album}}.']);
     });
 
+    it('drops a phrasing carrying a lone bracket, which no other check could see', () => {
+        // `unknownPlaceholders` only ever inspects {{…}}, so this passed everything and was certain
+        // to air with the word "Mate" wrapped in brackets a voice reads or mangles.
+        const generated = readPersona(answer({ templates: ['[Mate] That was {{previous.title}}.', 'That was {{previous.title}}, love.'] }))!;
+
+        expect(generated.draft.templates).toBe('That was {{previous.title}}, love.');
+        expect(generated.droppedTemplates).toEqual(['[Mate] That was {{previous.title}}.']);
+    });
+
+    it('keeps the [[double]] form, which is the syntax rather than text', () => {
+        const generated = readPersona(answer({ templates: ['That was {{previous.title}}.[[ Next, {{next.title}}.]]'] }))!;
+
+        expect(generated.draft.templates).toBe('That was {{previous.title}}.[[ Next, {{next.title}}.]]');
+    });
+
+    it('unwraps a phrasing the model put in quotes rather than refusing it', () => {
+        // The marks are the model's packaging, not part of the line — and unlike a lone bracket
+        // there is nothing ambiguous about what was meant.
+        const generated = readPersona(answer({ templates: ['"That was {{previous.title}}, love."', '“Next up, {{next.title}}.”'] }))!;
+
+        expect(generated.draft.templates).toBe('That was {{previous.title}}, love.\nNext up, {{next.title}}.');
+        expect(generated.droppedTemplates).toEqual([]);
+    });
+
+    it('keeps quotation marks that are part of the line rather than around it', () => {
+        const generated = readPersona(answer({ templates: ['They called it "the one", {{previous.title}}.'] }))!;
+
+        expect(generated.draft.templates).toBe('They called it "the one", {{previous.title}}.');
+    });
+
+    it('drops a phrasing with no placeholder, which is one fixed sentence rather than a phrasing', () => {
+        const generated = readPersona(answer({ templates: ['Lovely stuff, that.', 'That was {{previous.title}}.'] }))!;
+
+        expect(generated.draft.templates).toBe('That was {{previous.title}}.');
+        expect(generated.droppedTemplates).toEqual(['Lovely stuff, that.']);
+    });
+
     it('leaves the templates unset when every line was broken, so the station phrasings apply', () => {
         const generated = readPersona(answer({ templates: 'Here comes {{next.album}}.' }))!;
 

@@ -230,6 +230,55 @@ export function unknownPlaceholders(template: string): string[] {
 }
 
 /**
+ * Whether a template carries a bracket that is not part of an optional chunk.
+ *
+ * `[[…]]` is syntax and a lone `[` is TEXT — it survives to the script and gets read out, which is
+ * the failure this exists to name. A model asked for a phrasing writes `[Mate] That was …` about as
+ * often as it writes the double form, and that airs as the word "Mate" wrapped in brackets a voice
+ * either speaks or mangles.
+ *
+ * Invisible to {@link unknownPlaceholders}, which only ever inspects `{{…}}` — so a phrasing like
+ * that passed every check the station had and looked, from the console, like one it simply never
+ * picked.
+ *
+ * Answers a boolean rather than the offending text, because there is nothing useful to do with it: a
+ * lone bracket cannot be repaired without guessing whether the author meant an optional chunk or a
+ * stage direction, and those want opposite treatments.
+ */
+export function hasStrayBracket(template: string): boolean {
+    return /[[\]]/.test(template.replace(/\[\[.*?\]\]/gs, ''));
+}
+
+/**
+ * A phrasing with the quotation marks that wrap the WHOLE of it removed.
+ *
+ * A model told to answer in JSON frequently quotes the phrasing inside the string as well, and those
+ * marks are text: they reach the script and a voice reads them or stumbles on them. Stripped rather
+ * than refused, because unlike a lone bracket there is no ambiguity about what was meant — the same
+ * call `readAnswer` makes about a script wrapped in quotes.
+ *
+ * Only a matched pair wrapping the entire line, so a phrasing quoting something INSIDE itself keeps
+ * its marks.
+ */
+export function unwrapTemplate(template: string): string {
+    const trimmed = template.trim();
+    for (const [open, close] of [
+        ['"', '"'],
+        ['“', '”'],
+        ["'", "'"],
+        ['‘', '’'],
+    ]) {
+        if (trimmed.length > 1 && trimmed.startsWith(open!) && trimmed.endsWith(close!)) {
+            const inner = trimmed.slice(1, -1).trim();
+            // Only when the marks really do wrap the whole thing: `"a" and "b"` starts and ends with
+            // a quote and is not a quoted line.
+            if (!inner.includes(open!) && !inner.includes(close!)) return inner;
+        }
+    }
+    return trimmed;
+}
+
+/**
  * Fill one template, or answer `undefined` when it does not fit this break.
  *
  * It does not fit when a placeholder OUTSIDE an optional chunk cannot be filled. Never filled with

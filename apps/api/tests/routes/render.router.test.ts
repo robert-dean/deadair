@@ -77,7 +77,7 @@ const serve = async (segment: Segment | undefined): Promise<string> => {
     // neither writes words nor speaks them, so the rest of the service's collaborators
     // are never reached and are stubbed to nothing rather than faked.
     const unused = {} as never;
-    const service = new RenderService(repository, store, unused, unused, unused, unused, unused);
+    const service = new RenderService(repository, store, unused, unused, unused, unused, unused, unused);
     const app = new Koa();
 
     app.use(errorMiddleware() as unknown as Koa.Middleware);

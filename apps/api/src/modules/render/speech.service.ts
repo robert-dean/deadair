@@ -8,6 +8,7 @@ import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { explainNoSpeaker, selectSpeechPlugin, SPEECH_PLUGIN_KEY } from './speech.settings.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentExtension } from './segment.store.js';
+import { SpeechGate, type SpeechGateOptions } from './speech.gate.js';
 import type { VoiceSampleStore } from './voice.sample.store.js';
 
 /**
@@ -71,6 +72,7 @@ export class SpeechService {
         private readonly pluginInvoker: PluginInvoker,
         private readonly config: AppConfig,
         private readonly store: SegmentStore,
+        private readonly gate: SpeechGate,
         private readonly logger: Logger,
     ) {}
 
@@ -125,11 +127,11 @@ export class SpeechService {
      * otherwise. Every one of them is a `PluginError`, because `PluginInvoker` flattens anything
      * else, so a caller branches on `code` rather than on a message.
      */
-    async speak(request: SpeechRequest): Promise<SpokenAudio> {
+    async speak(request: SpeechRequest, options: SpeechGateOptions = {}): Promise<SpokenAudio> {
         const plugin = this.speaker();
         if (plugin === undefined) throw new PluginError(`render: ${this.explainSpeaker()}`).withCode('unavailable');
 
-        return await this.speakWith(plugin, request);
+        return await this.speakWith(plugin, request, options);
     }
 
     /**
@@ -138,21 +140,27 @@ export class SpeechService {
      * Separate so a voice preview can render through a named plugin without that plugin having to
      * be the station's current speaker: previewing is how an operator decides which one should be.
      */
-    async speakWith(plugin: SpeechPlugin, request: SpeechRequest): Promise<SpokenAudio> {
+    async speakWith(plugin: SpeechPlugin, request: SpeechRequest, options: SpeechGateOptions = {}): Promise<SpokenAudio> {
         const pluginId = plugin.record.id;
-        const handle = await this.startSpeaking(plugin, request);
-        const ext = this.extensionOf(pluginId, handle);
 
-        try {
-            const checksum = await this.store.writeStream(handle.audio, ext);
-            this.logger.info('render: spoke a segment', { plugin: pluginId, voice: request.voice, ext, checksum });
-            return { checksum, ext, pluginId };
-        } finally {
-            // Always, including the ordinary path, where the stream is drained already and this is
-            // a no-op. It is the failure path that needs it: a store write that threw half way
-            // leaves the plugin holding a socket nothing else will ever ask it to let go of.
-            await cancelQuietly(handle.audio);
-        }
+        // The gate wraps the drain as well as the request, because the engine is producing audio
+        // for the whole of it. Acquired HERE rather than in `speak`, which delegates to this: two
+        // acquisitions on one path would be a caller queueing behind itself.
+        return await this.gate.hold(async () => {
+            const handle = await this.startSpeaking(plugin, request);
+            const ext = this.extensionOf(pluginId, handle);
+
+            try {
+                const checksum = await this.store.writeStream(handle.audio, ext);
+                this.logger.info('render: spoke a segment', { plugin: pluginId, voice: request.voice, ext, checksum });
+                return { checksum, ext, pluginId };
+            } finally {
+                // Always, including the ordinary path, where the stream is drained already and this
+                // is a no-op. It is the failure path that needs it: a store write that threw half
+                // way leaves the plugin holding a socket nothing else will ever ask it to let go of.
+                await cancelQuietly(handle.audio);
+            }
+        }, { label: pluginId, ...options });
     }
 
     /**
@@ -162,16 +170,24 @@ export class SpeechService {
      * For a cache whose name answers "which voice, saying which line" rather than "which bytes".
      * Same stream, same store, different naming. See {@link VoiceSampleStore}.
      */
-    async speakAs(plugin: SpeechPlugin, key: string, store: VoiceSampleStore, request: SpeechRequest): Promise<SegmentExtension> {
-        const handle = await this.startSpeaking(plugin, request);
-        const ext = this.extensionOf(plugin.record.id, handle);
+    async speakAs(
+        plugin: SpeechPlugin,
+        key: string,
+        store: VoiceSampleStore,
+        request: SpeechRequest,
+        options: SpeechGateOptions = {},
+    ): Promise<SegmentExtension> {
+        return await this.gate.hold(async () => {
+            const handle = await this.startSpeaking(plugin, request);
+            const ext = this.extensionOf(plugin.record.id, handle);
 
-        try {
-            await store.writeStreamAs(key, handle.audio, ext);
-            return ext;
-        } finally {
-            await cancelQuietly(handle.audio);
-        }
+            try {
+                await store.writeStreamAs(key, handle.audio, ext);
+                return ext;
+            } finally {
+                await cancelQuietly(handle.audio);
+            }
+        }, { label: plugin.record.id, ...options });
     }
 
     /**

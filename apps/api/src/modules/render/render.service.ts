@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
+import { isPluginError } from '@deadair/plugin-sdk';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import type {
@@ -31,6 +32,14 @@ const DEFAULT_KIND = 'talkbreak';
 
 /** What a page of script history holds when the console does not say. A screenful and a bit. */
 const DEFAULT_HISTORY_LIMIT = 50;
+
+/**
+ * How long a voice preview waits for the speech engine before saying the station is busy.
+ *
+ * The same ten seconds `ModelTalkBreakWriter` gives the model queue, and for the same reason: past
+ * that, an answer saying why is worth more than a better answer nobody is still waiting for.
+ */
+const SAMPLE_QUEUE_MS = 10_000;
 
 /**
  * How long a client may reuse segment audio before asking again.
@@ -202,14 +211,29 @@ export class RenderService {
         try {
             // An empty `voiceId` means the plugin's own default, which is exactly what an absent
             // `voice` means to it, so it is dropped rather than passed as an empty string.
-            ext = await this.speech.speakAs(plugin, key, this.samples, {
-                text: SAMPLE_TEXT,
-                ...(voiceId.length === 0 ? {} : { voice: voiceId }),
-            });
+            ext = await this.speech.speakAs(
+                plugin,
+                key,
+                this.samples,
+                {
+                    text: SAMPLE_TEXT,
+                    ...(voiceId.length === 0 ? {} : { voice: voiceId }),
+                },
+                // A preview is the one caller here with somebody waiting on it, and the only one
+                // that should ever give up: a render job passes no bound, because nobody is waiting
+                // and the station skips a segment that is not ready. Ten seconds is the break
+                // writer's own queue bound, for the same reason it has one.
+                { maxWaitMs: SAMPLE_QUEUE_MS },
+            );
         } catch (error) {
             const message = errorText(error);
             this.logger.warn('render: could not render a voice sample', { plugin: plugin.record.id, voice: voiceId, error: message });
-            throw httpError(502).withDetails({ message });
+
+            // The station being busy is not the engine refusing, and answering 502 for it would
+            // send an operator looking at a speech plugin that is working perfectly well. 503,
+            // which is also the answer for a station that cannot speak at all: both mean try again,
+            // and only this one will come right on its own.
+            throw httpError(isBusy(error) ? 503 : 502).withDetails({ message });
         }
 
         const bytes = await this.samples.read(key, ext);
@@ -238,6 +262,9 @@ const sampleResponse = (body: Buffer, key: string, ext: SegmentExtension): Segme
     body,
     headers: { cacheControl: CACHE_CONTROL, etag: `"${key}"` },
 });
+
+/** Whether a failure is the station being busy rather than anything wrong with the engine. */
+const isBusy = (error: unknown): boolean => isPluginError(error) && error.code === 'timeout';
 
 /** A row as the console reads it. The checksum stays here: it is a filename, not an answer. */
 const toView = (segment: Segment): SegmentView => ({

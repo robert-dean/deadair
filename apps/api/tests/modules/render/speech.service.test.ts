@@ -14,6 +14,7 @@ import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registr
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import { SegmentStore } from '../../../src/modules/render/segment.store.js';
+import { SpeechGate } from '../../../src/modules/render/speech.gate.js';
 import { SpeechService } from '../../../src/modules/render/speech.service.js';
 import { SPEECH_PLUGIN_KEY } from '../../../src/modules/render/speech.settings.js';
 
@@ -92,7 +93,7 @@ function service(records: PluginRecord[], configured?: string) {
     const pluginRegistry = { list: () => records } as unknown as PluginRegistry;
     const { config } = settingsConfig(configured === undefined ? {} : { [SPEECH_PLUGIN_KEY]: configured });
 
-    return new SpeechService(pluginRegistry, passthroughInvoker(), config, store, logger());
+    return new SpeechService(pluginRegistry, passthroughInvoker(), config, store, new SpeechGate(logger()), logger());
 }
 
 async function rejectionCode(promise: Promise<unknown>): Promise<PluginErrorCode> {
@@ -207,6 +208,7 @@ describe('SpeechService.speak', () => {
             passthroughInvoker(),
             station.config,
             store,
+            new SpeechGate(logger()),
             logger(),
         );
 

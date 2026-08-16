@@ -8,6 +8,7 @@ import { SegmentLibrary } from './segment.library.js';
 import { ScriptHistoryRepository } from './script.history.repository.js';
 import { SegmentRepository } from './segment.repository.js';
 import { SegmentStore } from './segment.store.js';
+import { SpeechGate } from './speech.gate.js';
 import { SpeechService } from './speech.service.js';
 import { VoiceSampleStore } from './voice.sample.store.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -98,6 +99,9 @@ export const RenderModule: ServerKitModule = {
             .useFactory(() => new VoiceSampleStore(config.get('VOICE_SAMPLE_DIR', DEFAULT_SAMPLE_DIR)))
             .asSingleton();
 
+        // Singleton, for the reason `LlmGate` is one: there is one speech engine, and a per-scope
+        // gate would hand every caller its own idea of whether it was busy.
+        registry.register(SpeechGate).useClass(SpeechGate).asSingleton();
         registry.register(SpeechService).useClass(SpeechService).asScoped();
 
         registry.register(RenderService).useClass(RenderService).asScoped();

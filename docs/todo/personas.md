@@ -116,7 +116,21 @@ per break, for the same reason the brief rides the row — a character held in a
 last one batch. A daypart boundary that should change the host mid-broadcast is therefore a new
 running order, which is what a schedule produces anyway.
 
-## 4. A rehearsal: hear a persona before putting it on air
+## 4. A rehearsal: hear a persona before putting it on air — BUILT
+
+**Built 2026-08-16** (`ad36004`), as `POST /personas/{id}/rehearse` and
+`PersonaRehearsalService`, against fabricated neighbours and with `recent: []` so a reading is
+repeatable. What follows is the design as it stood, and it is kept for the first constraint below,
+which is only HALF honoured.
+
+**The priority half is not done.** The tier it asks for now exists — `gate.priority.ts`, added the
+same day, where `preview` queues behind everything the station does for itself and is preempted out
+of the model when the station wants it back. The rehearsal does not use it. It calls
+`BreakWriterRegistry.write`, which reaches `ModelTalkBreakWriter`, which passes its own
+`LlmGateOptions` and no priority, so a rehearsal contends as `station`: exactly the "must not
+preempt a refill or a real break" this section was written to prevent. The fix is a `priority` on
+`BreakWriteRequest`, defaulted to `station` and threaded to `converse` by the three model bindings,
+which is the only route by which a writer could ever know it is being auditioned rather than aired.
 
 An operator can already audition a VOICE — `GET /voices/{voiceId}/sample` renders a fixed line and
 the console plays the blob — but not a persona. What a sheet actually produces is unknowable until it
@@ -132,14 +146,17 @@ Two constraints, both of which are why this is a considered piece of work rather
 
 - **It takes the one model slot.** `LlmGate` serializes, and a rehearsal must not preempt a refill or
   a real break. It gets the background job's treatment — a bounded `maxWaitMs`, and giving up is a
-  legitimate answer that the console reports as "the station is busy".
+  legitimate answer that the console reports as "the station is busy". *(Now expressible as
+  `priority: 'preview'`, and see the note at the top: it is not yet passed.)*
 - **It must not be able to air.** Nothing about a rehearsal writes `deadair.segments`, exactly as the
   voice sample writes no row. Its own store or no store at all; a script that can be planted is a
   break, and a break is not a preview.
 
 Whether a rehearsal is also SPOKEN is a separate call. The words are the expensive half to get right
 and the cheap half to produce; speaking them costs a synthesis per click and can be added later
-behind the same route.
+behind the same route. That call is cheaper than it was: `SpeechGate` now serializes the engine and
+takes the same `preview` tier, so a spoken rehearsal is a `maxWaitMs` and a priority rather than a
+new question about what an operator clicking twice does to a render in flight.
 
 ## 5. The changeover: a schedule swaps the host and the station says nothing
 

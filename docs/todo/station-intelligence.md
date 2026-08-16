@@ -190,7 +190,14 @@ somebody's paid API this re-opens and the numbers change:
   so the "forty call sites" this was racing to get ahead of cannot arise.
 - **The tokens are not billed.** `plugins/llm` is an OpenAI-compatible client against a self-hosted
   `baseUrl`. A daily token cap caps nothing that costs money. The other thing a cap would buy —
-  contention — is already handled by `LlmGate` serializing to one generation at a time.
+  contention — is already handled by `LlmGate` serializing to one generation at a time. *(Sharpened
+  2026-08-16: serializing handles contention and says nothing about PRIORITY, which is a different
+  thing and now has its own answer — `gate.priority.ts`, two tiers, the station ahead of anything an
+  operator started. If a tier system is ever built here it should be read as a policy over that
+  vocabulary rather than a new one: "soft" is background admissions being refused, which is gate
+  state, not a module. The measurement to know before designing it: 17 of 24 `failed` rows in
+  `script_history` were the model writer giving up in the gate queue, which no token cap would have
+  changed.)*
 - **The invariant this exists to protect turned out to be structural rather than policy.** "No tier
   makes music stop" holds because `BreakWriterRegistry` falls through to `TalkBreakWriter` and
   because `SetGeneratorChain` tops up from `CatalogSetGenerator`. Both are tested. A tier module

@@ -77,7 +77,13 @@ Three pieces, and the first two are worth having on their own.
 
 3. **Optionally, stop dequeuing speech work before there is speech.** The clean version is a
    readiness gate the render job consults rather than a reordering of `modules.ts`, since the module
-   order is pinned by shutdown. Weakest of the three, and listed last on purpose: 1 and 2 make the
+   order is pinned by shutdown. *(Updated 2026-08-16: that gate now has a home. `SpeechGate`
+   serializes the engine and is the singleton every speech caller already passes through, so the
+   readiness question can be asked there instead of at a new seam. It also answers the objection
+   below on its own terms — the gate sits beside `SpeechService.speaker()`, so "nothing can speak"
+   is a fact it can read rather than guess, and the safe behaviour is to ADMIT and let the honest
+   `unavailable` through rather than to refuse. Still piece 3, still last.)* Weakest of the three,
+   and listed last on purpose: 1 and 2 make the
    race survivable, which is worth more than making it rarer, and a gate that is wrong fails closed
    on a station that has no TTS plugin at all.
 

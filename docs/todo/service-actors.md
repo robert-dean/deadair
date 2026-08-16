@@ -2,6 +2,22 @@
 
 **As of:** 2026-08-08, just after `listener.credential.middleware` landed (896db1f).
 
+> **Stale as of 2026-08-16, and not lightly.** Two of the three machine callers this file is about
+> no longer exist in the form it describes. Icecast's `listener_add`/`listener_remove` hooks are
+> gone, along with `listener.credential.middleware`, `stream.listenerHooks` and
+> `POST /playout/bridge/listener`: the audience is read from `/admin/eventfeed` and a poll instead,
+> so nothing holds a listener's connection open on a blocking call to this app. That takes with it
+> the second and strongest of the four reasons below for not building this — "`listener_add` is a
+> blocking call on the listener's own connection" — which was the only one about a path where two
+> Postgres round trips would have been unaffordable. The middleware section under Related describes
+> a file that is not in the tree; only `bridge.secret.middleware.ts` remains.
+>
+> What survives unchanged: one shared secret across both directions, the credential not being
+> per-caller, scheme registration being global, and sessions being the wrong shape for a caller that
+> presents a credential on every request and holds nothing between them. **Re-scope before planning
+> from this**, because the remaining machine callers are Liquidsoap and the Spotify shim, which is
+> two rather than three, and the trigger this file names (a third machine caller) has moved.
+
 Three things inside the stack call the API as themselves rather than on behalf of an operator:
 Liquidsoap (`POST /playout/bridge/aired`), Icecast (`POST /playout/bridge/listener`), and the Spotify track shim
 in the other direction. All of them present the same static string, and none of them is an actor.

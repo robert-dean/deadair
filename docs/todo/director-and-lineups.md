@@ -143,6 +143,18 @@ still unused).
 Note the bus is synchronous and fail-fast, so the director's own top-up must stay on
 `Rundown.onAired` directly and never behind it.
 
+**Settled 2026-08-16, before anyone writes a subscriber: a push destination is a pg-boss job, not a
+bus subscriber.** The warning above is real and the right response to it is not to be careful. Every
+property a push destination has is the property that makes something a job in this tree — it is
+slow, it is outbound to a third party, nobody is waiting on it, and it wants retries and durability
+across a restart. A synchronous fail-fast bus on the aired edge gives it none of those, and makes a
+Discord outage cost the station its top-up unless every subscriber is defensively wrapped, which is
+a discipline rather than a structure. `onAired` already does exactly this correctly for play
+history: it is deliberately not a director command, it records what a listener actually heard, and
+it hands its own work off to a job. A `nowplaying` plugin capability is still right; what feeds it
+is `jobs.send`, and `@maroonedsoftware/eventbus` stays unused. See
+`docs/decisions/how-work-is-dispatched.md`.
+
 ## Rotation rules as operator settings
 
 Constants in code for now. Deferred: `director.*` keys in `deadair.settings` resolved the way

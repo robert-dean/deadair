@@ -121,6 +121,7 @@ order.replaceFrom(
         externalId: `smoke-${index}`,
         title: uri.split('/').pop() ?? uri,
         artists: ['smoke test'],
+        artist: 'smoke test',
     })),
 );
 rundown.attach(order);

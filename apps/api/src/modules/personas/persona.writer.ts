@@ -167,7 +167,7 @@ export function personaPrompt(description: string): LlmMessage[] {
                 '  "background": "a couple of grounded facts they may mention about themselves",',
                 '  "brevity": "omit this unless the character is notably terse; \\"short\\" for one who says less than most, \\"one-line\\" for one who barely speaks",',
                 '  "music": "what this character plays, in a sentence",',
-                `  "templates": "plain phrasings in this character's voice, one per line, using only these values: ${TEMPLATE_VALUES.join(' ')}"`,
+                `  "templates": ["five phrasings in this character's voice, one string each. Values you may use: ${TEMPLATE_VALUES.join(' ')}"]`,
                 '}',
                 '',
                 'Rules:',
@@ -184,7 +184,20 @@ export function personaPrompt(description: string): LlmMessage[] {
                 // rules cannot fit them all in, and every rule that misses is a marker lost.
                 '- Write at least six samples, and make sure every diction rule is visible somewhere in them. If a rule names a word — "aye", "innit", "mate" — that exact word must appear in a sample, spelled and inflected the same way. A rule you do not demonstrate is a rule the station cannot check.',
                 '- The samples are the character talking on air between two records. They must obey the diction rules exactly, because everything else is checked against them.',
-                '- A phrasing in "templates" is what the station says when nothing else wrote the break, so it must read as a complete sentence with the values filled in. Wrap a part that can be left out in [[double brackets]].',
+                // The floor, and the reason it must be in character: these are what airs when the
+                // model declined, which is the ordinary case by design. A plain-English phrasing set
+                // makes the character disappear at exactly the moments it was hired for.
+                '- The phrasings in "templates" are what the station says when nothing else wrote the break. They are not a fallback to plain English — they are this character speaking, so write them in the same diction as the samples and work its own words into them.',
+                '- Change the words AROUND a value, never the value itself. Plain: "That was {{previous.title}}, from {{previous.artist}}." In character: "That there haul was {{previous.title}}, from {{previous.artist}}." The {{...}} stay exactly as given, spelled the same, never translated into the dialect.',
+                '- Each must read as a complete sentence once the values are filled in. Wrap a part that can be left out in [[double brackets]]; anything outside those brackets must always be fillable, or the phrasing is never used.',
+                // A model bracketing everything "to be safe" leaves a phrasing that renders to its
+                // own punctuation. The renderer refuses that now, so an over-bracketed phrasing is
+                // simply one the station never says — a wasted line rather than a wrong one.
+                '- Never put the whole phrasing in brackets. Something must always be left outside them, or there is no sentence when the optional parts drop away.',
+                '- {{clock.rough}} reads as a phrase like "just after nine", so write "It\'s {{clock.rough}}" and never "At the {{clock.rough}}".',
+                // Named shapes rather than a count alone, because five variations on one shape leave
+                // the station with nothing to say at the top of an order or on the hour.
+                '- Write one of each of these, in this order: (1) what just played and then what is next, (2) only what is next, for the top of a show when nothing has played yet, (3) the station name with both records in [[brackets]], (4) only what just played, (5) one using {{clock.rough}}.',
                 '- diction is HOW they talk and quirks are WHAT they talk about. Do not put a subject in diction.',
                 // A local model wrapping a long string across lines is invalid JSON and loses the
                 // whole persona. `parseLooseJson` repairs it; asking is cheaper than repairing.

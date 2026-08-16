@@ -72,6 +72,30 @@ describe('the persona prompt', () => {
         expect(system).toContain('what this character calls the listener');
     });
 
+    it('asks for the phrasings as an array, so the one-line rule does not forbid a set of them', () => {
+        const system = personaPrompt('anything')[0]!.content;
+
+        // These were asked for as one newline-joined string beside a rule saying never to break a
+        // string across lines, which is a contradiction a model resolves by writing exactly one.
+        expect(system).toContain('"templates": [');
+        expect(system).toContain('one string each');
+    });
+
+    it('tells the model the phrasings are the character speaking, not a fallback to plain English', () => {
+        const system = personaPrompt('anything')[0]!.content;
+
+        // The word "plain" used to be in the ASK itself ("plain phrasings"), which is as close to
+        // instructing plain English as it is possible to get by accident.
+        expect(system).toContain('not a fallback to plain English');
+        expect(system).toContain('Change the words AROUND a value, never the value itself');
+    });
+
+    it('names the phrasing shapes, since five variations on one leave the station mute at a boundary', () => {
+        // A set with no intro-only phrasing has nothing to say at the top of an order, where there
+        // is no previous record to name.
+        expect(personaPrompt('anything')[0]!.content).toContain('only what is next, for the top of a show');
+    });
+
     it('carries the description in the user turn, capped', () => {
         const messages = personaPrompt(`${'a'.repeat(5000)}`);
 

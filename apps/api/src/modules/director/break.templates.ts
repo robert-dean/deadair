@@ -281,7 +281,12 @@ export function renderTemplate(template: string, inputs: TemplateInputs, spoken:
     });
 
     const script = (fill(withChunks, false) ?? '').replace(/\s{2,}/g, ' ').trim();
-    if (missingRequired || script.length === 0) return undefined;
+    // Empty is refused, and so is a script with nothing in it but punctuation — which is not the
+    // same check and is reachable in one obvious way: a phrasing whose every part is optional. Drop
+    // all of its chunks and what is left is the joinery, so `[[{{station.name}}]] — [[{{next.title}}]].`
+    // airs as "—." A template like that is legal to write, comes back from a model that bracketed
+    // everything to be safe, and produces a segment that renders, speaks and sounds like a fault.
+    if (missingRequired || !/[\p{L}\p{N}]/u.test(script)) return undefined;
 
     return { template, script, opening: openingOf(template), saysPrevious, saysNext };
 }

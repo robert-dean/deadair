@@ -134,6 +134,27 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
         expect(written?.script).toBe('You just heard Solid Air.');
     });
 
+    it('refuses a phrasing that would air as its own punctuation', async () => {
+        // Every part optional, so dropping them leaves the joinery. Not a hypothetical: it is what a
+        // model bracketing everything "to be safe" writes, and an empty-string check one line up does
+        // not catch it — "—." is not empty. It renders, it speaks, and it sounds like a fault.
+        const own = build({ [KEY]: '[[{{station.name}}]] — [[{{previous.title}}]] & [[{{next.title}}]].' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND });
+
+        expect(written).toBeUndefined();
+    });
+
+    it('still uses an over-bracketed phrasing when its parts can be filled', async () => {
+        // The guard is about what a phrasing RENDERS to, never about how it was written, so the same
+        // line is fine on a boundary that has the records it names.
+        const own = build({ [KEY]: '[[{{previous.title}}]] & [[{{next.title}}]].' });
+
+        const written = await own.write({ kind: TALK_BREAK_KIND, previous, next });
+
+        expect(written?.script).toBe('Solid Air & Pink Moon.');
+    });
+
     it('drops an optional chunk it cannot fill, rather than leaving a hole', async () => {
         const own = build({ [KEY]: 'That was {{previous.title}}.[[ Coming up, {{next.title}}.]]' });
 

@@ -1,4 +1,5 @@
 import {
+    fetchArticle,
     fetchFeed,
     Plugin,
     type FeedItem,
@@ -10,7 +11,7 @@ import {
 } from '@deadair/plugin-sdk';
 
 import { parseFeedLines, type ConfiguredFeed } from './rss.feeds.js';
-import { DEFAULT_CACHE_SECONDS, DEFAULT_MAX_ITEMS, REQUEST_TIMEOUT_MS } from './rss.manifest.js';
+import { ARTICLE_TIMEOUT_MS, DEFAULT_CACHE_SECONDS, DEFAULT_FETCH_ARTICLES, DEFAULT_MAX_ITEMS, REQUEST_TIMEOUT_MS } from './rss.manifest.js';
 
 export { rssManifest } from './rss.manifest.js';
 
@@ -38,11 +39,44 @@ export { rssManifest } from './rss.manifest.js';
  * that instead answered "nothing new since you last asked" would be inventing
  * that claim out of its own refresh interval, and anything watching for
  * breaking news would miss exactly the stories that arrived in the window.
+ *
+ * ## A feed is a list of titles, so the stories are fetched separately
+ *
+ * Measured against the station's own configured feed: every entry's
+ * `description` was one sentence restating its title and its `content:encoded`
+ * was that same sentence wrapped in a `<p>`. A bulletin built from that reads
+ * out a list of headlines, which is what it did. So an item's own link is
+ * followed and the page's paragraphs become {@link NewsItem.content}, still the
+ * publisher's words in the publisher's order — the plugin fetches and the host
+ * thinks.
+ *
+ * Three bounds, because this is the expensive half. Only items actually being
+ * RETURNED are read, so a `maxItems` of 25 never costs 25 pages; no more than
+ * {@link MAX_ARTICLE_FETCHES} per call; and the loop stops on
+ * `host.remainingMs`, so a bulletin's long budget reads more of them than a DJ's
+ * mid-break tool call does. A page that fails costs its own item and nothing
+ * else, exactly as a feed does — the entry's own words are the fallback, and
+ * they are a real answer.
  */
 
 /** A feed as it was last read, with the moment it was read. */
 interface CachedFeed {
     items: NewsItem[];
+    readAt: number;
+}
+
+/**
+ * An article page as it was last read, with the moment it was read.
+ *
+ * `text` is optional and a miss is CACHED, which the feed cache deliberately
+ * does not do. The difference is what a miss means: a feed that 502'd will
+ * probably answer next minute, whereas a page that carried no prose is an audio
+ * piece or a photo gallery and will carry none the next twenty times either. Not
+ * remembering that would have every bulletin in the window pay for the same
+ * empty page.
+ */
+interface CachedArticle {
+    text?: string;
     readAt: number;
 }
 
@@ -57,11 +91,42 @@ interface CachedFeed {
  */
 const FEED_BUDGET_MS = 1_500;
 
+/**
+ * Budget below which another article is not worth starting.
+ *
+ * Higher than {@link FEED_BUDGET_MS} because an article page is an order of
+ * magnitude bigger than a feed and is served by the publisher's own front end
+ * rather than by the CDN in front of a static file.
+ */
+const ARTICLE_BUDGET_MS = 2_500;
+
+/**
+ * Most article pages one call will read.
+ *
+ * A bulletin asks for twice what it will read (the caller drops anything with no
+ * usable headline), so this is deliberately BELOW an ordinary request's limit:
+ * the stories a bulletin actually reads are the first few, and paying for the
+ * spares would double the cost of the over-fetch that exists to protect the
+ * headline count.
+ */
+const MAX_ARTICLE_FETCHES = 4;
+
 export class RssPlugin extends Plugin implements NewsPluginInstance {
     private feeds: ConfiguredFeed[] = [];
     private maxItems = DEFAULT_MAX_ITEMS;
     private cacheSeconds = DEFAULT_CACHE_SECONDS;
+    private fetchArticles = DEFAULT_FETCH_ARTICLES;
     private readonly cache = new Map<string, CachedFeed>();
+    /**
+     * Article text by URL, on the same clock as the feed cache.
+     *
+     * Its own map rather than a field on the cached item, because an article and
+     * the feed that named it expire independently: a feed refetched a minute
+     * later hands back the same entries, and re-reading a page whose text has
+     * not changed would be the whole cost of this feature paid again for
+     * nothing.
+     */
+    private readonly articles = new Map<string, CachedArticle>();
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -69,12 +134,14 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
         this.feeds = parseFeedLines(typeof config.feeds === 'string' ? config.feeds : undefined);
         this.maxItems = positive(config.maxItems) ?? DEFAULT_MAX_ITEMS;
         this.cacheSeconds = notNegative(config.cacheSeconds) ?? DEFAULT_CACHE_SECONDS;
+        this.fetchArticles = config.fetchArticles !== false;
 
-        this.host.logger.info('rss news ready', { feeds: this.feeds.length });
+        this.host.logger.info('rss news ready', { feeds: this.feeds.length, articles: this.fetchArticles });
     }
 
     protected async onUnload(): Promise<void> {
         this.cache.clear();
+        this.articles.clear();
         this.feeds = [];
     }
 
@@ -109,7 +176,77 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
             collected.push(...(await this.read(feed)));
         }
 
-        return newestFirst(sinceOnly(collected, query.since)).slice(0, Math.max(0, query.limit));
+        const answering = newestFirst(sinceOnly(collected, query.since)).slice(0, Math.max(0, query.limit));
+        return this.withStories(answering);
+    }
+
+    /**
+     * The same items, with the story behind each headline where one could be
+     * read.
+     *
+     * Runs on what is being ANSWERED rather than on everything parsed, which is
+     * the bound that matters: a feed read 25 entries deep would otherwise cost
+     * 25 page loads to answer a request for three.
+     *
+     * Every failure is the same outcome — no `content` on that item — because
+     * they are the same outcome to the caller: a refused host, a page with
+     * nothing on it, a PDF, and a budget that ran out all leave the entry's own
+     * words as the answer, which is a real answer rather than a hole.
+     */
+    private async withStories(items: NewsItem[]): Promise<NewsItem[]> {
+        if (!this.fetchArticles) return items;
+
+        let fetched = 0;
+        const answered: NewsItem[] = [];
+
+        for (const item of items) {
+            const text = await this.storyFor(item, fetched);
+            if (text !== undefined) answered.push({ ...item, content: text.content });
+            else answered.push(item);
+
+            if (text?.fetched === true) fetched += 1;
+        }
+
+        return answered;
+    }
+
+    /**
+     * One item's story: from the cache, from the publisher, or not at all.
+     *
+     * Answers whether it PAID for the page as well as what it found, because the
+     * per-call cap is about requests rather than about items — a cached page and
+     * an item with no link both cost nothing and neither should push a later
+     * story off the end.
+     */
+    private async storyFor(item: NewsItem, fetched: number): Promise<{ content?: string; fetched: boolean } | undefined> {
+        const url = item.url;
+        if (url === undefined) return undefined;
+
+        const cached = this.articles.get(url);
+        if (cached !== undefined && Date.now() - cached.readAt < this.cacheSeconds * 1_000) {
+            return { ...(cached.text === undefined ? {} : { content: cached.text }), fetched: false };
+        }
+
+        // Both checks before starting one, for the reason the feed loop's is:
+        // being cut off mid-page costs the request and leaves nothing to show.
+        if (fetched >= MAX_ARTICLE_FETCHES) return undefined;
+        if (this.host.remainingMs() < ARTICLE_BUDGET_MS) {
+            this.host.logger.debug('rss: stopped short of the stories, out of budget', { read: fetched });
+            return undefined;
+        }
+
+        try {
+            const text = await fetchArticle(this.host, url, { timeoutMs: ARTICLE_TIMEOUT_MS });
+            this.articles.set(url, { ...(text === undefined ? {} : { text }), readAt: Date.now() });
+            return { ...(text === undefined ? {} : { content: text }), fetched: true };
+        } catch (error) {
+            // Not cached: unlike a page that simply had no prose on it, this is
+            // the publisher having a bad minute and the next bulletin should try
+            // again. The publisher's own words are not repeated; see
+            // {@link RssPlugin.read}.
+            this.host.logger.debug('rss: a story could not be read', { feed: item.feedId, error: message(error) });
+            return { fetched: true };
+        }
     }
 
     /**
@@ -151,25 +288,56 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
         if (configured.length === 0) return { ok: false, message: 'No feeds yet. Paste one address per line above.' };
 
         const failed: string[] = [];
+        let sampleUrl: string | undefined;
         for (const feed of configured) {
             try {
                 const parsed = await fetchFeed(this.host, feed.url, { timeoutMs: REQUEST_TIMEOUT_MS });
                 // A 200 is not the question. A publisher that moved leaves an
                 // HTML page at the old address, which parses to no items at all.
                 if (parsed.items.length === 0) failed.push(feed.descriptor.id);
+                else sampleUrl ??= parsed.items.find(entry => entry.url !== undefined)?.url;
             } catch {
                 failed.push(feed.descriptor.id);
             }
         }
 
         if (failed.length === configured.length) return { ok: false, message: `None of the ${configured.length} feeds could be read.` };
+
+        const stories = await this.testStories(sampleUrl);
         if (failed.length > 0)
             return {
                 ok: true,
-                message: `${configured.length - failed.length} of ${configured.length} feeds read. Nothing came back from: ${failed.join(', ')}.`,
+                message:
+                    `${configured.length - failed.length} of ${configured.length} feeds read. ` +
+                    `Nothing came back from: ${failed.join(', ')}.${stories}`,
             };
 
-        return { ok: true, message: `${configured.length} ${configured.length === 1 ? 'feed' : 'feeds'} read.` };
+        return { ok: true, message: `${configured.length} ${configured.length === 1 ? 'feed' : 'feeds'} read.${stories}` };
+    }
+
+    /**
+     * What a test can say about the stories, having read one.
+     *
+     * Here because it is the question an operator cannot otherwise answer: the
+     * pages a feed links to are on a different host from the feed, so this is
+     * either working or being refused per request in a log nobody is reading.
+     * One sample rather than a survey, and it names the host, because the fix
+     * when it is refused is a station setting that takes a plugin id and the
+     * operator needs to know which plugin is asking for what.
+     */
+    private async testStories(sampleUrl: string | undefined): Promise<string> {
+        if (!this.fetchArticles) return ' Stories are off, so the station reads headlines only.';
+        if (sampleUrl === undefined) return ' No entry linked to a story, so the station reads headlines only.';
+
+        const host = hostOf(sampleUrl);
+        try {
+            const text = await fetchArticle(this.host, sampleUrl, { timeoutMs: ARTICLE_TIMEOUT_MS });
+            if (text === undefined) return ` Read ${host}, but that story carried no article text; the station falls back to the headline.`;
+
+            return ` Stories read from ${host}.`;
+        } catch (error) {
+            return ` Stories could not be read from ${host} (${message(error)}). Add this plugin to "Plugins allowed to reach the open web" in settings.`;
+        }
     }
 }
 
@@ -226,3 +394,12 @@ const notNegative = (value: unknown): number | undefined => {
 
 /** An error as one short line. Never the upstream's own body; see {@link RssPlugin.read}. */
 const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/** The hostname of an address, for a sentence an operator reads. */
+const hostOf = (url: string): string => {
+    try {
+        return new URL(url).hostname;
+    } catch {
+        return 'that publisher';
+    }
+};

@@ -217,6 +217,172 @@ describe('testConnection', () => {
     });
 });
 
+/**
+ * A feed is a list of titles. Measured against the station's own configured
+ * feed, every entry's description was one sentence restating its title, which
+ * is a bulletin that reads out a list — so the story behind the headline is
+ * fetched separately, and these are the bounds on doing that.
+ */
+describe('fetchItems stories', () => {
+    const linkedFeed = (...items: { title: string; guid: string; link: string }[]): string => `<?xml version="1.0"?>
+<rss version="2.0"><channel><title>Example</title>
+${items
+    .map(
+        item => `<item><title>${item.title}</title><guid>${item.guid}</guid><link>${item.link}</link>
+    <description>A teaser about ${item.title}.</description></item>`,
+    )
+    .join('\n')}
+</channel></rss>`;
+
+    const articlePage = (text: string): string => `<html><body><article><p>${text}</p></article></body></html>`;
+
+    /**
+     * Answers feeds and article pages by address rather than in order.
+     *
+     * The queue cannot express this: a call reads one feed and then several
+     * pages, and which page is asked for depends on what the feed said.
+     */
+    const serving = (pages: Record<string, string>, feed: string): void => {
+        host.setFetchImpl(async (url: string) => {
+            if (url.endsWith('rss.xml')) return new Response(feed, { headers: { 'content-type': 'application/rss+xml' } });
+
+            const page = pages[url];
+            if (page === undefined) throw new Error(`no page for ${url}`);
+            return new Response(page, { headers: { 'content-type': 'text/html' } });
+        });
+    };
+
+    it('reads the story behind each headline and keeps the teaser beside it', async () => {
+        await initialize();
+        serving(
+            { 'https://one.example.com/a': articlePage('The council voted to reopen the crossing after eleven months of works.') },
+            linkedFeed({ title: 'Bridge reopens', guid: 'g1', link: 'https://one.example.com/a' }),
+        );
+
+        const [item] = await plugin.fetchItems({ limit: 10 });
+
+        expect(item).toMatchObject({
+            title: 'Bridge reopens',
+            summary: 'A teaser about Bridge reopens.',
+            content: 'The council voted to reopen the crossing after eleven months of works.',
+        });
+    });
+
+    // The bound that matters most: a feed read twenty-five entries deep must not
+    // cost twenty-five page loads to answer a request for three.
+    it('reads pages only for the items it is answering with', async () => {
+        await initialize();
+        serving(
+            {
+                'https://one.example.com/a': articlePage('The first story, at a length that reads as a paragraph of reporting.'),
+                'https://one.example.com/b': articlePage('The second story, also long enough to be taken for prose.'),
+            },
+            linkedFeed(
+                { title: 'First', guid: 'g1', link: 'https://one.example.com/a' },
+                { title: 'Second', guid: 'g2', link: 'https://one.example.com/b' },
+            ),
+        );
+
+        const items = await plugin.fetchItems({ limit: 1 });
+
+        expect(items).toHaveLength(1);
+        expect(host.calls.map(call => call.url)).toEqual(['https://one.example.com/rss.xml', 'https://one.example.com/a']);
+    });
+
+    it('reads no more than four pages however many it is asked for', async () => {
+        const six = Array.from({ length: 6 }, (_unused, at) => ({ title: `Story ${at}`, guid: `g${at}`, link: `https://one.example.com/${at}` }));
+        await initialize();
+        serving(
+            Object.fromEntries(six.map(item => [item.link, articlePage(`The body of ${item.title}, long enough to be taken for real prose.`)])),
+            linkedFeed(...six),
+        );
+
+        const items = await plugin.fetchItems({ limit: 6 });
+
+        expect(items).toHaveLength(6);
+        expect(items.filter(item => item.content !== undefined)).toHaveLength(4);
+    });
+
+    it('stops reading stories when the budget runs low, and still answers', async () => {
+        await initialize();
+        serving(
+            { 'https://one.example.com/a': articlePage('A story nobody has time to read right now, but a real paragraph nonetheless.') },
+            linkedFeed({ title: 'Bridge reopens', guid: 'g1', link: 'https://one.example.com/a' }),
+        );
+        host.seedRemainingMs(2_000);
+
+        const [item] = await plugin.fetchItems({ limit: 10 });
+
+        expect(item).toMatchObject({ title: 'Bridge reopens', summary: 'A teaser about Bridge reopens.' });
+        expect(item?.content).toBeUndefined();
+    });
+
+    // Every failure is the same outcome, because it is the same outcome to the
+    // caller: the entry's own words, which are a real answer.
+    it.each([
+        ['a page that will not load', () => Promise.reject(new Error('refused'))],
+        [
+            'a page with nothing on it',
+            () => Promise.resolve(new Response('<html><body><p>Menu</p></body></html>', { headers: { 'content-type': 'text/html' } })),
+        ],
+        ['something that is not a page at all', () => Promise.resolve(new Response('%PDF-1.7', { headers: { 'content-type': 'application/pdf' } }))],
+    ])('falls back to the headline for %s', async (_what, answer) => {
+        await initialize();
+        const feed = linkedFeed({ title: 'Bridge reopens', guid: 'g1', link: 'https://one.example.com/a' });
+        host.setFetchImpl(async (url: string) =>
+            url.endsWith('rss.xml') ? new Response(feed, { headers: { 'content-type': 'application/rss+xml' } }) : answer(),
+        );
+
+        const [item] = await plugin.fetchItems({ limit: 10 });
+
+        expect(item).toMatchObject({ title: 'Bridge reopens' });
+        expect(item?.content).toBeUndefined();
+    });
+
+    // A model writing one break calls the news tool twice. Reading a publisher's
+    // page twice inside ten seconds is rude for no gain, and it is the expensive
+    // half of the two.
+    it('reads a page once inside the cache window', async () => {
+        await initialize({ cacheSeconds: 600 });
+        serving(
+            { 'https://one.example.com/a': articlePage('One story, read once, at a length that passes for reporting.') },
+            linkedFeed({ title: 'Bridge reopens', guid: 'g1', link: 'https://one.example.com/a' }),
+        );
+
+        const first = await plugin.fetchItems({ limit: 10 });
+        const second = await plugin.fetchItems({ limit: 10 });
+
+        expect(host.calls).toHaveLength(2);
+        expect(second[0]?.content).toBe(first[0]?.content);
+    });
+
+    it('reads it again once the window has passed', async () => {
+        await initialize({ cacheSeconds: 0 });
+        serving(
+            { 'https://one.example.com/a': articlePage('One story, read twice, at a length that passes for reporting.') },
+            linkedFeed({ title: 'Bridge reopens', guid: 'g1', link: 'https://one.example.com/a' }),
+        );
+
+        await plugin.fetchItems({ limit: 10 });
+        await plugin.fetchItems({ limit: 10 });
+
+        expect(host.calls).toHaveLength(4);
+    });
+
+    it('reads no pages at all when the operator turned stories off', async () => {
+        await initialize({ fetchArticles: false });
+        serving(
+            { 'https://one.example.com/a': articlePage('A story the operator does not want paid for.') },
+            linkedFeed({ title: 'Bridge reopens', guid: 'g1', link: 'https://one.example.com/a' }),
+        );
+
+        const [item] = await plugin.fetchItems({ limit: 10 });
+
+        expect(item?.content).toBeUndefined();
+        expect(host.calls).toHaveLength(1);
+    });
+});
+
 describe('unload', () => {
     it('drops the cache, so a reconfigured plugin does not answer from the old list', async () => {
         await initialize({ cacheSeconds: 600 });

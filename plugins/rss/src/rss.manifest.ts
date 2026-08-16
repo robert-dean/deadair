@@ -15,6 +15,17 @@ export const PLUGIN_VERSION = '0.0.1';
 export const REQUEST_TIMEOUT_MS = 8_000;
 
 /**
+ * Per-request budget for an article page.
+ *
+ * Shorter than a feed's, and deliberately the other way round from what the
+ * sizes suggest. A feed is the thing without which this plugin answers nothing,
+ * so it is worth waiting for; a story is an improvement on a headline the caller
+ * already has, and a bulletin is waiting on the whole call. Better three stories
+ * read than four with the fourth holding up the break.
+ */
+export const ARTICLE_TIMEOUT_MS = 5_000;
+
+/**
  * One request a second across every feed on the list, sharing one bucket.
  *
  * The rate being paced here is this station's OUTBOUND rate and not any one
@@ -39,10 +50,22 @@ export const DEFAULT_MAX_ITEMS = 25;
  */
 export const DEFAULT_CACHE_SECONDS = 60;
 
+/**
+ * Whether the story behind a headline is read, when the operator has not said.
+ *
+ * On, because off is what the station already did and it is what produced a
+ * bulletin of titles. It is a switch rather than a constant because it is the
+ * one thing here that costs a request per story: an operator on a metered
+ * connection, or one whose publisher refuses this, turns it off and gets the
+ * old behaviour rather than a broken one.
+ */
+export const DEFAULT_FETCH_ARTICLES = true;
+
 export const configSchema = z.object({
     feeds: z.string().default(''),
     maxItems: z.coerce.number().int().min(1).max(100).default(DEFAULT_MAX_ITEMS),
     cacheSeconds: z.coerce.number().int().min(0).max(3_600).default(DEFAULT_CACHE_SECONDS),
+    fetchArticles: z.coerce.boolean().default(DEFAULT_FETCH_ARTICLES),
 });
 
 export type RssConfig = z.infer<typeof configSchema>;
@@ -84,6 +107,15 @@ export const rssManifest: PluginManifest = {
             type: 'number',
             default: DEFAULT_MAX_ITEMS,
             help: 'How far down each feed to read. Newest first, so this is really how much of the front page the station can see.',
+        },
+        {
+            key: 'fetchArticles',
+            label: 'Read the story, not just the headline',
+            type: 'boolean',
+            default: DEFAULT_FETCH_ARTICLES,
+            help:
+                "A feed usually carries titles and a one-line teaser, so a bulletin built from it alone reads out a list. With this on, the station also opens each story's own page and keeps its paragraphs, which is what a presenter needs to say what actually happened. " +
+                'The stories are on a different address from the feed, so this needs the plugin listed under "Plugins allowed to reach the open web" in the station settings. Costs one request per story read, and never more than four per bulletin.',
         },
         {
             key: 'cacheSeconds',

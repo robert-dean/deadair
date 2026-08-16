@@ -414,8 +414,32 @@ export interface AnswerGuard {
  * writer having declined — and the floor underneath then says something correct instead.
  */
 export function readAnswer(text: string, guard: AnswerGuard = {}): string | undefined {
-    const maxWords = guard.maxWords ?? DEFAULT_MAX_WORDS;
+    const script = tidyAnswer(text);
+    if (script === undefined) return undefined;
 
+    // A ceiling rather than a trim: cutting a script mid-sentence is a worse thing to air than the
+    // floor's correct line, and a model that has run long has usually misunderstood the job rather
+    // than merely overshot.
+    if (runsLong(script, guard)) return undefined;
+
+    // A correct sentence that is not this character speaking, which is the failure a persona is
+    // asked for and the one a model handed a page of content rules actually makes — in flat plain
+    // English, in a lifted sample line, in a signature the station used four records ago, or in
+    // wording the sheet forbids. Declined rather than re-drafted: the floor underneath speaks in
+    // the same character, so the station gets an in-character line at once instead of paying for a
+    // second generation to maybe get one.
+    if (faultIn(script, guard) !== undefined) return undefined;
+
+    return script;
+}
+
+/**
+ * The tidying half of {@link readAnswer}: an answer as speakable words, or nothing.
+ *
+ * Split out so {@link writeDecline} can tell an answer that was empty from one that was too long
+ * without re-running the checks in a different order and reporting something that did not happen.
+ */
+function tidyAnswer(text: string): string | undefined {
     let script = text.trim();
 
     // A reasoning model that was told not to think out loud and did anyway. Take what follows the
@@ -441,23 +465,11 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     script = stripWrapping(script, "'", "'");
 
     script = script.replace(/\s{2,}/g, ' ').trim();
-    if (script.length === 0) return undefined;
-
-    // A ceiling rather than a trim: cutting a script mid-sentence is a worse thing to air than the
-    // floor's correct line, and a model that has run long has usually misunderstood the job rather
-    // than merely overshot.
-    if (script.split(/\s+/).length > maxWords) return undefined;
-
-    // A correct sentence that is not this character speaking, which is the failure a persona is
-    // asked for and the one a model handed a page of content rules actually makes — in flat plain
-    // English, in a lifted sample line, in a signature the station used four records ago, or in
-    // wording the sheet forbids. Declined rather than re-drafted: the floor underneath speaks in
-    // the same character, so the station gets an in-character line at once instead of paying for a
-    // second generation to maybe get one.
-    if (faultIn(script, guard) !== undefined) return undefined;
-
-    return script;
+    return script.length === 0 ? undefined : script;
 }
+
+/** Whether a tidied script is past the guard's ceiling. */
+const runsLong = (script: string, guard: AnswerGuard): boolean => script.split(/\s+/).length > (guard.maxWords ?? DEFAULT_MAX_WORDS);
 
 /**
  * Why a cleaned script is not the persona speaking, or `undefined` when it is.
@@ -481,7 +493,9 @@ export function faultIn(script: string, guard: AnswerGuard): CharacterFault | un
  * wording is worth reading a capture for, and a flat plain-English line is markers or diction wanting
  * work. Only the last two are usually a fault of the sheet at all.
  */
-const FAULT_REASONS: Record<CharacterFault, string> = {
+const FAULT_REASONS: Record<WriteFault, string> = {
+    'nothing-said': 'the model answered with nothing the station could say',
+    'ran-long': 'the model wrote past the word ceiling, and a script cut mid-sentence is worse than the phrasing underneath it',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
@@ -489,25 +503,38 @@ const FAULT_REASONS: Record<CharacterFault, string> = {
 };
 
 /**
- * Why a raw answer was refused as not-this-character, for a writer that wants to say so.
+ * Every way an answer can be refused: the four character faults, plus the two that come first.
  *
- * Runs the guard WITHOUT the persona first, which does the tidying and applies the word ceiling: an
- * answer that does not survive that was never a character problem, and asking why it is out of
- * character would answer a question about a line the station was never going to say. So `undefined`
- * here means "not a character fault" and never "no fault".
+ * The two are separated because they want opposite things done about them and the row could not tell
+ * them apart: a 203-word bulletin was reported as the model having "nothing to say here", which sent
+ * an operator looking at a persona sheet for a ceiling that was in the way of a bulletin the prompt
+ * had asked for.
+ */
+export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long';
+
+/**
+ * Why a raw answer was refused, for a writer that wants to say so, or `undefined` when it was not.
+ *
+ * In {@link readAnswer}'s own order, which is what makes the reason the thing that actually happened
+ * rather than the first thing this function happened to test: an empty answer is never a character
+ * problem, and a script the station was never going to say is not worth asking whether it was in
+ * character.
  *
  * It answers with the sentence as well as the fault because both destinations matter and neither is
  * the other: the fault is what a log line can be counted by, and the sentence is what reaches
  * `script_history.reason` and a person reading the console. Deriving them in one place is what stops
  * the row and the log disagreeing about the same break.
  */
-export function characterDecline(text: string, guard: AnswerGuard): { fault: CharacterFault; reason: string } | undefined {
-    const speakable = readAnswer(text, { maxWords: guard.maxWords ?? DEFAULT_MAX_WORDS });
-    if (speakable === undefined) return undefined;
+export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFault; reason: string } | undefined {
+    const reasoned = (fault: WriteFault) => ({ fault, reason: FAULT_REASONS[fault] });
+
+    const speakable = tidyAnswer(text);
+    if (speakable === undefined) return reasoned('nothing-said');
+    if (runsLong(speakable, guard)) return reasoned('ran-long');
 
     const fault = faultIn(speakable, guard);
 
-    return fault === undefined ? undefined : { fault, reason: FAULT_REASONS[fault] };
+    return fault === undefined ? undefined : reasoned(fault);
 }
 
 /** Drop a pair of marks that wraps the entire text, and only then. */

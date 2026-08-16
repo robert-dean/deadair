@@ -5,7 +5,7 @@ import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, characterDecline, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE, type AnswerGuard } from './break.prompt.js';
+import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE, writeDecline, type AnswerGuard } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
@@ -185,17 +185,19 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // The cases are told apart because they need different fixes and look identical from
             // the row: a model that stopped at the token ceiling having said NOTHING spent its whole
             // allowance thinking, which is a number to raise; one that said too much is a prompt to
-            // tighten; and a script refused as not this character carries its own reason, which
-            // `characterDecline` names — of those four, three are things an operator can go and
-            // change on the personas page and one is the station working as designed.
+            // tighten; and a script refused as not this character carries its own reason. Which of
+            // the six it was is `writeDecline`'s answer, and all but two of them are something an
+            // operator can go and change on the personas page.
             const words = result.text.trim().split(/\s+/).filter(Boolean).length;
-            const declined = characterDecline(result.text, guard);
+            const declined = writeDecline(result.text, guard);
             // Onto the detail as well as into the log, so the reason reaches `script_history.reason`
             // and the question "how often is the model being refused, and for what" is a query
             // rather than a search through a rotating log.
             if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
 
             this.logger.info(
+                // The one case the answer alone cannot explain: an empty answer that stopped at the
+                // token ceiling is a model that thought until it ran out, not one with nothing to say.
                 words === 0 && result.finishReason === 'length'
                     ? 'director: the model used its whole answer thinking and never spoke; raise the token ceiling'
                     : `director: ${declined?.reason ?? 'the model wrote nothing the station could say'}`,

@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE, type PromptSettings } from '../../../src/modules/director/break.prompt.js';
+import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE, writeDecline, type PromptSettings } from '../../../src/modules/director/break.prompt.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
@@ -454,5 +454,47 @@ describe('readAnswer', () => {
         const exact = Array.from({ length: DEFAULT_MAX_WORDS }, () => 'word').join(' ');
 
         expect(readAnswer(exact)).toBe(exact);
+    });
+});
+
+// The reason that reaches `script_history.reason` and the log beside it. It exists because the row
+// could not tell a 203-word bulletin from a model that answered with nothing: both were reported as
+// the writer having had nothing to say, and only one of them is about a ceiling.
+describe('writeDecline', () => {
+    const pirate = { dictionMarkers: ['ye', 'aye', 'matey'] };
+
+    it('says nothing at all about an answer the station can say', () => {
+        expect(writeDecline('Aye, that were Solid Air, matey.', { persona: pirate })).toBeUndefined();
+    });
+
+    it('tells an empty answer apart from one that ran long', () => {
+        const rambling = Array.from({ length: DEFAULT_MAX_WORDS + 5 }, () => 'word').join(' ');
+
+        expect(writeDecline('   ', {})?.fault).toBe('nothing-said');
+        expect(writeDecline(rambling, {})?.fault).toBe('ran-long');
+    });
+
+    it('honours the caller’s own ceiling rather than the default', () => {
+        const long = Array.from({ length: DEFAULT_MAX_WORDS + 5 }, () => 'word').join(' ');
+
+        expect(writeDecline(long, { maxWords: DEFAULT_MAX_WORDS * 2 })).toBeUndefined();
+    });
+
+    // In `readAnswer`'s own order, so the reason is what actually happened: a script the station was
+    // never going to say is not worth asking whether it was in character.
+    it('reports the length before the character, for an answer that failed both', () => {
+        const plain = Array.from({ length: DEFAULT_MAX_WORDS + 5 }, () => 'word').join(' ');
+
+        expect(writeDecline(plain, { persona: pirate })?.fault).toBe('ran-long');
+    });
+
+    it('names which character fault it was, for one the station could otherwise have said', () => {
+        expect(writeDecline('That was Solid Air, from John Martyn.', { persona: pirate })?.fault).toBe('out-of-character');
+        expect(writeDecline('Aye, matey, buckle up.', { persona: { ...pirate, avoid: ['buckle up'] } })?.fault).toBe('avoided-wording');
+    });
+
+    it('carries a sentence an operator can read beside the fault', () => {
+        expect(writeDecline('   ', {})?.reason).toMatch(/nothing/i);
+        expect(writeDecline(Array.from({ length: 99 }, () => 'word').join(' '), {})?.reason).toMatch(/word ceiling/i);
     });
 });

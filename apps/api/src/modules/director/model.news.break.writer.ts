@@ -5,7 +5,7 @@ import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, characterDecline, readAnswer, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
+import { breakPrompt, readAnswer, writeDecline, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
@@ -154,9 +154,9 @@ export class ModelNewsBreakWriter extends BreakWriter {
         };
 
         if (script === undefined) {
-            // The character reason where there is one, on the row as well as in the log. See
-            // `characterDecline` and `WriteDetail.reason`.
-            const declined = characterDecline(result.text, guard);
+            // Why it was refused, on the row as well as in the log. See `writeDecline` and
+            // `WriteDetail.reason`.
+            const declined = writeDecline(result.text, guard);
             if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
 
             this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could read as news'}`, {

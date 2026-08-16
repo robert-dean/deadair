@@ -149,6 +149,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
                 tools: false,
                 budgetMs: BUDGET_MS,
                 maxWaitMs: MAX_WAIT_MS,
+                // Absent for every break that is going on air, which is the gate's own default.
+                // Present only for a rehearsal, which must not outrank one.
+                ...(request.priority === undefined ? {} : { priority: request.priority }),
             },
         );
 

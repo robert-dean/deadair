@@ -156,6 +156,18 @@ describe('ModelTalkBreakWriter', () => {
         );
     });
 
+    // The default is what every break on air relies on: `LlmGate` reads an absent priority as
+    // `station`, so a writer that invented one would be claiming a rank nobody gave it.
+    it('claims no priority for a break that is going on air, and passes one that was given', async () => {
+        const air = build();
+        await air.writer.write({ kind: TALK_BREAK_KIND, previous, next });
+        expect(air.converse).toHaveBeenCalledWith(expect.anything(), expect.not.objectContaining({ priority: expect.anything() }));
+
+        const rehearsal = build();
+        await rehearsal.writer.write({ kind: TALK_BREAK_KIND, previous, next, priority: 'preview' });
+        expect(rehearsal.converse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ priority: 'preview' }));
+    });
+
     it('sends the model an operator asked for, and the plugin default otherwise', async () => {
         const named = build({ values: { [MODEL_WRITER_KEYS.model]: 'gpt-oss-radio' } });
         await named.writer.write({ kind: TALK_BREAK_KIND, previous });

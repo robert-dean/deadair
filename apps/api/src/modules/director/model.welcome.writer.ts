@@ -104,7 +104,13 @@ export class ModelWelcomeWriter extends BreakWriter {
             },
             // No tools, for the talk break's reason: everything this needs is already in the prompt,
             // and the one thing a greeting must not be is late.
-            { tools: false, budgetMs: BUDGET_MS, maxWaitMs: MAX_WAIT_MS },
+            {
+                tools: false,
+                budgetMs: BUDGET_MS,
+                maxWaitMs: MAX_WAIT_MS,
+                // See `BreakWriteRequest.priority`: absent for a welcome that is going on air.
+                ...(request.priority === undefined ? {} : { priority: request.priority }),
+            },
         );
 
         const guard: AnswerGuard = {

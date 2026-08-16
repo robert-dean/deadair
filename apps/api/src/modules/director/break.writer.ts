@@ -27,6 +27,7 @@
  * implementation's imports, exactly like {@link SetGenerator}.
  */
 
+import type { GatePriority } from '#modules/shared/gate.priority.js';
 import type { Persona } from '#modules/personas/persona.js';
 import type { BreakContext } from './break.request.js';
 import type { RoughTime } from './clock.words.js';
@@ -178,6 +179,24 @@ export interface BreakWriteRequest {
      * evening — which is why this is offered rather than applied.
      */
     greeting?: RoughTime;
+    /**
+     * Whether this break is going on air, or is being auditioned by somebody at the desk.
+     *
+     * Absent means `station`, which is every break the director plants or a request asks for. The
+     * only caller that says otherwise is `PersonaRehearsalService`, and it has to: a rehearsal
+     * reaches the model down this same path, so without a way to say so it contends for the one
+     * model slot on equal terms with a break that is actually about to air — which is exactly what
+     * `docs/todo/personas.md` §4 said a rehearsal must never do.
+     *
+     * **It is on the REQUEST rather than read from anywhere**, because a writer is a pure function
+     * of what it was told and this is the last thing that could reasonably be inferred: the words
+     * are identical either way, so nothing about the script says which one it is. Only the caller
+     * knows, and it is the caller that made the promise.
+     *
+     * Read by the model bindings and ignored by the deterministic ones, which is not an oversight:
+     * the floor asks nothing of the model and has no queue to be ordered in.
+     */
+    priority?: GatePriority;
 }
 
 /** What a writer produces. */

@@ -88,6 +88,20 @@ describe('PersonaRehearsalService', () => {
         }
     });
 
+    // The one thing a rehearsal must never do, and the reason the field exists at all. It reaches the
+    // model down the same path a real break does, so without saying so it contends for the station's
+    // one model slot on equal terms with a break that is about to air — and `LlmGate` would then take
+    // the model back from the BREAK rather than from the audition.
+    it('asks for the model as a preview, so the station outranks it', async () => {
+        const personas = { find: vi.fn(async () => persona()) };
+        const writers = registry(twoAttempts);
+        const service = new PersonaRehearsalService(personas as never, writers as never, config() as never, logger() as never);
+
+        await service.rehearse('p1');
+
+        expect(writers.seen[0]?.priority).toBe('preview');
+    });
+
     it('reports the decline AND the floor underneath it, not only the winner', async () => {
         const personas = { find: vi.fn(async () => persona()) };
         const service = new PersonaRehearsalService(

@@ -83,6 +83,12 @@ export class PersonaRehearsalService {
             // the station's actual history would decline a script for repeating something the
             // operator never heard — and would decline a different one each time they clicked.
             recent: [],
+            // The station is always more important than hearing what it would have said. A
+            // rehearsal queues behind every break and refill, and is taken off the model the moment
+            // one arrives — at which point the registry falls through and the operator hears the
+            // floor's line instead, which is a legitimate answer rather than a failure and is
+            // already one of the attempts the page draws.
+            priority: 'preview',
         });
 
         this.logger.info('personas: an operator rehearsed a persona', {

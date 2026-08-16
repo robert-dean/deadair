@@ -127,7 +127,13 @@ export class ModelNewsBreakWriter extends BreakWriter {
             // No tools. Everything this bulletin may contain is already in the prompt, and a model
             // that could go looking for more of a story is a model that can report something the
             // station never fetched — which is the whole failure this kind is shaped against.
-            { tools: false, budgetMs: BUDGET_MS, maxWaitMs: MAX_WAIT_MS },
+            {
+                tools: false,
+                budgetMs: BUDGET_MS,
+                maxWaitMs: MAX_WAIT_MS,
+                // See `BreakWriteRequest.priority`: absent for a bulletin that is going on air.
+                ...(request.priority === undefined ? {} : { priority: request.priority }),
+            },
         );
 
         const guard: AnswerGuard = {

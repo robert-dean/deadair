@@ -376,12 +376,22 @@ export interface SpokenCandidates {
  * reasoning then reads "Need more variety. Search for rock." Handing that back is worse than an
  * empty string, because it looks like an answer.
  *
+ * **`length` disqualifies too, and this one was found by a caller that had been broken for its whole
+ * life.** A model that runs out of allowance before it finishes THINKING has produced no answer at
+ * all — what is in the reasoning channel is a sentence cut off mid-word. The station's fact verifier
+ * was calling with `maxOutputTokens: 8`, and every call came back `finishReason=length` with 17 to
+ * 27 characters of truncated reasoning, which this promoted to an answer; the verifier then read it,
+ * failed to find "yes" at the front, and rejected the claim. The model half of fact extraction wrote
+ * nothing for as long as it existed, and nothing looked broken, because a wrong answer was being
+ * manufactured out of a failure. An empty string would have been loud.
+ *
  * Text always wins where there is any, so a provider that reasons and then answers is untouched:
  * its reasoning is not its answer, and the fallback is reached only where there is no answer at all.
  */
 export function spokenAnswer({ text, reasoningText, toolCalls, finishReason }: SpokenCandidates): string {
     if (!isEmptyAnswer(text)) return text;
     if (toolCalls > 0 || finishReason === 'tool-calls') return text;
+    if (finishReason === 'length') return text;
     if ((reasoningText?.trim().length ?? 0) === 0) return text;
 
     return reasoningText!;

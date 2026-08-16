@@ -37,6 +37,28 @@ export const MODEL_BUDGET_MS = 120_000;
 /** How long a verification may take. Far shorter: it is a yes or a no about two short strings. */
 export const VERIFY_BUDGET_MS = 30_000;
 
+/**
+ * How much OUTPUT one verification gets.
+ *
+ * The answer is one word, and this is deliberately not sized for one word. **Reasoning tokens are
+ * spent out of this same allowance**, before any text is emitted at all, so an allowance sized for
+ * the answer buys a model that never reaches the answer.
+ *
+ * This was `8`, and it meant the model half of fact extraction wrote NOTHING for as long as it
+ * existed. Every call came back `finishReason=length` having spent all eight tokens thinking, with
+ * 17 to 27 characters of truncated reasoning and no text; the plugin promoted that fragment to an
+ * answer, {@link verified} could not find "yes" at the front of it, and every claim was rejected.
+ * The station's 2929 facts had all come from the deterministic lead-sentence path. Both halves are
+ * fixed: `spokenAnswer` no longer promotes reasoning that was cut off by the allowance, so the same
+ * mistake would now present as an empty answer rather than as a confident no.
+ *
+ * Generous rather than tuned, because the cost of being wrong is asymmetric and one-sided: unused
+ * allowance costs nothing, and too little costs every fact the model would have kept. It is not a
+ * licence to ramble — `reasoningEffort` is `low` and the prompt asks for one word — it is headroom
+ * for the thinking that happens before the word.
+ */
+export const VERIFY_OUTPUT_TOKENS = 512;
+
 /** The words the extraction prompt uses for each level. */
 const SUBJECT_KIND: Record<FactSubjectType, ExtractionSubject['kind']> = { track: 'song', album: 'record', artist: 'artist' };
 
@@ -230,9 +252,29 @@ export class FactExtractionService {
     private async supported(claim: string, quote: string, model: string): Promise<boolean> {
         try {
             const answer = await this.llm.converse(
-                { messages: verifyPrompt(claim, quote), ...(model.length === 0 ? {} : { model }), maxOutputTokens: 8, reasoningEffort: 'low' },
+                {
+                    messages: verifyPrompt(claim, quote),
+                    ...(model.length === 0 ? {} : { model }),
+                    maxOutputTokens: VERIFY_OUTPUT_TOKENS,
+                    reasoningEffort: 'low',
+                },
                 { budgetMs: VERIFY_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false },
             );
+
+            // A verifier that said NOTHING is broken, not unconvinced, and the two have to look
+            // different from outside. They did not, and it cost this station every model-extracted
+            // fact it ever tried to keep: an under-budgeted call answered nothing, that read as a
+            // confident "no", and the pass reported `claimed=5 kept=0` for months without one line
+            // saying anything was wrong.
+            //
+            // It still answers `false` — the guard below is right, and a broken verifier must never
+            // become the route by which unverified claims reach the table — but it says so at WARN,
+            // because zero kept claims with no warnings is indistinguishable from an honest
+            // disagreement about every single one.
+            if (answer.text.trim().length === 0) {
+                this.logger.warn('facts: the verifier answered nothing, so this claim was dropped; check the model and VERIFY_OUTPUT_TOKENS');
+                return false;
+            }
 
             return verified(answer.text);
         } catch (error) {

@@ -73,9 +73,25 @@ describe('spokenAnswer', () => {
         expect(turn({ text: '[]' })).toBe('[]');
     });
 
-    it('is unaffected by a length finish, which is a real answer that got cut off', () => {
-        // A truncated answer is still the answer, and the caller's own guard decides whether it is
-        // usable. Only `tool-calls` means "this was not a reply".
-        expect(turn({ reasoningText: 'a truncated answer', finishReason: 'length' })).toBe('a truncated answer');
+    it('keeps a truncated ANSWER, because a cut-off reply is still a reply', () => {
+        // Unchanged, and the case the rule below is often confused with: there IS text, so nothing
+        // is being recovered. What it is worth is the caller's own guard to decide.
+        expect(turn({ text: 'a truncated answer', finishReason: 'length' })).toBe('a truncated answer');
+    });
+
+    // This used to assert the opposite — that a `length` finish was "a real answer that got cut off"
+    // and should be recovered from the reasoning channel like any other. Reversed on live evidence,
+    // and the distinction the old rule missed is that this path is only reached when the text is
+    // EMPTY: the model did not produce a truncated answer, it never began one, and what is in the
+    // reasoning channel is thinking cut off mid-word.
+    //
+    // What it cost: the fact verifier called with `maxOutputTokens: 8`, so every call spent the
+    // whole allowance thinking and finished on `length` with 17 to 27 characters of reasoning. That
+    // fragment was promoted to an answer, `verified()` found no "yes" at the front of it, and every
+    // claim the model extracted was rejected. The model half of fact extraction wrote nothing for as
+    // long as it existed and nothing looked broken, because a confident wrong answer was being
+    // manufactured out of a failure. An empty string would have been loud.
+    it('never recovers reasoning that the allowance cut off before any answer began', () => {
+        expect(turn({ reasoningText: 'We need to check whether the te', finishReason: 'length' })).toBe('');
     });
 });

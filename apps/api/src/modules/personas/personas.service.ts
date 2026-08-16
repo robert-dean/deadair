@@ -152,10 +152,20 @@ export class PersonasService {
             throw httpError(502).withDetails({ message: 'the model did not answer with a persona. Try again, or describe the character differently' });
         }
 
+        // The cost and the stopping reason ride the SUCCESS line too, not only the failure one. The
+        // interesting failure here is no longer an answer that could not be read — it is a thin one:
+        // a model that stopped after the samples leaves a persona with no markers and no phrasings,
+        // which parses perfectly and is half a character. "It ran out of tokens" and "it decided it
+        // was finished" want opposite fixes and are the same empty field otherwise.
         this.logger.info('personas: a model wrote a persona', {
             key: generated.draft.key,
+            fields: Object.keys(generated.draft).length,
+            markers: generated.draft.dictionMarkers?.length ?? 0,
+            phrasings: (generated.draft.templates ?? '').split('\n').filter(line => line.trim().length > 0).length,
             droppedMarkers: generated.droppedMarkers.length,
             droppedTemplates: generated.droppedTemplates.length,
+            tokens: result.usage?.outputTokens,
+            finish: result.finishReason,
         });
 
         return {

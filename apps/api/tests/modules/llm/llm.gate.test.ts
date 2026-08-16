@@ -333,3 +333,155 @@ describe('giving up in the queue', () => {
         }
     });
 });
+
+// The station outranks the console, in the queue and in the slot.
+//
+// Ordering alone would not have been enough, which is the point of the second group: a generation
+// is minutes, so a preview that got in first still costs a break its model unless something takes
+// the model back off it.
+describe('priority', () => {
+    it('puts an arriving station caller in front of a waiting preview', async () => {
+        const subject = gate();
+        const first = manualStream();
+        const admitted: string[] = [];
+
+        const one = await subject.run(async () => gated(first.stream));
+
+        // The preview queues first and still goes second.
+        const preview = subject.hold(async () => {
+            admitted.push('preview');
+        }, { priority: 'preview' });
+        const station = subject.hold(async () => {
+            admitted.push('station');
+        });
+
+        first.finish();
+        await drain(one.stream);
+        await Promise.all([preview, station]);
+
+        expect(admitted).toEqual(['station', 'preview']);
+    });
+
+    it('keeps arrival order among the station\'s own callers, which is what it always did', async () => {
+        const subject = gate();
+        const first = manualStream();
+        const admitted: string[] = [];
+
+        const one = await subject.run(async () => gated(first.stream));
+        const two = subject.hold(async () => {
+            admitted.push('two');
+        });
+        const three = subject.hold(async () => {
+            admitted.push('three');
+        });
+
+        first.finish();
+        await drain(one.stream);
+        await Promise.all([two, three]);
+
+        expect(admitted).toEqual(['two', 'three']);
+    });
+
+    it('takes the model back from a preview that is holding it', async () => {
+        const subject = gate();
+        const preview = manualStream();
+
+        const held = await subject.run(async () => gated(preview.stream), { priority: 'preview' });
+
+        // Arriving, not admitted: the station is still queued behind a holder that has now been
+        // told to stop.
+        const station = subject.hold(async () => 'wrote a break');
+
+        preview.push('half a sen');
+        // The preview's own stream is what carries the eviction to it.
+        await expect(drain(held.stream)).rejects.toThrow(/the station needed the model/);
+        await expect(station).resolves.toBe('wrote a break');
+    });
+
+    it('leaves a station holder alone, because nothing outranks it', async () => {
+        const subject = gate();
+        const first = manualStream();
+        let stopped = false;
+
+        const one = await subject.run(async () => gated(first.stream));
+        const two = subject.hold(async () => 'second');
+
+        first.push('a whole sentence');
+        // Nothing has asked it to stop, so the words keep arriving.
+        first.finish();
+        await drain(one.stream).catch(() => {
+            stopped = true;
+        });
+
+        expect(stopped).toBe(false);
+        await expect(two).resolves.toBe('second');
+    });
+
+    it('does not preempt a preview for another preview', async () => {
+        const subject = gate();
+        const first = manualStream();
+
+        const held = await subject.run(async () => gated(first.stream), { priority: 'preview' });
+        const second = subject.hold(async () => 'second preview', { priority: 'preview' });
+
+        first.push('still going');
+        first.finish();
+
+        // Ended on its own terms rather than being cut off.
+        await expect(drain(held.stream)).resolves.toBeUndefined();
+        await expect(second).resolves.toBe('second preview');
+    });
+
+    // Preemption can land BEFORE the preview's own `work` has even been called, because taking the
+    // slot is synchronous and running the work is a microtask later. So work must check `aborted`
+    // rather than only listening for the event, which is what `runConversation` already does and
+    // what anything else handed this signal has to do.
+    it('hands work a signal that is already aborted when it was outranked before it started', async () => {
+        const subject = gate();
+        const seen: boolean[] = [];
+
+        const preview = subject.hold(
+            async signal => {
+                seen.push(signal.aborted);
+                return signal.aborted ? 'gave up' : 'finished';
+            },
+            { priority: 'preview' },
+        );
+
+        const station = subject.hold(async () => 'the station');
+
+        await expect(preview).resolves.toBe('gave up');
+        expect(seen).toEqual([true]);
+        await expect(station).resolves.toBe('the station');
+    });
+
+    it('fires the abort event for work already running when the station arrives', async () => {
+        const subject = gate();
+        // Hand-rolled rather than `Promise.withResolvers`, which this tsconfig's lib does not carry.
+        let listening!: () => void;
+        const started = new Promise<void>(resolve => {
+            listening = resolve;
+        });
+        let sawAbort = false;
+
+        const preview = subject.hold(
+            async signal =>
+                await new Promise<string>(resolve => {
+                    signal.addEventListener('abort', () => {
+                        sawAbort = true;
+                        resolve('gave up');
+                    });
+                    listening();
+                }),
+            { priority: 'preview' },
+        );
+
+        // Only once the listener is actually attached, which is the case this covers.
+        await started;
+        const station = subject.hold(async () => 'the station');
+
+        await expect(preview).resolves.toBe('gave up');
+        expect(sawAbort).toBe(true);
+        await expect(station).resolves.toBe('the station');
+    });
+});

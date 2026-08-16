@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PluginError } from '@deadair/plugin-sdk';
+import { insertionIndex, priorityRank, type GatePriority } from '#modules/shared/gate.priority.js';
 
 /**
  * One generation at a time, and a budget that starts when it really starts.
@@ -89,6 +90,17 @@ export interface LlmGateOptions {
 
     /** What is being generated, for the log. */
     label?: string;
+
+    /**
+     * Who is asking. Absent means {@link GatePriority} `station`, which is every writer.
+     *
+     * A `preview` is ordered behind the station in the queue AND given up on when the station
+     * arrives while it holds the slot: see {@link LlmGate.preempt}. Both halves are needed, and the
+     * second is the one that matters. A generation is minutes, not seconds, so queue order alone
+     * would still let a preview that got in first cost a break its model — which is the exact
+     * failure the ordering was added to stop, one step later.
+     */
+    priority?: GatePriority;
 }
 
 /** What the gated work hands back: something to read, and the answer once it has been read. */
@@ -101,8 +113,16 @@ export interface GatedGeneration<TResult> {
 interface Waiter {
     admit: () => void;
     reject: (error: unknown) => void;
+    priority: GatePriority;
     /** Cleared on admission, so a caller that got in is never also timed out. */
     timer?: NodeJS.Timeout;
+}
+
+/** Whoever currently holds the slot, and how to ask them to stop. */
+interface Holder {
+    priority: GatePriority;
+    /** Aborts this holder's own budget signal, which is what preemption actually does. */
+    yield: () => void;
 }
 
 @Injectable()
@@ -110,8 +130,11 @@ export class LlmGate {
     /** Whether the model is busy. One slot, deliberately. See the class comment. */
     private busy = false;
 
-    /** In arrival order, so a caller that waited longest goes next. */
+    /** In priority order, then arrival: see `gate.priority.ts`. */
     private readonly waiting: Waiter[] = [];
+
+    /** Set for as long as the slot is held, so an arriving caller can outrank whoever has it. */
+    private holder?: Holder;
 
     constructor(private readonly logger: Logger) {}
 
@@ -147,13 +170,12 @@ export class LlmGate {
      * before a slot came free.
      */
     async hold<TResult>(work: (signal: AbortSignal) => Promise<TResult>, options: LlmGateOptions = {}): Promise<TResult> {
-        await this.acquire(options);
-        const budget = options.budgetMs === undefined ? undefined : startBudget(options.budgetMs);
+        const budget = await this.acquire(options);
 
         try {
-            return await work(budget?.signal ?? neverAborts());
+            return await work(budget.signal);
         } finally {
-            budget?.dispose();
+            budget.dispose();
             this.releaseSlot();
         }
     }
@@ -173,7 +195,7 @@ export class LlmGate {
         work: (signal: AbortSignal) => Promise<GatedGeneration<TResult>>,
         options: LlmGateOptions = {},
     ): Promise<GatedGeneration<TResult>> {
-        await this.acquire(options);
+        const budget = await this.acquire(options);
 
         // Everything from here releases the slot exactly once, on whichever of the three paths
         // happens: `work` throwing, the stream ending, or the stream being cancelled.
@@ -181,16 +203,13 @@ export class LlmGate {
         const release = () => {
             if (released) return;
             released = true;
-            budget?.dispose();
+            budget.dispose();
             this.releaseSlot();
         };
 
-        // Started AFTER acquire and not before. This is fix two, and it is one line.
-        const budget = options.budgetMs === undefined ? undefined : startBudget(options.budgetMs);
-
         let generation: GatedGeneration<TResult>;
         try {
-            generation = await work(budget?.signal ?? neverAborts());
+            generation = await work(budget.signal);
         } catch (error) {
             release();
             throw error;
@@ -205,23 +224,86 @@ export class LlmGate {
         };
     }
 
-    /** Wait for the one slot, in arrival order. */
-    private async acquire(options: LlmGateOptions): Promise<void> {
+    /**
+     * Take the slot: start this admission's budget and record who is holding it.
+     *
+     * **Synchronous, and called from the two places where `busy` becomes true**, which is the whole
+     * of why it exists as its own method. Setting the holder after an `await` instead left a window
+     * where the slot was taken and `holder` was still `undefined`, so a station caller arriving in
+     * it found nothing to preempt, queued behind a preview nobody had told to stop, and waited for
+     * a generation that had no reason to end. That is a deadlock rather than a slow path, and it is
+     * exactly the case this class exists to prevent.
+     *
+     * It is also what keeps fix two honest on both paths: the budget starts here, at admission, and
+     * a caller that waited an hour in the queue still gets its whole budget.
+     */
+    private takeSlot(options: LlmGateOptions): Budget {
+        const budget = startBudget(options.budgetMs);
+        this.holder = { priority: options.priority ?? 'station', yield: budget.preempt };
+
+        return budget;
+    }
+
+    /**
+     * Ask a lower-ranked holder to stop, if there is one.
+     *
+     * **This does not free the slot, and cannot.** It aborts the holder's signal; the slot comes
+     * back when their `work` actually returns, or when their stream ends on the next chunk. So a
+     * station caller still queues, it simply queues behind something that has been told to stop
+     * rather than behind something running to completion. A preview reading its own stream sees the
+     * error at once, which is the case this is for.
+     *
+     * **It can also land before the holder's `work` has started**, because taking the slot is
+     * synchronous and calling the work is a microtask later. So anything handed one of these
+     * signals has to check `aborted` rather than only listening for the event: an already-aborted
+     * signal fires no listener, and work that only listens would wait for an event that has been
+     * and gone. `LlmService.runConversation` already does the right thing.
+     *
+     * Once per holder: `preempt` only stops the first time, and clearing the holder's rank here
+     * keeps a second station caller from logging the same eviction again.
+     */
+    private preempt(arriving: GatePriority): void {
+        const holder = this.holder;
+        if (holder === undefined) return;
+        if (priorityRank[arriving] <= priorityRank[holder.priority]) return;
+
+        this.logger.info('llm: taking the model back from a preview, because the station wants it');
+        holder.priority = arriving;
+        holder.yield();
+    }
+
+    /**
+     * Wait for the one slot: priority first, then arrival.
+     *
+     * Answers the admission's budget rather than nothing, because taking the slot and starting the
+     * budget have to happen in the same synchronous step. See {@link takeSlot}.
+     */
+    private async acquire(options: LlmGateOptions): Promise<Budget> {
         if (!this.busy) {
             this.busy = true;
-            return;
+            return this.takeSlot(options);
         }
 
-        const waited = this.waiting.length;
-        this.logger.debug('llm: waiting for the model', { label: options.label, ahead: waited });
+        const priority = options.priority ?? 'station';
 
-        await new Promise<void>((resolve, reject) => {
+        // Before queueing, not after: whoever holds the slot should be told to stop as soon as
+        // somebody who outranks them arrives, rather than when they reach the front.
+        this.preempt(priority);
+
+        this.logger.debug('llm: waiting for the model', { label: options.label, priority, ahead: this.waiting.length });
+
+        return await new Promise<Budget>((resolve, reject) => {
             const waiter: Waiter = {
                 admit: () => {
                     if (waiter.timer) clearTimeout(waiter.timer);
-                    resolve();
+                    // Taken here rather than after the await, for {@link takeSlot}'s reason: the
+                    // slot changes hands synchronously inside `releaseSlot`, so the holder has to
+                    // be recorded there too or the same window reopens on the queued path.
+                    this.busy = true;
+                    resolve(this.takeSlot(options));
                 },
                 reject,
+                priority,
             };
 
             if (options.maxWaitMs !== undefined) {
@@ -239,11 +321,11 @@ export class LlmGate {
                 waiter.timer.unref?.();
             }
 
-            this.waiting.push(waiter);
+            // By priority, then arrival. A station caller goes in front of every waiting preview
+            // and behind every waiting station caller, so the tier below never delays the station
+            // and the tier itself is still first-come.
+            this.waiting.splice(insertionIndex(this.waiting, priority), 0, waiter);
         });
-
-        // Admitted by whoever released, which handed the slot over rather than clearing it.
-        this.busy = true;
     }
 
     /**
@@ -254,6 +336,10 @@ export class LlmGate {
      * station under load starves its own oldest request forever.
      */
     private releaseSlot(): void {
+        // Cleared whichever way this goes: the next caller sets its own in `takeSlot`, and a slot
+        // standing free must not look like it is held by whoever had it last.
+        this.holder = undefined;
+
         const next = this.waiting.shift();
         if (next === undefined) {
             this.busy = false;
@@ -266,39 +352,63 @@ export class LlmGate {
     }
 }
 
-/** The whole-generation budget: a signal for anything that watches one, and the error when it fires. */
+/**
+ * One admission's stop signal: a budget timer, preemption, or both.
+ *
+ * Always present now, even for a caller that set no budget, because preemption needs somewhere to
+ * abort from and "who currently holds the slot" has to be answerable for every holder rather than
+ * only for the bounded ones.
+ */
 interface Budget {
     signal: AbortSignal;
-    /** The failure to end the stream with, once expired. */
-    expiry: PluginError;
+    /** Why it was stopped, once it has been. Absent while it is still running. */
+    reason: () => PluginError | undefined;
     expired: () => boolean;
+    /** Stop this holder because somebody who outranks it wants the model. */
+    preempt: () => void;
     dispose: () => void;
 }
 
 /**
- * A budget that fires on its own, started by the act of calling this.
+ * The stop signal for one admission, started by the act of calling this.
  *
  * The signal is for work that watches one; the stream bound below is for work that does not. Both,
  * because a plugin honouring cancellation is a courtesy and the slot has to come back either way.
+ *
+ * `budgetMs` absent means no timer, which is a caller with a bound of its own. It still gets a
+ * controller, because it can still be preempted.
  */
-function startBudget(budgetMs: number): Budget {
+function startBudget(budgetMs: number | undefined): Budget {
     const controller = new AbortController();
-    const expiry = new PluginError(`the model was still producing words after ${budgetMs}ms`).withCode('timeout');
+    let reason: PluginError | undefined;
 
-    const timer = setTimeout(() => controller.abort(expiry), budgetMs);
-    timer.unref?.();
+    const stop = (error: PluginError) => {
+        // First stop wins. A budget that fired and a preemption that arrived immediately after are
+        // one ending, and the caller should be told the one that actually happened first.
+        if (reason !== undefined) return;
+        reason = error;
+        controller.abort(error);
+    };
+
+    const timer =
+        budgetMs === undefined
+            ? undefined
+            : setTimeout(() => stop(new PluginError(`the model was still producing words after ${budgetMs}ms`).withCode('timeout')), budgetMs);
+    timer?.unref?.();
 
     return {
         signal: controller.signal,
-        expiry,
+        reason: () => reason,
         expired: () => controller.signal.aborted,
-        dispose: () => clearTimeout(timer),
+        // `unavailable` rather than `timeout`, which would be a lie: nothing ran out of time, the
+        // station took the model back. There is no `cancelled` in `PluginErrorCode` and this is not
+        // the place to add one — that vocabulary describes what a plugin or its upstream did, and
+        // this is a decision the host made about its own resource. The sentence carries the rest.
+        preempt: () => stop(new PluginError('the station needed the model, so this was stopped').withCode('unavailable')),
+        dispose: () => {
+            if (timer !== undefined) clearTimeout(timer);
+        },
     };
-}
-
-/** For a caller with no budget of the gate's own. A fresh controller nobody ever aborts. */
-function neverAborts(): AbortSignal {
-    return new AbortController().signal;
 }
 
 /**
@@ -330,7 +440,7 @@ function boundAndRelease(source: ReadableStream<string>, release: () => void, bu
             // arriving ends the generation on the next attention rather than on the next word.
             if (budget?.expired() === true) {
                 await finish();
-                controller.error(budget.expiry);
+                controller.error(budget.reason() ?? new PluginError('the generation was stopped').withCode('unavailable'));
                 return;
             }
 

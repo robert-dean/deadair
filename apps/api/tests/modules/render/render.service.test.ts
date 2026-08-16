@@ -252,9 +252,10 @@ describe('RenderService.getVoiceSample', () => {
             'key:deadair.kokoro:host',
             expect.anything(),
             { text: SAMPLE_TEXT, voice: 'host' },
-            // A preview is the one speech caller that gives up rather than waiting: there is an
-            // operator on the other end of it.
-            { maxWaitMs: expect.any(Number) },
+            // A preview is the one speech caller that gives up rather than waiting, and the one
+            // that queues behind the station: there is an operator on the other end of it, and a
+            // break about to air matters more than the voice they are auditioning.
+            { maxWaitMs: expect.any(Number), priority: 'preview' },
         );
         expect(response.contentType).toBe('audio/mpeg');
         expect(response.body).toEqual(Buffer.from('spoken'));
@@ -282,7 +283,7 @@ describe('RenderService.getVoiceSample', () => {
 
         await render.getVoiceSample('');
 
-        expect(speakAs).toHaveBeenCalledWith(SPEAKER, 'key:deadair.kokoro:', expect.anything(), { text: SAMPLE_TEXT }, { maxWaitMs: expect.any(Number) });
+        expect(speakAs).toHaveBeenCalledWith(SPEAKER, 'key:deadair.kokoro:', expect.anything(), { text: SAMPLE_TEXT }, { maxWaitMs: expect.any(Number), priority: 'preview' });
     });
 
     it('answers 503 when nothing can speak', async () => {

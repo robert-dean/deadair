@@ -222,8 +222,10 @@ export class RenderService {
                 // A preview is the one caller here with somebody waiting on it, and the only one
                 // that should ever give up: a render job passes no bound, because nobody is waiting
                 // and the station skips a segment that is not ready. Ten seconds is the break
-                // writer's own queue bound, for the same reason it has one.
-                { maxWaitMs: SAMPLE_QUEUE_MS },
+                // writer's own queue bound, for the same reason it has one. `preview` puts it
+                // behind every render in the queue as well, so an operator clicking through voices
+                // cannot delay a break the station is about to air.
+                { maxWaitMs: SAMPLE_QUEUE_MS, priority: 'preview' },
             );
         } catch (error) {
             const message = errorText(error);

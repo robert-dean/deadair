@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PluginError } from '@deadair/plugin-sdk';
+import { insertionIndex, type GatePriority } from '#modules/shared/gate.priority.js';
 
 /**
  * One synthesis at a time, and a way to give up waiting for it.
@@ -61,12 +62,24 @@ export interface SpeechGateOptions {
 
     /** What is being spoken, for the log. */
     label?: string;
+
+    /**
+     * Who is asking. Absent means {@link GatePriority} `station`, which is every render.
+     *
+     * Unlike the model's gate, a preview here is never PREEMPTED once it holds the engine, only
+     * ordered behind the station in the queue. That is not an oversight and not worth fixing: a
+     * voice sample is one fixed short line, so the longest the station can be kept waiting by one is
+     * a single synthesis of it, and there is nothing to abort anyway — `writeStream` takes no
+     * signal. The model's gate is the opposite case on both counts, which is why it does preempt.
+     */
+    priority?: GatePriority;
 }
 
 /** A caller waiting for the one engine. */
 interface Waiter {
     admit: () => void;
     reject: (error: unknown) => void;
+    priority: GatePriority;
     /** Cleared on admission, so a caller that got in is never also timed out. */
     timer?: NodeJS.Timeout;
 }
@@ -76,7 +89,7 @@ export class SpeechGate {
     /** Whether the engine is busy. One slot, deliberately. See the class comment. */
     private busy = false;
 
-    /** In arrival order, so a caller that waited longest goes next. */
+    /** In priority order, then arrival: see `gate.priority.ts`. */
     private readonly waiting: Waiter[] = [];
 
     constructor(private readonly logger: Logger) {}
@@ -110,14 +123,15 @@ export class SpeechGate {
         }
     }
 
-    /** Wait for the one slot, in arrival order. */
+    /** Wait for the one slot: priority first, then arrival. */
     private async acquire(options: SpeechGateOptions): Promise<void> {
         if (!this.busy) {
             this.busy = true;
             return;
         }
 
-        this.logger.debug('render: waiting for the speech engine', { label: options.label, ahead: this.waiting.length });
+        const priority = options.priority ?? 'station';
+        this.logger.debug('render: waiting for the speech engine', { label: options.label, priority, ahead: this.waiting.length });
 
         await new Promise<void>((resolve, reject) => {
             const waiter: Waiter = {
@@ -126,6 +140,7 @@ export class SpeechGate {
                     resolve();
                 },
                 reject,
+                priority,
             };
 
             if (options.maxWaitMs !== undefined) {
@@ -143,7 +158,10 @@ export class SpeechGate {
                 waiter.timer.unref?.();
             }
 
-            this.waiting.push(waiter);
+            // By priority, then arrival. A station caller goes in front of every waiting preview
+            // and behind every waiting station caller, so the tier below never delays the station
+            // and the tier itself is still first-come.
+            this.waiting.splice(insertionIndex(this.waiting, priority), 0, waiter);
         });
 
         // Admitted by whoever released, which handed the slot over rather than clearing it.
@@ -155,7 +173,8 @@ export class SpeechGate {
      *
      * Handed OVER rather than cleared and re-contended for, exactly as `LlmGate` does it: clearing
      * would let a caller that arrived while this ran jump the queue, which is not obviously wrong
-     * until a busy station starves its own oldest request.
+     * until a busy station starves its own oldest request. The queue is already in the right order,
+     * so the next caller is simply the front of it.
      */
     private releaseSlot(): void {
         const next = this.waiting.shift();

@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { firstSentence } from '@deadair/plugin-sdk';
 import { BreakWriter, type BreakStory, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import {
     parseTemplates,
@@ -25,12 +26,17 @@ import { spoken } from './talk.break.writer.js';
  *
  * ## It reads and it does not write
  *
- * The headlines are read as published, in the order they were published, and the operator's
- * phrasing decides only what is said AROUND them. That is the whole safety property of this writer:
- * a station cannot get a news story wrong by reading its headline, and every other way of producing
- * a bulletin — summarising, ordering by importance, joining two stories into a sentence — is a way
- * of being wrong about the news in a voice that sounds certain. The model binding in front of this
- * is allowed to be cleverer and is checked harder for it.
+ * The stories are read as published, in the order they were published, and the operator's phrasing
+ * decides only what is said AROUND them. That is the whole safety property of this writer: a station
+ * cannot get a news story wrong by reading the publisher's own words, and every other way of
+ * producing a bulletin — summarising, ordering by importance, joining two stories into a sentence —
+ * is a way of being wrong about the news in a voice that sounds certain. The model binding in front
+ * of this is allowed to be cleverer and is checked harder for it.
+ *
+ * What it reads is a headline AND the story's opening sentence, which is not a softening of that
+ * rule but an application of it: a published first sentence quoted word for word is exactly as
+ * checkable as a headline, and a bulletin of titles alone tells a listener nothing. See
+ * {@link headlinesOf}.
  *
  * ## No stories means no bulletin
  *
@@ -176,21 +182,86 @@ export class NewsBreakWriter extends BreakWriter {
 /**
  * The stories as one read, or `undefined` when there is nothing to read.
  *
- * Headlines only, and in the order they arrived. The summaries are deliberately left for the model
- * binding: they are a publisher's prose written to be skimmed, and reading two of them aloud back
- * to back is where a bulletin stops sounding like a station and starts sounding like a screen
- * reader.
+ * Each headline followed by the story's own opening sentence, in the order they arrived. **The
+ * safety property is untouched by that second half**, which is the whole reason it is allowed here:
+ * a publisher's opening sentence read WORD FOR WORD cannot be wrong about the news any more than
+ * their headline can, and it is the same argument `fact.lead.ts` makes about an article's lead
+ * standing on its own. What this writer still will not do is summarise, reorder or join, because
+ * those are the operations that produce a false sentence in a confident voice.
  *
  * Already speakable when they get here — full stops on, publisher furniture off — because
  * `BulletinSource` did that once for both writers. See {@link BreakStory.headline}.
  */
 export function headlinesOf(stories: readonly BreakStory[]): string | undefined {
     const read = stories
-        .map(story => story.headline.trim())
-        .filter(headline => headline.length > 0)
+        .map(story => [story.headline.trim(), openingSentence(story)].filter(part => part.length > 0).join(' '))
+        .filter(part => part.length > 0)
         .join(' ');
 
     return read.length === 0 ? undefined : read;
+}
+
+/**
+ * How long an opening sentence may be before it is left out.
+ *
+ * A bulletin is three of these plus its frame, and a publisher's first sentence is occasionally a
+ * whole paragraph with three subordinate clauses in it. Past this it is something to read on a page
+ * rather than something to hear, and the headline alone is the better read.
+ */
+const MAX_SENTENCE_CHARS = 220;
+
+/**
+ * How much of a sentence's own words the headline may already carry before it is dropped.
+ *
+ * The case this exists for is the ordinary one rather than the edge: measured against the station's
+ * own feed, an entry's teaser is frequently the article's own first line, which is frequently the
+ * headline written out in full. Reading both is a presenter saying the same thing twice, which
+ * sounds worse than either alone.
+ */
+const MAX_HEADLINE_OVERLAP = 0.7;
+
+/**
+ * The story's first sentence, as published, or `''` when there is not one worth reading.
+ *
+ * The article where there is one and the teaser otherwise, for `describeStory`'s reason: they are
+ * usually the same words, and the article's version is the one that carries on into a second
+ * sentence somebody could have written.
+ */
+function openingSentence(story: BreakStory): string {
+    const prose = (story.body ?? story.summary ?? '').trim();
+    if (prose.length === 0) return '';
+
+    // `firstSentence` rather than a split on the first full stop, and the difference is one this
+    // read out loud before it was fixed: "Saturday, Aug. 15, 2026" is not two sentences, and a
+    // bulletin that stops at "Saturday, Aug." has said something a listener has to unpick.
+    const sentence = firstSentence(prose);
+
+    if (sentence.length === 0 || sentence.length > MAX_SENTENCE_CHARS) return '';
+    if (restates(story.headline, sentence)) return '';
+
+    return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+}
+
+/** Whether a sentence says what the headline already said. */
+function restates(headline: string, sentence: string): boolean {
+    const words = (text: string): string[] =>
+        text
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+            .split(/\s+/)
+            .filter(word => word.length > 0);
+
+    const said = new Set(words(headline));
+    const repeating = words(sentence);
+    if (repeating.length === 0 || said.size === 0) return true;
+
+    // Judged against the SENTENCE's length rather than the headline's: what is being asked is
+    // whether the sentence adds anything, and a long sentence that happens to contain a short
+    // headline does.
+    const shared = repeating.filter(word => said.has(word)).length;
+    return shared / repeating.length >= MAX_HEADLINE_OVERLAP;
 }
 
 /**

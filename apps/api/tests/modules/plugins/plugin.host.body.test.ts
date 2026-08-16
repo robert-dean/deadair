@@ -44,7 +44,13 @@ function factory(): PluginHostFactory {
     // Nothing here reaches the database: every manifest below declares a fixed
     // network allowlist, so no scope is ever opened.
     const { container } = stubContainer([]);
-    return new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), container, stubPluginLog().log, stubShimClient(), restrictedNetwork());
+    return new PluginHostFactory(
+        new PluginHostFactoryOptions('https://host.example'),
+        container,
+        stubPluginLog().log,
+        stubShimClient(),
+        restrictedNetwork(),
+    );
 }
 
 /** A response whose body yields `chunks` in order and then ends. */

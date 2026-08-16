@@ -89,7 +89,9 @@ describe('CatalogTracksPage', () => {
         // The row renders at all, which is the point: an earlier contract required `albumId` and
         // this row took the whole page down with it.
         expect(await screen.findByText('Untitled')).toBeInTheDocument();
-        expect(screen.getAllByRole('link')).toHaveLength(2); // back to catalog, and the artist
+        // Back to catalog, the artist, and the title itself — which links to what that record has
+        // accumulated. The album cell stays empty rather than becoming a fourth.
+        expect(screen.getAllByRole('link')).toHaveLength(3);
     });
 
     it('blames the search term when one is set and nothing matched', async () => {

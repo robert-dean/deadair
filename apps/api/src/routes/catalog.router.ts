@@ -15,6 +15,7 @@ import {
     CatalogQueryInput,
     RateInput,
     Track,
+    TrackDetail,
     TrackEnrichmentDetail,
     TrackPage,
 } from '../modules/catalog/types/catalog.types.js';
@@ -222,8 +223,28 @@ CatalogRouter.put('/catalog/albums/:id/rating', requirePolicy({ policy: 'platfor
 });
 
 /**
- * What the providers said about one recording, including everything no canonical column holds
+ * One record and everything it has accumulated: its copies, its bytes, its measurement, what it has aired
  * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L196)
+ */
+CatalogRouter.get('/catalog/tracks/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(TracksService);
+    const result: TrackDetail = await service.getTrack(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * What the providers said about one recording, including everything no canonical column holds
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L211)
  */
 CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -243,7 +264,7 @@ CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'pla
 
 /**
  * Every track, flat. The only way to answer "do we have this song?" without knowing its artist
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L208)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L223)
  */
 CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
@@ -258,7 +279,7 @@ CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: 'platform.view' }),
 
 /**
  * What the station thinks of this song, which is the narrowest thing an opinion can be about
- * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L224)
+ * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L239)
  */
 CatalogRouter.put('/catalog/tracks/:id/rating', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

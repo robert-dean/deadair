@@ -167,6 +167,11 @@ create index play_history_song_idx on deadair.play_history (station_key, song_ke
 create index play_history_artist_idx on deadair.play_history (station_key, artist_key, aired_at desc);
 -- The fourth read, which is new: everything one broadcast aired, in order.
 create index play_history_broadcast_idx on deadair.play_history (broadcast_id, aired_at desc);
+-- The fifth: everything ONE RECORD has aired, for the page that says what a track has accumulated.
+-- Not keyed by station, unlike the three above, and that is the difference between the questions:
+-- a repeat window and an artist cooldown are asked of one station's memory, while "when has this
+-- record played" is asked of a canonical row that belongs to no station in particular.
+create index play_history_track_idx on deadair.play_history (track_id, aired_at desc);
 
 -- migrate:down
 

@@ -19,11 +19,12 @@ import { Route as PersonasRouteImport } from './routes/personas'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as VoicesRouteImport } from './routes/voices'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
-import { Route as CatalogTracksRouteImport } from './routes/catalog/tracks'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
 import { Route as CatalogAlbumsAlbumIdRouteImport } from './routes/catalog/albums/$albumId'
 import { Route as CatalogArtistsArtistIdRouteImport } from './routes/catalog/artists/$artistId'
+import { Route as CatalogTracksIndexRouteImport } from './routes/catalog/tracks/index'
+import { Route as CatalogTracksTrackIdRouteImport } from './routes/catalog/tracks/$trackId'
 import { Route as PlaylistsPluginIdPlaylistIdRouteImport } from './routes/playlists/$pluginId/$playlistId'
 import { Route as PluginsIdIndexRouteImport } from './routes/plugins/$id/index'
 import { Route as PluginsIdOauthCallbackRouteImport } from './routes/plugins/$id/oauth.callback'
@@ -78,11 +79,6 @@ const CatalogIndexRoute = CatalogIndexRouteImport.update({
   path: '/catalog/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CatalogTracksRoute = CatalogTracksRouteImport.update({
-  id: '/catalog/tracks',
-  path: '/catalog/tracks',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PlaylistsIndexRoute = PlaylistsIndexRouteImport.update({
   id: '/playlists/',
   path: '/playlists/',
@@ -102,6 +98,16 @@ const CatalogArtistsArtistIdRoute = CatalogArtistsArtistIdRouteImport.update({
   id: '/catalog/artists/$artistId',
   path: '/catalog/artists/$artistId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogTracksIndexRoute = CatalogTracksIndexRouteImport.update({
+  id: '/catalog/tracks/',
+  path: '/catalog/tracks/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogTracksTrackIdRoute = CatalogTracksTrackIdRouteImport.update({
+  id: '/$trackId',
+  path: '/$trackId',
+  getParentRoute: () => CatalogTracksRoute,
 } as any)
 const PlaylistsPluginIdPlaylistIdRoute =
   PlaylistsPluginIdPlaylistIdRouteImport.update({
@@ -130,13 +136,14 @@ export interface FileRoutesByFullPath {
   '/personas': typeof PersonasRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
-  '/catalog/tracks': typeof CatalogTracksRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
   '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
+  '/catalog/tracks/$trackId': typeof CatalogTracksTrackIdRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
+  '/catalog/tracks/': typeof CatalogTracksIndexRoute
   '/plugins/$id/': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
 }
@@ -150,13 +157,14 @@ export interface FileRoutesByTo {
   '/personas': typeof PersonasRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
-  '/catalog/tracks': typeof CatalogTracksRoute
   '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
   '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
+  '/catalog/tracks/$trackId': typeof CatalogTracksTrackIdRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
+  '/catalog/tracks': typeof CatalogTracksIndexRoute
   '/plugins/$id': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
 }
@@ -171,13 +179,14 @@ export interface FileRoutesById {
   '/personas': typeof PersonasRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
-  '/catalog/tracks': typeof CatalogTracksRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
   '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
+  '/catalog/tracks/$trackId': typeof CatalogTracksTrackIdRoute
   '/playlists/$pluginId/$playlistId': typeof PlaylistsPluginIdPlaylistIdRoute
+  '/catalog/tracks/': typeof CatalogTracksIndexRoute
   '/plugins/$id/': typeof PluginsIdIndexRoute
   '/plugins/$id/oauth/callback': typeof PluginsIdOauthCallbackRoute
 }
@@ -193,13 +202,14 @@ export interface FileRouteTypes {
     | '/personas'
     | '/settings'
     | '/voices'
-    | '/catalog/tracks'
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
     | '/catalog/albums/$albumId'
     | '/catalog/artists/$artistId'
+    | '/catalog/tracks/$trackId'
     | '/playlists/$pluginId/$playlistId'
+    | '/catalog/tracks/'
     | '/plugins/$id/'
     | '/plugins/$id/oauth/callback'
   fileRoutesByTo: FileRoutesByTo
@@ -213,13 +223,14 @@ export interface FileRouteTypes {
     | '/personas'
     | '/settings'
     | '/voices'
-    | '/catalog/tracks'
     | '/catalog'
     | '/playlists'
     | '/plugins'
     | '/catalog/albums/$albumId'
     | '/catalog/artists/$artistId'
+    | '/catalog/tracks/$trackId'
     | '/playlists/$pluginId/$playlistId'
+    | '/catalog/tracks'
     | '/plugins/$id'
     | '/plugins/$id/oauth/callback'
   id:
@@ -233,13 +244,14 @@ export interface FileRouteTypes {
     | '/personas'
     | '/settings'
     | '/voices'
-    | '/catalog/tracks'
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
     | '/catalog/albums/$albumId'
     | '/catalog/artists/$artistId'
+    | '/catalog/tracks/$trackId'
     | '/playlists/$pluginId/$playlistId'
+    | '/catalog/tracks/'
     | '/plugins/$id/'
     | '/plugins/$id/oauth/callback'
   fileRoutesById: FileRoutesById
@@ -254,13 +266,13 @@ export interface RootRouteChildren {
   PersonasRoute: typeof PersonasRoute
   SettingsRoute: typeof SettingsRoute
   VoicesRoute: typeof VoicesRoute
-  CatalogTracksRoute: typeof CatalogTracksRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
   CatalogAlbumsAlbumIdRoute: typeof CatalogAlbumsAlbumIdRoute
   CatalogArtistsArtistIdRoute: typeof CatalogArtistsArtistIdRoute
   PlaylistsPluginIdPlaylistIdRoute: typeof PlaylistsPluginIdPlaylistIdRoute
+  CatalogTracksIndexRoute: typeof CatalogTracksIndexRoute
   PluginsIdIndexRoute: typeof PluginsIdIndexRoute
   PluginsIdOauthCallbackRoute: typeof PluginsIdOauthCallbackRoute
 }
@@ -337,13 +349,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CatalogIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/catalog/tracks': {
-      id: '/catalog/tracks'
-      path: '/catalog/tracks'
-      fullPath: '/catalog/tracks'
-      preLoaderRoute: typeof CatalogTracksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/playlists/': {
       id: '/playlists/'
       path: '/playlists'
@@ -371,6 +376,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/catalog/artists/$artistId'
       preLoaderRoute: typeof CatalogArtistsArtistIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/catalog/tracks/': {
+      id: '/catalog/tracks/'
+      path: '/catalog/tracks'
+      fullPath: '/catalog/tracks/'
+      preLoaderRoute: typeof CatalogTracksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/tracks/$trackId': {
+      id: '/catalog/tracks/$trackId'
+      path: '/$trackId'
+      fullPath: '/catalog/tracks/$trackId'
+      preLoaderRoute: typeof CatalogTracksTrackIdRouteImport
+      parentRoute: typeof CatalogTracksRoute
     }
     '/playlists/$pluginId/$playlistId': {
       id: '/playlists/$pluginId/$playlistId'
@@ -406,13 +425,13 @@ const rootRouteChildren: RootRouteChildren = {
   PersonasRoute: PersonasRoute,
   SettingsRoute: SettingsRoute,
   VoicesRoute: VoicesRoute,
-  CatalogTracksRoute: CatalogTracksRoute,
   CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,
   CatalogAlbumsAlbumIdRoute: CatalogAlbumsAlbumIdRoute,
   CatalogArtistsArtistIdRoute: CatalogArtistsArtistIdRoute,
   PlaylistsPluginIdPlaylistIdRoute: PlaylistsPluginIdPlaylistIdRoute,
+  CatalogTracksIndexRoute: CatalogTracksIndexRoute,
   PluginsIdIndexRoute: PluginsIdIndexRoute,
   PluginsIdOauthCallbackRoute: PluginsIdOauthCallbackRoute,
 }

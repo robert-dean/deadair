@@ -1,10 +1,10 @@
 import { createFileRoute, stripSearchParams, useNavigate } from '@tanstack/react-router';
 
-import { catalogTracksOptions } from '../../api/catalog.queries';
-import { CATALOG_SEARCH_DEFAULTS, validateCatalogSearch } from '../../components/catalog/catalog.page.params';
-import { CatalogTracksPage } from '../../components/catalog/catalog.tracks.page';
+import { catalogTracksOptions } from '../../../api/catalog.queries';
+import { CATALOG_SEARCH_DEFAULTS, validateCatalogSearch } from '../../../components/catalog/catalog.page.params';
+import { CatalogTracksPage } from '../../../components/catalog/catalog.tracks.page';
 
-export const Route = createFileRoute('/catalog/tracks')({
+export const Route = createFileRoute('/catalog/tracks/')({
     component: CatalogTracksRoute,
     validateSearch: validateCatalogSearch,
     search: { middlewares: [stripSearchParams(CATALOG_SEARCH_DEFAULTS)] },

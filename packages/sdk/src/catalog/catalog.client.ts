@@ -11,6 +11,7 @@ import type {
     CatalogQueryInput,
     RateInput,
     Track,
+    TrackDetail,
     TrackEnrichmentDetail,
     TrackPage,
 } from './types/catalog.types.js';
@@ -120,6 +121,15 @@ export class CatalogClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<Album>(result);
+    }
+
+    /**
+     * @name Get track
+     * @description One record and everything it has accumulated: its copies, its bytes, its measurement, what it has aired
+     */
+    async getTrack(id: string): Promise<TrackDetail> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}`, { method: 'GET' });
+        return await parseJson<TrackDetail>(result);
     }
 
     /**

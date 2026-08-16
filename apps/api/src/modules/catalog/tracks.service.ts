@@ -1,17 +1,72 @@
 import { Injectable } from 'injectkit';
 import { Pagination } from '../shared/types/pagination.js';
 import { httpError } from '@maroonedsoftware/errors';
-import { CatalogQueryInput, RateInput, Track } from './types/catalog.types.js';
+import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
+import { PlayHistoryRepository } from '#modules/director/play.history.repository.js';
+import { TrackAudioRepository } from '#modules/playout/audio/track.audio.repository.js';
+import { CatalogQueryInput, RateInput, Track, TrackDetail } from './types/catalog.types.js';
 import { TracksRepository } from './tracks.repository.js';
 import { ratingToColumn, withRating } from './rating.js';
 import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 
+/**
+ * How many airings the detail read carries.
+ *
+ * A handful, with the true total beside them. This is "has this been on lately and how often", not a
+ * log: `GET /activity` is the log, and a page that tried to be one would page through years of
+ * `play_history` for a record that has aired four hundred times.
+ */
+const RECENT_PLAYS = 10;
+
 @Injectable()
 export class TracksService {
-    constructor(private readonly tracksRepository: TracksRepository) {}
+    constructor(
+        private readonly tracksRepository: TracksRepository,
+        private readonly audio: TrackAudioRepository,
+        private readonly analysis: AnalysisRepository,
+        private readonly history: PlayHistoryRepository,
+    ) {}
 
     async listTracks(query: CatalogQueryInput): Promise<{ meta: Pagination; data: Track[] }> {
         return this.page(query);
+    }
+
+    /**
+     * One record and everything it has accumulated.
+     *
+     * Four reads rather than one join, and that is the honest shape: the copies, the measurement and
+     * the airings are three tables with three cardinalities, and joining them would multiply rows
+     * and then have to be unpicked in code anyway. They are independent, so they go together.
+     *
+     * **Enrichment is deliberately not here.** `GET /catalog/tracks/{id}/enrichment` already answers
+     * every provider's payload and the station's own sourced claims, and the console draws both
+     * through the same panel the list uses. A second enrichment shape on this read would be a second
+     * thing to keep in step with the first.
+     *
+     * @throws 404 when no such track exists, and equally when it was merged into another.
+     */
+    async getTrack(id: string): Promise<TrackDetail> {
+        const row = await this.tracksRepository.findTrack(id);
+        if (row === undefined) throw httpError(404).withDetails({ message: `track "${id}" is not in the catalog` });
+
+        const [bindings, analysis, history] = await Promise.all([
+            this.audio.bindingsForTrack(id),
+            this.analysis.stateFor(id),
+            this.history.forTrack(id, RECENT_PLAYS),
+        ]);
+
+        return parseAndValidate(
+            {
+                ...withRating(row),
+                bindings,
+                // `complete` and `analyzedAt` travel separately all the way to the wire; see the
+                // contract's note and `0005_music.sql`.
+                ...(analysis === undefined ? {} : { analysis }),
+                plays: history.plays,
+                playCount: history.total,
+            },
+            TrackDetail,
+        );
     }
 
     /** An album with no tracks is an empty page; the album's own endpoint is what says whether the id exists. */

@@ -13,6 +13,15 @@ import { queryKeys } from './query.keys';
  */
 const CATALOG_STALE_TIME = 60_000;
 
+/**
+ * How long one record's accumulated state stays fresh.
+ *
+ * Shorter than the catalog's own minute, because the facts on that page are not catalogue facts: the
+ * bytes arrive, the measurement lands and the record airs on the station's schedule rather than on
+ * an ingest's, and somebody has the page open precisely because they are waiting for one of them.
+ */
+const TRACK_DETAIL_STALE_TIME = 15_000;
+
 /** Rows per page. Below the contract's `pageSize` ceiling of 100, and dense enough to scroll rather than page. */
 export const CATALOG_PAGE_SIZE = 50;
 
@@ -111,6 +120,21 @@ export function catalogAlbumEnrichmentOptions(id: string) {
         queryKey: queryKeys.catalog.albumEnrichment(id),
         queryFn: () => sdk.catalog.getAlbumEnrichment(id),
         staleTime: ENRICHMENT_STALE_TIME,
+    });
+}
+
+/**
+ * One record and everything it has accumulated.
+ *
+ * Its own stale time, shorter than the rest of the catalog's minute, because unlike a catalogue row
+ * this moves without an ingest: the station fetches the audio, serves it, measures it and airs it,
+ * and an operator on this page is usually watching for exactly one of those to happen.
+ */
+export function catalogTrackOptions(id: string) {
+    return queryOptions({
+        queryKey: queryKeys.catalog.track(id),
+        queryFn: () => sdk.catalog.getTrack(id),
+        staleTime: TRACK_DETAIL_STALE_TIME,
     });
 }
 

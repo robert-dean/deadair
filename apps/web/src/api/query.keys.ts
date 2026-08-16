@@ -111,6 +111,12 @@ export const queryKeys = {
         albumTracks: (id: string, page: number, search?: string) => ['catalog', 'album', id, 'tracks', page, search ?? ''] as const,
         albumEnrichment: (id: string) => ['catalog', 'album', id, 'enrichment'] as const,
         tracks: (page: number, search?: string) => ['catalog', 'tracks', page, search ?? ''] as const,
+        /**
+         * One record and everything it has accumulated. Separate from `trackEnrichment` because they
+         * go stale for different reasons: this moves when the station plays, fetches or measures the
+         * record, and that moves when the enrichment walk reaches it.
+         */
+        track: (id: string) => ['catalog', 'track', id] as const,
         trackEnrichment: (id: string) => ['catalog', 'track', id, 'enrichment'] as const,
     },
 } as const;

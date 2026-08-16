@@ -230,6 +230,27 @@ export class AnalysisRepository extends DataRepository {
      * so collapsing them here is what stops each caller from re-deriving the
      * rule and one of them getting it wrong.
      */
+    /**
+     * The measurement row as it stands, trustworthy or not.
+     *
+     * The opposite of {@link trustedAnalysisFor}, deliberately: that one collapses "no row", "failed"
+     * and "measured at an older schema" into one answer because every CONSUMER of a measurement
+     * wants exactly that. A page explaining why a record behaves as it does needs them apart — a
+     * record nothing has tried and a record whose decode failed at 03:12 are different problems with
+     * different fixes.
+     *
+     * **`complete` is not `analyzedAt`** and both come back. A measurement of a truncated download is
+     * confident and wrong (`0005_music.sql` says so at length), so a row can carry a date and still
+     * be something no reader will use.
+     */
+    async stateFor(trackId: string) {
+        return await this.db
+            .selectFrom('deadair.trackAnalysis')
+            .select(['schemaVersion', 'complete', 'analyzer', 'analyzerPluginId', 'analyzedAt', 'failedAt', 'failureReason'])
+            .where('trackId', '=', trackId)
+            .executeTakeFirst();
+    }
+
     async trustedAnalysisFor(trackIds: readonly string[], schemaVersion: number): Promise<Map<string, StoredAnalysis>> {
         const found = new Map<string, StoredAnalysis>();
         if (trackIds.length === 0) return found;

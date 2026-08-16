@@ -100,7 +100,18 @@ export function CatalogTracksPage({ page, search, onPageChange, onSearchChange }
                                                 }}
                                             />
                                         </Table.Td>
-                                        <Table.Td>{track.title}</Table.Td>
+                                        <Table.Td>
+                                            {/* `renderRoot` rather than `component={Link}`: the
+                                                polymorphic form erases the router's own typing. */}
+                                            <Anchor
+                                                renderRoot={props => <Link to="/catalog/tracks/$trackId" params={{ trackId: track.id }} {...props} />}
+                                                size="sm"
+                                                c="inherit"
+                                                underline="hover"
+                                            >
+                                                {track.title}
+                                            </Anchor>
+                                        </Table.Td>
                                         <Table.Td>
                                             <Anchor
                                                 renderRoot={props => (

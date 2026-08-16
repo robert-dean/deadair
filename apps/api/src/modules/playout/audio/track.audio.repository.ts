@@ -49,6 +49,31 @@ export interface SourceAudio extends TrackAudio {
 }
 
 /**
+ * One provider's copy of a record, with whatever the station holds of it.
+ *
+ * The union of `track_sources` and `track_audio` as a console needs to see it, which is a different
+ * shape from {@link SourceAudio}: that one is what a FETCH needs, and this is what an operator needs
+ * to work out why nothing is playing. Failures are part of it rather than filtered out of it.
+ */
+export interface TrackBindingState {
+    sourceId: string;
+    pluginId: string;
+    externalId: string;
+    playable: boolean;
+    missingAt?: DateTime;
+    origin: string;
+    bitrate?: number;
+    format?: string;
+    lastSeenAt?: DateTime;
+    byteSize?: number;
+    fetchedAt?: DateTime;
+    lastServedAt?: DateTime;
+    attempts: number;
+    lastError?: string;
+    nextAttemptAt?: DateTime;
+}
+
+/**
  * One row that currently holds a file, as an eviction sweep needs it.
  *
  * Everything required to stop claiming the bytes and to find them on disk, and nothing else: the
@@ -251,6 +276,68 @@ export class TrackAudioRepository extends DataRepository {
             .values({ sourceId, ...values })
             .onConflict(oc => oc.column('sourceId').doUpdateSet(values))
             .execute();
+    }
+
+    /**
+     * Every copy of one record, with whatever the station holds of each.
+     *
+     * The read behind "why will this record not air", and it starts from `track_sources` for the
+     * reason {@link findForSource} does: the row that says a copy EXISTS is the source, and the
+     * cache row is an optional fact about it. So a copy nobody has ever fetched comes back with
+     * `attempts: 0` and no bytes rather than being absent.
+     *
+     * Unlike every other read in this file it does NOT exclude `missing_at` or `playable`. Those
+     * exclusions are right where the question is "what may air"; here the question is why nothing
+     * can, and a page that hid the benched copies would hide the answer.
+     */
+    async bindingsForTrack(trackId: string): Promise<TrackBindingState[]> {
+        const rows = await this.db
+            .selectFrom('deadair.trackSources as source')
+            .leftJoin('deadair.trackAudio as audio', 'audio.sourceId', 'source.id')
+            .select([
+                'source.id as sourceId',
+                'source.pluginId as pluginId',
+                'source.externalId as externalId',
+                'source.playable as playable',
+                'source.missingAt as missingAt',
+                'source.origin as origin',
+                'source.bitrate as bitrate',
+                'source.format as format',
+                'source.lastSeenAt as lastSeenAt',
+                'audio.byteSize as byteSize',
+                'audio.fetchedAt as fetchedAt',
+                'audio.lastServedAt as lastServedAt',
+                'audio.attempts as attempts',
+                'audio.lastError as lastError',
+                'audio.nextAttemptAt as nextAttemptAt',
+            ])
+            .where('source.trackId', '=', trackId)
+            // The copy the station is most likely to use first, then a stable order so two reads of
+            // an unchanged record do not shuffle under somebody looking at it.
+            // Nulls FIRST, which is the whole point of spelling the direction out: a copy the station
+            // still offers sorts above one it has written off, and Postgres puts nulls last on `asc`.
+            .orderBy('source.missingAt', ob => ob.asc().nullsFirst())
+            .orderBy('source.pluginId', 'asc')
+            .orderBy('source.externalId', 'asc')
+            .execute();
+
+        return rows.map(row => ({
+            sourceId: row.sourceId,
+            pluginId: row.pluginId,
+            externalId: row.externalId,
+            playable: row.playable,
+            ...(row.missingAt == null ? {} : { missingAt: row.missingAt }),
+            origin: row.origin,
+            ...(row.bitrate == null ? {} : { bitrate: row.bitrate }),
+            ...(row.format == null ? {} : { format: row.format }),
+            ...(row.lastSeenAt == null ? {} : { lastSeenAt: row.lastSeenAt }),
+            ...(row.byteSize == null ? {} : { byteSize: Number(row.byteSize) }),
+            ...(row.fetchedAt == null ? {} : { fetchedAt: row.fetchedAt }),
+            ...(row.lastServedAt == null ? {} : { lastServedAt: row.lastServedAt }),
+            attempts: row.attempts ?? 0,
+            ...(row.lastError == null ? {} : { lastError: row.lastError }),
+            ...(row.nextAttemptAt == null ? {} : { nextAttemptAt: row.nextAttemptAt }),
+        }));
     }
 
     /**

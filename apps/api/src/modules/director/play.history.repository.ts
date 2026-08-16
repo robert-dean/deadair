@@ -194,6 +194,47 @@ export class PlayHistoryRepository extends DataRepository {
     }
 
     /**
+     * When one record has aired, newest first, and how many times in all.
+     *
+     * The one read here keyed by the canonical track rather than by a rotation key, and deliberately
+     * NOT scoped to a station: the three reads above answer "has this station played this lately",
+     * which is a question about one station's memory, while this answers what a catalogue row has
+     * accumulated and that belongs to no station in particular.
+     *
+     * The count comes back beside the rows because the page shows a handful and has to say honestly
+     * that there are more — a list of ten with no total reads as a record that has aired ten times.
+     *
+     * A row whose `track_id` was set null when the catalog forgot the record is absent, which is
+     * correct: the fact that something aired survives the catalog, but it is no longer this record's
+     * history.
+     */
+    async forTrack(trackId: string, limit: number): Promise<{ plays: { airedAt: DateTime; broadcastId?: string; source: string }[]; total: number }> {
+        const [rows, counted] = await Promise.all([
+            this.db
+                .selectFrom('deadair.playHistory')
+                .select(['airedAt', 'broadcastId', 'source'])
+                .where('trackId', '=', trackId)
+                .orderBy('airedAt', 'desc')
+                .limit(limit)
+                .execute(),
+            this.db
+                .selectFrom('deadair.playHistory')
+                .select(eb => eb.fn.countAll<number>().as('total'))
+                .where('trackId', '=', trackId)
+                .executeTakeFirstOrThrow(),
+        ]);
+
+        return {
+            plays: rows.map(row => ({
+                airedAt: row.airedAt,
+                ...(row.broadcastId == null ? {} : { broadcastId: row.broadcastId }),
+                source: row.source,
+            })),
+            total: Number(counted.total),
+        };
+    }
+
+    /**
      * Drop anything older than the retention window.
      *
      * Deliberately NOT scoped to a station, unlike the two reads above: retention is one number for

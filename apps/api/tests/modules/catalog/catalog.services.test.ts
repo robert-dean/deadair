@@ -18,6 +18,9 @@ import { TracksService } from '../../../src/modules/catalog/tracks.service.js';
 import type { ArtistsRepository } from '../../../src/modules/catalog/artists.repository.js';
 import type { AlbumsRepository } from '../../../src/modules/catalog/albums.repository.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
+import type { TrackAudioRepository } from '../../../src/modules/playout/audio/track.audio.repository.js';
+import type { AnalysisRepository } from '../../../src/modules/analysis/analysis.repository.js';
+import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 
 const ARTIST_ID = '11111111-1111-4111-8111-111111111111';
 const ALBUM_ID = '22222222-2222-4222-8222-222222222222';
@@ -171,10 +174,28 @@ describe('AlbumsService', () => {
     });
 });
 
+/**
+ * A tracks service over a partial repository and three empty readers.
+ *
+ * The three exist for `getTrack`, which composes four independent reads; every other method here
+ * touches only the catalog repository, so they default to answering with nothing rather than each
+ * test having to say so.
+ */
+const tracksService = (
+    repository: Partial<TracksRepository>,
+    extras: { bindings?: unknown[]; analysis?: unknown; plays?: unknown[]; playCount?: number } = {},
+) =>
+    new TracksService(
+        repository as TracksRepository,
+        { bindingsForTrack: vi.fn().mockResolvedValue(extras.bindings ?? []) } as unknown as TrackAudioRepository,
+        { stateFor: vi.fn().mockResolvedValue(extras.analysis) } as unknown as AnalysisRepository,
+        { forTrack: vi.fn().mockResolvedValue({ plays: extras.plays ?? [], total: extras.playCount ?? 0 }) } as unknown as PlayHistoryRepository,
+    );
+
 describe('TracksService', () => {
     it('narrows to one album', async () => {
         const listTracks = vi.fn().mockResolvedValue({ total: 8, data: [trackRow()] });
-        const service = new TracksService({ listTracks } as unknown as TracksRepository);
+        const service = tracksService({ listTracks });
 
         await service.listTracksByAlbum(ALBUM_ID, query({ search: 'vaka' }));
 
@@ -184,7 +205,7 @@ describe('TracksService', () => {
     it('validates a track that belongs to no album instead of rejecting the whole page', async () => {
         const { albumId: _albumId, albumName: _albumName, ...orphan } = trackRow();
         const listTracks = vi.fn().mockResolvedValue({ total: 1, data: [orphan] });
-        const service = new TracksService({ listTracks } as unknown as TracksRepository);
+        const service = tracksService({ listTracks });
 
         const result = await service.listTracks(query());
 
@@ -195,7 +216,7 @@ describe('TracksService', () => {
     it('rates a song and answers with it re-read', async () => {
         const setRating = vi.fn().mockResolvedValue(true);
         const findTrack = vi.fn().mockResolvedValue({ ...trackRow(), rating: 1 });
-        const service = new TracksService({ setRating, findTrack } as unknown as TracksRepository);
+        const service = tracksService({ setRating, findTrack });
 
         await expect(service.rateTrack(TRACK_ID, { rating: 'liked' })).resolves.toEqual(seen(trackRow(), 'liked'));
         expect(setRating).toHaveBeenCalledWith(TRACK_ID, 1);
@@ -204,9 +225,92 @@ describe('TracksService', () => {
     it('404s on rating a track that is absent or merged away', async () => {
         const setRating = vi.fn().mockResolvedValue(false);
         const findTrack = vi.fn();
-        const service = new TracksService({ setRating, findTrack } as unknown as TracksRepository);
+        const service = tracksService({ setRating, findTrack });
 
         await expect(service.rateTrack(TRACK_ID, { rating: 'disliked' })).rejects.toMatchObject({ statusCode: 404 });
         expect(findTrack).not.toHaveBeenCalled();
+    });
+});
+
+// The read behind "why will this record not air". What is worth pinning is that it puts four
+// independent facts together without any of them being able to hide another: a record with no
+// copies, a record whose copies are all benched, and a measurement that failed all have to arrive
+// as themselves rather than as an empty page.
+describe('TracksService.getTrack', () => {
+    const bindingRow = (overrides: Record<string, unknown> = {}) => ({
+        sourceId: '44444444-4444-4444-8444-444444444444',
+        pluginId: 'deadair.spotify',
+        externalId: 'track-42',
+        playable: true,
+        origin: 'sync',
+        attempts: 0,
+        ...overrides,
+    });
+
+    it('puts the record together with its copies, its measurement and what it has aired', async () => {
+        const findTrack = vi.fn().mockResolvedValue(trackRow());
+        const service = tracksService(
+            { findTrack },
+            {
+                bindings: [bindingRow({ byteSize: 8_000_000, fetchedAt: '2026-08-14T10:00:00.000Z' })],
+                analysis: { schemaVersion: 3, complete: true, analyzedAt: '2026-08-14T11:00:00.000Z', analyzer: 'sidecar 0.4' },
+                plays: [{ airedAt: '2026-08-15T21:00:00.000Z', source: 'director' }],
+                playCount: 12,
+            },
+        );
+
+        const detail = await service.getTrack(TRACK_ID);
+
+        expect(detail).toMatchObject({ id: TRACK_ID, title: 'Vaka', rating: 'neutral', playCount: 12 });
+        expect(detail.bindings).toHaveLength(1);
+        expect(detail.bindings[0]).toMatchObject({ pluginId: 'deadair.spotify', byteSize: 8_000_000 });
+        expect(detail.analysis).toMatchObject({ complete: true, schemaVersion: 3 });
+        expect(detail.plays).toHaveLength(1);
+    });
+
+    // The three states an operator is actually trying to tell apart, and none of them is an error:
+    // nothing has ever fetched this copy, every copy is benched, and the measurement failed.
+    it('reports a failure rather than hiding it', async () => {
+        const findTrack = vi.fn().mockResolvedValue(trackRow());
+        const service = tracksService(
+            { findTrack },
+            {
+                bindings: [
+                    bindingRow({
+                        missingAt: '2026-08-15T09:00:00.000Z',
+                        attempts: 4,
+                        lastError: 'upstream answered 404',
+                        nextAttemptAt: '2026-08-16T09:00:00.000Z',
+                    }),
+                ],
+                analysis: { schemaVersion: 3, complete: false, failedAt: '2026-08-15T03:12:00.000Z', failureReason: 'decode ended early' },
+            },
+        );
+
+        const detail = await service.getTrack(TRACK_ID);
+
+        expect(detail.bindings[0]).toMatchObject({ attempts: 4, lastError: 'upstream answered 404' });
+        expect(detail.bindings[0]!.missingAt).toBeDefined();
+        expect(detail.analysis).toMatchObject({ complete: false, failureReason: 'decode ended early' });
+    });
+
+    // A record with no copies at all is a real state — an import that never resolved — and reads as
+    // an empty list rather than as a 404 about the record itself.
+    it('answers for a record nothing has a copy of', async () => {
+        const findTrack = vi.fn().mockResolvedValue(trackRow());
+        const service = tracksService({ findTrack });
+
+        const detail = await service.getTrack(TRACK_ID);
+
+        expect(detail.bindings).toEqual([]);
+        expect(detail.analysis).toBeUndefined();
+        expect(detail.plays).toEqual([]);
+        expect(detail.playCount).toBe(0);
+    });
+
+    it('404s on a track that is absent or merged away', async () => {
+        const service = tracksService({ findTrack: vi.fn().mockResolvedValue(undefined) });
+
+        await expect(service.getTrack(TRACK_ID)).rejects.toMatchObject({ statusCode: 404 });
     });
 });

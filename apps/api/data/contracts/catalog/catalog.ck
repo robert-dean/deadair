@@ -189,6 +189,21 @@ operation /catalog/albums/{id}/rating: {
     }
 }
 
+operation /catalog/tracks/{id}: {
+    params: {
+        id: uuid
+    }
+    get: { # One record and everything it has accumulated: its copies, its bytes, its measurement, what it has aired
+        name: Get track
+        service: TracksService.getTrack
+        response: {
+            200: {
+                application/json: TrackDetail
+            }
+        }
+    }
+}
+
 operation /catalog/tracks/{id}/enrichment: {
     params: {
         id: uuid

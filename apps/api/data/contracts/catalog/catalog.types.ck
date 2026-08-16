@@ -60,6 +60,70 @@ contract Track: {
     rating: Rating = neutral
 }
 
+# One provider's copy of a record, with whatever the station holds of it.
+#
+# PER BINDING and never per track, which is the rule the whole page is built on: one canonical
+# record may bind to several copies inside one provider, those copies are different files with
+# different loudness and different cue points, and the one that airs is the one that was resolved.
+# Collapsing them would make "clear the audio" ambiguous about which file it took.
+#
+# The failure columns are here rather than hidden because that is the question this page exists to
+# answer. A row with `attempts` and no `fetchedAt` is a remembered failure, and `lastError` with
+# `nextAttemptAt` is the whole of why a perfectly good-looking record will not play.
+contract TrackBinding: {
+    sourceId: readonly uuid # `track_sources.id`, which is also what the audio URL carries
+    pluginId: readonly string(min=1, max=200)
+    externalId: readonly string(min=1, max=400)
+    playable: readonly boolean # False when the provider still knows the record but will not serve it here
+    missingAt?: readonly datetime # When the station gave up on this copy. Cleared by the next sync that sees it again
+    origin: readonly string(min=1, max=40) # `sync` if a playlist walk saw it, `discovered` if something looked it up
+    bitrate?: readonly int(min=0)
+    format?: readonly string(max=100)
+    lastSeenAt?: readonly datetime
+    # What the station holds of this copy, absent when nothing has ever fetched it.
+    byteSize?: readonly int(min=0)
+    fetchedAt?: readonly datetime
+    lastServedAt?: readonly datetime
+    attempts: readonly int(min=0) # CONSECUTIVE failures. Reset by a fetch that works
+    lastError?: readonly string(max=2000)
+    nextAttemptAt?: readonly datetime
+}
+
+# What the measurement sidecar made of a record.
+#
+# `complete` is NOT `analyzedAt`, and the two are separate fields for a reason `0005_music.sql`
+# argues at length: a measurement of a truncated download is confident and wrong, so every reader in
+# the app filters on `complete` and a page that showed only a date would be reporting a record as
+# measured that nothing will use the measurement of.
+contract TrackAnalysis: {
+    schemaVersion: readonly int(min=0)
+    complete: readonly boolean
+    analyzer?: readonly string(max=200) # The measuring thing itself, which is not the plugin adapting it
+    analyzerPluginId?: readonly string(max=200)
+    analyzedAt?: readonly datetime
+    failedAt?: readonly datetime
+    failureReason?: readonly string(max=2000)
+}
+
+# One airing of a record, as this page needs it: when, and under which broadcast.
+contract TrackPlay: {
+    airedAt: readonly datetime
+    broadcastId?: readonly uuid
+    source: readonly string(min=1, max=100) # What put it in the running order
+}
+
+# Everything one record has accumulated, in one read.
+#
+# The enrichment is deliberately NOT here. It has its own operation already, answering
+# `TrackEnrichmentDetail` with every provider's payload and the station's own sourced claims, and
+# the console draws it through the same panel the list uses. One enrichment shape rather than two.
+contract TrackDetail: Track & {
+    bindings: array(TrackBinding)
+    analysis?: TrackAnalysis # Absent for a record the walk has not reached
+    plays: array(TrackPlay) # The most recent airings, newest first
+    playCount: readonly int(min=0) # How many times in all, which the list above is only the head of
+}
+
 # Pagination plus a name filter. Every list operation here takes it, so the console's search box
 # narrows server-side rather than filtering one page client-side and lying about the total.
 contract CatalogQuery: Pagination & {

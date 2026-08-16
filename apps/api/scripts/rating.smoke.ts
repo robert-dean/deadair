@@ -32,6 +32,9 @@ import { ArtistsService } from '../src/modules/catalog/artists.service.js';
 import { AlbumsService } from '../src/modules/catalog/albums.service.js';
 import { TracksService } from '../src/modules/catalog/tracks.service.js';
 import { CandidatesRepository } from '../src/modules/director/candidates.repository.js';
+import { PlayHistoryRepository } from '../src/modules/director/play.history.repository.js';
+import { TrackAudioRepository } from '../src/modules/playout/audio/track.audio.repository.js';
+import { AnalysisRepository } from '../src/modules/analysis/analysis.repository.js';
 import { artistKey, songKey } from '../src/modules/director/rotation.keys.js';
 import { weightOf } from '../src/modules/director/rotation.rules.js';
 
@@ -56,7 +59,10 @@ const albums = new AlbumsRepository(db);
 const tracks = new TracksRepository(db);
 const artistsService = new ArtistsService(artists);
 const albumsService = new AlbumsService(albums);
-const tracksService = new TracksService(tracks);
+// The three readers behind `getTrack` are real here, because this script drives real SQL and there
+// is no reason to hand it fakes — nothing below asks for a track's detail, but a service built with
+// stubs would be one this file could not grow into using.
+const tracksService = new TracksService(tracks, new TrackAudioRepository(db), new AnalysisRepository(db), new PlayHistoryRepository(db));
 const candidates = new CandidatesRepository(db);
 
 const say = (line: string) => process.stdout.write(`${line}\n`);

@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -126,6 +127,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
                 // The persona's own name where it has one, and the station's behind it. A persona
                 // that is a manner rather than a character has no reason to rename the presenter.
                 dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
+                // Read per break like every other setting here, so an operator's change lands on
+                // the next one rather than after a restart.
+                cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                 ...(request.persona === undefined ? {} : { persona: request.persona }),
             },
             // Named rather than defaulted: what this binding writes is a link between two records,

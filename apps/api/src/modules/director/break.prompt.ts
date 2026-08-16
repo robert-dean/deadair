@@ -114,6 +114,25 @@ export interface PromptSettings {
     persona?: PersonaCharacter;
     /** The ceiling, in words. See {@link DEFAULT_MAX_WORDS}. */
     maxWords?: number;
+    /**
+     * Whether the presenter has to keep it broadcast-clean.
+     *
+     * Named for what it asks of the WRITER rather than for the setting behind it: a model is being
+     * told how to speak, not what a `track_sources` row is marked. So a caller that wants a clean
+     * script for some other reason can ask for one without pretending to have a content policy.
+     *
+     * On when `rotation.advisory` is anything but `prefer-explicit`, because a clean track list
+     * narrated by a DJ who swears is the same failure with an extra step. Note the asymmetry with
+     * the record side, and it is deliberate: `prefer-clean` is only a lean about WHICH COPY to play
+     * because most catalogue has no clean twin to choose, whereas a presenter always has the choice
+     * of their own words. There is nothing for a preference to fall back to here.
+     *
+     * The answer is NOT checked against this. The floor under every model writer is a template the
+     * operator wrote, so it is clean by construction, and a model that ignores the rule costs one
+     * break rather than a policy breach. A word list would be a permanent, locale-bound maintenance
+     * surface bought for very little.
+     */
+    cleanLanguage?: boolean;
 }
 
 /** The half of a persona a prompt uses: who they are, and how they speak. */
@@ -180,6 +199,13 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         '- Write only the words to be spoken. No stage directions, no speaker labels, no quotation marks around the whole thing, no emoji.',
         '- Write numbers, times and symbols the way they should be read out loud.',
         '- Do not greet the listener by name, promise anything you have not been told, or mention the time unless you are given it.',
+        // Conditional and near the end, because it is the one rule here that is about the station's
+        // own policy rather than about what a break IS. Both halves are needed: a model told only
+        // not to swear will still quote an explicit title or lyric back, which is the same words
+        // arriving by a route the first half does not cover.
+        ...(settings.cleanLanguage
+            ? ['- This station is broadcast-clean. No profanity or crude language, and do not quote an explicit lyric or title word for word.']
+            : []),
         // Last in the list, because a rule true of this kind alone should not push the shared ones
         // further from the end than they already are.
         ...(shape.rules ?? []).map(rule => `- ${rule}`),

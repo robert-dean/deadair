@@ -202,6 +202,22 @@ describe('setPrompt', () => {
         expect(user).toMatch(/and 20 more/);
         expect(user).not.toMatch(/Song 45/);
     });
+
+    it('warns the picker off records with no clean version, but only under the hard rule', () => {
+        // Advice rather than a prohibition, and phrased as what will HAPPEN: the policy is enforced
+        // in `PickResolver` whatever the model does, so the only thing this buys is picks not spent
+        // on records that will be dropped. `search_catalog` reaches records `search_library` has
+        // already excluded, which is why saying it at all is worth a line.
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { cleanOnly: true }))).toMatch(/clean version/i);
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/clean version/i);
+    });
+
+    it('says nothing about it for a mere preference, which is settled after the pick', () => {
+        // A preference chooses between two COPIES of a work the model already named, long after this
+        // prompt. There is nothing here for it to act on, so sending it would be spending context on
+        // a rule that cannot change the answer.
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { cleanOnly: false }))).not.toMatch(/clean version/i);
+    });
 });
 
 describe('readPicks', () => {

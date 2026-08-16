@@ -297,6 +297,35 @@ describe('breakPrompt', () => {
         });
     });
 
+    describe('a station that has to stay clean', () => {
+        it('says nothing about language when the station has no such policy', () => {
+            expect(system(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/broadcast-clean/i);
+        });
+
+        it('tells the presenter both halves, since they fail independently', () => {
+            // A model told only not to swear will still quote an explicit title or lyric back, which
+            // is the same words arriving by a route the first half does not cover.
+            const rules = system(prompt({ kind: 'talkbreak', previous }, { cleanLanguage: true }));
+
+            expect(rules).toMatch(/broadcast-clean/i);
+            expect(rules).toMatch(/profanity/i);
+            expect(rules).toMatch(/explicit lyric or title/i);
+        });
+
+        it('keeps it among the standing rules rather than after the persona reminder', () => {
+            // The diction reminder is last on purpose, because the failure it addresses is caused BY
+            // the rules. A content rule appended after it would take that position away.
+            const rules = system(
+                prompt(
+                    { kind: 'talkbreak', previous },
+                    { cleanLanguage: true, persona: { style: 'a pirate captain', diction: ['nautical'], dictionMarkers: ['arr'] } },
+                ),
+            );
+
+            expect(rules.indexOf('broadcast-clean')).toBeLessThan(rules.indexOf('Plain English is wrong here'));
+        });
+    });
+
     describe('a kind bringing its own shape', () => {
         const greeting = {
             job: 'You greet somebody who has just tuned in.',

@@ -6,6 +6,7 @@ import { writeCapture } from '#modules/llm/llm.capture.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { advisoryPolicy, demandsClean } from './advisory.policy.js';
 import { artistKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
@@ -183,6 +184,10 @@ export class ModelSetGenerator extends SetGenerator {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                 ...(inputs.persona?.music === undefined ? {} : { music: inputs.persona.music }),
                 taste: await this.describeTaste(),
+                // Only the hard rule, and only as advice. `PickResolver` enforces it whatever the
+                // model does; this is here so a briefed refill does not spend half its picks on
+                // records that will be dropped. See `SetPromptSettings.cleanOnly`.
+                cleanOnly: demandsClean(advisoryPolicy(this.config)),
             },
         );
 

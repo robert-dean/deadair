@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -112,6 +113,7 @@ export class ModelNewsBreakWriter extends BreakWriter {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                 dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
                 maxWords: NEWS_MAX_WORDS,
+                cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                 ...(request.persona === undefined ? {} : { persona: request.persona }),
             },
             NEWS_SHAPE,

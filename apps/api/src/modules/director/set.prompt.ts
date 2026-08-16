@@ -77,6 +77,24 @@ export interface SetPromptSettings {
      * forbidden record, it can only waste the picks it spent on one.
      */
     taste?: TastePrompt;
+    /**
+     * Whether the station may play only records positively marked clean.
+     *
+     * Named for the RECORDS rather than for the language, unlike `PromptSettings.cleanLanguage` on
+     * the break side. The two are genuinely different questions asked of two different jobs: a break
+     * writer chooses words and this chooses records, and a rule about profanity would mean nothing
+     * to a model naming titles.
+     *
+     * Advice, exactly like {@link taste}'s dislikes, and for the same reason: the policy is enforced
+     * in `PickResolver` whatever the model does, so a model that ignores this cannot air a forbidden
+     * record — it can only waste the picks it spent on one. `search_library` already excludes them,
+     * but `search_catalog` reaches every provider and does not, so without this line a briefed
+     * refill can spend half its answer on records that will be dropped.
+     *
+     * Only under `clean-only`. A preference has nothing to say here: it is settled when the COPY is
+     * chosen, long after the model named the work, and the work is playable either way.
+     */
+    cleanOnly?: boolean;
 }
 
 /** What the model is being asked to choose between. */
@@ -184,6 +202,13 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         '- If you cannot find enough, name fewer. A short answer is better than a repeated one.',
         '- Do not put two records by the same artist next to each other.',
         '- Order them so the set flows: think about what follows what.',
+        // Same shape as the dislikes below: stated as a fact about what will happen rather than as
+        // a prohibition, because a model told a rule is advisory spends picks testing it.
+        ...(settings.cleanOnly
+            ? [
+                  '- This station only plays records that have a clean version. A record that has none will be dropped and something else played instead, so naming one costs you a slot.',
+              ]
+            : []),
         '',
         'Answer with a JSON array and nothing else, like this:',
         '[{"title": "...", "artist": "..."}, {"title": "...", "artist": "..."}]',

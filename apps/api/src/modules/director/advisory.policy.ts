@@ -80,6 +80,20 @@ export function advisoryPolicy(config: AppConfig): AdvisoryPolicy {
 export const demandsClean = (policy: AdvisoryPolicy): boolean => policy === 'clean-only';
 
 /**
+ * Whether the PRESENTER has to keep it clean.
+ *
+ * True for both non-default states, and the asymmetry with {@link demandsClean} is the point. A
+ * preference is a lean about which COPY to play, and it is only a lean because most catalogue has no
+ * clean twin to choose between — there is something to fall back to. A presenter always has the
+ * choice of their own words, so there is nothing for a preference to fall back to and no reading of
+ * "prefer clean" under which the station's own voice should swear.
+ *
+ * Which makes this the one place the policy stops being about records at all, and why what it feeds
+ * is called `cleanLanguage` rather than being handed the policy to interpret for itself.
+ */
+export const speaksClean = (policy: AdvisoryPolicy): boolean => policy !== 'prefer-explicit';
+
+/**
  * How much this policy wants a binding, lowest first. Only ever a RANK, never a filter.
  *
  * Ordered ahead of the operator's provider preference in {@link CandidatesRepository.bindingsFor},

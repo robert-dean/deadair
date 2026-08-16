@@ -10,6 +10,7 @@ import { PageHeader } from '../shared/page.header';
 import { PluginConfigForm } from './plugin.config.form';
 import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
+import { PluginPermissionsCard } from './plugin.permissions.card';
 import { hasConfigForm, hasOAuth, PluginStatusLamp, statusOf } from './plugin.status';
 
 export interface PluginDetailPageProps {
@@ -141,6 +142,11 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                     ) : undefined}
                 </Stack>
             </Card>
+
+            {/* Before the settings form: a refused capability makes a plugin behave as though it
+                were misconfigured, so the unanswered question should be met before an operator
+                starts rewriting settings that were never wrong. */}
+            <PluginPermissionsCard plugin={detail} />
 
             <Card padding="lg">
                 <Stack gap="md">

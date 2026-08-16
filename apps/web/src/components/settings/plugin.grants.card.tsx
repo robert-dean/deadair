@@ -1,10 +1,10 @@
-import { Card, Group, SegmentedControl, Stack, Table, Text, Title } from '@mantine/core';
-import type { PluginGrant, GrantDecision } from '@deadair/sdk';
+import { Card, Stack, Table, Text, Title } from '@mantine/core';
+import type { PluginGrant } from '@deadair/sdk';
 
-import { useDecidePluginGrant, usePluginGrants } from '../../api/plugins.queries';
+import { usePluginGrants } from '../../api/plugins.queries';
+import { GRANT_TONES, GRANT_WORDS, GrantAnswer, GrantDescription } from '../plugins/plugin.grants';
 import { ErrorAlert } from '../shared/error.alert';
 import { StatusLamp } from '../shared/status.lamp';
-import type { StatusTone } from '../shared/status';
 
 /**
  * What each plugin has asked the station for, and what the station said.
@@ -21,12 +21,11 @@ import type { StatusTone } from '../shared/status';
  * answered and the other is an answer. A control with two positions and no third state would make
  * every fresh install look like a set of deliberate refusals.
  *
- * ## The ask is the plugin's, the description is the station's
+ * ## Every plugin's requests, where the plugin's own page shows only its own
  *
- * Two sentences per row, from two different authors, and they are not interchangeable. The plugin
- * says why it wants this and can say anything it likes; the host says what allowing it actually
- * does, in words the plugin does not get to choose. An operator weighing a request needs both, and
- * needs to know which is which.
+ * The same rows, the same control, drawn through `plugins/plugin.grants.tsx` so the two cannot
+ * disagree about what an answer means. This is the surface for "is anything waiting on me"; the
+ * plugin's page is the one for "why is this plugin not working".
  */
 export function PluginGrantsCard() {
     const grants = usePluginGrants();
@@ -80,20 +79,7 @@ export function PluginGrantsCard() {
     );
 }
 
-/**
- * The tone each answer is drawn in.
- *
- * `fault` for undecided is deliberate and is the same call the silence badge makes: a plugin
- * waiting on an answer is not broken, but it is the reason something is not working, and that is
- * what an operator scanning this page is looking for. Denied is `off` because it is a settled
- * decision rather than an outstanding one.
- */
-const tones: Record<GrantDecision, StatusTone> = { allowed: 'ok', denied: 'off', undecided: 'fault' };
-const words: Record<GrantDecision, string> = { allowed: 'Allowed', denied: 'Denied', undecided: 'Waiting on you' };
-
 function GrantRow({ grant }: { grant: PluginGrant }) {
-    const decide = useDecidePluginGrant();
-
     return (
         <Table.Tr>
             <Table.Td>
@@ -101,47 +87,14 @@ function GrantRow({ grant }: { grant: PluginGrant }) {
                     <Text size="sm" fw={500}>
                         {grant.pluginName}
                     </Text>
-                    <StatusLamp tone={tones[grant.decision]} label={words[grant.decision]} />
+                    <StatusLamp tone={GRANT_TONES[grant.decision]} label={GRANT_WORDS[grant.decision]} />
                 </Stack>
             </Table.Td>
             <Table.Td>
-                <Stack gap={2}>
-                    <Group gap="xs">
-                        <Text size="sm" fw={500}>
-                            {grant.label}
-                        </Text>
-                    </Group>
-                    {/* The plugin's own sentence, marked as a quotation because it is one: this is
-                        the only text on the settings page that the station did not write. */}
-                    <Text size="sm" c="dimmed">
-                        &ldquo;{grant.reason}&rdquo;
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                        {grant.describes}
-                    </Text>
-                </Stack>
+                <GrantDescription grant={grant} />
             </Table.Td>
             <Table.Td>
-                <Stack gap={4} align="flex-end">
-                    <SegmentedControl
-                        size="xs"
-                        value={grant.decision}
-                        disabled={decide.isPending}
-                        onChange={value => decide.mutate({ id: grant.pluginId, capability: grant.capability, decision: value as GrantDecision })}
-                        data={[
-                            { value: 'allowed', label: 'Allow' },
-                            { value: 'denied', label: 'Deny' },
-                            // Answering is not required, and taking an answer back should not mean
-                            // leaving a refusal on the record.
-                            { value: 'undecided', label: 'Ask later' },
-                        ]}
-                    />
-                    {decide.error ? (
-                        <Text size="xs" c="red">
-                            That could not be saved.
-                        </Text>
-                    ) : undefined}
-                </Stack>
+                <GrantAnswer grant={grant} />
             </Table.Td>
         </Table.Tr>
     );

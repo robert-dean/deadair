@@ -6,6 +6,8 @@ import type { PluginSummary } from '@deadair/sdk';
 import { useSetPluginEnabled } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { toneColor } from '../shared/status';
+import { StatusLamp } from '../shared/status.lamp';
+import { useHasUndecidedGrant } from './plugin.grants';
 import { PluginStatusLamp, statusOf } from './plugin.status';
 import { PluginTrustDialog } from './plugin.trust.dialog';
 
@@ -18,6 +20,9 @@ export function PluginCard({ plugin }: PluginCardProps) {
     const setEnabled = useSetPluginEnabled();
     const { tone } = statusOf(plugin.status);
     const pending = setEnabled.isPending && setEnabled.variables?.id === plugin.id;
+    // Only whether something is waiting, never what: the catalogue card is where an operator finds
+    // out there is a question, and the plugin's own page is where it can be read and answered.
+    const waiting = useHasUndecidedGrant(plugin.id);
     const [trustDialogOpen, setTrustDialogOpen] = useState(false);
 
     return (
@@ -38,6 +43,12 @@ export function PluginCard({ plugin }: PluginCardProps) {
                 <Text size="sm" c="dimmed" lineClamp={2}>
                     {plugin.description ?? 'No description.'}
                 </Text>
+
+                {/* Under the description rather than beside the status, which is where it started:
+                    the header's second line is an id and a version and it has no room to spare, and
+                    a badge up there pushed it into a wrap. Its job is to be noticed on a scan of the
+                    grid, which this still does. */}
+                {waiting ? <StatusLamp tone="fault" label="Wants permission" /> : undefined}
 
                 <Group gap={6}>
                     {plugin.capabilities.map(capability => (

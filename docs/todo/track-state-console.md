@@ -1,5 +1,8 @@
 # A record's state, in one place, and a way to clear it
 
+Status: **built**, 2026-08-16, all three phases. What each one turned out to be is below its heading,
+and what is left is at the bottom.
+
 **Written:** 2026-08-15, from the operator's own ask: a way to see all the track data in the system
 (cached, analyzed, enriched, and so on) plus the ability to clear those.
 
@@ -107,3 +110,55 @@ filtered list with a per-row action is the version an operator can undo by waiti
 elsewhere: `last_served_at` on `track_audio`, which
 [track-cache-eviction.md](track-cache-eviction.md) wants for LRU and which this page would happily
 show. It belongs to that file, not this one.
+
+## What it turned out to be
+
+All three phases landed on 2026-08-16, in the order this file set out, behind the eviction work in
+[track-cache-eviction.md](track-cache-eviction.md) — which had to go first because `last_served_at`
+could not be retrofitted, and which this page then got to show.
+
+**Phase 1, the detail read**, is `GET /catalog/tracks/{id}` and `/catalog/tracks/$trackId`. One
+change from the plan: enrichment is NOT part of it. `GET /catalog/tracks/{id}/enrichment` already
+answers every provider's payload and the station's own sourced claims, and the page calls it
+alongside and renders the existing panel — so the facts, with their quotes and their source links,
+arrived for free and there is one enrichment shape rather than two.
+
+The rules held. Per binding throughout; failures reported with their last error and next attempt;
+`complete` shown separately from `analyzedAt`. One rule had to be added after a live row broke it:
+**held is decided by the BYTES, not by `fetched_at`**, because the eviction sweep clears the file
+columns and keeps the row, so a record fetched once and dropped since is not on this machine however
+recently it arrived. It reads as `Dropped`, which is neither held nor a fault.
+
+**Phase 2, the library-wide columns**, came out as three booleans per row (`hasAudio`, `measured`,
+`enriched`), a `state` filter and a count strip. Two decisions worth keeping: `measured` means
+complete AND at a schema version the station still trusts, and `benched` requires a copy to EXIST
+first — a record nobody has a copy of reads as uncached, because "the lookup never resolved" and
+"every copy written off" are different problems. The counts honour the search and deliberately ignore
+the state filter, since they are what a filter is chosen from.
+
+Against this install on the day: 919 records, 345 cached, 216 measured, 902 enriched, none benched,
+four failing. The four were all `upstream answered 502` from one provider, which is the sort of
+pattern that was invisible before.
+
+**Phase 3, the clears**, are the four verbs this file named. The audio clear reuses the sweep's own
+deletion path rather than growing a second one, which is what stops the two disagreeing about a file
+two bindings share, and it REFUSES with a 409 inside the committable window rather than queueing —
+the operator is standing there, and what they do about it is theirs to decide. Every clear is an
+operator event with `actor_id`.
+
+One thing this file did not say and the code now does: **clearing enrichment leaves `deadair.facts`
+alone**. That is a decision rather than an oversight, and it is the one `fact-enrichment.md` records
+as not yet made — a claim is the station's own argument with its evidence attached, and deleting one
+from the console needs a permission rule and an answer about what re-extraction does to a claim an
+operator has touched. The confirmation says so before the button is pressed.
+
+## What is left
+
+- **Clearing from the list.** Every verb is on the record's own page, so tidying up a class of
+  records is one page each. The filtered list is where an operator would want it, and the reason it
+  is not there yet is the same reason the bulk clear was refused above: a per-row action over a
+  filtered set of 703 is a bulk clear wearing a hat.
+- **The art and segment stores have no per-row clear at all**, only the figures on the settings page.
+- **`analyzer_plugin_id` is shown and nothing filters by it**, so "re-measure everything that
+  detector touched" is still a psql query — which is the exact shape of the problem this page was
+  built to end, one level up.

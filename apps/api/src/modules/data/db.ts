@@ -294,6 +294,7 @@ export interface DeadairPersonas {
   active: Generated<boolean>;
   avoid: Generated<Json>;
   background: string | null;
+  brevity: string | null;
   catchphrases: Generated<Json>;
   createdAt: Generated<DateTime>;
   diction: Generated<Json>;

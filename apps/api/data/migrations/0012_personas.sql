@@ -55,6 +55,17 @@ create table deadair.personas (
     -- running order's own `brief` beats it: the persona is who the station is and the brief is
     -- somebody deciding tonight.
     music text,
+    -- How much this character says: null for the station's ordinary length, `short` or `one-line`
+    -- below it. Only rungs BELOW, and that is the design rather than an unfinished list — measured
+    -- on this station, 2 of 137 answers reached the word ceiling and the median came in at 28 words,
+    -- so a break is short because the model stops and the question is what it spends those words on.
+    -- A longer rung would need the ceiling raised, which was considered and rejected on the same
+    -- measurement.
+    --
+    -- It changes what the model is ASKED for and never `DEFAULT_MAX_WORDS`, because that ceiling
+    -- DECLINES rather than trims: lowering it to match would refuse the median break and hand every
+    -- one of this character's to the phrasings. See `persona.sheet.ts`.
+    brevity text,
     -- Whether this is the one on air. At most one per station, enforced below rather than by
     -- convention, because two active personas is a state nothing downstream could resolve and every
     -- reader would resolve differently.

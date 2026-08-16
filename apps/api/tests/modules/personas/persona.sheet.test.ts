@@ -11,6 +11,7 @@ import {
     characterFault,
     dictionMarkersIn,
     echoedSample,
+    isPersonaBrevity,
     keepsCharacter,
     matchesDictionMarker,
     MAX_SAMPLE_ECHO_WORDS,
@@ -331,5 +332,45 @@ describe('characterFault', () => {
 
     it('finds no fault at all in a sheet that made no checkable claim', () => {
         expect(characterFault({ diction: ['Ye for you'] }, 'Anything at all.')).toBeUndefined();
+    });
+});
+
+// Brevity is an instruction and nothing enforces it, which is the whole design: the word ceiling
+// DECLINES rather than trims, so a tighter one for a terse character would refuse the median break
+// and hand every one of theirs to the phrasings. These tests pin that it reaches the prompt, that it
+// reaches it LAST, and that nothing else in the sheet moved to make room for it.
+describe('brevity', () => {
+    it('says nothing at all when the character has the station\'s usual length', () => {
+        expect(personaLines({ quirks: ['Plays the record and shuts up'] })).toEqual(['In character: Plays the record and shuts up.']);
+    });
+
+    it('asks for less, and is the LAST thing the sheet says', () => {
+        const lines = personaLines({ diction: ['Ye for you'], brevity: 'one-line' });
+
+        // Last, so it sits against the caller's job line and the rules under it rather than among
+        // the facets of a voice.
+        expect(lines.at(-1)).toContain('One short sentence');
+        expect(lines[0]).toContain('How you speak');
+    });
+
+    it('has a distinct instruction per rung', () => {
+        const short = personaLines({ brevity: 'short' }).at(-1);
+        const oneLine = personaLines({ brevity: 'one-line' }).at(-1);
+
+        expect(short).not.toBe(oneLine);
+        expect(short).toContain('leave the space');
+    });
+
+    it('ignores a rung nothing recognises, rather than putting it in front of a model', () => {
+        // The column is plain text, so a row edited by hand can hold anything.
+        expect(personaLines({ brevity: 'verbose' as never })).toEqual([]);
+        expect(isPersonaBrevity('verbose')).toBe(false);
+        expect(isPersonaBrevity('one-line')).toBe(true);
+    });
+
+    it('does not make a character checkable, since it is an instruction and not a claim', () => {
+        // A sheet whose only entry is brevity has still named no markers, so nothing is refused for
+        // running long — that is what `readAnswer`'s ceiling is for, and it is unchanged.
+        expect(keepsCharacter({ brevity: 'one-line' }, 'A very long line indeed, going on at some considerable length.')).toBe(true);
     });
 });

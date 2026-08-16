@@ -27,6 +27,12 @@ export const Persona = z.strictObject({
     catchphrases: z.array(z.string().min(1).max(200)).optional().describe('Signature phrases, asked for sparingly'),
     avoid: z.array(z.string().min(1).max(200)).optional().describe('Wording that breaks the character'),
     background: z.string().max(2000).optional().describe('A couple of grounded facts they may self-reference'),
+    brevity: z
+        .enum(['short', 'one-line'])
+        .optional()
+        .describe(
+            "How much this character says. Absent for the station's ordinary length; there is no rung ABOVE it, because the word ceiling was measured and is not what bounds a break",
+        ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
     templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's global ones"),
     music: z.string().max(2000).optional().describe('What this persona plays, for the model that chooses records'),
@@ -58,6 +64,12 @@ export const PersonaInput = z.strictObject({
     catchphrases: z.array(z.string().min(1).max(200)).optional().describe('Signature phrases, asked for sparingly'),
     avoid: z.array(z.string().min(1).max(200)).optional().describe('Wording that breaks the character'),
     background: z.string().max(2000).optional().describe('A couple of grounded facts they may self-reference'),
+    brevity: z
+        .enum(['short', 'one-line'])
+        .optional()
+        .describe(
+            "How much this character says. Absent for the station's ordinary length; there is no rung ABOVE it, because the word ceiling was measured and is not what bounds a break",
+        ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
     templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's global ones"),
     music: z.string().max(2000).optional().describe('What this persona plays, for the model that chooses records'),
@@ -66,7 +78,7 @@ export type PersonaInput = z.infer<typeof PersonaInput>;
 
 /**
  * A description of a character, in the operator's own words
- * generated from [PersonaRequest](file://./../../../../data/contracts/personas/personas.types.ck#L32)
+ * generated from [PersonaRequest](file://./../../../../data/contracts/personas/personas.types.ck#L33)
  */
 export const PersonaRequest = z.strictObject({
     description: z.string().min(1).max(2000),
@@ -77,7 +89,7 @@ export type PersonaRequest = z.infer<typeof PersonaRequest>;
  * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
  * saved. The console opens this in the editor and the operator saves it through POST /personas, which
  * is what keeps generating a way of filling in the form rather than a second writer of the table
- * generated from [PersonaDraftView](file://./../../../../data/contracts/personas/personas.types.ck#L39)
+ * generated from [PersonaDraftView](file://./../../../../data/contracts/personas/personas.types.ck#L40)
  */
 export const PersonaDraftView = z.strictObject({
     key: z.string().min(1).max(100),
@@ -91,6 +103,7 @@ export const PersonaDraftView = z.strictObject({
     catchphrases: z.array(z.string().min(1).max(200)).optional(),
     avoid: z.array(z.string().min(1).max(200)).optional(),
     background: z.string().max(2000).optional(),
+    brevity: z.enum(['short', 'one-line']).optional(),
     samples: z.array(z.string().min(1).max(500)).optional(),
     templates: z.string().max(20000).optional(),
     music: z.string().max(2000).optional(),
@@ -101,7 +114,7 @@ export type PersonaDraftView = z.infer<typeof PersonaDraftView>;
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L66)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L68)
  */
 export const PersonaRehearsalAttempt = z.strictObject({
     writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
@@ -119,7 +132,7 @@ export const PersonaRehearsalAttempt = z.strictObject({
 export type PersonaRehearsalAttempt = z.infer<typeof PersonaRehearsalAttempt>;
 
 /**
- * generated from [PersonaList](file://./../../../../data/contracts/personas/personas.types.ck#L27)
+ * generated from [PersonaList](file://./../../../../data/contracts/personas/personas.types.ck#L28)
  */
 export const PersonaList = z.strictObject({
     personas: z.array(Persona),
@@ -133,7 +146,7 @@ export type PersonaListInput = z.infer<typeof PersonaListInput>;
 
 /**
  * What a model wrote, and what had to be dropped to make it usable
- * generated from [GeneratedPersona](file://./../../../../data/contracts/personas/personas.types.ck#L57)
+ * generated from [GeneratedPersona](file://./../../../../data/contracts/personas/personas.types.ck#L59)
  */
 export const GeneratedPersona = z.strictObject({
     persona: PersonaDraftView,
@@ -152,7 +165,7 @@ export type GeneratedPersona = z.infer<typeof GeneratedPersona>;
 
 /**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L75)
+ * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L77)
  */
 export const PersonaRehearsal = z.strictObject({
     personaId: z.string().min(1).max(100),

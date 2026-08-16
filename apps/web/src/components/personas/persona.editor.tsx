@@ -178,6 +178,18 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         <Textarea label="Never say" description="One per line." rows={3} {...form.getInputProps('avoid')} />
                     </Group>
 
+                    <Select
+                        label="How much they say"
+                        description="Only shorter than the station's usual, because the length of a break is set by where the model stops rather than by the ceiling. It asks for less; nothing refuses a break for running past it."
+                        data={[
+                            { value: '', label: "The station's usual" },
+                            { value: 'short', label: 'Says less — a sentence or two' },
+                            { value: 'one-line', label: 'Says almost nothing — one line' },
+                        ]}
+                        allowDeselect={false}
+                        {...form.getInputProps('brevity')}
+                    />
+
                     <Textarea
                         label="True about them"
                         description="A couple of grounded facts they may mention about themselves."
@@ -276,6 +288,7 @@ interface FormValues {
     djName: string;
     voice: string;
     background: string;
+    brevity: string;
     templates: string;
     music: string;
     diction: string;
@@ -303,6 +316,7 @@ function valuesOf(persona: PersonaDraftView | undefined): FormValues {
         djName: persona?.djName ?? '',
         voice: persona?.voice ?? '',
         background: persona?.background ?? '',
+        brevity: persona?.brevity ?? '',
         templates: persona?.templates ?? '',
         music: persona?.music ?? '',
         diction: linesOf(persona?.diction),
@@ -329,6 +343,9 @@ function draftOf(values: FormValues): PersonaInput {
         return lines.length === 0 ? undefined : lines;
     };
     const text = (raw: string): string | undefined => (raw.trim().length === 0 ? undefined : raw.trim());
+    // Annotated and lifted out of the literal below, because inside it the narrowed union widens
+    // back to `string` on its way through `omitUndefined`'s inference.
+    const brevity: PersonaInput['brevity'] = values.brevity === 'short' || values.brevity === 'one-line' ? values.brevity : undefined;
 
     return {
         key: values.key.trim(),
@@ -338,6 +355,9 @@ function draftOf(values: FormValues): PersonaInput {
             djName: text(values.djName),
             voice: text(values.voice),
             background: text(values.background),
+            // '' is the station's usual length, which is an ABSENT field rather than a rung — the
+            // same rule the on-air name follows.
+            brevity,
             // Not trimmed per line: the phrasings are parsed by the API the same way the station's
             // own setting is, and a blank line between two of them is somebody spacing their list.
             templates: text(values.templates),

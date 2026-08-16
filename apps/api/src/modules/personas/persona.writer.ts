@@ -37,7 +37,7 @@ import { TEMPLATE_VOCABULARY, unknownPlaceholders } from '#modules/director/brea
 import { jsonObjects, withoutThinking } from '#modules/shared/json.objects.js';
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { PersonaDraft } from './persona.js';
-import { dictionMarkersIn, PERSONA_SHEET_LIMITS } from './persona.sheet.js';
+import { dictionMarkersIn, isPersonaBrevity, PERSONA_SHEET_LIMITS } from './persona.sheet.js';
 
 /** How long a description may be. Long enough for a paragraph, short enough not to be a script. */
 export const MAX_DESCRIPTION = 2000;
@@ -135,6 +135,7 @@ export function personaPrompt(description: string): LlmMessage[] {
                 '  "catchphrases": ["signature phrases, at most three"],',
                 '  "avoid": ["wording that would break the character"],',
                 '  "background": "a couple of grounded facts they may mention about themselves",',
+                '  "brevity": "omit this unless the character is notably terse; \\"short\\" for one who says less than most, \\"one-line\\" for one who barely speaks",',
                 '  "samples": ["lines in their own voice, as they would actually be said on air"],',
                 '  "music": "what this character plays, in a sentence",',
                 `  "templates": "plain phrasings in this character's voice, one per line, using only these values: ${TEMPLATE_VALUES.join(' ')}"`,
@@ -213,6 +214,10 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     // by the time a break declines for missing diction, the sheet has been on air for an evening.
     const markers = named.filter(marker => samples.some(sample => dictionMarkersIn([marker], sample).length > 0));
 
+    // Checked rather than taken, so a model answering "terse" or "brief" leaves the field unset —
+    // which is the station's ordinary length and the right answer for a value nothing recognises.
+    const brevity = isPersonaBrevity(raw.brevity) ? raw.brevity : undefined;
+
     const phrasings = lines(raw.templates);
     const templates = phrasings.filter(line => unknownPlaceholders(line).length === 0);
 
@@ -224,6 +229,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
             ...omitUndefined({
                 djName: text(raw.djName),
                 background: text(raw.background),
+                brevity,
                 music: text(raw.music),
                 // Empty means the station's own phrasings, which is a legitimate persona and the
                 // right answer for one whose every generated line was malformed.

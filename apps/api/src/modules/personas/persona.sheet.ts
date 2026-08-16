@@ -67,6 +67,26 @@
  * paying for a second generation to maybe get one.
  */
 
+/** How much a character says, below the station's ordinary length. See {@link PersonaSheet.brevity}. */
+export const PERSONA_BREVITIES = ['short', 'one-line'] as const;
+
+export type PersonaBrevity = (typeof PERSONA_BREVITIES)[number];
+
+/** Whether a stored value is a rung, so a hand-edited row cannot put nonsense in a prompt. */
+export const isPersonaBrevity = (value: unknown): value is PersonaBrevity => PERSONA_BREVITIES.includes(value as PersonaBrevity);
+
+/**
+ * What each rung asks for.
+ *
+ * Phrased as a shape rather than as a number, because a count is the thing the ceiling already
+ * states and stating it twice invites a model to treat the smaller one as the real limit and pad up
+ * to it. "Name it and get out of the way" is an instruction about what a break IS.
+ */
+const BREVITY_INSTRUCTIONS: Record<PersonaBrevity, string> = {
+    short: 'You say less than most presenters. One sentence, two at the very most, and leave the space rather than filling it.',
+    'one-line': 'You say almost nothing. One short sentence: name the thing and get out of the way.',
+};
+
 /**
  * The facets of a character beyond the one-line style, all optional.
  *
@@ -98,6 +118,28 @@ export interface PersonaSheet {
     avoid?: readonly string[];
     /** A couple of grounded facts about the character they may self-reference. */
     background?: string;
+    /**
+     * How much this character says, or absent for the station's ordinary length.
+     *
+     * ## Only rungs below the default, which is the design rather than half a list
+     *
+     * Measured on this station: 2 of 137 captured answers reached {@link DEFAULT_MAX_WORDS} and the
+     * median came in at 28 words. So the ceiling was never what bounded a break — the model stops on
+     * its own — and what it spends those 28 words on is the whole question. A rung ABOVE the default
+     * would need the ceiling raised, which was considered against that same measurement and rejected
+     * because it permits something nothing was asking for. Asking for LESS is the doctrine that
+     * produced "make one point".
+     *
+     * ## It changes the instruction and never the ceiling
+     *
+     * The trap here, stated because the fix somebody will reach for is exactly wrong: `readAnswer`'s
+     * word ceiling DECLINES a long script rather than trimming it, so lowering `maxWords` to match a
+     * terse character would refuse the median break and hand every one of theirs to the phrasings.
+     * A station would look like it had no model at all, which is the failure a persona is supposed to
+     * survive rather than cause. So this is an instruction and nothing checks it, exactly like "make
+     * one point" beside it in the rules.
+     */
+    brevity?: PersonaBrevity;
     /** Lines in their own voice. The few-shot examples, and what a console previews them with. */
     samples?: readonly string[];
 }
@@ -229,6 +271,11 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
         lines.push('This is your speech and rhythm — reuse the grammar, never the sentences. A line lifted from one of these is thrown away:');
         lines.push(...examples.map(example => `- "${example}"`));
     }
+
+    // LAST, so it sits against the caller's own job line and the rules under it: everything above is
+    // who this character is, and this is how much of it they say. A length instruction belongs beside
+    // the word ceiling rather than among the facets of a voice.
+    if (sheet.brevity !== undefined && isPersonaBrevity(sheet.brevity)) lines.push(BREVITY_INSTRUCTIONS[sheet.brevity]);
 
     return lines;
 }

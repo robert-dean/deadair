@@ -266,9 +266,12 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         // check and no later break can take back. So: no detail that is not written down, no
         // consequences, no opinion, and nothing joined into one story that arrived as two.
         parts.push(
-            'Read these as news. Say only what each story actually says: do not add detail, do not explain what it means, ' +
+            'Read these as news. Give each story a sentence of what actually happened, taken only from the text under its headline — ' +
+                'a bulletin that reads out headlines and nothing else has told the listener nothing. ' +
+                'Say only what each story actually says: do not add detail, do not explain what it means, ' +
                 'do not say what will happen next, and do not merge two stories into one. ' +
-                "The summaries are the publisher's own wording — use them to know what happened, not as lines to read out. " +
+                "The text is the publisher's own wording — use it to know what happened, not as lines to read out. " +
+                'Where a story has no text under it, read its headline and move on rather than filling the gap. ' +
                 'If a story is unclear, leave it out rather than guessing at it. Do not say how you feel about any of it.',
         );
     }
@@ -332,12 +335,17 @@ function describe(track: BreakTrack): string {
  * One story, as the model is shown it.
  *
  * The headline first and on its own line, because it is the part that may be read more or less as
- * it stands — it is a published sentence somebody else already stands behind. The summary is
- * labelled as background rather than as copy, which is what the rule beside it then leans on.
+ * it stands — it is a published sentence somebody else already stands behind. What follows is
+ * labelled as the story rather than as copy, which is what the rule beside it then leans on.
+ *
+ * The article where there is one and the teaser otherwise, never both: they overlap almost entirely
+ * (a teaser is usually the article's own first sentence), and showing a model the same fact twice
+ * under two labels is how one sentence gets read out as two stories.
  */
 function describeStory(story: BreakStory): string {
     const lines = [`- Headline: ${story.headline}`];
-    if (story.summary) lines.push(`  Background: ${story.summary}`);
+    const told = story.body ?? story.summary;
+    if (told) lines.push(`  Story: ${told}`);
     // Deliberately not offered as something to say. Attribution is a station's own decision — some
     // read it, some never do — and a model shown a publisher's name will credit it in a sentence
     // the operator never asked for.

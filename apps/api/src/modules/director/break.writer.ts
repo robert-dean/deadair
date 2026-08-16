@@ -75,8 +75,21 @@ export interface BreakTrack {
 export interface BreakStory {
     /** The headline, ready to be read aloud. */
     headline: string;
-    /** The publisher's own summary, as plain text. Raw material for a model, never read verbatim. */
+    /** The publisher's own teaser, as plain text. Raw material for a model, never read verbatim. */
     summary?: string;
+    /**
+     * The STORY, as the publisher's own paragraphs, when one could be read.
+     *
+     * The substrate a bulletin is actually written from, and separate from {@link summary} because
+     * they are two different things a publisher wrote. Measured against the station's own feed: a
+     * teaser is one sentence restating the headline, so a break written from headline and teaser
+     * alone says the same thing twice and calls it news. This is what lets a writer say what
+     * HAPPENED.
+     *
+     * Absent is ordinary and is not a failure — an audio piece, a page nothing could read, a plugin
+     * with no budget left. Every writer's fallback is the headline, which is a real answer.
+     */
+    body?: string;
     /** Which feed carried it, for a bulletin that attributes. Absent when there is nothing to say. */
     source?: string;
     /** ISO-8601, when the publisher gave one. For a writer that wants to say how fresh this is. */

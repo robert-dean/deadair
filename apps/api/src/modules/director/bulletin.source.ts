@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { truncateSentences } from '@deadair/plugin-sdk';
 import { NewsService } from '#modules/news/news.service.js';
 import { errorText } from '#modules/shared/error.text.js';
 import type { BreakStory } from './break.writer.js';
@@ -60,13 +61,28 @@ const MAX_STORY_COUNT = 8;
 const MAX_AGE_HOURS = 168;
 
 /**
- * How much of a summary a writer is shown.
+ * How much of a teaser a writer is shown.
  *
- * The model gets these as raw material and the floor never reads them, so this is sized to a
- * sentence or two of context rather than to an article. A paragraph per story would also crowd out
- * the persona sheet and the content rules in the same prompt.
+ * Sized to a sentence or two, which is all a teaser ever is: the publisher wrote it to be skimmed
+ * next to a headline. It is the FALLBACK now rather than the substrate — see {@link MAX_BODY_CHARS}
+ * — and is left short deliberately, because a story that could not be read is not made better by
+ * being quoted at greater length.
  */
 const MAX_SUMMARY_CHARS = 240;
+
+/**
+ * How much of the STORY a writer is shown.
+ *
+ * Three times the teaser, because this is the part a bulletin is written from and one paragraph is
+ * not enough to say what happened in three separate stories. Not much more than three times, because
+ * the same prompt carries the persona sheet, the content rules and the recent scripts, and a model
+ * given two thousand words of newspaper writes like a newspaper.
+ *
+ * Cut on a SENTENCE rather than on a word, which is the load-bearing half: a story that stops
+ * mid-clause is something a model finishes out of its own head, and a bulletin is the one kind of
+ * break where inventing the end of a sentence is a station stating something false as fact.
+ */
+const MAX_BODY_CHARS = 700;
 
 @Injectable()
 export class BulletinSource {
@@ -121,15 +137,17 @@ export class BulletinSource {
 }
 
 /** One story, or nothing when there is no headline worth reading. */
-function toStory(item: { title: string; summary?: string; feedName?: string; publishedAt?: string }): BreakStory | undefined {
+function toStory(item: { title: string; summary?: string; content?: string; feedName?: string; publishedAt?: string }): BreakStory | undefined {
     const headline = speakable(item.title);
     if (headline === undefined) return undefined;
 
     const summary = item.summary?.trim();
+    const body = item.content?.trim();
 
     return {
         headline,
         ...(summary === undefined || summary.length === 0 ? {} : { summary: summary.slice(0, MAX_SUMMARY_CHARS) }),
+        ...(body === undefined || body.length === 0 ? {} : { body: truncateSentences(body, MAX_BODY_CHARS) }),
         ...(item.feedName === undefined ? {} : { source: item.feedName }),
         ...(item.publishedAt === undefined ? {} : { publishedAt: item.publishedAt }),
     };

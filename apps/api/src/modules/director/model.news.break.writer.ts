@@ -40,12 +40,20 @@ import { NEWS_KIND } from './news.break.writer.js';
 /**
  * How long a bulletin may run, in words.
  *
- * Three times an ordinary break, because it is three stories rather than one link — about forty
- * seconds read aloud. `readAnswer` still DECLINES anything past it rather than cutting, so a model
- * that turned the headlines into an essay loses the slot to the floor, which reads them in twenty
- * seconds and is never wrong.
+ * Raised from 120 when the stories arrived. That number was three stories' HEADLINES plus the words
+ * around them, and it was the right size for exactly as long as a headline was all a writer had; a
+ * bulletin now has the article under each one and is asked for a sentence of what happened, which is
+ * three sentences this did not previously have room for.
+ *
+ * Raising a ceiling is otherwise the wrong move here and the persona work argues it at length — a
+ * ceiling permits, it does not ask, and 2 of 137 captured breaks ever reached one. The difference is
+ * that this ceiling was measurably in the way of something the prompt now explicitly asks for, which
+ * is the one condition under which raising one is not just permitting slop.
+ *
+ * `readAnswer` still DECLINES anything past it rather than cutting, so a model that turned the news
+ * into an essay loses the slot to the floor, which reads it in twenty seconds and is never wrong.
  */
-export const NEWS_MAX_WORDS = 120;
+export const NEWS_MAX_WORDS = 170;
 
 /**
  * What the model is told a bulletin IS.
@@ -59,7 +67,8 @@ export const NEWS_SHAPE: BreakPromptShape = {
     job: 'You read a short news bulletin. It is read aloud exactly as you write it.',
     showsPrevious: false,
     opening: () =>
-        'This is the news. Introduce it in a sentence, read the stories below in the order they are given, and then hand back to the music. ' +
+        'This is the news. Introduce it in a sentence, report the stories below in the order they are given, and then hand back to the music. ' +
+        'Each story gets its headline and a sentence of what happened, from the text you are given and nowhere else. ' +
         'You are reporting, not commenting: no jokes about the stories, no opinions, and nothing about how they make anyone feel.',
 };
 

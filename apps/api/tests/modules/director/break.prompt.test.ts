@@ -246,11 +246,33 @@ describe('breakPrompt', () => {
             expect(said.indexOf('Bridge reopens')).toBeLessThan(said.indexOf('Council votes'));
         });
 
-        it('offers a summary as background rather than as a line to read out', () => {
+        it("offers the publisher's words as the story rather than as a line to read out", () => {
             const said = user(prompt({ kind: 'news', stories }));
 
-            expect(said).toContain('Background: It reopened this morning.');
+            expect(said).toContain('Story: It reopened this morning.');
             expect(said).toMatch(/not as lines to read out/i);
+        });
+
+        // The whole point of the article half: a bulletin written from headlines alone is a list of
+        // titles, which is what it was.
+        it('asks for a sentence of what happened rather than only the headline', () => {
+            const said = user(prompt({ kind: 'news', stories }));
+
+            expect(said).toMatch(/a sentence of what actually happened/i);
+        });
+
+        // They overlap almost entirely — a teaser is usually the article's own first sentence — and
+        // showing a model one fact twice under two labels is how it gets read out as two stories.
+        it('shows the article where there is one and the teaser otherwise, never both', () => {
+            const said = user(
+                prompt({
+                    kind: 'news',
+                    stories: [{ headline: 'Bridge reopens.', summary: 'A teaser nobody needs.', body: 'The council voted at dawn.' }],
+                }),
+            );
+
+            expect(said).toContain('Story: The council voted at dawn.');
+            expect(said).not.toContain('A teaser nobody needs.');
         });
 
         it('bans the ways a model gets news wrong: adding, explaining, predicting, merging', () => {

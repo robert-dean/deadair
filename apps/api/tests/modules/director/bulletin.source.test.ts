@@ -147,10 +147,44 @@ describe('what a writer is handed', () => {
         expect((await source.storiesFor(NEWS_KIND, NOW))?.map(one => one.headline)).toEqual(['Real.']);
     });
 
-    it('carries the summary as background, bounded', async () => {
+    it('carries the teaser as background, bounded', async () => {
         const { source } = build({ items: [item('Bridge reopens', { summary: 'x'.repeat(400) })] });
 
         const [story] = (await source.storiesFor(NEWS_KIND, NOW)) ?? [];
         expect(story?.summary?.length).toBe(240);
+    });
+
+    // The substrate a bulletin is actually written from. A teaser is one sentence restating the
+    // headline, so a break written from headline and teaser alone says the same thing twice.
+    it('carries the story itself, beside the teaser rather than instead of it', async () => {
+        const { source } = build({
+            items: [item('Bridge reopens', { summary: 'A teaser.', content: 'The council voted to reopen the crossing this morning.' })],
+        });
+
+        const [story] = (await source.storiesFor(NEWS_KIND, NOW)) ?? [];
+        expect(story).toMatchObject({
+            headline: 'Bridge reopens.',
+            summary: 'A teaser.',
+            body: 'The council voted to reopen the crossing this morning.',
+        });
+    });
+
+    // A story that stops mid-clause is something a model finishes out of its own head, and a
+    // bulletin is the one break where inventing the end of a sentence states something false.
+    it('cuts a long story on a sentence rather than mid-clause', async () => {
+        const sentence = 'The inquiry heard from a further eleven witnesses during the afternoon session. ';
+        const { source } = build({ items: [item('Inquiry continues', { content: sentence.repeat(20) })] });
+
+        const [story] = (await source.storiesFor(NEWS_KIND, NOW)) ?? [];
+        expect(story?.body?.length).toBeLessThanOrEqual(700);
+        expect(story?.body?.endsWith('session.')).toBe(true);
+    });
+
+    it('leaves the story off entirely when the page carried none', async () => {
+        const { source } = build({ items: [item('Bridge reopens', { summary: 'A teaser.' })] });
+
+        const [story] = (await source.storiesFor(NEWS_KIND, NOW)) ?? [];
+        expect(story?.body).toBeUndefined();
+        expect(story?.summary).toBe('A teaser.');
     });
 });

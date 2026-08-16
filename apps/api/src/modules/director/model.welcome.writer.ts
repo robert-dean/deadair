@@ -40,11 +40,17 @@ import { WELCOME_KIND } from './welcome.writer.js';
 export const WELCOME_SHAPE: BreakPromptShape = {
     job: 'You welcome somebody who has just started listening. It is read aloud exactly as you write it.',
     showsPrevious: false,
-    // The talk break's rule in this kind's own words. A greeting listed too: "Deadair blasting Winds
-    // Of Change by The Meadowfolk. Barn vibes. Length just over five minutes forty-two seconds." is
-    // a real one from this station, and the running time of a record is the clearest possible case of
-    // a fact that reached the prompt and should never have reached the air.
-    rules: ['Make one point. A greeting is a single thought said well, not a list of facts about the record coming up.'],
+    // The talk break's rule in this kind's own words, including its second half. A greeting listed
+    // too: "Deadair blasting Winds Of Change by The Meadowfolk. Barn vibes. Length just over five
+    // minutes forty-two seconds." is a real one from this station, and the running time of a record is
+    // the clearest possible case of a fact that reached the prompt and should never have reached the
+    // air. It is also the kind where saying what the saved words are for matters most: a greeting has
+    // one record to talk about and nothing behind it, so a model that only knows what to leave out
+    // has very little left to say at all.
+    rules: [
+        'Make one point, and make it the way only you would. A greeting is a single thought said well, not a list of facts about the ' +
+            'record coming up: the words you save by leaving those out are yours to spend on sounding like yourself.',
+    ],
     opening: request =>
         [
             'Somebody has just tuned in. They have not heard anything before this, so tell them what they are listening to.',

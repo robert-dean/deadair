@@ -40,6 +40,16 @@ describe('breakPrompt', () => {
         expect(rules).toMatch(/not certain/i);
     });
 
+    it('asks for one point, and says what the words that buys are for', () => {
+        // Both halves, because asking for less was only half a rule: every other instruction in this
+        // prompt points downwards, and the captured breaks came in at half the ceiling with nothing
+        // telling the model what the other half was for.
+        const rules = system(prompt({ kind: 'talkbreak', previous, next }));
+
+        expect(rules).toMatch(/Make one point/);
+        expect(rules).toMatch(/yours to spend on saying it like yourself/);
+    });
+
     it('shows the model both records it was given', () => {
         const said = user(prompt({ kind: 'talkbreak', previous, next }));
 

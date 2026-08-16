@@ -95,7 +95,19 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     // words on is the whole question. It was spending them on content: both titles, both artists and
     // a note read out, with a marker at the front and a signature at the end, which is a listing with
     // decoration rather than somebody talking.
-    rules: ['Make one point. A break is a single thought said well, not everything you know about both records.'],
+    //
+    // The second half says what the saved words are FOR, and it is here because asking for less
+    // turned out to be only half a rule. Every instruction this prompt carries points downwards — do
+    // not name a record you were not given, you need not mention both, make one point — and a model
+    // reading all of them writes the shortest correct thing it can: the five model breaks this
+    // station has captured came in at 11, 13, 20, 27 and 29 words against a ceiling of 40, so it is
+    // stopping at half its allowance with nothing telling it what the other half is for. This is not
+    // permission to run long, which the ceiling still refuses; it is the one instruction in the list
+    // that points at the voice rather than at the content.
+    rules: [
+        'Make one point, and make it the way only you would. A break is a single thought said well, not everything you know about both ' +
+            'records: the words you save by leaving one of them out are yours to spend on saying it like yourself.',
+    ],
 };
 
 /** How the station wants this break to sound, and how long it may run. */

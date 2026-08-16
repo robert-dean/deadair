@@ -14,6 +14,8 @@ import type {
     TrackDetail,
     TrackEnrichmentDetail,
     TrackPage,
+    TrackQuery,
+    TrackQueryInput,
 } from './types/catalog.types.js';
 
 export class CatalogClient {
@@ -102,7 +104,7 @@ export class CatalogClient {
      * @name List album tracks
      * @description One album's tracks
      */
-    async listAlbumTracks(id: string, query?: CatalogQueryInput): Promise<TrackPage> {
+    async listAlbumTracks(id: string, query?: TrackQueryInput): Promise<TrackPage> {
         const qs = buildQueryString(query);
         const result = await this.fetch(`/catalog/albums/${encodeURIComponent(id)}/tracks${qs}`, {
             method: 'GET',
@@ -145,7 +147,7 @@ export class CatalogClient {
      * @name List tracks
      * @description Every track, flat. The only way to answer "do we have this song?" without knowing its artist
      */
-    async listTracks(query?: CatalogQueryInput): Promise<TrackPage> {
+    async listTracks(query?: TrackQueryInput): Promise<TrackPage> {
         const qs = buildQueryString(query);
         const result = await this.fetch(`/catalog/tracks${qs}`, {
             method: 'GET',

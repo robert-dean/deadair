@@ -158,7 +158,7 @@ operation /catalog/albums/{id}/tracks: {
     get: { # One album's tracks
         name: List album tracks
         service: TracksService.listTracksByAlbum
-        query: CatalogQuery
+        query: TrackQuery
         response: {
             200: {
                 application/json: TrackPage
@@ -223,7 +223,7 @@ operation /catalog/tracks: {
     get: { # Every track, flat. The only way to answer "do we have this song?" without knowing its artist
         name: List tracks
         service: TracksService.listTracks
-        query: CatalogQuery
+        query: TrackQuery
         response: {
             200: {
                 application/json: TrackPage

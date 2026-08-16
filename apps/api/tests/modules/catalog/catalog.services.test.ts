@@ -40,13 +40,26 @@ const trackRow = () => ({
 });
 
 /**
+ * The same record as a LIST row.
+ *
+ * A list carries three facts about what the station HAS of a record on top of the record itself,
+ * each one `exists` off the query that was already running. Separate from {@link trackRow} because
+ * the contracts are: a detail read and a rating answer a `Track`, which has none of these, and both
+ * validations are strict about it.
+ */
+const listRow = (overrides: Record<string, unknown> = {}) => ({ ...trackRow(), hasAudio: false, measured: false, enriched: false, ...overrides });
+
+/** The counts beside a page. Zeroes unless a test is about them. */
+const trackStateCounts = vi.fn().mockResolvedValue({ total: 0, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0 });
+
+/**
  * A row as the CONSOLE sees it: the repository answers with the column's `-1 / 0 / 1` and the
  * service hands on the enum, so an expectation written against a repository row has to say which.
  */
 const seen = <T extends object>(row: T, rating: 'liked' | 'neutral' | 'disliked' = 'neutral') => ({ ...row, rating });
 
 /** The query as the router hands it over, after zod has applied the contract's defaults. */
-const query = (overrides: { page?: number; pageSize?: number; sort?: 'asc' | 'desc'; search?: string } = {}) => ({
+const query = (overrides: { page?: number; pageSize?: number; sort?: 'asc' | 'desc'; search?: string; state?: 'benched' | 'cached' } = {}) => ({
     page: 0,
     pageSize: 25,
     sort: 'desc' as const,
@@ -194,18 +207,44 @@ const tracksService = (
 
 describe('TracksService', () => {
     it('narrows to one album', async () => {
-        const listTracks = vi.fn().mockResolvedValue({ total: 8, data: [trackRow()] });
-        const service = tracksService({ listTracks });
+        const listTracks = vi.fn().mockResolvedValue({ total: 8, data: [listRow()] });
+        const service = tracksService({ listTracks, trackStateCounts });
 
         await service.listTracksByAlbum(ALBUM_ID, query({ search: 'vaka' }));
 
-        expect(listTracks).toHaveBeenCalledWith({ limit: 25, offset: 0, sort: 'desc', search: 'vaka' }, ALBUM_ID);
+        expect(listTracks).toHaveBeenCalledWith(
+            { limit: 25, offset: 0, sort: 'desc', search: 'vaka', state: undefined, schemaVersion: expect.any(Number) },
+            ALBUM_ID,
+        );
+    });
+
+    // The counts are what an operator chooses a filter FROM, so they see the same search and the
+    // same album and deliberately not the state — otherwise the answer is "of the benched records,
+    // how many are benched".
+    it('counts the states over the same set the page came from', async () => {
+        const listTracks = vi.fn().mockResolvedValue({ total: 8, data: [listRow()] });
+        const counts = vi.fn().mockResolvedValue({ total: 8, cached: 3, measured: 1, enriched: 5, benched: 0, failing: 2 });
+        const service = tracksService({ listTracks, trackStateCounts: counts });
+
+        const result = await service.listTracks(query({ search: 'vaka' }));
+
+        expect(counts).toHaveBeenCalledWith(expect.objectContaining({ search: 'vaka' }), undefined);
+        expect(result.states).toEqual({ total: 8, cached: 3, measured: 1, enriched: 5, benched: 0, failing: 2 });
+    });
+
+    it('hands the chosen state through to the query', async () => {
+        const listTracks = vi.fn().mockResolvedValue({ total: 1, data: [listRow()] });
+        const service = tracksService({ listTracks, trackStateCounts });
+
+        await service.listTracks(query({ state: 'benched' }));
+
+        expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ state: 'benched' }), undefined);
     });
 
     it('validates a track that belongs to no album instead of rejecting the whole page', async () => {
-        const { albumId: _albumId, albumName: _albumName, ...orphan } = trackRow();
+        const { albumId: _albumId, albumName: _albumName, ...orphan } = listRow();
         const listTracks = vi.fn().mockResolvedValue({ total: 1, data: [orphan] });
-        const service = tracksService({ listTracks });
+        const service = tracksService({ listTracks, trackStateCounts });
 
         const result = await service.listTracks(query());
 

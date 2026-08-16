@@ -12,8 +12,26 @@ export interface CatalogPageParams {
     search: string;
 }
 
+/**
+ * The states a track list can be narrowed to, matching the API's `TrackState`.
+ *
+ * Restated here rather than imported from the SDK because this file is what validates a URL, and a
+ * hand-typed `?state=nonsense` has to fall back rather than reach the API at all.
+ */
+export const TRACK_STATES = ['cached', 'uncached', 'unmeasured', 'benched', 'failing'] as const;
+
+export type TrackStateParam = (typeof TRACK_STATES)[number];
+
+export interface CatalogTrackParams extends CatalogPageParams {
+    /** Empty means every record, for the same reason `search` is a string rather than undefined. */
+    state: TrackStateParam | '';
+}
+
 /** What the routes strip back out of the URL, so a list at rest has no query string at all. */
 export const CATALOG_SEARCH_DEFAULTS: CatalogPageParams = { page: 0, search: '' };
+
+/** The tracks list carries one more, and strips it the same way. */
+export const CATALOG_TRACK_DEFAULTS: CatalogTrackParams = { page: 0, search: '', state: '' };
 
 /** The same, for the detail routes, whose lists are one artist's albums or one album's tracks and carry no search box. */
 export const CATALOG_PAGE_DEFAULTS = { page: 0 };
@@ -35,4 +53,10 @@ export function validateCatalogSearch(input: Record<string, unknown>): CatalogPa
         page: Number.isInteger(page) && page >= 0 ? page : 0,
         search: typeof input.search === 'string' ? input.search : '',
     };
+}
+
+/** {@link validateCatalogSearch} plus the state filter, which the tracks list alone carries. */
+export function validateCatalogTracks(input: Record<string, unknown>): CatalogTrackParams {
+    const state = TRACK_STATES.find(known => known === input.state);
+    return { ...validateCatalogSearch(input), state: state ?? '' };
 }

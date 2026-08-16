@@ -1,14 +1,14 @@
 import { createFileRoute, stripSearchParams, useNavigate } from '@tanstack/react-router';
 
 import { catalogTracksOptions } from '../../../api/catalog.queries';
-import { CATALOG_SEARCH_DEFAULTS, validateCatalogSearch } from '../../../components/catalog/catalog.page.params';
+import { CATALOG_TRACK_DEFAULTS, validateCatalogTracks } from '../../../components/catalog/catalog.page.params';
 import { CatalogTracksPage } from '../../../components/catalog/catalog.tracks.page';
 
 export const Route = createFileRoute('/catalog/tracks/')({
     component: CatalogTracksRoute,
-    validateSearch: validateCatalogSearch,
-    search: { middlewares: [stripSearchParams(CATALOG_SEARCH_DEFAULTS)] },
-    loaderDeps: ({ search }) => ({ page: search.page, search: search.search }),
+    validateSearch: validateCatalogTracks,
+    search: { middlewares: [stripSearchParams(CATALOG_TRACK_DEFAULTS)] },
+    loaderDeps: ({ search }) => ({ page: search.page, search: search.search, state: search.state }),
     // See the sibling `/catalog` route: the rejection stays in the cache for the page's own alert.
     loader: async ({ context, deps }) => {
         await context.queryClient.ensureQueryData(catalogTracksOptions(deps)).catch(() => undefined);
@@ -16,19 +16,24 @@ export const Route = createFileRoute('/catalog/tracks/')({
 });
 
 function CatalogTracksRoute() {
-    const { page, search } = Route.useSearch();
+    const { page, search, state } = Route.useSearch();
     const navigate = useNavigate({ from: Route.fullPath });
 
     return (
         <CatalogTracksPage
             page={page}
             search={search}
+            state={state}
             onPageChange={next => {
                 void navigate({ search: previous => ({ ...previous, page: next }) });
             }}
             onSearchChange={next => {
-                // A narrower search is a shorter list, so the page resets.
-                void navigate({ search: { page: 0, search: next } });
+                // A narrower search is a shorter list, so the page resets. The state filter stays:
+                // "the unmeasured ones, matching this" is one question asked in two boxes.
+                void navigate({ search: previous => ({ ...previous, page: 0, search: next }) });
+            }}
+            onStateChange={next => {
+                void navigate({ search: previous => ({ ...previous, page: 0, state: next }) });
             }}
         />
     );

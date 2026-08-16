@@ -110,7 +110,8 @@ export const queryKeys = {
         album: (id: string) => ['catalog', 'album', id] as const,
         albumTracks: (id: string, page: number, search?: string) => ['catalog', 'album', id, 'tracks', page, search ?? ''] as const,
         albumEnrichment: (id: string) => ['catalog', 'album', id, 'enrichment'] as const,
-        tracks: (page: number, search?: string) => ['catalog', 'tracks', page, search ?? ''] as const,
+        /** Keyed on the state filter too: a filtered list is a different request, not a stale one. */
+        tracks: (page: number, search?: string, state?: string) => ['catalog', 'tracks', page, search ?? '', state ?? ''] as const,
         /**
          * One record and everything it has accumulated. Separate from `trackEnrichment` because they
          * go stale for different reasons: this moves when the station plays, fetches or measures the

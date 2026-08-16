@@ -18,6 +18,8 @@ import {
     TrackDetail,
     TrackEnrichmentDetail,
     TrackPage,
+    TrackQuery,
+    TrackQueryInput,
 } from '../modules/catalog/types/catalog.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
@@ -190,7 +192,7 @@ CatalogRouter.get('/catalog/albums/:id/tracks', requirePolicy({ policy: 'platfor
         }),
     );
 
-    const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
+    const query = await parseAndValidate(ctx.query, TrackQueryInput.strict());
 
     const service = ctx.container.get(TracksService);
     const result: TrackPage = await service.listTracksByAlbum(id, query);
@@ -267,7 +269,7 @@ CatalogRouter.get('/catalog/tracks/:id/enrichment', requirePolicy({ policy: 'pla
  * from [catalog.ck](file://./../../data/contracts/catalog/catalog.ck#L223)
  */
 CatalogRouter.get('/catalog/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
-    const query = await parseAndValidate(ctx.query, CatalogQueryInput.strict());
+    const query = await parseAndValidate(ctx.query, TrackQueryInput.strict());
 
     const service = ctx.container.get(TracksService);
     const result: TrackPage = await service.listTracks(query);

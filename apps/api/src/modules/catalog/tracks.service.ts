@@ -1,10 +1,10 @@
 import { Injectable } from 'injectkit';
-import { Pagination } from '../shared/types/pagination.js';
+import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { httpError } from '@maroonedsoftware/errors';
 import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
 import { PlayHistoryRepository } from '#modules/director/play.history.repository.js';
 import { TrackAudioRepository } from '#modules/playout/audio/track.audio.repository.js';
-import { CatalogQueryInput, RateInput, Track, TrackDetail } from './types/catalog.types.js';
+import { RateInput, Track, TrackDetail, TrackPage, TrackQueryInput, TrackRow } from './types/catalog.types.js';
 import { TracksRepository } from './tracks.repository.js';
 import { ratingToColumn, withRating } from './rating.js';
 import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
@@ -27,7 +27,7 @@ export class TracksService {
         private readonly history: PlayHistoryRepository,
     ) {}
 
-    async listTracks(query: CatalogQueryInput): Promise<{ meta: Pagination; data: Track[] }> {
+    async listTracks(query: TrackQueryInput): Promise<TrackPage> {
         return this.page(query);
     }
 
@@ -70,7 +70,7 @@ export class TracksService {
     }
 
     /** An album with no tracks is an empty page; the album's own endpoint is what says whether the id exists. */
-    async listTracksByAlbum(albumId: string, query: CatalogQueryInput): Promise<{ meta: Pagination; data: Track[] }> {
+    async listTracksByAlbum(albumId: string, query: TrackQueryInput): Promise<TrackPage> {
         return this.page(query, albumId);
     }
 
@@ -93,9 +93,30 @@ export class TracksService {
         return parseAndValidate(withRating(row), Track);
     }
 
-    private async page(query: CatalogQueryInput, albumId?: string): Promise<{ meta: Pagination; data: Track[] }> {
-        const { page, pageSize, sort, search } = query;
-        const { total, data } = await this.tracksRepository.listTracks({ limit: pageSize, offset: page * pageSize, sort, search }, albumId);
-        return { meta: { total, page, pageSize, sort }, data: await parseAndValidateArray(data.map(withRating), Track) };
+    /**
+     * One page of tracks, plus what the station has of the whole set.
+     *
+     * The counts run beside the page rather than being derived from it, and they ignore the state
+     * filter while the page honours it: the counts are what an operator CHOOSES a filter from, so
+     * narrowing them by the current choice would answer "of the benched records, how many are
+     * benched". Both go through the same search and album narrowing, so the denominator is the set
+     * the operator is looking at.
+     */
+    private async page(query: TrackQueryInput, albumId?: string): Promise<TrackPage> {
+        const { page, pageSize, sort, search, state } = query;
+        // The version the station still trusts, passed in rather than read in the repository: what
+        // counts as a good measurement is the analysis module's rule, not the catalog's.
+        const listQuery = { limit: pageSize, offset: page * pageSize, sort, search, state, schemaVersion: ANALYSIS_SCHEMA_VERSION };
+
+        const [{ total, data }, states] = await Promise.all([
+            this.tracksRepository.listTracks(listQuery, albumId),
+            this.tracksRepository.trackStateCounts(listQuery, albumId),
+        ]);
+
+        return {
+            meta: { total, page, pageSize, sort },
+            data: await parseAndValidateArray(data.map(withRating), TrackRow),
+            states,
+        };
     }
 }

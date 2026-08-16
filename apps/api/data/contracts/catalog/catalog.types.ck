@@ -130,6 +130,50 @@ contract CatalogQuery: Pagination & {
     search?: string(min=1, max=200)
 }
 
+# Which records to show, by what the station has of them rather than by what they are.
+#
+#   cached      the audio is on this machine, so it can be committed to the running order now
+#   uncached    it is not, which for most of a library is ordinary rather than wrong
+#   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
+#   benched     every copy written off, which is the one state that means it CANNOT air
+#   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
+contract TrackState: enum(cached, uncached, unmeasured, benched, failing)
+
+# A track list, narrowed by what the station has of each record as well as by name.
+#
+# Its own contract rather than a field on `CatalogQuery`, because that one is shared with the artist
+# and album lists where none of these states means anything.
+contract TrackQuery: CatalogQuery & {
+    state?: TrackState
+}
+
+# How much of the library is in each state, over the whole filtered set rather than this page.
+#
+# The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
+# `docs/todo/analysis-queue-ordering.md` necessary, and it was a psql query then. `total` is the
+# same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
+# read as N of M without reaching into the pager.
+contract TrackStateCounts: {
+    total: readonly int(min=0)
+    cached: readonly int(min=0)
+    measured: readonly int(min=0)
+    enriched: readonly int(min=0)
+    benched: readonly int(min=0)
+    failing: readonly int(min=0)
+}
+
+# A track as a LIST shows it: the record, plus three facts about what the station has of it.
+#
+# Three booleans and no more, deliberately. They are what a row can afford — one `exists` each, off
+# the query that was already running — and everything wider (which providers, how many bytes, why the
+# last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
+# the detail page in a table cell.
+contract TrackRow: Track & {
+    hasAudio: readonly boolean # The bytes are on this machine
+    measured: readonly boolean # Measured, COMPLETE, and at a schema version the station still trusts
+    enriched: readonly boolean # At least one provider has answered about it
+}
+
 # One page of each row type. Declared rather than inlined on the five list operations, so the shape
 # has a name the console can import instead of restating `{ meta, data }` at every call site.
 #
@@ -147,9 +191,10 @@ contract AlbumPage: { # One page of albums
     data: array(Album)
 }
 
-contract TrackPage: { # One page of tracks
+contract TrackPage: { # One page of tracks, with what the station has of each and of the whole set
     meta: Pagination
-    data: array(Track)
+    data: array(TrackRow)
+    states: TrackStateCounts
 }
 
 # What enrichment stored, read back. Three payload shapes because the SDK has three: a recording,

@@ -1,13 +1,136 @@
 import { Injectable } from 'injectkit';
-import { sql } from 'kysely';
+import { sql, type ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
+import type { DB } from '../data/db.js';
 import { CatalogListQuery, likeContains } from './catalog.query.js';
 import { artUrl } from './catalog.art.js';
 import { ratingFromColumn } from './rating.js';
-import type { Rating } from './types/catalog.types.js';
+import type { Rating, TrackState } from './types/catalog.types.js';
 
 /** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
 const ALBUM_IMAGE_COLUMN = 'deadair.albums.image_url';
+
+/**
+ * What a track list can be narrowed by, on top of the shared page and search.
+ *
+ * `schemaVersion` rides along rather than being read here because "measured" means measured at a
+ * version the station still trusts, and that constant belongs to the analysis module — a catalog
+ * repository importing it would be the catalog deciding what a good measurement is.
+ */
+export type TrackListQuery = CatalogListQuery & {
+    state?: TrackState;
+    schemaVersion: number;
+};
+
+/** The tables a track list has in scope, for the predicates below. */
+type TrackScope = ExpressionBuilder<DB, 'deadair.tracks' | 'deadair.artists' | 'deadair.albums'>;
+
+/**
+ * The bytes are on this machine.
+ *
+ * `exists` over the binding join rather than a join into the list, because a record with four copies
+ * would otherwise come back four times the moment one of them had audio. The predicate is
+ * `checksum is not null`, the same one every other reader of `track_audio` uses: a row with no
+ * checksum is a remembered failure rather than a cache hit.
+ */
+const hasAudio = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackSources as s')
+            .innerJoin('deadair.trackAudio as a', 'a.sourceId', 's.id')
+            .select('s.id')
+            .whereRef('s.trackId', '=', 'deadair.tracks.id')
+            .where('a.checksum', 'is not', null),
+    );
+
+/**
+ * Measured, and trustworthy about it.
+ *
+ * Three conditions and all three are load-bearing: a row exists, its `complete` is true, and its
+ * schema is one the station still reads. A measurement of a truncated download is confident and
+ * wrong, which is why `complete` is separate from `analyzed_at` in the first place, and a row from
+ * an older schema may hold fields that have since changed meaning.
+ */
+const isMeasured = (eb: TrackScope, schemaVersion: number) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackAnalysis as an')
+            .select('an.id')
+            .whereRef('an.trackId', '=', 'deadair.tracks.id')
+            .where('an.complete', '=', true)
+            .where('an.schemaVersion', '>=', schemaVersion),
+    );
+
+/**
+ * Some provider has answered about it.
+ *
+ * A row with an empty payload is a recorded MISS — the provider was asked and had nothing — so it
+ * does not count as enriched, which is why this looks at the payload rather than at the row. The
+ * same rule `EnrichmentReadService` applies when it decides `found`.
+ */
+const isEnriched = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackEnrichment as e')
+            .select('e.id')
+            .whereRef('e.trackId', '=', 'deadair.tracks.id')
+            .where(sql<boolean>`e.data <> '{}'::jsonb`),
+    );
+
+/**
+ * Every copy written off, which is the one state that means the record CANNOT air.
+ *
+ * Two halves, and the first is what stops it swallowing a different fact: there has to BE a copy.
+ * A record nobody has a copy of at all is an import whose lookup never resolved, which is its own
+ * problem and reads as `uncached` rather than as benched.
+ */
+const isBenched = (eb: TrackScope) =>
+    eb.and([
+        eb.exists(eb.selectFrom('deadair.trackSources as s').select('s.id').whereRef('s.trackId', '=', 'deadair.tracks.id')),
+        eb.not(
+            eb.exists(
+                eb
+                    .selectFrom('deadair.trackSources as s')
+                    .select('s.id')
+                    .whereRef('s.trackId', '=', 'deadair.tracks.id')
+                    .where('s.playable', '=', true)
+                    .where('s.missingAt', 'is', null),
+            ),
+        ),
+    ]);
+
+/**
+ * A fetch has failed and is backing off.
+ *
+ * Not the same as benched and usually the state before it: four consecutive failures is what writes
+ * a copy off, so this is the window in which an operator can still do something about the upstream.
+ */
+const isFailing = (eb: TrackScope) =>
+    eb.exists(
+        eb
+            .selectFrom('deadair.trackSources as s')
+            .innerJoin('deadair.trackAudio as a', 'a.sourceId', 's.id')
+            .select('s.id')
+            .whereRef('s.trackId', '=', 'deadair.tracks.id')
+            .where('a.checksum', 'is', null)
+            .where('a.attempts', '>', 0),
+    );
+
+/** One state, as a predicate over the list query. */
+function stateFilter(eb: TrackScope, state: TrackState, schemaVersion: number) {
+    switch (state) {
+        case 'cached':
+            return hasAudio(eb);
+        case 'uncached':
+            return eb.not(hasAudio(eb));
+        case 'unmeasured':
+            return eb.not(isMeasured(eb, schemaVersion));
+        case 'benched':
+            return isBenched(eb);
+        case 'failing':
+            return isFailing(eb);
+    }
+}
 
 /** `titleKey` is a match key for ingest and never read out; the two names are joined in below. */
 const TRACK_COLUMNS = [
@@ -44,8 +167,8 @@ export class TracksRepository extends DataRepository {
     /**
      * @param albumId - Narrows to one album's tracks. Absent lists the whole catalog.
      */
-    async listTracks(query: CatalogListQuery, albumId?: string) {
-        const { limit, offset, sort, search } = query;
+    async listTracks(query: TrackListQuery, albumId?: string) {
+        const { limit, offset, sort, search, state, schemaVersion } = query;
 
         let scoped = this.readable();
         if (albumId !== undefined) {
@@ -54,6 +177,9 @@ export class TracksRepository extends DataRepository {
         if (search !== undefined) {
             scoped = scoped.where('deadair.tracks.title', 'ilike', likeContains(search));
         }
+        if (state !== undefined) {
+            scoped = scoped.where(eb => stateFilter(eb, state, schemaVersion));
+        }
 
         const { total } = await scoped.select(eb => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow();
         const data = await scoped
@@ -61,6 +187,14 @@ export class TracksRepository extends DataRepository {
             // A track's art is its record's: nothing hangs a cover off a recording. Off the join
             // that is already there, so a list of fifty rows still costs one query.
             .select(artUrl(ALBUM_IMAGE_COLUMN, 'albumImageUrl'))
+            // Three `exists` rather than three joins, which is what keeps a page of fifty at one
+            // query and no row multiplication: a record with four copies must not come back four
+            // times because one of them has bytes.
+            .select(eb => [
+                hasAudio(eb).as('hasAudio'),
+                isMeasured(eb, schemaVersion).as('measured'),
+                isEnriched(eb).as('enriched'),
+            ])
             .orderBy('deadair.tracks.title', sort)
             .orderBy('deadair.tracks.id', 'asc')
             .limit(limit)
@@ -68,6 +202,45 @@ export class TracksRepository extends DataRepository {
             .execute();
 
         return { total: Number(total), data };
+    }
+
+    /**
+     * How much of the library is in each state, over the same set the page was drawn from.
+     *
+     * One query with five conditional counts rather than five queries, because they are all the same
+     * scan: the aggregate an operator reads first is "N of M measured", and asking the database five
+     * times for one sentence would be five sequential scans of the catalog per page view.
+     *
+     * It honours `search` and the album narrowing and deliberately IGNORES `state`: the counts are
+     * what the filter is chosen FROM, so filtering them by the current choice would answer "of the
+     * benched records, how many are benched".
+     */
+    async trackStateCounts(query: TrackListQuery, albumId?: string) {
+        const { search, schemaVersion } = query;
+
+        let scoped = this.readable();
+        if (albumId !== undefined) scoped = scoped.where('deadair.tracks.albumId', '=', albumId);
+        if (search !== undefined) scoped = scoped.where('deadair.tracks.title', 'ilike', likeContains(search));
+
+        const counted = await scoped
+            .select(eb => [
+                eb.fn.countAll<number>().as('total'),
+                eb.fn.count<number>(eb.case().when(hasAudio(eb)).then(1).end()).as('cached'),
+                eb.fn.count<number>(eb.case().when(isMeasured(eb, schemaVersion)).then(1).end()).as('measured'),
+                eb.fn.count<number>(eb.case().when(isEnriched(eb)).then(1).end()).as('enriched'),
+                eb.fn.count<number>(eb.case().when(isBenched(eb)).then(1).end()).as('benched'),
+                eb.fn.count<number>(eb.case().when(isFailing(eb)).then(1).end()).as('failing'),
+            ])
+            .executeTakeFirstOrThrow();
+
+        return {
+            total: Number(counted.total),
+            cached: Number(counted.cached),
+            measured: Number(counted.measured),
+            enriched: Number(counted.enriched),
+            benched: Number(counted.benched),
+            failing: Number(counted.failing),
+        };
     }
 
     /**

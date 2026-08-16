@@ -1,8 +1,9 @@
 import { keepPreviousData, queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { Album, Artist, Rating } from '@deadair/sdk';
+import type { Album, Artist, Rating, TrackState } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
+import { TRACK_STATES } from '../components/catalog/catalog.page.params';
 
 /**
  * How long a catalog read stays fresh.
@@ -30,6 +31,11 @@ export interface CatalogPageInput {
     /** Zero-based, matching the API. The Mantine pager is one-based and converts at the edge. */
     page: number;
     search?: string;
+}
+
+/** A page of tracks, which can also be narrowed by what the station has of each record. */
+export interface CatalogTrackPageInput extends CatalogPageInput {
+    state?: string;
 }
 
 /**
@@ -146,14 +152,21 @@ export function catalogTrackEnrichmentOptions(id: string) {
     });
 }
 
-export function catalogTracksOptions(input: CatalogPageInput) {
+export function catalogTracksOptions(input: CatalogTrackPageInput) {
     return queryOptions({
-        queryKey: queryKeys.catalog.tracks(input.page, input.search),
-        queryFn: () => sdk.catalog.listTracks(pageQuery(input)),
+        queryKey: queryKeys.catalog.tracks(input.page, input.search, input.state),
+        // The state rides the same query as the page and the search, so a filtered list is a
+        // different request rather than the same one filtered afterwards — which is what keeps
+        // `meta.total` describing the set the pager is paging through.
+        queryFn: () => sdk.catalog.listTracks({ ...pageQuery(input), state: trackState(input.state) }),
         staleTime: CATALOG_STALE_TIME,
         placeholderData: keepPreviousData,
     });
 }
+
+/** An empty filter is no filter, matching how `search` is dropped rather than sent empty. */
+const trackState = (state: string | undefined): TrackState | undefined =>
+    TRACK_STATES.find((known): known is TrackState => known === state);
 
 /**
  * Every cached list that could be showing a row of this kind, marked stale.

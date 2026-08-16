@@ -1,0 +1,295 @@
+import { Fragment, useState } from 'react';
+import { Badge, Box, Button, Card, Code, Collapse, Group, SegmentedControl, Stack, Text, Tooltip, UnstyledButton } from '@mantine/core';
+import type { ScriptAttempt, ScriptOutcome } from '@deadair/sdk';
+
+import { apiErrorMessage } from '../../api/sdk.error';
+import { useScriptHistory } from '../../api/scripts.queries';
+import { dayOf, formatDay, formatMoment, formatMomentFull } from '../activity/activity.moment';
+import { ErrorAlert } from '../shared/error.alert';
+import { Eyebrow } from '../shared/eyebrow';
+import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
+import { StatusLamp } from '../shared/status.lamp';
+import type { StatusTone } from '../shared/status';
+
+const OUTCOMES: { value: ScriptOutcome | 'all'; label: string }[] = [
+    { value: 'all', label: 'Everything' },
+    { value: 'written', label: 'Written' },
+    { value: 'declined', label: 'Declined' },
+    { value: 'failed', label: 'Failed' },
+];
+
+/**
+ * The two writers the station currently has, by their own `BreakWriter.name`.
+ *
+ * The API takes any string here, because a writer names itself and a third one needs no contract
+ * change. These are the two that exist, so the filter offers them rather than deriving a list from
+ * whichever rows happen to be loaded, which would offer fewer options the further back you read.
+ */
+const WRITERS: { value: string; label: string }[] = [
+    { value: 'all', label: 'Any writer' },
+    { value: 'model', label: 'Model' },
+    { value: 'deterministic', label: 'Floor' },
+];
+
+/**
+ * How an attempt reads, in the console's one status vocabulary.
+ *
+ * A decline is `standby` rather than a fault, and that is the whole point of this page: a model
+ * that declined and let the floor write is the registry working exactly as designed, and painting
+ * it as a failure would make a healthy station look broken. Only a `failed` attempt, where
+ * something threw, is worth looking for.
+ */
+const OUTCOME_TONE: Record<ScriptOutcome, StatusTone> = {
+    written: 'ok',
+    declined: 'standby',
+    failed: 'fault',
+};
+
+/**
+ * Everything the station has written, including what it decided not to say.
+ *
+ * One row per write ATTEMPT rather than per break, which is what makes this worth reading: a model
+ * that declined and the floor that covered for it are two rows, and the second on its own reads as
+ * a station that never had a model. The API unions nothing here and this page decides nothing; the
+ * rows were written by the writers themselves as they ran.
+ *
+ * The prompt and the raw answer appear only for rows written while `llm.captureWrites` was on,
+ * which is a switch for an evening of prompt tuning rather than a default. A row without them is
+ * the ordinary case and says so.
+ */
+export function ScriptsPage() {
+    const [outcome, setOutcome] = useState<ScriptOutcome | 'all'>('all');
+    const [writer, setWriter] = useState<string>('all');
+
+    const history = useScriptHistory({ ...(outcome === 'all' ? {} : { outcome }), ...(writer === 'all' ? {} : { writer }) }, true);
+
+    const attempts = history.data?.pages.flatMap(page => page.attempts) ?? [];
+    const failure = history.isError ? apiErrorMessage(history.error, 'The script history could not be read.') : undefined;
+
+    return (
+        <Stack gap="lg">
+            <PageHeader
+                title="Scripts"
+                description={
+                    <Text size="sm" c="dimmed">
+                        Everything the station has written, newest first, one entry per attempt. A model that declined and the line that went out
+                        instead are both here.
+                    </Text>
+                }
+            />
+
+            <Group gap="md" wrap="wrap">
+                <SegmentedControl
+                    size="xs"
+                    data={OUTCOMES}
+                    value={outcome}
+                    onChange={value => {
+                        setOutcome(value as ScriptOutcome | 'all');
+                    }}
+                />
+                <SegmentedControl size="xs" data={WRITERS} value={writer} onChange={setWriter} />
+            </Group>
+
+            {failure ? <ErrorAlert title="Nothing to show">{failure}</ErrorAlert> : undefined}
+
+            {history.isPending ? <PageSkeleton variant="rows" count={3} /> : undefined}
+
+            {!history.isPending && attempts.length === 0 && failure === undefined ? (
+                <Card padding="lg">
+                    <Text size="sm" c="dimmed">
+                        {outcome === 'all' && writer === 'all'
+                            ? 'Nothing yet. The station writes here every time it makes a break, whether or not the words made it to air.'
+                            : 'Nothing matches that filter.'}
+                    </Text>
+                </Card>
+            ) : undefined}
+
+            {attempts.length > 0 ? (
+                <Card padding={0}>
+                    <Stack gap={0}>
+                        {attempts.map((attempt, index) => {
+                            const startsDay = dayOf(attempt.at) !== dayOf(attempts[index - 1]?.at);
+
+                            return (
+                                <Fragment key={attempt.id}>
+                                    {startsDay ? <DayHeading at={attempt.at} first={index === 0} /> : undefined}
+                                    <AttemptRow attempt={attempt} first={index === 0 && !startsDay} />
+                                </Fragment>
+                            );
+                        })}
+                    </Stack>
+                </Card>
+            ) : undefined}
+
+            {history.hasNextPage ? (
+                <Group justify="center">
+                    <Button variant="default" loading={history.isFetchingNextPage} onClick={() => void history.fetchNextPage()}>
+                        Load older
+                    </Button>
+                </Group>
+            ) : undefined}
+        </Stack>
+    );
+}
+
+/** Where one day ends and the next begins, as on the activity feed and for the same reason. */
+function DayHeading({ at, first }: { at: string; first: boolean }) {
+    return (
+        <Group px="md" py={6} style={{ borderTop: first ? undefined : '1px solid var(--da-border)', background: 'var(--da-raised)' }}>
+            <Eyebrow>{formatDay(at)}</Eyebrow>
+        </Group>
+    );
+}
+
+interface AttemptRowProps {
+    attempt: ScriptAttempt;
+    first: boolean;
+}
+
+/**
+ * One attempt, with its detail behind a click.
+ *
+ * The row carries what an operator scans for — when, who wrote it, and the words — and everything
+ * that answers "why did it come out like that" is in the panel underneath. Collapsed by default
+ * because the prompt is thousands of words and the point of the list is to read the station's voice
+ * a dozen lines at a time.
+ */
+function AttemptRow({ attempt, first }: AttemptRowProps) {
+    const [open, setOpen] = useState(false);
+
+    // A declined or failed attempt has no words, so the reason takes the line the script would have
+    // had. Without it the row is a timestamp and a badge saying nothing happened.
+    const line = attempt.script ?? attempt.reason ?? '';
+
+    return (
+        <Stack gap={0} style={{ borderTop: first ? undefined : '1px solid var(--da-border)' }}>
+            <UnstyledButton
+                px="md"
+                py={8}
+                onClick={() => {
+                    setOpen(value => !value);
+                }}
+            >
+                <Group gap="sm" wrap="nowrap" align="flex-start">
+                    <Tooltip label={formatMomentFull(attempt.at)} openDelay={300}>
+                        <Text size="xs" c="dimmed" className="da-num" style={{ whiteSpace: 'nowrap' }}>
+                            {formatMoment(attempt.at)}
+                        </Text>
+                    </Tooltip>
+
+                    <Box style={{ flexShrink: 0 }}>
+                        <StatusLamp tone={OUTCOME_TONE[attempt.outcome]} label={attempt.outcome} />
+                    </Box>
+
+                    <Badge size="xs" variant="light" color={attempt.writer === 'model' ? 'grape' : 'gray'} tt="none" style={{ flexShrink: 0 }}>
+                        {attempt.writer}
+                    </Badge>
+
+                    <Text size="sm" c={attempt.script === undefined ? 'dimmed' : undefined} style={{ minWidth: 0, textAlign: 'left' }}>
+                        {line}
+                    </Text>
+                </Group>
+            </UnstyledButton>
+
+            {/* Unmounted rather than hidden while collapsed: a page of fifty rows each holding a
+                few thousand words of prompt is worth not putting in the DOM to save a transition. */}
+            <Collapse expanded={open} keepMounted={false}>
+                <AttemptDetail attempt={attempt} />
+            </Collapse>
+        </Stack>
+    );
+}
+
+/** Everything about one attempt that is not the sentence it produced. */
+function AttemptDetail({ attempt }: { attempt: ScriptAttempt }) {
+    const tokens = attempt.usage?.totalTokens ?? attempt.usage?.outputTokens;
+
+    return (
+        <Stack gap="sm" px="md" pt="xs" pb="md" style={{ background: 'var(--da-raised)' }}>
+            <Group gap="lg" wrap="wrap">
+                <Fact label="Kind" value={attempt.kind} />
+                {attempt.model === undefined ? undefined : <Fact label="Model" value={attempt.model} />}
+                {attempt.source === undefined ? undefined : <Fact label="From" value={attempt.source} />}
+                {attempt.durationMs === undefined ? undefined : <Fact label="Took" value={`${(attempt.durationMs / 1000).toFixed(1)}s`} numeric />}
+                {tokens === undefined ? undefined : <Fact label="Tokens" value={String(tokens)} numeric />}
+            </Group>
+
+            {attempt.previous !== undefined || attempt.next !== undefined ? (
+                <Group gap="lg" wrap="wrap" align="flex-start">
+                    {attempt.previous === undefined ? undefined : <Neighbour label="After" track={attempt.previous} />}
+                    {attempt.next === undefined ? undefined : <Neighbour label="Before" track={attempt.next} />}
+                </Group>
+            ) : undefined}
+
+            {/* Shown for a written attempt too: a model that produced words and a reason produced both. */}
+            {attempt.reason !== undefined && attempt.script !== undefined ? <Fact label="Note" value={attempt.reason} /> : undefined}
+
+            {attempt.raw === undefined ? undefined : (
+                <Stack gap={4}>
+                    <Eyebrow>Answer, before anything read it</Eyebrow>
+                    <Code block style={WRAP}>
+                        {attempt.raw}
+                    </Code>
+                </Stack>
+            )}
+
+            {attempt.prompt === undefined ? (
+                <Text size="xs" c="dimmed">
+                    The prompt was not kept. Turn on <Code>llm.captureWrites</Code> to keep it for the attempts after this one.
+                </Text>
+            ) : (
+                <Stack gap={4}>
+                    <Eyebrow>What it was sent</Eyebrow>
+                    {attempt.prompt.map((message, index) => (
+                        <Stack key={index} gap={2}>
+                            <Text size="xs" c="dimmed" tt="uppercase">
+                                {message.role}
+                            </Text>
+                            <Code block style={WRAP}>
+                                {message.content}
+                            </Code>
+                        </Stack>
+                    ))}
+                </Stack>
+            )}
+        </Stack>
+    );
+}
+
+/**
+ * A prompt is one very long line as often as not, and `Code block` does not wrap.
+ *
+ * Left unwrapped it clips at the card edge rather than scrolling, so the half of a system turn that
+ * matters is simply not on screen. `break-word` as well as `pre-wrap` because a prompt can carry a
+ * URL or a run of punctuation with nowhere to break.
+ */
+const WRAP = { whiteSpace: 'pre-wrap', wordBreak: 'break-word' } as const;
+
+function Fact({ label, value, numeric = false }: { label: string; value: string; numeric?: boolean }) {
+    return (
+        <Stack gap={0}>
+            <Eyebrow>{label}</Eyebrow>
+            <Text size="sm" className={numeric ? 'da-num' : undefined}>
+                {value}
+            </Text>
+        </Stack>
+    );
+}
+
+/** A record the writer was told about, and what it was told. */
+function Neighbour({ label, track }: { label: string; track: NonNullable<ScriptAttempt['previous']> }) {
+    return (
+        <Stack gap={2} style={{ maxWidth: 420 }}>
+            <Eyebrow>{label}</Eyebrow>
+            <Text size="sm">
+                {track.title} <Text span c="dimmed">{track.artist}</Text>
+            </Text>
+            {track.facts?.map((fact, index) => (
+                <Text key={index} size="xs" c="dimmed">
+                    {fact}
+                </Text>
+            ))}
+        </Stack>
+    );
+}

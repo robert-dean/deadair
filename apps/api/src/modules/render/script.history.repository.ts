@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
-import type { DateTime } from 'luxon';
+import { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -76,6 +76,38 @@ export interface ScriptWrite {
 export interface ScriptHistoryEntry extends ScriptWrite {
     id: string;
     at: DateTime;
+}
+
+/** One page of {@link ScriptHistoryRepository.page}, with the filters a console offers. */
+export interface ScriptHistoryPageQuery {
+    limit: number;
+    /** Where the previous page ended, as {@link encodeScriptCursor} wrote it. */
+    before?: string;
+    kind?: string;
+    writer?: string;
+    outcome?: ScriptOutcome;
+}
+
+/** The cursor for the row after this one. */
+export const encodeScriptCursor = (entry: ScriptHistoryEntry): string => `${entry.at.toISO()}|${entry.id}`;
+
+/**
+ * Answers `undefined` for anything this file did not write, which is treated as no cursor at all.
+ *
+ * Split on the FIRST separator, exactly as the activity feed's is: an ISO timestamp cannot contain
+ * one, and splitting on the last would cut an id in half rather than fail loudly.
+ */
+function decodeCursor(cursor: string | undefined): { at: DateTime; id: string } | undefined {
+    if (cursor === undefined) return undefined;
+
+    const separator = cursor.indexOf('|');
+    if (separator <= 0) return undefined;
+
+    const at = DateTime.fromISO(cursor.slice(0, separator));
+    const id = cursor.slice(separator + 1);
+    if (!at.isValid || id === '') return undefined;
+
+    return { at, id };
 }
 
 interface ScriptHistoryRow {
@@ -191,6 +223,44 @@ export class ScriptHistoryRepository extends DataRepository {
 
         const rows = await this.db.selectFrom('deadair.scriptHistory').select(HISTORY_COLUMNS).orderBy('createdAt', 'desc').limit(limit).execute();
 
+        return rows.map(row => toEntry(row as ScriptHistoryRow));
+    }
+
+    /**
+     * One page of what the station has written, newest first.
+     *
+     * A keyset over `(created_at, id)` rather than an offset, for the reason `ActivityRepository`
+     * gives: rows arrive at the head continuously, so an offset re-shows a row on every page as the
+     * table grows under it. The id is half of it because a model's attempt and the floor's attempt
+     * for the same break land in the same millisecond, which is the ordinary case here rather than
+     * a rare one.
+     *
+     * Reads one row more than asked for, so a caller can tell a full page from the end of the table
+     * without counting.
+     *
+     * Filtered on `station_key`, unlike {@link recent}: this is the read a console paginates
+     * through, and a page that mixed two stations would be wrong in a way nothing on it could show.
+     */
+    async page(query: ScriptHistoryPageQuery): Promise<ScriptHistoryEntry[]> {
+        if (query.limit <= 0) return [];
+
+        let statement = this.db
+            .selectFrom('deadair.scriptHistory')
+            .select(HISTORY_COLUMNS)
+            .where('stationKey', '=', this.identity.stationKey)
+            .orderBy('createdAt', 'desc')
+            .orderBy('id', 'desc')
+            .limit(query.limit + 1);
+
+        const cursor = decodeCursor(query.before);
+        if (cursor !== undefined) {
+            statement = statement.where(sql<boolean>`(created_at, id) < (${cursor.at.toISO()}::timestamptz, ${cursor.id})`);
+        }
+        if (query.kind !== undefined) statement = statement.where('kind', '=', query.kind);
+        if (query.writer !== undefined) statement = statement.where('writer', '=', query.writer);
+        if (query.outcome !== undefined) statement = statement.where('outcome', '=', query.outcome);
+
+        const rows = await statement.execute();
         return rows.map(row => toEntry(row as ScriptHistoryRow));
     }
 

@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnairRouteImport } from './routes/onair'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PersonasRouteImport } from './routes/personas'
+import { Route as ScriptsRouteImport } from './routes/scripts'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as VoicesRouteImport } from './routes/voices'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
@@ -62,6 +63,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const PersonasRoute = PersonasRouteImport.update({
   id: '/personas',
   path: '/personas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScriptsRoute = ScriptsRouteImport.update({
+  id: '/scripts',
+  path: '/scripts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
   '/personas': typeof PersonasRoute
+  '/scripts': typeof ScriptsRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
   '/catalog/': typeof CatalogIndexRoute
@@ -155,6 +162,7 @@ export interface FileRoutesByTo {
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
   '/personas': typeof PersonasRoute
+  '/scripts': typeof ScriptsRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
   '/catalog': typeof CatalogIndexRoute
@@ -177,6 +185,7 @@ export interface FileRoutesById {
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
   '/personas': typeof PersonasRoute
+  '/scripts': typeof ScriptsRoute
   '/settings': typeof SettingsRoute
   '/voices': typeof VoicesRoute
   '/catalog/': typeof CatalogIndexRoute
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/onair'
     | '/onboarding'
     | '/personas'
+    | '/scripts'
     | '/settings'
     | '/voices'
     | '/catalog/'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/onair'
     | '/onboarding'
     | '/personas'
+    | '/scripts'
     | '/settings'
     | '/voices'
     | '/catalog'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/onair'
     | '/onboarding'
     | '/personas'
+    | '/scripts'
     | '/settings'
     | '/voices'
     | '/catalog/'
@@ -264,6 +276,7 @@ export interface RootRouteChildren {
   OnairRoute: typeof OnairRoute
   OnboardingRoute: typeof OnboardingRoute
   PersonasRoute: typeof PersonasRoute
+  ScriptsRoute: typeof ScriptsRoute
   SettingsRoute: typeof SettingsRoute
   VoicesRoute: typeof VoicesRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
@@ -327,6 +340,13 @@ declare module '@tanstack/react-router' {
       path: '/personas'
       fullPath: '/personas'
       preLoaderRoute: typeof PersonasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scripts': {
+      id: '/scripts'
+      path: '/scripts'
+      fullPath: '/scripts'
+      preLoaderRoute: typeof ScriptsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -424,6 +444,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnairRoute: OnairRoute,
   OnboardingRoute: OnboardingRoute,
   PersonasRoute: PersonasRoute,
+  ScriptsRoute: ScriptsRoute,
   SettingsRoute: SettingsRoute,
   VoicesRoute: VoicesRoute,
   CatalogIndexRoute: CatalogIndexRoute,

@@ -2,7 +2,18 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
-import type { SegmentCreate, SegmentList, SegmentScanResult, Segment as SegmentView, VoiceList } from './types/render.types.js';
+import type {
+    ScriptAttempt,
+    ScriptHistoryPage,
+    ScriptHistoryQuery,
+    ScriptPromptMessage,
+    SegmentCreate,
+    SegmentList,
+    SegmentScanResult,
+    Segment as SegmentView,
+    VoiceList,
+} from './types/render.types.js';
+import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType, type SegmentExtension } from './segment.store.js';
@@ -17,6 +28,9 @@ import { errorText } from '#modules/shared/error.text.js';
  * ident is the thing that already exists as a recording in the inbox.
  */
 const DEFAULT_KIND = 'talkbreak';
+
+/** What a page of script history holds when the console does not say. A screenful and a bit. */
+const DEFAULT_HISTORY_LIMIT = 50;
 
 /**
  * How long a client may reuse segment audio before asking again.
@@ -51,8 +65,37 @@ export class RenderService {
         private readonly jobs: PgBossJobBroker,
         private readonly speech: SpeechService,
         private readonly samples: VoiceSampleStore,
+        private readonly history: ScriptHistoryRepository,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * What the station has written lately, including the attempts that came to nothing.
+     *
+     * Read-only, and the whole of what this route does: the rows are written by the writers
+     * themselves and nothing here decides anything from them. It reads one row more than it answers
+     * with, which is how a full page is told from the end of the table.
+     */
+    async readScriptHistory(query: ScriptHistoryQuery): Promise<ScriptHistoryPage> {
+        const limit = query.limit ?? DEFAULT_HISTORY_LIMIT;
+
+        const rows = await this.history.page({
+            limit,
+            ...(query.before === undefined ? {} : { before: query.before }),
+            ...(query.kind === undefined ? {} : { kind: query.kind }),
+            ...(query.writer === undefined ? {} : { writer: query.writer }),
+            ...(query.outcome === undefined ? {} : { outcome: query.outcome }),
+        });
+
+        const page = rows.slice(0, limit);
+        const more = rows.length > limit;
+        const last = page.at(-1);
+
+        return {
+            attempts: page.map(toAttempt),
+            ...(more && last !== undefined ? { nextBefore: encodeScriptCursor(last) } : {}),
+        };
+    }
 
     /** Everything the station can play that is not a record. */
     async listSegments(): Promise<SegmentList> {
@@ -210,3 +253,79 @@ const toView = (segment: Segment): SegmentView => ({
     ...(segment.error === undefined ? {} : { error: segment.error }),
     ...(segment.voice === undefined ? {} : { voice: segment.voice }),
 });
+
+/**
+ * The conversation a writer sent, as far as it can be trusted to be one.
+ *
+ * `prompt` is jsonb written from whatever the writer handed over, so nothing about the stored shape
+ * is enforced by the database and a row written by an older build is not something to read through a
+ * compatibility path: an entry that is not a `{ role, content }` pair is dropped. This is a record of
+ * what happened, and a malformed row is better shown short than shown wrong.
+ *
+ * Only ever populated while `llm.captureWrites` is on, so the ordinary answer here is `undefined`.
+ */
+function toPromptMessages(prompt: unknown): ScriptPromptMessage[] | undefined {
+    if (!Array.isArray(prompt)) return undefined;
+
+    const messages = prompt.flatMap(entry => {
+        if (typeof entry !== 'object' || entry === null) return [];
+
+        const { role, content } = entry as { role?: unknown; content?: unknown };
+        if (typeof role !== 'string' || typeof content !== 'string') return [];
+
+        return [{ role, content }];
+    });
+
+    return messages.length === 0 ? undefined : messages;
+}
+
+/** The three counts, when the provider reported any. A usage object with none of them is no usage. */
+function toUsage(usage: Record<string, number> | undefined): ScriptAttempt['usage'] {
+    if (usage === undefined) return undefined;
+
+    const counts = {
+        ...(typeof usage.inputTokens === 'number' ? { inputTokens: usage.inputTokens } : {}),
+        ...(typeof usage.outputTokens === 'number' ? { outputTokens: usage.outputTokens } : {}),
+        ...(typeof usage.totalTokens === 'number' ? { totalTokens: usage.totalTokens } : {}),
+    };
+
+    return Object.keys(counts).length === 0 ? undefined : counts;
+}
+
+/**
+ * A neighbour as the console reads it.
+ *
+ * The copy of `facts` is not ceremony: the stored shape is `readonly string[]` and the generated
+ * contract type is mutable, so the two do not assign without it.
+ */
+const toNeighbour = (track: HistoryTrack): ScriptAttempt['previous'] => ({
+    title: track.title,
+    artist: track.artist,
+    ...(track.facts === undefined ? {} : { facts: [...track.facts] }),
+});
+
+/** One attempt as the console reads it. */
+function toAttempt(entry: ScriptHistoryEntry): ScriptAttempt {
+    const prompt = toPromptMessages(entry.prompt);
+    const usage = toUsage(entry.usage);
+
+    return {
+        id: entry.id,
+        at: entry.at,
+        kind: entry.kind,
+        writer: entry.writer,
+        outcome: entry.outcome,
+        ...(entry.label === undefined ? {} : { label: entry.label }),
+        ...(entry.script === undefined ? {} : { script: entry.script }),
+        ...(entry.model === undefined ? {} : { model: entry.model }),
+        ...(entry.source === undefined ? {} : { source: entry.source }),
+        ...(entry.reason === undefined ? {} : { reason: entry.reason }),
+        ...(entry.segmentId === undefined ? {} : { segmentId: entry.segmentId }),
+        ...(entry.previous === undefined ? {} : { previous: toNeighbour(entry.previous) }),
+        ...(entry.next === undefined ? {} : { next: toNeighbour(entry.next) }),
+        ...(entry.durationMs === undefined ? {} : { durationMs: entry.durationMs }),
+        ...(usage === undefined ? {} : { usage }),
+        ...(entry.raw === undefined ? {} : { raw: entry.raw }),
+        ...(prompt === undefined ? {} : { prompt }),
+    };
+}

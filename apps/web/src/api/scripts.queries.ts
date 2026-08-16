@@ -1,0 +1,58 @@
+import { infiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
+import type { ScriptOutcome } from '@deadair/sdk';
+
+import { sdk } from './client';
+import { queryKeys } from './query.keys';
+
+/**
+ * How often the head of the history is re-read.
+ *
+ * Slower than the activity feed's fifteen seconds, because a row lands here only when the station
+ * writes a break, which is a few times an hour on a talkative station. Fast enough that an operator
+ * tuning a persona sees the next break arrive without reaching for refresh.
+ */
+const SCRIPTS_POLL_MS = 30_000;
+
+/** One screenful and a bit, matching the API's own default. */
+const PAGE_SIZE = 50;
+
+export interface ScriptFilter {
+    kind?: string;
+    writer?: string;
+    outcome?: ScriptOutcome;
+}
+
+/**
+ * What the station has written, page by page.
+ *
+ * Infinite rather than numbered, because the cursor is a keyset: there is no page 2 to ask for,
+ * only what comes after this row.
+ *
+ * Only the FIRST page polls, exactly as the activity feed does. `refetchInterval` on an infinite
+ * query refetches every page it holds, so an operator who has scrolled back would re-read hours of
+ * append-only history to learn what they already know.
+ */
+export function scriptHistoryOptions(filter: ScriptFilter) {
+    return infiniteQueryOptions({
+        queryKey: queryKeys.scripts.history(filter),
+        queryFn: ({ pageParam }) =>
+            sdk.render.readScriptHistory({
+                limit: PAGE_SIZE,
+                ...(pageParam === undefined ? {} : { before: pageParam }),
+                ...(filter.kind === undefined ? {} : { kind: filter.kind }),
+                ...(filter.writer === undefined ? {} : { writer: filter.writer }),
+                ...(filter.outcome === undefined ? {} : { outcome: filter.outcome }),
+            }),
+        initialPageParam: undefined as string | undefined,
+        // `undefined` is how the API says the history has been read to its end, and it is also what
+        // TanStack reads as "there is no next page", so the two agree without a translation.
+        getNextPageParam: page => page.nextBefore,
+        refetchInterval: query => (query.state.data?.pages.length === 1 ? SCRIPTS_POLL_MS : false),
+        refetchIntervalInBackground: true,
+    });
+}
+
+/** Everything the station has written, newest first. */
+export function useScriptHistory(filter: ScriptFilter, enabled: boolean) {
+    return useInfiniteQuery({ ...scriptHistoryOptions(filter), enabled });
+}

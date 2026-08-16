@@ -55,8 +55,44 @@ export interface Voice {
 }
 
 /**
+ * Whether there are words, and if not, which way it went wrong
+ * generated from [ScriptOutcome](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L44)
+ */
+export type ScriptOutcome = 'written' | 'declined' | 'failed';
+
+/**
+ * A record a writer was told about, kept as it was told
+ * generated from [ScriptNeighbour](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L46)
+ */
+export interface ScriptNeighbour {
+    title: string;
+    artist: string;
+    /** What it was shown about the record. A break that said nothing interesting and one that was TOLD nothing interesting read the same from the script alone */
+    facts?: string[];
+}
+
+/**
+ * What the provider said the attempt cost, when it said anything
+ * generated from [ScriptUsage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L52)
+ */
+export interface ScriptUsage {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+}
+
+/**
+ * One turn of the conversation a writer sent
+ * generated from [ScriptPromptMessage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L58)
+ */
+export interface ScriptPromptMessage {
+    role: string;
+    content: string;
+}
+
+/**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L44)
+ * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L96)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -85,4 +121,60 @@ export interface VoiceList {
     pluginId?: string;
     /** Why there are no voices, when there are none */
     reason?: string;
+}
+
+/**
+ * One page of what the station has written, newest first
+ * generated from [ScriptHistoryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L83)
+ */
+export interface ScriptHistoryQuery {
+    limit?: number;
+    /** Where the previous page ended. Opaque, and a keyset rather than an offset because rows arrive at the head continuously. Pass back whatever `nextBefore` said and nothing else */
+    before?: string;
+    kind?: string;
+    writer?: string;
+    outcome?: ScriptOutcome;
+}
+
+/**
+ * One attempt to write something the station would say, including the ones that came to nothing
+ * generated from [ScriptAttempt](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L63)
+ */
+export interface ScriptAttempt {
+    id: string;
+    at: string;
+    /** What sort of break it was for: `talkbreak`, `welcome`, `news` */
+    kind: string;
+    /** The binding that produced or declined it */
+    writer: string;
+    outcome: ScriptOutcome;
+    label?: string;
+    /** The words. Absent for an attempt that produced none */
+    script?: string;
+    /** The model that said it, for a writer that used one */
+    model?: string;
+    /** What the line was rendered from, for a writer working from something an operator can edit */
+    source?: string;
+    /** Why, for anything that is not `written` */
+    reason?: string;
+    /** The segment this was for, while it is still known. The row outlives it */
+    segmentId?: string;
+    previous?: ScriptNeighbour;
+    next?: ScriptNeighbour;
+    /** How long the attempt took */
+    durationMs?: number;
+    usage?: ScriptUsage;
+    /** The answer before anything read it. Only while `llm.captureWrites` is on */
+    raw?: string;
+    /** What the writer sent. Only while `llm.captureWrites` is on */
+    prompt?: ScriptPromptMessage[];
+}
+
+/**
+ * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L91)
+ */
+export interface ScriptHistoryPage {
+    attempts: ScriptAttempt[];
+    /** The cursor for the page after this one, absent once the history has been read to its end */
+    nextBefore?: string;
 }

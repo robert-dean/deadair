@@ -1,6 +1,14 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { bigIntReplacer, parseJson, readContentType } from '../sdk-options.js';
-import type { Segment, SegmentCreate, SegmentList, SegmentScanResult, VoiceList } from './types/render.types.js';
+import { bigIntReplacer, parseJson, buildQueryString, readContentType } from '../sdk-options.js';
+import type {
+    ScriptHistoryPage,
+    ScriptHistoryQuery,
+    Segment,
+    SegmentCreate,
+    SegmentList,
+    SegmentScanResult,
+    VoiceList,
+} from './types/render.types.js';
 
 export class RenderClient {
     constructor(private fetch: SdkFetch) {}
@@ -37,6 +45,18 @@ export class RenderClient {
     }
 
     /**
+     * @name Read script history
+     * @description What the station has written lately, newest first, one page at a time
+     */
+    async readScriptHistory(query?: ScriptHistoryQuery): Promise<ScriptHistoryPage> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/scripts${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<ScriptHistoryPage>(result);
+    }
+
+    /**
      * @name List voices
      * @description The voices the station can be asked to speak in
      */
@@ -49,7 +69,9 @@ export class RenderClient {
      * @name Get voice sample
      * @description A short line spoken in one voice, so an operator can hear it before choosing it
      */
-    async getVoiceSample(voiceId: string): Promise<
+    async getVoiceSample(
+        voiceId: string,
+    ): Promise<
         | {
               status: 200;
               contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
@@ -79,7 +101,9 @@ export class RenderClient {
      * @name Get segment audio
      * @description The audio of one segment
      */
-    async getSegmentAudio(id: string): Promise<
+    async getSegmentAudio(
+        id: string,
+    ): Promise<
         | {
               status: 200;
               contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';

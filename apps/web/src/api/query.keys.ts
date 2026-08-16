@@ -82,6 +82,15 @@ export const queryKeys = {
             ['activity', 'feed', filter.module ?? 'all', filter.minSeverity ?? 'all'] as const,
     },
     /**
+     * Everything the station has written, one row per ATTEMPT. Keyed on the filters for the reason
+     * the activity feed is: a filtered history is not a stale unfiltered one, and sharing the key
+     * would leave a half-filtered list on screen while the new first page loaded.
+     */
+    scripts: {
+        history: (filter: { kind?: string; writer?: string; outcome?: string }) =>
+            ['scripts', 'history', filter.kind ?? 'all', filter.writer ?? 'all', filter.outcome ?? 'all'] as const,
+    },
+    /**
      * The station's programming, as opposed to `playout`, which is what the player was actually
      * handed. There is one running order and the director owns it; the transport is what has become
      * of the head of it.

@@ -66,6 +66,29 @@ operation /segments/scan: {
     }
 }
 
+# Everything the station has ever written, including what it decided not to say.
+#
+# One row per write ATTEMPT rather than per break, so a model that declined and the floor that
+# covered for it are two entries. Read-only and it stays that way: this is the record of what
+# happened, and a record somebody can edit is not one.
+#
+# `platform.view` like the rest of the file, on the activity feed's argument: every field here is
+# the station's own writing about its own records. The one thing that is not is `prompt` and `raw`,
+# which are the station's own prompt and the model's answer to it, written only while
+# `llm.captureWrites` is on and still nobody else's text.
+operation /scripts: {
+    get: { # What the station has written lately, newest first, one page at a time
+        name: Read script history
+        service: RenderService.readScriptHistory
+        query: ScriptHistoryQuery
+        response: {
+            200: {
+                application/json: ScriptHistoryPage
+            }
+        }
+    }
+}
+
 operation /voices: {
     get: { # The voices the station can be asked to speak in
         name: List voices

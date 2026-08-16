@@ -36,11 +36,15 @@ const GROUPS: NavGroup[] = [
     },
     {
         // Personas beside Voices, because the two are halves of the same question: who the station
-        // is, and what it sounds like saying it. A persona picks one of these voices.
+        // is, and what it sounds like saying it. A persona picks one of these voices. Scripts is
+        // the third half of it and belongs here rather than under Air beside Activity: it answers
+        // how a persona actually SOUNDS, which is what an operator asks while writing one, and the
+        // activity feed already carries the same breaks as moments in a broadcast.
         title: 'Station',
         items: [
             { to: '/personas', label: 'Personas' },
             { to: '/voices', label: 'Voices' },
+            { to: '/scripts', label: 'Scripts' },
             { to: '/plugins', label: 'Plugins' },
         ],
     },

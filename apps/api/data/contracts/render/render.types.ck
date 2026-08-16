@@ -41,6 +41,58 @@ contract VoiceList: { # The voices the station's current speech plugin offers
     reason?: string(max=500) # Why there are no voices, when there are none
 }
 
+contract ScriptOutcome: enum(written, declined, failed) # Whether there are words, and if not, which way it went wrong
+
+contract ScriptNeighbour: { # A record a writer was told about, kept as it was told
+    title: string(min=1, max=500)
+    artist: string(min=1, max=500)
+    facts?: array(string(max=1000)) # What it was shown about the record. A break that said nothing interesting and one that was TOLD nothing interesting read the same from the script alone
+}
+
+contract ScriptUsage: { # What the provider said the attempt cost, when it said anything
+    inputTokens?: int(min=0)
+    outputTokens?: int(min=0)
+    totalTokens?: int(min=0)
+}
+
+contract ScriptPromptMessage: { # One turn of the conversation a writer sent
+    role: string(min=1, max=50)
+    content: string(max=100000)
+}
+
+contract ScriptAttempt: { # One attempt to write something the station would say, including the ones that came to nothing
+    id: string(min=1, max=100)
+    at: datetime
+    kind: string(min=1, max=50) # What sort of break it was for: `talkbreak`, `welcome`, `news`
+    writer: string(min=1, max=100) # The binding that produced or declined it
+    outcome: ScriptOutcome
+    label?: string(max=400)
+    script?: string(max=20000) # The words. Absent for an attempt that produced none
+    model?: string(max=200) # The model that said it, for a writer that used one
+    source?: string(max=200) # What the line was rendered from, for a writer working from something an operator can edit
+    reason?: string(max=2000) # Why, for anything that is not `written`
+    segmentId?: string(max=100) # The segment this was for, while it is still known. The row outlives it
+    previous?: ScriptNeighbour
+    next?: ScriptNeighbour
+    durationMs?: int(min=0) # How long the attempt took
+    usage?: ScriptUsage
+    raw?: string(max=100000) # The answer before anything read it. Only while `llm.captureWrites` is on
+    prompt?: array(ScriptPromptMessage) # What the writer sent. Only while `llm.captureWrites` is on
+}
+
+contract ScriptHistoryQuery: { # One page of what the station has written, newest first
+    limit?: int(min=1, max=200)
+    before?: string(min=1, max=200) # Where the previous page ended. Opaque, and a keyset rather than an offset because rows arrive at the head continuously. Pass back whatever `nextBefore` said and nothing else
+    kind?: string(min=1, max=50)
+    writer?: string(min=1, max=100)
+    outcome?: ScriptOutcome
+}
+
+contract ScriptHistoryPage: {
+    attempts: array(ScriptAttempt)
+    nextBefore?: string(min=1, max=200) # The cursor for the page after this one, absent once the history has been read to its end
+}
+
 contract SegmentScanResult: { # What one pass over the inbox did
     scanned: int(min=0) # Audio files seen, whether or not they were already known
     imported: int(min=0) # Segments the station did not have before this pass

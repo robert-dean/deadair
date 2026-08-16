@@ -66,6 +66,10 @@ const service = (options: ServiceOptions = {}) => {
     // Why nobody can speak is SpeechService's sentence to write, and is tested there.
     const explainSpeaker = vi.fn().mockReturnValue('no active plugin can speak; install and enable a TTS plugin');
 
+    const page = vi.fn(async () => {
+        throw new Error('this suite does not read script history');
+    });
+
     const samples = {
         keyFor: (pluginId: string, voiceId: string) => `key:${pluginId}:${voiceId}`,
         extensions: ['mp3', 'wav'],
@@ -82,6 +86,9 @@ const service = (options: ServiceOptions = {}) => {
             { send } as never,
             { speaker, speakers, voices, speakAs, explainSpeaker } as never,
             samples as never,
+            // Script history is a read this suite never makes, so it is a stub rather than a fake:
+            // a page() nobody calls that throws is a better failure than one that answers plausibly.
+            { page } as never,
             logger as never,
         ),
         findById,

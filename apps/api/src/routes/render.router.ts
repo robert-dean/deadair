@@ -1,7 +1,15 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { RenderService } from '#src/modules/render/render.service.js';
-import { Segment, SegmentCreate, SegmentList, SegmentScanResult, VoiceList } from '../modules/render/types/render.types.js';
+import {
+    ScriptHistoryPage,
+    ScriptHistoryQuery,
+    Segment,
+    SegmentCreate,
+    SegmentList,
+    SegmentScanResult,
+    VoiceList,
+} from '../modules/render/types/render.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -51,8 +59,23 @@ RenderRouter.post('/segments/scan', requirePolicy({ policy: 'platform.manage' })
 });
 
 /**
+ * What the station has written lately, newest first, one page at a time
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L80)
+ */
+RenderRouter.get('/scripts', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const query = await parseAndValidate(ctx.query, ScriptHistoryQuery.strict());
+
+    const service = ctx.container.get(RenderService);
+    const result: ScriptHistoryPage = await service.readScriptHistory(query);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * The voices the station can be asked to speak in
- * from [render.ck](file://./../../data/contracts/render/render.ck#L70)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L93)
  */
 RenderRouter.get('/voices', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -65,7 +88,7 @@ RenderRouter.get('/voices', requirePolicy({ policy: 'platform.view' }), async ct
 
 /**
  * A short line spoken in one voice, so an operator can hear it before choosing it
- * from [render.ck](file://./../../data/contracts/render/render.ck#L95)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L118)
  */
 RenderRouter.get('/voices/:voiceId/sample', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { voiceId } = await parseAndValidate(
@@ -91,7 +114,7 @@ RenderRouter.get('/voices/:voiceId/sample', requirePolicy({ policy: 'platform.vi
 
 /**
  * The audio of one segment
- * from [render.ck](file://./../../data/contracts/render/render.ck#L121)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L144)
  * anonymous access, no security required
  */
 RenderRouter.get('/segments/:id/audio', async ctx => {

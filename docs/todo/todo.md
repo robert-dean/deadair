@@ -82,3 +82,5 @@ points at that file. Checked against the tree on 2026-08-11.
       line. A `render.segment` job that runs while the speech plugin is initializing writes the
       break off as `failed`; a planted one burns a retry and a break waiting for its audio is lost
       outright. The race is fine, the write-off is not
+
+[ ] settle the system and build an api that a plugin could use

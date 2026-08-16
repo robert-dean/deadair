@@ -34,13 +34,23 @@
  */
 
 import { TEMPLATE_VOCABULARY, unknownPlaceholders } from '#modules/director/break.templates.js';
-import { jsonObjects, withoutThinking } from '#modules/shared/json.objects.js';
+import { jsonObjects, parseLooseJson, withoutThinking } from '#modules/shared/json.objects.js';
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { PersonaDraft } from './persona.js';
 import { dictionMarkersIn, isPersonaBrevity, PERSONA_SHEET_LIMITS } from './persona.sheet.js';
 
 /** How long a description may be. Long enough for a paragraph, short enough not to be a script. */
 export const MAX_DESCRIPTION = 2000;
+
+/**
+ * How many sample lines a marker may be earned from.
+ *
+ * Higher than `PERSONA_SHEET_LIMITS.samples`, which is what gets STORED. A model that wrote six lines
+ * in character has given six lines of evidence about which words it reaches for, and throwing half of
+ * it away before judging would make the marker check depend on how many examples a prompt happens to
+ * carry. Bounded rather than unbounded only so a runaway answer cannot make this quadratic.
+ */
+const MAX_SAMPLES_JUDGED = 12;
 
 /**
  * Which model writes a persona.
@@ -110,11 +120,30 @@ const TEMPLATE_VALUES = TEMPLATE_VOCABULARY.filter(value => !KIND_SPECIFIC_VALUE
  * path here — `LlmService` is a transport for a conversation and nothing more — and because a local
  * model follows an example far more reliably than it follows a description of one.
  *
- * The instructions that matter are the ones about the two fields nothing else can repair. `samples`
- * has to be the character actually talking, since it is both the few-shot the break writer sees and
- * the evidence this file checks the markers against. And `dictionMarkers` has to be words the
- * character uses OFTEN rather than words that are unusual — which is the one instruction a model
- * gets wrong by trying to be helpful, and the one the check below exists to catch.
+ * ## The field ORDER is load-bearing, and it is what makes the markers good
+ *
+ * `samples` is asked for BEFORE `dictionMarkers`, which is the opposite of the obvious order and is
+ * the single thing that decides whether the marker list is usable. A model answering JSON writes the
+ * keys in the order it was shown them and does not go back, so asking for markers first makes it
+ * INVENT a list and then, separately, write sample lines — two independent acts of generation that
+ * nothing reconciles. The check downstream then compares them and drops most of the list.
+ *
+ * Measured before changing it: a trawlerman offered `ay`, `tide` and `port` and kept only `blimey`,
+ * and a chip-shop soul DJ offered `tonight` and lost it. Every one of those failures is the same
+ * failure — a word chosen for the character's WORLD rather than for its sentences.
+ *
+ * With the samples written first the markers become an EXTRACTION: the model is reading words back
+ * off lines it has already committed to, and a word it just used twice is a word it will use again.
+ * That also closes the spelling half of it, which nothing else could — `ay` and `aye` are the same
+ * marker to an author and different strings to {@link matchesDictionMarker}.
+ *
+ * ## Naming the categories, because "frequent" is not a category a model can search
+ *
+ * A model asked for frequent words has no way to rank its own vocabulary, so it falls back to what
+ * is DISTINCTIVE — which is exactly wrong. The four categories below are the ones that recur in
+ * every break regardless of what the break is about: what the character calls the listener, how it
+ * says yes and no, how it contracts, and what it reaches for as filler. A noun cannot be in any of
+ * them, which is the point.
  */
 export function personaPrompt(description: string): LlmMessage[] {
     return [
@@ -123,31 +152,43 @@ export function personaPrompt(description: string): LlmMessage[] {
             content: [
                 'You invent presenters for a radio station. Given a description, write one coherent character: who they are, how they speak, and what they play.',
                 '',
-                'Answer with one JSON object and nothing else, in this shape:',
+                'Answer with one JSON object and nothing else, with the keys in this order:',
                 '{',
                 '  "key": "a short lowercase slug, letters only",',
                 '  "label": "what the console calls this character, a few words",',
                 '  "style": "completes the sentence \\"You are …\\". A presenter, not a different job. One clause.",',
                 '  "djName": "the name they go by on air, or omit it if they are a manner rather than a character",',
                 '  "diction": ["how they speak, as rules that apply to EVERY sentence: grammar, contractions, word substitutions"],',
-                '  "dictionMarkers": ["single words this character says OFTEN"],',
+                '  "samples": ["at least six lines in their own voice, as said on air. Between them they must use EVERY diction rule above"],',
+                '  "dictionMarkers": ["words COPIED from the sample lines you just wrote — see the rules below"],',
                 '  "quirks": ["what they always and never do on air, and what they care about"],',
                 '  "catchphrases": ["signature phrases, at most three"],',
                 '  "avoid": ["wording that would break the character"],',
                 '  "background": "a couple of grounded facts they may mention about themselves",',
                 '  "brevity": "omit this unless the character is notably terse; \\"short\\" for one who says less than most, \\"one-line\\" for one who barely speaks",',
-                '  "samples": ["lines in their own voice, as they would actually be said on air"],',
                 '  "music": "what this character plays, in a sentence",',
                 `  "templates": "plain phrasings in this character's voice, one per line, using only these values: ${TEMPLATE_VALUES.join(' ')}"`,
                 '}',
                 '',
                 'Rules:',
-                // The instruction the whole self-check exists because models get wrong. A model asked
-                // for distinctive words hands back its six most unusual ones and then never uses them.
-                '- dictionMarkers are FREQUENCY, not novelty. Every one of them must appear in the sample lines you write. A word the character would say once a month is not a marker.',
+                '- Write the samples FIRST, then read the markers off them. Do not invent a marker list.',
+                // The whole self-check exists because a model asked for distinctive words hands back
+                // its six most unusual ones and then never uses them again.
+                '- Every marker must appear WORD FOR WORD in at least one sample line, spelled identically. If you wrote "aye" in a sample, the marker is "aye" and never "ay".',
+                '- Markers are FREQUENCY, not novelty. Take them from four places only: what this character calls the listener, how it says yes and no, how it contracts or clips words, and what it reaches for as filler or emphasis.',
+                '- A marker is never a noun and never a subject. "tide", "vinyl" and "midnight" are things this character talks about; "aye", "mate", "in\'" and "reet" are how it talks. Only the second kind belongs here.',
+                '- A marker must fit a break about ANY record. If it would sound wrong introducing a song this character dislikes, it is not a marker.',
+                '- An ending like "in\'" is worth more than any single word, because it matches every dropped g at once. Include one if the diction drops letters.',
+                // Six because the markers are read off these lines and nowhere else, so the sample
+                // set is the entire evidence base. A model given three short lines and five diction
+                // rules cannot fit them all in, and every rule that misses is a marker lost.
+                '- Write at least six samples, and make sure every diction rule is visible somewhere in them. If a rule names a word — "aye", "innit", "mate" — that exact word must appear in a sample, spelled and inflected the same way. A rule you do not demonstrate is a rule the station cannot check.',
                 '- The samples are the character talking on air between two records. They must obey the diction rules exactly, because everything else is checked against them.',
                 '- A phrasing in "templates" is what the station says when nothing else wrote the break, so it must read as a complete sentence with the values filled in. Wrap a part that can be left out in [[double brackets]].',
                 '- diction is HOW they talk and quirks are WHAT they talk about. Do not put a subject in diction.',
+                // A local model wrapping a long string across lines is invalid JSON and loses the
+                // whole persona. `parseLooseJson` repairs it; asking is cheaper than repairing.
+                '- Every value is on ONE line. Never break a string across lines, and use plain straight quotes and hyphens.',
                 '- No stage directions, no asterisks, no emoji anywhere.',
             ].join('\n'),
         },
@@ -185,14 +226,10 @@ export function readPersona(text: string): GeneratedPersona | undefined {
     const spans = jsonObjects(withoutThinking(text));
 
     for (const span of spans) {
-        let parsed: unknown;
-        try {
-            parsed = JSON.parse(span);
-        } catch {
-            // One malformed object costs itself and nothing after it — the same reason the picks
-            // reader parses them separately.
-            continue;
-        }
+        // Loose, because the observed failure is a model wrapping a long string across lines and
+        // losing the whole persona to a line break. One malformed object still costs itself and
+        // nothing after it — the same reason the picks reader parses them separately.
+        const parsed = parseLooseJson(span);
         if (typeof parsed !== 'object' || parsed === null) continue;
 
         const generated = draftFrom(parsed as Record<string, unknown>);
@@ -208,11 +245,18 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     const style = text(raw.style);
     if (key === undefined || label === undefined || style === undefined) return undefined;
 
-    const samples = list(raw.samples, PERSONA_SHEET_LIMITS.samples);
+    // Every sample the model wrote, and then the few that are kept. The check below runs against ALL
+    // of them rather than the survivors, because the two caps answer different questions: the stored
+    // three are a prompt-budget decision about how many examples a break writer is shown, and this is
+    // a question about whether the character says a word at all. A marker earned by the fifth line is
+    // still earned, and dropping it because the line was not one of the three shown would be the cap
+    // deciding a correctness question it knows nothing about.
+    const written = list(raw.samples, MAX_SAMPLES_JUDGED);
+    const samples = written.slice(0, PERSONA_SHEET_LIMITS.samples);
     const named = list(raw.dictionMarkers, PERSONA_SHEET_LIMITS.dictionMarkers);
     // Judged against the character's own lines, which is the one check nothing downstream can make:
     // by the time a break declines for missing diction, the sheet has been on air for an evening.
-    const markers = named.filter(marker => samples.some(sample => dictionMarkersIn([marker], sample).length > 0));
+    const markers = named.filter(marker => written.some(sample => dictionMarkersIn([marker], sample).length > 0));
 
     // Checked rather than taken, so a model answering "terse" or "brief" leaves the field unset —
     // which is the station's ordinary length and the right answer for a value nothing recognises.

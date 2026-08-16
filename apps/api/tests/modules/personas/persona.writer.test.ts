@@ -49,6 +49,29 @@ describe('the persona prompt', () => {
         expect(personaPrompt('anything')[0]!.content).toContain('FREQUENCY, not novelty');
     });
 
+    it('asks for the samples BEFORE the markers, which is what makes the markers an extraction', () => {
+        const system = personaPrompt('anything')[0]!.content;
+
+        // A model writes JSON keys in the order it was shown them and does not go back, so markers
+        // asked for first are invented independently of the lines and then mostly dropped. Measured:
+        // a trawlerman offered "ay", "tide" and "port" and kept only "blimey".
+        expect(system.indexOf('"samples"')).toBeLessThan(system.indexOf('"dictionMarkers"'));
+        expect(system).toContain('Write the samples FIRST');
+    });
+
+    it('closes the spelling half, which no check downstream can', () => {
+        // "ay" and "aye" are the same marker to an author and different strings to the matcher.
+        expect(personaPrompt('anything')[0]!.content).toContain('spelled identically');
+    });
+
+    it('rules out the nouns a model reaches for, since "frequent" is not a category it can search', () => {
+        const system = personaPrompt('anything')[0]!.content;
+
+        expect(system).toContain('never a noun');
+        // The four places a word that recurs in EVERY break actually comes from.
+        expect(system).toContain('what this character calls the listener');
+    });
+
     it('carries the description in the user turn, capped', () => {
         const messages = personaPrompt(`${'a'.repeat(5000)}`);
 
@@ -71,6 +94,30 @@ describe('reading a persona out of an answer', () => {
         const generated = readPersona(`<think>hmm, a chip shop</think>Here you go:\n\n${answer()}\n\nHope that helps!`)!;
 
         expect(generated.draft.key).toBe('chipshop');
+    });
+
+    it('reads an answer whose long string was wrapped across lines', () => {
+        // Measured: an answer that stopped cleanly at 1001 tokens, wanted nothing, and was thrown
+        // away entirely because a diction rule ran onto a second line. A raw newline inside a JSON
+        // string is invalid, and it is a SHAPE failure, which is the half this reader repairs.
+        const wrapped = `{
+  "key": "chipshop",
+  "label": "Chip Shop Soul",
+  "style": "a northern soul DJ in the back of a chip shop",
+  "diction": [
+    "use colloquial contractions,
+    drop the g from every verb ending"
+  ],
+  "samples": ["Right then, love, that one's a proper stomper."],
+  "dictionMarkers": ["love"]
+}`;
+
+        const generated = readPersona(wrapped)!;
+
+        expect(generated.draft.key).toBe('chipshop');
+        // The break is a space, so the two halves do not run together into one word.
+        expect(generated.draft.diction).toEqual(['use colloquial contractions, drop the g from every verb ending']);
+        expect(generated.draft.dictionMarkers).toEqual(['love']);
     });
 
     it('answers undefined when there is no object, rather than throwing', () => {
@@ -110,6 +157,22 @@ describe('the self-check', () => {
         // is a legitimate persona. A sheet whose every marker is impossible is not.
         expect(generated.draft.dictionMarkers).toBeUndefined();
         expect(keepsCharacter(generated.draft, 'anything at all')).toBe(true);
+    });
+
+    it('earns a marker from a sample line that is written but not stored', () => {
+        // The stored cap is a decision about how many examples a break writer is shown; whether the
+        // character says a word at all is a different question, and the cap knows nothing about it.
+        const generated = readPersona(
+            answer({
+                samples: ['One.', 'Two.', 'Three.', "Right then, love, that's a stomper."],
+                dictionMarkers: ['love'],
+            }),
+        )!;
+
+        expect(generated.draft.samples).toHaveLength(3);
+        expect(generated.draft.samples).not.toContain("Right then, love, that's a stomper.");
+        expect(generated.draft.dictionMarkers).toEqual(['love']);
+        expect(generated.droppedMarkers).toEqual([]);
     });
 
     it('keeps every marker the samples actually carry', () => {

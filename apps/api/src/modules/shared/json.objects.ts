@@ -65,3 +65,67 @@ export function jsonObjects(text: string): string[] {
 export function withoutThinking(text: string): string {
     return text.replace(/^[\s\S]*<\/think>/i, '').trim();
 }
+
+/**
+ * A span a model meant as JSON, made parseable, or `undefined` when it is not JSON at all.
+ *
+ * The one repair worth making, and it is a SHAPE repair rather than a content one — which is the
+ * line every reader here already draws. A local model writing a long string frequently wraps it
+ * across lines:
+ *
+ * ```
+ * "diction": [
+ *     "use colloquial contractions,
+ *     drop final consonants in verb endings"
+ * ```
+ *
+ * A literal newline inside a string is invalid JSON, so `JSON.parse` throws over what is otherwise a
+ * complete and perfectly readable answer. Measured on this station: an answer that stopped cleanly at
+ * 1001 tokens, wanted nothing, and was thrown away entirely for a line break.
+ *
+ * So a newline inside a string becomes a space, which is what the model meant by it. Nothing outside
+ * a string is touched, so the object's own structure is exactly as it arrived — this cannot invent a
+ * field, close an unterminated object, or change a value into a different value.
+ *
+ * Tried only after a strict parse has failed, so a well-formed answer never goes near it.
+ */
+export function parseLooseJson(span: string): unknown {
+    try {
+        return JSON.parse(span);
+    } catch {
+        // Fall through to the one repair.
+    }
+
+    let repaired = '';
+    let inString = false;
+    let escaped = false;
+
+    for (let index = 0; index < span.length; index += 1) {
+        const character = span[index]!;
+
+        if (inString && !escaped && (character === '\n' || character === '\r')) {
+            // The whole run of whitespace around the break collapses to ONE space, indentation
+            // included. A wrapped line means a word boundary and nothing else; keeping the four
+            // spaces that formatted the source would put them in the middle of the sentence.
+            while (index + 1 < span.length && /\s/.test(span[index + 1]!)) index += 1;
+            repaired = `${repaired.replace(/\s+$/, '')} `;
+            continue;
+        }
+
+        if (inString) {
+            if (escaped) escaped = false;
+            else if (character === '\\') escaped = true;
+            else if (character === '"') inString = false;
+        } else if (character === '"') {
+            inString = true;
+        }
+
+        repaired += character;
+    }
+
+    try {
+        return JSON.parse(repaired);
+    } catch {
+        return undefined;
+    }
+}

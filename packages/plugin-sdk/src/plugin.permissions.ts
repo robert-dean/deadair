@@ -88,6 +88,49 @@ export interface NetworkPermissionFromConfig extends NetworkPermissionPacing {
 export type NetworkPermission = string | NetworkPermissionHost | NetworkPermissionFromConfig;
 
 /**
+ * Something a plugin needs that only the OPERATOR can say yes to.
+ *
+ * The rest of {@link PluginPermissions} is disclosure: a manifest states what it
+ * reaches and the host holds it to that, with nobody asked anything. A grant is
+ * the other kind — a capability wide enough that a person should decide, per
+ * install, with the plugin's own reason in front of them.
+ *
+ * ## The manifest is the request, and it is the only record of one
+ *
+ * Nothing is stored when a plugin asks. The host reads this on every discovery
+ * and stores only the ANSWER, keyed by plugin and capability, so a plugin whose
+ * manifest stops asking simply stops appearing and cannot be re-enabled by a row
+ * nobody can see. A plugin that has not been answered is refused: undecided and
+ * denied differ on the operator's page and nowhere else.
+ *
+ * There is no runtime ask. A `host.requestPermission()` would have to block a
+ * plugin mid-work on a person who may be asleep, and a plugin that never runs
+ * would never appear to be asked about.
+ *
+ * ## The vocabulary is the host's
+ *
+ * {@link capability} is one of a fixed list the HOST publishes, because a
+ * capability only means something where the host enforces it. An id nothing
+ * recognises is ignored with a warning rather than becoming a row that gates
+ * nothing — a permission for a door that does not exist is worse than no
+ * permission, since it reads on the page as though it were protecting something.
+ */
+export interface PluginGrantRequest extends NetworkPermissionPacing {
+    /** A capability id the host publishes, e.g. `network.open`. */
+    capability: string;
+    /**
+     * Why this plugin needs it, in one sentence, addressed to the operator.
+     *
+     * Required, and the field this whole shape exists to carry. It is what the
+     * console shows beside the Allow control, and a manifest that cannot say why
+     * it wants something does not get to ask for it: the alternative is an
+     * operator deciding on a capability id alone, which is a decision nobody can
+     * actually make.
+     */
+    reason: string;
+}
+
+/**
  * What a plugin is allowed to do. Declared up front in the manifest so the
  * host (and the operator installing the plugin) can see the full blast radius
  * before any plugin code runs.
@@ -127,6 +170,19 @@ export interface PluginPermissions {
      * only one provider has ever needed.
      */
     trackFetcher?: boolean;
+
+    /**
+     * Capabilities this plugin is ASKING for, each with the reason an operator
+     * reads before deciding. See {@link PluginGrantRequest}.
+     *
+     * Optional and usually absent: almost every plugin does its whole job inside
+     * what it declares above, and a manifest that asks for nothing is the normal
+     * case rather than a modest one.
+     *
+     * Nothing here is granted by declaring it. Until the operator answers, the
+     * capability behaves exactly as it does for a plugin that never asked.
+     */
+    grants?: PluginGrantRequest[];
 }
 
 // Finite and positive: a zero or a NaN would compute a limiter window of
@@ -142,9 +198,19 @@ export const networkPermissionSchema: z.ZodType<NetworkPermission> = z.union([
     z.object({ fromConfig: z.string().min(1), ...pacingShape }),
 ]);
 
+export const grantRequestSchema: z.ZodType<PluginGrantRequest> = z.object({
+    capability: z.string().min(1),
+    // Non-empty for the reason the field exists: an operator deciding on a
+    // capability id with no sentence beside it is being asked a question they
+    // cannot answer.
+    reason: z.string().min(1),
+    ...pacingShape,
+});
+
 export const pluginPermissionsSchema = z.object({
     network: z.array(networkPermissionSchema),
     storage: z.boolean(),
     oauth: z.boolean(),
     trackFetcher: z.boolean().optional(),
+    grants: z.array(grantRequestSchema).optional(),
 });

@@ -85,6 +85,20 @@ export const rssManifest: PluginManifest = {
         // same way: a feed the menu offers and the allowlist refuses looks like
         // a broken plugin rather than a mistyped line.
         network: [{ fromConfig: 'feeds', ratePerSecond: FEED_RATE_PER_SECOND, bucket: FEED_BUCKET }],
+        // The one thing this plugin needs that no manifest can name in advance.
+        // A feed's entries are on the publisher's feed host and the stories they
+        // point at are on the publisher's site, and which site that is depends on
+        // what the operator pasted — so the allowlist above resolves to exactly
+        // the one hostname that does NOT hold the news. Refused until answered,
+        // in which case the station reads headlines and teasers as it always did.
+        grants: [
+            {
+                capability: 'network.open',
+                reason: 'Opens the page each headline links to, so a bulletin can say what happened rather than reading out titles. The stories are on whatever sites your feeds point at, which only the feeds know.',
+                ratePerSecond: FEED_RATE_PER_SECOND,
+                bucket: FEED_BUCKET,
+            },
+        ],
         // Nothing to keep. What was published is the publisher's, and what the
         // station did with it belongs to the station: a cache lives for a minute
         // in memory and anything longer would be this plugin holding a second

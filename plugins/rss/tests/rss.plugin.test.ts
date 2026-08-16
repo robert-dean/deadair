@@ -38,6 +38,18 @@ describe('manifest', () => {
         expect(rssManifest.permissions.network).toEqual([{ fromConfig: 'feeds', ratePerSecond: 1, bucket: 'rss' }]);
     });
 
+    // The stories are on the publisher's site and the feed is on the publisher's feed host, so the
+    // allowlist above resolves to exactly the one hostname that does not hold the news. Asking is
+    // the only honest way to reach the rest, and asking is not being granted.
+    it('asks for the open web, and says why in a sentence an operator can act on', () => {
+        const [asked] = rssManifest.permissions.grants ?? [];
+
+        expect(asked?.capability).toBe('network.open');
+        expect(asked?.reason.length).toBeGreaterThan(20);
+        // Paced as the feeds are: one bucket for this plugin's whole outbound rate.
+        expect(asked).toMatchObject({ ratePerSecond: 1, bucket: 'rss' });
+    });
+
     it('asks for no storage, because a feed belongs to whoever published it', () => {
         expect(rssManifest.permissions.storage).toBe(false);
         expect(rssManifest.permissions.oauth).toBe(false);

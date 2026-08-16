@@ -15,6 +15,7 @@ import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/s
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
+import { PLUGIN_NETWORK_KEYS } from '#modules/plugins/plugin.network.policy.js';
 import { MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
@@ -66,7 +67,7 @@ export interface SettingDescriptor extends ConfigField {
 }
 
 /** The sections the console draws, in the order it draws them. */
-export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render', 'llm', 'analysis'] as const;
+export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render', 'llm', 'analysis', 'plugins'] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 
@@ -524,6 +525,25 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_ANALYSIS_LOCAL_PACE_MS,
         help: 'A record the station has already kept costs no provider request to measure, so this can be far shorter than the download pause above — but it is not free: it is still disk and decode time on whatever machine is running the analyzer. Set to 0 to measure the local half of the library flat out.',
+    },
+
+    // ── plugins ────────────────────────────────────────────────────────────────
+    // A plugin's own configuration lives on its own page. What is here is the
+    // one decision about a plugin that is the STATION's rather than the
+    // plugin's, because a plugin must never be able to widen its own permission.
+    {
+        group: 'plugins',
+        key: PLUGIN_NETWORK_KEYS.unrestricted,
+        label: 'Plugins allowed to reach the open web',
+        type: 'text',
+        default: '',
+        placeholder: 'deadair.rss',
+        help:
+            'One plugin id per line. A plugin normally reaches only the addresses its manifest names or that you gave it, ' +
+            'which is what makes the manifest an honest description of where it goes. Listed here, it may reach any public address instead. ' +
+            'The case this exists for is a feed reader following its own links: the entries are on one host and the stories are on another, ' +
+            'and only the feed knows which. Private and loopback addresses stay refused either way, and every new host a listed plugin reaches ' +
+            'is written to its log the first time. A line starting with # is off without being lost.',
     },
 
     // ── secrets ────────────────────────────────────────────────────────────────

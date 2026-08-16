@@ -35,6 +35,11 @@ const GROUPS: { key: StationSettingDescriptor['group']; title: string; blurb: st
         title: 'Measurement',
         blurb: 'Which plugin measures records, so the station can trim the dead air off each one and know how long it may talk over an intro. With none set up every track still plays, unmeasured.',
     },
+    {
+        key: 'plugins',
+        title: 'Plugins',
+        blurb: 'The decisions about a plugin that belong to the station rather than to the plugin. Everything else a plugin can be told is on its own page.',
+    },
 ];
 
 /**

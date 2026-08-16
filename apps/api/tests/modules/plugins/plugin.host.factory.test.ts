@@ -21,6 +21,7 @@ import {
     PluginStorageRepository,
 } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
+import { PluginNetworkPolicy } from '../../../src/modules/plugins/plugin.network.policy.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
@@ -114,17 +115,37 @@ const unusedConfigService = (): PluginConfigService =>
  * tests that assert the scope discipline itself rather than what a capability
  * returns.
  */
+/**
+ * The operator's escape hatch, off unless a test says otherwise.
+ *
+ * A stub rather than a real `PluginNetworkPolicy` over a config double, because
+ * what every test here cares about is the ANSWER — whether this plugin is
+ * listed — and the parsing of the setting that produces it is its own test in
+ * `plugin.network.policy.test.ts`.
+ */
+const stubNetworkPolicy = (unrestricted: readonly string[] = []): PluginNetworkPolicy =>
+    ({ isUnrestricted: (pluginId: string) => unrestricted.includes(pluginId) }) as unknown as PluginNetworkPolicy;
+
 function scopedFactory(
     storage: PluginStorageRepository = new FakeStorageRepository() as unknown as PluginStorageRepository,
     configService: PluginConfigService = unusedConfigService(),
+    networkPolicy: PluginNetworkPolicy = stubNetworkPolicy(),
 ) {
     const stub = stubContainer([
         [PluginConfigService, configService],
         [PluginStorageRepository, storage],
     ]);
+    const pluginLog = stubPluginLog();
     return {
         ...stub,
-        factory: new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), stub.container, stubPluginLog().log, stubShimClient()),
+        pluginLog,
+        factory: new PluginHostFactory(
+            new PluginHostFactoryOptions('https://host.example'),
+            stub.container,
+            pluginLog.log,
+            stubShimClient(),
+            networkPolicy,
+        ),
     };
 }
 
@@ -151,6 +172,27 @@ const neverResolvingFetch = () =>
                 init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
             }),
     );
+
+/**
+ * A fetch that answers 200 to anything.
+ *
+ * A fresh `Response` per call rather than one reused: a body is a stream and the
+ * host locks it, so handing the same object to a second fetch fails with
+ * "ReadableStream is locked" rather than with anything to do with the test.
+ */
+const okFetch = () => vi.fn().mockImplementation(async () => new Response('ok', { status: 200 }));
+
+/** Runs `call`, reporting whether it settled within `ms` of fake time. */
+async function settlesWithin(call: Promise<unknown>, ms: number): Promise<boolean> {
+    let settled = false;
+    const tracked = call.then(() => {
+        settled = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(ms);
+    if (settled) await tracked;
+    return settled;
+}
 
 /** The rejection, or a failure if there wasn't one. */
 async function rejection(promise: Promise<unknown>): Promise<unknown> {
@@ -820,20 +862,6 @@ describe('PluginHostFactory.createHost response body limit', () => {
  * one request per second, a tenth of the host default.
  */
 describe('PluginHostFactory fetch pacing', () => {
-    const okFetch = () => vi.fn().mockImplementation(async () => new Response('ok', { status: 200 }));
-
-    /** Runs `call`, reporting whether it settled within `ms` of fake time. */
-    async function settlesWithin(call: Promise<unknown>, ms: number): Promise<boolean> {
-        let settled = false;
-        const tracked = call.then(() => {
-            settled = true;
-        });
-
-        await vi.advanceTimersByTimeAsync(ms);
-        if (settled) await tracked;
-        return settled;
-    }
-
     it('paces an upstream at the rate its entry declared, not the host default', async () => {
         vi.useFakeTimers();
         const fetchMock = okFetch();
@@ -1104,6 +1132,109 @@ describe('PluginHostFactory config-derived allowlist', () => {
 
         await vi.advanceTimersByTimeAsync(500);
         expect(settled).toBe(false);
+    });
+});
+
+/**
+ * The operator's escape hatch: a plugin whose upstreams are decided by the
+ * DATA it reads rather than by anything anybody could write down in advance.
+ * A feed reader is the case — the entries are on one host and the stories they
+ * point at are on another, and only the feed knows which.
+ */
+describe('PluginHostFactory unrestricted network', () => {
+    const declaring = (...network: string[]): PluginManifest => manifest({ permissions: { network, storage: false, oauth: false } });
+
+    const unrestrictedFactory = (): ReturnType<typeof scopedFactory> => scopedFactory(undefined, undefined, stubNetworkPolicy(['test.plugin']));
+
+    it('reaches a host the manifest never named, for a plugin the operator listed', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = unrestrictedFactory().factory.createHost(declaring('feeds.example.org'));
+
+        await expect(host.fetch('https://www.example.com/story')).resolves.toMatchObject({ status: 200 });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('still refuses a plugin the operator has not listed', async () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        const host = scopedFactory(undefined, undefined, stubNetworkPolicy(['some.other.plugin'])).factory.createHost(declaring('feeds.example.org'));
+
+        await expectPluginError(host.fetch('https://www.example.com/story'), 'forbidden', /not allowed to reach/);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    // The protection that is not about the plugin at all: redirects are chased
+    // by hand precisely so an allowlisted upstream cannot bounce an honest
+    // plugin into the metadata service, and "the open web" is not a reason to
+    // hand that back.
+    it.each([
+        ['loopback', 'http://127.0.0.1:8080/admin'],
+        ['the metadata address', 'http://169.254.169.254/latest/meta-data/'],
+        ['a private range', 'http://192.168.1.1/setup'],
+        ['carrier-grade NAT', 'http://100.100.0.1/'],
+        ['localhost by name', 'http://localhost:5432/'],
+        ['a .local name', 'http://printer.local/status'],
+        ['IPv6 loopback', 'http://[::1]:9000/'],
+    ])('refuses %s even for a listed plugin', async (_what, url) => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        const host = unrestrictedFactory().factory.createHost(declaring('feeds.example.org'));
+
+        await expectPluginError(host.fetch(url), 'forbidden', /not allowed to reach/);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('follows a redirect off the allowlist, and checks that hop the same way', async () => {
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: 'https://cdn.elsewhere.example/story' } }))
+            .mockResolvedValueOnce(new Response('ok', { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const host = unrestrictedFactory().factory.createHost(declaring('feeds.example.org'));
+
+        await expect(host.fetch('https://www.example.com/story')).resolves.toMatchObject({ status: 200, redirected: true });
+
+        const denied = unrestrictedFactory().factory.createHost(declaring('feeds.example.org'));
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue(new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/latest/' } })),
+        );
+        await expectPluginError(denied.fetch('https://www.example.com/story'), 'upstream', /not allowed to reach/);
+    });
+
+    // The allowlist's remaining job is disclosure, and a bypass nobody can see
+    // in a log has ended it. Once per pair, because a bulletin reads the same
+    // publisher every half hour.
+    it('says so in the log, once per host', async () => {
+        vi.stubGlobal('fetch', okFetch());
+        const { factory: built, pluginLog } = unrestrictedFactory();
+        const host = built.createHost(declaring('feeds.example.org'));
+
+        await host.fetch('https://www.example.com/one');
+        await host.fetch('https://www.example.com/two');
+        await host.fetch('https://other.example.net/three');
+
+        const bypassLines = pluginLog.scoped.info.mock.calls.filter(([message]) => String(message).includes('off its allowlist'));
+        expect(bypassLines).toHaveLength(2);
+        expect(bypassLines[0]?.[1]).toMatchObject({ hostname: 'www.example.com' });
+        expect(bypassLines[1]?.[1]).toMatchObject({ hostname: 'other.example.net' });
+    });
+
+    // A manifest that declared a rate for an upstream still gets it: the
+    // synthetic entry is only ever consulted after every declared one has
+    // failed to match.
+    it('keeps the manifest pacing for a host the manifest did name', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('fetch', okFetch());
+        const host = scopedFactory(undefined, undefined, stubNetworkPolicy(['test.plugin'])).factory.createHost(
+            manifest({ permissions: { network: [{ host: 'feeds.example.org', ratePerSecond: 0.5 }], storage: false, oauth: false } }),
+        );
+
+        await host.fetch('https://feeds.example.org/1');
+
+        const second = host.fetch('https://feeds.example.org/2', { timeoutMs: 10_000 });
+        expect(await settlesWithin(second, 700)).toBe(false);
     });
 });
 

@@ -11,6 +11,7 @@ import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginLoader, PluginLoaderOptions } from './plugin.loader.js';
 import { PluginLog, PluginLogOptions } from './plugin.log.js';
+import { PluginNetworkPolicy } from './plugin.network.policy.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
 import { PluginRegistry } from './plugin.registry.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
@@ -106,6 +107,10 @@ export const PluginsModule: ServerKitModule = {
         // container rejects at `build()`, and the reason it rejects it is exactly
         // what these two would do with a request's transaction: keep using it
         // after the request that opened it had committed.
+        // A singleton reading `deadair.settings` live through `AppConfig`, which
+        // needs no scope: the operator's answer has to take effect on the next
+        // fetch rather than on the next plugin reload.
+        registry.register(PluginNetworkPolicy).useClass(PluginNetworkPolicy).asSingleton();
         registry.register(PluginHostFactory).useClass(PluginHostFactory).asSingleton();
 
         registry.register(PluginLifecycleManager).useClass(PluginLifecycleManager).asSingleton();

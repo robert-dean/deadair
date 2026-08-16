@@ -70,6 +70,12 @@ points at that file. Checked against the tree on 2026-08-11.
       a `SourceDocument`: the deterministic fact floor would take the song's first line as a sourced
       claim and the DJ would recite it with a citation. The phase worth building first needs no model
       at all, a synced lyric's first timestamp as the talk-up limit
+- [x] an explicit-content policy — done; `rotation.advisory` in three states over
+      `track_sources.advisory`, per COPY because a clean edit and the explicit original are one
+      track with two bindings. `clean-only` demands a positive `clean` rather than reading an
+      unmarked copy as consent, which is why a library from a source that never marks anything plays
+      nothing under it and says so. What is left is going looking for a clean copy the playlists
+      never carried, scoped in `clean-copy-matching.md`
 - [x] drop the plugin kind and only use capabilities — done; a manifest has one axis and
       `plugin.manifest.ts` records why
 - [ ] fix the render race on plugin reload — scoped in `render-plugin-readiness.md`, with the log

@@ -25,8 +25,10 @@ export interface NewsStory {
     feedId: string;
     feedName: string;
     title: string;
-    /** Plain text. Never markup: this is written to be read out */
+    /** The publisher's own teaser, as plain text. Never markup: this is written to be read out */
     summary?: string;
+    /** The story itself, as the publisher's own paragraphs. Absent when the plugin could not read one, which is ordinary: an entry that links to audio, or a page nothing could be extracted from */
+    content?: string;
     url?: string;
     /** ISO-8601 */
     publishedAt?: string;
@@ -34,7 +36,7 @@ export interface NewsStory {
 }
 
 /**
- * generated from [NewsQuery](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L31)
+ * generated from [NewsQuery](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L32)
  */
 export interface NewsQuery {
     /** One feed, or absent for every feed the station can see, merged newest first */
@@ -52,7 +54,7 @@ export interface StationFeedList {
 }
 
 /**
- * generated from [NewsPage](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L37)
+ * generated from [NewsPage](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L38)
  */
 export interface NewsPage {
     /** Newest first. Empty when nothing could be read, which is deliberately not an error: the news is something the station may talk about, never something it needs to air */

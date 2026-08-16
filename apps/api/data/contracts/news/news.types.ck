@@ -22,7 +22,8 @@ contract NewsStory: { # One published entry
     feedId: string(min=1, max=400) # Qualified, matching `StationFeed.id`
     feedName: string(min=1, max=200)
     title: string(min=1, max=600)
-    summary?: string(max=2000) # Plain text. Never markup: this is written to be read out
+    summary?: string(max=2000) # The publisher's own teaser, as plain text. Never markup: this is written to be read out
+    content?: string(max=4000) # The story itself, as the publisher's own paragraphs. Absent when the plugin could not read one, which is ordinary: an entry that links to audio, or a page nothing could be extracted from
     url?: string(max=2000)
     publishedAt?: string(max=40) # ISO-8601
     categories?: array(string(min=1, max=200))

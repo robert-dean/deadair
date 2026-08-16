@@ -33,7 +33,14 @@ export const NewsStory = z.strictObject({
     feedId: z.string().min(1).max(400).describe('Qualified, matching `StationFeed.id`'),
     feedName: z.string().min(1).max(200),
     title: z.string().min(1).max(600),
-    summary: z.string().max(2000).optional().describe('Plain text. Never markup: this is written to be read out'),
+    summary: z.string().max(2000).optional().describe("The publisher's own teaser, as plain text. Never markup: this is written to be read out"),
+    content: z
+        .string()
+        .max(4000)
+        .optional()
+        .describe(
+            "The story itself, as the publisher's own paragraphs. Absent when the plugin could not read one, which is ordinary: an entry that links to audio, or a page nothing could be extracted from",
+        ),
     url: z.string().max(2000).optional(),
     publishedAt: z.string().max(40).optional().describe('ISO-8601'),
     categories: z.array(z.string().min(1).max(200)).optional(),
@@ -41,7 +48,7 @@ export const NewsStory = z.strictObject({
 export type NewsStory = z.infer<typeof NewsStory>;
 
 /**
- * generated from [NewsQuery](file://./../../../../data/contracts/news/news.types.ck#L31)
+ * generated from [NewsQuery](file://./../../../../data/contracts/news/news.types.ck#L32)
  */
 export const NewsQuery = z.strictObject({
     feedId: z.string().max(400).optional().describe('One feed, or absent for every feed the station can see, merged newest first'),
@@ -59,7 +66,7 @@ export const StationFeedList = z.strictObject({
 export type StationFeedList = z.infer<typeof StationFeedList>;
 
 /**
- * generated from [NewsPage](file://./../../../../data/contracts/news/news.types.ck#L37)
+ * generated from [NewsPage](file://./../../../../data/contracts/news/news.types.ck#L38)
  */
 export const NewsPage = z.strictObject({
     stories: z

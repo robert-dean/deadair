@@ -23,6 +23,7 @@ import { SimilarSetGenerator } from './similar.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
 import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
+import { RefillPreemption } from './refill.preemption.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { SetGenerator } from './set.generator.js';
@@ -67,6 +68,11 @@ export const DirectorModule: ServerKitModule = {
         // per-refill scope the discovery happens in. See `AdvisoryWatch`.
         registry.register(AdvisoryWatch).useClass(AdvisoryWatch).asSingleton();
         registry.register(CatalogSetGenerator).useClass(CatalogSetGenerator).asScoped();
+        // How the model binding tells the job that a break took the model off it, which is the one
+        // way a refill can come back thin that is worth asking again about. SCOPED, unlike the watch
+        // above and for the opposite reason: this says "the refill running in THIS scope was
+        // interrupted", and a singleton would let one refill's interruption buy another one a retry.
+        registry.register(RefillPreemption).useClass(RefillPreemption).asScoped();
         registry
             .register(SetGenerator)
             .useFactory(

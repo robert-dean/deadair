@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
+import { RefillPreemption } from './refill.preemption.js';
 import { writeCapture } from '#modules/llm/llm.capture.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -192,6 +193,10 @@ export class ModelSetGenerator extends SetGenerator {
         private readonly llm: LlmService,
         private readonly taste: TasteRepository,
         private readonly tracks: TracksRepository,
+        // Where a preemption is reported to, rather than through the return value: every generator
+        // in the chain answers the same shape and only this one can be preempted. See
+        // `RefillPreemption`.
+        private readonly preemption: RefillPreemption,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {
@@ -319,6 +324,11 @@ export class ModelSetGenerator extends SetGenerator {
 
         if (picks.length === 0) {
             if (result.preempted) {
+                // Ask for another go. The break ahead of this finishes in seconds and nobody is
+                // waiting on a refill, so the retry costs the station nothing it notices — where
+                // NOT retrying costs the operator the brief they asked for, filled from a floor
+                // that cannot read one.
+                this.preemption.mark();
                 // Not the model's failure and not a fault at all: a break wanted the model and this
                 // is the binding that is supposed to lose. Said at info, and named, because from the
                 // numbers alone it is indistinguishable from the two failures below — a `classic

@@ -11,6 +11,7 @@ import type { JobContext } from '@maroonedsoftware/jobbroker';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import { ReplanLineupJob } from '../../../src/modules/director/replan.lineup.job.js';
+import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
 import { StationLineup, type StationLineupMode } from '../../../src/modules/director/station.lineup.js';
 import type { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import type { DirectorCommand } from '../../../src/modules/director/director.mailbox.js';
@@ -38,6 +39,14 @@ const titlesOf = (lineup: StationLineup) =>
     lineup.all().flatMap(item => (item.kind === 'track' ? [item.track.title] : [`segment:${item.segmentId}`]));
 
 interface Options {
+    /**
+     * How many of the planning attempts a break interrupts, marked up front.
+     *
+     * 1 is the ordinary case this was built for: the first plan is preempted and the second is not.
+     * 2 is the station too busy to ever give the refill the model, where the floor's hour is the
+     * honest answer.
+     */
+    preemptedTimes?: number;
     mode?: StationLineupMode;
     brief?: string;
     existing?: RundownTrack[];
@@ -84,10 +93,16 @@ function build(options: Options = {}) {
 
     const personas = { presenting: vi.fn(async () => options.persona) } as never;
 
+    // A refill nothing interrupted, which is every case here but the one that says otherwise:
+    // `took` answers false and the plan runs exactly once.
+    const preemption = new RefillPreemption();
+    if (options.preemptedTimes) for (let i = 0; i < options.preemptedTimes; i++) preemption.mark();
+
     return {
-        job: new ReplanLineupJob(lineups, generator, resolver, personas, director, station.config, context, container, logger),
+        job: new ReplanLineupJob(lineups, generator, resolver, personas, preemption, director, station.config, context, container, logger),
         director,
         posted: () => posted,
+        preemption,
         lineup,
         seed: async () => (options.existing ? lineup.append(options.existing) : undefined),
         generate,

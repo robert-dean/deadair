@@ -13,7 +13,7 @@ import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
 import type { ResolvedRules } from './rotation.rules.js';
-import type { SetGenerator } from './set.generator.js';
+import type { SetGenerator, TrackPick } from './set.generator.js';
 import { isTrackItem, type StationLineupItem } from './station.lineup.js';
 
 /** How many tracks a batch holds when nobody says. Roughly an hour of programming. */
@@ -53,19 +53,69 @@ export interface PlannedRecords {
 }
 
 /**
+ * How many times a batch is planned before its answer is kept, at most.
+ *
+ * Two: one ordinary attempt and one more if a break took the model off the first. Not a general
+ * retry — a generator that failed, declined or found nothing is not tried again, because those are
+ * answers and asking twice would produce the same one at twice the cost.
+ *
+ * The bound is what keeps a busy hour from starving a refill entirely. A station taking a break
+ * every few records can preempt the retry too, and at that point the floor's hour is the honest
+ * outcome: it is a station whose model is genuinely oversubscribed, and the fix for that is not
+ * more attempts.
+ */
+const MAX_PLANNING_ATTEMPTS = 2;
+
+/**
  * Name a batch of records and turn them into ones the station can actually play.
  *
  * The rules go WITH the picks. `PickResolver` judges every one of them against these, whatever
  * generator named them, which is what stops a second binding routing around a dislike.
+ *
+ * ## A preempted refill is planned again
+ *
+ * `ModelSetGenerator` runs as `background` so a break can take the model back mid-conversation, and
+ * that is the design working — a break is a slot in a running order and a refill is not. But the
+ * cost was being paid in the wrong place: the model was cut off, the chain topped the batch up from
+ * the floor, and the operator got an hour of ordinary rotation with nothing left to say the brief
+ * had ever been read. Measured on a `classic banjo` refill preempted 4.6 seconds in.
+ *
+ * Nobody is waiting on this, so the answer is simply to ask again. The retry needs no delay and no
+ * second job: `LlmGate` queues it, the break ahead of it finishes in seconds, and if the gate times
+ * out the chain absorbs it exactly as it absorbs every other way a generator can fail.
+ *
+ * **Planned again from scratch rather than topped up**, because the floor's picks were chosen to
+ * fill a hole the model was going to fill properly, and keeping them would leave the batch shaped by
+ * the interruption. **And resolution happens once, after the last attempt** — a discarded batch must
+ * not spend `PickResolver`'s discovery budget or ingest records nothing will play.
+ *
+ * @param preemption - The scoped signal `ModelSetGenerator` marks. Absent means no retry, which is
+ *   what a caller with no model binding in its chain wants.
  */
-export const planRecords = async (generator: SetGenerator, resolver: PickResolver, request: PlanRequest): Promise<PlannedRecords> => {
-    const picks = await generator.generate({
-        count: Math.ceil(request.count * OVERSAMPLE),
-        rules: request.rules,
-        ...(request.brief ? { brief: request.brief } : {}),
-        ...(request.persona === undefined ? {} : { persona: request.persona }),
-        avoidSongKeys: request.avoidSongKeys,
-    });
+export const planRecords = async (
+    generator: SetGenerator,
+    resolver: PickResolver,
+    request: PlanRequest,
+    preemption?: { took(): boolean; onRetry?: (attempt: number) => void },
+): Promise<PlannedRecords> => {
+    let picks: TrackPick[] = [];
+
+    for (let attempt = 1; attempt <= MAX_PLANNING_ATTEMPTS; attempt++) {
+        picks = await generator.generate({
+            count: Math.ceil(request.count * OVERSAMPLE),
+            rules: request.rules,
+            ...(request.brief ? { brief: request.brief } : {}),
+            ...(request.persona === undefined ? {} : { persona: request.persona }),
+            avoidSongKeys: request.avoidSongKeys,
+        });
+
+        // Asked AFTER every attempt and not only the retried one, because it clears as it answers:
+        // leaving a mark standing would make the next refill in this scope read as preempted.
+        const wasPreempted = preemption?.took() ?? false;
+        if (!wasPreempted || attempt === MAX_PLANNING_ATTEMPTS) break;
+
+        preemption?.onRetry?.(attempt);
+    }
 
     const resolved = await resolver.resolve(picks, request.rules);
 

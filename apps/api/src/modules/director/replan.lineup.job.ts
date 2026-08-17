@@ -6,6 +6,7 @@ import { PlainJob } from '#modules/jobs/plain.job.js';
 import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
+import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
 import { DEFAULT_COUNT, planRecords, songKeysOf } from './plan.records.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
@@ -47,6 +48,9 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         private readonly generator: SetGenerator,
         private readonly resolver: PickResolver,
         private readonly personas: PersonaRepository,
+        // Read after planning, not before: it says whether a break took the model off this refill,
+        // which is the one failure worth asking again about. See `RefillPreemption`.
+        private readonly preemption: RefillPreemption,
         // The reactor, which is a singleton: this job runs in its own scope and still has to reach
         // the one object that is actually airing the order it is replacing the tail of.
         private readonly director: DirectorService,
@@ -94,6 +98,16 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
             // about to be discarded, so the generator cannot hand most of it straight back:
             // `play_history` only knows what actually aired, and none of these records has.
             avoidSongKeys: songKeysOf(lineup.all()),
+        }, {
+            took: () => this.preemption.took(),
+            // Logged rather than silent, because from the outside a retried replan and an ordinary one
+            // look identical and the interesting question afterwards is always "why did this hour
+            // take two goes at the model".
+            onRetry: attempt =>
+                this.logger.info('director: a break took the model off this replan; asking again', {
+                    job: this.context.id,
+                    attempt,
+                }),
         });
         if (signal?.aborted) return;
 

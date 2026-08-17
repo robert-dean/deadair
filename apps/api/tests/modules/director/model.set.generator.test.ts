@@ -12,6 +12,7 @@ import type { StationTaste, TasteRepository } from '../../../src/modules/catalog
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
 import { MODEL_GENERATOR_KEYS, ModelSetGenerator, STYLES_SHOWN } from '../../../src/modules/director/model.set.generator.js';
+import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 
@@ -104,8 +105,9 @@ function build(options: Options = {}) {
         return options.styles ?? [];
     });
     const tracks = { styleVocabulary } as unknown as TracksRepository;
+    const preemption = new RefillPreemption();
 
-    return { generator: new ModelSetGenerator(llm, taste, tracks, config, logger), converse, taste, styleVocabulary };
+    return { generator: new ModelSetGenerator(llm, taste, tracks, preemption, config, logger), converse, taste, styleVocabulary, preemption };
 }
 
 const inputs = (count: number, overrides: Partial<SetInputs> = {}): SetInputs => ({ count, rules: DEFAULT_RULES, ...overrides });
@@ -285,6 +287,27 @@ describe('ModelSetGenerator', () => {
         expect(await generator.generate(inputs(5))).toEqual([]);
         expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('not using its tools'));
         expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('a break took the model back'), expect.anything());
+    });
+
+    it('asks for another go when a break took the model back', async () => {
+        // The signal the job reads to plan again. It travels beside the picks rather than in them
+        // because every generator in the chain answers the same shape and only this one can be
+        // preempted -- see `RefillPreemption`.
+        const { generator, preemption } = build({ enabled: true, preempted: true, toolCallsMade: 0, text: '' });
+
+        await generator.generate(inputs(5));
+
+        expect(preemption.took()).toBe(true);
+    });
+
+    it('asks for nothing when the model simply had nothing to say', async () => {
+        // The distinction the retry rests on: a model that searched and found nothing has ANSWERED,
+        // and asking it again would produce the same answer at twice the cost.
+        const { generator, preemption } = build({ enabled: true, preempted: false, toolCallsMade: 3, text: '[]' });
+
+        await generator.generate(inputs(5));
+
+        expect(preemption.took()).toBe(false);
     });
 
     it('still names an idle model when nothing preempted it', async () => {

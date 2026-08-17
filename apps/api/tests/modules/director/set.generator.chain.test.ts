@@ -200,6 +200,7 @@ describe('SetGeneratorChain with the real bindings', () => {
             // the station what it likes or what styles its library knows.
             {} as never,
             {} as never,
+            {} as never,
             { get: (_key: string, fallback: unknown) => fallback, has: () => false } as never,
             logger,
         );

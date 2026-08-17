@@ -13,6 +13,7 @@ import type { BreakPlanner } from '../../../src/modules/director/break.planner.j
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import { ExtendLineupJob } from '../../../src/modules/director/extend.lineup.job.js';
+import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
 import { StationLineup, type StationLineupMode } from '../../../src/modules/director/station.lineup.js';
 import type { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import type { DirectorCommand } from '../../../src/modules/director/director.mailbox.js';
@@ -44,6 +45,14 @@ const trackAt = (lineup: StationLineup, index: number): RundownTrack => {
 };
 
 interface Options {
+    /**
+     * How many of the planning attempts a break interrupts, marked up front.
+     *
+     * 1 is the ordinary case this was built for: the first plan is preempted and the second is not.
+     * 2 is the station too busy to ever give the refill the model, where the floor's hour is the
+     * honest answer.
+     */
+    preemptedTimes?: number;
     mode?: StationLineupMode;
     /** What the operator asked this broadcast to play. Absent is a station programming itself. */
     brief?: string;
@@ -98,10 +107,16 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
     // chosen no persona programmes exactly as it did before personas existed.
     const personas = { presenting: vi.fn(async () => options.persona) } as never;
 
+    // A refill nothing interrupted, which is every case here but the one that says otherwise:
+    // `took` answers false and the plan runs exactly once.
+    const preemption = new RefillPreemption();
+    if (options.preemptedTimes) for (let i = 0; i < options.preemptedTimes; i++) preemption.mark();
+
     return {
-        job: new ExtendLineupJob(lineups, generator, resolver, personas, director, station.config, context, container, logger),
+        job: new ExtendLineupJob(lineups, generator, resolver, personas, preemption, director, station.config, context, container, logger),
         director,
         posted: () => posted,
+        preemption,
         lineup,
         station,
         seed: async () => (options.existing ? lineup.append(options.existing) : undefined),
@@ -325,5 +340,50 @@ describe('ExtendLineupJob not writing the lineup itself', () => {
         vi.mocked(director.post).mockRejectedValueOnce(new Error('the database is gone'));
 
         await expect(job.run({ count: 3 })).rejects.toThrow('the database is gone');
+    });
+
+    it('plans again when a break took the model off the first attempt', async () => {
+        // The model runs as `background` so a break can take it back, which is the design working.
+        // What was wrong is where the cost landed: the model was cut off, the chain topped the batch
+        // up from a floor that cannot read a brief, and the operator got ordinary rotation with
+        // nothing saying why. Nobody is waiting on a refill, so it simply asks again.
+        const { job, generate, resolve } = build({ preemptedTimes: 1 });
+
+        await job.run({ count: 4 });
+
+        expect(generate).toHaveBeenCalledTimes(2);
+        // Once, after the LAST attempt. A discarded batch must not spend the resolver's discovery
+        // budget or ingest records nothing will ever play.
+        expect(resolve).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the second answer rather than topping the first one up', async () => {
+        // Planned from scratch, because the floor's picks were chosen to fill a hole the model was
+        // going to fill properly: keeping them would leave the batch shaped by the interruption.
+        const { job, posted } = build({ preemptedTimes: 1 });
+
+        await job.run({ count: 4 });
+
+        const [command] = posted();
+        expect(command?.kind === 'appendTracks' ? command.tracks.length : 0).toBe(4);
+    });
+
+    it('gives up after one retry, so a busy hour cannot loop', async () => {
+        // A station taking a break every few records can preempt the retry too. At that point the
+        // floor's hour is the honest outcome -- the model is genuinely oversubscribed, and the fix
+        // for that is not more attempts.
+        const { job, generate } = build({ preemptedTimes: 2 });
+
+        await job.run({ count: 4 });
+
+        expect(generate).toHaveBeenCalledTimes(2);
+    });
+
+    it('plans once when nothing interrupted it', async () => {
+        const { job, generate } = build();
+
+        await job.run({ count: 4 });
+
+        expect(generate).toHaveBeenCalledTimes(1);
     });
 });

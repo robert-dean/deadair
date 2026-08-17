@@ -35,6 +35,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { DB } from '../src/modules/data/db.js';
 import { TracksRepository } from '../src/modules/catalog/tracks.repository.js';
 import { normalizeKey } from '../src/modules/catalog/catalog.keys.js';
+import { STYLES_SHOWN } from '../src/modules/director/model.set.generator.js';
 
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
 
@@ -186,6 +187,42 @@ try {
         check('an artist still matches', (await found(`${TAG} plain`)).includes('from-track-tag'), true);
         check('a style nothing carries finds nothing', await found('zzzznope'), []);
 
+        // ── the vocabulary, which is a promise about the search above ─────────
+        say('the words the library answers to');
+
+        /** The fixture's own styles out of a vocabulary that also holds a real library's. */
+        const vocabulary = async (): Promise<[string, number][]> =>
+            (await tracks.styleVocabulary(1_000))
+                .filter(entry => entry.style.startsWith(STYLE) || entry.style === 'promoted')
+                .map(entry => [entry.style, entry.records]);
+
+        check(
+            'every style a search can find is offered, counted by the records behind it',
+            await vocabulary(),
+            // `promoted` is on two records (the promoted column of one, the artist tag of both);
+            // the bare style is on the two tagged records; the revival is on the artist alone.
+            [
+                ['promoted', 2],
+                [STYLE, 2],
+                [`${STYLE} revival`, 1],
+            ].sort((left, right) => (right[1] as number) - (left[1] as number) || String(left[0]).localeCompare(String(right[0]))) as [
+                string,
+                number,
+            ][],
+        );
+
+        // The whole point of counting only what could air: a vocabulary is a promise that a search
+        // for this word returns something, so a style whose every record is hidden must not appear.
+        const banned = await artist('banned', ['zzsmokebanned'], -1);
+        await track(banned, 'banned-only');
+        check(
+            'a style carried only by records that cannot air is not offered',
+            (await tracks.styleVocabulary(1_000)).some(entry => entry.style === 'zzsmokebanned'),
+            false,
+        );
+
+        check('the vocabulary honours its own limit', (await tracks.styleVocabulary(2)).length, 2);
+
         throw new Rollback();
     });
 } catch (error) {
@@ -213,6 +250,13 @@ try {
     // `set.prompt.ts`. Printed rather than checked so the day it starts matching is visible.
     const literal = await tracks.searchPlayable('heavy metal hits', 1_000);
     say(`        "heavy metal hits" (the operator's own words): ${literal.length} records`);
+
+    // What the model is now handed instead of having to guess one of these words. Printed rather
+    // than checked, for the same reason: the answer moves with the library.
+    const vocabulary = await tracks.styleVocabulary(STYLES_SHOWN);
+    say('');
+    say(`the ${vocabulary.length} styles the model is shown`);
+    say(`        ${vocabulary.map(entry => `${entry.style} (${entry.records})`).join(', ')}`);
 } finally {
     await db.destroy();
 }

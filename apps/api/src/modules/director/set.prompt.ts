@@ -78,6 +78,23 @@ export interface SetPromptSettings {
      */
     taste?: TastePrompt;
     /**
+     * The styles the library actually answers to, commonest first, as `style (n records)`.
+     *
+     * The words, not the records. A style search was a blind guess at a string for as long as one
+     * was possible: the model reached for the operator's own phrasing, `search_library` matched it
+     * as one substring, and an empty answer read as an empty library. It reached for "heavy metal
+     * hits" over a library holding 240 metal records.
+     *
+     * Nothing here is a hazard of the {@link NEVER_ECHO} kind, and it is worth saying why, because
+     * this IS content in the prompt that no tool returned. A style is not a record. There is nothing
+     * to echo back as a pick: the only thing that can be done with one of these words is put it in a
+     * search, which is the whole point.
+     *
+     * In the SYSTEM turn beside {@link taste}, on the same argument — it is a standing fact about
+     * this library rather than about tonight, and it is the same on every refill.
+     */
+    styles?: readonly string[];
+    /**
      * Whether the station may play only records positively marked clean.
      *
      * Named for the RECORDS rather than for the language, unlike `PromptSettings.cleanLanguage` on
@@ -169,6 +186,18 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // brief implies Bill Evans is knowledge, naming a record because a search returned it is
         // provenance, and only the second one is what may be answered with.
         '- A brief describes a STYLE, not a search term. Searching for the operator’s own words finds records with those words in the title, which is almost never what they meant.',
+        // The other half of that rule, and the half that was missing. Telling a model its words are
+        // wrong without telling it which words are right leaves it guessing at a string, which is
+        // what "heavy metal hits" was: two words the library knows with two it does not.
+        //
+        // Conditional because the sentence has to be false-proof. A station whose catalog nothing
+        // has enriched has no vocabulary, and pointing at a list that is not there is worse than
+        // saying nothing.
+        ...(usableStyles(settings.styles).length > 0
+            ? [
+                  '- The styles this library actually knows are listed at the end of this message. Search one of THOSE words rather than the operator’s: they are what the library will answer to.',
+              ]
+            : []),
         '- Work out for yourself which artists fit the brief, then search for THEM by name, one at a time. That is what the searches are good at.',
         // The station has four tools and used to be told about two, so a briefed refill had exactly
         // one way to get from a style to a set of artists: whatever the model happened to remember.
@@ -242,9 +271,41 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
     // structural now — brief the station and the persona is purely the presenter, do not brief it
     // and the persona programmes. One rule, and no switch.
     if (music && !briefed) lines.push('', 'The station describes its music this way, and you should choose to match it:', music);
+    lines.push(...styleLines(settings.styles));
     lines.push(...tasteLines(settings.taste));
 
     return lines.join('\n');
+}
+
+/**
+ * The words the library answers to, as lines of the system turn.
+ *
+ * One line rather than a bullet each: forty styles as forty bullets is forty lines of a prompt whose
+ * scarcest resource is room to think, and this is a vocabulary rather than a list to work through.
+ * The counts ride along because they are what makes it judgeable — a model can see that a style is
+ * the spine of the library or a tag two records carry, and choose whether to spend an hour on it.
+ *
+ * Absent entirely when there is nothing to say, which is an ordinary state: a station whose catalog
+ * nothing has enriched has no vocabulary, and an empty heading is a worse answer than no heading.
+ */
+function styleLines(styles: readonly string[] | undefined): string[] {
+    const shown = usableStyles(styles);
+    if (shown.length === 0) return [];
+
+    return ['', 'The library answers to these styles, commonest first. Search these words rather than inventing one:', shown.join(', ')];
+}
+
+/**
+ * The styles worth showing, which is the ONE test of whether there is a vocabulary at all.
+ *
+ * Shared by the rule that points at the list and the list itself, rather than each deciding for
+ * itself, because the two disagreeing is the exact failure the conditional exists to prevent: a
+ * caller that passed blanks got a rule promising a vocabulary at the end of a message that carried
+ * none. Trimming here rather than at the caller keeps the prompt's contract "hand me your styles"
+ * instead of "hand me your styles, tidied".
+ */
+function usableStyles(styles: readonly string[] | undefined): string[] {
+    return (styles ?? []).map(style => style.trim()).filter(style => style.length > 0);
 }
 
 /**

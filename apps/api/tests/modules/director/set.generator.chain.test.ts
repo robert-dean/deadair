@@ -196,8 +196,9 @@ describe('SetGeneratorChain with the real bindings', () => {
     const modelOff = () =>
         new ModelSetGenerator(
             { converse: vi.fn(), canGenerate: () => true, explainGenerator: () => '' } as never,
-            // Never read: this binding declines on the config check before it would ask
-            // the station what it likes.
+            // Neither is read: this binding declines on the config check before it would ask
+            // the station what it likes or what styles its library knows.
+            {} as never,
             {} as never,
             { get: (_key: string, fallback: unknown) => fallback, has: () => false } as never,
             logger,

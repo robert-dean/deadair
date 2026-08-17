@@ -53,7 +53,42 @@ describe('setPrompt', () => {
         // The axis the search actually offers. A style filter was advertised here for as long as
         // the tool carried one, and it went with it: sent to the provider it narrowed nothing.
         expect(system).toMatch(/yearFrom and yearTo/);
+        // Still no PARAMETER called genre, which is what the line above went with. The vocabulary
+        // block is a different thing and asserted below: it names words to put in the query rather
+        // than an argument to pass beside it.
         expect(system).not.toMatch(/genre/);
+    });
+
+    it('points at the station’s own vocabulary rather than leaving the style word to a guess', () => {
+        // The other half of "a brief is a style, not a search term", and the half that was missing.
+        // Told its words were wrong and never told which words were right, a model searched `heavy
+        // metal hits` over a library holding 240 metal records and read the empty answer as an
+        // empty library.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { styles: ['heavy metal (240)', 'thrash metal (95)'] }));
+
+        expect(system).toMatch(/The styles this library actually knows are listed at the end/);
+        expect(system).toMatch(/The library answers to these styles, commonest first/);
+        expect(system).toMatch(/heavy metal \(240\), thrash metal \(95\)/);
+    });
+
+    it('keeps the vocabulary on one line, since it is a vocabulary and not a list to work through', () => {
+        // Forty styles as forty bullets is forty lines of a prompt whose scarcest resource is room
+        // to think, and the counts are what make it judgeable: the spine of a library reads
+        // differently from a tag two records happen to carry.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { styles: ['rock (558)', 'hard rock (284)', 'pop (243)'] }));
+
+        expect(system).toMatch(/rock \(558\), hard rock \(284\), pop \(243\)/);
+    });
+
+    it('says nothing about styles, and promises none, when the library has no vocabulary', () => {
+        // An ordinary state — a catalog nothing has enriched — rather than a fault. The rule and the
+        // block go together: pointing at a list that is not there is worse than saying nothing.
+        for (const styles of [undefined, [], ['', '  ']]) {
+            const system = systemOf(setPrompt({ count: 5, avoid: [] }, { ...(styles === undefined ? {} : { styles }) }));
+
+            expect(system).not.toMatch(/The library answers to these styles/);
+            expect(system).not.toMatch(/listed at the end of this message/);
+        }
     });
 
     it('names the two tools that know things the model does not', () => {

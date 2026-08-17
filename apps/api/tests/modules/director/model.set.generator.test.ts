@@ -9,6 +9,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 
 import { writeCapture } from '../../../src/modules/llm/llm.capture.js';
 import type { StationTaste, TasteRepository } from '../../../src/modules/catalog/taste.repository.js';
+import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
 import { MODEL_GENERATOR_KEYS, ModelSetGenerator } from '../../../src/modules/director/model.set.generator.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
@@ -37,6 +38,10 @@ interface Options {
     taste?: Partial<StationTaste>;
     /** A catalog that cannot answer what the operator likes. */
     tasteFails?: boolean;
+    /** The styles the library answers to, commonest first. Absent is a catalog nothing enriched. */
+    styles?: { style: string; records: number }[];
+    /** A catalog that cannot answer which styles it holds. */
+    stylesFail?: boolean;
     /** What the model was shown, for the capture switch. */
     transcript?: LlmConversation['transcript'];
 }
@@ -91,7 +96,13 @@ function build(options: Options = {}) {
         }),
     } as unknown as TasteRepository;
 
-    return { generator: new ModelSetGenerator(llm, taste, config, logger), converse, taste };
+    const styleVocabulary = vi.fn(async (): Promise<{ style: string; records: number }[]> => {
+        if (options.stylesFail) throw new Error('the pool is gone');
+        return options.styles ?? [];
+    });
+    const tracks = { styleVocabulary } as unknown as TracksRepository;
+
+    return { generator: new ModelSetGenerator(llm, taste, tracks, config, logger), converse, taste, styleVocabulary };
 }
 
 const inputs = (count: number, overrides: Partial<SetInputs> = {}): SetInputs => ({ count, rules: DEFAULT_RULES, ...overrides });
@@ -235,6 +246,59 @@ describe('ModelSetGenerator', () => {
         // Steering only. The dislikes are enforced at resolution from the ratings as they stand, so
         // losing this list costs a duller set and can never air something the operator forbade.
         const { generator } = build({ enabled: true, tasteFails: true, text: '[{"title":"One","artist":"A"}]' });
+
+        expect(await generator.generate(inputs(5))).toHaveLength(1);
+    });
+
+    it('shows the model which styles the library actually answers to', async () => {
+        // The failure this closes: told a brief is a style rather than a search term, and never told
+        // which style words exist, the model searched the operator's own four words. `heavy metal
+        // hits` matched nothing over a library holding 240 metal records, and the empty answer read
+        // as an empty library.
+        const { generator, converse } = build({
+            enabled: true,
+            styles: [
+                { style: 'heavy metal', records: 240 },
+                { style: 'thrash metal', records: 95 },
+            ],
+        });
+
+        await generator.generate(inputs(5));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const system = request.messages.find(message => message.role === 'system')?.content ?? '';
+        expect(system).toMatch(/heavy metal \(240\), thrash metal \(95\)/);
+        expect(system).toMatch(/The styles this library actually knows are listed at the end/);
+    });
+
+    it('says nothing about styles when nothing has enriched the catalog', async () => {
+        // An ordinary state rather than a fault, and pointing at a list that is not there is worse
+        // than saying nothing: the rule promises a vocabulary the prompt would not be carrying.
+        const { generator, converse } = build({ enabled: true, styles: [] });
+
+        await generator.generate(inputs(5));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const system = request.messages.find(message => message.role === 'system')?.content ?? '';
+        expect(system).not.toMatch(/The library answers to these styles/);
+        expect(system).not.toMatch(/listed at the end of this message/);
+    });
+
+    it('reads the styles on every refill, so a newly enriched record can be programmed', async () => {
+        // The vocabulary moves as the enrichment pass reaches records, which is a stronger version
+        // of the argument for reading the taste per refill.
+        const { generator, styleVocabulary } = build({ enabled: true });
+
+        await generator.generate(inputs(5));
+        await generator.generate(inputs(5));
+
+        expect(styleVocabulary).toHaveBeenCalledTimes(2);
+    });
+
+    it('programmes without the styles rather than failing when the catalog cannot answer', async () => {
+        // Same trade as the taste: this makes a search better and enforces nothing, so a read that
+        // threw costs the steering and never the set.
+        const { generator } = build({ enabled: true, stylesFail: true, text: '[{"title":"One","artist":"A"}]' });
 
         expect(await generator.generate(inputs(5))).toHaveLength(1);
     });

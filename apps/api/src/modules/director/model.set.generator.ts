@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
+import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { writeCapture } from '#modules/llm/llm.capture.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -146,6 +147,16 @@ export const MAX_OUTPUT_TOKENS = 6_000;
  */
 export const TASTE_SHOWN = 15;
 
+/**
+ * How many of the library's styles are shown.
+ *
+ * Sized against the reader's context rather than against completeness, exactly like
+ * {@link TASTE_SHOWN}. The live library carries around 350 distinct tags and the tail of that is
+ * styles two records happen to have been given; forty covers everything anyone would programme an
+ * hour from, on one line, and the model can always search a word that is not on the list.
+ */
+export const STYLES_SHOWN = 40;
+
 /** How much of an unreadable answer is logged. Enough to see the shape, not enough to flood a line. */
 const ANSWER_LOG_CHARS = 400;
 
@@ -169,6 +180,7 @@ export class ModelSetGenerator extends SetGenerator {
     constructor(
         private readonly llm: LlmService,
         private readonly taste: TasteRepository,
+        private readonly tracks: TracksRepository,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {
@@ -193,6 +205,7 @@ export class ModelSetGenerator extends SetGenerator {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                 ...(inputs.persona?.music === undefined ? {} : { music: inputs.persona.music }),
                 taste: await this.describeTaste(),
+                styles: await this.describeStyles(),
                 // Only the hard rule, and only as advice. `PickResolver` enforces it whatever the
                 // model does; this is here so a briefed refill does not spend half its picks on
                 // records that will be dropped. See `SetPromptSettings.cleanOnly`.
@@ -312,6 +325,35 @@ export class ModelSetGenerator extends SetGenerator {
         }
 
         return picks;
+    }
+
+    /**
+     * The words the library answers to, as prompt lines, or nothing.
+     *
+     * Read per refill rather than held, on the same argument as {@link describeTaste} and with more
+     * force: the vocabulary moves as the enrichment pass reaches records, so a station that just
+     * catalogued an artist should be able to programme them on the next hour.
+     *
+     * The count rides in the text (`heavy metal (240)`) rather than being formatted in the prompt,
+     * because the prompt half is a pure function and giving it a shape to render would make it own a
+     * decision this side already made.
+     *
+     * `cleanOnly` is passed for the same reason `SetPromptSettings.cleanOnly` exists: a station that
+     * may only play positively-clean copies must not be handed a style it cannot fill.
+     */
+    private async describeStyles(): Promise<string[] | undefined> {
+        let vocabulary: { style: string; records: number }[];
+        try {
+            vocabulary = await this.tracks.styleVocabulary(STYLES_SHOWN, demandsClean(advisoryPolicy(this.config)));
+        } catch (error) {
+            // Same trade as {@link describeTaste}: this makes a search better and enforces nothing,
+            // so a read that failed costs the steering and never the set. The model falls back to
+            // guessing a style word, which is what it did before this existed.
+            this.logger.warn(`director: could not read the library's styles; programming without them (${errorText(error)})`);
+            return undefined;
+        }
+
+        return vocabulary.map(entry => `${entry.style} (${entry.records})`);
     }
 
     /**

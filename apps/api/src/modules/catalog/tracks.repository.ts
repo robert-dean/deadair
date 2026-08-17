@@ -377,6 +377,79 @@ export class TracksRepository extends DataRepository {
     }
 
     /**
+     * The styles this library actually answers to, commonest first.
+     *
+     * The other half of {@link searchPlayable}, and it exists because a style search is otherwise a
+     * blind guess at a string. A model asked for "heavy metal hits" searched those four words,
+     * was answered nothing, and concluded the library was empty — while 240 records sat under the
+     * two words in the middle. Nothing had ever told it which words the station knows.
+     *
+     * Three things make it honest rather than merely a list of tags.
+     *
+     * It counts **only records that could actually air** — the same four exclusions
+     * {@link searchPlayable} applies — because a vocabulary is a promise about what a search will
+     * return, and advertising a style whose every record is benched or disliked sends the model
+     * somewhere empty. It reports the COUNT beside each style, so a caller can tell the library's
+     * spine from a tag two records happen to carry, and so a model can judge whether a style is
+     * worth an hour. And it includes the promoted `tracks.genre` alongside the payload tags, because
+     * that column is searchable too and a vocabulary that omitted it would be a smaller promise than
+     * the search can keep.
+     *
+     * Near-duplicates are left alone (`hip hop` and `hip-hop` both come back, as do `metal` and
+     * `heavy metal`). They are genuinely different searches returning different sets, and collapsing
+     * them would mean choosing which spelling the station knows — which is exactly the guess this
+     * removes.
+     *
+     * @param limit - How many styles. Sized against the reader's context, not against completeness:
+     *   the tail of a real library is tags two records carry, and the caller pays for every line.
+     * @param cleanOnly - As {@link searchPlayable}. A station that may only play positively-clean
+     *   copies must not be told about a style it cannot fill.
+     */
+    async styleVocabulary(limit: number, cleanOnly = false): Promise<{ style: string; records: number }[]> {
+        // Raw throughout: it walks two jsonb payloads, unions them with a column, and aggregates the
+        // result. The `union` is deliberate rather than `union all` — a record tagged `metal` by both
+        // its artist and itself is one record under `metal`, and the distinct count would be right
+        // either way but the intermediate would be twice the size for nothing.
+        const tags = (table: string, column: string, id: string) => sql`
+            select tag
+            from deadair.${sql.raw(table)} e
+            cross join lateral jsonb_array_elements_text(
+                case when jsonb_typeof(e.data -> 'genres') = 'array' then e.data -> 'genres' else '[]'::jsonb end
+            ) tag
+            where e.${sql.raw(column)} = t.${sql.raw(id)}
+        `;
+
+        const result = await sql<{ style: string; records: number }>`
+            select lower(tags.tag) as style, count(distinct t.id)::int as records
+            from deadair.tracks t
+            inner join deadair.artists a on a.id = t.artist_id
+            left join deadair.albums al on al.id = t.album_id
+            cross join lateral (
+                ${tags('track_enrichment', 'track_id', 'id')}
+                union
+                ${tags('artist_enrichment', 'artist_id', 'artist_id')}
+                union
+                select t.genre where t.genre is not null
+            ) tags
+            where t.merged_into_id is null
+              and t.rating <> -1
+              and a.rating <> -1
+              and (al.rating is null or al.rating <> -1)
+              and exists (
+                  select 1 from deadair.track_sources s
+                  where s.track_id = t.id and s.missing_at is null
+                  ${cleanOnly ? sql`and s.advisory = 'clean'` : sql``}
+              )
+              and length(trim(tags.tag)) > 0
+            group by 1
+            order by records desc, style asc
+            limit ${limit}
+        `.execute(this.db);
+
+        return result.rows;
+    }
+
+    /**
      * What the catalog can say about a batch of canonical tracks, for display.
      *
      * The other direction from {@link findByBindings}: that one starts from a

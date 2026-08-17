@@ -145,9 +145,19 @@ export class ModelNewsBreakWriter extends BreakWriter {
             },
         );
 
+        // The prompt still tells the model who it is (`persona` above, into `breakPrompt`) — a
+        // bulletin is free to sound like this station's presenter. What it must not do is lose the
+        // slot for failing to: `AnswerGuard.persona` is what `faultIn` checks a script against, and
+        // this is the one kind that omits it, on purpose. Measured: every News break under
+        // `wisecrack` this station wrote fell through to the deterministic floor, `out-of-character`,
+        // because a bulletin is reporting rather than a character bit and the two rules pull against
+        // each other — "no jokes, no opinions" in `NEWS_SHAPE.opening` and "sound like nobody else"
+        // in the character check are not simultaneously satisfiable, and asking for both left the
+        // floor writing every single one. A talk break earns its persona by being about nothing but
+        // voice; a bulletin earns its keep by being correct, so the character is a lean here and not
+        // a requirement.
         const guard: AnswerGuard = {
             maxWords: NEWS_MAX_WORDS,
-            ...(request.persona === undefined ? {} : { persona: request.persona }),
             // The list the prompt was built from, so a signature is refused here only where the
             // prompt named it as spent. See `AnswerGuard.recent`.
             ...(request.recent === undefined ? {} : { recent: request.recent }),

@@ -157,6 +157,17 @@ export const TASTE_SHOWN = 15;
  */
 export const STYLES_SHOWN = 40;
 
+/**
+ * How much of the vocabulary is READ, as against how much is shown.
+ *
+ * Two different numbers because the whole list is needed to answer two questions the shown forty
+ * cannot: how many styles the library has in all (a truncated list that does not say it is truncated
+ * is a false statement about the catalogue, which cost one refill entirely) and whether the brief
+ * names one of them. Generous rather than exact — this library has 762 and the query costs about
+ * 130ms — because the failure mode of it being too small is the one it is here to prevent.
+ */
+export const VOCABULARY_READ = 2_000;
+
 /** How much of an unreadable answer is logged. Enough to see the shape, not enough to flood a line. */
 const ANSWER_LOG_CHARS = 400;
 
@@ -205,7 +216,7 @@ export class ModelSetGenerator extends SetGenerator {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                 ...(inputs.persona?.music === undefined ? {} : { music: inputs.persona.music }),
                 taste: await this.describeTaste(),
-                styles: await this.describeStyles(),
+                styles: await this.describeStyles(inputs.brief),
                 // Only the hard rule, and only as advice. `PickResolver` enforces it whatever the
                 // model does; this is here so a briefed refill does not spend half its picks on
                 // records that will be dropped. See `SetPromptSettings.cleanOnly`.
@@ -340,11 +351,28 @@ export class ModelSetGenerator extends SetGenerator {
      *
      * `cleanOnly` is passed for the same reason `SetPromptSettings.cleanOnly` exists: a station that
      * may only play positively-clean copies must not be handed a style it cannot fill.
+     *
+     * ## The brief's own styles are shown however rare they are
+     *
+     * The commonest forty is the wrong list on its own, and one live refill is the whole argument:
+     * briefed `jazz club bangers`, the model was shown forty styles with no jazz among them, decided
+     * the library had none and answered with nothing at all — no search, no records, in two seconds.
+     * The library holds 30 jazz records under a style ranked 49th of 762. Nine places.
+     *
+     * So the whole vocabulary is read and the brief picks out of it: a style whose name appears in
+     * what the operator asked for is shown no matter where it ranks. That is the ONE question this
+     * list exists to answer, and ranking is a poor proxy for it — popularity says what the station
+     * plays most and the brief says what it is being asked for tonight.
+     *
+     * The match is deliberately the cheap direction: does the brief CONTAIN this style's name. It is
+     * a closed set of genre words tested against one sentence, not a search, so the tokenizing
+     * hazard that keeps `searchPlayable` on whole phrases does not arise — the worst case is that
+     * "popular songs" surfaces `pop`, which is a style the library does hold.
      */
-    private async describeStyles(): Promise<string[] | undefined> {
+    private async describeStyles(brief: string | undefined): Promise<{ shown: string[]; total: number } | undefined> {
         let vocabulary: { style: string; records: number }[];
         try {
-            vocabulary = await this.tracks.styleVocabulary(STYLES_SHOWN, demandsClean(advisoryPolicy(this.config)));
+            vocabulary = await this.tracks.styleVocabulary(VOCABULARY_READ, demandsClean(advisoryPolicy(this.config)));
         } catch (error) {
             // Same trade as {@link describeTaste}: this makes a search better and enforces nothing,
             // so a read that failed costs the steering and never the set. The model falls back to
@@ -353,7 +381,21 @@ export class ModelSetGenerator extends SetGenerator {
             return undefined;
         }
 
-        return vocabulary.map(entry => `${entry.style} (${entry.records})`);
+        // The commonest, plus anything the brief actually named. `asked` goes in FRONT: a rare style
+        // the operator asked for is the most useful line here and the last place it should be is at
+        // the end of a list of forty, where a model reading for the gist will not reach it.
+        const wanted = (brief ?? '').toLowerCase();
+        const asked = wanted.length === 0 ? [] : vocabulary.filter(entry => wanted.includes(entry.style));
+        const common = vocabulary.slice(0, STYLES_SHOWN).filter(entry => !asked.includes(entry));
+
+        return {
+            shown: [...asked, ...common].map(entry => `${entry.style} (${entry.records})`),
+            // Everything the library has, not everything that was read: `VOCABULARY_READ` is a
+            // ceiling on a query and the prompt's claim is about the LIBRARY. They are the same
+            // number in practice and the distinction is what stops it quietly becoming a lie on a
+            // station with a bigger catalogue than this one.
+            total: vocabulary.length,
+        };
     }
 
     /**

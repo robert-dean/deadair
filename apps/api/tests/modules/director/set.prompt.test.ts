@@ -64,10 +64,10 @@ describe('setPrompt', () => {
         // Told its words were wrong and never told which words were right, a model searched `heavy
         // metal hits` over a library holding 240 metal records and read the empty answer as an
         // empty library.
-        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { styles: ['heavy metal (240)', 'thrash metal (95)'] }));
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { styles: { shown: ['heavy metal (240)', 'thrash metal (95)'], total: 2 } }));
 
-        expect(system).toMatch(/The styles this library actually knows are listed at the end/);
-        expect(system).toMatch(/The library answers to these styles, commonest first/);
+        expect(system).toMatch(/The commonest styles this library holds are listed at the end/);
+        expect(system).toMatch(/The commonest styles in the library, with how many records each has/);
         expect(system).toMatch(/heavy metal \(240\), thrash metal \(95\)/);
     });
 
@@ -75,19 +75,51 @@ describe('setPrompt', () => {
         // Forty styles as forty bullets is forty lines of a prompt whose scarcest resource is room
         // to think, and the counts are what make it judgeable: the spine of a library reads
         // differently from a tag two records happen to carry.
-        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { styles: ['rock (558)', 'hard rock (284)', 'pop (243)'] }));
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { styles: { shown: ['rock (558)', 'hard rock (284)', 'pop (243)'], total: 3 } }));
 
         expect(system).toMatch(/rock \(558\), hard rock \(284\), pop \(243\)/);
+    });
+
+    it('says the list is truncated, because a model reads a bare list as the whole vocabulary', () => {
+        // The failure this exists to stop, in full. Shown forty styles with no jazz among them and
+        // nothing saying there were more, a model briefed `jazz club bangers` answered "No style
+        // listed. Probably none in library. So cannot find", named nothing and made no tool call at
+        // all -- over a library holding 30 jazz records under a style ranked 49th of 762.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { styles: { shown: ['rock (558)', 'pop (243)'], total: 762 } }));
+
+        expect(system).toMatch(/The library holds 760 more styles than these, too small to list/);
+        // A count alone reads as trivia, so it carries the instruction with it.
+        expect(system).toMatch(/If the brief is not above, search for it anyway/);
+        expect(system).toMatch(/A style missing from it is not a style the station lacks/);
+        expect(system).toMatch(/There is no brief for which the answer is nothing/);
+    });
+
+    it('says nothing about a remainder when the list IS the whole vocabulary', () => {
+        // A small library where forty covers everything. Claiming "0 more styles" would be noise,
+        // and claiming any other number would be false.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { styles: { shown: ['rock (558)', 'pop (243)'], total: 2 } }));
+
+        expect(system).not.toMatch(/more styles than these/);
+    });
+
+    it('never answers empty without looking, which is what "name fewer" was read as permission for', () => {
+        // "If you cannot find enough, name fewer" was read as licence to name none: a model decided
+        // the station had nothing and answered `[]` in two seconds with no tool call. Naming nothing
+        // is not a short answer, and it is the one outcome indistinguishable from a broken binding.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }));
+
+        expect(system).toMatch(/Never answer with an empty list before you have searched/);
     });
 
     it('says nothing about styles, and promises none, when the library has no vocabulary', () => {
         // An ordinary state — a catalog nothing has enriched — rather than a fault. The rule and the
         // block go together: pointing at a list that is not there is worse than saying nothing.
-        for (const styles of [undefined, [], ['', '  ']]) {
+        for (const styles of [undefined, { shown: [], total: 0 }, { shown: ['', '  '], total: 2 }]) {
             const system = systemOf(setPrompt({ count: 5, avoid: [] }, { ...(styles === undefined ? {} : { styles }) }));
 
-            expect(system).not.toMatch(/The library answers to these styles/);
+            expect(system).not.toMatch(/The commonest styles in the library/);
             expect(system).not.toMatch(/listed at the end of this message/);
+            expect(system).not.toMatch(/more styles than these/);
         }
     });
 

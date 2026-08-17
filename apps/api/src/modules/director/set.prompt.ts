@@ -92,8 +92,21 @@ export interface SetPromptSettings {
      *
      * In the SYSTEM turn beside {@link taste}, on the same argument — it is a standing fact about
      * this library rather than about tonight, and it is the same on every refill.
+     *
+     * **`total` is load-bearing and was learned the hard way.** The first version of this was a bare
+     * list of the commonest forty, and a model briefed `jazz club bangers` read it as the whole
+     * vocabulary: it answered "No style listed. Probably none in library. So cannot find", named
+     * nothing and made no tool call at all. The library holds 30 jazz records under a style ranked
+     * 49th of 762. A truncated list that does not say it is truncated is not a hint, it is a false
+     * statement about what the station owns — so the count travels with it, exactly as
+     * {@link tasteLines} says how many likes it did not show.
      */
-    styles?: readonly string[];
+    styles?: {
+        /** The commonest, already formatted as `style (n records)`. */
+        shown: readonly string[];
+        /** How many the library has in all, so a truncated list cannot read as a complete one. */
+        total: number;
+    };
     /**
      * Whether the station may play only records positively marked clean.
      *
@@ -195,7 +208,16 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // saying nothing.
         ...(usableStyles(settings.styles).length > 0
             ? [
-                  '- The styles this library actually knows are listed at the end of this message. Search one of THOSE words rather than the operator’s: they are what the library will answer to.',
+                  '- The commonest styles this library holds are listed at the end of this message, with how many records each has. Searching one of those words is the surest way to fill a brief.',
+                  // The rule the first version of this was missing, and the one the failure turned
+                  // on. A model shown forty styles and briefed `jazz club bangers` decided the
+                  // library had no jazz and stopped -- no search, no answer, nothing. The list is
+                  // forty of 762 and the library holds 30 jazz records.
+                  //
+                  // Stated as two facts rather than as encouragement, because "you may still search"
+                  // reads as permission to a model that has already concluded there is no point.
+                  '- That list is the commonest few, NOT all of them. A style missing from it is not a style the station lacks: search the word anyway, because the library holds hundreds of styles too small to list.',
+                  '- And search_catalog reaches records the station does not own at all, so a brief the library genuinely cannot fill is still one you can programme. There is no brief for which the answer is nothing.',
               ]
             : []),
         '- Work out for yourself which artists fit the brief, then search for THEM by name, one at a time. That is what the searches are good at.',
@@ -245,6 +267,11 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // model padding to length silently costs the operator the thing they asked for.
         '- Name each record ONCE. Repeating one does not fill the request; the record is discarded and the station chooses something else in its place.',
         '- If you cannot find enough, name fewer. A short answer is better than a repeated one.',
+        // The floor under that permission, and it needs one. A model briefed for a style it did not
+        // recognise answered `[]` in two seconds without calling a single tool, reasoning that it
+        // could "name fewer" and that fewer could be none. Naming nothing is not a short answer, it
+        // is no answer -- and it is the one outcome that cannot be told apart from a broken binding.
+        '- Never answer with an empty list before you have searched. Deciding the station has nothing without looking is the one mistake you can make here that costs the whole request.',
         '- Do not put two records by the same artist next to each other.',
         '- Order them so the set flows: think about what follows what.',
         // Same shape as the dislikes below: stated as a fact about what will happen rather than as
@@ -288,11 +315,20 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
  * Absent entirely when there is nothing to say, which is an ordinary state: a station whose catalog
  * nothing has enriched has no vocabulary, and an empty heading is a worse answer than no heading.
  */
-function styleLines(styles: readonly string[] | undefined): string[] {
+function styleLines(styles: SetPromptSettings['styles']): string[] {
     const shown = usableStyles(styles);
     if (shown.length === 0) return [];
 
-    return ['', 'The library answers to these styles, commonest first. Search these words rather than inventing one:', shown.join(', ')];
+    const lines = ['', 'The commonest styles in the library, with how many records each has:', shown.join(', ')];
+
+    // The sentence the failure was made of. A model that cannot see the list is truncated treats it
+    // as the library's whole vocabulary and gives up on anything missing from it, so the remainder
+    // is stated as a number and as an instruction — a count alone reads as trivia.
+    const rest = (styles?.total ?? 0) - shown.length;
+    if (rest > 0) {
+        lines.push(`The library holds ${rest} more styles than these, too small to list. If the brief is not above, search for it anyway.`);
+    }
+    return lines;
 }
 
 /**
@@ -304,8 +340,8 @@ function styleLines(styles: readonly string[] | undefined): string[] {
  * none. Trimming here rather than at the caller keeps the prompt's contract "hand me your styles"
  * instead of "hand me your styles, tidied".
  */
-function usableStyles(styles: readonly string[] | undefined): string[] {
-    return (styles ?? []).map(style => style.trim()).filter(style => style.length > 0);
+function usableStyles(styles: SetPromptSettings['styles']): string[] {
+    return (styles?.shown ?? []).map(style => style.trim()).filter(style => style.length > 0);
 }
 
 /**

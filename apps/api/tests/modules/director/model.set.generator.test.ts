@@ -11,7 +11,7 @@ import { writeCapture } from '../../../src/modules/llm/llm.capture.js';
 import type { StationTaste, TasteRepository } from '../../../src/modules/catalog/taste.repository.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
-import { MODEL_GENERATOR_KEYS, ModelSetGenerator } from '../../../src/modules/director/model.set.generator.js';
+import { MODEL_GENERATOR_KEYS, ModelSetGenerator, STYLES_SHOWN } from '../../../src/modules/director/model.set.generator.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 
@@ -268,7 +268,53 @@ describe('ModelSetGenerator', () => {
         const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
         const system = request.messages.find(message => message.role === 'system')?.content ?? '';
         expect(system).toMatch(/heavy metal \(240\), thrash metal \(95\)/);
-        expect(system).toMatch(/The styles this library actually knows are listed at the end/);
+        expect(system).toMatch(/The commonest styles this library holds are listed at the end/);
+    });
+
+    it('shows a style the brief asked for however rare it is, and puts it first', async () => {
+        // The whole argument, from one live refill. Shown the commonest forty with no jazz among
+        // them, a model briefed `jazz club bangers` answered "No style listed. Probably none in
+        // library. So cannot find", named nothing and made no tool call -- over a library holding
+        // 30 jazz records under a style ranked 49th of 762. Popularity says what the station plays
+        // most; the brief says what it is being asked for tonight, and only the second is the
+        // question this list exists to answer.
+        const styles = [
+            ...Array.from({ length: STYLES_SHOWN }, (_, index) => ({ style: `common-${index}`, records: 500 - index })),
+            { style: 'jazz', records: 23 },
+        ];
+        const { generator, converse } = build({ enabled: true, styles });
+
+        await generator.generate(inputs(5, { brief: 'jazz club bangers' }));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const system = request.messages.find(message => message.role === 'system')?.content ?? '';
+        expect(system).toMatch(/jazz \(23\)/);
+        // In front of the common ones: the last place a rare style the operator asked for should sit
+        // is at the end of a list of forty, where a model reading for the gist will not reach it.
+        expect(system.indexOf('jazz (23)')).toBeLessThan(system.indexOf('common-0'));
+    });
+
+    it('counts the whole vocabulary rather than the part it showed', async () => {
+        // The prompt's claim is about the LIBRARY, so the remainder has to come off everything the
+        // library holds. A list truncated without saying so is what cost the refill above.
+        const styles = Array.from({ length: STYLES_SHOWN + 12 }, (_, index) => ({ style: `s-${index}`, records: 100 - index }));
+        const { generator, converse } = build({ enabled: true, styles });
+
+        await generator.generate(inputs(5));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const system = request.messages.find(message => message.role === 'system')?.content ?? '';
+        expect(system).toMatch(/The library holds 12 more styles than these/);
+    });
+
+    it('does not show a style twice when the brief names a common one', async () => {
+        const { generator, converse } = build({ enabled: true, styles: [{ style: 'heavy metal', records: 240 }] });
+
+        await generator.generate(inputs(5, { brief: 'heavy metal hits' }));
+
+        const [request] = converse.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+        const system = request.messages.find(message => message.role === 'system')?.content ?? '';
+        expect(system.match(/heavy metal \(240\)/g)).toHaveLength(1);
     });
 
     it('says nothing about styles when nothing has enriched the catalog', async () => {

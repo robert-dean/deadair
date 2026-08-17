@@ -70,10 +70,18 @@ export class ChartsTool implements ToolSource {
                     // find out what the ids ARE, because a model that has to guess one guesses a
                     // chart name rather than an id and gets nothing back.
                     description:
-                        'Read a published chart of what is popular right now, for records the station does not necessarily own. Call it with no chartId to see which charts are available, then again with one to get the ranked records. Positions are facts you can say on air.',
+                        'Read a published chart of what is popular right now, for records the station does not necessarily own. Pass a style to get the top records in that style, or a chartId for a named chart — call it with neither to see which named charts exist. Positions are facts you can say on air.',
                     parameters: {
                         type: 'object',
                         properties: {
+                            // Named STYLE rather than genre, matching the word the set prompt's
+                            // vocabulary block uses. Two names for one idea is how a model ends up
+                            // deciding they must mean different things.
+                            style: {
+                                type: 'string',
+                                description:
+                                    'A musical style, like "heavy metal" or "bluegrass". Any style works, not just the ones the library holds — this is what the world is playing, not what the station owns. Use this for a brief that names a style.',
+                            },
                             chartId: {
                                 type: 'string',
                                 description: 'Which chart, exactly as an earlier call listed it. Leave it out to list the charts on offer.',
@@ -103,7 +111,24 @@ export class ChartsTool implements ToolSource {
      * see it found nothing rather than inferring it from silence.
      */
     private async browse(args: Record<string, unknown>): Promise<{ charts: ChartOption[] } | { chartId: string; records: unknown[] }> {
-        const chartId = readText(args.chartId);
+        // A style is resolved to an id FIRST, and wins over an explicit `chartId` when a model sent
+        // both. Sending both is a model hedging, and of the two the style is the one it chose on
+        // purpose: the id would have come from a menu that never listed a style chart in the first
+        // place, so honouring that instead would answer a question nobody asked.
+        const style = readText(args.style);
+        const named = style === undefined ? undefined : await this.charts.styleChart(style);
+
+        if (style !== undefined && named === undefined) {
+            // Said as an answer rather than an error, following every other miss here: nothing
+            // installed publishes style charts, which is a true fact about the station and one the
+            // model can act on by searching instead. `chartId` echoes the style rather than the
+            // (nonexistent) id, so the answer reads as "no chart for jazz" and not "no chart for
+            // nothing".
+            this.logger.debug('llm: no chart plugin publishes a style chart', { style });
+            return { chartId: style, records: [] };
+        }
+
+        const chartId = named ?? readText(args.chartId);
 
         if (chartId === undefined) {
             const charts = (await this.charts.listCharts()).map(chart => ({

@@ -115,4 +115,25 @@ export interface ChartsProvider {
      * moved underneath a caller, which is a stale request and not a fault.
      */
     fetchChart(query: ChartQuery): Promise<ChartEntry[]>;
+
+    /**
+     * The id of a chart for one musical style, if this service publishes one.
+     *
+     * Optional, the way `artistTopTracks` is on the similarity capability, and it exists because a
+     * style chart is the one family {@link listCharts} cannot offer: a service that ranks by tag has
+     * a chart for every word anybody has ever applied, so enumerating them is impossible and listing
+     * ten arbitrary ones is a worse menu than none. The result is that a perfectly good endpoint was
+     * unreachable — a caller could only ask for ids it had been shown.
+     *
+     * So this is a NAMING question rather than a fetch: hand it a style and get back an id for
+     * {@link fetchChart}, in whatever private scheme this plugin uses. The host never builds one
+     * itself, because the scheme belongs to the plugin and a host that guessed it would be writing
+     * one service's URL structure into deadair.
+     *
+     * `undefined` for a service with no style charts, which is an ordinary answer. Note it says
+     * nothing about whether the style HAS entries — an id for a word nobody ever tagged is a valid
+     * id for an empty chart, and telling those apart costs a request the caller is about to make
+     * anyway.
+     */
+    styleChartId?(style: string): string | undefined;
 }

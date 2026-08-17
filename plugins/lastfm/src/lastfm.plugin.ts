@@ -391,6 +391,26 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
         }
     }
 
+    /**
+     * The id of this service's chart for one style.
+     *
+     * The other half of the `tag:` family `fetchChart` has always understood and `listCharts` has
+     * always refused to enumerate. Nothing here is new work — `tag.getTopTracks` was reachable the
+     * whole time — it is only the naming step, so a caller can get from "the operator asked for
+     * jazz" to an id without knowing that this plugin spells it `tag:`.
+     *
+     * The style is passed through as the operator's own word rather than matched against anything.
+     * Last.fm's tags ARE free text, so `heavy metal`, `britpop` and `witch house` are all real
+     * charts, and a word nobody tagged answers empty — which is the same outcome as a chart with
+     * nothing in it and needs no separate handling.
+     */
+    styleChartId(style: string): string | undefined {
+        const tag = style.trim();
+        if (!this.client || tag.length === 0) return undefined;
+
+        return `${TAG_PREFIX}${tag}`;
+    }
+
     /** Which endpoint a chart id names, and what to send it. */
     private chartRequest(chartId: string, limit: string): [string | undefined, Record<string, string>] {
         if (chartId === GLOBAL_CHART) return ['chart.getTopTracks', { limit }];

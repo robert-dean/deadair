@@ -38,6 +38,7 @@ const entry = (rank: number, title: string, artist: string): ChartEntry => ({ ra
 interface InstanceOptions {
     listCharts?: unknown;
     fetchChart?: unknown;
+    styleChartId?: unknown;
 }
 
 function instance(options: InstanceOptions = {}) {
@@ -45,6 +46,10 @@ function instance(options: InstanceOptions = {}) {
         init: vi.fn(),
         listCharts: options.listCharts ?? vi.fn(async (): Promise<ChartDescriptor[]> => [{ id: 'top-100', name: 'Top 100' }]),
         fetchChart: options.fetchChart ?? vi.fn(async (): Promise<ChartEntry[]> => [entry(1, 'Glory Box', 'Portishead')]),
+        // Optional on the capability, and left off by default here for the same reason: most of
+        // this file's fixtures are testing a plugin that predates the method entirely, and it must
+        // keep working with none.
+        ...(options.styleChartId === undefined ? {} : { styleChartId: options.styleChartId }),
     };
     return built;
 }
@@ -127,6 +132,62 @@ describe('listing what is on offer', () => {
         ]);
         const service = build([record(LASTFM, {}, { listCharts })]);
         expect((await service.listCharts()).map(chart => chart.id)).toEqual([`${LASTFM}:fine`]);
+    });
+});
+
+describe('naming a style chart', () => {
+    it('qualifies the id the plugin names, exactly like an ordinary chart id', async () => {
+        const styleChartId = vi.fn((style: string) => `tag:${style}`);
+        const service = build([record(LASTFM, {}, { styleChartId })]);
+
+        expect(await service.styleChart('heavy metal')).toBe(`${LASTFM}:tag:heavy metal`);
+        expect(styleChartId).toHaveBeenCalledWith('heavy metal');
+    });
+
+    it('answers with nothing when no plugin implements it, which is ordinary', async () => {
+        // Every fixture elsewhere in this file is a plugin that predates the method. That has to
+        // keep working: `styleChartId` is optional on the capability.
+        const service = build([record(LASTFM)]);
+        expect(await service.styleChart('jazz')).toBeUndefined();
+    });
+
+    it('takes the FIRST plugin that names one, by plugin id order', async () => {
+        // `plugins()` sorts by id, exactly as `listCharts` does, so `deadair.apple` is asked before
+        // `deadair.lastfm` whatever order they were registered in.
+        const appleNamesNothing = vi.fn(() => undefined);
+        const lastfmNames = vi.fn((style: string) => `tag:${style}`);
+        const service = build([record(LASTFM, {}, { styleChartId: lastfmNames }), record(APPLE, {}, { styleChartId: appleNamesNothing })]);
+
+        expect(await service.styleChart('jazz')).toBe(`${LASTFM}:tag:jazz`);
+        expect(appleNamesNothing).toHaveBeenCalled();
+    });
+
+    it('does not ask a plugin that answered already, once one has named a chart', async () => {
+        const appleNames = vi.fn((style: string) => `tag:${style}`);
+        const lastfmNames = vi.fn((style: string) => `tag:${style}`);
+        const service = build([record(LASTFM, {}, { styleChartId: lastfmNames }), record(APPLE, {}, { styleChartId: appleNames })]);
+
+        await service.styleChart('jazz');
+
+        expect(lastfmNames).not.toHaveBeenCalled();
+    });
+
+    it('answers with nothing for a blank style, asking no plugin', async () => {
+        const styleChartId = vi.fn(() => 'tag:blank');
+        const service = build([record(LASTFM, {}, { styleChartId })]);
+
+        expect(await service.styleChart('   ')).toBeUndefined();
+        expect(styleChartId).not.toHaveBeenCalled();
+    });
+
+    it('moves on to the next plugin when one throws, rather than losing the whole lookup', async () => {
+        const broken = vi.fn(() => {
+            throw new PluginError('upstream is down').withCode('upstream');
+        });
+        const working = vi.fn((style: string) => `tag:${style}`);
+        const service = build([record(LASTFM, {}, { styleChartId: broken }), record(APPLE, {}, { styleChartId: working })]);
+
+        expect(await service.styleChart('jazz')).toBe(`${APPLE}:tag:jazz`);
     });
 });
 

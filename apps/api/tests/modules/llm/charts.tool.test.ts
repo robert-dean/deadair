@@ -19,6 +19,8 @@ interface ServiceOptions {
     hasCharts?: boolean;
     charts?: { id: string; pluginId: string; name: string; country?: string; genre?: string }[];
     entries?: ChartEntry[];
+    /** What `styleChart` answers. `undefined` is the ordinary case: nothing publishes style charts. */
+    styleChart?: string;
 }
 
 function build(options: ServiceOptions = {}) {
@@ -26,13 +28,15 @@ function build(options: ServiceOptions = {}) {
     // The parameters are named even though the body ignores them: the assertions below read
     // `call[1]` off the mock, which is a zero-length tuple for a `vi.fn` that declared none.
     const fetchChart = vi.fn(async (_id: string, _limit: number, _date?: string): Promise<ChartEntry[]> => options.entries ?? []);
+    const styleChart = vi.fn(async (_style: string) => options.styleChart);
     const charts = {
         hasCharts: () => options.hasCharts ?? true,
         listCharts,
         fetchChart,
+        styleChart,
     } as unknown as ChartsService;
 
-    return { tool: new ChartsTool(charts, logger), listCharts, fetchChart };
+    return { tool: new ChartsTool(charts, logger), listCharts, fetchChart, styleChart };
 }
 
 const only = async (tool: ChartsTool) => (await tool.tools())[0]!;
@@ -45,13 +49,13 @@ describe('what is offered', () => {
         expect(await tool.tools()).toEqual([]);
     });
 
-    it('tells the model that calling it with no id is how the ids are found', async () => {
+    it('tells the model that calling it with neither is how the named charts are found', async () => {
         // A model that has to guess an id guesses a chart NAME and gets nothing back.
         const { tool } = build();
         const declaration = (await only(tool)).declaration;
 
         expect(declaration.name).toBe('browse_charts');
-        expect(declaration.description).toMatch(/no chartId/i);
+        expect(declaration.description).toMatch(/call it with neither/i);
         expect(declaration.parameters.required).toEqual([]);
     });
 });
@@ -128,5 +132,68 @@ describe('reading one chart', () => {
         const { tool } = build({ entries: [] });
 
         expect(await (await only(tool)).run({ chartId: CHART })).toEqual({ chartId: CHART, records: [] });
+    });
+});
+
+describe('asking for a style', () => {
+    it('resolves the style to an id and reads that chart, without the model ever naming one', async () => {
+        // The whole point: `tag.getTopTracks` and its siblings on other services were reachable
+        // only by an id the menu never listed, because a tag chart exists for every word anybody
+        // has applied and enumerating them is impossible. This is the naming step that was missing.
+        const { tool, styleChart, fetchChart } = build({ styleChart: 'deadair.lastfm:tag:heavy metal', entries: [] });
+
+        await (await only(tool)).run({ style: 'heavy metal' });
+
+        expect(styleChart).toHaveBeenCalledWith('heavy metal');
+        expect(fetchChart).toHaveBeenCalledWith('deadair.lastfm:tag:heavy metal', 25, undefined);
+    });
+
+    it('answers with the records under the resolved id, exactly like an ordinary chart', async () => {
+        const { tool } = build({
+            styleChart: 'deadair.lastfm:tag:jazz',
+            entries: [{ rank: 1, title: 'So What', artist: 'Miles Davis' }],
+        });
+
+        const result = (await (await only(tool)).run({ style: 'jazz' })) as { chartId: string; records: Record<string, unknown>[] };
+
+        expect(result.chartId).toBe('deadair.lastfm:tag:jazz');
+        expect(result.records[0]).toMatchObject({ title: 'So What', artist: 'Miles Davis' });
+    });
+
+    it('answers with an empty chart, named for the style, when nothing publishes style charts', async () => {
+        // Said as an answer rather than an error: the model can act on it by searching instead.
+        // `chartId` echoes the style so the answer reads as "no chart for jazz" and not "no chart
+        // for nothing".
+        const { tool, fetchChart } = build({ styleChart: undefined });
+
+        expect(await (await only(tool)).run({ style: 'jazz' })).toEqual({ chartId: 'jazz', records: [] });
+        expect(fetchChart).not.toHaveBeenCalled();
+    });
+
+    it('wins over an explicit chartId, since a model sending both chose the style on purpose', async () => {
+        // The chartId would have come from a menu that never listed a style chart in the first
+        // place, so honouring it instead answers a question nobody asked.
+        const { tool, fetchChart } = build({ styleChart: 'deadair.lastfm:tag:jazz', entries: [] });
+
+        await (await only(tool)).run({ style: 'jazz', chartId: 'deadair.lastfm:top-100' });
+
+        expect(fetchChart).toHaveBeenCalledWith('deadair.lastfm:tag:jazz', 25, undefined);
+    });
+
+    it('treats a blank style as no style, because a model filling every field sends one', async () => {
+        const { tool, styleChart, listCharts } = build();
+
+        await (await only(tool)).run({ style: '   ' });
+
+        expect(styleChart).not.toHaveBeenCalled();
+        expect(listCharts).toHaveBeenCalled();
+    });
+
+    it('mentions style in the description, so a briefed model reaches for it', async () => {
+        const { tool } = build();
+        const declaration = (await only(tool)).declaration;
+
+        expect(declaration.parameters.properties).toHaveProperty('style');
+        expect(declaration.description).toMatch(/style/i);
     });
 });

@@ -131,6 +131,46 @@ export class ChartsService {
     }
 
     /**
+     * A qualified id for the chart of one style, from the first plugin that publishes one.
+     *
+     * The naming step {@link listCharts} cannot do. A service ranking by tag has a chart for every
+     * word anybody has applied, so the menu deliberately holds none of them and the endpoint was
+     * unreachable to anything that could only ask for ids it had been shown.
+     *
+     * FIRST match rather than all of them, unlike `listCharts`, because the caller wants one chart
+     * for a style rather than a menu to choose from — and the plugin order is already the operator's
+     * preference. It is also why nothing here asks whether the chart HAS entries: that costs a
+     * request the caller is about to make anyway, and an empty chart and a missing one are the same
+     * outcome to a DJ.
+     *
+     * `undefined` when nothing publishes style charts, which is ordinary: `ChartsProvider.styleChartId`
+     * is optional and a service with only national charts legitimately has none.
+     */
+    async styleChart(style: string): Promise<string | undefined> {
+        const wanted = style.trim();
+        if (wanted.length === 0) return undefined;
+
+        for (const plugin of this.plugins()) {
+            // Synchronous on the capability and still invoked through the invoker, because it is
+            // plugin code either way: the deadline, the error flattening and the log line are the
+            // same ones every other call across this boundary gets.
+            let chartId: string | undefined;
+            try {
+                chartId = await this.pluginInvoker.invoke(plugin.record.id, 'charts.styleChartId', async () =>
+                    plugin.instance.styleChartId?.(wanted),
+                );
+            } catch (error) {
+                this.logger.info(`charts: a plugin could not name a style chart (${plugin.record.id}: ${errorText(error)})`);
+                continue;
+            }
+
+            if (chartId) return qualifyChartId(plugin.record.id, chartId);
+        }
+
+        return undefined;
+    }
+
+    /**
      * One chart's entries, ranked.
      *
      * `[]` covers every way of having no answer: an id that is not qualified, a

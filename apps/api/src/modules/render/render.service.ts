@@ -277,6 +277,7 @@ const toView = (segment: Segment): SegmentView => ({
     source: segment.source,
     playable: segment.audioChecksum !== undefined,
     ...(segment.script === undefined ? {} : { script: segment.script }),
+    ...(segment.spokenScript === undefined ? {} : { spokenScript: segment.spokenScript }),
     ...(segment.sourcePath === undefined ? {} : { sourcePath: segment.sourcePath }),
     ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
     ...(segment.error === undefined ? {} : { error: segment.error }),

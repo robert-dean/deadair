@@ -31,6 +31,16 @@ export interface Segment {
     state: SegmentState;
     label: string;
     script?: string;
+    /**
+     * The words as the engine was handed them, once something has spoken this.
+     *
+     * Not the script and not a tidier version of it: `transposeForSpeech` says the symbols, reads
+     * the years as a person reads them and applies the operator's own pronunciations, all on the way
+     * INTO the engine. It is kept because that list can change between two renders of one script, so
+     * this is the only thing that answers "why did it say that" about the audio this row actually
+     * holds. Absent until a render has happened, and absent for an imported recording.
+     */
+    spokenScript?: string;
     source: string;
     sourcePath?: string;
     audioChecksum?: string;
@@ -158,6 +168,14 @@ export interface RenderedAudio {
     audioChecksum: string;
     audioExt: SegmentExtension;
     durationMs?: number;
+    /**
+     * The words the engine was handed. See {@link Segment.spokenScript}.
+     *
+     * Written in the same statement as the audio, because it is a fact ABOUT this audio rather than
+     * about the row: two renders of one script under two different pronunciation lists produce two
+     * different readings, and the one kept has to be the one whose file this row now points at.
+     */
+    spokenScript?: string;
 }
 
 /** What the station wrote itself, as opposed to `library` for a file somebody dropped in. */
@@ -191,6 +209,7 @@ interface SegmentRow {
     state: SegmentState;
     label: string;
     script: string | null;
+    spokenScript: string | null;
     source: string;
     sourcePath: string | null;
     audioChecksum: string | null;
@@ -215,6 +234,7 @@ const SEGMENT_COLUMNS = [
     'state',
     'label',
     'script',
+    'spokenScript',
     'source',
     'sourcePath',
     'audioChecksum',
@@ -276,6 +296,7 @@ function toSegment(row: SegmentRow): Segment {
         source: row.source,
         ...(playable ? { audioChecksum: row.audioChecksum as string, audioExt: ext as SegmentExtension } : {}),
         ...(row.script == null ? {} : { script: row.script }),
+        ...(row.spokenScript == null ? {} : { spokenScript: row.spokenScript }),
         ...(row.sourcePath == null ? {} : { sourcePath: row.sourcePath }),
         ...(row.durationMs == null ? {} : { durationMs: row.durationMs }),
         ...(row.loudnessLufs == null ? {} : { loudnessLufs: row.loudnessLufs }),
@@ -782,6 +803,7 @@ export class SegmentRepository extends DataRepository {
                 audioChecksum: audio.audioChecksum,
                 audioExt: audio.audioExt,
                 durationMs: audio.durationMs ?? null,
+                spokenScript: audio.spokenScript ?? null,
                 error: null,
             })
             .where('id', '=', id)

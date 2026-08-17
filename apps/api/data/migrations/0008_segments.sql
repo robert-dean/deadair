@@ -60,6 +60,13 @@ create table deadair.segments (
     -- The words, for anything that speaks. Null for an imported file, whose words are whatever
     -- somebody recorded.
     script text,
+    -- The words as the speech engine was actually handed them, which are not the same words: the
+    -- symbols said, the years read as a person reads them, the operator's own pronunciations
+    -- applied. Written by the render rather than by the writer, because the transposition happens
+    -- on the way to the engine and depends on a list that can change between two renders of one
+    -- script -- so this is the only record of what THIS audio says, and the only thing that answers
+    -- "why did it say that". Null until something has spoken it, and for an imported recording.
+    spoken_script text,
     -- Who made it: 'library' for a file dropped into the inbox, later 'render' for one this
     -- station spoke itself. Unconstrained text, like `lineups.source`.
     source text not null default 'library',

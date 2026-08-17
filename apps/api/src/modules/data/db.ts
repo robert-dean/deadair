@@ -472,6 +472,7 @@ export interface DeadairSegments {
   script: string | null;
   source: Generated<string>;
   sourcePath: string | null;
+  spokenScript: string | null;
   state: Generated<"planned" | "writing" | "written" | "rendering" | "ready" | "failed">;
   stationKey: Generated<string>;
   updatedAt: Generated<DateTime>;

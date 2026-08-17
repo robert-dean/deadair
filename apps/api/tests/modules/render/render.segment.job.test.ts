@@ -42,7 +42,9 @@ function harness(
     } as unknown as SegmentRepository;
 
     const speech = {
-        speak: vi.fn(options.speak ?? (async () => ({ checksum: 'abc', ext: 'mp3', pluginId: 'deadair.kokoro' }))),
+        speak: vi.fn(
+            options.speak ?? (async () => ({ checksum: 'abc', ext: 'mp3', pluginId: 'deadair.kokoro', spokenText: 'You are listening to Deadair.' })),
+        ),
     } as unknown as SpeechService;
 
     const analysis = {
@@ -64,7 +66,11 @@ describe('RenderSegmentJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(speech.speak).toHaveBeenCalledWith({ text: 'You are listening to Deadair.' });
-        expect(segments.markReady).toHaveBeenCalledWith('seg-1', { audioChecksum: 'abc', audioExt: 'mp3' });
+        expect(segments.markReady).toHaveBeenCalledWith('seg-1', {
+            audioChecksum: 'abc',
+            audioExt: 'mp3',
+            spokenScript: 'You are listening to Deadair.',
+        });
         expect(segments.markFailed).not.toHaveBeenCalled();
     });
 

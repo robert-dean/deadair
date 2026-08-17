@@ -98,7 +98,10 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
 
         try {
             const audio = await this.speech.speak({ text: script, ...(segment.voice === undefined ? {} : { voice: segment.voice }) });
-            await this.segments.markReady(segment.id, { audioChecksum: audio.checksum, audioExt: audio.ext });
+
+            // The words that went to the engine are kept beside the words on the row, because they
+            // are not the same words and only one of them explains the audio. See `SpokenAudio`.
+            await this.segments.markReady(segment.id, { audioChecksum: audio.checksum, audioExt: audio.ext, spokenScript: audio.spokenText });
 
             this.logger.info('render: a segment is ready to air', {
                 job: this.context.id,

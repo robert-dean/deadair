@@ -20,6 +20,13 @@ export const Segment = z.strictObject({
     source: z.string().min(1).max(50).describe('Who made it: `library` for a file dropped into the inbox'),
     playable: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('Whether there is audio behind it yet'),
     script: z.string().max(20000).optional().describe('The words, for anything that speaks. Absent for an imported recording'),
+    spokenScript: z
+        .string()
+        .max(20000)
+        .optional()
+        .describe(
+            "The words as the speech engine was handed them: symbols said, years read as a person reads them, the station's pronunciation list applied. Absent until something has spoken it",
+        ),
     sourcePath: z
         .string()
         .max(1000)
@@ -37,7 +44,7 @@ export type Segment = z.infer<typeof Segment>;
 
 /**
  * Something for the station to say, before anything has said it
- * generated from [SegmentCreate](file://./../../../../data/contracts/render/render.types.ck#L21)
+ * generated from [SegmentCreate](file://./../../../../data/contracts/render/render.types.ck#L22)
  */
 export const SegmentCreate = z.strictObject({
     label: z.string().min(1).max(400).describe('What the console calls it, and what the mount is labelled with while it airs'),
@@ -49,7 +56,7 @@ export type SegmentCreate = z.infer<typeof SegmentCreate>;
 
 /**
  * A voice the station can be asked to speak in
- * generated from [Voice](file://./../../../../data/contracts/render/render.types.ck#L32)
+ * generated from [Voice](file://./../../../../data/contracts/render/render.types.ck#L33)
  */
 export const Voice = z.strictObject({
     id: z.string().max(100).describe("What to pass as a segment's `voice`. Empty means the plugin's own default"),
@@ -60,14 +67,14 @@ export type Voice = z.infer<typeof Voice>;
 
 /**
  * Whether there are words, and if not, which way it went wrong
- * generated from [ScriptOutcome](file://./../../../../data/contracts/render/render.types.ck#L44)
+ * generated from [ScriptOutcome](file://./../../../../data/contracts/render/render.types.ck#L45)
  */
 export const ScriptOutcome = z.enum(['written', 'declined', 'failed']);
 export type ScriptOutcome = z.infer<typeof ScriptOutcome>;
 
 /**
  * A record a writer was told about, kept as it was told
- * generated from [ScriptNeighbour](file://./../../../../data/contracts/render/render.types.ck#L46)
+ * generated from [ScriptNeighbour](file://./../../../../data/contracts/render/render.types.ck#L47)
  */
 export const ScriptNeighbour = z.strictObject({
     title: z.string().min(1).max(500),
@@ -83,7 +90,7 @@ export type ScriptNeighbour = z.infer<typeof ScriptNeighbour>;
 
 /**
  * What the provider said the attempt cost, when it said anything
- * generated from [ScriptUsage](file://./../../../../data/contracts/render/render.types.ck#L52)
+ * generated from [ScriptUsage](file://./../../../../data/contracts/render/render.types.ck#L53)
  */
 export const ScriptUsage = z.strictObject({
     inputTokens: z.coerce.number().int().min(0).optional(),
@@ -94,7 +101,7 @@ export type ScriptUsage = z.infer<typeof ScriptUsage>;
 
 /**
  * One turn of the conversation a writer sent
- * generated from [ScriptPromptMessage](file://./../../../../data/contracts/render/render.types.ck#L58)
+ * generated from [ScriptPromptMessage](file://./../../../../data/contracts/render/render.types.ck#L59)
  */
 export const ScriptPromptMessage = z.strictObject({
     role: z.string().min(1).max(50),
@@ -104,7 +111,7 @@ export type ScriptPromptMessage = z.infer<typeof ScriptPromptMessage>;
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L96)
+ * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L97)
  */
 export const SegmentScanResult = z.strictObject({
     scanned: z.coerce.number().int().min(0).describe('Audio files seen, whether or not they were already known'),
@@ -115,7 +122,7 @@ export type SegmentScanResult = z.infer<typeof SegmentScanResult>;
 
 /**
  * Everything the station can play that is not a record
- * generated from [SegmentList](file://./../../../../data/contracts/render/render.types.ck#L28)
+ * generated from [SegmentList](file://./../../../../data/contracts/render/render.types.ck#L29)
  */
 export const SegmentList = z.strictObject({
     segments: z.array(Segment),
@@ -124,7 +131,7 @@ export type SegmentList = z.infer<typeof SegmentList>;
 
 /**
  * The voices the station's current speech plugin offers
- * generated from [VoiceList](file://./../../../../data/contracts/render/render.types.ck#L38)
+ * generated from [VoiceList](file://./../../../../data/contracts/render/render.types.ck#L39)
  */
 export const VoiceList = z.strictObject({
     voices: z.array(Voice),
@@ -135,7 +142,7 @@ export type VoiceList = z.infer<typeof VoiceList>;
 
 /**
  * One page of what the station has written, newest first
- * generated from [ScriptHistoryQuery](file://./../../../../data/contracts/render/render.types.ck#L83)
+ * generated from [ScriptHistoryQuery](file://./../../../../data/contracts/render/render.types.ck#L84)
  */
 export const ScriptHistoryQuery = z.strictObject({
     limit: z.coerce.number().int().min(1).max(200).optional(),
@@ -155,7 +162,7 @@ export type ScriptHistoryQuery = z.infer<typeof ScriptHistoryQuery>;
 
 /**
  * One attempt to write something the station would say, including the ones that came to nothing
- * generated from [ScriptAttempt](file://./../../../../data/contracts/render/render.types.ck#L63)
+ * generated from [ScriptAttempt](file://./../../../../data/contracts/render/render.types.ck#L64)
  */
 export const ScriptAttempt = z.strictObject({
     id: z.string().min(1).max(100),
@@ -179,7 +186,7 @@ export const ScriptAttempt = z.strictObject({
 export type ScriptAttempt = z.infer<typeof ScriptAttempt>;
 
 /**
- * generated from [ScriptHistoryPage](file://./../../../../data/contracts/render/render.types.ck#L91)
+ * generated from [ScriptHistoryPage](file://./../../../../data/contracts/render/render.types.ck#L92)
  */
 export const ScriptHistoryPage = z.strictObject({
     attempts: z.array(ScriptAttempt),

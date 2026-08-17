@@ -16,6 +16,8 @@ export interface Segment {
     playable: boolean;
     /** The words, for anything that speaks. Absent for an imported recording */
     script?: string;
+    /** The words as the speech engine was handed them: symbols said, years read as a person reads them, the station's pronunciation list applied. Absent until something has spoken it */
+    spokenScript?: string;
     /** The file in the inbox this came from. The bytes were copied, so emptying the inbox does not take it off the air */
     sourcePath?: string;
     /** How long it runs. A display value: the player measures the audio itself */
@@ -28,7 +30,7 @@ export interface Segment {
 
 /**
  * Something for the station to say, before anything has said it
- * generated from [SegmentCreate](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L21)
+ * generated from [SegmentCreate](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L22)
  */
 export interface SegmentCreate {
     /** What the console calls it, and what the mount is labelled with while it airs */
@@ -43,7 +45,7 @@ export interface SegmentCreate {
 
 /**
  * A voice the station can be asked to speak in
- * generated from [Voice](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L32)
+ * generated from [Voice](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L33)
  */
 export interface Voice {
     /** What to pass as a segment's `voice`. Empty means the plugin's own default */
@@ -56,13 +58,13 @@ export interface Voice {
 
 /**
  * Whether there are words, and if not, which way it went wrong
- * generated from [ScriptOutcome](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L44)
+ * generated from [ScriptOutcome](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L45)
  */
 export type ScriptOutcome = 'written' | 'declined' | 'failed';
 
 /**
  * A record a writer was told about, kept as it was told
- * generated from [ScriptNeighbour](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L46)
+ * generated from [ScriptNeighbour](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L47)
  */
 export interface ScriptNeighbour {
     title: string;
@@ -73,7 +75,7 @@ export interface ScriptNeighbour {
 
 /**
  * What the provider said the attempt cost, when it said anything
- * generated from [ScriptUsage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L52)
+ * generated from [ScriptUsage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L53)
  */
 export interface ScriptUsage {
     inputTokens?: number;
@@ -83,7 +85,7 @@ export interface ScriptUsage {
 
 /**
  * One turn of the conversation a writer sent
- * generated from [ScriptPromptMessage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L58)
+ * generated from [ScriptPromptMessage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L59)
  */
 export interface ScriptPromptMessage {
     role: string;
@@ -92,7 +94,7 @@ export interface ScriptPromptMessage {
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L96)
+ * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L97)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -105,7 +107,7 @@ export interface SegmentScanResult {
 
 /**
  * Everything the station can play that is not a record
- * generated from [SegmentList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L28)
+ * generated from [SegmentList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L29)
  */
 export interface SegmentList {
     segments: Segment[];
@@ -113,7 +115,7 @@ export interface SegmentList {
 
 /**
  * The voices the station's current speech plugin offers
- * generated from [VoiceList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L38)
+ * generated from [VoiceList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L39)
  */
 export interface VoiceList {
     voices: Voice[];
@@ -125,7 +127,7 @@ export interface VoiceList {
 
 /**
  * One page of what the station has written, newest first
- * generated from [ScriptHistoryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L83)
+ * generated from [ScriptHistoryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L84)
  */
 export interface ScriptHistoryQuery {
     limit?: number;
@@ -138,7 +140,7 @@ export interface ScriptHistoryQuery {
 
 /**
  * One attempt to write something the station would say, including the ones that came to nothing
- * generated from [ScriptAttempt](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L63)
+ * generated from [ScriptAttempt](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L64)
  */
 export interface ScriptAttempt {
     id: string;
@@ -171,7 +173,7 @@ export interface ScriptAttempt {
 }
 
 /**
- * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L91)
+ * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L92)
  */
 export interface ScriptHistoryPage {
     attempts: ScriptAttempt[];

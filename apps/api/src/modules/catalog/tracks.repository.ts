@@ -139,6 +139,40 @@ function stateFilter(eb: TrackScope, state: TrackState, schemaVersion: number) {
     }
 }
 
+/**
+ * Whether anything a plugin found — about the record, or about whoever made it — is tagged with the
+ * search.
+ *
+ * Raw SQL because it walks a jsonb array, which Kysely has no expression for. It is a correlated
+ * `exists` over the OUTER query's `deadair.tracks`, so it only makes sense inside a select that has
+ * that table in scope; {@link TracksRepository.searchPlayable} is the one caller and states why.
+ *
+ * Three things are deliberate. **Both levels count**: a tag on the artist is how a style reaches a
+ * record nobody tagged individually, which on this library is most of them, and a tag on the track
+ * is how one record is found under a style its artist is not known for. **No provider is named**:
+ * the artist tags come from one plugin today and the track tags mostly from another, and a literal
+ * here would silently stop counting whichever one an operator disabled. And the array is guarded by
+ * `jsonb_typeof` rather than `coalesce`, because a set-returning function in `FROM` is expanded
+ * before `WHERE` is applied — so a payload whose `genres` is not an array would throw past a
+ * coalesce, and this is data written by plugins.
+ */
+function taggedWith(pattern: string) {
+    const tags = (table: string, column: string, id: string) => sql`
+        select 1
+        from deadair.${sql.raw(table)} e
+        cross join lateral jsonb_array_elements_text(
+            case when jsonb_typeof(e.data -> 'genres') = 'array' then e.data -> 'genres' else '[]'::jsonb end
+        ) tag
+        where e.${sql.raw(column)} = deadair.tracks.${sql.raw(id)} and tag ilike ${pattern}
+    `;
+
+    return sql<boolean>`exists (
+        ${tags('track_enrichment', 'track_id', 'id')}
+        union all
+        ${tags('artist_enrichment', 'artist_id', 'artist_id')}
+    )`;
+}
+
 /** `titleKey` is a match key for ingest and never read out; the two names are joined in below. */
 const TRACK_COLUMNS = [
     'deadair.tracks.id',
@@ -293,7 +327,7 @@ export class TracksRepository extends DataRepository {
                 'deadair.albums.name as albumName',
             ])
             .where('deadair.tracks.mergedIntoId', 'is', null)
-            // Title, artist OR genre.
+            // Title, artist, genre OR any genre a plugin found.
             //
             // The first two are obvious: a DJ looking for a record knows one or the other, and
             // matching titles alone answers nothing for "play me some Aphex Twin".
@@ -305,11 +339,19 @@ export class TracksRepository extends DataRepository {
             // radio, and because this very method RETURNS a genre on every row, which reads as an
             // invitation to search one. Answering nothing to the field you just handed back is the
             // kind of gap that looks like a thin catalogue from the outside.
+            //
+            // {@link taggedWith} is the second half of that same fix, and it was needed because the
+            // column above holds ONE genre. `enrichment.service.ts` promotes `genres[0]` and leaves
+            // the rest in the payload, so a record tagged `thrash metal, groove metal, heavy metal,
+            // metal` is findable under whichever of those happened to come first and invisible under
+            // the other three. Measured when this was written: `heavy metal` reached 58 records
+            // through the column and 241 through the tags, on a library of 948.
             .where(eb =>
                 eb.or([
                     eb('deadair.tracks.title', 'ilike', pattern),
                     eb('deadair.artists.name', 'ilike', pattern),
                     eb('deadair.tracks.genre', 'ilike', pattern),
+                    taggedWith(pattern),
                 ]),
             )
             .where(eb =>

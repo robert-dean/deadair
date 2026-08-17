@@ -80,7 +80,13 @@ export class LibrarySearchTool implements ToolSource {
                                 // Says genre explicitly because a model programming an hour reaches
                                 // for a style first, and because every result carries one. A field
                                 // handed back but not accepted back reads as an empty library.
-                                description: 'A title, an artist, or a genre. Matches part of any of them.',
+                                //
+                                // "every style it is tagged with" rather than "its genre", because
+                                // `searchPlayable` now matches the whole tag list a plugin found and
+                                // not only the one promoted onto the row. A model told it can search
+                                // the genre it was SHOWN searches the one word it was shown.
+                                description:
+                                    'A title, an artist, or a style. Matches part of any of them, and a record is found under every style it or its artist is tagged with — not just the one shown in the results.',
                             },
                             limit: { type: 'number', description: `How many records, at most ${MAX_RESULTS}.` },
                         },

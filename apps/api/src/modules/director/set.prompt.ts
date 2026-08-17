@@ -237,6 +237,12 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // description says this too; it is repeated here because this is where the model is deciding
         // how to spend a step, and steps are the scarce thing.
         '- browse_charts is what a word like "hits" or "popular" actually means. Call it once with no chartId to see which charts there are, then again with the one you want. A chart position is a published fact rather than a memory.',
+        // The other reason to reach for it, and it is a STYLE question rather than a POPULARITY
+        // one, which is why it sits beside browse_charts rather than folded into the "styles this
+        // library knows" rule above: that rule is about what the STATION owns and this is about
+        // what the WORLD is playing, and a brief the library cannot fill is exactly the case where
+        // the second is the only honest answer.
+        '- browse_charts also takes a style directly ({"style": "jazz"}), which reads the world\'s chart for that style rather than one it has to be named for. Use this for a brief the library search comes up short on.',
         // The filter that used to be advertised here is gone. It was sent to the provider and did
         // not narrow anything: beside an artist's name it returned nothing at all, and on its own
         // it returned the same obscure records whatever else came with it. See `CatalogSearchTool`,

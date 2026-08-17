@@ -161,6 +161,20 @@ describe('setPrompt', () => {
         expect(system).toMatch(/then again with the one you want/);
     });
 
+    it('says browse_charts can read the world\'s chart for a style, not only a named one', () => {
+        // `tag.getTopTracks` was wired into Last.fm's fetchChart from the start, and unreachable
+        // because the menu never lists a style chart -- one exists for every word anybody has
+        // tagged, so enumerating them is impossible. A model could only ever ask for an id it had
+        // already been shown. This is the naming step: pass a style and skip the menu entirely.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }));
+
+        expect(system).toMatch(/browse_charts also takes a style directly/);
+        expect(system).toMatch(/reads the world's chart for that style/);
+        // Framed as a fallback for the library search, not a replacement for it: the world's chart
+        // is what to reach for once the station's own vocabulary comes up short.
+        expect(system).toMatch(/Use this for a brief the library search comes up short on/);
+    });
+
     it('offers the tools as a method rather than as an inventory', () => {
         // A model reads "these tools exist" as a description and "this is how you get from one act
         // to a dozen" as a method, and only the second changes what it does. So both lines say what

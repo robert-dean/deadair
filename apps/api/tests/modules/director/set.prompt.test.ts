@@ -56,6 +56,40 @@ describe('setPrompt', () => {
         expect(system).not.toMatch(/genre/);
     });
 
+    it('names the two tools that know things the model does not', () => {
+        // The station offers four and told the model about two, so a briefed refill had exactly one
+        // way to get from a style to a set of artists: whatever it remembered. Measured on the run
+        // that prompted this, `heavy metal hits` produced Lamb of God, Megadeth and Metallica --
+        // the first three entries of the operator's own likes list, not a fact about metal -- and
+        // four refills made no call to either tool.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }));
+
+        expect(system).toMatch(/similar_artists turns ONE artist into a dozen more/);
+        expect(system).toMatch(/browse_charts is what a word like "hits" or "popular" actually means/);
+    });
+
+    it('says how to reach a chart, because guessing its name gets nothing back', () => {
+        // The two-call shape is repeated from the tool's own description on purpose: this is where
+        // the model decides how to spend a step, and a step is the scarce thing. A model that
+        // guesses a chart name where an id is wanted reads the empty answer as a station with no
+        // charts and does not ask again.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }));
+
+        expect(system).toMatch(/once with no chartId/);
+        expect(system).toMatch(/then again with the one you want/);
+    });
+
+    it('offers the tools as a method rather than as an inventory', () => {
+        // A model reads "these tools exist" as a description and "this is how you get from one act
+        // to a dozen" as a method, and only the second changes what it does. So both lines say what
+        // the tool is FOR, and the fall-back-to-memory rule stays behind them rather than in front.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }));
+
+        expect(system.indexOf('Work out for yourself')).toBeLessThan(system.indexOf('similar_artists'));
+        expect(system).toMatch(/every name it gives you is somewhere new to search/);
+        expect(system).toMatch(/A chart position is a published fact rather than a memory/);
+    });
+
     it('bounds the searching by what it is for rather than by a number of searches', () => {
         // Two live runs pulled this in opposite directions. "Search several times" with no ceiling
         // had the model spend every round searching and never answer; "three or four times, then

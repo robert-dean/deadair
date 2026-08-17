@@ -170,6 +170,22 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // provenance, and only the second one is what may be answered with.
         '- A brief describes a STYLE, not a search term. Searching for the operator’s own words finds records with those words in the title, which is almost never what they meant.',
         '- Work out for yourself which artists fit the brief, then search for THEM by name, one at a time. That is what the searches are good at.',
+        // The station has four tools and used to be told about two, so a briefed refill had exactly
+        // one way to get from a style to a set of artists: whatever the model happened to remember.
+        // Measured on the run that prompted this, a `heavy metal hits` refill named Lamb of God,
+        // Megadeth and Metallica — which are the first three entries of the operator's OWN likes
+        // list further down this prompt, not a fact about metal. Across four refills there was not
+        // one call to either tool below.
+        //
+        // Both are stated as what they are FOR rather than as an inventory. A model reads a rule
+        // saying "these tools exist" as a description and a rule saying "this is how you get from
+        // one act to a dozen" as a method, and only the second changes what it does.
+        '- similar_artists turns ONE artist into a dozen more that genuinely resemble them, with some of their records. Use it as soon as you have one act that fits the brief: it knows an artist’s neighbours better than you remember them, and every name it gives you is somewhere new to search.',
+        // Two calls, and it is worth the words: a model that guesses a chart NAME where an id is
+        // wanted gets nothing back and reads that as the station having no charts. The tool's own
+        // description says this too; it is repeated here because this is where the model is deciding
+        // how to spend a step, and steps are the scarce thing.
+        '- browse_charts is what a word like "hits" or "popular" actually means. Call it once with no chartId to see which charts there are, then again with the one you want. A chart position is a published fact rather than a memory.',
         // The filter that used to be advertised here is gone. It was sent to the provider and did
         // not narrow anything: beside an artist's name it returned nothing at all, and on its own
         // it returned the same obscure records whatever else came with it. See `CatalogSearchTool`,

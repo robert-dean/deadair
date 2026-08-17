@@ -71,6 +71,9 @@ export const queryKeys = {
     personas: {
         list: () => ['personas', 'list'] as const,
     },
+    productions: {
+        list: () => ['productions', 'list'] as const,
+    },
     playlists: {
         list: () => ['playlists', 'list'] as const,
         tracks: (pluginId: string, playlistId: string) => ['playlists', 'tracks', pluginId, playlistId] as const,

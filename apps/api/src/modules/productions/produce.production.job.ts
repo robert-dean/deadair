@@ -43,13 +43,32 @@ export const WAIT_MS = 60_000;
 /**
  * How much output a call gets.
  *
- * Sized with headroom for REASONING, which is spent out of this same allowance before any text is
- * emitted. That is not a hypothetical: the fact verifier ran with `maxOutputTokens: 8` for its whole
- * life and never once reached an answer, because low-effort reasoning alone exceeded it. A beat of
- * 260 words is perhaps 350 tokens of text, and the rest of this is room to think first.
+ * **Sized for the REASONING, not for the words.** Reasoning tokens are spent out of this same
+ * allowance before any text is emitted, and on this station's model that is the larger half by a
+ * wide margin — measured on the first live run, a single 213-word beat produced 7,864 characters of
+ * reasoning and then hit the ceiling with no text at all. The beat itself is perhaps 350 tokens.
+ *
+ * So these are generous on purpose, and the asymmetry is one-sided: unused allowance costs nothing,
+ * while too little costs the whole production. This is the third time the same mistake has been
+ * found in this tree (the fact verifier at 8 tokens, `MAX_OUTPUT_TOKENS` in the break writer, and
+ * here), which is why it is written down rather than tuned quietly.
+ *
+ * `reasoningEffort: 'low'` is already set on the beat calls and does NOT make this unnecessary — the
+ * 7,864 characters above were produced with it on.
  */
-export const OUTLINE_OUTPUT_TOKENS = 4_000;
-export const BEAT_OUTPUT_TOKENS = 2_000;
+export const OUTLINE_OUTPUT_TOKENS = 8_000;
+export const BEAT_OUTPUT_TOKENS = 8_000;
+
+/**
+ * How many times a beat that came back with nothing is asked again.
+ *
+ * One, and it is not the same thing as the `check` pass's re-draft: that one is about a beat being
+ * WRONG, this is about a beat not existing. An empty answer is the model losing its allowance to
+ * reasoning or the host hiccuping, and neither is a reason to throw away a programme that is
+ * otherwise twenty beats long — which is what failing here does, since a production cannot air with
+ * a hole in it.
+ */
+export const EMPTY_BEAT_RETRIES = 1;
 
 export interface ProducePayload {
     /**
@@ -240,31 +259,50 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             }
 
             const outlineBeat = claimed.outline?.beats[beat.ordinal];
-            const answer = await this.llm.converse(
-                {
-                    messages: beatPrompt({
-                        kind: claimed.kind,
-                        title: claimed.title,
-                        ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
-                        ordinal: beat.ordinal,
-                        words: beat.words,
-                        ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
-                        ...(outlineBeat === undefined ? {} : { beat: outlineBeat }),
-                        ...(runIn === undefined ? {} : { runIn }),
-                        ...(persona === undefined ? {} : { persona }),
-                        station,
-                    }),
-                    maxOutputTokens: BEAT_OUTPUT_TOKENS,
-                    reasoningEffort: 'low',
-                },
-                { budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
-            );
+            // Built once so the retry below asks for exactly the same thing. A retry that rebuilt the
+            // prompt would be a different question, and a beat that failed twice for two different
+            // reasons is one nobody can diagnose.
+            const ask = async (): Promise<string> =>
+                (
+                    await this.llm.converse(
+                        {
+                            messages: beatPrompt({
+                                kind: claimed.kind,
+                                title: claimed.title,
+                                ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
+                                ordinal: beat.ordinal,
+                                words: beat.words,
+                                ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
+                                ...(outlineBeat === undefined ? {} : { beat: outlineBeat }),
+                                ...(runIn === undefined ? {} : { runIn }),
+                                ...(persona === undefined ? {} : { persona }),
+                                station,
+                            }),
+                            maxOutputTokens: BEAT_OUTPUT_TOKENS,
+                            reasoningEffort: 'low',
+                        },
+                        { budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
+                    )
+                ).text.trim();
 
-            const script = answer.text.trim();
+            let script = await ask();
+
+            // Asked again before the production is written off. A beat that came back empty is the
+            // model having spent its allowance on reasoning rather than an answer, which is a bad
+            // roll rather than a bad brief — and failing here throws away every beat already
+            // written, since a production cannot air with a hole in it.
+            for (let attempt = 0; script.length === 0 && attempt < EMPTY_BEAT_RETRIES; attempt++) {
+                this.logger.info('productions: a beat came back empty, so it is being asked again', {
+                    production: claimed.id,
+                    beat: beat.ordinal,
+                });
+                script = await ask();
+            }
+
             if (script.length === 0) {
-                // Not survivable the way a missing break is. A production with a hole in the middle
-                // is not a shorter production, so the whole thing stops here and says why.
-                await this.productions.fail(claimed.id, `beat ${beat.ordinal + 1} came back empty`);
+                // Out of attempts. Not survivable the way a missing break is: another break is along
+                // shortly and a programme with a hole in it is not a shorter programme.
+                await this.productions.fail(claimed.id, `beat ${beat.ordinal + 1} came back empty twice`);
                 return false;
             }
 

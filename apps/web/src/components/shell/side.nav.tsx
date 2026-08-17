@@ -43,6 +43,9 @@ const GROUPS: NavGroup[] = [
         title: 'Station',
         items: [
             { to: '/personas', label: 'Personas' },
+            // Beside Personas and Scripts, which are the other two halves of what the station says:
+            // one is who it is, one is what it said, and this is what it makes at length.
+            { to: '/productions', label: 'Productions' },
             { to: '/voices', label: 'Voices' },
             { to: '/scripts', label: 'Scripts' },
             { to: '/plugins', label: 'Plugins' },

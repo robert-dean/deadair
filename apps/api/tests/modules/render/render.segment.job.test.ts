@@ -48,7 +48,7 @@ function harness(
     } as unknown as SpeechService;
 
     const analysis = {
-        measureAudio: vi.fn(options.measure ?? (async () => ({ schemaVersion: 1, complete: true, data: { loudnessLufs: -24.5 } }))),
+        measureAudio: vi.fn(options.measure ?? (async () => ({ schemaVersion: 1, complete: true, data: { integratedLufs: -24.5 } }))),
     } as unknown as AnalysisService;
 
     const config = { get: vi.fn((_key: string, fallback: string) => fallback) } as unknown as AppConfig;
@@ -186,6 +186,17 @@ describe('RenderSegmentJob: measuring what it made', () => {
         // Allowed by the contract -- the cue points are required and the loudness is not -- and
         // what near-silence legitimately produces.
         const { job, segments } = harness({ measure: async () => ({ schemaVersion: 1, complete: true, data: {} }) });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.recordLoudness).not.toHaveBeenCalled();
+    });
+
+    it('reads the analyzer\'s name for the figure and not the item\'s', async () => {
+        // `integratedLufs` here, `loudnessLufs` on the item. Reading the wrong one is invisible:
+        // `data` is an unread jsonb blob, so it type-checks, and the guard above then discards
+        // every measurement quietly. It did, for 612 segments.
+        const { job, segments } = harness({ measure: async () => ({ schemaVersion: 1, complete: true, data: { loudnessLufs: -24.5 } }) });
 
         await job.run({ segmentId: 'seg-1' });
 

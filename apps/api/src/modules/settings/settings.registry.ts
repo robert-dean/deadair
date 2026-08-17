@@ -1,6 +1,6 @@
 import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
-import { DEFAULT_TARGET_LUFS, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
+import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, SPEECH_TRIM_KEY, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY } from '#modules/playout/audio/track.cache.limit.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
@@ -407,6 +407,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_TARGET_LUFS,
         help: 'Where measured records are set before they air, so a quiet master and a loud one arrive at the same level. A record the station has not measured is left to the live leveller instead. Changing this needs the same number set in the stream config, which the player levels everything else against.',
+    },
+    {
+        group: 'playout',
+        key: SPEECH_TRIM_KEY,
+        label: 'Keep the DJ under the music by (dB)',
+        type: 'number',
+        default: DEFAULT_SPEECH_TRIM_DB,
+        help: 'How far under the target loudness a break is aimed. Levelled to exactly the figure the records sit at, a voice arrives on top of them: loudness is a gated average and speech is the denser, more continuous signal. Raise it for a DJ that still jumps out of the hour, lower it for one that disappears, and a negative number puts the voice over the music instead. It applies from the next break, with no restart.',
     },
     {
         group: 'playout',

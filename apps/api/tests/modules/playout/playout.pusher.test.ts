@@ -6,7 +6,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_TARGET_LUFS, speechGainFor } from '../../../src/modules/playout/gain.js';
+import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, speechGainFor } from '../../../src/modules/playout/gain.js';
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
 import { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
@@ -796,7 +796,7 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         await pusher.reconcile();
 
-        const armed = `annotate:liq_amplify="${speechGainFor({}, DEFAULT_TARGET_LUFS)} dB":https://example.test/seg-1.ogg`;
+        const armed = `annotate:liq_amplify="${speechGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)} dB":https://example.test/seg-1.ogg`;
         expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000);
     });
 

@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { annotateUri, blendOutOf, itemAnnotations, voiceAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
-import { TARGET_LUFS_KEY, resolveTargetLufs } from './gain.js';
+import { SPEECH_TRIM_KEY, TARGET_LUFS_KEY, resolveSpeechTrimDb, resolveTargetLufs } from './gain.js';
 import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -152,6 +152,11 @@ export class PlayoutPusher {
      */
     private targetLufs(): number {
         return resolveTargetLufs(this.config.get(TARGET_LUFS_KEY, ''));
+    }
+
+    /** How far under that a break is aimed, as the setting currently stands. Read per hand-over, like the target. */
+    private speechTrimDb(): number {
+        return resolveSpeechTrimDb(this.config.get(SPEECH_TRIM_KEY, ''));
     }
 
     /** Begin draining the running order. Idempotent. */
@@ -350,6 +355,7 @@ export class PlayoutPusher {
                 // that were never about the same boundary. See `crossAnnotations`.
                 const context = {
                     targetLufs: this.targetLufs(),
+                    speechTrimDb: this.speechTrimDb(),
                     crossfade: this.rundown.crossfade(),
                     previousBlendMs: this.previousBlendMs,
                     ...(pulled.next === undefined ? {} : { next: pulled.next }),
@@ -379,7 +385,7 @@ export class PlayoutPusher {
                     // level where it does not; `voiceAnnotations` is what both routes agree through.
                     const measured = pulled.voice.loudnessLufs;
                     const uri = annotateUri(
-                        voiceAnnotations(measured === undefined ? {} : { loudnessLufs: measured }, this.targetLufs()),
+                        voiceAnnotations(measured === undefined ? {} : { loudnessLufs: measured }, this.targetLufs(), this.speechTrimDb()),
                         pulled.voice.url,
                     );
                     void this.control.armVoice(uri, pulled.item.id, pulled.voice.atMs).catch(() => undefined);

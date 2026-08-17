@@ -191,8 +191,37 @@ export const ASSUMED_SPEECH_LUFS = -26.5;
  * out of the hour and small enough that nobody reaches for the volume the other
  * way. It applies to the assumed case and the measured one alike, since it is a
  * statement about where the voice belongs rather than about any one segment.
+ *
+ * A DEFAULT rather than a constant, because where a voice belongs against the
+ * music is the one number here an operator can judge and nothing else can: every
+ * other figure in this file is measured or is a bound on being wrong, and this
+ * one is taste. It is settable for the same reason `playout.targetLufs` is and
+ * costs no restart, unlike the mixer's own trim in `radio.env`.
  */
-export const SPEECH_TRIM_DB = 2;
+export const DEFAULT_SPEECH_TRIM_DB = 2;
+
+/** The `deadair.settings` key. Dot-keyed, like every other setting. */
+export const SPEECH_TRIM_KEY = 'playout.speechTrimDb';
+
+/**
+ * The range an operator may ask for.
+ *
+ * Negative is allowed and is not a mistake: a station that wants its DJ ON TOP of
+ * the records is asking for something a desk can do, and refusing it here would
+ * be this file having an opinion about a station's sound rather than about being
+ * wrong. The far end is bounded by {@link MAX_GAIN_DB} anyway, since the trim is
+ * inside the same clamp, so this only stops a typo becoming a silent DJ.
+ */
+export const MIN_SPEECH_TRIM_DB = -6;
+export const MAX_SPEECH_TRIM_DB = 12;
+
+/** Read the stored trim, or the default. Clamped rather than rejected, like {@link resolveTargetLufs}. */
+export function resolveSpeechTrimDb(value: unknown): number {
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+    if (!Number.isFinite(parsed)) return DEFAULT_SPEECH_TRIM_DB;
+
+    return Math.min(MAX_SPEECH_TRIM_DB, Math.max(MIN_SPEECH_TRIM_DB, parsed));
+}
 
 /**
  * The gain for a break, in dB, and never nothing.
@@ -222,11 +251,14 @@ export const SPEECH_TRIM_DB = 2;
  * bound on being wrong, and a measurement of the wrong file asks for a
  * correction of tens of decibels with total confidence.
  *
- * The target it aims at is the station's less {@link SPEECH_TRIM_DB}, which is
- * where a voice belongs against a bed rather than level with one.
+ * The target it aims at is the station's less the operator's trim, which is where
+ * a voice belongs against a bed rather than level with one. Passed in rather than
+ * read here for the same reason `targetLufs` is: this stays pure, and the caller
+ * on the hand-over path is the one holding a live view of the settings.
  */
-export function speechGainFor(measured: MeasuredLoudness, targetLufs: number): number {
-    const target = (isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS) - SPEECH_TRIM_DB;
+export function speechGainFor(measured: MeasuredLoudness, targetLufs: number, trimDb: number): number {
+    const trim = isFinite(trimDb) ? trimDb : DEFAULT_SPEECH_TRIM_DB;
+    const target = (isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS) - trim;
     const level = isFinite(measured.loudnessLufs) ? measured.loudnessLufs : ASSUMED_SPEECH_LUFS;
 
     return round(clamp(target - level, MAX_GAIN_DB));

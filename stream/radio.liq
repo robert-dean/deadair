@@ -316,8 +316,19 @@ def voice_countup() =
 end
 thread.run(every=voice_tick, voice_countup)
 
+# Whether the item on the playout queue right now is the station TALKING.
+#
+# The app stamps `deadair_speech="1"` on a break it pushes down this queue (annotate.ts, SPEECH_KEY)
+# and stamps nothing on a record, so an absent key and a record are the same answer, which is what
+# the comparison below wants. Read by the compressor in step 2 and by nothing else.
+#
+# Set in the SYNCHRONOUS hook, like `on_air_elapsed` beside it, because it has to be true before
+# the first frame of the item reaches the operator that reads it.
+on_air_speech = ref(false)
+
 def playout_note_on_air(m) =
   on_air_item := m["deadair_item"]
+  on_air_speech := m["deadair_speech"] == "1"
   # Reset HERE, in the streaming loop, which is the whole reason this hook is synchronous: the
   # counter below is what a voice cue is timed against, and starting it anywhere else would start
   # it late by however long an HTTP notify took to arrive.
@@ -420,6 +431,44 @@ playout_bed = playout_queue
 #
 # An unmeasured track passes through at 1.0, which is the ordinary case.
 playout_bed = amplify(1., override="liq_amplify", playout_bed)
+
+# The mic chain's compressor, for the half of the breaks that never reach the mic chain.
+#
+# A break has two routes to the mount and until now only one of them was processed. Over a record it
+# is a cue on the voice queue and goes through `voice_bus` below, which compresses it. BETWEEN two
+# records it is an ordinary running-order item and comes down HERE, where the only thing between it
+# and the encoder was the `amplify` above and the bus limiter at the bottom of the file.
+#
+# That is audible, and it is the opposite of what the numbers say. Measured off the station's own
+# files: the speech engine lands at about -26 LUFS with true peaks around -3 to -7 dBFS, which is a
+# crest factor no record has. Levelling it by loudness alone (`speechGainFor`, +8.5 dB today) puts
+# the BODY of the voice a little under the records either side and its plosives at +5 dBFS, six
+# decibels into a limiter the records never touch — where a record measured at -7.6 LUFS is cut to
+# -16 and peaks around -6. So the bus limiter was doing the levelling for one source only, and a
+# voice that is being brickwalled reads far louder than its own loudness figure. Trimming the gain
+# barely moved it, because the limiter simply worked less.
+#
+# The settings are the mic chain's, deliberately identical (see step 3 down there for what each one
+# is for). The two paths are the same audio and disagreeing about how to treat it is how a station
+# ends up with a DJ who sounds like two different people either side of a record.
+#
+# Per ITEM rather than per source, because this queue carries records too and a compressor that
+# suited both would suit neither: at -18 and 4:1 a record at the station's level is inside the
+# threshold from its first bar. `ratio` is a getter, so the switch is `4:1 while the item is a
+# break, 1:1 otherwise` — and 1:1 is not an approximation of off, it is off: the reduction is the
+# distance over the threshold divided by the ratio.
+#
+# Placement mirrors the mic chain: AFTER the app's `amplify`, because a fixed threshold only means
+# anything against an input the app has already levelled, and BEFORE `normalize`, which is cut-only
+# and now sees a break whose peaks are already in order.
+playout_bed = compress(
+  attack=5.0,
+  release=120.0,
+  threshold=-18.0,
+  ratio={if on_air_speech() then 4.0 else 1.0 end},
+  knee=2.0,
+  gain=0.0,
+  playout_bed)
 
 # The follower, which is now the fallback for what the station has not measured rather than how the
 # station is levelled.

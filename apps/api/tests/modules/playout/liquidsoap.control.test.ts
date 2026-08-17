@@ -10,7 +10,7 @@ import { parseReading, PlayoutControlClient } from '../../../src/modules/playout
 import { annotateUri, itemAnnotations, HARD_JOIN_MS, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { speechGainFor } from '../../../src/modules/playout/gain.js';
-import { DEFAULT_TARGET_LUFS } from '../../../src/modules/playout/gain.js';
+import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS } from '../../../src/modules/playout/gain.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 import type { StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.js';
 
@@ -370,7 +370,7 @@ describe('annotateUri', () => {
 /** The station's target, for the cases that are not about levels at all. */
 // No successor and no blending: the boundary annotations are inert, which keeps every
 // test below about the thing it is named for. The blend has its own block at the end.
-const CONTEXT = { targetLufs: DEFAULT_TARGET_LUFS, crossfade: false };
+const CONTEXT = { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: false };
 
 /** What a boundary the station does not blend is stamped with, as it reaches the player. */
 const HARD_JOIN = String(HARD_JOIN_MS / 1000);
@@ -499,8 +499,8 @@ describe('itemAnnotations: gain', () => {
     it('follows the station target rather than a constant', () => {
         // Read per hand-over from `deadair.settings`, so this is what an operator moving
         // it actually changes.
-        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -14, crossfade: false }).liq_amplify).toBe('6 dB');
-        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -23, crossfade: false }).liq_amplify).toBe('-3 dB');
+        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -14, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: false }).liq_amplify).toBe('6 dB');
+        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -23, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: false }).liq_amplify).toBe('-3 dB');
     });
 
     it('rides the annotate uri alongside the cue points', () => {
@@ -524,7 +524,7 @@ describe('itemAnnotations: a break the station spoke', () => {
     it('stamps an unmeasured break rather than leaving it where the engine put it', () => {
         // The opposite call from the unmeasured RECORD above, and the reason the two are
         // separate functions: nothing else in the graph will lift this.
-        expect(itemAnnotations(segment(), CONTEXT).liq_amplify).toBe(`${speechGainFor({}, -16)} dB`);
+        expect(itemAnnotations(segment(), CONTEXT).liq_amplify).toBe(`${speechGainFor({}, -16, DEFAULT_SPEECH_TRIM_DB)} dB`);
     });
 
     it('stamps every break, including one that needs nothing', () => {
@@ -534,6 +534,15 @@ describe('itemAnnotations: a break the station spoke', () => {
 
     it('uses the measurement when the segment carries one', () => {
         expect(itemAnnotations(segment({ loudnessLufs: -22 }), CONTEXT).liq_amplify).toBe('4 dB');
+    });
+
+    it('marks a break as the station talking, and marks no record', () => {
+        // The mixer reads this to switch its compressor on for the item: the playout queue carries
+        // records and breaks down one chain, and the settings that tame a plosive would pump a
+        // record. Absent and false have to be the same answer on the Liquidsoap side.
+        expect(itemAnnotations(segment(), CONTEXT).deadair_speech).toBe('1');
+        const track = { id: 'item-2', pluginId: 'deadair.spotify', externalId: 'trk_1', title: 'A', artists: ['One'] } as never;
+        expect(itemAnnotations(track, CONTEXT).deadair_speech).toBeUndefined();
     });
 
     it('is not capped by the peak the way a record is', () => {
@@ -560,7 +569,7 @@ describe('itemAnnotations: the blend', () => {
         // `cross` reads the end override off the track whose end it is buffering, so the
         // duration for a boundary lives on the OUTGOING item -- even though its value
         // came from measuring both.
-        const stamped = itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true, next: measured('item-2') });
+        const stamped = itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: true, next: measured('item-2') });
 
         // min(outro 10s, intro 8s).
         expect(stamped.liq_cross_end_duration).toBe('8');
@@ -582,9 +591,9 @@ describe('itemAnnotations: the blend', () => {
         // for no blend is zero; the engine's is a tenth of a second.
         const every = [
             itemAnnotations(measured('item-1'), CONTEXT),
-            itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true }),
+            itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: true }),
             itemAnnotations(measured('item-1', { introEndMs: undefined }), {
-                targetLufs: DEFAULT_TARGET_LUFS,
+                targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
                 crossfade: true,
                 next: measured('item-2'),
             }),
@@ -595,20 +604,20 @@ describe('itemAnnotations: the blend', () => {
 
     it('does not blend when the broadcast does not', () => {
         // An album, or a sequenced setlist. Its gaps are somebody's decision.
-        const context = { targetLufs: DEFAULT_TARGET_LUFS, crossfade: false, next: measured('item-2') };
+        const context = { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: false, next: measured('item-2') };
 
         expect(itemAnnotations(measured('item-1'), context).liq_cross_end_duration).toBe(HARD_JOIN);
     });
 
     it('does not blend into nothing', () => {
         // The tail of what has been planned. Nothing follows, so there is no boundary.
-        expect(itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, crossfade: true }).liq_cross_end_duration).toBe(HARD_JOIN);
+        expect(itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: true }).liq_cross_end_duration).toBe(HARD_JOIN);
     });
 
     it('rides the annotate uri alongside everything else', () => {
         const uri = annotateUri(
             itemAnnotations(measured('item-1', { loudnessLufs: -19, truePeakDb: -6 }), {
-                targetLufs: DEFAULT_TARGET_LUFS,
+                targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
                 crossfade: true,
                 next: measured('item-2'),
             }),

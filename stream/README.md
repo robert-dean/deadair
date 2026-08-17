@@ -174,7 +174,7 @@ exactly as it does on every record it pushes, and the `amplify(1., override="liq
 head of the chain applies it. `VOICE_GAIN_DB` is the operator's trim on top of that and is 0 because
 it has nothing to correct, not because nobody tuned it.
 
-The target it aims at is the station's less `SPEECH_TRIM_DB` (2 dB, in `playout/gain.ts`), not the
+The target it aims at is the station's less `playout.speechTrimDb` (a setting, 2 dB by default), not the
 station's own. BS.1770 is a gated average and speech is the denser, more continuous signal, so a
 break levelled to exactly what the records measure arrives on top of them. The voice sits a little
 under the bed, which is where every desk puts it.
@@ -184,6 +184,18 @@ ordinary running-order item: it goes down the playout queue and never touches th
 per-engine number in `radio.env` reaches the talk-over half and misses that one entirely, which is
 how a station can have a DJ who sits right over a record and ten decibels under the gap between two.
 One decision, in `playout/annotate.ts`, is what keeps the two halves at the same level.
+
+**The compressor is now on both routes too, and the level alone was not enough.** Measured off the
+station's own files, a rendered break lands near -26 LUFS with true peaks around -3 to -7 dBFS — a
+crest factor no record has. Levelling that by loudness puts the body of the voice under the records
+and its plosives six decibels into the bus limiter, which the records (cut to -16, peaking around
+-6) never reach. A voice being brickwalled reads far louder than its loudness figure says, and
+trimming the gain barely moves it because the limiter just works less. So the playout chain carries
+the mic chain's compressor at the same settings, switched per item: the app stamps `deadair_speech`
+on a break it pushes (`SPEECH_KEY` in `annotate.ts`), `playout_note_on_air` reads it into
+`on_air_speech`, and the `ratio` getter is 4:1 while a break plays and 1:1 — genuinely off —
+otherwise. A compressor left across the whole queue would pump every record: at -18 and 4:1 a track
+at the station's level is over the threshold from its first bar.
 
 The **broadcast bus** is one operator: a brick-wall limiter at -1 dBFS, between the programme and
 the encoder. MP3 encoding generates inter-sample peaks around 0.5-1 dB over the source, so a modern

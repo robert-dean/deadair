@@ -24,6 +24,22 @@ import type { RundownItem } from './rundown.js';
 export const ITEM_KEY = 'deadair_item';
 
 /**
+ * The metadata key saying this item is the station TALKING. Must match `radio.liq`.
+ *
+ * Nothing about the level: it says what the audio IS, and the mixer decides what
+ * to do about it. What the mixer does today is switch a compressor on for the
+ * duration of the item, because the playout queue carries records and breaks down
+ * one chain and a compressor that suited both would suit neither — the settings
+ * that tame a plosive would pump a record.
+ *
+ * A boolean expressed as a key that is either present or absent would be the
+ * smaller stamp, but every other key here carries a value and `m["k"] == ""` is
+ * also how Liquidsoap reports a key nobody set. `"1"` keeps absent and false the
+ * same answer on the reading side, which is what a mixer wants.
+ */
+export const SPEECH_KEY = 'deadair_speech';
+
+/**
  * What a boundary the station does not blend is stamped with, and it is
  * deliberately not zero. Must match `playout_cross_hard_join` in `radio.liq`.
  *
@@ -43,6 +59,8 @@ export const HARD_JOIN_MS = 100;
 export interface AnnotationContext {
     /** Where the station wants its records to sit, in LUFS. See `gain.ts`. */
     targetLufs: number;
+    /** How far under that a break is aimed, in dB. See `speechGainFor`. */
+    speechTrimDb: number;
     /** Whether this broadcast blends one record into the next. See `crossfade.ts`. */
     crossfade: boolean;
     /**
@@ -111,6 +129,7 @@ export function itemAnnotations(item: RundownItem, context: AnnotationContext): 
         ...(item.title ? { title: item.title } : {}),
         ...(artist ? { artist } : {}),
         ...(item.album ? { album: item.album } : {}),
+        ...(isRenderItem(item) ? { [SPEECH_KEY]: '1' } : {}),
         ...cueAnnotations(item),
         ...gainAnnotations(item, context),
         ...crossAnnotations(item, context),
@@ -172,11 +191,11 @@ const seconds = (ms: number): string => String(Math.round(ms) / 1000);
  * Absent for an unmeasured track, for a boost with no headroom to spend, and for
  * a correction too small to hear. See `gainFor`, which decides all three.
  */
-function gainAnnotations(item: RundownItem, { targetLufs }: AnnotationContext): Record<string, string> {
+function gainAnnotations(item: RundownItem, { targetLufs, speechTrimDb }: AnnotationContext): Record<string, string> {
     // A break the station wrote and spoke, which is a different level question from a record
     // somebody else mastered: see `speechGainFor`, and {@link voiceAnnotations} for the other
     // path the same audio can take to the player.
-    if (isRenderItem(item)) return voiceAnnotations(item, targetLufs);
+    if (isRenderItem(item)) return voiceAnnotations(item, targetLufs, speechTrimDb);
 
     const gainDb = gainFor(item, targetLufs);
 
@@ -199,8 +218,8 @@ function gainAnnotations(item: RundownItem, { targetLufs }: AnnotationContext): 
  *
  * Exported for the pusher, which arms the cue and has no `RundownItem` to hand.
  */
-export function voiceAnnotations(measured: MeasuredLoudness, targetLufs: number): Record<string, string> {
-    return { liq_amplify: `${speechGainFor(measured, targetLufs)} dB` };
+export function voiceAnnotations(measured: MeasuredLoudness, targetLufs: number, trimDb: number): Record<string, string> {
+    return { liq_amplify: `${speechGainFor(measured, targetLufs, trimDb)} dB` };
 }
 
 /**

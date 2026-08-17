@@ -147,7 +147,12 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         try {
             const url = segmentAudioUrl(resolvePlayoutBaseUrl(this.config), segmentId);
             const result = await this.analysis.measureAudio(segmentId, url);
-            const loudnessLufs = result?.data.loudnessLufs;
+            // `integratedLufs` is the ANALYZER's name for it and `loudnessLufs` is the item's, the
+            // same translation `PickResolver.loudness` makes for a record. Reading the item's name
+            // off an analyzer's blob is not a type error — `data` is `Record<string, unknown>` —
+            // and it is not a visible failure either: every measurement here was discarded by the
+            // guard below, silently, so 612 segments were measured and none of them was recorded.
+            const loudnessLufs = result?.data.integratedLufs;
 
             // A measurement without a loudness figure is allowed by the contract — the cue points
             // are required and this is not — and near-silence legitimately has none.

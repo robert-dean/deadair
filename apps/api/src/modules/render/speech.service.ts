@@ -9,6 +9,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { explainNoSpeaker, selectSpeechPlugin, SPEECH_PLUGIN_KEY } from './speech.settings.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentExtension } from './segment.store.js';
 import { SpeechGate, type SpeechGateOptions } from './speech.gate.js';
+import { malformedEntries, parsePronunciations, PRONUNCIATION_KEY } from './pronunciation.lexicon.js';
+import { transposeForSpeech } from './speech.transpose.js';
 import type { VoiceSampleStore } from './voice.sample.store.js';
 
 /**
@@ -44,6 +46,15 @@ export interface SpokenAudio {
     ext: SegmentExtension;
     /** Which plugin said it, for the log and for the row. */
     pluginId: string;
+    /**
+     * The words the engine was actually handed, which are not the words on the row.
+     *
+     * Answered rather than left for a caller to re-derive, for the reason `writeDecline` answers
+     * with its own sentence: the transposition depends on a lexicon that can change between two
+     * renders, so a caller working it out again would be recording what WOULD happen now rather
+     * than what happened to this audio.
+     */
+    spokenText: string;
 }
 
 /**
@@ -62,6 +73,15 @@ export interface SpokenAudio {
  * There used to be a drain loop here, reading base64 chunks one invocation at a time through a
  * handle protocol, with a chunk-count guard against a plugin that never said `done`. All of it was
  * the cost of a boundary that could not carry a live object. See `docs/decisions/plugin-trust.md`.
+ *
+ * ## The words that go out are not the words on the row
+ *
+ * Every script passes through `transposeForSpeech` on its way to the engine, and this is the one
+ * place it happens — which is what makes it true of every writer, every kind of segment, an operator's
+ * typed-in script and a voice preview alike. It is HERE rather than at write time on purpose: the
+ * console, `script_history` and a model's own view of what the station said stay the readable words,
+ * and an edit to the pronunciation list changes the next render instead of needing every break
+ * rewritten. `SpokenAudio.spokenText` is what actually went out, for a caller that wants to keep it.
  *
  * Scoped, like the repositories it sits beside: called from a job's scope today.
  */
@@ -142,25 +162,29 @@ export class SpeechService {
      */
     async speakWith(plugin: SpeechPlugin, request: SpeechRequest, options: SpeechGateOptions = {}): Promise<SpokenAudio> {
         const pluginId = plugin.record.id;
+        const spokenText = this.sayable(request.text);
 
         // The gate wraps the drain as well as the request, because the engine is producing audio
         // for the whole of it. Acquired HERE rather than in `speak`, which delegates to this: two
         // acquisitions on one path would be a caller queueing behind itself.
-        return await this.gate.hold(async () => {
-            const handle = await this.startSpeaking(plugin, request);
-            const ext = this.extensionOf(pluginId, handle);
+        return await this.gate.hold(
+            async () => {
+                const handle = await this.startSpeaking(plugin, { ...request, text: spokenText });
+                const ext = this.extensionOf(pluginId, handle);
 
-            try {
-                const checksum = await this.store.writeStream(handle.audio, ext);
-                this.logger.info('render: spoke a segment', { plugin: pluginId, voice: request.voice, ext, checksum });
-                return { checksum, ext, pluginId };
-            } finally {
-                // Always, including the ordinary path, where the stream is drained already and this
-                // is a no-op. It is the failure path that needs it: a store write that threw half
-                // way leaves the plugin holding a socket nothing else will ever ask it to let go of.
-                await cancelQuietly(handle.audio);
-            }
-        }, { label: pluginId, ...options });
+                try {
+                    const checksum = await this.store.writeStream(handle.audio, ext);
+                    this.logger.info('render: spoke a segment', { plugin: pluginId, voice: request.voice, ext, checksum });
+                    return { checksum, ext, pluginId, spokenText };
+                } finally {
+                    // Always, including the ordinary path, where the stream is drained already and this
+                    // is a no-op. It is the failure path that needs it: a store write that threw half
+                    // way leaves the plugin holding a socket nothing else will ever ask it to let go of.
+                    await cancelQuietly(handle.audio);
+                }
+            },
+            { label: pluginId, ...options },
+        );
     }
 
     /**
@@ -177,17 +201,22 @@ export class SpeechService {
         request: SpeechRequest,
         options: SpeechGateOptions = {},
     ): Promise<SegmentExtension> {
-        return await this.gate.hold(async () => {
-            const handle = await this.startSpeaking(plugin, request);
-            const ext = this.extensionOf(plugin.record.id, handle);
+        return await this.gate.hold(
+            async () => {
+                // Transposed like anything else, so a preview is what the station would actually say
+                // rather than a reading of the sample line nothing else would ever produce.
+                const handle = await this.startSpeaking(plugin, { ...request, text: this.sayable(request.text) });
+                const ext = this.extensionOf(plugin.record.id, handle);
 
-            try {
-                await store.writeStreamAs(key, handle.audio, ext);
-                return ext;
-            } finally {
-                await cancelQuietly(handle.audio);
-            }
-        }, { label: plugin.record.id, ...options });
+                try {
+                    await store.writeStreamAs(key, handle.audio, ext);
+                    return ext;
+                } finally {
+                    await cancelQuietly(handle.audio);
+                }
+            },
+            { label: plugin.record.id, ...options },
+        );
     }
 
     /**
@@ -199,6 +228,30 @@ export class SpeechService {
     async voices(plugin: SpeechPlugin): Promise<SpeechVoice[]> {
         if (!plugin.listsVoices) return [];
         return await this.pluginInvoker.invoke(plugin.record.id, 'speech.listVoices', async () => (await plugin.instance.listVoices?.()) ?? []);
+    }
+
+    /**
+     * A script as the engine should be handed it.
+     *
+     * The lexicon comes off the config rather than a repository, exactly as {@link configuredSpeaker}
+     * does and for the same reason: `deadair.settings` is a layer of the app's config, so this needs
+     * no scope and an operator's edit is live on the next render. Parsed per call, which is a few
+     * dozen lines once per segment and not worth a cache that could go stale against a live setting.
+     *
+     * A malformed line is said once, quoted, and skipped. That is the treatment an unknown template
+     * placeholder gets, on the same argument: from the console it looks exactly like an entry the
+     * station has decided not to use, so the only way an operator finds out is if something says so.
+     */
+    private sayable(text: string): string {
+        const raw = this.config.get(PRONUNCIATION_KEY, '');
+        const broken = malformedEntries(raw);
+        if (broken.length > 0)
+            this.logger.warn('render: these pronunciation entries are not "written => spoken" and were skipped', { lines: broken });
+
+        const spoken = transposeForSpeech(text, parsePronunciations(raw));
+        if (spoken !== text.trim()) this.logger.debug('render: transposed a script for the engine', { written: text, spoken });
+
+        return spoken;
     }
 
     /** One `speak`, through the invoker on the long budget an engine actually needs. */

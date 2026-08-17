@@ -28,6 +28,7 @@ import {
 } from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
+import { DEFAULT_PRONUNCIATIONS, PRONUNCIATION_KEY } from '#modules/render/pronunciation.lexicon.js';
 import { DEFAULT_TARGET_MINUTES, DEFAULT_WRITING_MODE, PRODUCTION_KEYS } from '#modules/productions/production.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
@@ -425,6 +426,19 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         help: 'The plugin id the station talks with. Leave empty when only one plugin can speak; set it when several can, because the station declines to guess rather than airing the wrong voice.',
+    },
+    {
+        group: 'render',
+        key: PRONUNCIATION_KEY,
+        label: 'How the station says a word',
+        type: 'text',
+        default: DEFAULT_PRONUNCIATIONS.map(entry => `${entry.written} => ${entry.spoken}`).join('\n'),
+        help:
+            'One per line, as "written => spoken", for the names an engine reads wrongly. The station already works out years, ' +
+            'decades, times, ordinals, "feat.", "&" and the like on its own; this is for the half no rule can get right, ' +
+            'where the letters are not the sounds. The right-hand side is handed to the engine untouched, so if yours accepts ' +
+            'phonemes you can write them there. An empty right-hand side drops the words. A line starting with # is off without ' +
+            "being lost, and clearing the box restores the station's own.",
     },
     {
         group: 'render',

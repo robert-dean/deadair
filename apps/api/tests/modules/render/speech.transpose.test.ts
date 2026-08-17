@@ -24,7 +24,13 @@ describe('transposeForSpeech: what is not speech', () => {
     });
 
     it('reads typographic marks as plain ones', () => {
-        expect(say('It’s a “classic” — obviously…')).toBe('It\'s a "classic" - obviously...');
+        expect(say('It’s a “classic” — obviously…')).toBe('It\'s a "classic", obviously...');
+    });
+
+    it('reads a dash as the pause it stands for, rather than as a character', () => {
+        // Measured against the station's own scripts: a model writing in character reaches for an em
+        // dash constantly, and a hyphen left in its place is read aloud by some engines.
+        expect(say('Deadair—feel it.')).toBe('Deadair, feel it.');
     });
 
     it('makes each line its own sentence, so two headlines do not run together', () => {

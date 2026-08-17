@@ -85,7 +85,14 @@ function tidy(text: string): string {
             .replace(/[‘’‛]/g, "'")
             .replace(/[“”]/g, '"')
             .replace(/…/g, '...')
-            .replace(/[–—]/g, ' - ')
+            // A non-breaking hyphen is a hyphen; nothing reads the code point itself.
+            .replace(/‑/g, '-')
+            // A dash between words is a PAUSE, so it becomes the mark that means one. It was a spaced
+            // hyphen for one draft, which is worse than either: measured against the station's own
+            // scripts, a model writing in this voice reaches for an em dash constantly ("Deadair—feel
+            // it"), and a lone hyphen is a character some engines read as a word and others swallow
+            // along with the pause it was standing for.
+            .replace(/\s*[–—]\s*/g, ', ')
     );
 }
 

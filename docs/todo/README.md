@@ -19,7 +19,7 @@ Two rules for this directory:
 | File | What it covers |
 | --- | --- |
 | [dj-voice.md](dj-voice.md) | **Both pieces built 2026-08-12.** What stood between a station that plays segments and one with a DJ. The TTS, the `llm` capability, the deterministic writer, the operator's own phrasings and the model binding are all in. Kept for the smaller things it leaves behind: cue visibility, segment duration, a console for segments, and play history for what the station SAID |
-| [produced-episodes.md](produced-episodes.md) | **What a long multi-pass generation does to the two gates** (2026-08-16), scoped from asking the question rather than from building anything. The rule everything else follows from: an admission is a PASS or a BEAT, never an episode, because the KV-cache argument that makes `converse` hold across a tool loop does not survive four different conversations and the cost is the station on its deterministic floor for the length of a show. Also: where the two priority tiers run out and the starvation question comes due, why an episode is N segments rather than one concatenated file, and why a job per pass is where resumability comes from |
+| [produced-episodes.md](produced-episodes.md) | **Built 2026-08-16**, the same day it was written as a deferral. All five decisions landed as written: an admission is a PASS or a BEAT and never an episode (the KV-cache argument that makes `converse` hold across a tool loop does not survive four different conversations, and the cost is the station on its deterministic floor for the length of a show), a job per pass with the row as the checkpoint, a production entering the running order whole or not at all, and timing that never comes from the model. The tiers came out FOUR rather than three, with `breaking` above `air`, and a production moves between two of them on its real slot rather than on an invented aging rule. Kept for that reasoning, and for what is not built: nothing commissions one on a schedule, the cast is one, and there are no SFX cues |
 | [director-and-lineups.md](director-and-lineups.md) | Segments, an LLM DJ, live provider search, the daypart schedule, station permissions, plugins that programme the station, push destinations, rotation rules as settings, palette steering, the station console page |
 | [station-intelligence.md](station-intelligence.md) | The layer above the rules. **§1, the LLM DJ, built 2026-08-12**; **§8 built in full 2026-08-13**, both the silence diagnosis and the activity feed, with the load-bearing calls of each written up there and a `Heartbeat` primitive under the first; §3/§4 before both; **§2 deliberately deferred** against its own ordering claim, with the reasoning kept for the day the model stops being self-hosted. What is left: never-play rules and the freshness bubble, genre and era correctness, and listener signal |
 | [station-moment.md](station-moment.md) | The clock, the calendar and the weather as one resolver both the selector and the writers read: an operator-editable mood vocabulary, the day's lean, occasions, and why mood-biased selection is blocked and mood-flavoured talk is not |
@@ -42,7 +42,7 @@ Two rules for this directory:
 | [provider-audio-failures.md](provider-audio-failures.md) | **The blocker under three other files** (2026-08-11): the shim's session is healthy and individual tracks return 502, so 13 of 581 are measured, a hand-built running order had four of its eight tracks skipped, and the mount put two seconds of digital silence on air. Why that silence is three correct behaviours stacked on one upstream failure, where to look, and why raising the analysis batch size makes it worse |
 | [analysis-queue-ordering.md](analysis-queue-ordering.md) | Which tracks the measurement walk picks and in what order (2026-08-11): why gating it on "already handed over" does not buy the download back, ordering the queue by `play_history` instead, splitting an unfetchable binding from an undecodable file, and the tee off the shim that would make measurement free |
 | [mixer-settings-in-db.md](mixer-settings-in-db.md) | The four constants that decide how a break sounds, and the settings seam they bypass. **Smaller than it was** (2026-08-11): the restart trigger this file called the real work now exists, so what is left is four `STREAM_KEYS` entries and one decision about when to spend the restart |
-| [listening-loop.md](listening-loop.md) | Closing the loop between the station and where the operator actually listens: the mount reachable from a phone and a car, the taste signal coming back from what is played elsewhere, the station's own history going out, and the single Spotify re-consent all of it should be batched into |
+| [listening-loop.md](listening-loop.md) | **Piece 1 is solved and not in this tree** (2026-08-16): a Cloudflare tunnel fronts the mount and the operator listens on a phone and an AVR, so the compose comments about an edge now describe a real deployment that lives in a Cloudflare account. That closes the piece the other two were queued behind, and it demotes rather than promotes them: history out loses most of its value now that the station is audible where it was for. Kept for the taste signal coming back from what is played elsewhere, the Spotify re-consent it should be batched into, and the three questions the public mount makes live (anonymity and `service-actors.md`, an Opus mount with a real argument at last, and the AVR as `now-playing-displays.md`) |
 | [spotify-listening-profile.md](spotify-listening-profile.md) | The top-tracks, top-artists and saved-library data the Spotify grant already asks for and never reads, the two shapes that could carry it, and what the February 2026 API round did and did not take |
 | [spotify-api-currency.md](spotify-api-currency.md) | Where the Spotify plugin has fallen behind the Web API. The two search-limit bugs were fixed on the spot; still open are the two scopes that unlock nothing, the SDK's removed batch overload, `account_id`, and the Premium requirement development mode grew |
 | [youtube-music.md](youtube-music.md) | A third music provider, split into a catalog half that is ordinary plugin code and an audio half that is a second track fetcher and a sidecar, plus the two pieces of the host that stop being Spotify-shaped when it lands |
@@ -88,9 +88,10 @@ no pass. What is left, in order:
    note the one thing it deliberately does not carry: plugin call logs, which stay behind
    `platform.manage` because plugin output can contain a token.
 
-This list is done. What comes next is whatever the table above makes the case for, and
-[listening-loop.md](listening-loop.md) is still the one competing on its own terms rather than
-queueing behind anything, for the reason at the bottom of this file.
+This list is done. What comes next is whatever the table above makes the case for.
+[listening-loop.md](listening-loop.md) was the one competing on its own terms rather than queueing
+behind anything, for the reason at the bottom of this file; **that is settled as of 2026-08-16**, and
+the new order is at the very bottom.
 
 **Landed since, 2026-08-11**, and none of it was on this list: the measurement layer under item 2.
 `analysis/` is a sidecar, `plugins/analyzer` the adapter, `analysis` a capability of its own rather
@@ -106,7 +107,8 @@ being audible on a phone and in a car too, and that is infrastructure rather tha
 [listening-loop.md](listening-loop.md). It competed with item 1 rather than slotting behind it: the
 writer makes the station worth listening to, reachability makes it possible to, and which comes first
 depends on whether the next week of listening happens at the desk or not. With every item on that
-list built, it is no longer competing with anything.
+list built, it is no longer competing with anything. **Closed 2026-08-16**; see the last section of
+this file.
 
 **Landed with item 3, 2026-08-12, and none of it was on this list.** Four things, because the writer
 turned out to sit on plumbing that was not there:
@@ -139,6 +141,34 @@ Two things came with it that are worth knowing before designing anything else ne
 - **§2's budget was deliberately deferred**, against that section's own instruction to build it
   first. One call site behind one chokepoint, a self-hosted model with no bill, and an invariant that
   turned out structural. The reasoning is in the file so it can be re-opened rather than re-argued.
+
+## The reachability question is closed, and what that leaves
+
+**2026-08-16.** The operator fronted the mount with a Cloudflare tunnel and now listens on a phone
+and an AVR. That is [listening-loop.md](listening-loop.md) piece 1, solved outside this repository,
+and it is the last thing on this page that was competing with the table rather than sitting in it.
+The goal at the top of this section (a station left on all day in place of a streaming service) is no
+longer blocked on infrastructure.
+
+So the ranking is the table's, and the table's case is for **defects that were measured**, ahead of
+any feature:
+
+1. **[provider-audio-failures.md](provider-audio-failures.md)**, called the blocker under three other
+   files and with the worst numbers on this page: 13 of 581 tracks measured, four of eight skipped in
+   a hand-built order, two seconds of digital silence on air. **The tunnel raises its price rather
+   than lowering it**, because that silence now reaches a phone and an AVR instead of a desk.
+2. **[render-plugin-readiness.md](render-plugin-readiness.md)**, a break written off for a plugin
+   three hundred milliseconds from being up. Three pieces, the first two worth having alone.
+3. **[pick-artist-matching.md](pick-artist-matching.md)**, starting with the re-measure rather than
+   the fix, because the rotation-keying change may already have removed half the cause.
+
+Three things sit alongside rather than in that order. **Productions are half-surfaced**: the five
+decisions in [produced-episodes.md](produced-episodes.md) are all built, but nothing commissions one
+except a smoke script, so the schedule in [director-and-lineups.md](director-and-lineups.md) is what
+turns it into a feature an operator has. And the public mount makes two questions live that were
+theoretical while it was on the LAN: whether it stays anonymous
+([service-actors.md](service-actors.md)) and whether a phone on mobile data wants an Opus mount
+([stream-formats.md](stream-formats.md)).
 
 **The station can say why it is quiet, 2026-08-13.** [station-intelligence.md](station-intelligence.md)
 §8's silence half, written up in full there. This is the first item on this list that was taken

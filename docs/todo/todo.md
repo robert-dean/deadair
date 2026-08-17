@@ -26,7 +26,12 @@ points at that file. Checked against the tree on 2026-08-11.
       six scripts of its kind), and it is keyed by KIND rather than by character and cannot outlive a
       segment, so the prerequisite is a `persona_key` on `script_history` before anything summarizes
       it
-- [ ] talkshows with callers (can we do real and fake like a conspiracy theories )
+- [~] talkshows with callers (can we do real and fake like a conspiracy theories ) — **the machinery
+      is built, 2026-08-16**: a production is several beats written in several passes that airs as one
+      block (`modules/productions`, `produced-episodes.md`), which is what a talkshow is made of. Two
+      things are missing and neither is the hard part: the CAST, since `OutlineBeat.lead` and
+      `Production.voices` exist and nothing reads them (a caller is a persona, per `personas.md`), and
+      a schedule to commission one, which is `director-and-lineups.md`
 - [ ] telegram bot for "requests"
 - [ ] fix the tune-in album art, etc
 - [ ] improve playlist generation, use similar artists to get related artists ect to help

@@ -2,8 +2,10 @@
 
 **Written:** 2026-08-09, against the goal of replacing a streaming service rather than of finishing a
 subsystem.
-**State of the tree:** the station is audible at the desk and nowhere else. Catalog sync is already
-automatic; nothing else in this file exists.
+**Piece 1 is solved, 2026-08-16**, and not in this tree: the operator fronted the mount with a
+Cloudflare tunnel and listens on a phone and an AVR. Nothing here was built, and nothing here needs
+to be. See §1 for what that settles and the three questions it makes live.
+**State of the rest:** catalog sync is already automatic; pieces 2 and 3 do not exist.
 
 ---
 
@@ -40,23 +42,47 @@ feature asks the operator to re-consent three times for one grant. `user-top-rea
 `user-library-read` are already granted and already uncalled, so the parts of "signal in" that use
 those need no consent at all and could land ahead of this.
 
+**Smaller since piece 3 demoted itself** (see the note at the bottom of that section): with history
+out unlikely to be built, `playlist-modify-private` has nothing asking for it, and the batching
+argument collapses to one addition (`user-read-recently-played`) plus two removals. Batch it anyway,
+because the removals are free and the re-consent is the same prompt either way.
+
 ## 1. Audio out, which is the only one that replaces anything
 
-**This is first, because the other two improve a station that cannot be listened to.**
+**Solved 2026-08-16, outside this repository.** A Cloudflare tunnel fronts the mount, and the
+operator listens on a phone and on an AVR. This piece is closed, and the rest of this section is kept
+for what it settles and for the three things it makes live.
 
-Icecast binds `127.0.0.1:8000`, and the comment beside it says the edge or tunnel fronts it with
-HTTPS terminating there ([docker-compose.yml](../../docker-compose.yml)). No compose file defines
-such a tunnel. `docker-compose.prod.yml` repeats the same expectation for nginx. That comment
-describes an intended deployment, not one that exists, and it is the whole of why the station is a
-desk toy.
+The problem it closed: Icecast binds `127.0.0.1:8000`, and the comment beside it says the edge or
+tunnel fronts it with HTTPS terminating there ([docker-compose.yml](../../docker-compose.yml)). No
+compose file defines such a tunnel, and `docker-compose.prod.yml` repeats the same expectation for
+nginx. That comment described an intended deployment rather than one that existed, and it was the
+whole of why the station was a desk toy. **It is now accurate, and the deployment it describes lives
+in the operator's Cloudflare account rather than in a compose file.** Anything that reads those
+comments as a plan should read them as a description.
 
-What this piece is:
+**The three questions this makes live**, each of which was theoretical while the mount was on the
+LAN:
+
+- **The mount is anonymous and is now on the public internet.** It was anonymous because it was
+  reachable only from the LAN, and that reason is gone. A tunnel is not by itself an authorization
+  decision. [service-actors.md](service-actors.md) is what a publicly reachable Icecast makes more
+  interesting, and the shared bridge secret is the thing to look at first.
+- **An Opus mount now has a real argument** rather than a theoretical one.
+  [stream-formats.md](stream-formats.md) makes the case abstractly; a phone on a mobile connection is
+  what makes it concrete, and the bitrate interaction with Icecast's byte-denominated burst and queue
+  is in [stream-quality-ceiling.md](stream-quality-ceiling.md).
+- **The AVR is [now-playing-displays.md](now-playing-displays.md)**, arriving from the other
+  direction and needing no edge or TLS at all. It is listenable today by adding the mount as a custom
+  stream URL, and what it does not get is a display worth looking at. That file is blocked on one
+  probe.
+
+What this piece was, kept because it is what a second listening place would need again:
 
 - A real edge in front of the mount, terminating TLS.
 - A URL a phone and a car browser will each actually open. These are not necessarily the same URL,
   and neither is necessarily the console.
-- A decision about whether the mount stays anonymous once it is on the public internet. It is
-  anonymous today because it was reachable only from the LAN.
+- A decision about whether the mount stays anonymous once it is on the public internet.
 
 **The audience gate needs no change and is already right for this.** `playout.airMode: audience`
 means a phone connecting is what puts the station on air and disconnecting is what takes it off,
@@ -101,6 +127,14 @@ should not.
 It is listed last because it is the piece most likely to be made pointless by the first: its entire
 value is being able to hear the station's programming in a place the station cannot reach, and piece
 one is that place becoming reachable.
+
+**Piece one landed, so this demotes itself rather than coming up the list.** The station is now
+audible in the two places this was for. What survives is a smaller and different thing: a record of
+what aired, in an app used for looking things up rather than for listening. That is worth strictly
+less than a write sub-capability on `MusicProviderCatalog` costs, so it should not be built until
+something else wants provider writes. **It is also the only remaining reason to add
+`playlist-modify-private` to the grant**, which means the re-consent table above is now a one-row
+change for piece 2 rather than a three-row change for both.
 
 ## Related
 

@@ -142,3 +142,47 @@ describe('correctionNote', () => {
         expect(note).toContain('- repeats an earlier beat');
     });
 });
+
+// Two things a beat does that only show up when it is SPOKEN, both measured on live runs.
+describe('carrying on rather than reciting', () => {
+    const runIn = 'and that is exactly what the second-hand shops never understood about the machine';
+
+    it('catches a beat that opens by repeating the words it was handed', () => {
+        // The live failure: beats 3 and 4 both opened with the previous beat's closing sentence
+        // verbatim. Handed a quotation, a model reads it before saying anything of its own.
+        const problems = beat(`${runIn}. Boom, that is how we flip the script. ` + words(180), { runIn });
+
+        expect(problems.some(problem => /repeating the words it was told to carry on from/i.test(problem))).toBe(true);
+    });
+
+    it('leaves a beat that genuinely continues alone', () => {
+        expect(beat(words(200), { runIn })).toEqual([]);
+    });
+
+    // The whole-beat overlap check cannot see this: one sentence in two hundred words is far under
+    // the duplicate threshold, which is why the run-in is compared against the OPENING specifically.
+    it('is not something the whole-beat duplicate check would have caught', () => {
+        // One sentence out of two hundred words is far under the duplicate threshold, which is the
+        // whole reason the run-in is compared against the OPENING rather than the beat.
+        const echoing = `${runIn}. ` + words(190);
+        const earlier = words(200, 'one two three four five six seven eight nine ten');
+
+        const problems = beat(echoing, { runIn, priorBeats: [earlier] });
+        expect(problems.some(problem => /repeating the words it was told/i.test(problem))).toBe(true);
+        expect(problems.some(problem => /repeats an earlier one/i.test(problem))).toBe(false);
+    });
+});
+
+describe('markup in something that is read aloud', () => {
+    // Measured: the presenter's exclamations came back as *yikes* and *wow*, which the speech engine
+    // reads exactly as written.
+    it('catches emphasis, headings, bullets and backticks', () => {
+        for (const bad of ['*yikes* ', '## A heading\n', '- a bullet\n', '`code` ']) {
+            expect(beat(bad + words(200)).some(problem => /formatting/i.test(problem))).toBe(true);
+        }
+    });
+
+    it('leaves ordinary punctuation alone, which is most of speech', () => {
+        expect(beat("Don't @ me — seriously, what was that? " + words(190))).toEqual([]);
+    });
+});

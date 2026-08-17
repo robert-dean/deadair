@@ -44,6 +44,21 @@ export const MAX_RATIO = 1.8;
  */
 export const DUPLICATE_OVERLAP = 0.35;
 
+/**
+ * Markup a beat should never contain, because a beat is SPOKEN.
+ *
+ * Not a style preference: the speech engine reads what it is given, so a model that emphasised a
+ * word as `*yikes*` has written an asterisk into the audio. Measured on a live run, where the
+ * presenter's own exclamations came back wrapped in them.
+ *
+ * Deliberately narrow. An apostrophe, a dash and a question mark are all ordinary speech; these five
+ * are the ones that only exist to be looked at.
+ */
+const MARKUP = /(\*\*?|^#{1,6}\s|^\s*[-*]\s|`|_[A-Za-z])/m;
+
+/** How much of the run-in a beat may echo before it is reciting rather than continuing. */
+export const RUN_IN_ECHO_WORDS = 6;
+
 /** What one beat is judged against. */
 export interface BeatCheckInput {
     /** The drafted words. */
@@ -54,6 +69,15 @@ export interface BeatCheckInput {
     ordinal: number;
     /** The beats already written, for the repetition check. */
     priorBeats?: readonly string[];
+    /**
+     * The words this beat was handed to carry on from.
+     *
+     * Checked because handing a model a quotation makes it read the quotation: beats opened by
+     * reciting the previous one's last sentence word for word. The whole-beat overlap check cannot
+     * catch it — one sentence in two hundred words is well under the duplicate threshold — so the
+     * run-in is compared against the OPENING specifically.
+     */
+    runIn?: string;
 }
 
 /** A beat that opens a programme, so the check knows an opening is only wrong out of place. */
@@ -94,6 +118,18 @@ export function checkBeat(input: BeatCheckInput): string[] {
         problems.push('This beat is mid-programme but it introduces the programme again. Cut the greeting and pick it up in progress.');
     }
 
+    if (input.runIn !== undefined && echoesRunIn(input.runIn, text)) {
+        problems.push(
+            'This beat begins by repeating the words it was told to carry on from. Those have already been said: start after them, with something new.',
+        );
+    }
+
+    if (MARKUP.test(text)) {
+        problems.push(
+            'This beat contains formatting — asterisks, hashes, backticks or bullet points. It is read aloud exactly as written, so write it as plain spoken prose.',
+        );
+    }
+
     const overlap = Math.max(0, ...(input.priorBeats ?? []).map(prior => trigramOverlap(prior, text)));
     if (overlap >= DUPLICATE_OVERLAP) {
         problems.push(
@@ -117,6 +153,34 @@ export function correctionNote(problems: readonly string[]): string {
         ...problems.map(problem => `- ${problem}`),
     ].join('\n');
 }
+
+/**
+ * Whether a beat opens by reciting what it was handed rather than continuing from it.
+ *
+ * Compares the END of the run-in against the START of the beat, which is where the echo happens: a
+ * model picks the quotation up and reads it before saying anything of its own. Anywhere else in the
+ * beat is the ordinary duplicate check's business.
+ */
+function echoesRunIn(runIn: string, text: string): boolean {
+    const tail = words(runIn);
+    const head = words(text).slice(0, tail.length + RUN_IN_ECHO_WORDS);
+    if (tail.length < RUN_IN_ECHO_WORDS || head.length < RUN_IN_ECHO_WORDS) return false;
+
+    // Any run of RUN_IN_ECHO_WORDS from the run-in appearing in the beat's opening is an echo.
+    for (let at = 0; at + RUN_IN_ECHO_WORDS <= tail.length; at++) {
+        const run = tail.slice(at, at + RUN_IN_ECHO_WORDS).join(' ');
+        if (head.join(' ').includes(run)) return true;
+    }
+    return false;
+}
+
+/** A text as lowercase words, with punctuation dropped so an echo cannot hide behind it. */
+const words = (text: string): string[] =>
+    text
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
 
 /** Spoken words in a chunk of text. */
 export function countWords(text: string): number {

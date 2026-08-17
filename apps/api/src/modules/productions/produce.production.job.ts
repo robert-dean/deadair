@@ -6,7 +6,9 @@ import { Logger } from '@maroonedsoftware/logger';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
-import { SegmentRepository } from '#modules/render/segment.repository.js';
+import { spentCatchphrases } from '#modules/personas/persona.sheet.js';
+import type { Persona } from '#modules/personas/persona.js';
+import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
@@ -192,7 +194,6 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         if (claimed === undefined) return false;
 
         const plan = planProduction(claimed.targetMs);
-        const persona = await this.personas.presenting(claimed.personaId);
 
         const answer = await this.llm.converse(
             {
@@ -202,7 +203,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
                     beats: plan.beats.length,
                     wordsPerBeat: plan.beats[0]?.words ?? 0,
-                    ...(persona === undefined ? {} : { persona }),
+                    // No persona: the outline decides what the programme is ABOUT, and the beats
+                    // decide who is saying it. See `outlinePrompt` for what handing it the sheet
+                    // actually produced.
                     station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                 }),
                 maxOutputTokens: OUTLINE_OUTPUT_TOKENS,
@@ -246,6 +249,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const persona = await this.personas.presenting(claimed.personaId);
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         let runIn: string | undefined;
+        // Everything written so far, for the spent-signature check. Held in memory rather than
+        // re-read per beat: this loop is the only writer of them and it has just produced them.
+        const written: string[] = [];
 
         for (const beat of plan.beats) {
             // Between beats rather than only at the start: a production is minutes of work, which is
@@ -259,6 +265,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             }
 
             const outlineBeat = claimed.outline?.beats[beat.ordinal];
+            // Which of this character's signatures the programme has already spent. The measured
+            // failure without it: "I said what I said" in 23 of 24 beats, because the sheet offers
+            // its catchphrases to every beat and no beat could see what the others had done.
+            const spent = persona === undefined ? [] : spentCatchphrases(persona, written);
             // Built once so the retry below asks for exactly the same thing. A retry that rebuilt the
             // prompt would be a different question, and a beat that failed twice for two different
             // reasons is one nobody can diagnose.
@@ -276,6 +286,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                                 ...(outlineBeat === undefined ? {} : { beat: outlineBeat }),
                                 ...(runIn === undefined ? {} : { runIn }),
                                 ...(persona === undefined ? {} : { persona }),
+                                ...(spent.length === 0 ? {} : { spent }),
                                 station,
                             }),
                             maxOutputTokens: BEAT_OUTPUT_TOKENS,
@@ -316,6 +327,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 ...(persona?.voice === undefined ? {} : { voice: persona.voice }),
             });
 
+            written.push(script);
             runIn = runInFrom(script);
         }
 
@@ -341,11 +353,15 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         for (const [index, beat] of beats.entries()) {
             if (beat.script === undefined) continue;
 
+            const runIn = index === 0 ? undefined : runInFrom(beats[index - 1]?.script ?? '');
             const problems = checkBeat({
                 text: beat.script,
                 words: plan.beats[index]?.words ?? beat.script.split(/\s+/).length,
                 ordinal: beat.productionOrdinal ?? index,
                 priorBeats: beats.slice(0, index).map(earlier => earlier.script ?? ''),
+                // The same words this beat was handed, so a beat that recited them instead of
+                // carrying on from them is caught.
+                ...(runIn === undefined ? {} : { runIn }),
             });
             if (problems.length === 0) continue;
 
@@ -361,8 +377,12 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         words: plan.beats[index]?.words ?? 200,
                         ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
                         ...(claimed.outline?.beats[index] === undefined ? {} : { beat: claimed.outline.beats[index]! }),
-                        ...(index === 0 ? {} : { runIn: runInFrom(beats[index - 1]?.script ?? '') }),
+                        ...(runIn === undefined ? {} : { runIn }),
                         ...(persona === undefined ? {} : { persona }),
+                        // Everything the programme says EXCEPT this beat: a re-draft must not be
+                        // told its own signature is spent by its own first attempt, which would
+                        // forbid the one line it is allowed to keep.
+                        ...(spentOf(persona, beats, index).length === 0 ? {} : { spent: spentOf(persona, beats, index) }),
                         station,
                         correction: correctionNote(problems),
                     }),
@@ -412,6 +432,20 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     private priorityOf(production: Production) {
         return priorityForSlot(production.scheduledFor, Date.now(), DEADLINE_MS);
     }
+}
+
+/**
+ * Which of this character's signatures the rest of the programme has already used.
+ *
+ * The beat being re-drafted is excluded deliberately. Its own first attempt is about to be thrown
+ * away, so counting it would tell the re-draft that a phrase is spent when the only thing that spent
+ * it is the text being replaced.
+ */
+function spentOf(persona: Persona | undefined, beats: readonly Segment[], skip: number): string[] {
+    if (persona === undefined) return [];
+
+    const others = beats.filter((_, index) => index !== skip).map(beat => beat.script ?? '');
+    return spentCatchphrases(persona, others);
 }
 
 /**

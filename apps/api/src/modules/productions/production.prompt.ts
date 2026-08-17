@@ -51,7 +51,6 @@ export interface OutlineRequest {
     wordsPerBeat: number;
     /** Anything the production was handed to cover, in order. Indexes into this are what a beat names. */
     items?: readonly string[];
-    persona?: Persona;
     station?: string;
 }
 
@@ -76,6 +75,20 @@ export interface BeatRequest {
     station?: string;
     /** What was wrong with the previous attempt, for the one re-draft a beat gets. */
     correction?: string;
+    /**
+     * Signature phrases this production has already used, so this beat does not use them again.
+     *
+     * **The half of the sheet a beat could never see, and the single worst thing measured on the
+     * first live run**: "I said what I said" appeared in 23 of 24 beats, and the presenter's
+     * background in 6. The cause is structural rather than a bad model — the persona sheet goes into
+     * EVERY beat's system turn, catchphrases and all, and each beat dutifully used one because
+     * nothing told it the last twenty had.
+     *
+     * It is the same mechanism `break.prompt.ts` already runs between breaks, applied inside one
+     * programme, and it works the same way: name what is spent and invite a new one, because a model
+     * told only what it may not say reaches for the nearest other thing the sheet gave it.
+     */
+    spent?: readonly string[];
 }
 
 /**
@@ -83,12 +96,26 @@ export interface BeatRequest {
  *
  * The beat COUNT is stated rather than requested, which is the load-bearing half. Everything else
  * here is content: what each beat is about, what it plants, and what it lands.
+ *
+ * ## The presenter is deliberately NOT here
+ *
+ * The outline decides what the programme is about; the beats decide who is saying it. That split is
+ * the same one the personas design already draws when it says a character's `music` line is the only
+ * part that reaches what the station PLAYS — what a presenter sounds like has nothing to do with
+ * what the programme is about.
+ *
+ * It is also measured. Handed the sheet, the outline pass planned the presenter's tics as structure:
+ * it came back with runners of "recurring self-humorous firing anecdotes" and "the 'Oh wow, Yikes!'
+ * dramatic lead-in before each explanation", and a beat whose payoff was "I keep this joke running
+ * until I say 'I said what I said' later". That is the catchphrase repetition of the previous run
+ * promoted from an accident to a plan — and it would have fought the spent-phrase rule in every beat
+ * below, because one of them was telling the model to repeat itself and the other was telling it not
+ * to.
  */
 export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
     const system = [
         `You plan a ${request.kind} for a radio station. You decide what it is about; you do not decide how long it is.`,
         '',
-        ...(request.persona === undefined ? [] : [...personaLines(request.persona), '']),
         'Rules:',
         `- Plan exactly ${request.beats} beats. Not more, not fewer. Each one runs about ${request.wordsPerBeat} spoken words.`,
         '- A beat is a single movement of the programme: one idea, developed. It is not a heading and not a bullet point.',
@@ -96,7 +123,10 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
         // Setup and payoff are what make this a programme rather than a sequence, and they are the
         // only way a beat can know about a beat it will never see.
         '- Where it helps, plant something in one beat for a later one to land. Say what is planted and which beat lands it.',
-        '- Runners are threads that come back through the programme. Two or three at most, and only if they are actually funny or useful.',
+        // Named narrowly on purpose. Asked for "threads", a model offers the presenter's verbal tics —
+        // a catchphrase to repeat, a stock exclamation before every explanation — which is a plan to
+        // be repetitive rather than a plan for a programme.
+        '- Runners are threads of SUBJECT that come back through the programme: an idea, a question, a running argument. Two or three at most. They are never a phrase to repeat, a catchphrase, or a way of speaking.',
         '- Do not write any of the script. This is a plan.',
         '',
         'Answer with JSON only, in this shape:',
@@ -131,7 +161,23 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     const system = [
         `You write one beat of a ${request.kind} for a radio station. It is read aloud exactly as you write it.`,
         '',
-        ...(request.persona === undefined ? [] : [...personaLines(request.persona), '']),
+        ...(request.persona === undefined
+            ? []
+            : [
+                  ...personaLines(request.persona),
+                  '',
+                  // The single most important line in this prompt, and it took a live 24-beat run to
+                  // find. A persona sheet is written in units of BREAKS — "about once a break",
+                  // "roughly every twenty minutes" — because that is what a station normally asks it
+                  // for. A beat is not a break: it is one movement of a programme with twenty-odd of
+                  // them. Read per beat, "once a break" becomes twenty-four times, which is exactly
+                  // what happened — the presenter's catchphrase appeared in 23 of 24 beats and their
+                  // own history in 6.
+                  'One more thing about the character above. What follows is ONE programme, not one break: you are already part way through it and you will be speaking for a while yet. ' +
+                      'Where that description rations something — a signature phrase, an admission about yourself, a piece of your own history — the ration is for the WHOLE programme rather than for this beat. ' +
+                      'Assume the other beats have used most of it already.',
+                  '',
+              ]),
         'Rules:',
         `- Write about ${request.words} spoken words. This one number is not yours to change.`,
         '- Continuous spoken prose. No headings, no bullet points, no stage directions, no speaker labels, no markdown.',
@@ -140,8 +186,25 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         opening
             ? '- This is the OPENING beat. Set the programme up and get into it.'
             : '- This beat is in the MIDDLE of the programme. Do not greet anybody, do not introduce the programme, and do not re-state what it is about. Carry on from where the last beat left off.',
+        // The other half of the repetition problem. Spent catchphrases are handled per beat in the
+        // user turn; this covers the BACKGROUND, which is not a phrase and so cannot be detected as
+        // one — a presenter who has been fired from three stations mentioned it in six of
+        // twenty-four beats, because the sheet offers it every time and only the first beat has any
+        // reason to use it.
+        ...(opening
+            ? []
+            : [
+                  '- You have already introduced yourself. Do not say your own name, your history or your credentials again; this audience has been listening for a while.',
+              ]),
         '- Make the beat about one thing and develop it. Covering less, properly, beats covering more.',
-        '- Say only what you actually know. Do not invent names, dates, figures or quotations.',
+        // The general version of this rule ("do not invent names, dates, figures") was in place for
+        // the first live runs and did not hold: one came back with a lab in the wrong city, a decade
+        // that had not happened yet, a part count off the assembly line and a spec that does not
+        // exist. A model reaches for a specific because a specific sounds like knowledge, so the
+        // rule has to name the swap and give it somewhere to go instead.
+        '- Where you are not certain of a detail, say the general thing instead of inventing a specific one. "A factory in Japan" is better than the wrong city; "not many" is better than a number you made up. A vague sentence that is true is worth more than a precise one that is not.',
+        "- Never invent a place, a date, a price, a quantity, a chart position, a technical specification, or words in somebody's mouth. If a sentence only works with one of those in it, write a different sentence.",
+        '- This goes out on the radio as fact. Nobody listening can check it, and nothing later can take it back.',
         '- Do not end by summarising what you just said.',
     ].join('\n');
 
@@ -174,7 +237,26 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     // when it starts writing. A summary here produces an introduction; the actual words produce a
     // continuation.
     if (request.runIn !== undefined && request.runIn.trim().length > 0) {
-        parts.push(['The programme has just said this. Carry straight on from it:', `"...${request.runIn.trim()}"`].join('\n'));
+        parts.push(
+            [
+                'The programme has just said this:',
+                `"...${request.runIn.trim()}"`,
+                // Measured: without this, beats opened by reciting the run-in word for word before
+                // saying anything of their own. Handed a quotation, a model treats it as something
+                // to pick up and read rather than as a position to start from.
+                'Those words have already been spoken. Do NOT repeat them, quote them, or rephrase them. Start the next sentence after them.',
+            ].join('\n'),
+        );
+    }
+
+    // Named, and a new one invited rather than only forbidden. Told only what it may not say, a
+    // model reaches for the nearest other thing the sheet gave it — which is the failure one rule
+    // over, and is exactly how the same block in `break.prompt.ts` is worded.
+    if (request.spent !== undefined && request.spent.length > 0) {
+        parts.push(
+            `You have already said ${request.spent.map(phrase => `"${phrase}"`).join(' and ')} earlier in this programme. ` +
+                `Do not use ${request.spent.length === 1 ? 'it' : 'any of them'} again. Say it a different way, or make up a new line of your own.`,
+        );
     }
 
     parts.push(`Write beat ${request.ordinal + 1}${request.beat === undefined ? '' : `, "${request.beat.title}"`}, in about ${request.words} words.`);

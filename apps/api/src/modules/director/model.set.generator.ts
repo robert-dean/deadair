@@ -318,7 +318,17 @@ export class ModelSetGenerator extends SetGenerator {
         }
 
         if (picks.length === 0) {
-            if (result.toolCallsMade === 0) {
+            if (result.preempted) {
+                // Not the model's failure and not a fault at all: a break wanted the model and this
+                // is the binding that is supposed to lose. Said at info, and named, because from the
+                // numbers alone it is indistinguishable from the two failures below — a `classic
+                // banjo` refill preempted 4.6 seconds in was reported as `finish=length searches=0`
+                // and accused of not using its tools, when it had asked to search and been cut off.
+                this.logger.info('director: a break took the model back before the refill could programme; the floor filled the hour', {
+                    ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
+                    searches: result.toolCallsMade,
+                });
+            } else if (result.toolCallsMade === 0) {
                 // The one failure worth naming as the model's own. A run that searched and found
                 // nothing is a thin library and is not this; a run that never searched and answered
                 // anyway is a model not driving what it was given, and it will do it again.

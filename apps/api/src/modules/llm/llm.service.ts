@@ -131,6 +131,23 @@ export interface LlmConversation extends LlmResult {
      * to store — the one caller that reads it does so only while `llm.captureWrites` is on.
      */
     transcript: readonly LlmMessage[];
+    /**
+     * Whether the station took the model back before this conversation had finished.
+     *
+     * A fact about the LOOP rather than about the generation, which is why it is here and not on
+     * `LlmResult.finishReason`: the model did nothing wrong and its own answer was never truncated.
+     * The abort surfaces as `finishReason: 'length'` because that is the nearest thing the wire
+     * vocabulary has, and on its own it is a lie a reader cannot see through — "the model ran out of
+     * room" and "a break wanted the model" are opposite facts wanting opposite fixes.
+     *
+     * It cost a live diagnosis. A `classic banjo` refill was preempted 4.6 seconds in and reported as
+     * `finish=length searches=0`, over which `ModelSetGenerator` printed "the model chose nothing and
+     * never searched the library; it is not using its tools" — while the model had in fact ASKED to
+     * search and been cut off before the calls ran. Reaching the abort branch requires the step to
+     * have produced tool calls, so `toolCallsMade` staying 0 is the station's doing rather than the
+     * model's, and the one binding that accuses a model of laziness must be able to tell.
+     */
+    preempted: boolean;
 }
 
 /** Fold one generation's usage into a conversation's running total. */
@@ -370,15 +387,27 @@ export class LlmService {
             addUsage(usage, result.usage);
 
             if (result.toolCalls.length === 0 || lastStep) {
-                return { ...result, usage, toolCallsMade, transcript: messages };
+                return { ...result, usage, toolCallsMade, transcript: messages, preempted: false };
             }
 
             if (signal.aborted) {
                 // The budget went while the station was doing its own work. Answer with what the
                 // model has said so far rather than throwing: a partial line is worth more to a
                 // writer that can fall back than an exception is.
-                this.logger.info('llm: a conversation ran out of budget mid-loop', { plugin: plugin.record.id, step });
-                return { ...result, usage, toolCallsMade, transcript: messages, finishReason: 'length' };
+                //
+                // Note where this sits: the step above produced tool calls (or the return before it
+                // would have taken us), so what is being abandoned is a model that ASKED to search.
+                // `toolCallsMade` therefore stays at whatever ran BEFORE this step, and a caller
+                // reading 0 there is reading the station's interruption rather than an idle model —
+                // which is why {@link LlmConversation.preempted} exists and why it is set here.
+                this.logger.info('llm: a conversation ran out of budget mid-loop', {
+                    plugin: plugin.record.id,
+                    step,
+                    // The number that says what was lost. A preemption at step 0 costs the whole
+                    // refill; one at step 3 costs the answer and keeps the searching.
+                    wanted: result.toolCalls.length,
+                });
+                return { ...result, usage, toolCallsMade, transcript: messages, finishReason: 'length', preempted: true };
             }
 
             // The assistant turn AND its calls, as one message. A model that cannot see its own

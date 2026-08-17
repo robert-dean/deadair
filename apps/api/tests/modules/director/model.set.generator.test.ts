@@ -44,6 +44,8 @@ interface Options {
     stylesFail?: boolean;
     /** What the model was shown, for the capture switch. */
     transcript?: LlmConversation['transcript'];
+    /** Whether a break took the model back before the refill finished. */
+    preempted?: boolean;
 }
 
 /** An empty side of the operator's taste: nothing said, and nothing hidden behind a limit. */
@@ -59,6 +61,7 @@ function build(options: Options = {}) {
             finishReason: options.finishReason ?? 'stop',
             usage: { totalTokens: 500 },
             transcript: options.transcript ?? [],
+            preempted: options.preempted ?? false,
         };
     });
 
@@ -269,6 +272,29 @@ describe('ModelSetGenerator', () => {
         const system = request.messages.find(message => message.role === 'system')?.content ?? '';
         expect(system).toMatch(/heavy metal \(240\), thrash metal \(95\)/);
         expect(system).toMatch(/The commonest styles this library holds are listed at the end/);
+    });
+
+    it('does not accuse the model of idling when the station took the model off it', async () => {
+        // A `classic banjo` refill was preempted 4.6 seconds in and reported as `finish=length
+        // searches=0`, over which this binding printed "the model chose nothing and never searched
+        // the library; it is not using its tools". The model had ASKED to search and been cut off:
+        // the abort branch is only reachable from a step that produced tool calls, so 0 searches
+        // there is the station's doing. Yielding to a break is what this binding is FOR.
+        const { generator } = build({ enabled: true, preempted: true, toolCallsMade: 0, finishReason: 'length', text: '' });
+
+        expect(await generator.generate(inputs(5))).toEqual([]);
+        expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('not using its tools'));
+        expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('a break took the model back'), expect.anything());
+    });
+
+    it('still names an idle model when nothing preempted it', async () => {
+        // The other side of the same line: a model that had the whole budget, never searched and
+        // answered anyway IS failing to drive what it was given, and it will do it again.
+        const { generator } = build({ enabled: true, preempted: false, toolCallsMade: 0, text: '' });
+
+        await generator.generate(inputs(5));
+
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('not using its tools'));
     });
 
     it('shows a style the brief asked for however rare it is, and puts it first', async () => {

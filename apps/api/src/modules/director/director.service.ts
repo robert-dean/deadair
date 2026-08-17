@@ -11,6 +11,7 @@ import { Epoch } from '#modules/shared/epoch.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
+import { ProductionScheduler } from '#modules/productions/production.scheduler.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { inScope } from '#modules/shared/scoped.work.js';
@@ -1232,6 +1233,14 @@ export class DirectorService {
         // spoken is waiting for a position, and everything below either takes items out of the order
         // or puts breaks into it.
         await this.injectProductions(lineup);
+
+        // And what the clock will want LATER. Read ahead rather than filled at a boundary, because
+        // making a production is minutes to hours of model time: by the time its slot arrives it is
+        // far too late to start. Safe on every pass because it asks the table what is already
+        // scheduled rather than remembering.
+        await inScope(this.container, async scope => {
+            await scope.get(ProductionScheduler).ripen();
+        }).catch(error => this.logger.warn(`director: could not commission scheduled productions (${errorText(error)})`));
 
         // BEFORE committing, so a break planted this pass is in the order before anything is
         // taken from it. The other way round, the tail would be topped up first and the break

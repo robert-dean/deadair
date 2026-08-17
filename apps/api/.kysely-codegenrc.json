@@ -37,7 +37,9 @@
             "deadair.break_requests.state": "Generated<'pending' | 'ready' | 'placed' | 'expired' | 'failed'>",
             "deadair.facts.category": "Generated<'summary' | 'placement' | 'chart' | 'recording' | 'personnel' | 'controversy' | 'cover_or_sample' | 'ending'>",
             "deadair.facts.source": "'lead' | 'model'",
-            "deadair.fact_extractions.source": "'lead' | 'model'"
+            "deadair.fact_extractions.source": "'lead' | 'model'",
+            "deadair.productions.writing_mode": "Generated<'quick' | 'outlined' | 'polished'>",
+            "deadair.productions.state": "Generated<'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'ready' | 'aired' | 'failed' | 'cancelled'>"
         }
     },
     "partitions": false,

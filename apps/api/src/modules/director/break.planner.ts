@@ -6,6 +6,7 @@ import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
 import { brokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { isAnchored, nextOccurrence, stationBands } from './clock.bands.js';
+import { isProductionKind } from '#modules/productions/production.scheduler.js';
 import { stationZone } from './clock.words.js';
 import { SegmentRepository, type Segment, type StrandedRelease } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
@@ -547,6 +548,13 @@ export class BreakPlanner {
 
         const zone = stationZone(this.config);
         const projected = projectAirTimes(items, clock.anchorAt, clock.from);
+        // A band naming a PRODUCTION kind is not asking for a break at a boundary, and this walk is
+        // the wrong machinery for it entirely: making one takes minutes to hours, so it has to be
+        // commissioned well ahead of its slot rather than filled at the boundary the slot lands on.
+        // `ProductionScheduler` reads the same bands and does that. Left in, `fillBand` would ask
+        // `BreakWriterRegistry` for a writer of that kind, find none, and decline the slot silently
+        // once per pass — which reads exactly like a band that does not work.
+        const forBreaks = bands.filter(band => !isProductionKind(band.kind, this.config));
         const taken = new Set<number>();
         const slots: Slot[] = [];
 
@@ -557,7 +565,7 @@ export class BreakPlanner {
         };
 
         // ── anchored ───────────────────────────────────────────────────────────
-        for (const band of bands) {
+        for (const band of forBreaks) {
             if (!isAnchored(band)) continue;
 
             const target = nextOccurrence(band, clock.now, zone);
@@ -594,7 +602,7 @@ export class BreakPlanner {
         }
 
         // ── the operator's own intervals ───────────────────────────────────────
-        for (const band of bands) {
+        for (const band of forBreaks) {
             if (isAnchored(band)) continue;
 
             const counts = (item: StationLineupSegmentItem): boolean => item.segmentKind === band.kind;

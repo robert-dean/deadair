@@ -1,7 +1,8 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
-import { ProduceProductionJob } from './produce.production.job.js';
 import { ProductionRepository } from './production.repository.js';
+import { ProductionScheduler } from './production.scheduler.js';
+import { ProductionsService } from './productions.service.js';
 
 /**
  * What the station MAKES, as against what it says.
@@ -23,8 +24,17 @@ export const ProductionsModule: ServerKitModule = {
         // Scoped, like every other repository: per-request on the request path, per-run inside the
         // scope a pass job opens.
         registry.register(ProductionRepository).useClass(ProductionRepository).asScoped();
-        // Scoped with the repositories and the LLM service it resolves. One instance per run, which
-        // is what every job in this tree is.
-        registry.register(ProduceProductionJob).useClass(ProduceProductionJob).asScoped();
+        // Scoped with the repositories and the authorization context it reads, like every other
+        // service the console reaches.
+        registry.register(ProductionsService).useClass(ProductionsService).asScoped();
+        // Scoped, and resolved per commit pass by the director rather than owning a loop of its own:
+        // the pass is already running on every track boundary and the scheduler is one indexed read
+        // on most of them.
+        registry.register(ProductionScheduler).useClass(ProductionScheduler).asScoped();
+
+        // `ProduceProductionJob` is deliberately NOT registered here. `JobsModule` walks
+        // `job.mappings.ts` and registers every job class in it, so a module that also registers its
+        // own throws `Registration for … already exists` at boot — which is what this one did. No
+        // other module registers a job either; the mapping is the registration.
     },
 };

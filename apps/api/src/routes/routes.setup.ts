@@ -11,6 +11,7 @@ import { DirectorRouter } from './director.router.js';
 import { PlaylistsRouter } from './playlists.router.js';
 import { NowplayingRouter } from './nowplaying.router.js';
 import { PersonasRouter } from './personas.router.js';
+import { ProductionsRouter } from './productions.router.js';
 import { PlayoutRouter } from './playout.router.js';
 import { PluginsRouter } from './plugins.router.js';
 import { RenderRouter } from './render.router.js';
@@ -34,6 +35,7 @@ export const routers = [
     DirectorRouter,
     RenderRouter,
     PersonasRouter,
+    ProductionsRouter,
     PluginsRouter,
     SettingsRouter,
     StorageRouter,

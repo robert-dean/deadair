@@ -114,6 +114,8 @@ export interface Production {
     scheduledFor?: number;
     cancelledAt?: number;
     actorId?: string;
+    /** When it was commissioned. What a console orders the list by. */
+    createdAt: number;
 }
 
 /**

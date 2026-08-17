@@ -28,6 +28,7 @@ import {
 } from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
+import { DEFAULT_TARGET_MINUTES, DEFAULT_WRITING_MODE, PRODUCTION_KEYS } from '#modules/productions/production.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
 
@@ -432,6 +433,27 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: SCRIPT_HISTORY_DEFAULTS.retentionDays,
         help: 'Every break the station wrote, including the attempts that came to nothing, kept for this long and then swept nightly. Zero keeps all of it. This is the only record of what was said once a segment has been rewritten or deleted, so it is worth more than it costs.',
+    },
+    {
+        group: 'render',
+        key: PRODUCTION_KEYS.writingMode,
+        label: 'How much to write a production',
+        type: 'select',
+        options: [
+            { value: 'quick', label: 'Quick — one draft per beat' },
+            { value: 'outlined', label: 'Outlined — plan it, then write it' },
+            { value: 'polished', label: 'Polished — plan, write, then check and fix' },
+        ],
+        default: DEFAULT_WRITING_MODE,
+        help: 'How many passes a production gets when nobody says otherwise. The outline is what makes something a programme rather than a run of beats; the check is arithmetic rather than another opinion, and it costs one more model call per beat that failed something. Each production can override this when it is asked for.',
+    },
+    {
+        group: 'render',
+        key: PRODUCTION_KEYS.targetMinutes,
+        label: 'How long a production runs (minutes)',
+        type: 'number',
+        default: DEFAULT_TARGET_MINUTES,
+        help: 'The default length, which decides how many beats it has and how long each one is. Nothing about the timing is left to the model: asked to decide for itself it gives one subject one beat, which at ten minutes is a single beat asked to carry more words than any one answer contains.',
     },
 
     // ── llm ────────────────────────────────────────────────────────────────────

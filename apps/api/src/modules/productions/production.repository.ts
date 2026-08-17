@@ -203,6 +203,38 @@ export class ProductionRepository extends DataRepository {
         return row === undefined || row.state === 'cancelled';
     }
 
+    /** What the station has made or is making, newest first: what a console lists. */
+    async recent(limit = 50): Promise<Production[]> {
+        const rows = await this.db
+            .selectFrom('deadair.productions')
+            .selectAll()
+            .where('stationKey', '=', this.identity.stationKey)
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .execute();
+
+        return rows.map(toProduction);
+    }
+
+    /**
+     * Productions already scheduled at or after an instant, for the clock's idempotence.
+     *
+     * The scheduler asks the TABLE whether it has already commissioned a slot rather than
+     * remembering, because memory forgets across exactly the restart that makes a double-commission
+     * most likely — the same argument `break_requests.dedupe_key` is a column for.
+     */
+    async scheduledAfter(from: number): Promise<Production[]> {
+        const rows = await this.db
+            .selectFrom('deadair.productions')
+            .selectAll()
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('scheduledFor', '>=', instant(from))
+            .where('state', 'not in', ['failed', 'cancelled'])
+            .execute();
+
+        return rows.map(toProduction);
+    }
+
     /** Everything still being made, oldest first: what a scheduler drains. */
     async unfinished(limit = 20): Promise<Production[]> {
         const rows = await this.db
@@ -259,6 +291,7 @@ function toProduction(row: Record<string, unknown>): Production {
         ...(millisOf(row.scheduledFor as DateTime | null) === undefined ? {} : { scheduledFor: millisOf(row.scheduledFor as DateTime | null)! }),
         ...(millisOf(row.cancelledAt as DateTime | null) === undefined ? {} : { cancelledAt: millisOf(row.cancelledAt as DateTime | null)! }),
         ...(row.actorId == null ? {} : { actorId: String(row.actorId) }),
+        createdAt: millisOf(row.createdAt as DateTime | null) ?? 0,
     };
 }
 

@@ -529,15 +529,15 @@ describe('itemAnnotations: a break the station spoke', () => {
 
     it('stamps every break, including one that needs nothing', () => {
         // No dead band: an unstamped push would leave the previous break's override standing.
-        expect(itemAnnotations(segment({ loudnessLufs: -16 }), CONTEXT).liq_amplify).toBe('0 dB');
+        expect(itemAnnotations(segment({ loudnessLufs: -18 }), CONTEXT).liq_amplify).toBe('0 dB');
     });
 
     it('uses the measurement when the segment carries one', () => {
-        expect(itemAnnotations(segment({ loudnessLufs: -22 }), CONTEXT).liq_amplify).toBe('6 dB');
+        expect(itemAnnotations(segment({ loudnessLufs: -22 }), CONTEXT).liq_amplify).toBe('4 dB');
     });
 
     it('is not capped by the peak the way a record is', () => {
-        expect(itemAnnotations(segment({ loudnessLufs: -26, truePeakDb: -9 }), CONTEXT).liq_amplify).toBe('10 dB');
+        expect(itemAnnotations(segment({ loudnessLufs: -26, truePeakDb: -9 }), CONTEXT).liq_amplify).toBe('8 dB');
     });
 });
 

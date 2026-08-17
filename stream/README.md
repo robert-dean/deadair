@@ -174,6 +174,11 @@ exactly as it does on every record it pushes, and the `amplify(1., override="liq
 head of the chain applies it. `VOICE_GAIN_DB` is the operator's trim on top of that and is 0 because
 it has nothing to correct, not because nobody tuned it.
 
+The target it aims at is the station's less `SPEECH_TRIM_DB` (2 dB, in `playout/gain.ts`), not the
+station's own. BS.1770 is a gated average and speech is the denser, more continuous signal, so a
+break levelled to exactly what the records measure arrives on top of them. The voice sits a little
+under the bed, which is where every desk puts it.
+
 **It is stamped on both routes, and that is the point.** A break aired between two records is an
 ordinary running-order item: it goes down the playout queue and never touches this chain at all. A
 per-engine number in `radio.env` reaches the talk-over half and misses that one entirely, which is

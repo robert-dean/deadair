@@ -177,6 +177,24 @@ export function gainFor(measured: MeasuredLoudness, targetLufs: number): number 
 export const ASSUMED_SPEECH_LUFS = -26.5;
 
 /**
+ * How far UNDER the station's target a break is aimed, in dB.
+ *
+ * Levelling the voice to the same figure as the records was the first version and
+ * it is measurably right and audibly wrong: BS.1770 is a gated average, and speech
+ * against music at one integrated level is the denser, more continuous signal in
+ * the band the ear is most sensitive in, so it arrives louder than the record
+ * either side of it. Every broadcast desk answers this the same way, with the
+ * voice sitting a little under the bed rather than level with it.
+ *
+ * Two, because the failure this replaced was a DJ ten decibels down and the
+ * correction must not walk back towards it: two is enough to stop a break jumping
+ * out of the hour and small enough that nobody reaches for the volume the other
+ * way. It applies to the assumed case and the measured one alike, since it is a
+ * statement about where the voice belongs rather than about any one segment.
+ */
+export const SPEECH_TRIM_DB = 2;
+
+/**
  * The gain for a break, in dB, and never nothing.
  *
  * Three deliberate differences from {@link gainFor} beside it, all of them
@@ -203,9 +221,12 @@ export const ASSUMED_SPEECH_LUFS = -26.5;
  * {@link MAX_GAIN_DB} still bounds it, on the same argument as above: it is a
  * bound on being wrong, and a measurement of the wrong file asks for a
  * correction of tens of decibels with total confidence.
+ *
+ * The target it aims at is the station's less {@link SPEECH_TRIM_DB}, which is
+ * where a voice belongs against a bed rather than level with one.
  */
 export function speechGainFor(measured: MeasuredLoudness, targetLufs: number): number {
-    const target = isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS;
+    const target = (isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS) - SPEECH_TRIM_DB;
     const level = isFinite(measured.loudnessLufs) ? measured.loudnessLufs : ASSUMED_SPEECH_LUFS;
 
     return round(clamp(target - level, MAX_GAIN_DB));

@@ -807,7 +807,7 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         await pusher.reconcile();
 
-        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining('liq_amplify="6 dB"'), expect.any(String), 8000);
+        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining('liq_amplify="4 dB"'), expect.any(String), 8000);
     });
 
     it('arms nothing for a record with no cue', async () => {

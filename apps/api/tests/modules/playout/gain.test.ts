@@ -10,6 +10,7 @@ import {
     CEILING_DBTP,
     MAX_GAIN_DB,
     MIN_GAIN_DB,
+    SPEECH_TRIM_DB,
     TRUE_PEAK_ALLOWANCE_DB,
     gainFor,
     speechGainFor,
@@ -110,35 +111,42 @@ describe('speechGainFor', () => {
     it('lifts an unmeasured break from the assumed speech level', () => {
         // Where an unmeasured record is left alone. A break came out of a speech engine, and
         // what those produce is knowable in advance and consistently low.
-        expect(speechGainFor({}, TARGET)).toBe(TARGET - ASSUMED_SPEECH_LUFS);
+        expect(speechGainFor({}, TARGET)).toBe(TARGET - SPEECH_TRIM_DB - ASSUMED_SPEECH_LUFS);
         expect(speechGainFor({}, TARGET)).toBeGreaterThan(0);
     });
 
     it('uses the measurement once there is one', () => {
-        expect(speechGainFor({ loudnessLufs: -24 }, TARGET)).toBe(8);
-        expect(speechGainFor({ loudnessLufs: -12 }, TARGET)).toBe(-4);
+        expect(speechGainFor({ loudnessLufs: -24 }, TARGET)).toBe(6);
+        expect(speechGainFor({ loudnessLufs: -12 }, TARGET)).toBe(-6);
+    });
+
+    it('aims a break under the target the records sit at, never level with it', () => {
+        // A gated average says they are the same loudness and the ear does not: speech against
+        // music at one integrated level arrives on top of it.
+        expect(speechGainFor({ loudnessLufs: TARGET }, TARGET)).toBe(-SPEECH_TRIM_DB);
+        expect(SPEECH_TRIM_DB).toBeGreaterThan(0);
     });
 
     it('does not cap the boost against the peak', () => {
         // The difference from `gainFor`, and deliberate: this audio is the station's own, its
         // peaks are plosives rather than a master, and the bus limiter at -1 dBFS is downstream.
-        // A record with these numbers would be held to +8.
-        expect(speechGainFor({ loudnessLufs: -26, truePeakDb: -9 }, TARGET)).toBe(10);
-        expect(gainFor({ loudnessLufs: -26, truePeakDb: -9 }, TARGET)).toBe(CEILING_DBTP + 9);
+        // A record with these numbers would be held to +8 by its own headroom.
+        expect(speechGainFor({ loudnessLufs: -28, truePeakDb: -9 }, TARGET)).toBe(10);
+        expect(gainFor({ loudnessLufs: -28, truePeakDb: -9 }, TARGET)).toBe(CEILING_DBTP + 9);
     });
 
     it('always answers, so a break can never inherit the last one', () => {
         // Nothing here may be undefined: the stamp is the only thing holding a break's level,
         // and Liquidsoap's override persisting across pushes is not a thing worth depending on.
-        expect(speechGainFor({ loudnessLufs: TARGET }, TARGET)).toBe(0);
-        expect(speechGainFor({ loudnessLufs: -16.4 }, TARGET)).toBe(0.4);
+        expect(speechGainFor({ loudnessLufs: TARGET - SPEECH_TRIM_DB }, TARGET)).toBe(0);
+        expect(speechGainFor({ loudnessLufs: -18.4 }, TARGET)).toBe(0.4);
     });
 
     it('bounds a measurement that cannot be right, and a target that is not one', () => {
         expect(speechGainFor({ loudnessLufs: -70 }, TARGET)).toBe(MAX_GAIN_DB);
         expect(speechGainFor({ loudnessLufs: 12 }, TARGET)).toBe(-MAX_GAIN_DB);
         // A settings row holding nonsense still has to produce a break at a sane level.
-        expect(speechGainFor({}, Number.NaN)).toBe(TARGET - ASSUMED_SPEECH_LUFS);
-        expect(speechGainFor({ loudnessLufs: '-24' as unknown as number }, TARGET)).toBe(TARGET - ASSUMED_SPEECH_LUFS);
+        expect(speechGainFor({}, Number.NaN)).toBe(TARGET - SPEECH_TRIM_DB - ASSUMED_SPEECH_LUFS);
+        expect(speechGainFor({ loudnessLufs: '-24' as unknown as number }, TARGET)).toBe(TARGET - SPEECH_TRIM_DB - ASSUMED_SPEECH_LUFS);
     });
 });

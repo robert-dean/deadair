@@ -121,9 +121,26 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     // stopping at half its allowance with nothing telling it what the other half is for. This is not
     // permission to run long, which the ceiling still refuses; it is the one instruction in the list
     // that points at the voice rather than at the content.
+    //
+    // The second rule is the same doctrine pointed at the SHAPE rather than at the length, and it is
+    // the one the captured breaks argued for. Measured over the last 45 talk breaks this station
+    // wrote: almost every one of them was an announcement with a fact bolted on — "Deadair's next
+    // spin is X by Y", "X drops next", four of them opening with those exact words — and the model
+    // was not doing anything it had been told not to. Every instruction in this prompt describes a
+    // break in terms of the records either side of it, so a model reading all of them writes the
+    // most correct cue it can, and a cue read in character is still a cue.
+    //
+    // What it is missing is that the listener HEARD the record. They do not need to be told what
+    // played, which is why the interesting half of a break is the presenter's own reaction to it —
+    // the thing a template can never write and the only reason a model is here at all. Stated as
+    // what a break IS rather than as another prohibition, because the list is already long on those
+    // and one more would push it the same way.
     rules: [
         'Make one point, and make it the way only you would. A break is a single thought said well, not everything you know about both ' +
             'records: the words you save by leaving one of them out are yours to spend on saying it like yourself.',
+        'Talk, do not announce. Your listener just heard that record and can hear the next one starting, so naming them is the least ' +
+            'useful thing you can do with your one point — say what you make of it instead. A reaction, an opinion, something it ' +
+            'reminded you of. If your break would still make sense read out by anybody else, it is not yours yet.',
     ],
 };
 
@@ -355,6 +372,23 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
             ['You said these recently. Do not reuse their opening or their shape:', ...request.recent.map(script => `- ${script}`)].join('\n'),
         );
 
+        // The line above has said "do not reuse their opening" for as long as it has existed, and it
+        // does not work: nine consecutive breaks on this station opened with the word "Yikes" and
+        // four more with "Deadair's next spin is", every one of them written with the previous few
+        // scripts sitting in the prompt. A rule about a list is a rule a model has to do work to
+        // apply, and the work it skips is exactly the cheapest word in the answer.
+        //
+        // So the openings are extracted and NAMED, which is the move the spent-signature block below
+        // already makes and the reason that one lands: the station asks for something specific
+        // before it complains about not getting it. Same bargain, one rule earlier.
+        const openings = spentOpenings(request.recent);
+        if (openings.length > 0) {
+            parts.push(
+                `Your last few breaks started ${openings.map(opening => `"${opening}"`).join(', ')}. Start this one somewhere else — ` +
+                    'a different first word and a different shape, not the same run-up with the records swapped.',
+            );
+        }
+
         // The moment-dependent half of the catchphrase rule, and it is here rather than in the sheet
         // for the reason everything is here rather than there: which signatures are spent is a fact
         // about tonight, and the system turn is who the station is. The sheet says "at most one, and
@@ -424,6 +458,59 @@ function describeStory(story: BreakStory): string {
     // read it, some never do — and a model shown a publisher's name will credit it in a sentence
     // the operator never asked for.
     return lines.join('\n');
+}
+
+/**
+ * How many words of a script count as its opening.
+ *
+ * Four, which is what the two observed failures need between them: an exclamation is one word
+ * ("Yikes!") and a run-up is a clause ("Deadair's next spin is"). Fewer than four would name the
+ * first of those and miss the second, which is the one a listener notices, since a repeated
+ * exclamation at least varies afterwards where a repeated run-up does not.
+ */
+const OPENING_WORDS = 4;
+
+/** How many openings are named. Enough to show a habit; short enough to stay one sentence. */
+const MAX_OPENINGS = 4;
+
+/**
+ * How a script begins, as the words a listener would hear before the first breath.
+ *
+ * The leading clause rather than a fixed count, so "Yikes!" is named as itself rather than as
+ * "Yikes! Ozzy's Bark at the" — a model told not to start with the second learns nothing, because it
+ * was never going to say that again anyway.
+ */
+function openingOf(script: string): string | undefined {
+    const clause = script.trim().split(/[,;:.!?—–]/, 1)[0] ?? '';
+    const words = clause.trim().split(/\s+/).filter(Boolean).slice(0, OPENING_WORDS);
+    return words.length === 0 ? undefined : words.join(' ');
+}
+
+/**
+ * The openings the station has just used, deduplicated, most recent first.
+ *
+ * Deliberately every recent opening rather than only the repeated ones: a habit is visible at two
+ * and this list is at most six long, so waiting for a repeat means naming a phrase only after it has
+ * already gone out twice. Deduplicated case-insensitively, because a model that opened with "Yikes"
+ * and "yikes!" has one habit and telling it about two reads as noise.
+ */
+export function spentOpenings(recent: readonly string[] | undefined): string[] {
+    if (recent === undefined) return [];
+
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const script of recent) {
+        const opening = openingOf(script);
+        if (opening === undefined) continue;
+
+        const key = opening.toLowerCase();
+        if (seen.has(key)) continue;
+
+        seen.add(key);
+        out.push(opening);
+        if (out.length >= MAX_OPENINGS) break;
+    }
+    return out;
 }
 
 /** Whether either record came with anything to say about it. */

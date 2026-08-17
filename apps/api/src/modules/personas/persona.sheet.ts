@@ -231,9 +231,24 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
     // that used all sixteen would be a parody of the character rather than the character.
     const markers = cleanList(sheet.dictionMarkers, PERSONA_SHEET_LIMITS.dictionMarkers);
     if (markers.length > 0) {
+        // "Where it falls naturally" was the whole placement rule, and the measured answer to it is
+        // that a marker falls most naturally in front of everything: nine consecutive breaks on this
+        // station opened "Yikes!" and then carried on in flat announcer English. That passes
+        // {@link keepsCharacter} — one distinct marker is one distinct marker, wherever it sits —
+        // which is the same shape as the pasted-catchphrase failure at the other end of the
+        // sentence, and it is the guard reading the decoration as the voice for a second time.
+        //
+        // Not enforced, and that is the difference. A catchphrase is a fixed string and a marker is
+        // a word that has to be allowed to fall wherever the sentence puts it, so a check on
+        // position would refuse the character speaking normally. This is the instruction that was
+        // missing; the sentence after it is what makes the instruction worth following.
         lines.push(
             `These words are yours. Work at least ${MIN_DICTION_MARKERS} of them into anything you say, where it falls naturally — ` +
                 `never listed, and never all at once: ${markers.join(', ')}`,
+        );
+        lines.push(
+            'Inside a sentence, not stuck on the front of one. An exclamation before the real line is not you talking, it is a label ' +
+                'saying who is: the sentence itself has to sound like you or the word did nothing.',
         );
     }
 

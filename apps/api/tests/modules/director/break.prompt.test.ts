@@ -94,6 +94,35 @@ describe('breakPrompt', () => {
         expect(said).toMatch(/do not reuse/i);
     });
 
+    // "Do not reuse their opening" sat over the list above for as long as the list existed, and nine
+    // consecutive breaks opened with the same word anyway. Naming them is the same move the spent
+    // signatures make one block down, and the reason that one lands.
+    describe('the openings the station has just used', () => {
+        it('names them and asks for a different run-up', () => {
+            const said = user(
+                prompt({
+                    kind: 'talkbreak',
+                    previous,
+                    recent: ['Yikes! Solid Air just landed.', 'Deadair’s next spin is Pink Moon.'],
+                }),
+            );
+
+            expect(said).toContain('"Yikes"');
+            expect(said).toContain('"Deadair’s next spin is"');
+            expect(said).toMatch(/start this one somewhere else/i);
+        });
+
+        it('counts one habit once, however it was punctuated', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, recent: ['Yikes! One.', 'yikes, two.', 'Yikes — three.'] }));
+
+            expect(said.match(/"Yikes"/g)).toHaveLength(1);
+        });
+
+        it('says nothing when there is nothing behind the station', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/start this one somewhere else/i);
+        });
+    });
+
     describe('a signature the station has already used', () => {
         const persona = { style: 'a pirate', catchphrases: ['Arrr, and there it goes', 'Make of that what you will'] };
 
@@ -133,6 +162,23 @@ describe('breakPrompt', () => {
             const bulletin = { job: 'You read the news.', showsPrevious: false };
 
             expect(system(breakPrompt({ kind: 'news', next }, {}, bulletin))).not.toMatch(/make one point/i);
+        });
+
+        // The other half of the same doctrine, pointed at the shape of the break rather than its
+        // length. Measured over 45 captured breaks: almost every one was "X by Y drops next" with a
+        // fact bolted on, which is the most correct thing a model can write when every instruction
+        // it has describes a break in terms of the two records.
+        it('asks for a reaction rather than an announcement', () => {
+            const said = system(prompt({ kind: 'talkbreak', previous, next }));
+
+            expect(said).toMatch(/talk, do not announce/i);
+            expect(said).toMatch(/just heard that record/i);
+        });
+
+        it('keeps that off a kind that is not linking two records', () => {
+            const bulletin = { job: 'You read the news.', showsPrevious: false };
+
+            expect(system(breakPrompt({ kind: 'news', next }, {}, bulletin))).not.toMatch(/talk, do not announce/i);
         });
 
         it('lets a break hand over one record when it was shown two', () => {

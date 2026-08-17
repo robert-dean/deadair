@@ -46,6 +46,15 @@ describe('personaLines', () => {
         expect(lines[1]).toContain('never all at once');
     });
 
+    // A marker falls most naturally in front of everything, which is the answer nine consecutive
+    // breaks opening "Yikes!" gave to "where it falls naturally". It passes `keepsCharacter` — one
+    // distinct marker is one distinct marker wherever it sits — so the sheet has to ask.
+    it('says where a marker goes, because a word on the front is a label rather than a voice', () => {
+        const lines = personaLines({ diction: ['Ye for you'], dictionMarkers: ['ye', 'aye'] });
+
+        expect(lines[2]).toMatch(/inside a sentence, not stuck on the front/i);
+    });
+
     it('renders no marker line for a sheet that named none, which is the sheet that makes no claim', () => {
         expect(personaLines({ diction: ['Ye for you'] })).toHaveLength(1);
     });

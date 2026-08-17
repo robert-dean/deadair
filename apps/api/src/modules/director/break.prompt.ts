@@ -279,9 +279,29 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     if (previous) parts.push(`The record that has just finished:\n${describe(previous)}`);
     if (request.next) parts.push(`The record coming up next:\n${describe(request.next)}`);
 
-    // Both absent is a legitimate moment — the top of an order with nothing behind it — and the
-    // rules above are what stop it being filled with a record from nowhere.
-    if (parts.length === 0) parts.push('You have no records to talk about. Say something brief that identifies the station and nothing more.');
+    // Both absent is a legitimate moment — the top of an order with nothing behind it, and every
+    // welcome, which is written BEFORE it is placed and so has no neighbours to be given.
+    //
+    // Keyed on whether a record was actually shown rather than on `parts` being empty, which is what
+    // it read for as long as it existed and which quietly excused the one kind that needs it most: a
+    // shape with an `opening` has already pushed a part by here, so `WELCOME_SHAPE` — the only kind
+    // that structurally never has a record — could never reach this line. What that produced is a
+    // greeting mining the only concrete material left in its prompt, which is the recent-scripts
+    // list: a welcome went out in front of AC/DC's "Back In Black" talking about Sodom's "Agent
+    // Orange", lifted whole from the talk break above it, and the rule the model broke was one it
+    // had never been given. Hence "not one you said in an earlier break" said in as many words —
+    // the recent list is shown as a shape to avoid and reads as a menu when nothing else is there.
+    if (previous === undefined && request.next === undefined) {
+        parts.push(
+            'You have not been given a record. Do not name a song, an artist or an album at all — not one you know, and not one that ' +
+                'appears in anything you said earlier. Nothing about a record here would be something this station handed you.',
+        );
+
+        // The second half only where there is genuinely nothing else in the prompt to talk about. A
+        // bulletin has no records either and has three stories to report, so telling it to identify
+        // the station and stop would be telling it not to do its job.
+        if ((request.stories?.length ?? 0) === 0) parts.push('Say something brief that identifies the station and nothing more.');
+    }
 
     if (previous && !request.next) {
         // Said explicitly, because a model handed one record will reach for a second. This is the

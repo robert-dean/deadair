@@ -84,7 +84,36 @@ describe('breakPrompt', () => {
     it('gives the model something true to do when it has no records at all', () => {
         const said = user(prompt({ kind: 'talkbreak', station: 'Deadair' }));
 
-        expect(said).toMatch(/no records to talk about/i);
+        expect(said).toMatch(/not been given a record/i);
+        expect(said).toMatch(/identifies the station and nothing more/i);
+    });
+
+    it('forbids a record from an earlier break when it was given none of its own', () => {
+        // The observed failure and the reason this rule is keyed on the records rather than on the
+        // prompt being otherwise empty: shown no record and a list of recent scripts, a model takes
+        // the list as material. A welcome went out in front of one record talking about another,
+        // lifted from the break above it.
+        const said = user(prompt({ kind: 'talkbreak', recent: ['Agent Orange has a track about an AC-47.'] }));
+
+        expect(said).toMatch(/not one that appears in anything you said earlier/i);
+    });
+
+    it('still says so when a shape opened the turn with something of its own', () => {
+        // The bug itself: this used to be keyed on `parts` being empty, so any shape carrying an
+        // `opening` — which is every welcome — silently skipped the one rule holding it to the
+        // records it was actually given.
+        const withOpening = breakPrompt({ kind: 'welcome' }, {}, { ...TALK_BREAK_SHAPE, opening: () => 'Somebody has just tuned in.' });
+
+        expect(user(withOpening)).toMatch(/not been given a record/i);
+    });
+
+    it('does not tell a bulletin to say nothing but the station name', () => {
+        // A bulletin has no records either and has stories to read: the identify-the-station half
+        // would be telling it not to do its job.
+        const said = user(prompt({ kind: 'news', stories: [{ headline: 'A thing happened' }] }));
+
+        expect(said).toMatch(/not been given a record/i);
+        expect(said).not.toMatch(/identifies the station and nothing more/i);
     });
 
     it('passes the recent scripts through as an avoid-list', () => {

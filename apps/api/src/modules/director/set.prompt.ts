@@ -267,6 +267,17 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // model padding to length silently costs the operator the thing they asked for.
         '- Name each record ONCE. Repeating one does not fill the request; the record is discarded and the station chooses something else in its place.',
         '- If you cannot find enough, name fewer. A short answer is better than a repeated one.',
+        // The rule the other stopping rules leave a hole between, and a `classic banjo` refill fell
+        // straight into it. The library had no banjo, two provider searches found real records, and
+        // with 12 of the 24 asked for the model was caught between "keep searching until you have as
+        // many DIFFERENT records as you were asked to name" and "name fewer" — and resolved it by
+        // doing neither, replying "Use more searches with other decades." That is a plan, `readPicks`
+        // cannot read it, and the whole refill was lost with the records already found.
+        //
+        // So the shape of a reply is stated outright rather than implied by the format section
+        // below, which a model reads as being about the answer it has decided to give.
+        '- Every reply must be either a tool call or the final JSON array. A reply saying what you intend to search next is neither: the conversation ends there and everything you found is thrown away.',
+        '- So if you have run out of searches worth trying, ANSWER with what you have. Twelve records you found is twelve the station plays; a plan to find more is nothing.',
         // The floor under that permission, and it needs one. A model briefed for a style it did not
         // recognise answered `[]` in two seconds without calling a single tool, reasoning that it
         // could "name fewer" and that fewer could be none. Naming nothing is not a short answer, it

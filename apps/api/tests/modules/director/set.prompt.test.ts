@@ -102,6 +102,21 @@ describe('setPrompt', () => {
         expect(system).not.toMatch(/more styles than these/);
     });
 
+    it('says a reply is a tool call or an answer, never a plan to search', () => {
+        // The hole between the other stopping rules. Briefed `classic banjo` over a library holding
+        // none, the model found real records at a provider, reached 12 of the 24 asked for, and was
+        // caught between "keep searching until you have as many DIFFERENT records" and "name fewer".
+        // It did neither and replied "Use more searches with other decades" -- a plan, unreadable,
+        // and the twelve records it had already found went with it.
+        const system = systemOf(setPrompt({ count: 5, avoid: [] }));
+
+        expect(system).toMatch(/Every reply must be either a tool call or the final JSON array/);
+        expect(system).toMatch(/if you have run out of searches worth trying, ANSWER with what you have/);
+        // The reason, in the terms the model is deciding in: a partial answer is genuinely kept,
+        // because the chain tops up from the floor rather than discarding a short set.
+        expect(system).toMatch(/a plan to find more is nothing/);
+    });
+
     it('never answers empty without looking, which is what "name fewer" was read as permission for', () => {
         // "If you cannot find enough, name fewer" was read as licence to name none: a model decided
         // the station had nothing and answered `[]` in two seconds with no tool call. Naming nothing

@@ -98,6 +98,66 @@ export interface BreakStory {
 }
 
 /** What a writer is told before it writes. */
+/**
+ * How long a model writer may queue for the model, given when its break is due.
+ *
+ * **Derived from the lead rather than fixed**, and the fixed number it replaces was wrong at both
+ * ends. It was 10 seconds for everything, chosen when the only thing a break could be queued behind
+ * was a three-minute refill — where waiting was hopeless and giving up quickly was the whole point.
+ *
+ * Two things have changed since. A production drafts a beat in about 25 seconds, so a break behind
+ * one gave up at 10 and fell to its floor every time, having waited long enough to be annoying and
+ * not long enough to be useful. And a planted break is ripened `WRITE_AHEAD` items ahead of its slot
+ * — twenty-five minutes at an ordinary track length — so it had minutes of headroom and was throwing
+ * it away.
+ *
+ * The other end matters just as much and is easy to miss: an `interrupt` request has a **20 second**
+ * lead. It cannot wait 25 seconds for anything, and a longer patience would have it miss its slot
+ * entirely rather than be late. Falling through to the deterministic floor is the RIGHT answer
+ * there, and deriving the wait is what makes that principled rather than a lucky constant.
+ *
+ * So: however long is left before it airs, less what still has to happen afterwards.
+ */
+export const WAIT = {
+    /**
+     * What must still fit after the words exist: speaking them, and the margin around that.
+     *
+     * A break is short — the median is 28 words — so this is speech plus slack rather than a real
+     * measurement of either.
+     */
+    reserveMs: 15_000,
+    /**
+     * The longest any writer queues, however much room it has.
+     *
+     * A cap rather than a bound on the work: a break planted half an hour ahead does not benefit
+     * from a job worker sitting on the queue for half an hour, and the floor underneath is a correct
+     * sentence rather than a failure.
+     */
+    maxMs: 60_000,
+    /**
+     * What to wait when nothing said when this airs.
+     *
+     * Ordinary planted breaks reach here, since only a clock band and a request stamp `airsAt`. They
+     * are the ones with the most headroom in practice, so this is generous — and comfortably past a
+     * beat, which is the contention this exists for.
+     */
+    defaultMs: 30_000,
+} as const;
+
+/**
+ * How long this break can afford to wait for the model.
+ *
+ * Answers `0` for a break that is already too close to its slot to queue at all, which the gate
+ * reads as "admit me if the model is free, otherwise do not wait" — exactly right for something
+ * whose alternative is missing its moment.
+ */
+export function patienceFor(airsAt: number | undefined, now = Date.now()): number {
+    if (airsAt === undefined) return WAIT.defaultMs;
+
+    const room = airsAt - now - WAIT.reserveMs;
+    return Math.max(0, Math.min(WAIT.maxMs, room));
+}
+
 /** One record this broadcast has already aired, as a writer is shown it. */
 export interface PlayedRecord {
     title: string;
@@ -165,6 +225,18 @@ export interface BreakWriteRequest {
      * them in" turned out to read as an instruction to work one in.
      */
     played?: readonly PlayedRecord[];
+    /**
+     * When this break is expected to air, as epoch millis.
+     *
+     * Read by the model bindings to work out how long they can afford to queue — see
+     * {@link patienceFor} — and ignored by the deterministic ones, which ask nothing of the model and
+     * have no queue to be ordered in.
+     *
+     * Absent for an ordinary planted break, which is most of them: only a clock band and a request
+     * stamp the row. That is an ordinary state rather than a gap, and `patienceFor` answers it with
+     * the station's default.
+     */
+    airsAt?: number;
     /**
      * What this break is ABOUT, when something asked for it and said.
      *

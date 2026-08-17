@@ -10,7 +10,6 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { LlmService } from '../../../src/modules/llm/llm.service.js';
 import {
     BUDGET_MS,
-    MAX_WAIT_MS,
     MAX_OUTPUT_TOKENS,
     MODEL_WRITER,
     MODEL_WRITER_KEYS,
@@ -18,6 +17,7 @@ import {
 } from '../../../src/modules/director/model.talk.break.writer.js';
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 import { DEFAULT_MAX_WORDS } from '../../../src/modules/director/break.prompt.js';
+import { patienceFor, WAIT } from '../../../src/modules/director/break.writer.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
@@ -152,8 +152,31 @@ describe('ModelTalkBreakWriter', () => {
 
         expect(converse).toHaveBeenCalledWith(
             expect.objectContaining({ reasoningEffort: 'low', maxOutputTokens: expect.any(Number) }),
-            expect.objectContaining({ tools: false, budgetMs: BUDGET_MS, maxWaitMs: MAX_WAIT_MS }),
+            // The wait is DERIVED from when the break is due rather than a constant — see
+            // `patienceFor`. This one said nothing about when it airs, so it gets the default.
+            expect.objectContaining({ tools: false, budgetMs: BUDGET_MS, maxWaitMs: WAIT.defaultMs }),
         );
+    });
+
+    // The whole point of deriving it. A break with its slot minutes away can afford to queue behind
+    // a production beat; one whose lead is twenty seconds cannot, and would miss its moment rather
+    // than merely be late.
+    it('queues longer for a break with room and barely at all for one nearly due', async () => {
+        const roomy = build();
+        await roomy.writer.write({ kind: TALK_BREAK_KIND, previous, next, airsAt: Date.now() + 10 * 60_000 });
+
+        const urgent = build();
+        await urgent.writer.write({ kind: TALK_BREAK_KIND, previous, next, airsAt: Date.now() + 20_000 });
+
+        // Asserted through `toHaveBeenCalledWith` rather than by indexing the calls, because the
+        // stub takes no declared parameters and TypeScript types its call tuple as empty.
+        expect(roomy.converse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ maxWaitMs: WAIT.maxMs }));
+
+        // An interrupt's whole lead is twenty seconds. Waiting ten of them for a model busy with a
+        // twenty-five second beat leaves nothing to be written and spoken in.
+        const urgentWait = patienceFor(Date.now() + 20_000);
+        expect(urgentWait).toBeLessThan(10_000);
+        expect(urgent.converse).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ maxWaitMs: expect.any(Number) }));
     });
 
     // The default is what every break on air relies on: `LlmGate` reads an absent priority as

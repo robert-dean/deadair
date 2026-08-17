@@ -8,8 +8,8 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, writeDecline, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
-import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
-import { BUDGET_MS, MAX_OUTPUT_TOKENS, MAX_WAIT_MS, MODEL_WRITER, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
+import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
 
 /**
@@ -115,7 +115,8 @@ export class ModelWelcomeWriter extends BreakWriter {
             {
                 tools: false,
                 budgetMs: BUDGET_MS,
-                maxWaitMs: MAX_WAIT_MS,
+                // Derived from when this break is due rather than fixed: see `patienceFor`.
+                maxWaitMs: patienceFor(request.airsAt),
                 // See `BreakWriteRequest.priority`: absent for a welcome that is going on air.
                 ...(request.priority === undefined ? {} : { priority: request.priority }),
             },

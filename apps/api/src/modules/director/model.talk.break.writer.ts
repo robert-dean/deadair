@@ -8,7 +8,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE, writeDecline, type AnswerGuard } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
-import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
+import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { labelFor, TALK_BREAK_KIND } from './talk.break.writer.js';
 
 /**
@@ -39,12 +39,19 @@ export const MODEL_WRITER = 'model';
 /**
  * How long to wait for the model's SLOT before giving up and letting the floor write.
  *
- * `LlmGate` holds one generation at a time, so this is the queue rather than the generation. A
- * break that has been waiting ten seconds for a show to finish generating is a break the station
- * should simply write itself: the deterministic line is instant and correct, and the model's turn
- * comes round for the next one.
+ * **Gone, and replaced by `patienceFor` in `break.writer.ts`**, which derives it from when the break
+ * is actually due. This was 10 seconds for every break, chosen when the only thing one could queue
+ * behind was a three-minute refill, and it was wrong at both ends by the time anything else could
+ * hold the model.
+ *
+ * Too short for a planted break, which is ripened `WRITE_AHEAD` items ahead of its slot and had
+ * twenty-five minutes of headroom it was throwing away — it gave up after ten seconds behind a
+ * twenty-five second production beat, every time, on a station that had all the time in the world.
+ *
+ * And too LONG for an `interrupt`, whose whole lead is twenty seconds: a welcome that queued for ten
+ * of them had spent half its budget before it could start, and the floor it eventually fell to is
+ * the thing that made the welcome possible at all.
  */
-export const MAX_WAIT_MS = 10_000;
 
 /**
  * How long the whole generation may take once it has the slot.
@@ -152,7 +159,8 @@ export class ModelTalkBreakWriter extends BreakWriter {
                 // generation, and the one thing this must not do is be slow.
                 tools: false,
                 budgetMs: BUDGET_MS,
-                maxWaitMs: MAX_WAIT_MS,
+                // Derived from when this break is due rather than fixed: see `patienceFor`.
+                maxWaitMs: patienceFor(request.airsAt),
                 // Absent for every break that is going on air, which is the gate's own default.
                 // Present only for a rehearsal, which must not outrank one.
                 ...(request.priority === undefined ? {} : { priority: request.priority }),

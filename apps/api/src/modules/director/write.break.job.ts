@@ -222,6 +222,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // `interrupt` or a `next` exists because something happened and its moment does not come
             // round again, so it goes in front of the station's routine talk.
             ...(asked === undefined ? {} : { priority: priorityForUrgency(asked.urgency) }),
+            // When this is due, so a model binding can work out how long it can afford to queue.
+            // Absent for an ordinary planted break, which `patienceFor` answers with the default.
+            ...(segment.airsAt === undefined ? {} : { airsAt: segment.airsAt }),
         });
 
         // Before the row is touched, and before any early return below, so an attempt is recorded

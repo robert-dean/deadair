@@ -208,7 +208,17 @@ exactly the evidence it counts. So `characterFault` now judges four things rathe
 three new ones are each the enforcement of a line the sheet was already sending and nothing was
 reading back: a sample may not be echoed (`MAX_SAMPLE_ECHO_WORDS` of consecutive words, since the
 lift is as often a clause as a whole line), a signature the station has just used is SPENT, and
-`avoid` is checked against the answer at last. The spent rule is a bargain rather than a trap — the
+`avoid` is checked against the answer at last. **Three of those four are PROHIBITIONS and only the
+marker floor asks for anything, which is the split `CharacterContext.dialect` names.** It matters
+because a BULLETIN cannot meet the fourth — "no jokes, no opinions" in `NEWS_SHAPE` and "sound like
+nobody else" are not simultaneously satisfiable, measured as every news break under one persona
+falling to the floor — and the first answer to that was to drop the persona from the news guard
+entirely. That was broader than the measurement and re-permitted the exact failure above: `I said
+what I said` closing a talk break, a welcome and a news bulletin. So the news writer now passes
+`dialect: 'optional'`, which excuses the dialect and keeps the three prohibitions, and it cannot cost
+a bulletin because the floor under it is the operator's own news phrasings, which chain no persona
+templates. Anything else that wants to be plain wants that flag rather than a missing sheet. The
+spent rule is a bargain rather than a trap — the
 user turn names which signatures are gone and **invites the model to invent its own instead**, on the
 same argument that made the markers get sent: refusing a script for an instruction it was never given
 is a trick question, and a model told only what it may not say fills the hole with a sample line,
@@ -234,6 +244,62 @@ something nothing was asking for. **A rule true of one kind and false of the nex
 `BreakPromptShape.rules`**, which is what "make one point" forced into existence — it is exactly
 right for a link between two records and a licence to drop two thirds of a bulletin if the news shape
 had to read it.
+
+**Asking for less overshot in exactly one place, and the correction is the load-bearing half now.**
+The rule read "naming them is the least useful thing you can do with your one point", and a model
+reading that stopped naming them AT ALL: of thirty-nine consecutive talk breaks under one persona,
+roughly three quarters named neither record ("Tonight the groove lands. Friend, a cue from Jerez
+rises" is verbatim). Every existing check passed them, because they are unmistakably the character
+speaking — the listener just has no idea what is playing. So the ask is now both halves in one
+sentence (name a record, THEN say what you make of it), and `BreakPromptShape.mustNameRecord` makes
+the named half checkable: `named-nothing` declines a script that carries neither title nor artist of
+anything it was shown. It is on the talk break ALONE — a welcome frequently has no record and a
+bulletin's job is the stories — and `namedRecordIn` is deliberately generous (title, title with any
+parenthetical dropped, or artist), because what is being caught is a break about no record at all and
+every refusal costs the station the model's sentence.
+
+**Three more things the prompt never said, each one a silence a model filled.** It never said what
+half of the DAY it was, because `roughTime` is twelve-hour with no am or pm — right for a listener
+who is awake and useless to a model, which said "tonight" through twelve of those thirty-nine morning
+breaks while the welcome beside it said good morning, with the persona's own `tonight` marker
+rewarding it. `dayPart` covers all twenty-four hours (the greeting deliberately does not; its hole in
+the small hours is the stretch "tonight" is RIGHT for), rides the request beside `greeting`, and
+`timeClaimIn` intersects whichever claims a script actually made so the narrower window wins. It
+never said what to do when a record carried NO notes, only what to do with notes — so a sheet asking
+for specifics was the only instruction in the room, and the station aired invented pressing plants,
+catalogue numbers and years about records it knew nothing about. And it named worn OPENINGS while
+saying nothing about worn vocabulary, which merely moved the repetition into the middle of the
+sentence: `overusedWords` counts the SCRIPTS a word appears in rather than its uses (four uses in one
+break is a rhythm problem; one use in each of six is a habit) and names them. That last one asks and
+never refuses, deliberately — `dictionMarkers` are asked for by name and counted in every answer, so
+the cheapest way to pass the character check is to say the marker list again, and a check that
+declined over it would be refusing the character for being itself.
+
+**A bulletin does not read a story twice, and what it is not shown is as deliberate as what it is.**
+`BulletinSource` took the top `rotation.newsStories` off a newest-first feed with nothing remembering
+the last bulletin, so on a feed that had not moved the same three stories went out in twenty-seven
+consecutive bulletins across seven hours — which the twelve-hour freshness window permits and a
+listener cannot tell from the station being wrong. `ReadLog` is what it now checks against: **in
+memory, and that is a decision rather than a shortcut** — what was reported is already durable in
+`script_history`, one row per bulletin, so this holds only "may I say it again", a question with a
+twelve-hour half-life, and a restart costs one repeated bulletin instead of a migration and a sweep. Memory is the authority and the row is the record, exactly as for the running
+order. Keyed on the HEADLINE rather than the item id, because one story carried by two newsrooms is
+two ids and one thing a listener hears twice; it does not catch two publishers WORDING one story
+differently, and nothing here does. Marked at SELECTION, so a bulletin that never airs has still
+spent its stories — the same inaccuracy `chooseFacts` buys, against the same alternative of a second
+writer that can disagree. `forget` runs on the way IN rather than when stories are kept, or the one
+station that needs it most (a feed so slow every bulletin declines) would be the one whose log never
+aged out. **When everything in the window has been read the slot is DECLINED**, on the freshness
+window's own argument. The other half is `BreakPromptShape.showsFacts`, off for `NEWS_SHAPE` alone:
+the record coming up is shown so the bulletin can hand back in a line, and its NOTES are withheld,
+because both false discography claims this station has aired ("released in May three thousand nine
+hundred thirty-three") were a model finishing a note it half-understood in the voice it had just
+established as the one that reports facts. `NEWS_SHAPE.rules` then closes the two ways a bulletin
+runs on, neither of which the 300-word ceiling was ever going to catch: it may not explain a word out
+of a story (thin copy is a hole to leave open, not to fill — "Gravity is an inescapable force. It's
+why Earth has its atmosphere and orbits the sun" aired as news, twice), and it STOPS when the stories
+stop, because one bulletin reported three stories correctly and then wrote twelve more sentences
+about the needle sliding into rhythm.
 
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the

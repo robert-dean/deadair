@@ -26,7 +26,20 @@ describe('SideNav', () => {
     it('offers every page the console has', () => {
         render(<SideNav />);
 
-        const labels = ['Home', 'On air', 'Activity', 'Catalog', 'Playlists', 'Personas', 'Voices', 'Plugins', 'Settings', 'About'];
+        const labels = [
+            'Home',
+            'On air',
+            'Activity',
+            'Catalog',
+            'Playlists',
+            'Personas',
+            'Productions',
+            'Voices',
+            'Scripts',
+            'Plugins',
+            'Settings',
+            'About',
+        ];
         for (const label of labels) {
             expect(screen.getByRole('link', { name: label })).toBeInTheDocument();
         }

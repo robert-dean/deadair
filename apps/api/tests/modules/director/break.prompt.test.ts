@@ -201,7 +201,19 @@ describe('breakPrompt', () => {
             const said = system(prompt({ kind: 'talkbreak', previous, next }));
 
             expect(said).toMatch(/talk, do not announce/i);
-            expect(said).toMatch(/just heard that record/i);
+            expect(said).toMatch(/naming the record is not the break/i);
+        });
+
+        // The correction to the rule above, and the reason it needed one. "Naming them is the least
+        // useful thing you can do" was the whole instruction, and a model reading it stopped naming
+        // them: roughly three quarters of thirty-nine consecutive breaks named neither record.
+        it('still asks for the record to be named, which the announcement rule once talked it out of', () => {
+            const said = system(prompt({ kind: 'talkbreak', previous, next }));
+
+            expect(said).toMatch(/name a record/i);
+            expect(said).toMatch(/say its title, or who it is by/i);
+            // And the ask comes before the caveat, so the caveat reads as qualifying it.
+            expect(said.indexOf('Name a record')).toBeLessThan(said.indexOf('Talk, do not announce'));
         });
 
         it('keeps that off a kind that is not linking two records', () => {
@@ -522,6 +534,63 @@ describe('breakPrompt', () => {
             expect(rules).toMatch(/Write only the words to be spoken/);
             expect(rules).toMatch(new RegExp(`under ${DEFAULT_MAX_WORDS} words`));
         });
+    });
+});
+
+// The failure measured on air: thirty-nine consecutive model talk breaks under one persona, roughly
+// three quarters of which named neither record. "Tonight the groove lands. Friend, a cue from Jerez
+// rises. The pressing shows a twin mark" is one of them verbatim, and it is unmistakably the
+// character speaking — which is exactly why every existing check passed it. The listener still has
+// no idea what is playing.
+describe('readAnswer, against the records it was shown', () => {
+    it('declines a break that is about neither record', () => {
+        const script = 'Tonight the groove lands. Friend, a cue rises. The pressing shows a twin mark.';
+
+        expect(readAnswer(script, { names: [previous, next] })).toBeUndefined();
+    });
+
+    it('takes one that named the record just finished', () => {
+        const script = 'Solid Air still sounds like the room it was recorded in.';
+
+        expect(readAnswer(script, { names: [previous, next] })).toBe(script);
+    });
+
+    it('takes one that named the artist rather than the title', () => {
+        // One of the two is plenty. A presenter who says "that was Nick Drake" has identified it.
+        const script = 'Nick Drake never sounded like he was performing, and that is the whole trick.';
+
+        expect(readAnswer(script, { names: [previous, next] })).toBe(script);
+    });
+
+    it('forgives a title said the way a presenter says it', () => {
+        // Deliberately generous. The failure being caught is a break that mentions no record at all,
+        // not one that dropped a parenthetical — and every refusal costs the station the model's
+        // sentence, so a strict comparison here would be paid for in breaks nobody needed to lose.
+        const reaper = { title: "(Don't Fear) The Reaper", artist: 'Blue Öyster Cult' };
+
+        expect(readAnswer('The Reaper is a gentler record than anybody remembers.', { names: [reaper] })).toBeDefined();
+    });
+
+    it('asks nothing of a break that was shown no records', () => {
+        // Every welcome, and a link at the top of an order. A break cannot be refused for failing to
+        // name something it was never given.
+        expect(readAnswer('Good evening, and welcome in.', { names: [undefined, undefined] })).toBeDefined();
+        expect(readAnswer('Good evening, and welcome in.', {})).toBeDefined();
+    });
+
+    it('says which fault it was, since this one is the prompt rather than the persona', () => {
+        const declined = writeDecline('Tonight the groove lands, friend.', { names: [previous, next] });
+
+        expect(declined?.fault).toBe('named-nothing');
+        expect(declined?.reason).toMatch(/neither of the records/i);
+    });
+
+    it('reports naming nothing ahead of being out of character, because it is the more basic fault', () => {
+        // Both are true of this script. Reporting it as out-of-character would send an operator to
+        // the personas page for something the prompt caused.
+        const declined = writeDecline('Tonight the groove lands.', { names: [previous, next], persona: { dictionMarkers: ['ye'] } });
+
+        expect(declined?.fault).toBe('named-nothing');
     });
 });
 

@@ -179,6 +179,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
 
         const guard: AnswerGuard = {
             maxWords: DEFAULT_MAX_WORDS,
+            // The records the shape says this break has to be about, which for a link is both of the
+            // ones it was shown. Taken from the same two fields the prompt was built from, so a
+            // break is only ever refused for failing to name something it was actually given.
+            ...(TALK_BREAK_SHAPE.mustNameRecord === true ? { names: [request.previous, request.next] } : {}),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
             // The same list the prompt was built from, which is what keeps the spent-signature rule
             // a bargain rather than a trick: the model is refused only for repeating something it

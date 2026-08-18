@@ -93,6 +93,19 @@ export interface BreakPromptShape {
      * bulletin if the news shape had to read it.
      */
     rules?: readonly string[];
+    /**
+     * Whether a script that names neither record it was shown is refused.
+     *
+     * On for the ordinary link and off everywhere else, and the asymmetry is the point. A welcome is
+     * written before it is placed and frequently has no record at all; a bulletin's job is the
+     * stories and it hands back to the music as a courtesy. Only the link between two records is a
+     * break whose whole purpose is the record, so it is the only kind where naming none of them is a
+     * failure rather than a choice.
+     *
+     * See {@link namedRecordIn} for what counts as naming one, and the note on
+     * {@link TALK_BREAK_SHAPE.rules} for why this had to become checkable.
+     */
+    mustNameRecord?: boolean;
 }
 
 /**
@@ -135,13 +148,28 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     // the thing a template can never write and the only reason a model is here at all. Stated as
     // what a break IS rather than as another prohibition, because the list is already long on those
     // and one more would push it the same way.
+    // The correction, and it is a correction rather than an addition: the rule above said "naming
+    // them is the least useful thing you can do", and a model reading that stopped naming them at
+    // all. Measured over thirty-nine consecutive model talk breaks under one persona, roughly three
+    // quarters named neither record — "Tonight the groove lands. Friend, a cue from Jerez rises. The
+    // pressing shows a twin mark" is a real one, and a listener has no idea what is playing.
+    //
+    // So the ask is now BOTH halves in one sentence, because they were never in tension and stating
+    // them separately let the model satisfy the second by dropping the first. The point still has to
+    // be the presenter's own; it just has to be attached to something a listener can identify.
+    // `mustNameRecord` below is what makes the attached half checkable, on the same bargain every
+    // other refusal here is on: the station asks for it plainly before it refuses a script for
+    // missing it.
     rules: [
         'Make one point, and make it the way only you would. A break is a single thought said well, not everything you know about both ' +
             'records: the words you save by leaving one of them out are yours to spend on saying it like yourself.',
-        'Talk, do not announce. Your listener just heard that record and can hear the next one starting, so naming them is the least ' +
-            'useful thing you can do with your one point — say what you make of it instead. A reaction, an opinion, something it ' +
+        'Name a record, and then say what you make of it. Your point has to be ABOUT one of the records above, and a listener has to be ' +
+            'able to tell which — so say its title, or who it is by, somewhere in the break. One of the two is plenty; both is usually ' +
+            'one too many.',
+        'Talk, do not announce. Naming the record is not the break, it is what the break hangs on: a reaction, an opinion, something it ' +
             'reminded you of. If your break would still make sense read out by anybody else, it is not yours yet.',
     ],
+    mustNameRecord: true,
 };
 
 /** How the station wants this break to sound, and how long it may run. */
@@ -557,6 +585,44 @@ export function spentOpenings(recent: readonly string[] | undefined): string[] {
 const hasFacts = (previous: BreakTrack | undefined, next: BreakTrack | undefined): boolean =>
     (previous?.facts?.length ?? 0) > 0 || (next?.facts?.length ?? 0) > 0;
 
+/**
+ * The record a script actually named, or `undefined` when it named none of them.
+ *
+ * Generous on purpose, and the generosity is the design rather than a weakness. What this is
+ * catching is a break that mentions no record whatsoever — thirty-nine were measured and roughly
+ * three quarters were that — and NOT a break that got a title slightly wrong. A strict comparison
+ * here would refuse a presenter calling "(Don't Fear) The Reaper" the Reaper, which is what a
+ * presenter calls it, and every refusal costs the station the model's sentence.
+ *
+ * So a record counts as named when the script carries its title, its title with any parenthetical
+ * taken off, or the artist's name. Compared as bare words for {@link echoedSample}'s reason: a curly
+ * apostrophe, a capital and a comma are not the difference between naming a record and not.
+ */
+export function namedRecordIn(script: string, records: readonly (BreakTrack | undefined)[]): BreakTrack | undefined {
+    const spoken = ` ${bareWords(script)} `;
+
+    return records.find(record => {
+        if (record === undefined) return false;
+
+        // The parenthetical stripped as an ALTERNATIVE rather than instead: "Pink Moon" has none and
+        // is unaffected, and a title that is entirely parenthetical falls back to the whole thing.
+        const withoutAside = record.title.replace(/\([^)]*\)/g, ' ');
+
+        return [record.title, withoutAside, record.artist]
+            .map(bareWords)
+            .filter(candidate => candidate.length > 0)
+            .some(candidate => spoken.includes(` ${candidate} `));
+    });
+}
+
+/** A text as bare lower-case words, so a title and a script can be compared as speech, not as text. */
+const bareWords = (text: string): string =>
+    text
+        .toLowerCase()
+        .replace(/[‘’ʼ′]/g, "'")
+        .replace(/[^a-z0-9']+/g, ' ')
+        .trim();
+
 /** What a model's answer has to survive to become a script. */
 export interface AnswerGuard {
     maxWords?: number;
@@ -576,6 +642,15 @@ export interface AnswerGuard {
      * something before it refuses a script for not doing it.
      */
     recent?: readonly string[];
+    /**
+     * The records this break was shown, at least one of which it has to name.
+     *
+     * Empty or absent means the question is not asked, which covers every kind whose shape does not
+     * set {@link BreakPromptShape.mustNameRecord} and every moment that had no record to show — the
+     * top of an order, and every welcome. A break cannot be refused for failing to name something it
+     * was never given, which is the same bargain the markers and the spent signatures are on.
+     */
+    names?: readonly (BreakTrack | undefined)[];
 }
 
 /**
@@ -596,6 +671,12 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // floor's correct line, and a model that has run long has usually misunderstood the job rather
     // than merely overshot.
     if (runsLong(script, guard)) return undefined;
+
+    // A break about no record in particular. Checked BEFORE the character, because the two faults
+    // want opposite things done about them and this one is the more basic: a script that named
+    // nothing is wrong however well it is written, and reporting it as out-of-character would send
+    // an operator to the persona page for a fault the prompt caused. See `namesNothing`.
+    if (namesNothing(script, guard)) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -647,6 +728,18 @@ function tidyAnswer(text: string): string | undefined {
 const runsLong = (script: string, guard: AnswerGuard): boolean => script.split(/\s+/).length > (guard.maxWords ?? DEFAULT_MAX_WORDS);
 
 /**
+ * Whether a script was shown records and named none of them.
+ *
+ * A guard carrying no records asks nothing, which is what makes this safe to apply to every kind: a
+ * welcome and a bulletin simply never populate {@link AnswerGuard.names}, and a link at the top of
+ * an order with nothing either side of it populates it with nothing.
+ */
+const namesNothing = (script: string, guard: AnswerGuard): boolean => {
+    const offered = (guard.names ?? []).filter(record => record !== undefined);
+    return offered.length > 0 && namedRecordIn(script, offered) === undefined;
+};
+
+/**
  * Why a cleaned script is not the persona speaking, or `undefined` when it is.
  *
  * The same judgement {@link readAnswer} makes, exported so a writer can log WHICH of the four faults
@@ -671,6 +764,7 @@ export function faultIn(script: string, guard: AnswerGuard): CharacterFault | un
 const FAULT_REASONS: Record<WriteFault, string> = {
     'nothing-said': 'the model answered with nothing the station could say',
     'ran-long': 'the model wrote past the word ceiling, and a script cut mid-sentence is worse than the phrasing underneath it',
+    'named-nothing': 'the model wrote a break about neither of the records it was shown, so a listener could not tell what was playing',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
@@ -685,7 +779,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
  * an operator looking at a persona sheet for a ceiling that was in the way of a bulletin the prompt
  * had asked for.
  */
-export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long';
+export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing';
 
 /**
  * Why a raw answer was refused, for a writer that wants to say so, or `undefined` when it was not.
@@ -706,6 +800,7 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     const speakable = tidyAnswer(text);
     if (speakable === undefined) return reasoned('nothing-said');
     if (runsLong(speakable, guard)) return reasoned('ran-long');
+    if (namesNothing(speakable, guard)) return reasoned('named-nothing');
 
     const fault = faultIn(speakable, guard);
 

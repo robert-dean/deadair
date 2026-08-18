@@ -280,7 +280,7 @@ describe('ModelTalkBreakWriter and the time', () => {
     const clock = { words: 'just after nine', validFrom: 1_000, validUntil: 500_000 };
 
     it('claims the window when the answer carries the words it was given', async () => {
-        const { writer } = build({ answer: "It's just after nine on Deadair." });
+        const { writer } = build({ answer: "It's just after nine, and that was Solid Air." });
 
         const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, clock });
 
@@ -290,7 +290,7 @@ describe('ModelTalkBreakWriter and the time', () => {
     it('claims nothing when the model said the time its own way', async () => {
         // The opposite posture to `claimsNext`, which assumes. An invented phrasing has a lifetime
         // this station cannot know, so there is no window it can honestly promise.
-        const { writer } = build({ answer: "It's a couple of minutes past nine on Deadair." });
+        const { writer } = build({ answer: "It's a couple of minutes past nine, and that was Solid Air." });
 
         const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, clock });
 
@@ -301,7 +301,7 @@ describe('ModelTalkBreakWriter and the time', () => {
     it('claims the window even when the model capitalised the phrase', async () => {
         // Found on air, not in a test. Every timed break the model wrote went out unguarded because
         // it began a sentence with "Coming up to three" and the check was case-sensitive.
-        const { writer } = build({ answer: 'Coming up to three, here is Wind Rose.' });
+        const { writer } = build({ answer: 'Coming up to three, and here is Pink Moon.' });
 
         const written = await writer.write({
             kind: TALK_BREAK_KIND,
@@ -314,7 +314,7 @@ describe('ModelTalkBreakWriter and the time', () => {
     });
 
     it('claims nothing for a break that was never given a time', async () => {
-        const { writer } = build({ answer: 'That was one record, here comes another.' });
+        const { writer } = build({ answer: 'That was Solid Air, and here comes another.' });
 
         const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next });
 

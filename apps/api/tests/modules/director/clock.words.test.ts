@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { settingsConfig } from '../../utils/settings.config.js';
-import { CLOCK_KEYS, dayGreeting, roughTime, stationZone } from '../../../src/modules/director/clock.words.js';
+import { CLOCK_KEYS, dayGreeting, dayPart, roughTime, stationZone, timeClaimIn } from '../../../src/modules/director/clock.words.js';
 
 /** An instant from a UTC wall clock, so a test can name the time it means. */
 const at = (hour: number, minute: number, second = 0): number => Date.UTC(2026, 7, 13, hour, minute, second);
@@ -156,5 +156,72 @@ describe('stationZone', () => {
     it('treats a box of whitespace as nobody having said', () => {
         const { config } = settingsConfig({ [CLOCK_KEYS.timezone]: '   ' });
         expect(stationZone(config)).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    });
+});
+
+// The failure this covers is one that was live on air rather than a hypothetical: `roughTime` is
+// twelve-hour with no am or pm on purpose, so a model told only the hour said "tonight" over a
+// breakfast show and was inside every rule it had been given. `dayPart` is the half of the day it
+// was missing, and the property that matters is that it covers ALL of it — the greeting deliberately
+// has a hole in the small hours, which is exactly the stretch a presenter says "tonight" about.
+describe('dayPart', () => {
+    it('names every hour of the clock, including the ones no greeting covers', () => {
+        for (let hour = 0; hour < 24; hour++) {
+            const part = dayPart(at(hour, 30), UTC);
+
+            expect(part.words.length).toBeGreaterThan(0);
+            expect(part.validFrom).toBeLessThanOrEqual(at(hour, 30));
+            expect(part.validUntil).toBeGreaterThan(at(hour, 30));
+        }
+    });
+
+    it('calls the small hours tonight, where a greeting says nothing at all', () => {
+        expect(dayGreeting(at(2, 0), UTC)).toBeUndefined();
+        expect(dayPart(at(2, 0), UTC).words).toBe('tonight');
+    });
+
+    it('reads the morning as the morning, which is the break that went out wrong', () => {
+        // 07:07 local: `roughTime` says "coming up to quarter past seven" and means the morning one.
+        expect(dayPart(at(7, 7), UTC).words).toBe('this morning');
+        expect(dayPart(at(14, 0), UTC).words).toBe('this afternoon');
+        expect(dayPart(at(20, 0), UTC).words).toBe('this evening');
+        expect(dayPart(at(23, 0), UTC).words).toBe('tonight');
+    });
+
+    it("is the station's own part of the day, not the host's", () => {
+        // Half past nine in the morning in Kolkata is four in the morning in UTC.
+        const instant = Date.UTC(2026, 7, 13, 4, 0);
+
+        expect(dayPart(instant, 'Asia/Kolkata').words).toBe('this morning');
+        expect(dayPart(instant, UTC).words).toBe('tonight');
+    });
+});
+
+describe('timeClaimIn', () => {
+    const morning = dayPart(at(9, 30), UTC);
+    const halfPast = roughTime(at(9, 30), UTC);
+
+    it('makes no claim for a script that mentioned no time', () => {
+        expect(timeClaimIn('That one still holds up.', halfPast, morning)).toBeUndefined();
+    });
+
+    it('holds a script to the words it actually used', () => {
+        expect(timeClaimIn('It is this morning and we are still here.', halfPast, morning)).toEqual({
+            from: morning.validFrom,
+            until: morning.validUntil,
+        });
+    });
+
+    // The interesting case: two claims with different lifetimes, where the narrow one has to win or
+    // a break saying the hour outlives the hour it named.
+    it('takes the narrower window when a script made both claims', () => {
+        expect(timeClaimIn(`It is ${halfPast.words}, this morning, on Deadair.`, halfPast, morning)).toEqual({
+            from: halfPast.validFrom,
+            until: halfPast.validUntil,
+        });
+    });
+
+    it('ignores an offer the moment never had', () => {
+        expect(timeClaimIn('It is this morning.', undefined, morning)?.until).toBe(morning.validUntil);
     });
 });

@@ -7,7 +7,7 @@ import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE, writeDecline, type AnswerGuard } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
-import { saysTime } from './clock.words.js';
+import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { labelFor, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -224,6 +224,8 @@ export class ModelTalkBreakWriter extends BreakWriter {
             return undefined;
         }
 
+        const claimsTime = timeClaimIn(script, request.clock, request.dayPart);
+
         return {
             script,
             // Never asked of the model. A label is for the console and the mount, so generating one
@@ -240,9 +242,11 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // do not, so there is nothing to assume: a model that ignored the instruction, or
             // paraphrased it into something with a different lifetime, has made no claim this
             // station can honour and must not be given one.
-            ...(request.clock !== undefined && saysTime(script, request.clock)
-                ? { claimsTime: { from: request.clock.validFrom, until: request.clock.validUntil } }
-                : {}),
+            //
+            // Both offers rather than the clock alone, since a break may name the half of the day
+            // without ever naming the hour — and "this morning" spoken at ten past twelve is the
+            // same broken promise the clock check exists for, arriving through the other field.
+            ...(claimsTime === undefined ? {} : { claimsTime }),
         };
     }
 }

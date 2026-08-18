@@ -284,6 +284,20 @@ export interface BreakWriteRequest {
      */
     greeting?: RoughTime;
     /**
+     * When of the day this break airs, as words a presenter would use.
+     *
+     * Beside {@link greeting} rather than derived from it, because the two answer different
+     * questions and the difference is the whole point: a greeting is something to SAY to somebody
+     * and has a deliberate hole in the small hours, whereas this is something to KNOW and covers the
+     * whole clock. See {@link dayPart}.
+     *
+     * Read by the model bindings, which need it because {@link clock} is twelve-hour with no am or
+     * pm — correct for a listener who is awake at the time and useless to a model, which will say
+     * "tonight" over a breakfast show and be within every rule it was given. The deterministic
+     * writers ignore it: a phrasing an operator wrote already knows when it is for.
+     */
+    dayPart?: RoughTime;
+    /**
      * Whether this break is going on air, or is being auditioned by somebody at the desk.
      *
      * Absent means `station`, which is every break the director plants or a request asks for. The

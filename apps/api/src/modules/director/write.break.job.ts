@@ -16,7 +16,7 @@ import { PlayHistoryRepository } from './play.history.repository.js';
 import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './break.request.js';
 import { BulletinSource } from './bulletin.source.js';
 import type { BreakTrack, PlayedRecord } from './break.writer.js';
-import { dayGreeting, roughTime, stationZone } from './clock.words.js';
+import { dayGreeting, dayPart, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
@@ -173,6 +173,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // business greeting anybody is the writer's own question, and answering it here would put a
         // decision about one kind of break in the job that serves all of them.
         const greeting = segment.airsAt === undefined ? undefined : dayGreeting(segment.airsAt, zone);
+        // Off the same instant again, and offered for the same reason the greeting is. What it adds
+        // over the greeting is the small hours, which is the one stretch of the day a greeting has
+        // nothing for and a presenter has the most to say about; see `dayPart`.
+        const part = segment.airsAt === undefined ? undefined : dayPart(segment.airsAt, zone);
 
         // After the claim, so a job that was merely early does no work at all, and for EVERY break
         // rather than only when a model might use them: what the station knows about a record is a
@@ -204,6 +208,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             kind: segment.kind,
             ...(clock === undefined ? {} : { clock }),
             ...(greeting === undefined ? {} : { greeting }),
+            ...(part === undefined ? {} : { dayPart: part }),
             ...(context === undefined ? {} : { context }),
             ...(stories === undefined ? {} : { stories }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),

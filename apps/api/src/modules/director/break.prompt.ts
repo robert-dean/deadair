@@ -428,6 +428,26 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         }
     }
 
+    // BEFORE the clock, and the order is the argument. `request.clock` is twelve-hour with no am or
+    // pm — "just after half past seven" — which is right for a listener who is awake at the time and
+    // is exactly half the information a model needs. Told the hour and not the half of the day, a
+    // model fills the gap from the persona sheet, and a sheet listing `tonight` as a diction marker
+    // fills it with "tonight": measured on this station, twelve of thirty-nine talk breaks written
+    // between seven and ten in the MORNING opened on that word, one of them two breaks after a
+    // welcome that had correctly said good morning.
+    //
+    // Stated as a fact about the moment rather than as words to use, which is the opposite posture
+    // to the clock line below and deliberate. The clock is a phrasing whose expiry the station
+    // tracks, so it has to come back verbatim to be checkable; this is context, and a presenter who
+    // knows it is morning says so in whatever words the character has for it. What it is guarding is
+    // the negative half, which is why that half is spelled out.
+    if (request.dayPart) {
+        parts.push(
+            `It is ${request.dayPart.words} where your listener is. Everything you say has to fit that: do not call it any other part ` +
+                'of the day, and do not reach for the hour, the light or the weather to set a scene you have not been told about.',
+        );
+    }
+
     if (request.clock) {
         // The exact words rather than a time, and an instruction to use them verbatim. A model
         // asked to say what time it is will invent its own phrasing, and the station has no way to

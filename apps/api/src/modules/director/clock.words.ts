@@ -43,6 +43,29 @@ export const CLOCK_KEYS = {
  */
 export const saysTime = (script: string, time: RoughTime): boolean => script.toLowerCase().includes(time.words.toLowerCase());
 
+/**
+ * The window a script's own words hold it to, out of everything it was offered, or `undefined`.
+ *
+ * A break can be told the time two ways — the hour as {@link roughTime} and the half of the day as
+ * {@link dayPart} — and may use either, both or neither. Each is a claim with its own lifetime, so
+ * the answer is the INTERSECTION of the ones it actually made: a break saying both "just after half
+ * past eleven" and "this morning" is stale the moment the first expires, and one saying only "this
+ * morning" is good until noon.
+ *
+ * Undefined when the script made no time claim at all, which is the ordinary case and is what keeps
+ * a break that never mentioned the hour from being dropped for a promise it did not make. Absent
+ * offers are skipped, so a caller can hand over whatever the moment happened to have.
+ */
+export function timeClaimIn(script: string, ...offered: readonly (RoughTime | undefined)[]): { from: number; until: number } | undefined {
+    const said = offered.filter((time): time is RoughTime => time !== undefined && saysTime(script, time));
+    if (said.length === 0) return undefined;
+
+    return {
+        from: Math.max(...said.map(time => time.validFrom)),
+        until: Math.min(...said.map(time => time.validUntil)),
+    };
+}
+
 /** The time, said the way a presenter says it, and how long that stays true. */
 export interface RoughTime {
     /** The words, with no leading capital and no trailing stop: a template decides the sentence. */
@@ -166,8 +189,72 @@ export function dayGreeting(at: number, zone: string): RoughTime | undefined {
     const part = DAYPARTS.find(daypart => hour >= daypart.from && hour < daypart.until);
     if (part === undefined) return undefined;
 
-    // The same arithmetic `roughTime` uses, and for the same reason: every zone offset there is is a
-    // whole number of minutes, so the wall clock and the instant agree by construction.
+    return spanning(at, hour, minute, part);
+}
+
+/**
+ * When of the day it is, for a writer that has to know without being asked to greet anybody.
+ *
+ * The sibling of {@link dayGreeting} and deliberately NOT the same list. A greeting has a hole in it
+ * on purpose — there is nothing to say to somebody at two in the morning, so `dayGreeting` answers
+ * `undefined` and the phrasing drops its chunk — and that hole is exactly the hour a presenter is
+ * most likely to want the word "tonight". So this covers all twenty-four, and the small hours get a
+ * name of their own rather than an absence.
+ *
+ * ## The failure it exists for
+ *
+ * A model was told the time as {@link roughTime} words and nothing else, and those are twelve-hour
+ * with no am or pm by design — "just after half past seven" is what a presenter says, and a listener
+ * awake at the time already knows which seven it is. A model does not. Measured on this station over
+ * one morning: twelve of thirty-nine talk breaks opened on "Tonight", written between seven and ten
+ * in the MORNING, and two breaks apart from a welcome that correctly said "good morning". The
+ * persona in force listed `tonight` as a diction marker, so the character check was actively
+ * rewarding the wrong word.
+ *
+ * A {@link RoughTime} for {@link dayGreeting}'s reason: the words and how long they hold are one
+ * fact, so a break written at ten to noon saying "this morning" can be dropped at hand-over by the
+ * machinery that already drops a stale "coming up to three".
+ */
+export function dayPart(at: number, zone: string): RoughTime {
+    const { hour, minute } = wallClock(at, zone);
+
+    // Never undefined: the list below covers the whole clock. Found rather than indexed so the
+    // bounds stay written once, in the table.
+    const part = DAYPARTS_ROUND_THE_CLOCK.find(daypart => hour >= daypart.from && hour < daypart.until) ?? DAYPARTS_ROUND_THE_CLOCK[0]!;
+
+    return spanning(at, hour, minute, part);
+}
+
+/**
+ * Every hour of the day, named.
+ *
+ * The three greeting dayparts with their own wording, plus the gap they leave. "Late at night" runs
+ * from ten in the evening to five in the morning as ONE part rather than splitting at midnight,
+ * because that is how the hour is spoken about — somebody up at two is having a late night, not an
+ * early morning, and a presenter saying "this morning" to them is the same wrongness in the other
+ * direction.
+ *
+ * Phrased as the adverbial a break would actually contain ("this morning", "tonight") rather than as
+ * a label ("morning"), because these words are handed to a model to USE and are searched for in what
+ * comes back. A label would be told to it and never said.
+ */
+const DAYPARTS_ROUND_THE_CLOCK: readonly { from: number; until: number; words: string }[] = [
+    // Leads, so the `?? [0]` above lands on the part that actually covers midnight.
+    { from: 0, until: 5, words: 'tonight' },
+    { from: 5, until: 12, words: 'this morning' },
+    { from: 12, until: 18, words: 'this afternoon' },
+    { from: 18, until: 22, words: 'this evening' },
+    { from: 22, until: 24, words: 'tonight' },
+];
+
+/**
+ * A daypart as words with the window they hold in, given the hour it was found at.
+ *
+ * Shared by the two above so the arithmetic exists once. It is the same arithmetic {@link roughTime}
+ * uses and for the same reason: every zone offset there is is a whole number of minutes, so the wall
+ * clock and the instant agree by construction and neither needs parsing.
+ */
+function spanning(at: number, hour: number, minute: number, part: { from: number; until: number; words: string }): RoughTime {
     const instant = new Date(at);
     const intoHour = (minute * 60 + instant.getUTCSeconds()) * 1000 + instant.getUTCMilliseconds();
     const hourStart = at - intoHour;

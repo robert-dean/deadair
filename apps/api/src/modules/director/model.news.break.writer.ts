@@ -7,7 +7,7 @@ import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { breakPrompt, readAnswer, writeDecline, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
-import { saysTime } from './clock.words.js';
+import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { NEWS_KIND } from './news.break.writer.js';
@@ -187,6 +187,8 @@ export class ModelNewsBreakWriter extends BreakWriter {
             return undefined;
         }
 
+        const claimsTime = timeClaimIn(script, request.clock, request.dayPart);
+
         return {
             script,
             label: 'News',
@@ -195,10 +197,10 @@ export class ModelNewsBreakWriter extends BreakWriter {
             claimsNext: request.next !== undefined,
             // Stamped only when the answer really carries the time, which is the opposite posture and
             // deliberately so: a model that paraphrased "just after nine" into its own words made a
-            // claim with a lifetime this station cannot check.
-            ...(request.clock !== undefined && saysTime(script, request.clock)
-                ? { claimsTime: { from: request.clock.validFrom, until: request.clock.validUntil } }
-                : {}),
+            // claim with a lifetime this station cannot check. Every offer this break had rather
+            // than the clock alone, since a bulletin that opened "this morning" has dated itself
+            // just as firmly as one that named the hour. See `timeClaimIn`.
+            ...(claimsTime === undefined ? {} : { claimsTime }),
         };
     }
 }

@@ -432,6 +432,36 @@ describe('breakPrompt', () => {
         });
     });
 
+    describe('what half of the day it is', () => {
+        const morning = { words: 'this morning', validFrom: 0, validUntil: 1 };
+
+        it('says nothing when the moment did not know', () => {
+            // Every break whose row carries no `airsAt`, which is an ordinary state rather than a
+            // gap. A prompt that guessed would be guessing about the one thing it is here to pin.
+            expect(user(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/where your listener is/);
+        });
+
+        it('tells the presenter which half of the day it is', () => {
+            // `clock` is twelve-hour with no am or pm on purpose, so this is the half a model does
+            // not otherwise have. Twelve of thirty-nine breaks written on a morning opened "Tonight".
+            const said = user(prompt({ kind: 'talkbreak', previous, dayPart: morning }));
+
+            expect(said).toContain('It is this morning where your listener is');
+        });
+
+        it('forbids the other parts of the day rather than only naming this one', () => {
+            // The negative half is the one that was missing. A model told only that it is morning
+            // has been given a fact; told not to call it anything else, it has been given a rule.
+            expect(user(prompt({ kind: 'talkbreak', previous, dayPart: morning }))).toMatch(/do not call it any other part of the day/i);
+        });
+
+        it('comes before the clock, so the coarse fact frames the exact one', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, dayPart: morning, clock: { ...morning, words: 'just after nine' } }));
+
+            expect(said.indexOf('this morning')).toBeLessThan(said.indexOf('just after nine'));
+        });
+    });
+
     describe('a station that has to stay clean', () => {
         it('says nothing about language when the station has no such policy', () => {
             expect(system(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/broadcast-clean/i);

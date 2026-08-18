@@ -7,7 +7,7 @@ import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, writeDecline, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
-import { saysTime } from './clock.words.js';
+import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
@@ -153,6 +153,8 @@ export class ModelWelcomeWriter extends BreakWriter {
             return undefined;
         }
 
+        const claimsTime = timeClaimIn(script, request.greeting, request.dayPart);
+
         return {
             script,
             label: 'Welcome',
@@ -163,9 +165,11 @@ export class ModelWelcomeWriter extends BreakWriter {
             // and deliberately so — the words either appear or they do not, so there is nothing to
             // assume, and a model that paraphrased "good morning" into something with a different
             // lifetime has made no claim this station can honour.
-            ...(request.greeting !== undefined && saysTime(script, request.greeting)
-                ? { claimsTime: { from: request.greeting.validFrom, until: request.greeting.validUntil } }
-                : {}),
+            //
+            // The daypart is offered alongside because a welcome may date itself without greeting
+            // anybody: "you're up late with us" is the same claim as "good evening" and expires on
+            // its own schedule. The two intersect where a script used both. See `timeClaimIn`.
+            ...(claimsTime === undefined ? {} : { claimsTime }),
         };
     }
 }

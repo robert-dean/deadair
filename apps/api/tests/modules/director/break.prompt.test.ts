@@ -335,6 +335,55 @@ describe('breakPrompt', () => {
         });
     });
 
+    // The silence the notes rule never covered. For as long as it existed the prompt only ever said
+    // what to do WITH notes, so a record arriving with none left a character sheet asking for
+    // specifics as the only instruction in the room. Measured over thirty-nine breaks under a
+    // persona whose own quirks say "start from a note you were actually given": invented pressing
+    // plants, a catalogue number shared with another record, "the year 1958", "a techno echo from
+    // 1986". None of those records carried a single note.
+    describe('a record the station knows nothing about', () => {
+        const withFacts = { ...previous, facts: ['John Martyn was born in New Malden in 1948.'] };
+
+        it('says so, and names the record it is talking about', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next }));
+
+            expect(said).toMatch(/knows nothing about "Solid Air" or "Pink Moon"/);
+        });
+
+        it('forbids the specifics a model reaches for, rather than only saying "be careful"', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous }));
+
+            expect(said).toMatch(/no pressings or catalogue numbers/i);
+            expect(said).toMatch(/no connection to any other record/i);
+        });
+
+        it('leaves the presenter their own opinion, which is the whole job', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous }))).toMatch(/what you think of it is yours to say/i);
+        });
+
+        // The dangerous case, and the reason this is per record rather than a blanket: told one true
+        // note about the record behind it, a model will invent a matching one about the record in
+        // front. A rule that only fired when BOTH were empty would never see that happen.
+        it('names only the record with nothing known, when the other one has notes', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: withFacts, next }));
+
+            expect(said).toMatch(/knows nothing about "Pink Moon"/);
+            expect(said).not.toMatch(/knows nothing about "Solid Air"/);
+        });
+
+        it('says none of it when both records came with notes', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: withFacts, next: { ...next, facts: ['Recorded in two nights.'] } }));
+
+            expect(said).not.toMatch(/knows nothing about/i);
+        });
+
+        it('says none of it for a break that was shown no record at all', () => {
+            // A welcome. There is nothing to be silent about, and the prompt already has its own
+            // sentence for that moment.
+            expect(user(prompt({ kind: 'welcome' }))).not.toMatch(/knows nothing about/i);
+        });
+    });
+
     // The show behind the current record. Every assertion here is really about one risk: a list is
     // the one shape a model will simply read out, which is the failure "make one point" exists to
     // stop and the same one the notes rule above was rewritten for.

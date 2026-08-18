@@ -375,6 +375,31 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // The other side of the same coin, and it was missing for as long as the block above existed.
+    // The rules only ever described what to do with notes, so a record arriving with NONE left the
+    // model with an instruction about an empty list and no instruction at all about the silence —
+    // and a character sheet asking for specifics is a standing invitation to supply them.
+    //
+    // What that produced, measured over thirty-nine breaks under a persona whose own quirks say
+    // "start from a note you were actually given": "same pressing plant, same catalogue number as
+    // Princesa", "the year 1958 echoes faintly", "a techno echo from 1986", "the DVD holds nine
+    // vids". Not one of those records carried a single note. The station was stating fabricated
+    // discography as fact in a confident voice, which is the bulletin failure arriving through the
+    // music door.
+    //
+    // Named per record rather than as a blanket, because the partial case is the dangerous one: told
+    // one note about the record behind it, a model will happily invent a matching one about the
+    // record in front, and a rule that only fires when BOTH are empty would never see it.
+    const unknown = [previous, request.next].filter((track): track is BreakTrack => track !== undefined && (track.facts?.length ?? 0) === 0);
+    if (unknown.length > 0) {
+        parts.push(
+            `The station knows nothing about ${unknown.map(track => `"${track.title}"`).join(' or ')} beyond the title and who it is by. ` +
+                'Say nothing else about it as fact — no dates, no labels, no pressings or catalogue numbers, no studios, no sessions, ' +
+                'no chart placings, no connection to any other record. What you think of it is yours to say. What happened to it is not, ' +
+                'unless you were told.',
+        );
+    }
+
     // A bulletin's substrate, and the strictest rules in this file sit on it. Rendered whenever the
     // request carries stories rather than behind a flag on the shape, exactly as the clock and the
     // recent scripts are: what the prompt says is a function of what the moment holds.

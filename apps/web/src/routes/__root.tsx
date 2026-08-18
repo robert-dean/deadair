@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AppShell, Box, Burger, Button, Group, Text } from '@mantine/core';
+import { AppShell, Box, Burger, Button, Group, ScrollArea, Text } from '@mantine/core';
 import { useDisclosure, useLocalStorage } from '@mantine/hooks';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
@@ -104,7 +104,22 @@ export function RootLayout() {
             </AppShell.Header>
             {signedIn ? (
                 <AppShell.Navbar>
-                    <SideNav onNavigate={navDrawer.close} />
+                    {/* The nav SCROLLS inside whatever height the shell leaves it, rather than
+                        being tall enough for its links.
+
+                        The shell sizes the navbar as the viewport minus the header and minus the
+                        footer, and the footer is the transport — which is 280px expanded against
+                        96 shut. On a 647px window that leaves the nav 311px for twelve links and
+                        four headings, about 520px of content, and nothing was clipping it: the
+                        links painted straight over the player. The boxes always tiled correctly,
+                        so this was never a positioning bug, only content with nowhere to go.
+
+                        Here rather than in `SideNav` because `AppShell.Section` reads the shell's
+                        context and throws without it, and the nav is rendered bare in its own
+                        test. Layout that depends on the shell belongs to the shell. */}
+                    <AppShell.Section grow component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0 }}>
+                        <SideNav onNavigate={navDrawer.close} />
+                    </AppShell.Section>
                 </AppShell.Navbar>
             ) : undefined}
             <AppShell.Main>

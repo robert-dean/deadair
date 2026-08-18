@@ -59,13 +59,26 @@ create table deadair.personas (
     -- below it. Only rungs BELOW, and that is the design rather than an unfinished list — measured
     -- on this station, 2 of 137 answers reached the word ceiling and the median came in at 28 words,
     -- so a break is short because the model stops and the question is what it spends those words on.
-    -- A longer rung would need the ceiling raised, which was considered and rejected on the same
-    -- measurement.
+    -- A longer rung would need the ceiling raised, which is what `latitude` below now does — and it
+    -- is a separate column for the reason it is a separate field: what sits above the default is
+    -- permission rather than length.
     --
     -- It changes what the model is ASKED for and never `DEFAULT_MAX_WORDS`, because that ceiling
     -- DECLINES rather than trims: lowering it to match would refuse the median break and hand every
     -- one of this character's to the phrasings. See `persona.sheet.ts`.
     brevity text,
+    -- How much room this character is given: null for the station's ordinary discipline, `loose` or
+    -- `unleashed` above it. The opposite direction to `brevity` and the opposite kind of thing — a
+    -- permission rather than a habit — so it moves the word ceiling in the prompt AND in the guard,
+    -- swaps the talk break's "make one point" for a licence to follow the thought, and at the top
+    -- rung tells the character nothing is off limits in how it says it.
+    --
+    -- Three bounds hold whatever a row says, and none of them is negotiable from here. The break's
+    -- own shape decides whether the room is offered at all (only the ordinary link is), the
+    -- station's `rotation.advisory` outranks the language licence, and every existing refusal still
+    -- declines to the operator's phrasings. What a rung buys is the station ASKING for more; it
+    -- never makes the station accept worse. See `persona.sheet.ts` and `break.prompt.ts`.
+    latitude text,
     -- Whether this is the one on air. At most one per station, enforced below rather than by
     -- convention, because two active personas is a state nothing downstream could resolve and every
     -- reader would resolve differently.

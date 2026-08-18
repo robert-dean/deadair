@@ -178,17 +178,31 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         <Textarea label="Never say" description="One per line." rows={3} {...form.getInputProps('avoid')} />
                     </Group>
 
-                    <Select
-                        label="How much they say"
-                        description="Only shorter than the station's usual, because the length of a break is set by where the model stops rather than by the ceiling. It asks for less; nothing refuses a break for running past it."
-                        data={[
-                            { value: '', label: "The station's usual" },
-                            { value: 'short', label: 'Says less — a sentence or two' },
-                            { value: 'one-line', label: 'Says almost nothing — one line' },
-                        ]}
-                        allowDeselect={false}
-                        {...form.getInputProps('brevity')}
-                    />
+                    <Group grow align="flex-start">
+                        <Select
+                            label="How much they say"
+                            description="Only shorter than the station's usual, because the length of a break is set by where the model stops rather than by the ceiling. It asks for less; nothing refuses a break for running past it."
+                            data={[
+                                { value: '', label: "The station's usual" },
+                                { value: 'short', label: 'Says less — a sentence or two' },
+                                { value: 'one-line', label: 'Says almost nothing — one line' },
+                            ]}
+                            allowDeselect={false}
+                            {...form.getInputProps('brevity')}
+                        />
+
+                        <Select
+                            label="How much rope they get"
+                            description="Room to follow a thought instead of making one point, with a longer break to do it in. Only on ordinary talk breaks — never the news. The station's explicit-content setting still outranks it, and a break that names neither record or drops the character is still refused."
+                            data={[
+                                { value: '', label: "The station's usual discipline" },
+                                { value: 'loose', label: 'Room — follows a thought where it goes' },
+                                { value: 'unleashed', label: 'Off the leash — and says it however they like' },
+                            ]}
+                            allowDeselect={false}
+                            {...form.getInputProps('latitude')}
+                        />
+                    </Group>
 
                     <Textarea
                         label="True about them"
@@ -255,8 +269,8 @@ function GenerationNotes({ generated }: { generated: { droppedMarkers: string[];
             <Stack gap="xxs">
                 {generated.droppedMarkers.length === 0 ? undefined : (
                     <Text size="sm">
-                        The model called these words its own and then never used them, so they were left out:{' '}
-                        {generated.droppedMarkers.join(', ')}. A word the character does not actually say would refuse every break it writes.
+                        The model called these words its own and then never used them, so they were left out: {generated.droppedMarkers.join(', ')}. A
+                        word the character does not actually say would refuse every break it writes.
                     </Text>
                 )}
                 {generated.droppedTemplates.length === 0 ? undefined : (
@@ -289,6 +303,7 @@ interface FormValues {
     voice: string;
     background: string;
     brevity: string;
+    latitude: string;
     templates: string;
     music: string;
     diction: string;
@@ -317,6 +332,7 @@ function valuesOf(persona: PersonaDraftView | undefined): FormValues {
         voice: persona?.voice ?? '',
         background: persona?.background ?? '',
         brevity: persona?.brevity ?? '',
+        latitude: persona?.latitude ?? '',
         templates: persona?.templates ?? '',
         music: persona?.music ?? '',
         diction: linesOf(persona?.diction),
@@ -346,6 +362,7 @@ function draftOf(values: FormValues): PersonaInput {
     // Annotated and lifted out of the literal below, because inside it the narrowed union widens
     // back to `string` on its way through `omitUndefined`'s inference.
     const brevity: PersonaInput['brevity'] = values.brevity === 'short' || values.brevity === 'one-line' ? values.brevity : undefined;
+    const latitude: PersonaInput['latitude'] = values.latitude === 'loose' || values.latitude === 'unleashed' ? values.latitude : undefined;
 
     return {
         key: values.key.trim(),
@@ -358,6 +375,9 @@ function draftOf(values: FormValues): PersonaInput {
             // '' is the station's usual length, which is an ABSENT field rather than a rung — the
             // same rule the on-air name follows.
             brevity,
+            // Same rule: '' is the station's ordinary discipline, which is a field that is not there
+            // rather than a rung meaning "no extra room".
+            latitude,
             // Not trimmed per line: the phrasings are parsed by the API the same way the station's
             // own setting is, and a blank line between two of them is somebody spacing their list.
             templates: text(values.templates),

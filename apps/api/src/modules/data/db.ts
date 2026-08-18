@@ -307,6 +307,7 @@ export interface DeadairPersonas {
   id: Generated<string>;
   key: string;
   label: string;
+  latitude: string | null;
   music: string | null;
   quirks: Generated<Json>;
   samples: Generated<Json>;

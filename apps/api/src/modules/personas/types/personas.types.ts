@@ -31,7 +31,13 @@ export const Persona = z.strictObject({
         .enum(['short', 'one-line'])
         .optional()
         .describe(
-            "How much this character says. Absent for the station's ordinary length; there is no rung ABOVE it, because the word ceiling was measured and is not what bounds a break",
+            "How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one",
+        ),
+    latitude: z
+        .enum(['loose', 'unleashed'])
+        .optional()
+        .describe(
+            "How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal",
         ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
     templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's global ones"),
@@ -68,7 +74,13 @@ export const PersonaInput = z.strictObject({
         .enum(['short', 'one-line'])
         .optional()
         .describe(
-            "How much this character says. Absent for the station's ordinary length; there is no rung ABOVE it, because the word ceiling was measured and is not what bounds a break",
+            "How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one",
+        ),
+    latitude: z
+        .enum(['loose', 'unleashed'])
+        .optional()
+        .describe(
+            "How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal",
         ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
     templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's global ones"),
@@ -78,7 +90,7 @@ export type PersonaInput = z.infer<typeof PersonaInput>;
 
 /**
  * A description of a character, in the operator's own words
- * generated from [PersonaRequest](file://./../../../../data/contracts/personas/personas.types.ck#L33)
+ * generated from [PersonaRequest](file://./../../../../data/contracts/personas/personas.types.ck#L34)
  */
 export const PersonaRequest = z.strictObject({
     description: z.string().min(1).max(2000),
@@ -89,7 +101,7 @@ export type PersonaRequest = z.infer<typeof PersonaRequest>;
  * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
  * saved. The console opens this in the editor and the operator saves it through POST /personas, which
  * is what keeps generating a way of filling in the form rather than a second writer of the table
- * generated from [PersonaDraftView](file://./../../../../data/contracts/personas/personas.types.ck#L40)
+ * generated from [PersonaDraftView](file://./../../../../data/contracts/personas/personas.types.ck#L41)
  */
 export const PersonaDraftView = z.strictObject({
     key: z.string().min(1).max(100),
@@ -104,6 +116,7 @@ export const PersonaDraftView = z.strictObject({
     avoid: z.array(z.string().min(1).max(200)).optional(),
     background: z.string().max(2000).optional(),
     brevity: z.enum(['short', 'one-line']).optional(),
+    latitude: z.enum(['loose', 'unleashed']).optional(),
     samples: z.array(z.string().min(1).max(500)).optional(),
     templates: z.string().max(20000).optional(),
     music: z.string().max(2000).optional(),
@@ -114,7 +127,7 @@ export type PersonaDraftView = z.infer<typeof PersonaDraftView>;
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L68)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L70)
  */
 export const PersonaRehearsalAttempt = z.strictObject({
     writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
@@ -132,7 +145,7 @@ export const PersonaRehearsalAttempt = z.strictObject({
 export type PersonaRehearsalAttempt = z.infer<typeof PersonaRehearsalAttempt>;
 
 /**
- * generated from [PersonaList](file://./../../../../data/contracts/personas/personas.types.ck#L28)
+ * generated from [PersonaList](file://./../../../../data/contracts/personas/personas.types.ck#L29)
  */
 export const PersonaList = z.strictObject({
     personas: z.array(Persona),
@@ -146,7 +159,7 @@ export type PersonaListInput = z.infer<typeof PersonaListInput>;
 
 /**
  * What a model wrote, and what had to be dropped to make it usable
- * generated from [GeneratedPersona](file://./../../../../data/contracts/personas/personas.types.ck#L59)
+ * generated from [GeneratedPersona](file://./../../../../data/contracts/personas/personas.types.ck#L61)
  */
 export const GeneratedPersona = z.strictObject({
     persona: PersonaDraftView,
@@ -165,7 +178,7 @@ export type GeneratedPersona = z.infer<typeof GeneratedPersona>;
 
 /**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L77)
+ * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L79)
  */
 export const PersonaRehearsal = z.strictObject({
     personaId: z.string().min(1).max(100),

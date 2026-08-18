@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { isPersonaBrevity } from './persona.sheet.js';
+import { isPersonaBrevity, isPersonaLatitude } from './persona.sheet.js';
 import type { Persona, PersonaDraft } from './persona.js';
 
 /**
@@ -243,6 +243,7 @@ function columnsOf(draft: PersonaDraft) {
         templates: draft.templates ?? null,
         music: draft.music ?? null,
         brevity: draft.brevity ?? null,
+        latitude: draft.latitude ?? null,
         diction: jsonOf(draft.diction),
         dictionMarkers: jsonOf(draft.dictionMarkers),
         quirks: jsonOf(draft.quirks),
@@ -280,6 +281,7 @@ function toPersona(row: {
     templates: string | null;
     music: string | null;
     brevity: string | null;
+    latitude: string | null;
     diction: unknown;
     dictionMarkers: unknown;
     quirks: unknown;
@@ -306,6 +308,7 @@ function toPersona(row: {
         // Checked rather than cast, because the column is plain text and a row edited by hand could
         // otherwise put an unknown rung in front of a model as an instruction.
         ...(isPersonaBrevity(row.brevity) ? { brevity: row.brevity } : {}),
+        ...(isPersonaLatitude(row.latitude) ? { latitude: row.latitude } : {}),
         ...list(row.diction, 'diction'),
         ...list(row.dictionMarkers, 'dictionMarkers'),
         ...list(row.quirks, 'quirks'),

@@ -12,6 +12,7 @@ import { CLOCK_KEYS } from '#modules/director/clock.words.js';
 import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
+import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
 import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
@@ -271,6 +272,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         dependsOn: CHART_GENERATOR_KEYS.mix,
         help: 'The id of a chart one of your plugins offers, as listed at /charts. Leave it blank to use the first one on offer, or to let a broadcast brief naming a country or a genre choose between them.',
+    },
+    {
+        group: 'rotation',
+        key: BRIEF_ONLY_KEY,
+        label: 'A brief is binding',
+        type: 'boolean',
+        default: BRIEF_ONLY_DEFAULT,
+        help: 'Only applies while a broadcast has a brief. Normally, whatever the model and the charts cannot fill is finished by an ordinary weighted draw from your library, which has no way to read what you asked for — so an hour briefed "flamenco guitar" can end in whatever else you own. With this on the station leaves those slots empty instead and the hour runs short, which eventually means silence. Turn it on if a wrong record is worse to you than no record. The activity feed says whenever this actually cost the station something.',
     },
     {
         group: 'rotation',

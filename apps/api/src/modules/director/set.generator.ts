@@ -72,6 +72,21 @@ export abstract class SetGenerator {
     abstract readonly name: string;
 
     /**
+     * Whether this binding is deaf to {@link SetInputs.brief}.
+     *
+     * Declared rather than inferred, because it is the one property an operator can act on: a
+     * station told "flamenco guitar" and handed grunge was served by a generator that could not
+     * read the instruction, and `rotation.briefOnly` is the switch that says whether that is
+     * acceptable. `SetGeneratorChain` reads this and nothing else does.
+     *
+     * False by default, so the honest answer is the one a binding has to opt out of. A generator
+     * that reads a brief PARTLY — the chart binding uses it to choose between charts and not to
+     * filter one — is false here: it acted on the instruction, and how well is a question about
+     * that generator rather than about whether it listened.
+     */
+    readonly ignoresBrief: boolean = false;
+
+    /**
      * Name up to `count` tracks for the station to play.
      *
      * Returning fewer is an ordinary outcome, not a failure: a small library

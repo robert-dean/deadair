@@ -102,6 +102,7 @@ export const DirectorModule: ServerKitModule = {
                             container.get(CatalogSetGenerator),
                         ],
                         container.get(ActivityRecorder),
+                        container.get(AppConfig),
                         container.get(Logger),
                     ),
             )

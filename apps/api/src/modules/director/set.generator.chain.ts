@@ -1,8 +1,21 @@
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { errorText } from '#modules/shared/error.text.js';
+
+/** Whether a brief the brief-blind generators cannot honour should stop them being asked. */
+export const BRIEF_ONLY_KEY = 'rotation.briefOnly';
+
+/**
+ * OFF, so the floor keeps its promise unless an operator takes it away.
+ *
+ * The whole architecture rests on the floor being unable to fail, and this is the one switch that
+ * removes it. Defaulting it on would make every fresh install's briefed hour able to run dry, which
+ * is the opposite of what a default is for.
+ */
+export const BRIEF_ONLY_DEFAULT = false;
 
 /**
  * Which generators are asked for a set, in the order they are asked.
@@ -35,6 +48,22 @@ import { errorText } from '#modules/shared/error.text.js';
  *
  * The floor's own contract is what makes this safe: `CatalogSetGenerator` makes no network call,
  * needs no model, and cannot fail in a way that takes the station off air. **Keep it last.**
+ *
+ * ## The floor can be declined, and only by the operator, and only under a brief
+ *
+ * `rotation.briefOnly` is the one thing that suspends the paragraph above. A station asked for
+ * flamenco guitar and handed grunge is not the floor working, it is the floor doing the only thing
+ * it knows how to do in a situation the operator had an opinion about — and some operators would
+ * rather the hour ran short. With it on, a generator that declares {@link SetGenerator.ignoresBrief}
+ * is not asked while a brief is in force.
+ *
+ * Three things keep it from being a foot-gun. It applies **only where there IS a brief**, because
+ * an unbriefed station's floor is not a mismatch, it is the station — turning this into "never draw
+ * from the catalog" would silence an ordinary hour with a full library and no way to tell why. It
+ * is reported on the activity feed the moment it actually costs records, since "why did the station
+ * run out" must be answerable from the same place every other silence is. And it is off by default:
+ * this is the operator dismantling a guarantee on purpose, which is a thing they should have to say
+ * rather than discover.
  */
 export class SetGeneratorChain extends SetGenerator {
     readonly name = 'chain';
@@ -47,6 +76,7 @@ export class SetGeneratorChain extends SetGenerator {
         // job can see how many records arrived and never which binding found them. Carrying it up
         // would mean widening the `SetGenerator` return type for one reader.
         private readonly activity: ActivityRecorder,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {
         super();
@@ -76,9 +106,23 @@ export class SetGeneratorChain extends SetGenerator {
         /** Who named how many, in the order they were asked. The feed's half of the answer. */
         const named: { generator: string; kept: number }[] = [];
 
+        // Read per refill rather than held, like every other setting a generator reads, so an
+        // operator switching it off to get their hour back does not have to restart anything.
+        // Both halves matter: with no brief there is nothing for a binding to be deaf to, so the
+        // floor is asked exactly as it always was.
+        const briefed = (inputs.brief ?? '').trim().length > 0;
+        const briefOnly = briefed && this.config.get(BRIEF_ONLY_KEY, BRIEF_ONLY_DEFAULT);
+        /** Bindings that were skipped for it, so the feed can say what the setting cost. */
+        const declined: string[] = [];
+
         for (const generator of this.generators) {
             const missing = inputs.count - chosen.length;
             if (missing <= 0) break;
+
+            if (briefOnly && generator.ignoresBrief) {
+                declined.push(generator.name);
+                continue;
+            }
 
             const before = chosen.length;
             const picks = await this.ask(generator, { ...inputs, count: missing, avoidSongKeys });
@@ -133,7 +177,7 @@ export class SetGeneratorChain extends SetGenerator {
             this.logger.debug('director: the chain came up short', { asked: inputs.count, named: chosen.length });
         }
 
-        this.announce(inputs.count, chosen.length, named);
+        this.announce(inputs.count, chosen.length, named, declined);
         return chosen;
     }
 
@@ -148,21 +192,33 @@ export class SetGeneratorChain extends SetGenerator {
      *
      * A short chain IS worth saying even from one generator, because a station quietly running
      * fifteen-minute hours is a library that has run dry rather than a station programming itself.
+     *
+     * A refill that came up short with `rotation.briefOnly` on says so in the same sentence. That is
+     * the whole price of the setting made visible: without it the operator sees an hour that ran dry
+     * and a full library, and the two facts have nothing connecting them.
      */
-    private announce(asked: number, chosen: number, named: readonly { generator: string; kept: number }[]): void {
+    private announce(asked: number, chosen: number, named: readonly { generator: string; kept: number }[], declined: readonly string[]): void {
         const short = chosen < asked;
+        // A refill the setting cost nothing is not worth a line: the floor is asked last, so it is
+        // skipped on every briefed refill the model filled by itself and saying so every time would
+        // report the setting rather than its effect.
+        const cost = short && declined.length > 0;
         if (named.length < 2 && !short) return;
 
         const words = named.map(entry => `${entry.generator} named ${entry.kept}`).join(', ');
+        const because = cost
+            ? ` The rest would have come from ordinary rotation, which cannot read a brief, and you have asked the station to stay silent rather than play off-brief.`
+            : '';
+
         void this.activity.record({
             module: 'director',
             kind: 'set.generated',
             // Not a fault: the chain topping up is the design working, and a library smaller than
             // the station's appetite is an ordinary state rather than something to go and fix.
             detail: short
-                ? `The station asked for ${asked} records and found ${chosen}: ${words}.`
+                ? `The station asked for ${asked} records and found ${chosen}: ${words}.${because}`
                 : `The station chose ${chosen} records: ${words}.`,
-            data: { asked, chosen, named: [...named] },
+            data: { asked, chosen, named: [...named], ...(declined.length === 0 ? {} : { declined: [...declined] }) },
         });
     }
 

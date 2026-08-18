@@ -35,6 +35,13 @@ import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js
 export class CatalogSetGenerator extends SetGenerator {
     readonly name = 'catalog';
 
+    // The only binding that declares this, and the docblock above is the whole reason: it does not
+    // read the brief BY DESIGN, so a station that would rather be silent than off-brief is asking
+    // for exactly this generator to sit out. The similarity binding does not read one either and is
+    // deliberately NOT marked — its seeds are records that actually aired, so under a brief that is
+    // being honoured it is drawing from the brief's own results rather than around them.
+    override readonly ignoresBrief = true;
+
     constructor(
         private readonly candidates: CandidatesRepository,
         private readonly history: PlayHistoryRepository,

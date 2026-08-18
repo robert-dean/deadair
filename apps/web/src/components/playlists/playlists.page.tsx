@@ -1,4 +1,4 @@
-import { Alert, List, SimpleGrid, Stack, Text } from '@mantine/core';
+import { List, SimpleGrid, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
 import { playlistsListOptions } from '../../api/playlists.queries';
@@ -28,7 +28,7 @@ export function PlaylistsPage() {
             ) : undefined}
 
             {sourceErrors.length > 0 ? (
-                <Alert color="yellow" title="Some plugins could not be listed">
+                <ErrorAlert tone="warning" title="Some plugins could not be listed">
                     <List size="sm">
                         {sourceErrors.map(error => (
                             <List.Item key={error.pluginId}>
@@ -36,7 +36,7 @@ export function PlaylistsPage() {
                             </List.Item>
                         ))}
                     </List>
-                </Alert>
+                </ErrorAlert>
             ) : undefined}
 
             {playlists.isPending ? (

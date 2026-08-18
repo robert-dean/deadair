@@ -1,4 +1,4 @@
-import { Alert, Button, SimpleGrid, Stack, Text } from '@mantine/core';
+import { Button, SimpleGrid, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
 import { pluginsListOptions, useRescanPlugins } from '../../api/plugins.queries';
@@ -45,9 +45,9 @@ export function PluginsPage() {
             />
 
             {rescan.error ? (
-                <Alert color="yellow" title="Rescan failed">
+                <ErrorAlert tone="warning" title="Rescan failed">
                     {rescanError(rescan.error)}
-                </Alert>
+                </ErrorAlert>
             ) : undefined}
 
             {plugins.error ? (

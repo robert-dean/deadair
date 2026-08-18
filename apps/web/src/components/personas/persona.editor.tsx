@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { Button, Card, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 
@@ -251,7 +251,7 @@ function GenerationNotes({ generated }: { generated: { droppedMarkers: string[];
     if (generated.droppedMarkers.length === 0 && generated.droppedTemplates.length === 0) return undefined;
 
     return (
-        <Alert color="yellow" variant="light" title="Some of it was dropped">
+        <ErrorAlert tone="warning" title="Some of it was dropped">
             <Stack gap="xxs">
                 {generated.droppedMarkers.length === 0 ? undefined : (
                     <Text size="sm">
@@ -266,7 +266,7 @@ function GenerationNotes({ generated }: { generated: { droppedMarkers: string[];
                     </Text>
                 )}
             </Stack>
-        </Alert>
+        </ErrorAlert>
     );
 }
 

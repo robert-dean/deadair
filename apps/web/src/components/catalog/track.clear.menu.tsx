@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert, Button, Group, Menu, Modal, Stack, Text } from '@mantine/core';
+import { Button, Group, Menu, Modal, Stack, Text } from '@mantine/core';
 
 import { useClearTrack, type TrackClear } from '../../api/catalog.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
+import { ErrorAlert } from '../shared/error.alert';
 
 /**
  * The four things an operator can throw away, and what each one costs.
@@ -104,9 +104,7 @@ export function TrackClearMenu({ trackId }: { trackId: string }) {
                     {/* The 409 is the one refusal worth reading in full: a record about to air is
                         left alone deliberately, and the message says what to do instead. */}
                     {clear.error ? (
-                        <Alert color="yellow" title="Left alone">
-                            {apiErrorMessage(clear.error, 'The station could not do that just now.')}
-                        </Alert>
+                        <ErrorAlert tone="warning" title="Left alone" error={clear.error} fallback="The station could not do that just now." />
                     ) : undefined}
 
                     <Group justify="flex-end">

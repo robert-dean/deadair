@@ -84,9 +84,9 @@ export function VoicesPage() {
             ) : undefined}
 
             {error ? (
-                <Alert color="yellow" title="Preview failed">
+                <ErrorAlert tone="warning" title="Preview failed">
                     {error}
-                </Alert>
+                </ErrorAlert>
             ) : undefined}
 
             {/* Not an error: a station with no TTS plugin plays records, which is a state rather

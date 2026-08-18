@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, AppShell, Burger, Button, Group, Text } from '@mantine/core';
+import { AppShell, Box, Burger, Button, Group, Text } from '@mantine/core';
 import { useDisclosure, useLocalStorage } from '@mantine/hooks';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
@@ -14,6 +14,7 @@ import { apiErrorMessage } from '../api/sdk.error';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
 import { useStationAir } from '../api/director.queries';
 import { usePlayoutStatus } from '../api/playout.queries';
+import { ErrorAlert } from '../components/shared/error.alert';
 import { hasTransportToShow, TRANSPORT_HEIGHT, TRANSPORT_HEIGHT_EXPANDED, TransportBar } from '../components/playout/transport.bar';
 import { SideNav } from '../components/shell/side.nav';
 import { StationMark } from '../components/shell/station.mark';
@@ -108,18 +109,17 @@ export function RootLayout() {
             ) : undefined}
             <AppShell.Main>
                 {logoutError ? (
-                    <Alert
-                        color="yellow"
-                        title="Sign-out incomplete"
-                        mb="lg"
-                        withCloseButton
-                        closeButtonLabel="Dismiss"
-                        onClose={() => {
-                            setLogoutError(undefined);
-                        }}
-                    >
-                        {logoutError}
-                    </Alert>
+                    <Box mb="lg">
+                        <ErrorAlert
+                            tone="warning"
+                            title="Sign-out incomplete"
+                            onDismiss={() => {
+                                setLogoutError(undefined);
+                            }}
+                        >
+                            {logoutError}
+                        </ErrorAlert>
+                    </Box>
                 ) : undefined}
                 <Outlet />
             </AppShell.Main>

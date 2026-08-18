@@ -1,5 +1,6 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { StationLineupMode, StationLineupRules } from './station.lineup.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * The rules that shape a generated set: what not to play again yet, and how not
@@ -137,7 +138,11 @@ export function stationRules(config: AppConfig): ResolvedRules {
         const parsed = Number(config.get(key, ''));
         return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
     };
-    const boolean = (key: string, fallback: boolean): boolean => (config.has(key) ? config.get(key, '') !== 'false' : fallback);
+    // Through the shared reader rather than the `!== 'false'` this was: that spelling was right
+    // about the bug and wrong about everything else it let through, since a row holding anything
+    // unparseable read as ON — and these four are the switches that decide whether the station talks
+    // at all. `settingIsOn` handles the absent key too, so the `config.has` guard goes with it.
+    const boolean = (key: string, fallback: boolean): boolean => settingIsOn(config, key, fallback);
 
     return {
         repeatWindowDays: number(ROTATION_KEYS.repeatWindowDays, DEFAULT_RULES.repeatWindowDays),

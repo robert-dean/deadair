@@ -4,6 +4,7 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /** Whether a brief the brief-blind generators cannot honour should stop them being asked. */
 export const BRIEF_ONLY_KEY = 'rotation.briefOnly';
@@ -20,15 +21,13 @@ export const BRIEF_ONLY_DEFAULT = false;
 /**
  * Whether the operator has made a brief binding.
  *
- * Coerced rather than read, for the reason `captureWrites` is: the settings source puts a
- * `deadair.settings` row into the snapshot as the raw string it stored, so a `boolean` field
- * arrives as `"true"` or `"false"` — and `"false"` is a truthy string. A switch that could not be
- * turned back off is worse here than one that never worked, because the state it strands the
- * station in is silence.
+ * Through {@link settingIsOn}, which is where the reasoning now lives: the settings source keeps a
+ * row as the raw string it stored, and `'false'` is truthy. A switch that could not be turned back
+ * off matters more here than anywhere else it applies, because the state it would strand the station
+ * in is silence.
  */
 export function briefIsBinding(config: AppConfig): boolean {
-    const raw = config.get(BRIEF_ONLY_KEY, BRIEF_ONLY_DEFAULT);
-    return typeof raw === 'boolean' ? raw : String(raw).toLowerCase() === 'true';
+    return settingIsOn(config, BRIEF_ONLY_KEY, BRIEF_ONLY_DEFAULT);
 }
 
 /**

@@ -17,6 +17,7 @@ import { applyRules, spaceArtists, type ResolvedRules, type RotationCandidate } 
 import type { TrackPick } from './set.generator.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * Whether the station may play records it does not own yet.
@@ -457,7 +458,7 @@ export class PickResolver {
      * provider skips the whole path instead of discovering it one pick at a time.
      */
     private mayDiscover(): boolean {
-        return this.config.get(DISCOVER_KEY, DISCOVER_DEFAULT) && this.lookup.canLookUp();
+        return settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT) && this.lookup.canLookUp();
     }
 
     /**

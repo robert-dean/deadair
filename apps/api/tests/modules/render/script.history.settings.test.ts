@@ -51,6 +51,19 @@ describe('captureWrites', () => {
         expect(captureWrites(config({ [SCRIPT_HISTORY_KEYS.capture]: true }))).toBe(true);
         expect(captureWrites(config({ [SCRIPT_HISTORY_KEYS.capture]: 'true' }))).toBe(true);
         expect(captureWrites(config({ [SCRIPT_HISTORY_KEYS.capture]: 'false' }))).toBe(false);
-        expect(captureWrites(config({ [SCRIPT_HISTORY_KEYS.capture]: 'yes' }))).toBe(false);
+    });
+
+    it('now takes the words somebody would type by hand, which it did not before', () => {
+        // A deliberate widening rather than an accident of the refactor. This read `=== 'true'` and
+        // answered `false` for `'yes'`, which is the same silent-wrong-answer failure as the
+        // `'false'`-is-truthy bug one rule over, just in the other direction. `settingIsOn` owns the
+        // vocabulary now and every switch shares it.
+        expect(captureWrites(config({ [SCRIPT_HISTORY_KEYS.capture]: 'yes' }))).toBe(true);
+        expect(captureWrites(config({ [SCRIPT_HISTORY_KEYS.capture]: '1' }))).toBe(true);
+        expect(captureWrites(config({ [SCRIPT_HISTORY_KEYS.capture]: 'off' }))).toBe(false);
+    });
+
+    it('falls back to the declared default for a value it cannot read', () => {
+        expect(captureWrites(config({ [SCRIPT_HISTORY_KEYS.capture]: 'banana' }))).toBe(SCRIPT_HISTORY_DEFAULTS.capture);
     });
 });

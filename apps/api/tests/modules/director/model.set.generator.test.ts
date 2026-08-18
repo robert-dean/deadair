@@ -82,12 +82,13 @@ function build(options: Options = {}) {
         [MODEL_GENERATOR_KEYS.enabled]: options.enabled ? 'true' : 'false',
         ...options.settings,
     };
+    // Hands back the RAW string, because that is what `AppConfigSourcePostgres` puts in the
+    // snapshot. This double used to coerce a boolean itself — `value !== 'false'` — which made it
+    // strictly more capable than the thing it stood for and hid a real bug for as long as it
+    // existed: production read `'false'` as truthy, so `llm.setGenerator` could not be switched
+    // off, and every test here passed because the fake quietly fixed it.
     const config = {
-        get: (key: string, fallback: unknown) => {
-            const value = values[key];
-            if (value === undefined) return fallback;
-            return typeof fallback === 'boolean' ? value !== 'false' : value;
-        },
+        get: (key: string, fallback: unknown) => (key in values ? values[key] : fallback),
         has: (key: string) => values[key] !== undefined,
     } as unknown as AppConfig;
 

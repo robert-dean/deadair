@@ -50,6 +50,15 @@ describe('when it will not even ask', () => {
         expect(converse).not.toHaveBeenCalled();
     });
 
+    it('declines when the setting holds the STRING a settings row stores', async () => {
+        // Not the same case as the one above. Absent falls to the default; SET TO OFF is what was
+        // broken, because `deadair.settings` hands back `'false'` and that is truthy.
+        const { writer, converse } = build('Here is the news.', { [MODEL_WRITER_KEYS.enabled]: 'false' });
+
+        expect(await writer.write(request())).toBeUndefined();
+        expect(converse).not.toHaveBeenCalled();
+    });
+
     it('declines when nothing can generate, and does not treat that as a fault', async () => {
         const llm = { canGenerate: () => false, explainGenerator: () => 'no plugin', converse: vi.fn() } as unknown as LlmService;
         const writer = new ModelNewsBreakWriter(llm, config(enabled), logger);

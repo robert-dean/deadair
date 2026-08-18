@@ -280,6 +280,23 @@ same request** — Postgres holds notifications until COMMIT — so `SettingsSer
 answer from the write rather than re-reading. Writing a setting anywhere else has to do the same or
 the operator's change will not take.
 
+**Every layer of `AppConfig` holds STRINGS, so an on/off setting is read through `settingIsOn` and
+never as a boolean.** `AppConfigSourcePostgres.load()` snapshots each `deadair.settings` row as the
+raw text of its `value` column and parses nothing (its `tryParseJson` serves only the single-key
+`get()` behind a `${pg:…}` reference, which is not the path a module read takes); dotenv is the same.
+So `config.get(key, false)` answers the STRING `'false'`, which is truthy — every switch written that
+way could be turned on and never back off, in silence, with the console showing the change and the
+table holding it. That was live in six places, including `rotation.discover` and all three `llm.*`
+model switches, and in `OTP_DEV_BYPASS`, where `false` in a `.env` ENABLED the bypass and only the
+positive `NODE_ENV` allowlist beside it kept that from mattering. `modules/shared/setting.flags.ts`
+owns the vocabulary now (`true/1/yes/on`, `false/0/no/off`, anything else and the empty string take
+the declared default rather than `false`, because a value nobody can parse is a setting nobody set).
+Numbers have the same problem and the same shape of answer: `resolveAnalysisConcurrency`,
+`resolveRetentionDays`, `maxOutputTokens`. **A test that hands over a real boolean proves nothing
+here** — it passes either way — so a switch's off-case is tested with the string, and a config double
+that coerces on the way out is worse than no double at all: `model.set.generator.test.ts` had one for
+as long as it existed and hid this bug the whole time.
+
 **Settings are declared in `settings.registry.ts`** as the plugin SDK's `ConfigField`, which is what
 lets one console component render both a plugin's settings and the station's. `GET`/`PUT /settings`
 are the operator surface; a `secret` is reported as a configured-boolean and never as a value. The

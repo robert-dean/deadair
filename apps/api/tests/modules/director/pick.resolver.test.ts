@@ -403,6 +403,16 @@ describe('PickResolver discovering a record at a provider', () => {
         expect(find).not.toHaveBeenCalled();
     });
 
+    it('does not look anything up when the setting holds the STRING a settings row stores', async () => {
+        // The case above hands over a real `false`, which passes whether or not anything coerces.
+        // `deadair.settings` stores text and `'false'` is truthy, so an operator who switched
+        // discovery off was still having records looked up and ingested.
+        const { resolver, find } = build({ ...missing, settings: { [DISCOVER_KEY]: 'false' } });
+
+        expect(await resolve(resolver, pick)).toEqual([]);
+        expect(find).not.toHaveBeenCalled();
+    });
+
     it('does not look anything up when no provider can be searched', async () => {
         const { resolver, find } = build({ ...missing, canLookUp: false });
 

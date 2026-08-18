@@ -13,6 +13,7 @@
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { resolveRetentionDays } from '#modules/shared/retention.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /** The `deadair.settings` keys. Dot-keyed, like every other setting. */
 export const SCRIPT_HISTORY_KEYS = {
@@ -46,6 +47,5 @@ export function resolveHistoryRetentionDays(config: AppConfig): number {
 
 /** Whether a model's prompt and raw answer are kept alongside the words it produced. */
 export function captureWrites(config: AppConfig): boolean {
-    const raw = config.get(SCRIPT_HISTORY_KEYS.capture, SCRIPT_HISTORY_DEFAULTS.capture);
-    return typeof raw === 'boolean' ? raw : String(raw).toLowerCase() === 'true';
+    return settingIsOn(config, SCRIPT_HISTORY_KEYS.capture, SCRIPT_HISTORY_DEFAULTS.capture);
 }

@@ -65,6 +65,7 @@ import { DeadairPhoneFactorRepository } from './repositories/phone.factor.reposi
 import { ActorsRepository } from './repositories/actors.repository.js';
 import { ResponseCookieJar } from './response.cookie.jar.js';
 import { RequestCookieJar } from './request.cookie.jar.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 let otpDevBypassEnabled = false;
 
@@ -88,7 +89,12 @@ export const AuthenticationModule: ServerKitModule = {
             })
             .asScoped();
 
-        const otpDevBypass = config.get('OTP_DEV_BYPASS', false);
+        // Read through the shared reader rather than as a boolean, and here it is a security fix
+        // rather than a tidy-up: dotenv values are strings like every other layer's, so
+        // `OTP_DEV_BYPASS=false` in a `.env` was TRUTHY and switched the bypass on. The positive
+        // NODE_ENV allowlist below is what kept that from being exploitable outside development —
+        // it is the second lock, and it was doing the first lock's job.
+        const otpDevBypass = settingIsOn(config, 'OTP_DEV_BYPASS', false);
         // Positive allowlist: the OTP bypass (accepts any submitted code) may ONLY run under an
         // explicit development environment. An unset/'staging'/'test' NODE_ENV must not silently
         // enable it — only 'development' does.

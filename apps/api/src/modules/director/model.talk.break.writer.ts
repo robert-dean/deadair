@@ -10,6 +10,7 @@ import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { labelFor, TALK_BREAK_KIND } from './talk.break.writer.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * A model writing the station's talk breaks, with the station's own words underneath it.
@@ -93,6 +94,15 @@ export const MODEL_WRITER_KEYS = {
     model: 'llm.breakModel',
 } as const;
 
+/**
+ * OFF, so a fresh install writes its breaks from the phrasings and cannot be slow at it.
+ *
+ * Exported so `settings.registry.ts` declares the same value this reads, which is the arrangement
+ * every other setting has: the registry is where a default is SHOWN and the module is where it is
+ * used, and a literal in both is two places to change.
+ */
+export const MODEL_WRITER_DEFAULT = false;
+
 @Injectable()
 export class ModelTalkBreakWriter extends BreakWriter {
     readonly kind = TALK_BREAK_KIND;
@@ -118,7 +128,7 @@ export class ModelTalkBreakWriter extends BreakWriter {
 
         // Both cheap, both silent, and both an ordinary state rather than a fault. Read per break
         // rather than held, so an operator turning the model on hears it on the next break.
-        if (!this.config.get(MODEL_WRITER_KEYS.enabled, false)) return undefined;
+        if (!settingIsOn(this.config, MODEL_WRITER_KEYS.enabled, MODEL_WRITER_DEFAULT)) return undefined;
         if (!this.llm.canGenerate()) {
             // At debug: a station with no model configured would otherwise say so every fourth
             // record, and `LlmService` already explains it once where it matters.

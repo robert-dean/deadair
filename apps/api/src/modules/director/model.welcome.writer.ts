@@ -9,8 +9,9 @@ import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, writeDecline, type AnswerGu
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
-import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * A model greeting somebody who has just tuned in, with the station's own words underneath it.
@@ -85,7 +86,7 @@ export class ModelWelcomeWriter extends BreakWriter {
     async write(request: BreakWriteRequest): Promise<WrittenBreak | undefined> {
         this.lastDetail = undefined;
 
-        if (!this.config.get(MODEL_WRITER_KEYS.enabled, false)) return undefined;
+        if (!settingIsOn(this.config, MODEL_WRITER_KEYS.enabled, MODEL_WRITER_DEFAULT)) return undefined;
         if (!this.llm.canGenerate()) {
             this.logger.debug(`director: no model to greet with (${this.llm.explainGenerator()})`);
             return undefined;

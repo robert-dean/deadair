@@ -6,6 +6,7 @@ import { DISCOVER_DEFAULT, DISCOVER_KEY } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * A published chart choosing part of what the station plays.
@@ -221,7 +222,7 @@ export class ChartSetGenerator extends SetGenerator {
      * whether to warn, and the resolver stays the one place that enforces it.
      */
     private discovering(): boolean {
-        return this.config.get(DISCOVER_KEY, DISCOVER_DEFAULT);
+        return settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT);
     }
 }
 

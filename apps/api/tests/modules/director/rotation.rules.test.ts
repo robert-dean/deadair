@@ -187,9 +187,22 @@ describe('stationRules', () => {
         expect(stationRules(config).repeatWindowDays).toBe(DEFAULT_RULES.repeatWindowDays);
     });
 
-    it('reads only the exact string `false` as off', () => {
+    it('reads the strings a settings row stores, which is the only form these ever arrive in', () => {
         expect(stationRules(settingsConfig({ [ROTATION_KEYS.breaks]: 'false' }).config).breaks).toBe(false);
         expect(stationRules(settingsConfig({ [ROTATION_KEYS.breaks]: 'true' }).config).breaks).toBe(true);
+    });
+
+    it('takes the default for a value it cannot read, where it used to read anything as ON', () => {
+        // This resolved `!== 'false'`, which got the important case right and then treated every
+        // unparseable row as a yes. These four switches decide whether the station talks at all, so
+        // "I could not read it" should land on the considered default rather than on true.
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.breaks]: 'banana' }).config).breaks).toBe(DEFAULT_RULES.breaks);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.crossfade]: '' }).config).crossfade).toBe(DEFAULT_RULES.crossfade);
+    });
+
+    it('shares one vocabulary with every other switch', () => {
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.welcome]: 'off' }).config).welcome).toBe(false);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.autoExtend]: '0' }).config).autoExtend).toBe(false);
     });
 });
 

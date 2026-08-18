@@ -14,6 +14,7 @@ import { artistKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { readPicks, setPrompt, type TastePrompt } from './set.prompt.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * A model choosing what the station plays, with the catalog draw underneath it.
@@ -216,6 +217,9 @@ export const MODEL_GENERATOR_KEYS = {
     maxTokens: 'llm.setMaxTokens',
 } as const;
 
+/** OFF, so the station programmes itself from the catalog draw until an operator asks for more. */
+export const MODEL_GENERATOR_DEFAULT = false;
+
 @Injectable()
 export class ModelSetGenerator extends SetGenerator {
     readonly name = MODEL_GENERATOR;
@@ -239,7 +243,7 @@ export class ModelSetGenerator extends SetGenerator {
 
         // Both cheap, both silent, and both an ordinary state rather than a fault. Read per refill
         // rather than held, so an operator turning the model on gets it on the next one.
-        if (!this.config.get(MODEL_GENERATOR_KEYS.enabled, false)) return [];
+        if (!settingIsOn(this.config, MODEL_GENERATOR_KEYS.enabled, MODEL_GENERATOR_DEFAULT)) return [];
         if (!this.llm.canGenerate()) {
             this.logger.debug(`director: no model to programme with (${this.llm.explainGenerator()})`);
             return [];

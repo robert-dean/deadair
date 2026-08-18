@@ -34,7 +34,8 @@ const FOUND = JSON.stringify({
 });
 
 interface Options {
-    enabled?: boolean;
+    /** `unknown` rather than `boolean`, so a case can hand over the STRING a settings row holds. */
+    enabled?: unknown;
     canGenerate?: boolean;
     /** Answers in call order: the extraction, then one verification per claim. */
     answers?: (string | Error)[];
@@ -125,6 +126,17 @@ describe('the model pass', () => {
 
     it('does nothing at all when the operator has not turned it on', async () => {
         const { service, facts, converse } = build({ enabled: false });
+
+        expect(await service.extractModel(10)).toMatchObject({ read: 0, written: 0, failed: 0 });
+        expect(facts.listPendingDocuments).not.toHaveBeenCalled();
+        expect(converse).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the setting holds the STRING a settings row stores', async () => {
+        // The case above hands over a real `false` and passes either way. `deadair.settings` stores
+        // text and `'false'` is truthy, so this is the reading that was running the model pass on a
+        // station whose operator had switched it off.
+        const { service, facts, converse } = build({ enabled: 'false' });
 
         expect(await service.extractModel(10)).toMatchObject({ read: 0, written: 0, failed: 0 });
         expect(facts.listPendingDocuments).not.toHaveBeenCalled();

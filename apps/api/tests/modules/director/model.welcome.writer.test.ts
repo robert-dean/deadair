@@ -105,6 +105,15 @@ describe('ModelWelcomeWriter', () => {
         expect(converse).not.toHaveBeenCalled();
     });
 
+    it('stays off for the STRING a settings row stores it as', async () => {
+        // `'false'` is truthy, so the case above passing proved nothing about production, which
+        // reads text out of `deadair.settings` rather than a boolean.
+        const { writer, converse } = build({ values: { [MODEL_WRITER_KEYS.enabled]: 'false' } });
+
+        expect(await writer.write({ kind: WELCOME_KIND, next, station: 'Deadair' })).toBeUndefined();
+        expect(converse).not.toHaveBeenCalled();
+    });
+
     it('declines when there is no model to greet with', async () => {
         const { writer, converse } = build({ canGenerate: false });
 

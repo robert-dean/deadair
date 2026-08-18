@@ -8,6 +8,7 @@ import { DISCOVER_DEFAULT, DISCOVER_KEY } from './pick.resolver.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * Programming outward from what the station has been playing.
@@ -233,7 +234,7 @@ export class SimilarSetGenerator extends SetGenerator {
 
     /** Whether a record outside the library can reach the air at all. Only decides whether to warn. */
     private discovering(): boolean {
-        return this.config.get(DISCOVER_KEY, DISCOVER_DEFAULT);
+        return settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT);
     }
 }
 

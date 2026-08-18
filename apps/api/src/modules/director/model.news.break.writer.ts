@@ -9,8 +9,9 @@ import { breakPrompt, readAnswer, writeDecline, type AnswerGuard, type BreakProm
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
-import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
+import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { NEWS_KIND } from './news.break.writer.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * A model reading the headlines, with the station's own bulletin underneath it.
@@ -106,7 +107,7 @@ export class ModelNewsBreakWriter extends BreakWriter {
         // to say nothing rather than a reason to say something general.
         if ((request.stories?.length ?? 0) === 0) return undefined;
 
-        if (!this.config.get(MODEL_WRITER_KEYS.enabled, false)) return undefined;
+        if (!settingIsOn(this.config, MODEL_WRITER_KEYS.enabled, MODEL_WRITER_DEFAULT)) return undefined;
         if (!this.llm.canGenerate()) {
             this.logger.debug(`director: no model to read the news with (${this.llm.explainGenerator()})`);
             return undefined;

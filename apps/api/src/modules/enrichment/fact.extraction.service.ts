@@ -6,6 +6,7 @@ import { leadClaims } from './fact.lead.js';
 import { extractPrompt, readClaims, verified, verifyPrompt, type ExtractionSubject } from './fact.model.js';
 import { FactRepository, type FactSubjectType, type FactWrite, type PendingDocument } from './fact.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * The model pass's settings, keyed like every other model-driven feature.
@@ -19,6 +20,9 @@ export const MODEL_FACTS_KEYS = {
     enabled: 'llm.factExtraction',
     model: 'llm.factModel',
 } as const;
+
+/** OFF. The lead-sentence floor fills the store without a model, so this only adds what it cannot carry. */
+export const MODEL_FACTS_DEFAULT = false;
 
 /**
  * How long the model pass may hold the slot before it gives up on one document.
@@ -146,7 +150,7 @@ export class FactExtractionService {
 
         // Read per pass rather than held, so an operator turning it on gets it
         // on the next run without a restart.
-        if (!this.config.get(MODEL_FACTS_KEYS.enabled, false)) return summary;
+        if (!settingIsOn(this.config, MODEL_FACTS_KEYS.enabled, MODEL_FACTS_DEFAULT)) return summary;
         if (!this.llm.canGenerate()) {
             this.logger.debug(`facts: no model to read with (${this.llm.explainGenerator()})`);
             return summary;

@@ -90,6 +90,16 @@ describe('ModelTalkBreakWriter', () => {
             expect(converse).not.toHaveBeenCalled();
         });
 
+        it('when the setting holds the STRING a settings row stores, which is what production reads', async () => {
+            // The case above passes whether or not the coercion is there, because it hands over a
+            // real boolean. `deadair.settings` stores text, and `'false'` is truthy — so this is the
+            // reading that was actually broken: the writer ran on every break with the switch off.
+            const { writer, converse } = build({ values: { [MODEL_WRITER_KEYS.enabled]: 'false' } });
+
+            await expect(writer.write({ kind: TALK_BREAK_KIND, previous, next })).resolves.toBeUndefined();
+            expect(converse).not.toHaveBeenCalled();
+        });
+
         it('when no plugin can produce words, which is every fresh install', async () => {
             const { writer, converse, logger } = build({ canGenerate: false });
 

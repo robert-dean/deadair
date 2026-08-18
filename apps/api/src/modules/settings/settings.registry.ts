@@ -9,15 +9,15 @@ import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.j
 import { BULLETIN_KEYS, DEFAULT_MAX_AGE_HOURS, DEFAULT_STORY_COUNT } from '#modules/director/bulletin.source.js';
 import { CLOCK_BAND_KEYS } from '#modules/director/clock.bands.js';
 import { CLOCK_KEYS } from '#modules/director/clock.words.js';
-import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
+import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_DEFAULT, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
-import { MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
+import { MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
-import { MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
+import { MODEL_FACTS_DEFAULT, MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
     ANALYSIS_LOCAL_PACE_KEY,
@@ -503,7 +503,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         key: MODEL_WRITER_KEYS.enabled,
         label: 'Let a model write the talk breaks',
         type: 'boolean',
-        default: false,
+        default: MODEL_WRITER_DEFAULT,
         help: 'With this off the station writes its own breaks from the phrasings above, which it does instantly and cannot fail at. With it on the model writes them and those phrasings become the floor underneath: a model that is slow, missing or rambling costs a better sentence rather than a silent station.',
     },
     {
@@ -523,7 +523,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         key: MODEL_GENERATOR_KEYS.enabled,
         label: 'Let a model choose what plays',
         type: 'boolean',
-        default: false,
+        default: MODEL_GENERATOR_DEFAULT,
         help: 'With this off the station picks by rule: a weighted draw shaped by the repeat window, the artist cooldown and your ratings. With it on the model chooses first and that draw finishes whatever it did not — a model that names six good records has done most of the job, so a partial answer is kept rather than thrown away. It can only choose records already in your library.',
     },
     {
@@ -552,7 +552,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         key: MODEL_FACTS_KEYS.enabled,
         label: 'Let a model find trivia in the articles',
         type: 'boolean',
-        default: false,
+        default: MODEL_FACTS_DEFAULT,
         help: 'The station already keeps the opening line of every article it has read, which needs no model and cannot be wrong. With this on a model reads further in for the things that line cannot carry — a film it was used in, who played on it, what it was banned for — and a second call checks each one against the exact words that state it, dropping anything the article does not say outright. It runs in the background at the lowest priority, so a talk break always gets the model first, and it will take days rather than minutes to work through a library.',
     },
     {

@@ -74,10 +74,35 @@ export const NEWS_MAX_WORDS = 300;
 export const NEWS_SHAPE: BreakPromptShape = {
     job: 'You read a short news bulletin. It is read aloud exactly as you write it.',
     showsPrevious: false,
+    // The record coming up is still shown, and its NOTES are not. A bulletin needs the title and the
+    // artist to hand back to the music in a line, and a note there is pure risk in the one kind of
+    // break where being wrong is worst. Both of the false discography claims this station has put on
+    // air arrived exactly that way; see `BreakPromptShape.showsFacts`.
+    showsFacts: false,
     opening: () =>
         'This is the news. Introduce it in a sentence, report the stories below in the order they are given, and then hand back to the music. ' +
         'Each story gets its headline and a sentence of what happened, from the text you are given and nowhere else. ' +
         'You are reporting, not commenting: no jokes about the stories, no opinions, and nothing about how they make anyone feel.',
+    // Two rules a bulletin owes and a talk break does not, both of them measured failures rather
+    // than tidiness.
+    //
+    // The first is padding, and it comes from a story whose text is thin: told to give each story a
+    // sentence of what happened and handed two lines about a soap box derby, a model reaches for
+    // something it knows instead. "Gravity is an inescapable force. It's why Earth has its
+    // atmosphere and orbits the sun" went out as news, twice, along with "Gravity can bring us to
+    // our knees" and "gravity powers the cars and also keeps Earth alive". Every one of those is
+    // true, none of them is news, and all three are the model filling a hole rather than leaving it.
+    //
+    // The second is where a bulletin STOPS. One captured bulletin reported its three stories
+    // correctly and then wrote twelve more sentences of atmosphere — "the needle slides into
+    // rhythm", "feel the echo of a pattern within the hiss" — at 214 words against a ceiling of 300.
+    // The ceiling is a backstop and was never going to catch it. Nothing had said the bulletin ends.
+    rules: [
+        'Never explain a word from a story. If a story mentions gravity, a court or a currency, your listener knows what those are — ' +
+            'reaching for a definition is filling a gap the story left, and a gap in the news is better left open.',
+        'Stop when the stories stop. The last thing you say is the handover to the record coming up, in one line, and then you are done. ' +
+            'No sign-off about the night, no scene-setting, nothing about the sound of the station.',
+    ],
 };
 
 @Injectable()

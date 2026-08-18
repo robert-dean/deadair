@@ -114,3 +114,31 @@ describe('what it will air', () => {
         expect((await paraphrased.writer.write(request({ clock })))?.claimsTime).toBeUndefined();
     });
 });
+
+// Two things a bulletin owes that a talk break does not, both of them measured on air rather than
+// imagined. The word ceiling is a backstop and caught neither.
+describe('the two ways a bulletin runs on', () => {
+    const systemTurn = (converse: ReturnType<typeof build>['converse']) =>
+        (converse.mock.calls[0]?.[0]?.messages ?? []).find((message: { role: string }) => message.role === 'system')?.content ?? '';
+
+    it('forbids explaining a word out of a story, which is how thin copy gets padded', async () => {
+        // "Gravity is an inescapable force. It's why Earth has its atmosphere and orbits the sun"
+        // went out as news, twice, off a two-line story about a soap box derby. True, not news, and
+        // the model filling a hole rather than leaving it open.
+        const { writer, converse } = build('Here is the news. A bridge reopened.');
+        await writer.write(request());
+
+        expect(systemTurn(converse)).toMatch(/never explain a word from a story/i);
+    });
+
+    it('says where a bulletin stops', async () => {
+        // One captured bulletin reported its three stories correctly and then wrote twelve more
+        // sentences of atmosphere — "the needle slides into rhythm", "feel the echo of a pattern
+        // within the hiss" — at 214 words against a ceiling of 300. Nothing had said it was over.
+        const { writer, converse } = build('Here is the news. A bridge reopened.');
+        await writer.write(request());
+
+        expect(systemTurn(converse)).toMatch(/stop when the stories stop/i);
+        expect(systemTurn(converse)).toMatch(/nothing about the sound of the station/i);
+    });
+});

@@ -161,7 +161,7 @@ describe('setPrompt', () => {
         expect(system).toMatch(/then again with the one you want/);
     });
 
-    it('says browse_charts can read the world\'s chart for a style, not only a named one', () => {
+    it("says browse_charts can read the world's chart for a style, not only a named one", () => {
         // `tag.getTopTracks` was wired into Last.fm's fetchChart from the start, and unreachable
         // because the menu never lists a style chart -- one exists for every word anybody has
         // tagged, so enumerating them is impossible. A model could only ever ask for an id it had

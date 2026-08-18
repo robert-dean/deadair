@@ -610,6 +610,41 @@ describe('breakPrompt', () => {
         });
     });
 
+    // A shape that has no use for the notes withholds them, rather than showing them and asking for
+    // restraint — the same doctrine `showsPrevious` is on. The kind that does this is the bulletin,
+    // and both of the false discography claims this station has aired arrived through its handover:
+    // "released in May three thousand nine hundred thirty-three", "each playing half the album".
+    describe('a kind that is not shown the notes', () => {
+        const bulletin = { job: 'You read the news.', showsPrevious: false, showsFacts: false };
+        const withFacts = { ...next, facts: ['Recorded over two nights in 1971.'] };
+
+        it('shows the record and withholds what is known about it', () => {
+            const said = user(breakPrompt({ kind: 'news', next: withFacts }, {}, bulletin));
+
+            expect(said).toContain('Pink Moon');
+            expect(said).not.toContain('two nights');
+            expect(said).not.toMatch(/- Notes:/);
+        });
+
+        it('says nothing about how to use notes it cannot see', () => {
+            const said = user(breakPrompt({ kind: 'news', next: withFacts }, {}, bulletin));
+
+            expect(said).not.toMatch(/never read out as it stands/i);
+        });
+
+        it('still forbids inventing about that record, which is the risk that remains', () => {
+            // True of the prompt the model can actually see: from inside a bulletin the station does
+            // know nothing about the record it is handing back to.
+            const said = user(breakPrompt({ kind: 'news', next: withFacts }, {}, bulletin));
+
+            expect(said).toMatch(/knows nothing about "Pink Moon"/);
+        });
+
+        it('leaves the notes alone for every kind that did not ask', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous, next: withFacts }))).toContain('two nights');
+        });
+    });
+
     describe('a kind bringing its own shape', () => {
         const greeting = {
             job: 'You greet somebody who has just tuned in.',

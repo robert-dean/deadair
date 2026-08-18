@@ -106,6 +106,21 @@ export interface BreakPromptShape {
      * {@link TALK_BREAK_SHAPE.rules} for why this had to become checkable.
      */
     mustNameRecord?: boolean;
+    /**
+     * Whether the records shown carry their {@link BreakTrack.facts} with them.
+     *
+     * On unless a shape says otherwise, because notes are the point of the enrichment. Off for a
+     * BULLETIN, and that is the one exception rather than a knob: a bulletin is shown the record
+     * coming up only so it can hand back to the music in a line, and everything a note adds there is
+     * risk in the kind of break where being wrong is worst.
+     *
+     * Measured on this station. A bulletin handed the next record's notes read them out on the way
+     * out of the headlines: "released in May three thousand nine hundred thirty-three", "featuring
+     * Grant Young and Sterling Campbell each playing half the album". Both are a model finishing a
+     * note it half-understood, in the voice it has just spent forty words establishing as the voice
+     * that reports facts.
+     */
+    showsFacts?: boolean;
 }
 
 /**
@@ -304,8 +319,12 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // being told not to mention it: a model shown a record will find a way to cue it.
     const previous = shape.showsPrevious ? request.previous : undefined;
 
-    if (previous) parts.push(`The record that has just finished:\n${describe(previous)}`);
-    if (request.next) parts.push(`The record coming up next:\n${describe(request.next)}`);
+    // Same doctrine, applied to the notes: a shape that has no use for them withholds them rather
+    // than showing them and asking for restraint. See `BreakPromptShape.showsFacts`.
+    const withFacts = shape.showsFacts !== false;
+
+    if (previous) parts.push(`The record that has just finished:\n${describe(previous, withFacts)}`);
+    if (request.next) parts.push(`The record coming up next:\n${describe(request.next, withFacts)}`);
 
     // Both absent is a legitimate moment — the top of an order with nothing behind it, and every
     // welcome, which is written BEFORE it is placed and so has no neighbours to be given.
@@ -355,7 +374,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
 
     // Asked of what the model can actually SEE: a rule about reading notes aloud is a rule about
     // nothing when the only record carrying any was withheld by the shape.
-    if (hasFacts(previous, request.next)) {
+    if (withFacts && hasFacts(previous, request.next)) {
         // Only when there are notes, because the thing this guards against cannot happen without
         // them. Two failures: reading a database line out as it stands ("Active as a recording
         // artist from 1948 to 2025" is a real row in this install's enrichment), and treating a
@@ -390,7 +409,13 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // Named per record rather than as a blanket, because the partial case is the dangerous one: told
     // one note about the record behind it, a model will happily invent a matching one about the
     // record in front, and a rule that only fires when BOTH are empty would never see it.
-    const unknown = [previous, request.next].filter((track): track is BreakTrack => track !== undefined && (track.facts?.length ?? 0) === 0);
+    // Judged against what the model can SEE rather than against what the request carried, which is
+    // what makes it true for a shape that withheld the notes: from inside a bulletin's prompt the
+    // station does know nothing about the record it is handing back to, and that is exactly the
+    // guard a bulletin needs most.
+    const unknown = [previous, request.next].filter(
+        (track): track is BreakTrack => track !== undefined && (!withFacts || (track.facts?.length ?? 0) === 0),
+    );
     if (unknown.length > 0) {
         parts.push(
             `The station knows nothing about ${unknown.map(track => `"${track.title}"`).join(' or ')} beyond the title and who it is by. ` +
@@ -550,9 +575,9 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
  * "Notes" rather than "facts", because the rule in the system turn already calls them that and the
  * two have to name the same thing for either to mean anything.
  */
-function describe(track: BreakTrack): string {
+function describe(track: BreakTrack, withFacts: boolean): string {
     const lines = [`- Title: ${track.title}`, `- Artist: ${track.artist}`];
-    if (track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
+    if (withFacts && track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
     return lines.join('\n');
 }
 

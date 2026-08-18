@@ -62,6 +62,27 @@ export function resolveTargetLufs(value: unknown): number {
     return Math.min(MAX_TARGET_LUFS, Math.max(MIN_TARGET_LUFS, parsed));
 }
 
+/** The `deadair.settings` key. */
+export const LEVELING_ENABLED_KEY = 'playout.levelingEnabled';
+
+/**
+ * On by default: a record is left unlevelled only when an operator has
+ * specifically asked for that, never as the station's own idea of a sensible
+ * starting point.
+ *
+ * Turning this off stops {@link gainFor} from being asked at all, so a record
+ * plays at whatever its own master happens to sit at. It does not touch
+ * `speechGainFor` — the station's own voice keeps being corrected regardless, on
+ * the same argument as `speechGainFor`'s own doc comment: a break has no live
+ * follower behind it the way a record has `normalize` in `radio.liq`, so leaving
+ * it uncorrected would be silently wrong rather than an operator's honest choice.
+ * It also does not touch that live follower itself — `normalize` keeps chasing
+ * loudness on the leaf sources regardless, so a station with this off is not
+ * hearing raw masters end to end, only records that arrive without the static
+ * per-item correction this file computes.
+ */
+export const DEFAULT_LEVELING_ENABLED = true;
+
 /**
  * What the analyzer measured about how loud a record is, as an item carries it.
  *

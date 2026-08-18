@@ -61,6 +61,17 @@ export interface AnnotationContext {
     targetLufs: number;
     /** How far under that a break is aimed, in dB. See `speechGainFor`. */
     speechTrimDb: number;
+    /**
+     * Whether a record gets the static per-item correction {@link gainFor}
+     * computes. See `LEVELING_ENABLED_KEY` in `gain.ts`.
+     *
+     * Records only: a break is stamped through `speechGainFor` regardless, since
+     * nothing else is holding its level. Off leaves a record's own `normalize` in
+     * `radio.liq` as the only thing correcting it, which is the live follower this
+     * file's static gain exists to be better than — an operator choosing this is
+     * choosing that tradeoff, not asking for silence about it.
+     */
+    levelingEnabled: boolean;
     /** Whether this broadcast blends one record into the next. See `crossfade.ts`. */
     crossfade: boolean;
     /**
@@ -188,14 +199,18 @@ const seconds = (ms: number): string => String(Math.round(ms) / 1000);
  * correction and a catastrophe, which is why the number is never formatted
  * anywhere but here.
  *
- * Absent for an unmeasured track, for a boost with no headroom to spend, and for
- * a correction too small to hear. See `gainFor`, which decides all three.
+ * Absent for an unmeasured track, for a boost with no headroom to spend, for a
+ * correction too small to hear, and for any record at all once
+ * {@link AnnotationContext.levelingEnabled} is off. See `gainFor`, which decides
+ * the first three; the fourth is decided here, before `gainFor` is even asked.
  */
-function gainAnnotations(item: RundownItem, { targetLufs, speechTrimDb }: AnnotationContext): Record<string, string> {
+function gainAnnotations(item: RundownItem, { targetLufs, speechTrimDb, levelingEnabled }: AnnotationContext): Record<string, string> {
     // A break the station wrote and spoke, which is a different level question from a record
     // somebody else mastered: see `speechGainFor`, and {@link voiceAnnotations} for the other
-    // path the same audio can take to the player.
+    // path the same audio can take to the player. Unaffected by `levelingEnabled`, which is a
+    // record-only knob — see the field's own doc comment for why.
     if (isRenderItem(item)) return voiceAnnotations(item, targetLufs, speechTrimDb);
+    if (!levelingEnabled) return {};
 
     const gainDb = gainFor(item, targetLufs);
 

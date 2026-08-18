@@ -1,6 +1,13 @@
 import type { ConfigField } from '@deadair/plugin-sdk';
 import { AIR_MODES, AIR_MODE_KEY, DEFAULT_AIR_MODE } from '#modules/playout/air.mode.js';
-import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, SPEECH_TRIM_KEY, TARGET_LUFS_KEY } from '#modules/playout/gain.js';
+import {
+    DEFAULT_LEVELING_ENABLED,
+    DEFAULT_SPEECH_TRIM_DB,
+    DEFAULT_TARGET_LUFS,
+    LEVELING_ENABLED_KEY,
+    SPEECH_TRIM_KEY,
+    TARGET_LUFS_KEY,
+} from '#modules/playout/gain.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY } from '#modules/playout/audio/track.cache.limit.js';
 import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
@@ -415,7 +422,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Target loudness (LUFS)',
         type: 'number',
         default: DEFAULT_TARGET_LUFS,
-        help: 'Where measured records are set before they air, so a quiet master and a loud one arrive at the same level. A record the station has not measured is left to the live leveller instead. Changing this needs the same number set in the stream config, which the player levels everything else against.',
+        help: 'Where measured records are set before they air, so a quiet master and a loud one arrive at the same level. A record the station has not measured is left to the live leveller instead. Changing this needs the same number set in the stream config, which the player levels everything else against. Still used for the DJ even with the switch below off — nothing else corrects a break.',
+    },
+    {
+        group: 'playout',
+        key: LEVELING_ENABLED_KEY,
+        label: 'Level records to the target above',
+        type: 'boolean',
+        default: DEFAULT_LEVELING_ENABLED,
+        help: 'With this off, a record plays at whatever its own master happens to sit at instead of being corrected to the target loudness above — a quiet 1970s pressing next to a loud modern one will sit at very different volumes. The live leveller in the stream keeps running either way, so this is not the same as raw and uncorrected; it only turns off the precomputed per-record correction. Does not affect the DJ, who is always corrected.',
     },
     {
         group: 'playout',

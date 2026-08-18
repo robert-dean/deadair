@@ -12,7 +12,11 @@ import {
     dictionMarkersIn,
     echoedSample,
     isPersonaBrevity,
+    isPersonaLatitude,
     keepsCharacter,
+    latitudeOf,
+    LATITUDE_LICENCE,
+    LATITUDE_MAX_WORDS,
     matchesDictionMarker,
     MAX_SAMPLE_ECHO_WORDS,
     MIN_DICTION_MARKERS,
@@ -432,5 +436,60 @@ describe('brevity', () => {
         // A sheet whose only entry is brevity has still named no markers, so nothing is refused for
         // running long — that is what `readAnswer`'s ceiling is for, and it is unchanged.
         expect(keepsCharacter({ brevity: 'one-line' }, 'A very long line indeed, going on at some considerable length.')).toBe(true);
+    });
+});
+
+// The rung above the station's ordinary discipline, which brevity deliberately never grew. It is a
+// separate field because what it moves is PERMISSION rather than length: the ceiling, the shape's own
+// rules, and at the top rung what the character may say. The sheet only ever OFFERS one — the shape
+// vetoes and the station's content policy outranks it, both of which are pinned in `break.prompt`.
+describe('latitude', () => {
+    it('answers nothing for a character held to the ordinary discipline', () => {
+        expect(latitudeOf(undefined)).toBeUndefined();
+        expect(latitudeOf({ quirks: ['Plays the record and shuts up'] })).toBeUndefined();
+    });
+
+    it('answers the rung a sheet carries', () => {
+        expect(latitudeOf({ latitude: 'loose' })).toBe('loose');
+        expect(latitudeOf({ latitude: 'unleashed' })).toBe('unleashed');
+    });
+
+    it('reads a rung nothing recognises as no room at all, rather than throwing on the way to a model', () => {
+        // The column is plain text, so a row edited by hand can hold anything — the same reason
+        // `isPersonaBrevity` guards the rung beside it.
+        expect(latitudeOf({ latitude: 'feral' as never })).toBeUndefined();
+        expect(isPersonaLatitude('feral')).toBe(false);
+        expect(isPersonaLatitude('unleashed')).toBe(true);
+    });
+
+    it('rises with the rung', () => {
+        // That these are ABOVE the station's own ceiling is pinned where the two meet, in
+        // `break.prompt.test.ts` — a persona test reaching into the director for that constant would
+        // be the dependency this file does not have.
+        expect(LATITUDE_MAX_WORDS.unleashed).toBeGreaterThan(LATITUDE_MAX_WORDS.loose);
+    });
+
+    it('stays out of the sheet the caller renders, because a kind may not be offering it', () => {
+        // `personaLines` is rendered by every kind of break. A bulletin reading its own persona's
+        // sheet must not find a licence to ramble in it.
+        expect(personaLines({ latitude: 'unleashed' })).toEqual([]);
+    });
+
+    it('composes with brevity rather than contradicting it', () => {
+        // A terse character can be unfiltered — "Awful. Next." — so the two are not one dial. A
+        // ceiling is a limit and not an instruction, and one nobody reaches costs nothing.
+        expect(personaLines({ brevity: 'one-line', latitude: 'unleashed' }).at(-1)).toContain('One short sentence');
+        expect(latitudeOf({ brevity: 'one-line', latitude: 'unleashed' })).toBe('unleashed');
+    });
+
+    it('makes no claim a script can be refused for, exactly like brevity', () => {
+        expect(keepsCharacter({ latitude: 'unleashed' }, 'Anything at all.')).toBe(true);
+        expect(characterFault({ latitude: 'unleashed' }, 'Anything at all.')).toBeUndefined();
+    });
+
+    it('points the licence at the record and away from the listener', () => {
+        // The same fence `persona.defaults.ts` puts in the two seeds' own sheets, said once here so
+        // it holds for a character an operator wrote in a hurry.
+        expect(LATITUDE_LICENCE).toMatch(/never about the person listening/i);
     });
 });

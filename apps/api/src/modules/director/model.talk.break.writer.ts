@@ -5,7 +5,7 @@ import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, TALK_BREAK_SHAPE, writeDecline, type AnswerGuard } from './break.prompt.js';
+import { breakPrompt, maxWordsFor, readAnswer, TALK_BREAK_SHAPE, writeDecline, type AnswerGuard, type PromptSettings } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
@@ -137,22 +137,22 @@ export class ModelTalkBreakWriter extends BreakWriter {
         }
 
         const model = this.config.get(MODEL_WRITER_KEYS.model, '').trim();
-        const messages = breakPrompt(
-            request,
-            {
-                station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-                // The persona's own name where it has one, and the station's behind it. A persona
-                // that is a manner rather than a character has no reason to rename the presenter.
-                dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
-                // Read per break like every other setting here, so an operator's change lands on
-                // the next one rather than after a restart.
-                cleanLanguage: speaksClean(advisoryPolicy(this.config)),
-                ...(request.persona === undefined ? {} : { persona: request.persona }),
-            },
-            // Named rather than defaulted: what this binding writes is a link between two records,
-            // and a writer that said nothing about its shape would silently get that whatever it was.
-            TALK_BREAK_SHAPE,
-        );
+        // Held rather than passed inline, because the guard below has to be built from the SAME
+        // settings: a persona's latitude decides the word ceiling, and the number the model is told
+        // and the number it is refused at have to come from one `maxWordsFor` call over one object.
+        const settings: PromptSettings = {
+            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
+            // The persona's own name where it has one, and the station's behind it. A persona
+            // that is a manner rather than a character has no reason to rename the presenter.
+            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
+            // Read per break like every other setting here, so an operator's change lands on
+            // the next one rather than after a restart.
+            cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+            ...(request.persona === undefined ? {} : { persona: request.persona }),
+        };
+        // Named rather than defaulted: what this binding writes is a link between two records, and a
+        // writer that said nothing about its shape would silently get that whatever it was.
+        const messages = breakPrompt(request, settings, TALK_BREAK_SHAPE);
 
         const result = await this.llm.converse(
             {
@@ -178,7 +178,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
         );
 
         const guard: AnswerGuard = {
-            maxWords: DEFAULT_MAX_WORDS,
+            // The prompt's own ceiling rather than the station's default, which for a persona with
+            // latitude is a larger number. Refusing at 40 what was asked for at 70 would decline
+            // every break the character wrote, silently, and look exactly like a model that is off.
+            maxWords: maxWordsFor(settings, TALK_BREAK_SHAPE),
             // The records the shape says this break has to be about, which for a link is both of the
             // ones it was shown. Taken from the same two fields the prompt was built from, so a
             // break is only ever refused for failing to name something it was actually given.

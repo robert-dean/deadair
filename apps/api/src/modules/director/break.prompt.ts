@@ -32,11 +32,16 @@
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import {
     characterFault,
+    latitudeOf,
     personaLines,
     personaVoiceReminder,
     spentCatchphrases,
+    LATITUDE_INSTRUCTIONS,
+    LATITUDE_LICENCE,
+    LATITUDE_MAX_WORDS,
     type CharacterContext,
     type CharacterFault,
+    type PersonaLatitude,
     type PersonaSheet,
 } from '#modules/personas/persona.sheet.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
@@ -122,6 +127,31 @@ export interface BreakPromptShape {
      * that reports facts.
      */
     showsFacts?: boolean;
+    /**
+     * Whether a persona's {@link PersonaSheet.latitude} is offered on this kind of break.
+     *
+     * Off unless a shape asks for it, and the shape has the last word rather than the sheet — which
+     * is the same asymmetry {@link BreakPromptShape.mustNameRecord} has, pointed the other way. A
+     * persona is who the station IS, and a kind of break is a job it is doing: a bulletin's accuracy
+     * is not a character choice, and a welcome is a greeting to somebody who has just arrived rather
+     * than a slot for a monologue. So only the ordinary link offers the room, and a station whose
+     * character is unleashed still reads the news in forty words.
+     */
+    allowsLatitude?: boolean;
+    /**
+     * The {@link BreakPromptShape.rules} to send INSTEAD when latitude is in force.
+     *
+     * Swapped rather than appended, and that is the whole reason this exists as a second list. "Make
+     * one point" and "take that thought as far as it goes" are the same slot said twice, and a model
+     * handed both hedges between them — which is the argument that already makes a persona replace
+     * the station's role sentence rather than queue behind it.
+     *
+     * A shape writing one of these owns BOTH versions, so the rules a kind cannot give up are visible
+     * in both lists rather than being reconstructed by whoever reads the diff later. For the talk
+     * break that is "name a record", which {@link BreakPromptShape.mustNameRecord} still refuses over
+     * whatever room the character was given.
+     */
+    latitudeRules?: readonly string[];
 }
 
 /**
@@ -186,6 +216,22 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
             'reminded you of. If your break would still make sense read out by anybody else, it is not yours yet.',
     ],
     mustNameRecord: true,
+    // The link between two records is the one kind with room to give. See `allowsLatitude`.
+    allowsLatitude: true,
+    // The same three rules with the first one turned around, which is the only one of them that was
+    // ever about restraint. Rules two and three are unchanged and deliberately so: a character given
+    // room still has to be talking ABOUT a record a listener can identify — `mustNameRecord` refuses
+    // it either way, and a refusal for a rule that was quietly dropped from its own prompt would be
+    // the trick question every other guard here is written to avoid.
+    latitudeRules: [
+        'Take the thought as far as it goes. This is not a link to get through: if the record sets you off, follow it — the tangent, the ' +
+            'grudge, the story it dragged up. Say the whole of it and stop when you are actually finished.',
+        'Name a record, and then say what you make of it. Your point has to be ABOUT one of the records above, and a listener has to be ' +
+            'able to tell which — so say its title, or who it is by, somewhere in the break. One of the two is plenty; both is usually ' +
+            'one too many.',
+        'Talk, do not announce. Naming the record is not the break, it is what the break hangs on: a reaction, an opinion, something it ' +
+            'reminded you of. If your break would still make sense read out by anybody else, it is not yours yet.',
+    ],
 };
 
 /** How the station wants this break to sound, and how long it may run. */
@@ -245,6 +291,36 @@ export const DEFAULT_MAX_WORDS = 40;
 const WORDS_PER_SECOND = 2.6;
 
 /**
+ * The rung in force for this prompt, or `undefined` for the station's ordinary discipline.
+ *
+ * The shape has the veto and the sheet only ever offers, which is why both are read here rather than
+ * at either end. See {@link BreakPromptShape.allowsLatitude}.
+ */
+const latitudeIn = (settings: PromptSettings, shape: BreakPromptShape): PersonaLatitude | undefined =>
+    shape.allowsLatitude === true ? latitudeOf(settings.persona) : undefined;
+
+/**
+ * How long a break may run here, in words.
+ *
+ * **The one place the ceiling is resolved, and a writer must build both of its ceilings from this
+ * call.** {@link PromptSettings.maxWords} is what the model is TOLD and {@link AnswerGuard.maxWords}
+ * is what {@link readAnswer} refuses at, and the two are read in different files at different moments
+ * — so a persona given room in the prompt and judged at the default would have every one of its
+ * breaks declined for doing exactly what it was asked, in silence, with the floor quietly writing the
+ * lot. That failure has no symptom other than a station that stopped sounding like the character an
+ * operator picked, which is why this is a function rather than two literals that happen to agree.
+ *
+ * `Math.max` rather than a replacement: a kind with a ceiling of its own already answered the
+ * question of how long ITS break may run, and a rung is a floor under that rather than a correction
+ * to it.
+ */
+export function maxWordsFor(settings: PromptSettings, shape: BreakPromptShape): number {
+    const base = settings.maxWords ?? DEFAULT_MAX_WORDS;
+    const latitude = latitudeIn(settings, shape);
+    return latitude === undefined ? base : Math.max(base, LATITUDE_MAX_WORDS[latitude]);
+}
+
+/**
  * The conversation, oldest first, with the system prompt as the first turn.
  *
  * One system turn and one user turn. The system turn is who the station is and what a break may
@@ -262,8 +338,9 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
     const station = settings.station?.trim();
     const dj = settings.dj?.trim();
     const persona = settings.persona;
-    const maxWords = settings.maxWords ?? DEFAULT_MAX_WORDS;
+    const maxWords = maxWordsFor(settings, shape);
     const seconds = Math.round(maxWords / WORDS_PER_SECOND);
+    const latitude = latitudeIn(settings, shape);
 
     // A persona replaces the role sentence rather than being appended to it, because "you are the
     // voice of a radio station" and "you are a pirate captain who runs one" are the same slot said
@@ -278,6 +355,11 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // The sheet sits between the role and the rules, which leaves the grounding discipline in
         // the recency position it has always had.
         ...(persona === undefined ? [] : personaLines(persona)),
+        // Beside the sheet's own brevity line, which is the last thing `personaLines` renders, and
+        // for the same reason it is last there: how much of itself a character says belongs with the
+        // word ceiling rather than among the facets of a voice. This is that instruction pointed the
+        // other way.
+        ...(latitude === undefined ? [] : [LATITUDE_INSTRUCTIONS[latitude]]),
         shape.job,
         '',
         'Rules:',
@@ -293,12 +375,20 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // own policy rather than about what a break IS. Both halves are needed: a model told only
         // not to swear will still quote an explicit title or lyric back, which is the same words
         // arriving by a route the first half does not cover.
+        // The two share a slot and the clean rule wins it, which is the whole of "a persona narrows
+        // within station policy and never widens it". A station that has said it is broadcast-clean
+        // is not talked out of that by whoever is presenting, so an `unleashed` character on a clean
+        // station gets the restraint and no licence — and the licence appears only where the policy
+        // had already left the presenter free, where its job is to say so rather than to leave the
+        // model guessing from the absence of a rule.
         ...(settings.cleanLanguage
             ? ['- This station is broadcast-clean. No profanity or crude language, and do not quote an explicit lyric or title word for word.']
-            : []),
+            : latitude === 'unleashed'
+              ? [`- ${LATITUDE_LICENCE}`]
+              : []),
         // Last in the list, because a rule true of this kind alone should not push the shared ones
         // further from the end than they already are.
-        ...(shape.rules ?? []).map(rule => `- ${rule}`),
+        ...(latitude === undefined ? (shape.rules ?? []) : (shape.latitudeRules ?? shape.rules ?? [])).map(rule => `- ${rule}`),
     ];
 
     // AFTER the rules, and that position is the whole reason it exists. The failure it addresses is
@@ -818,6 +908,13 @@ const bareWords = (text: string): string =>
 
 /** What a model's answer has to survive to become a script. */
 export interface AnswerGuard {
+    /**
+     * The ceiling this answer is refused past, defaulting to {@link DEFAULT_MAX_WORDS}.
+     *
+     * **Build it with {@link maxWordsFor}, from the same settings the prompt was built from.** A
+     * persona's latitude moves this and the number the model was told together, and they are the
+     * only two places the ceiling exists. See that function for what disagreeing costs.
+     */
     maxWords?: number;
     /**
      * The character it was asked to write in, checked against what came back.

@@ -87,6 +87,71 @@ const BREVITY_INSTRUCTIONS: Record<PersonaBrevity, string> = {
     'one-line': 'You say almost nothing. One short sentence: name the thing and get out of the way.',
 };
 
+/** How much room a character is given, above the station's ordinary discipline. See {@link PersonaSheet.latitude}. */
+export const PERSONA_LATITUDES = ['loose', 'unleashed'] as const;
+
+export type PersonaLatitude = (typeof PERSONA_LATITUDES)[number];
+
+/** Whether a stored value is a rung, so a hand-edited row cannot put nonsense in a prompt. */
+export const isPersonaLatitude = (value: unknown): value is PersonaLatitude => PERSONA_LATITUDES.includes(value as PersonaLatitude);
+
+/**
+ * What each rung permits.
+ *
+ * Phrased as what a break IS rather than as a word count, for {@link BREVITY_INSTRUCTIONS}' reason:
+ * the ceiling states the count, and stating it twice invites a model to treat one of the two numbers
+ * as the real limit. What these say is what the extra words are FOR, which is the half no ceiling can
+ * carry.
+ */
+export const LATITUDE_INSTRUCTIONS: Record<PersonaLatitude, string> = {
+    loose:
+        'You are given room. One thought, taken as far as it actually goes — a tangent, an opinion, something it reminded you of — and ' +
+        'you stop when you are finished rather than when you have been brief.',
+    unleashed:
+        'You are given room and you are off the leash. One thought, taken as far as it actually goes, with nothing softened on the way: ' +
+        'say what you genuinely make of the record, at whatever length that takes, in the register you would use if nobody were vetting it.',
+};
+
+/**
+ * The word ceiling each rung buys, replacing `DEFAULT_MAX_WORDS` for a persona that carries one.
+ *
+ * At the prompt's own reading speed those are roughly 27 and 38 seconds spoken, against the default's
+ * fifteen. The top rung is a long way past what a link between two records normally wants, which is
+ * the point of it being a rung an operator chooses rather than a number the station moved.
+ *
+ * **A ceiling is not an instruction**, which is what makes this safe beside {@link PersonaSheet.brevity}:
+ * a terse character with latitude simply never reaches it. The two compose rather than conflict.
+ */
+export const LATITUDE_MAX_WORDS: Record<PersonaLatitude, number> = {
+    loose: 70,
+    unleashed: 100,
+};
+
+/**
+ * The content half of the top rung, as a rule for the caller's own list.
+ *
+ * Emitted ONLY where the station's content policy already permits it, which is the one bound that
+ * makes this expressible at all: a persona chooses where it sits underneath station policy and can
+ * never widen it. See `break.prompt.ts`, where it shares a slot with the broadcast-clean rule and
+ * loses to it.
+ *
+ * The second sentence is the same fence `persona.defaults.ts` puts in `avoid` and `quirks` on the two
+ * seeds this rung exists for, said once here so it holds for a character an operator wrote in a
+ * hurry. It is an instruction to a model and not an enforcement, exactly as that fence is.
+ */
+export const LATITUDE_LICENCE =
+    'Nothing is off limits in how you say it: swear if you would swear, be as rude about the music as you actually are, and do not ' +
+    'soften a line to make it comfortable. Be rude about the record, the industry and yourself — never about the person listening.';
+
+/**
+ * The rung this sheet carries, or `undefined` for the station's ordinary discipline.
+ *
+ * Validated here rather than at each caller, so a hand-edited row carrying `latitude: 'feral'` reads
+ * as no latitude at all instead of throwing on the way into a prompt.
+ */
+export const latitudeOf = (sheet: PersonaSheet | undefined): PersonaLatitude | undefined =>
+    sheet !== undefined && isPersonaLatitude(sheet.latitude) ? sheet.latitude : undefined;
+
 /**
  * The facets of a character beyond the one-line style, all optional.
  *
@@ -138,8 +203,37 @@ export interface PersonaSheet {
      * A station would look like it had no model at all, which is the failure a persona is supposed to
      * survive rather than cause. So this is an instruction and nothing checks it, exactly like "make
      * one point" beside it in the rules.
+     *
+     * ## The rung above the default exists now, and it is {@link PersonaSheet.latitude}
+     *
+     * A separate field rather than two more entries here, because the thing above the default is not
+     * length: it is PERMISSION, and it moves the ceiling, the shape's own rules and — at the top rung
+     * — what the character may say, where this only ever changes one sentence of the prompt. The two
+     * compose: a character can be terse and unfiltered at once, and a ceiling nobody reaches costs
+     * nothing.
      */
     brevity?: PersonaBrevity;
+    /**
+     * How much room this character is given, or absent for the station's ordinary discipline.
+     *
+     * The opposite direction to {@link PersonaSheet.brevity}, and the opposite KIND of thing. Brevity
+     * is a habit and is instruction-only; this is a permission, and it reaches three places at once:
+     * the word ceiling ({@link LATITUDE_MAX_WORDS}, in the prompt and in `readAnswer`'s guard from one
+     * call), the shape's own rules (`BreakPromptShape.latitudeRules`, which is how "make one point"
+     * stops being asked for), and at `unleashed` the content licence ({@link LATITUDE_LICENCE}).
+     *
+     * Three bounds are load-bearing, and none of them is negotiable by a sheet.
+     *
+     * - **A shape decides whether it applies at all.** Only the ordinary talk break offers it. A
+     *   bulletin's accuracy is not a character choice, and a welcome is a greeting rather than a slot
+     *   for a monologue.
+     * - **It narrows within station policy and never widens it.** The licence is emitted only where
+     *   `rotation.advisory` has already left the presenter free to swear.
+     * - **It switches off no refusal.** {@link characterFault}'s three prohibitions, the
+     *   dialect check and the named-nothing check all still decline to the floor. What a rung buys is
+     *   the station ASKING for more, never accepting worse.
+     */
+    latitude?: PersonaLatitude;
     /** Lines in their own voice. The few-shot examples, and what a console previews them with. */
     samples?: readonly string[];
 }

@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
     breakPrompt,
     DEFAULT_MAX_WORDS,
+    maxWordsFor,
     overusedWords,
     readAnswer,
     TALK_BREAK_SHAPE,
@@ -17,6 +18,7 @@ import {
     type PromptSettings,
 } from '../../../src/modules/director/break.prompt.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
+import { LATITUDE_INSTRUCTIONS, LATITUDE_LICENCE, LATITUDE_MAX_WORDS } from '../../../src/modules/personas/persona.sheet.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
@@ -677,6 +679,98 @@ describe('breakPrompt', () => {
             expect(rules).toMatch(new RegExp(`under ${DEFAULT_MAX_WORDS} words`));
         });
     });
+
+    // A character whose whole appeal is going somewhere, which the station had no way to express: the
+    // 40-word ceiling and "make one point" are right for its ordinary voice and are exactly what a
+    // shock jock is hired to ignore. What a rung buys is the station ASKING for more; every refusal
+    // underneath still holds, which is what the `readAnswer` cases below pin.
+    describe('a persona given room', () => {
+        const pirate = { style: 'a pirate captain', diction: ['Ye for you'], dictionMarkers: ['arr'] };
+        const loose = { ...pirate, latitude: 'loose' as const };
+        const unleashed = { ...pirate, latitude: 'unleashed' as const };
+
+        it('states the rung’s ceiling rather than the station’s', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { persona: loose }));
+
+            expect(rules).toMatch(new RegExp(`under ${LATITUDE_MAX_WORDS.loose} words`));
+            expect(rules).not.toMatch(new RegExp(`under ${DEFAULT_MAX_WORDS} words`));
+        });
+
+        it('tells the character what the room is for', () => {
+            expect(system(prompt({ kind: 'talkbreak', previous, next }, { persona: loose }))).toContain(LATITUDE_INSTRUCTIONS.loose);
+        });
+
+        it('stops asking for one point, since asking for both would only make it hedge', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { persona: loose }));
+
+            expect(rules).not.toMatch(/Make one point/);
+            expect(rules).toMatch(/Take the thought as far as it goes/);
+        });
+
+        it('still demands a record be named, which is the rule the room does not touch', () => {
+            // `mustNameRecord` refuses a break that names neither either way, so dropping the ask
+            // from the prompt would be refusing a script for an instruction it never received.
+            expect(system(prompt({ kind: 'talkbreak', previous, next }, { persona: unleashed }))).toMatch(/Name a record, and then say what/);
+        });
+
+        it('permits the language only at the top rung', () => {
+            expect(system(prompt({ kind: 'talkbreak', previous }, { persona: unleashed }))).toContain(LATITUDE_LICENCE);
+            expect(system(prompt({ kind: 'talkbreak', previous }, { persona: loose }))).not.toContain(LATITUDE_LICENCE);
+        });
+
+        it('loses that permission to the station’s own policy', () => {
+            // The whole of "a persona narrows within station policy and never widens it". A station
+            // that has said it is broadcast-clean is not talked out of it by whoever is presenting.
+            const rules = system(prompt({ kind: 'talkbreak', previous }, { persona: unleashed, cleanLanguage: true }));
+
+            expect(rules).not.toContain(LATITUDE_LICENCE);
+            expect(rules).toMatch(/broadcast-clean/i);
+        });
+
+        it('is not offered by a kind that did not ask for it', () => {
+            // The shape has the veto and the sheet only offers: a bulletin's accuracy is not a
+            // character choice, and a welcome is a greeting rather than a slot for a monologue.
+            const bulletin = { job: 'You read the news.', showsPrevious: false };
+            const rules = system(breakPrompt({ kind: 'news', next }, { persona: unleashed }, bulletin));
+
+            expect(rules).toMatch(new RegExp(`under ${DEFAULT_MAX_WORDS} words`));
+            expect(rules).not.toContain(LATITUDE_INSTRUCTIONS.unleashed);
+            expect(rules).not.toContain(LATITUDE_LICENCE);
+        });
+
+        it('reads a hand-edited row that names no rung as no room at all', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous }, { persona: { ...pirate, latitude: 'feral' as never } }));
+
+            expect(rules).toMatch(new RegExp(`under ${DEFAULT_MAX_WORDS} words`));
+            expect(rules).toMatch(/Make one point/);
+        });
+    });
+});
+
+// The one number that exists in two files at two moments: what the model is told, and what the guard
+// refuses at. They disagree silently, and a disagreement has no symptom other than a character that
+// stopped sounding like itself — every break declined for doing exactly what it was asked.
+describe('maxWordsFor', () => {
+    const shape = TALK_BREAK_SHAPE;
+    const unleashed = { style: 'a shock jock', latitude: 'unleashed' as const };
+
+    it('is the station’s ceiling for a persona with no room', () => {
+        expect(maxWordsFor({}, shape)).toBe(DEFAULT_MAX_WORDS);
+        expect(maxWordsFor({ persona: { style: 'a warm host' } }, shape)).toBe(DEFAULT_MAX_WORDS);
+    });
+
+    it('is the rung’s ceiling for a persona with it', () => {
+        expect(maxWordsFor({ persona: unleashed }, shape)).toBe(LATITUDE_MAX_WORDS.unleashed);
+    });
+
+    it('answers the caller’s own ceiling for a kind that does not offer the room', () => {
+        expect(maxWordsFor({ persona: unleashed, maxWords: 55 }, { job: 'You read the news.', showsPrevious: false })).toBe(55);
+    });
+
+    it('never lowers a ceiling a kind set for itself', () => {
+        // A rung is a floor under the kind's own answer rather than a correction to it.
+        expect(maxWordsFor({ persona: unleashed, maxWords: 140 }, shape)).toBe(140);
+    });
 });
 
 // The failure measured on air: thirty-nine consecutive model talk breaks under one persona, roughly
@@ -782,6 +876,18 @@ describe('readAnswer, against a persona', () => {
 describe('readAnswer', () => {
     it('takes an ordinary answer as it is', () => {
         expect(readAnswer('That was Solid Air, from John Martyn.')).toBe('That was Solid Air, from John Martyn.');
+    });
+
+    it('refuses at the ceiling it was given, which is what a rung moves', () => {
+        // The same fifty words either way. The persona did not make the answer acceptable; the
+        // ceiling the writer built from `maxWordsFor` did, and if the two ever come apart this is
+        // the case that fails rather than a station quietly falling to its phrasings.
+        const rambling = Array.from({ length: 50 }, (_unused, index) => `word${index}`).join(' ');
+
+        expect(readAnswer(rambling, { maxWords: DEFAULT_MAX_WORDS })).toBeUndefined();
+        expect(readAnswer(rambling, { maxWords: maxWordsFor({ persona: { style: 'a shock jock', latitude: 'loose' } }, TALK_BREAK_SHAPE) })).toBe(
+            rambling,
+        );
     });
 
     it('unwraps a script the model put in quotation marks', () => {

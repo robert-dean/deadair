@@ -110,6 +110,56 @@ describe('ModelTalkBreakWriter', () => {
         });
     });
 
+    // The one number that lives in two places: what the prompt asks for and what the guard refuses
+    // at. This binding builds both from one `maxWordsFor` call over one settings object, and these
+    // cases are what stops them drifting apart — a character asked for seventy words and judged at
+    // forty has every break declined for doing as it was told, with the floor writing the lot.
+    describe('a persona given room', () => {
+        const shockJock = {
+            id: 'p1',
+            key: 'shockjock',
+            label: 'The shock jock',
+            style: 'a shock jock',
+            latitude: 'loose' as const,
+            active: true,
+        };
+        // Sixty words, naming a record, in nobody's particular dialect: past the station's ceiling
+        // and inside the rung's, and nothing else in the guard has an opinion about it.
+        const long = ['Solid', 'Air', ...Array.from({ length: 58 }, () => 'word')].join(' ');
+
+        it('refuses it at the station’s ceiling for a character with no room', async () => {
+            const { writer } = build({ answer: long });
+
+            await expect(writer.write({ kind: TALK_BREAK_KIND, previous, next })).resolves.toBeUndefined();
+        });
+
+        it('keeps it for a character that was given some', async () => {
+            const { writer } = build({ answer: long });
+
+            const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, persona: shockJock });
+
+            expect(written?.script).toBe(long);
+        });
+
+        it('asked the model for that length rather than judging it against one it never heard', async () => {
+            const { writer, converse } = build({ answer: long });
+
+            await writer.write({ kind: TALK_BREAK_KIND, previous, next, persona: shockJock });
+
+            expect(converse).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    messages: expect.arrayContaining([
+                        expect.objectContaining({
+                            role: 'system',
+                            content: expect.stringContaining('under 70 words'),
+                        }),
+                    ]),
+                }),
+                expect.anything(),
+            );
+        });
+    });
+
     describe('declines rather than airing what came back', () => {
         it('when the model rambled past the ceiling', async () => {
             const { writer } = build({ answer: Array.from({ length: 80 }, () => 'word').join(' ') });

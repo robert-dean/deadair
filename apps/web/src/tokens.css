@@ -19,10 +19,12 @@
     --da-text-secondary: #a7b2ac;
     --da-text-dimmed: #6e7a74;
 
+    /* Only the two the theme cannot reach: the nav's active bar is drawn in a CSS module, and the
+       two glows are alpha over a hue Mantine publishes no transparent form of. The solid accent and
+       the solid tally are NOT here — they live in `theme.ts` as `phosphor` and `red`, and a second
+       copy of a hex in this file is a second place for them to drift apart. */
     --da-phosphor: #2fd98c;
-    --da-phosphor-pressed: #21b573;
     --da-phosphor-glow: rgb(47 217 140 / 35%);
-    --da-tally: #ff4b4b;
     --da-tally-glow: rgb(255 75 75 / 40%);
 
     /* One tracking value per idea, which is the whole point: the console had three different
@@ -30,8 +32,13 @@
     --da-tracking-eyebrow: 0.08em;
     --da-tracking-wordmark: 0.12em;
 
+    /* One duration, because the console only ever wants one: everything that moves here is a
+       control acknowledging a press or a row lighting under the pointer, and both want to be over
+       before they are noticed. A `--da-slow` sat beside this unused for as long as it existed —
+       the honest reading is that a slower tier is a token nothing on a desk has asked for, and
+       inventing a use for one would be the wrong way round. Add it back the day something needs
+       it, with the thing that needs it. */
     --da-fast: 120ms;
-    --da-slow: 200ms;
     --da-ease: cubic-bezier(0.2, 0, 0, 1);
 }
 

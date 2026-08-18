@@ -37,7 +37,7 @@ import { hasStrayBracket, TEMPLATE_VOCABULARY, unknownPlaceholders, unwrapTempla
 import { jsonObjects, parseLooseJson, withoutThinking } from '#modules/shared/json.objects.js';
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { PersonaDraft } from './persona.js';
-import { dictionMarkersIn, isPersonaBrevity, PERSONA_SHEET_LIMITS } from './persona.sheet.js';
+import { dictionMarkersIn, isPersonaBrevity, isPersonaLatitude, PERSONA_SHEET_LIMITS } from './persona.sheet.js';
 
 /** How long a description may be. Long enough for a paragraph, short enough not to be a script. */
 export const MAX_DESCRIPTION = 2000;
@@ -166,6 +166,7 @@ export function personaPrompt(description: string): LlmMessage[] {
                 '  "avoid": ["wording that would break the character"],',
                 '  "background": "a couple of grounded facts they may mention about themselves",',
                 '  "brevity": "omit this unless the character is notably terse; \\"short\\" for one who says less than most, \\"one-line\\" for one who barely speaks",',
+                '  "latitude": "omit this unless the character is one that has to be allowed to run: \\"loose\\" for one who follows a thought wherever it goes, \\"unleashed\\" for one who does that and says it however they like",',
                 '  "music": "what this character plays, in a sentence",',
                 `  "templates": ["five phrasings in this character's voice, one string each. Values you may use: ${TEMPLATE_VALUES.join(' ')}"]`,
                 '}',
@@ -284,6 +285,10 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     // Checked rather than taken, so a model answering "terse" or "brief" leaves the field unset —
     // which is the station's ordinary length and the right answer for a value nothing recognises.
     const brevity = isPersonaBrevity(raw.brevity) ? raw.brevity : undefined;
+    // Same treatment, and it matters more here: this one moves a word ceiling and a content licence,
+    // so a model answering "high" or "free" must leave the character on the station's ordinary
+    // discipline rather than on whatever the nearest rung looked like.
+    const latitude = isPersonaLatitude(raw.latitude) ? raw.latitude : undefined;
 
     // Unwrapped BEFORE it is judged, because the quotes are the model's packaging rather than part
     // of the phrasing — a line refused for marks that were never meant to be there would be a line
@@ -305,6 +310,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
                 djName: text(raw.djName),
                 background: text(raw.background),
                 brevity,
+                latitude,
                 music: text(raw.music),
                 // Empty means the station's own phrasings, which is a legitimate persona and the
                 // right answer for one whose every generated line was malformed.

@@ -245,6 +245,27 @@ something nothing was asking for. **A rule true of one kind and false of the nex
 right for a link between two records and a licence to drop two thirds of a bulletin if the news shape
 had to read it.
 
+**A character can be given ROPE, and what it buys is the station asking for more rather than
+accepting worse.** `personas.latitude` is `loose` / `unleashed` above the ordinary discipline, where
+`brevity` is `short` / `one-line` below it, and they are two fields because they are two kinds of
+thing: brevity is a habit and only ever changes one sentence of the prompt, latitude is a PERMISSION
+and reaches three places at once — the word ceiling (`LATITUDE_MAX_WORDS`), the shape's rules
+(`BreakPromptShape.latitudeRules`, which swaps "make one point" for a licence to follow the thought,
+swapped rather than appended because a model told both hedges), and at the top rung the content
+licence (`LATITUDE_LICENCE`). They compose, since a terse character can be unfiltered, and a ceiling
+nobody reaches costs nothing. Four things are load-bearing. **The two ceilings come from one
+`maxWordsFor` call** — what the model is TOLD and what `readAnswer` refuses at live in different
+files, and a character asked for seventy words and judged at forty has every break declined for doing
+as it was told, silently, with the floor writing the lot. **The SHAPE has the veto and the sheet only
+offers** (`allowsLatitude`, on for the talk break alone), because a bulletin's accuracy is not a
+character choice. **It narrows within station policy and never widens it**: the licence shares its
+slot with the broadcast-clean rule and loses to it, so an `unleashed` persona on a clean station
+talks clean. And **it switches off no refusal** — `mustNameRecord`, the three prohibitions and the
+dialect check all still decline to the floor, which is why the "name a record" rule is repeated
+verbatim in both rule sets rather than dropped along with "make one point". The two seeds that carry
+one are `shockjock` (`unleashed`) and `conspiracy` (`loose`), the two whose fence
+`persona.defaults.ts` already argues, and that fence is an instruction rather than an enforcement.
+
 **Asking for less overshot in exactly one place, and the correction is the load-bearing half now.**
 The rule read "naming them is the least useful thing you can do with your one point", and a model
 reading that stopped naming them AT ALL: of thirty-nine consecutive talk breaks under one persona,

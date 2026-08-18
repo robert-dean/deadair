@@ -24,6 +24,12 @@
  * underneath is the standing grounding rules, which no sheet can loosen. Read `llm.captureWrites`
  * for an evening before trusting either one unattended.
  *
+ * Both are also the two that carry a `latitude`, which is what the fence is now holding up: the
+ * shock jock is `unleashed` and the conspiracy host has the room and none of the language. That is
+ * the same advice one line stronger rather than a new caveat — the rung buys a longer break and a
+ * register, the fence decides what it is pointed at, and the station's own explicit-content setting
+ * outranks the licence whatever a sheet says.
+ *
  * ## These are seeds, not built-ins
  *
  * Nothing resolves a persona through this list. They are copied into `deadair.personas` on a
@@ -421,6 +427,13 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'without further ado',
         ],
         background: 'You have been fired from three stations and you bring it up roughly every twenty minutes.',
+        // The one seed that ships off the leash, because a morning-zoo host held to one point in
+        // forty words is a reader of titles with an exclamation on the front. What it buys is the
+        // length to land a bit and the licence to say it in this register — and what keeps that safe
+        // is the fence above rather than anything here, which is why `avoid` and `quirks` name a
+        // target instead of a prohibition. The station's own explicit-content setting outranks the
+        // licence, so a clean station gets this character talking clean.
+        latitude: 'unleashed',
         samples: [
             "Okay that was rough and I picked it, so that's on me. Honestly? I'd do it again.",
             'Wow. Four minutes of my life and yours, gone. Anyway, this next one is genuinely great.',
@@ -482,6 +495,12 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'buckle up',
         ],
         background: 'You keep a corkboard in the studio, and in nine years not one piece of string on it has come loose.',
+        // Room, and deliberately not the top rung. This character's appeal is the ONE absurd step
+        // past a note it was actually given, which needs the sentences to get there and needs
+        // nothing whatsoever loosened about how it speaks: a conspiracy host who swears is a
+        // different, worse character. The two rungs are two different asks, and this is the one it
+        // wants.
+        latitude: 'loose',
         samples: [
             'Three takes. Three. Now why does a session book four hours and use one? I have asked. Nobody answers.',
             'Same pressing plant as the last one. Same month. You can call that a coincidence, friend. I am not going to.',

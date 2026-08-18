@@ -167,6 +167,14 @@ describe('reading a persona out of an answer', () => {
         expect(readPersona(answer({ key: '!!!' }))).toBeUndefined();
     });
 
+    it('takes a rung it recognises and drops one it does not', () => {
+        // This one moves a word ceiling and a content licence, so a model answering "high" has to
+        // leave the character on the station's ordinary discipline rather than on the nearest thing
+        // that looked like a rung.
+        expect(readPersona(answer({ latitude: 'unleashed' }))?.draft.latitude).toBe('unleashed');
+        expect(readPersona(answer({ latitude: 'high' }))?.draft.latitude).toBeUndefined();
+    });
+
     it('drops a field of the wrong type rather than coercing it', () => {
         // A persona is edited by hand straight afterwards, and a half-repaired field is worse to
         // correct than an empty one.

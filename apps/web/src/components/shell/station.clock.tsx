@@ -30,7 +30,7 @@ export function StationClock() {
     }, []);
 
     return (
-        <Text ff="monospace" size="sm" c="dimmed" aria-label="Station clock" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <Text size="sm" c="dimmed" aria-label="Station clock" className="da-num">
             {now}
         </Text>
     );

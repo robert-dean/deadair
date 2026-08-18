@@ -35,3 +35,24 @@ export const toneColor: Record<StatusTone, string> = {
     fault: 'yellow',
     off: 'gray',
 };
+
+/**
+ * How badly something went, which is a different question from what state a thing is in.
+ *
+ * The console needs both and they cannot be one vocabulary, because they disagree about red. A
+ * lamp's red means ON AIR and its amber means broken, which is the studio convention `StatusTone`
+ * exists to keep — draw a fault in red on a desk and somebody reads it as the transmitter. A
+ * failure's red means the hard failure, exactly as `theme.ts` describes the tally palette, because
+ * nothing about an error alert or a feed line could be mistaken for the station being live.
+ *
+ * So: `failure` is the load that did not happen, the render that threw, the line an operator has to
+ * do something about. `warning` is the thing that failed while everything around it kept working.
+ * Both live here rather than at their call sites for the reason at the top of this file — the
+ * failure being closed off is a surface deciding for itself that its problem is a bit red.
+ */
+export type Severity = 'failure' | 'warning';
+
+export const severityColor: Record<Severity, string> = {
+    failure: 'red',
+    warning: 'yellow',
+};

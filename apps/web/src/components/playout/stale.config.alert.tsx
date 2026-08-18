@@ -46,7 +46,7 @@ export function StaleConfigAlert({ warnings }: StaleConfigProps) {
     if (warnings.length === 0) return undefined;
 
     return (
-        <Alert color="red" variant="light" title="A stream container is running config that has been replaced">
+        <Alert color="red" title="A stream container is running config that has been replaced">
             <Stack gap="xs">
                 {warnings.map(warning => (
                     <Stack gap="xxs" key={warning.container}>

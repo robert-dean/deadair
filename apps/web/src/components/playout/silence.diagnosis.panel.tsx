@@ -28,7 +28,7 @@ export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
 
     if (silence.audible && otherFaults.length === 0) {
         return (
-            <Alert color="green" variant="light" title="The station is on air">
+            <Alert color="green" title="The station is on air">
                 <Text size="sm">{silence.detail}</Text>
                 <RuledOut checks={silence.checks} />
             </Alert>
@@ -38,7 +38,7 @@ export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
     return (
         <Stack gap="sm">
             {blocking ? (
-                <Alert color={blocking.state === 'waiting' ? 'blue' : 'yellow'} variant="light" title={TITLES[silence.cause]}>
+                <Alert color={blocking.state === 'waiting' ? 'blue' : 'yellow'} title={TITLES[silence.cause]}>
                     <Stack gap="xs">
                         <Text size="sm">{silence.detail}</Text>
                         {silence.remedy ? <Remedy remedy={silence.remedy} /> : undefined}
@@ -48,7 +48,7 @@ export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
             ) : undefined}
 
             {otherFaults.map(fault => (
-                <Alert key={fault.code} color="red" variant="light" title={TITLES[fault.code]}>
+                <Alert key={fault.code} color="red" title={TITLES[fault.code]}>
                     <Stack gap="xs">
                         <Text size="xs">{fault.detail}</Text>
                         {fault.remedy ? <Remedy remedy={fault.remedy} /> : undefined}

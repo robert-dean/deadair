@@ -2,6 +2,7 @@ import { Group, ScrollArea, Stack, Text } from '@mantine/core';
 import type { PlayoutItem } from '@deadair/sdk';
 
 import { Artwork } from '../shared/artwork';
+import { Eyebrow } from '../shared/eyebrow';
 import { formatDuration } from '../shared/format.duration';
 
 export interface TransportQueueProps {
@@ -35,9 +36,7 @@ export function TransportQueue({ upNext, queuedCount }: TransportQueueProps) {
 
     return (
         <Stack gap="xxs">
-            <Text size="xs" tt="uppercase" c="dimmed" fw={600} style={{ letterSpacing: '0.08em' }}>
-                Up next
-            </Text>
+            <Eyebrow>Up next</Eyebrow>
             <ScrollArea.Autosize mah={140} type="hover">
                 <Stack gap="xxxs">
                     {upNext.map((item, index) => (
@@ -52,7 +51,7 @@ export function TransportQueue({ upNext, queuedCount }: TransportQueueProps) {
                             <Text size="sm" c="dimmed" truncate style={{ flex: 1, minWidth: 0 }}>
                                 {item.artists.join(', ')}
                             </Text>
-                            <Text size="xs" c="dimmed" ff="monospace">
+                            <Text size="xs" c="dimmed" className="da-num">
                                 {formatDuration(item.durationMs)}
                             </Text>
                         </Group>

@@ -8,6 +8,7 @@ import { DatedFeed, FeedMoment } from '../shared/dated.feed';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { severityColor } from '../shared/status';
 
 /** The filter chips, and the order an operator meets them: what airs first, what makes it after. */
 const MODULES: { value: ActivityModule | 'all'; label: string }[] = [
@@ -24,6 +25,20 @@ const SEVERITIES: { value: ActivitySeverity | 'all'; label: string }[] = [
     { value: 'warn', label: 'Warnings' },
     { value: 'fault', label: 'Faults' },
 ];
+
+/**
+ * How a line is painted, which is the one colour on this page that is not decorative.
+ *
+ * `info` is left alone: most of a feed is ordinary and painting it would leave nothing for the two
+ * that matter to stand out against. The other two go through `severityColor` rather than naming a
+ * hue, because this was a nested ternary spelling `red` and `yellow` inline — exactly the surface
+ * deciding for itself that its problem is a bit red that `shared/status.ts` opens by forbidding.
+ */
+const SEVERITY_COLOR: Record<ActivitySeverity, string | undefined> = {
+    info: undefined,
+    warn: severityColor.warning,
+    fault: severityColor.failure,
+};
 
 /** A Mantine palette name per module, so a scan reads where a line came from without reading it. */
 const MODULE_COLOR: Record<ActivityModule, string> = {
@@ -112,8 +127,6 @@ export function ActivityPage() {
 }
 
 function ActivityLine({ entry }: { entry: ActivityEntry }) {
-    const painted = entry.severity !== 'info';
-
     return (
         <Group gap="sm" wrap="nowrap" align="flex-start" px="md" py="xs">
             <FeedMoment at={entry.at} />
@@ -122,7 +135,7 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
                 {entry.module}
             </Badge>
 
-            <Text size="sm" c={painted ? (entry.severity === 'fault' ? 'red' : 'yellow') : undefined} style={{ minWidth: 0 }}>
+            <Text size="sm" c={SEVERITY_COLOR[entry.severity]} style={{ minWidth: 0 }}>
                 {entry.detail}
             </Text>
         </Group>

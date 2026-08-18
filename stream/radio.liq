@@ -473,13 +473,7 @@ playout_bed = amplify(1., override="liq_amplify", playout_bed)
 # Placement mirrors the mic chain: AFTER the app's `amplify`, because a fixed threshold only means
 # anything against an input the app has already levelled, and BEFORE `normalize`, which is cut-only
 # and now sees a break whose peaks are already in order.
-#
-# Bound to a NAME as well as folded into the chain, so the reading can report what this operator is
-# actually seeing. `compress` publishes `rms` (its detector's level, linear) and `gain` (the
-# reduction it is applying, dB), and those two numbers are the one place the graph can be cut in
-# half from outside: a break measured 19.2 dB over its own file while its stamp said 9.6, which is
-# twice the gain in dB and cannot be read off either end of the chain alone.
-playout_comp = compress(
+playout_bed = compress(
   attack=5.0,
   release=120.0,
   threshold=-18.0,
@@ -487,7 +481,6 @@ playout_comp = compress(
   knee=2.0,
   gain=0.0,
   playout_bed)
-playout_bed = playout_comp
 
 # The follower, which is now the fallback for what the station has not measured rather than how the
 # station is levelled.
@@ -849,12 +842,7 @@ def playout_reading() =
   # `dB` on the way here is applied as a linear factor and looks like nothing at all from the app
   # side, which is a difference of ten decibels reported as a difference of none.
   speech_json = if on_air_speech() then "true" else "false" end
-  # What the compressor is SEEING and DOING, which is the midpoint of the chain: `inDb` is the
-  # level arriving at it (after the app's `amplify`, before everything below), and `compDb` is the
-  # reduction it is applying. A break whose stamp says 9.6 dB should arrive here around -16.
-  comp_rms = playout_comp.rms()
-  in_db = if comp_rms > 0.000001 then dB_of_lin(comp_rms) else -120. end
-  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "inDb": #{int_of_float(in_db)}, "compDb": #{int_of_float(playout_comp.gain())}, "configStamp": "#{config_stamp}"'
+  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}"'
 end
 
 def control_status(req) =

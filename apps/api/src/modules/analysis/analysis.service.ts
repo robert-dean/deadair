@@ -175,7 +175,12 @@ export class AnalysisService {
      * nothing reached is simply still outstanding, and there is always another
      * pass.
      */
-    async analysePending(limit: number, signal?: AbortSignal, pace: AnalysisPaceOverride = {}): Promise<AnalysisPassSummary> {
+    async analysePending(
+        limit: number,
+        signal?: AbortSignal,
+        pace: AnalysisPaceOverride = {},
+        providerLimit: number = Number.POSITIVE_INFINITY,
+    ): Promise<AnalysisPassSummary> {
         const summary: AnalysisPassSummary = { scanned: 0, measured: 0, failed: 0, incomplete: 0 };
 
         const analyzer = this.analyzer();
@@ -190,6 +195,11 @@ export class AnalysisService {
         const queue = [...tracks];
         const width = Math.min(this.concurrency(), queue.length);
 
+        // Spent only by a track this machine does NOT already hold. The scan limit above bounds how
+        // much work a run looks at; this bounds the only part of it that costs the station
+        // something, which is the provider credential playout is also using. See `AnalysisJob`.
+        let providerSpent = 0;
+
         // Workers pulling from one queue rather than fixed-size chunks: tracks
         // take wildly different times to decode, and a chunked pass would sit
         // idle waiting for the slowest member of each batch.
@@ -201,6 +211,14 @@ export class AnalysisService {
 
                     summary.scanned += 1;
                     const wasLocal = await this.measureOne(analyzer, track, summary);
+                    if (!wasLocal) providerSpent += 1;
+
+                    // Stop the walk rather than skip the track: `listTracksNeedingAnalysis` hands
+                    // over the local ones FIRST, so everything left behind a spent budget needs a
+                    // download too. Checked after the measurement, so the ceiling is a count of what
+                    // was spent rather than of what was attempted, and overshoots by at most one per
+                    // worker.
+                    if (providerSpent >= providerLimit) return;
 
                     // Paced, because measuring a track that is NOT already on this machine is a FULL
                     // AUDIO DOWNLOAD through the same credential the station plays on, and a burst of

@@ -409,6 +409,33 @@ describe('pacing', () => {
         }
     });
 
+    it('stops the walk once the download budget is spent, and never counts a local track against it', async () => {
+        // The two ceilings are different questions: how far into the queue a run looks, and how
+        // much of the provider credential playout is also using it may spend. A library already on
+        // this machine costs nothing but decode time, so it walks past the budget untouched.
+        const { service: local, analyzeTrack: localAnalyze } = build({
+            pending: [track(1), track(2), track(3), track(4)],
+            hasLocalAudio: async () => true,
+            providerPaceMs: 0,
+            localPaceMs: 0,
+        });
+
+        expect(await local.analysePending(50, undefined, {}, 1)).toMatchObject({ scanned: 4, measured: 4 });
+        expect(localAnalyze).toHaveBeenCalledTimes(4);
+
+        const { service: remote, analyzeTrack: remoteAnalyze } = build({
+            pending: [track(1), track(2), track(3), track(4)],
+            hasLocalAudio: async () => false,
+            providerPaceMs: 0,
+            localPaceMs: 0,
+        });
+
+        // Two, not four: the third is where the budget ran out. Nothing is skipped ahead of it --
+        // the queue hands over the local tracks first, so what is left all needs a download.
+        expect(await remote.analysePending(50, undefined, {}, 2)).toMatchObject({ scanned: 2, measured: 2 });
+        expect(remoteAnalyze).toHaveBeenCalledTimes(2);
+    });
+
     it('does not charge the download pace for a track with no audio url, since nothing was fetched', async () => {
         vi.useFakeTimers();
         try {

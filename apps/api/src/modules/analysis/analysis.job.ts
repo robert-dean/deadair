@@ -6,43 +6,45 @@ import { withRunBudget } from '#modules/jobs/run.budget.js';
 import { AnalysisService } from './analysis.service.js';
 
 /**
- * Tracks examined per run — a ceiling, not a target, and a deliberately tiny one.
+ * Tracks DOWNLOADED per run — a ceiling, not a target, and the only number here that costs the
+ * station anything.
  *
- * **This number is small because measuring a track costs a FULL AUDIO DOWNLOAD
- * through the same provider credential the station plays on.** At 50 per run on a
- * half-hourly cron that is a hundred full tracks an hour of background traffic,
- * against a station that plays about fifteen — six times the station's own load,
- * for work nobody is waiting on.
+ * **Measuring a track the station does not already hold is a FULL AUDIO DOWNLOAD through the same
+ * provider credential playout is using.** That is the whole constraint: analysis and playout share
+ * one upstream, and **playout wins every time** — an unmeasured track plays perfectly well, and a
+ * station that cannot fetch audio plays nothing at all.
  *
- * That ratio is the argument on its own, and it is worth stating what it is NOT:
- * a first run at 50 was followed by the shim failing to retrieve audio keys, and
- * that looked like cause and effect until the log turned out to go back six days
- * with the same errors in it. The burst may have made a bad patch worse; it did
- * not invent the problem. Do not go looking for a fix to a bug this constant was
- * blamed for.
+ * It is worth stating what that constraint is NOT: a first run at 50 was followed by the shim
+ * failing to retrieve audio keys, and that looked like cause and effect until the log turned out to
+ * go back six days with the same errors in it. The burst may have made a bad patch worse; it did
+ * not invent the problem. Do not go looking for a fix to a bug this constant was blamed for.
  *
- * So the constraint is not CPU and it is not the analyzer. It is that analysis
- * and playout share one upstream and one credential, and **playout wins every
- * time** — an unmeasured track plays perfectly well, and a station that cannot
- * fetch audio plays nothing at all. Five per run, paced by `analysis.providerPaceMs`
- * (see `AnalysisService.providerPaceMs`), keeps the background work well under the
- * foreground's share. The pace lives over there rather than beside this constant
- * because the job imports the service, so the reverse would be a cycle.
+ * Fifteen, against a cron that fires hourly and a station that plays about fifteen records an hour,
+ * so the background work is at most the foreground's own load rather than the six times it would be
+ * at fifty. It was five, which is defensible and was measured to be too slow to matter: with 625
+ * tracks outstanding it is five days of a station levelling nothing, and an unmeasured record is
+ * exactly what leaves `normalize` improvising a level — which is audible as quiet music with a ramp
+ * at every boundary.
  *
- * A library is measured over days rather than in an afternoon, which is the right
- * trade: an unmeasured track plays perfectly well, and a station that cannot
- * fetch audio plays nothing at all.
- *
- * **A local library has no such limit**, which used to just mean this constant
- * would be worth revisiting per provider once one existed. It now means something
- * sharper: a track whose audio `TrackAudioService` already holds pays no provider
- * credential at all, and `AnalysisService.measureOne` knows which is which, so
- * that half of the walk paces itself by `analysis.localPaceMs` instead — still
- * paced, because background work saturating a shared machine without anyone
- * asking for that is its own problem, but free to be far gentler than a number
- * that exists to protect a rate-limited upstream.
+ * **A local library has no such limit, and that is now enforced rather than noted.** A track whose
+ * audio `TrackAudioService` already holds pays no provider credential at all, so it does not count
+ * against this at all — see {@link SCAN_BATCH_SIZE}.
  */
-const BATCH_SIZE = 5;
+const PROVIDER_BATCH_SIZE = 15;
+
+/**
+ * Tracks LOOKED AT per run, which is a different and much larger number.
+ *
+ * `listTracksNeedingAnalysis` hands over the tracks whose audio is already here first, and those
+ * cost nothing but decode time — paced by `analysis.localPaceMs` and bounded by
+ * {@link RUN_BUDGET_MS}, both of which stay. So a run walks as far as this into the queue and stops
+ * when it has spent {@link PROVIDER_BATCH_SIZE} downloads, which in practice means it drains
+ * everything already on the machine and then does its small share of fetching.
+ *
+ * The tracks the station has actually been playing are the cached ones, so this is also the
+ * ordering that measures rotation first, which is where an unlevelled record is heard.
+ */
+const SCAN_BATCH_SIZE = 250;
 
 /**
  * How long a run may keep starting new measurements.
@@ -56,8 +58,10 @@ const BATCH_SIZE = 5;
 export const RUN_BUDGET_MS = 25 * 60 * 1000;
 
 export interface AnalysisPayload {
-    /** Overrides {@link BATCH_SIZE} for one run. Absent, as it always is from cron, means the default. */
+    /** Overrides {@link SCAN_BATCH_SIZE} for one run. Absent, as it always is from cron, means the default. */
     limit?: number;
+    /** Overrides {@link PROVIDER_BATCH_SIZE} for one run. The one to raise deliberately, and to put back. */
+    providerLimit?: number;
 }
 
 /**
@@ -81,9 +85,12 @@ export class AnalysisJob extends PlainJob<AnalysisPayload> {
     }
 
     protected async execute(payload?: AnalysisPayload, signal?: AbortSignal): Promise<void> {
-        const limit = payload?.limit ?? BATCH_SIZE;
+        const limit = payload?.limit ?? SCAN_BATCH_SIZE;
+        const providerLimit = payload?.providerLimit ?? PROVIDER_BATCH_SIZE;
 
-        const { result: summary, outOfTime } = await withRunBudget(RUN_BUDGET_MS, signal, stop => this.analysis.analysePending(limit, stop));
+        const { result: summary, outOfTime } = await withRunBudget(RUN_BUDGET_MS, signal, stop =>
+            this.analysis.analysePending(limit, stop, {}, providerLimit),
+        );
 
         // Quiet when there was nothing to do. Once a library is measured this
         // is every run, and a station that has finished should not say so

@@ -1,14 +1,13 @@
-import { Fragment, useState } from 'react';
-import { Badge, Button, Card, Group, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
+import { useState } from 'react';
+import { Badge, Button, Card, Group, SegmentedControl, Stack, Text } from '@mantine/core';
 import type { ActivityEntry, ActivityModule, ActivitySeverity } from '@deadair/sdk';
 
 import { useActivity } from '../../api/activity.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { DatedFeed, FeedMoment } from '../shared/dated.feed';
 import { ErrorAlert } from '../shared/error.alert';
-import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
-import { dayOf, formatDay, formatMoment, formatMomentFull } from './activity.moment';
 
 /** The filter chips, and the order an operator meets them: what airs first, what makes it after. */
 const MODULES: { value: ActivityModule | 'all'; label: string }[] = [
@@ -99,24 +98,7 @@ export function ActivityPage() {
                 </Card>
             ) : undefined}
 
-            {entries.length > 0 ? (
-                <Card padding={0}>
-                    <Stack gap={0}>
-                        {entries.map((entry, index) => {
-                            // The time column carries no date, so without this a list spanning
-                            // midnight reads as one very long evening.
-                            const startsDay = dayOf(entry.at) !== dayOf(entries[index - 1]?.at);
-
-                            return (
-                                <Fragment key={entry.id}>
-                                    {startsDay ? <DayHeading at={entry.at} first={index === 0} /> : undefined}
-                                    <ActivityLine entry={entry} first={index === 0 && !startsDay} />
-                                </Fragment>
-                            );
-                        })}
-                    </Stack>
-                </Card>
-            ) : undefined}
+            {entries.length > 0 ? <DatedFeed items={entries}>{entry => <ActivityLine entry={entry} />}</DatedFeed> : undefined}
 
             {feed.hasNextPage ? (
                 <Group justify="center">
@@ -129,44 +111,12 @@ export function ActivityPage() {
     );
 }
 
-/** Where one day ends and the next begins. A row of its own, so it reads as a break rather than as a second timestamp on the line under it. */
-function DayHeading({ at, first }: { at: string; first: boolean }) {
-    return (
-        <Group
-            px="md"
-            py="xxs"
-            style={{
-                borderTop: first ? undefined : '1px solid var(--da-border)',
-                background: 'var(--da-raised)',
-            }}
-        >
-            <Eyebrow>{formatDay(at)}</Eyebrow>
-        </Group>
-    );
-}
-
-interface ActivityLineProps {
-    entry: ActivityEntry;
-    first: boolean;
-}
-
-function ActivityLine({ entry, first }: ActivityLineProps) {
+function ActivityLine({ entry }: { entry: ActivityEntry }) {
     const painted = entry.severity !== 'info';
 
     return (
-        <Group
-            gap="sm"
-            wrap="nowrap"
-            align="flex-start"
-            px="md"
-            py="xs"
-            style={{ borderTop: first ? undefined : '1px solid var(--da-border)' }}
-        >
-            <Tooltip label={formatMomentFull(entry.at)} openDelay={300}>
-                <Text size="xs" c="dimmed" className="da-num" style={{ whiteSpace: 'nowrap' }}>
-                    {formatMoment(entry.at)}
-                </Text>
-            </Tooltip>
+        <Group gap="sm" wrap="nowrap" align="flex-start" px="md" py="xs">
+            <FeedMoment at={entry.at} />
 
             <Badge size="xs" variant="light" color={MODULE_COLOR[entry.module]} tt="none" style={{ flexShrink: 0 }}>
                 {entry.module}

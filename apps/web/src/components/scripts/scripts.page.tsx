@@ -1,10 +1,10 @@
-import { Fragment, useState } from 'react';
-import { Badge, Box, Button, Card, Code, Collapse, Group, SegmentedControl, Stack, Text, Tooltip, UnstyledButton } from '@mantine/core';
+import { useState } from 'react';
+import { Badge, Box, Button, Card, Code, Collapse, Group, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core';
 import type { ScriptAttempt, ScriptOutcome } from '@deadair/sdk';
 
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useScriptHistory } from '../../api/scripts.queries';
-import { dayOf, formatDay, formatMoment, formatMomentFull } from '../activity/activity.moment';
+import { DatedFeed, FeedMoment } from '../shared/dated.feed';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
@@ -105,22 +105,7 @@ export function ScriptsPage() {
                 </Card>
             ) : undefined}
 
-            {attempts.length > 0 ? (
-                <Card padding={0}>
-                    <Stack gap={0}>
-                        {attempts.map((attempt, index) => {
-                            const startsDay = dayOf(attempt.at) !== dayOf(attempts[index - 1]?.at);
-
-                            return (
-                                <Fragment key={attempt.id}>
-                                    {startsDay ? <DayHeading at={attempt.at} first={index === 0} /> : undefined}
-                                    <AttemptRow attempt={attempt} first={index === 0 && !startsDay} />
-                                </Fragment>
-                            );
-                        })}
-                    </Stack>
-                </Card>
-            ) : undefined}
+            {attempts.length > 0 ? <DatedFeed items={attempts}>{attempt => <AttemptRow attempt={attempt} />}</DatedFeed> : undefined}
 
             {history.hasNextPage ? (
                 <Group justify="center">
@@ -133,18 +118,8 @@ export function ScriptsPage() {
     );
 }
 
-/** Where one day ends and the next begins, as on the activity feed and for the same reason. */
-function DayHeading({ at, first }: { at: string; first: boolean }) {
-    return (
-        <Group px="md" py="xxs" style={{ borderTop: first ? undefined : '1px solid var(--da-border)', background: 'var(--da-raised)' }}>
-            <Eyebrow>{formatDay(at)}</Eyebrow>
-        </Group>
-    );
-}
-
 interface AttemptRowProps {
     attempt: ScriptAttempt;
-    first: boolean;
 }
 
 /**
@@ -155,7 +130,7 @@ interface AttemptRowProps {
  * because the prompt is thousands of words and the point of the list is to read the station's voice
  * a dozen lines at a time.
  */
-function AttemptRow({ attempt, first }: AttemptRowProps) {
+function AttemptRow({ attempt }: AttemptRowProps) {
     const [open, setOpen] = useState(false);
 
     // A declined or failed attempt has no words, so the reason takes the line the script would have
@@ -163,7 +138,7 @@ function AttemptRow({ attempt, first }: AttemptRowProps) {
     const line = attempt.script ?? attempt.reason ?? '';
 
     return (
-        <Stack gap={0} style={{ borderTop: first ? undefined : '1px solid var(--da-border)' }}>
+        <Stack gap={0}>
             <UnstyledButton
                 px="md"
                 py="xs"
@@ -172,11 +147,7 @@ function AttemptRow({ attempt, first }: AttemptRowProps) {
                 }}
             >
                 <Group gap="sm" wrap="nowrap" align="flex-start">
-                    <Tooltip label={formatMomentFull(attempt.at)} openDelay={300}>
-                        <Text size="xs" c="dimmed" className="da-num" style={{ whiteSpace: 'nowrap' }}>
-                            {formatMoment(attempt.at)}
-                        </Text>
-                    </Tooltip>
+                    <FeedMoment at={attempt.at} />
 
                     <Box style={{ flexShrink: 0 }}>
                         <StatusLamp tone={OUTCOME_TONE[attempt.outcome]} label={attempt.outcome} />

@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
     breakPrompt,
     DEFAULT_MAX_WORDS,
+    overusedWords,
     readAnswer,
     TALK_BREAK_SHAPE,
     writeDecline,
@@ -149,6 +150,63 @@ describe('breakPrompt', () => {
 
         it('says nothing when there is nothing behind the station', () => {
             expect(user(prompt({ kind: 'talkbreak', previous }))).not.toMatch(/start this one somewhere else/i);
+        });
+    });
+
+    // The opening rule one scale larger. Fixing the openings moved the repetition into the middle of
+    // the sentence rather than removing it: over thirty-nine consecutive breaks under one persona,
+    // every break opened differently and "groove" appeared in 26 of them, "friend" in 35, "signal"
+    // in 17. The markers are not exempt, because the marker check is what rewards saying them.
+    describe('the words the station has worn out', () => {
+        const worn = [
+            'Tonight the groove lands. Friend, a cue rises.',
+            'Listen, friend. The groove cuts deep, and a signal hums under it.',
+            'Friend, the groove of that record hides a quiet signal.',
+            'That groove marks the same pressing, friend.',
+        ];
+
+        it('names a word the presenter has said in nearly every recent break', () => {
+            expect(overusedWords(worn)).toContain('groove');
+            expect(overusedWords(worn)).toContain('friend');
+        });
+
+        it('leaves a word that turned up once', () => {
+            expect(overusedWords(worn)).not.toContain('pressing');
+        });
+
+        it('counts scripts rather than uses, so one repetitive sentence is not a habit', () => {
+            // Four uses in one break is a rhythm problem inside that break. A habit is the same word
+            // turning up again the next time, which is the only version a listener hears.
+            const once = ['Groove, groove, groove and more groove.', 'That one still holds up.', 'A quiet record, quietly played.'];
+
+            expect(overusedWords(once)).not.toContain('groove');
+        });
+
+        it('says nothing at all from too few breaks to see a habit in', () => {
+            // Below three, every content word trivially clears the share and the station would open
+            // every second break complaining about a word it had said once.
+            expect(overusedWords(['The groove lands.', 'The groove lands again.'])).toEqual([]);
+            expect(overusedWords(undefined)).toEqual([]);
+        });
+
+        it('leaves the grammar alone, since a sentence needs it', () => {
+            const plain = ['That was a fine record.', 'That was another fine one.', 'That was the last of them.'];
+
+            expect(overusedWords(plain)).not.toContain('that');
+            expect(overusedWords(plain)).not.toContain('was');
+        });
+
+        it('asks rather than forbids, because the sheet genuinely wants its own vocabulary', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next, recent: worn }));
+
+            expect(said).toMatch(/you have leaned on/i);
+            expect(said).toMatch(/reach past them this time/i);
+            // And it is not phrased as a ban, which would refuse the character for being itself.
+            expect(said).not.toMatch(/do not say "groove"/i);
+        });
+
+        it('says none of it for a station with nothing behind it', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous, next }))).not.toMatch(/you have leaned on/i);
         });
     });
 

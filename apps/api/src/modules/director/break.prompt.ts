@@ -462,6 +462,30 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
             );
         }
 
+        // The opening rule one scale larger, and it exists because fixing the openings did not fix
+        // the repetition — it moved it into the middle of the sentence. Measured over thirty-nine
+        // consecutive breaks under one persona: groove 26, friend 35, signal 17, pattern 14, clock
+        // 12, echo 11, needle 8, whispers 7. Every break opened differently and they were all the
+        // same break.
+        //
+        // A persona is what makes this worse rather than better, which is the part worth stating:
+        // `dictionMarkers` are asked for by name in every prompt and counted in every answer, so the
+        // cheapest way to pass the character check is to say the marker list again, and nothing was
+        // reading back how often. So the markers are deliberately NOT exempt here.
+        //
+        // An ASK and never a refusal, unlike the openings. A word is not wrong for being used twice,
+        // the sheet genuinely does want its vocabulary in the answer, and a check that declined over
+        // this would be refusing the character for being itself. Naming the habit is the whole
+        // intervention — it is the same bargain the spent signatures are on, and that one lands.
+        const worn = overusedWords(request.recent);
+        if (worn.length > 0) {
+            parts.push(
+                `You have leaned on ${worn.map(word => `"${word}"`).join(', ')} in nearly every recent break. Reach past ${worn.length === 1 ? 'it' : 'them'} ` +
+                    'this time. Your character has more than one way to say what it means, and saying it the same way every time is how a ' +
+                    'presenter starts to sound like a recording.',
+            );
+        }
+
         // The moment-dependent half of the catchphrase rule, and it is here rather than in the sheet
         // for the reason everything is here rather than there: which signatures are spent is a fact
         // about tonight, and the system turn is who the station is. The sheet says "at most one, and
@@ -604,6 +628,124 @@ export function spentOpenings(recent: readonly string[] | undefined): string[] {
         if (out.length >= MAX_OPENINGS) break;
     }
     return out;
+}
+
+/**
+ * How many recent breaks a word has to appear in before it counts as a habit.
+ *
+ * A share rather than a count, because `recent` is a window whose length is the caller's business
+ * and a fixed number would mean something different at three scripts than at six. Half is where a
+ * word stops being a word this character uses and starts being the word it always uses.
+ */
+const WORN_SHARE = 0.5;
+
+/**
+ * The fewest recent breaks worth judging a habit from.
+ *
+ * Three. Below it every content word in the window trivially clears the share above — a single
+ * script makes each of its own words 100% — and the station would open every second break by
+ * complaining about a word it had said once.
+ */
+const WORN_MIN_SCRIPTS = 3;
+
+/** How many worn words are named. Enough to break the habit, short enough to stay one sentence. */
+const MAX_WORN_WORDS = 5;
+
+/**
+ * The shortest word that can be a tic.
+ *
+ * Four, which is doing a job the stop list below cannot: English's function words are mostly short,
+ * and a length floor removes almost all of them for free without anybody having to enumerate them.
+ */
+const MIN_WORN_LENGTH = 4;
+
+/**
+ * Words that mean nothing about a presenter's habits, however often they appear.
+ *
+ * Deliberately short, and deliberately only the structural ones. The temptation is to grow this
+ * until nothing embarrassing gets named, and that would be the wrong direction: "like" and "still"
+ * are exactly the tics a presenter develops, and a list long enough to be safe would be long enough
+ * to catch nothing. What is here is grammar rather than vocabulary — words a sentence needs and a
+ * character cannot be blamed for.
+ */
+const NOT_A_HABIT = new Set([
+    'that',
+    'this',
+    'with',
+    'from',
+    'they',
+    'them',
+    'then',
+    'than',
+    'have',
+    'been',
+    'were',
+    'will',
+    'your',
+    'yours',
+    "you're",
+    'about',
+    'into',
+    'onto',
+    'over',
+    'under',
+    'what',
+    'when',
+    'where',
+    'which',
+    'while',
+    'there',
+    "there's",
+    "that's",
+    "it's",
+    'here',
+    "here's",
+    'some',
+    'more',
+    'most',
+    'much',
+    'very',
+    'been',
+    'does',
+    'each',
+    'both',
+    'also',
+    'came',
+    'come',
+    'goes',
+    'went',
+]);
+
+/**
+ * The words this presenter has said in nearly every recent break.
+ *
+ * Counted as the number of SCRIPTS a word appears in rather than as a raw frequency, and that is the
+ * whole measurement: a word said four times in one break is a sentence with a rhythm problem, and a
+ * word said once in each of six breaks is a habit. Only the second is what a listener hears as the
+ * station repeating itself.
+ *
+ * Ordered by how widespread the habit is, so the most worn word is named first and the sentence
+ * degrades gracefully when it is cut at {@link MAX_WORN_WORDS}.
+ */
+export function overusedWords(recent: readonly string[] | undefined): string[] {
+    const scripts = (recent ?? []).filter(script => script.trim().length > 0);
+    if (scripts.length < WORN_MIN_SCRIPTS) return [];
+
+    const appearances = new Map<string, number>();
+    for (const script of scripts) {
+        // Distinct per script, so four uses in one break count once. See the note above.
+        for (const word of new Set(bareWords(script).split(' '))) {
+            if (word.length < MIN_WORN_LENGTH || NOT_A_HABIT.has(word)) continue;
+            appearances.set(word, (appearances.get(word) ?? 0) + 1);
+        }
+    }
+
+    const floor = Math.max(WORN_MIN_SCRIPTS, Math.ceil(scripts.length * WORN_SHARE));
+    return [...appearances.entries()]
+        .filter(([, count]) => count >= floor)
+        .sort(([leftWord, left], [rightWord, right]) => right - left || leftWord.localeCompare(rightWord))
+        .slice(0, MAX_WORN_WORDS)
+        .map(([word]) => word);
 }
 
 /** Whether either record came with anything to say about it. */

@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import type { LlmUsage } from '@deadair/plugin-sdk';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
@@ -272,6 +273,12 @@ export class ModelSetGenerator extends SetGenerator {
             durationMs: Date.now() - started,
             finish: result.finishReason,
             ...(result.usage === undefined ? {} : { tokens: result.usage.totalTokens ?? result.usage.outputTokens }),
+            // Beside the total rather than folded into it, because the total alone cannot answer
+            // the question a zero-pick run raises. A refill that finished on `length` having named
+            // nothing has either written a long answer nobody could parse or spent the whole
+            // allowance thinking and said nothing, and those want opposite fixes: one is a parser
+            // or a ceiling, the other is a prompt. Diagnosing it took a capture file and a guess.
+            ...reasoningFields(result.usage),
         });
 
         // Said whether or not anything came back, because a run that answered SHORT because it ran
@@ -309,6 +316,10 @@ export class ModelSetGenerator extends SetGenerator {
                         asked: inputs.count,
                         named: picks.length,
                         searches: result.toolCallsMade,
+                        // The capture is where a zero-pick run is actually read, so the figure that
+                        // explains one belongs in the file rather than only in a log line that has
+                        // to be correlated back to it by timestamp.
+                        ...reasoningFields(result.usage),
                         finish: result.finishReason,
                         ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
                         ...(model.length === 0 ? {} : { model }),
@@ -446,6 +457,24 @@ export class ModelSetGenerator extends SetGenerator {
             dislikedTracks: named(taste.dislikedTracks),
         };
     }
+}
+
+/**
+ * Where the answer's allowance went, for a log line or a capture.
+ *
+ * Both figures or neither, and both are optional at the source: a provider that counts reasoning
+ * tokens reports them, one that only streams the reasoning gives characters, and one that does
+ * neither leaves this empty rather than claiming a zero. A zero would be a lie of exactly the wrong
+ * kind here — "the model did no thinking" is the reading that would send somebody looking at the
+ * parser.
+ */
+function reasoningFields(usage: LlmUsage | undefined): Record<string, number> {
+    if (usage === undefined) return {};
+
+    return {
+        ...(usage.reasoningTokens === undefined ? {} : { reasoningTokens: usage.reasoningTokens }),
+        ...(usage.reasoningChars === undefined ? {} : { reasoningChars: usage.reasoningChars }),
+    };
 }
 
 /**

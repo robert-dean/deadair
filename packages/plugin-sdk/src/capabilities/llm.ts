@@ -130,6 +130,34 @@ export interface LlmUsage {
     inputTokens?: number;
     outputTokens?: number;
     totalTokens?: number;
+
+    /**
+     * How much of {@link outputTokens} went on thinking rather than on the answer.
+     *
+     * Separate because the two failures underneath one `outputTokens` figure are
+     * opposite: a model that wrote a long answer and one that spent its whole
+     * allowance reasoning and emitted nothing both finish on `length` at the same
+     * total, and only this tells them apart. A caller that logs a token count
+     * without it cannot answer "where did the allowance go" after the fact, which
+     * is the question a zero-pick run actually raises.
+     *
+     * Reported by the provider, so absent on plenty of them — see
+     * {@link reasoningChars} for what to fall back on.
+     */
+    reasoningTokens?: number;
+
+    /**
+     * The length of the reasoning text, in characters.
+     *
+     * MEASURED rather than reported, and here for one reason: an
+     * OpenAI-compatible server that streams reasoning without counting it leaves
+     * {@link reasoningTokens} undefined, and a station running against one would
+     * otherwise learn nothing from either field. Characters are a poor unit and
+     * an honest one — roughly four to the token — so this answers the shape of
+     * the question ("all of it" versus "none of it") where the exact figure is
+     * not on offer.
+     */
+    reasoningChars?: number;
 }
 
 /** One conversation to continue. */

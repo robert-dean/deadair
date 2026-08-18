@@ -159,6 +159,13 @@ function addUsage(total: LlmUsage, step: LlmUsage | undefined): void {
     if (step.inputTokens !== undefined) total.inputTokens = (total.inputTokens ?? 0) + step.inputTokens;
     if (step.outputTokens !== undefined) total.outputTokens = (total.outputTokens ?? 0) + step.outputTokens;
     if (step.totalTokens !== undefined) total.totalTokens = (total.totalTokens ?? 0) + step.totalTokens;
+
+    // Both reasoning figures sum the same way and for the same reason: a conversation that spent
+    // four steps thinking and answered on the fifth is one run of the model as far as any caller
+    // reading this is concerned, and a per-step figure would understate it by however many searches
+    // it took.
+    if (step.reasoningTokens !== undefined) total.reasoningTokens = (total.reasoningTokens ?? 0) + step.reasoningTokens;
+    if (step.reasoningChars !== undefined) total.reasoningChars = (total.reasoningChars ?? 0) + step.reasoningChars;
 }
 
 /**

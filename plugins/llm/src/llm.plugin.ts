@@ -330,6 +330,13 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                 ...(usage.inputTokens === undefined ? {} : { inputTokens: usage.inputTokens }),
                 ...(usage.outputTokens === undefined ? {} : { outputTokens: usage.outputTokens }),
                 ...(usage.totalTokens === undefined ? {} : { totalTokens: usage.totalTokens }),
+                ...(usage.reasoningTokens === undefined ? {} : { reasoningTokens: usage.reasoningTokens }),
+                // Measured here rather than left to the host, because this is the only
+                // place the reasoning text exists: it is already read for the two debug
+                // lines above and never crosses the boundary as text. A server that does
+                // not count reasoning tokens still streams the reasoning, so this is the
+                // field that answers where the allowance went on the station's own host.
+                ...(reasoningText === undefined ? {} : { reasoningChars: reasoningText.length }),
             },
             finishReason: toFinishReason(finishReason),
         };

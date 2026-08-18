@@ -88,11 +88,13 @@ describe('what it asks for', () => {
     });
 
     it('reaches further down the page than it will read, so a dropped story does not shorten the bulletin', async () => {
+        // Four times rather than twice, because the ask now has to reach past everything the station
+        // has already said as well as past anything with no usable headline.
         const { source, fetchItems } = build();
 
         await source.storiesFor(NEWS_KIND, NOW);
 
-        expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ limit: DEFAULT_STORY_COUNT * 2 }));
+        expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ limit: DEFAULT_STORY_COUNT * 4 }));
     });
 
     it('reads across every feed unless the operator named one', async () => {
@@ -186,5 +188,71 @@ describe('what a writer is handed', () => {
         const [story] = (await source.storiesFor(NEWS_KIND, NOW)) ?? [];
         expect(story?.body).toBeUndefined();
         expect(story?.summary).toBe('A teaser.');
+    });
+});
+
+// The failure measured on air: twenty-seven consecutive bulletins across seven hours read the same
+// three stories, because the feed had not moved and the freshness window is twelve hours. Nothing
+// remembered the previous bulletin, so "newest first, take three" gave the same three every time.
+describe('what the station has already read', () => {
+    const three = [item('Bridge reopens after four years'), item('Council votes on the harbour'), item('Ferry service resumes')];
+
+    it('reads a story once and then reaches past it', async () => {
+        const { source } = build({ items: [...three, item('Library extends its hours')] }, { [BULLETIN_KEYS.stories]: 3 });
+
+        const first = await source.storiesFor(NEWS_KIND, NOW);
+        expect(first?.map(story => story.headline)).toContain('Bridge reopens after four years.');
+
+        const second = await source.storiesFor(NEWS_KIND, NOW);
+        expect(second?.map(story => story.headline)).toEqual(['Library extends its hours.']);
+    });
+
+    it('declines the slot when everything in the window has been read', async () => {
+        // Silence rather than a repeat, on the same argument the freshness window is on: a listener
+        // cannot tell a station reading this morning's headlines again from one that is simply wrong.
+        const { source } = build({ items: three }, { [BULLETIN_KEYS.stories]: 3 });
+
+        await source.storiesFor(NEWS_KIND, NOW);
+
+        expect(await source.storiesFor(NEWS_KIND, NOW)).toEqual([]);
+    });
+
+    it('says so, at a level an operator will see', async () => {
+        // The one line here worth attention: a station whose clock asks for news every half hour and
+        // whose publisher posts three stories a day is silent at most bulletins, and only this says
+        // why. A `debug` line would leave that looking like the news feature being broken.
+        const { source } = build({ items: three }, { [BULLETIN_KEYS.stories]: 3 });
+
+        await source.storiesFor(NEWS_KIND, NOW);
+        await source.storiesFor(NEWS_KIND, NOW);
+
+        expect(logger.info).toHaveBeenCalledWith(expect.stringMatching(/already been read/i));
+    });
+
+    it('treats one story under two spellings as one story', async () => {
+        // Two newsrooms carrying one headline is two ids and one thing a listener hears twice, which
+        // is why the log is keyed on the words rather than on the publisher's id.
+        const { source } = build({ items: [item('Bridge reopens after four years')] }, { [BULLETIN_KEYS.stories]: 3 });
+        await source.storiesFor(NEWS_KIND, NOW);
+
+        const { source: same } = build();
+        expect(await same.storiesFor(NEWS_KIND, NOW)).toHaveLength(1);
+
+        const again = build({ items: [item('BRIDGE REOPENS, after four years!', { id: 'a-different-publisher' })] }, {});
+        await again.source.storiesFor(NEWS_KIND, NOW);
+        expect(await again.source.storiesFor(NEWS_KIND, NOW)).toEqual([]);
+    });
+
+    it('forgets a story once it is older than the window it could be offered in', async () => {
+        // The log is pruned against the same window the fetch uses, so it can never hold a story
+        // that could still come back — which is what keeps it bounded without a sweep of its own.
+        const { source } = build({ items: [item('Bridge reopens after four years')] }, { [BULLETIN_KEYS.maxAgeHours]: 12 });
+
+        await source.storiesFor(NEWS_KIND, NOW);
+        expect(await source.storiesFor(NEWS_KIND, NOW)).toEqual([]);
+
+        // A day later the entry is past the window, so the same headline is offerable again.
+        const later = NOW + 25 * 3_600_000;
+        expect(await source.storiesFor(NEWS_KIND, later)).toHaveLength(1);
     });
 });

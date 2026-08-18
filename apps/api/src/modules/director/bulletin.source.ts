@@ -61,6 +61,19 @@ const MAX_STORY_COUNT = 8;
 const MAX_AGE_HOURS = 168;
 
 /**
+ * How much further down the page to reach than will be read.
+ *
+ * Four times, where it was two. The two was sized for dropping entries with no usable headline; this
+ * has to cover that AND everything the station has already read, which on a slow feed is most of the
+ * front page. A publisher who posts three stories a morning and is asked for three every half hour
+ * gives the same three back all day unless the ask reaches past them — see {@link ReadLog}.
+ *
+ * Bounded by `MAX_NEWS_ITEMS` inside `NewsService` either way, because this number reaches somebody
+ * else's server.
+ */
+const OVERSAMPLE = 4;
+
+/**
  * How much of a teaser a writer is shown.
  *
  * Sized to a sentence or two, which is all a teaser ever is: the publisher wrote it to be skimmed
@@ -84,8 +97,85 @@ const MAX_SUMMARY_CHARS = 240;
  */
 const MAX_BODY_CHARS = 700;
 
+/**
+ * What the station has already read out, so it does not read it again.
+ *
+ * ## The failure
+ *
+ * `fetchItems` answers newest-first and this took the top three, every bulletin, with nothing
+ * remembering the last one. Measured on this station: the same three stories — a soap box derby, a
+ * piece about graduates and AI, and a paused construction project — went out in twenty-seven
+ * consecutive bulletins across seven hours, because that is what the feed had and the freshness
+ * window is twelve hours. A listener hears a station with nothing to say pretending to have news.
+ *
+ * ## Why memory rather than a table
+ *
+ * This is a WORKING SET, not a record. What was reported is already durable in
+ * `deadair.script_history`, one row per bulletin, which is where "what did the station say last
+ * Tuesday" is answered. What this holds is only "may I say it again", a question with a twelve-hour
+ * half-life — so a restart costs at most one repeated bulletin and heals itself on the next one,
+ * which is a smaller price than a migration and a sweep for a fact that expires by lunchtime. It is
+ * the same split the running order makes: memory is the authority, and the row is the record.
+ *
+ * ## Keyed on the HEADLINE rather than on the item id
+ *
+ * An id is per publisher, so one story carried by two newsrooms is two ids and one thing a listener
+ * hears twice. The headline is what actually gets read out, which makes it the honest key. It does
+ * not catch two publishers WORDING one story differently — nothing here does, and that is a real
+ * limit rather than an oversight.
+ *
+ * ## Marked at SELECTION, not at air
+ *
+ * A bulletin that is chosen and then never airs — its render failed, its slot was cut — has still
+ * spent its stories. That inaccuracy is bought deliberately, exactly as `chooseFacts` buys it for a
+ * break's facts: the alternative is a read-log that has to be told what happened to a segment much
+ * later, which is a second writer of the same fact and a way for the two to disagree.
+ */
+class ReadLog {
+    private readonly readAt = new Map<string, number>();
+
+    /** Whether this headline has already gone out inside the window. */
+    has(headline: string): boolean {
+        return this.readAt.has(key(headline));
+    }
+
+    /** Mark everything this bulletin is about to read. */
+    keep(headlines: readonly string[], now: number): void {
+        for (const headline of headlines) this.readAt.set(key(headline), now);
+    }
+
+    /**
+     * Drop anything older than the window it could still be offered in.
+     *
+     * Called on the way IN rather than when a bulletin is kept, which is the whole of the fix it
+     * replaces: pruning inside {@link keep} ran only when stories were selected, so the one station
+     * that needs it most — a feed so slow that every bulletin declines — was the one station whose
+     * log never aged out and never let a story become sayable again.
+     *
+     * Pruned against the same window the fetch uses, so the log can never hold a story that could
+     * still be offered, which is what keeps it bounded without a sweep of its own.
+     */
+    forget(before: number): void {
+        for (const [seen, at] of this.readAt) {
+            if (at < before) this.readAt.delete(seen);
+        }
+    }
+}
+
+/** A headline as the thing a listener would hear, so two spellings of one story are one story. */
+const key = (headline: string): string =>
+    headline
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .trim();
+
 @Injectable()
 export class BulletinSource {
+    /** See {@link ReadLog}. Per station process, and deliberately not persisted. */
+    private readonly read = new ReadLog();
+
     constructor(
         private readonly news: NewsService,
         private readonly config: AppConfig,
@@ -111,20 +201,52 @@ export class BulletinSource {
         const feed = this.config.get(BULLETIN_KEYS.feed, '').trim();
 
         try {
+            const windowMs = maxAgeHours * 3_600_000;
             const items = await this.news.fetchItems({
                 ...(feed.length === 0 ? {} : { feedId: feed }),
                 // Asked for more than will be read, because the cut below drops anything without a
-                // usable headline and a bulletin that came up two short of what the operator asked
-                // for is a worse read than one that reached a little further down the page.
-                limit: wanted * 2,
-                since: new Date(now - maxAgeHours * 3_600_000).toISOString(),
+                // usable headline and anything the station has already said, and a bulletin that
+                // came up two short of what the operator asked for is a worse read than one that
+                // reached a little further down the page. See `OVERSAMPLE`.
+                limit: wanted * OVERSAMPLE,
+                since: new Date(now - windowMs).toISOString(),
             });
 
-            const stories = items.flatMap(item => toStory(item) ?? []).slice(0, wanted);
+            // Before the filter, so a story that has aged past the window is sayable again even on a
+            // station whose every recent bulletin declined. See `ReadLog.forget`.
+            this.read.forget(now - windowMs);
+
+            const offered = items.flatMap(item => toStory(item) ?? []);
+            const stories = offered.filter(story => !this.read.has(story.headline)).slice(0, wanted);
+
+            // Nothing the station has not already said. DECLINED rather than repeated, on the same
+            // argument the freshness window is on: a feed that has not moved and a station reading
+            // this morning's headlines again at teatime are the same wrongness, and a listener
+            // cannot tell either from the station simply being wrong. Passing over the slot is
+            // something the station is built to absorb.
+            //
+            // Said at info rather than debug, and it is the one line here worth an operator's
+            // attention: a station whose clock asks for news every half hour and whose publisher
+            // posts three stories a day is silent at most bulletins, and this is what says so.
+            if (stories.length === 0) {
+                if (offered.length > 0)
+                    this.logger.info('director: every story in the news window has already been read, so the bulletin was skipped');
+                return [];
+            }
+
+            this.read.keep(
+                stories.map(story => story.headline),
+                now,
+            );
 
             // At debug, because this runs on every bulletin and the interesting version of it is
             // the one where a bulletin turned out to be short.
-            this.logger.debug('director: read the news for a bulletin', { offered: items.length, using: stories.length, feed: feed || 'all' });
+            this.logger.debug('director: read the news for a bulletin', {
+                offered: offered.length,
+                using: stories.length,
+                repeats: offered.length - stories.length,
+                feed: feed || 'all',
+            });
             return stories;
         } catch (error) {
             // `NewsService` already absorbs a failing plugin, so reaching here means something

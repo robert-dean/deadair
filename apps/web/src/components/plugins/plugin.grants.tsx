@@ -47,7 +47,7 @@ export function GrantAnswer({ grant, size = 'xs' }: GrantAnswerProps) {
     const decide = useDecidePluginGrant();
 
     return (
-        <Stack gap={4} align="flex-end">
+        <Stack gap="xxs" align="flex-end">
             <SegmentedControl
                 size={size}
                 value={grant.decision}
@@ -82,7 +82,7 @@ export interface GrantDescriptionProps {
  */
 export function GrantDescription({ grant }: GrantDescriptionProps) {
     return (
-        <Stack gap={2}>
+        <Stack gap="xxxs">
             <Text size="sm" fw={500}>
                 {grant.label}
             </Text>

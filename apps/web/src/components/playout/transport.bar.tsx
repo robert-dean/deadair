@@ -106,7 +106,7 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                     {/* Only while something is on air: an empty square over "Starting…" reads as a
                         second thing being wrong rather than as art the station does not have. */}
                     {nowPlaying ? <Artwork src={nowPlaying.item.artworkUrl} alt={nowPlaying.item.title} size={expanded ? 40 : 32} /> : undefined}
-                    <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
+                    <Stack gap="xxxs" style={{ minWidth: 0, flex: 1 }}>
                         {nowPlaying ? (
                             <>
                                 <Group gap="xs" wrap="nowrap">
@@ -164,7 +164,7 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                             any of this is audible, so it is not a statistic to bury in a panel
                             an operator has to open. */}
                         <Tooltip label="Clients attached to the mount, as Icecast counts them">
-                            <Group gap={5} wrap="nowrap" visibleFrom="xs" c={listeners > 0 ? undefined : 'dimmed'}>
+                            <Group gap="xxs" wrap="nowrap" visibleFrom="xs" c={listeners > 0 ? undefined : 'dimmed'}>
                                 <IconHeadphones size={15} stroke={1.7} />
                                 <Text size="xs" className="da-num" c={listeners > 0 ? undefined : 'dimmed'}>
                                     {listenerLabel(listeners)}

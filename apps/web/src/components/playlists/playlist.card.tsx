@@ -26,7 +26,7 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
     return (
         <Card padding="lg">
             <Stack gap="sm" h="100%">
-                <Stack gap={2}>
+                <Stack gap="xxxs">
                     <Text fw={600} size="lg" lh={1.2}>
                         {playlist.name}
                     </Text>

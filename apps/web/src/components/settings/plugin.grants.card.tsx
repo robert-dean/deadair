@@ -38,7 +38,7 @@ export function PluginGrantsCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Title order={2} size="h4">
                         What plugins have asked for
                     </Title>
@@ -83,7 +83,7 @@ function GrantRow({ grant }: { grant: PluginGrant }) {
     return (
         <Table.Tr>
             <Table.Td>
-                <Stack gap={2}>
+                <Stack gap="xxxs">
                     <Text size="sm" fw={500}>
                         {grant.pluginName}
                     </Text>

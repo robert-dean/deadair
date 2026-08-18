@@ -532,7 +532,7 @@ interface SecretFieldProps {
  */
 function SecretField({ field, inputProps, stored, cleared, disabled, onToggleCleared }: SecretFieldProps) {
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             <PasswordInput
                 label={field.label}
                 description={field.help}

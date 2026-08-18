@@ -30,11 +30,11 @@ export function PluginTrustDialog({ plugin, opened, onCancel, onConfirm }: Plugi
 
                 <Text size="sm">Enable a plugin the same way you would add a dependency to this project: because you trust who wrote it.</Text>
 
-                <Stack gap={6}>
+                <Stack gap="xxs">
                     <Text size="xs" c="dimmed" ff="monospace">
                         {plugin.id} · {plugin.version}
                     </Text>
-                    <Group gap={6}>
+                    <Group gap="xxs">
                         <Text size="xs" c="dimmed">
                             Declared capabilities:
                         </Text>

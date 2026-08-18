@@ -134,7 +134,7 @@ function DayHeading({ at, first }: { at: string; first: boolean }) {
     return (
         <Group
             px="md"
-            py={6}
+            py="xxs"
             style={{
                 borderTop: first ? undefined : '1px solid var(--da-border)',
                 background: 'var(--da-raised)',
@@ -159,7 +159,7 @@ function ActivityLine({ entry, first }: ActivityLineProps) {
             wrap="nowrap"
             align="flex-start"
             px="md"
-            py={8}
+            py="xs"
             style={{ borderTop: first ? undefined : '1px solid var(--da-border)' }}
         >
             <Tooltip label={formatMomentFull(entry.at)} openDelay={300}>

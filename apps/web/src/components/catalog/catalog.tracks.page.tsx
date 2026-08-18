@@ -57,7 +57,7 @@ export function CatalogTracksPage({ page, search, state, onPageChange, onSearchC
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
+            <Stack gap="xxs">
                 {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                     router's own types, and with them the check that `params` matches the path. */}
                 <Anchor renderRoot={props => <Link to="/catalog" {...props} />} size="sm">
@@ -166,7 +166,7 @@ export function CatalogTracksPage({ page, search, state, onPageChange, onSearchC
                                             a row can afford is a glance, and anything more detailed is
                                             the record's own page one click away. */}
                                         <Table.Td>
-                                            <Group gap={6} wrap="nowrap">
+                                            <Group gap="xxs" wrap="nowrap">
                                                 <StateMark on={track.hasAudio} label="audio on this machine" mark="A" />
                                                 <StateMark on={track.measured} label="measured" mark="M" />
                                                 <StateMark on={track.enriched} label="described by a provider" mark="E" />

@@ -103,7 +103,7 @@ export function VoicesPage() {
                 {voices.data?.voices.map(voice => (
                     <Card key={voice.id} padding="sm" radius="md">
                         <Group justify="space-between" wrap="nowrap">
-                            <Stack gap={2}>
+                            <Stack gap="xxxs">
                                 <Text fw={500}>{voice.label}</Text>
                                 {voice.description ? (
                                     <Text c="dimmed" size="xs">

@@ -31,7 +31,7 @@ export function PluginPermissionsCard({ plugin }: PluginPermissionsCardProps) {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Title order={3} size="h5">
                         What this plugin has asked for
                     </Title>
@@ -44,7 +44,7 @@ export function PluginPermissionsCard({ plugin }: PluginPermissionsCardProps) {
 
                 {grants.map(grant => (
                     <Group key={grant.capability} justify="space-between" align="flex-start" wrap="nowrap" gap="lg">
-                        <Stack gap={6}>
+                        <Stack gap="xxs">
                             <GrantDescription grant={grant} />
                             <StatusLamp tone={GRANT_TONES[grant.decision]} label={GRANT_WORDS[grant.decision]} />
                         </Stack>

@@ -125,7 +125,7 @@ export function PersonasPage() {
                 {(personas.data?.personas ?? []).map(persona => (
                     <Card key={persona.id}>
                         <Group justify="space-between" align="flex-start" wrap="nowrap">
-                            <Stack gap={6} style={{ minWidth: 0 }}>
+                            <Stack gap="xxs" style={{ minWidth: 0 }}>
                                 <Group gap="xs">
                                     <Text fw={600}>{persona.label}</Text>
                                     {persona.active ? (

@@ -25,7 +25,7 @@ export interface PageHeaderProps {
  */
 export function PageHeader({ title, eyebrow, description, actions, children }: PageHeaderProps) {
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : undefined}
             <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
                 <Title order={1}>{title}</Title>

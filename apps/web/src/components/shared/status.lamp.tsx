@@ -37,7 +37,7 @@ export function StatusLamp({ tone, label, emphasis = 'lamp', size = 'sm', pulse 
 
     const dot = size === 'md' ? 10 : 8;
     return (
-        <Group gap={7} wrap="nowrap" aria-label={`Status: ${label}`}>
+        <Group gap="xxs" wrap="nowrap" aria-label={`Status: ${label}`}>
             <Box
                 w={dot}
                 h={dot}

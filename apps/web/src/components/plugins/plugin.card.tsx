@@ -24,7 +24,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
         <Card padding="lg" style={{ borderLeft: `2px solid var(--mantine-color-${toneColor[tone]}-5)` }}>
             <Stack gap="sm" h="100%">
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
-                    <Stack gap={2}>
+                    <Stack gap="xxxs">
                         <Text fw={600} size="lg" lh={1.2}>
                             {plugin.name}
                         </Text>
@@ -39,7 +39,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
                     {plugin.description ?? 'No description.'}
                 </Text>
 
-                <Group gap={6}>
+                <Group gap="xxs">
                     {plugin.capabilities.map(capability => (
                         <Badge key={capability} size="sm" variant="light" color="gray" tt="none">
                             {capability}

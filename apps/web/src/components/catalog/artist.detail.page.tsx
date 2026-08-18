@@ -39,7 +39,7 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                 {/* Not rendered while the artist is loading: a placeholder initial for a name
                     nobody knows yet is a letter chosen at random. */}
                 {artist.data ? <Artwork src={artist.data.imageUrl} alt={artist.data.name} size={120} /> : undefined}
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
                     <Anchor renderRoot={props => <Link to="/catalog" {...props} />} size="sm">
@@ -60,7 +60,7 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                         {/* The widest an opinion gets: a dislike here takes every record they are
                             credited on out of rotation, whatever the tracks themselves say. */}
                         {artist.data ? (
-                            <Group gap="xs" pt={4}>
+                            <Group gap="xs" pt="xxs">
                                 <RatingControl
                                     size="xs"
                                     rating={artist.data.rating}

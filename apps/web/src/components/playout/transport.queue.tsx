@@ -34,12 +34,12 @@ export function TransportQueue({ upNext, queuedCount }: TransportQueueProps) {
     }
 
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             <Text size="xs" tt="uppercase" c="dimmed" fw={600} style={{ letterSpacing: '0.08em' }}>
                 Up next
             </Text>
             <ScrollArea.Autosize mah={140} type="hover">
-                <Stack gap={2}>
+                <Stack gap="xxxs">
                     {upNext.map((item, index) => (
                         <Group key={item.id} gap="xs" wrap="nowrap">
                             <Text size="xs" c="dimmed" ff="monospace" w={20} ta="right">

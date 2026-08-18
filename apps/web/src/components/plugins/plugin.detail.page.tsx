@@ -46,7 +46,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
             {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                 router's own types, and with them the check that this route still exists. */}
             <Anchor renderRoot={props => <Link to="/plugins" {...props} />} size="sm">
-                <Group gap={4} wrap="nowrap">
+                <Group gap="xxs" wrap="nowrap">
                     <IconArrowLeft size={14} stroke={1.8} />
                     Plugins
                 </Group>
@@ -82,7 +82,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                     </Group>
 
                     {detail.capabilities.length > 0 ? (
-                        <Group gap={6}>
+                        <Group gap="xxs">
                             {detail.capabilities.map(capability => (
                                 <Badge key={capability} size="sm" variant="light" color="gray" tt="none">
                                     {capability}
@@ -108,7 +108,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
             <Card padding="lg">
                 <Stack gap="md">
                     <Group justify="space-between" align="center">
-                        <Stack gap={2}>
+                        <Stack gap="xxxs">
                             <Title order={3} size="h5">
                                 Connection test
                             </Title>
@@ -150,7 +150,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
 
             <Card padding="lg">
                 <Stack gap="md">
-                    <Stack gap={4}>
+                    <Stack gap="xxs">
                         <Title order={3} size="h5">
                             Settings
                         </Title>

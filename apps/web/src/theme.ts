@@ -1,6 +1,21 @@
 import { createTheme, type CSSVariablesResolver, type MantineColorsTuple } from '@mantine/core';
 
 /**
+ * The two rungs added below `xs`, told to TypeScript.
+ *
+ * Mantine's spacing key is `... | (string & {})`, so `gap="xxs"` compiles with or without this and
+ * the augmentation buys exactly one thing: the new rungs appear in autocomplete beside `xs` and
+ * `sm`. That is the whole point — the reason the console had five different sub-gutter gaps is
+ * that the scale offered nothing there and each author had to invent, so a rung nobody can find is
+ * a rung that will be re-invented.
+ */
+declare module '@mantine/core' {
+    export interface MantineThemeSizesOverride {
+        spacing: Record<'xxxs' | 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl', string>;
+    }
+}
+
+/**
  * The console's design language: a broadcast desk.
  *
  * Dark, dense and utilitarian, on the assumption that an operator reads this page while something
@@ -110,7 +125,23 @@ export const theme = createTheme({
      * below — table rows, card padding, the gutters — where it costs whitespace instead of
      * legibility.
      */
+    /**
+     * The scale, with two rungs below Mantine's own.
+     *
+     * `xs` at 8px is a card gutter, and the console needs something under it constantly: 56 call
+     * sites reached below this scale and invented five different answers (2, 4, 5, 6 and 7px) for
+     * what "tighter than a gutter" means. Reading them back, they were asking for two things and
+     * drifting about one of them. The 4/5/6/7 cluster is the drift — forty-two sites spread across
+     * three pixels, no two of which anybody could tell apart — and it collapses to `xxs`. The 2px
+     * sites are not drift and are not the same idea: every one of them is a `Stack` pairing a line
+     * with its own dimmed second line, where the gap is leading relief rather than separation, and
+     * at that size doubling it to 4px visibly breaks the pair into two rows. So `xxxs` exists,
+     * ugly name and all, because the alternative is sixteen call sites going back to naming a
+     * number.
+     */
     spacing: {
+        xxxs: '2px',
+        xxs: '4px',
         xs: '8px',
         sm: '12px',
         md: '16px',

@@ -30,7 +30,7 @@ export function StorageCard() {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Title order={2} size="h4">
                         Disk
                     </Title>
@@ -94,13 +94,13 @@ function StoreRow({ store }: { store: StorageStore }) {
     return (
         <Table.Tr>
             <Table.Td>
-                <Stack gap={2}>
+                <Stack gap="xxxs">
                     <Text size="sm">{store.label}</Text>
                     <Text size="xs" c="dimmed">
                         {store.path}
                     </Text>
                     {capped ? (
-                        <Group gap="xs" wrap="nowrap" mt={4}>
+                        <Group gap="xs" wrap="nowrap" mt="xxs">
                             <Progress value={used} w={120} size="sm" color={used >= 100 ? 'yellow' : 'teal'} aria-label="Share of the limit in use" />
                             <Text size="xs" c="dimmed" className="da-num">
                                 {used}% of {formatBytes(store.capBytes)}
@@ -116,7 +116,7 @@ function StoreRow({ store }: { store: StorageStore }) {
                 {store.files}
                 {store.rowsWithNoFile > 0 ? (
                     <Tooltip label="Rows pointing at a file that is not there. The station fetches or renders these again when it needs them.">
-                        <Text span size="xs" c="yellow" ml={6}>
+                        <Text span size="xs" c="yellow" ml="xxs">
                             {store.rowsWithNoFile} missing
                         </Text>
                     </Tooltip>

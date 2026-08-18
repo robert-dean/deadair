@@ -41,7 +41,7 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
         <Stack gap="lg">
             <Group align="flex-start" gap="md" wrap="nowrap">
                 {album.data ? <Artwork src={album.data.imageUrl} alt={album.data.name} size={160} /> : undefined}
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
                     {album.data ? (
@@ -70,7 +70,7 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                         {/* An opinion about the RECORD, which is not an opinion about any one track on
                             it: a dislike here takes the whole thing out of rotation. */}
                         {album.data ? (
-                            <Group gap="xs" pt={4}>
+                            <Group gap="xs" pt="xxs">
                                 <RatingControl
                                     size="xs"
                                     rating={album.data.rating}

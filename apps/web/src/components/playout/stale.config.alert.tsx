@@ -49,7 +49,7 @@ export function StaleConfigAlert({ warnings }: StaleConfigProps) {
         <Alert color="red" variant="light" title="A stream container is running config that has been replaced">
             <Stack gap="xs">
                 {warnings.map(warning => (
-                    <Stack gap={4} key={warning.container}>
+                    <Stack gap="xxs" key={warning.container}>
                         <Text size="xs">{warning.detail}</Text>
                         <Group gap="xs" wrap="nowrap">
                             <Code>{warning.restart}</Code>

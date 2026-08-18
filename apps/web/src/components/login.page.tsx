@@ -84,7 +84,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                             around this page, so the badge is what says which station you are at. */}
                         <Stack gap="xs" align="center">
                             <Image src="/logo-mark.png" alt="" aria-hidden w={64} h={64} />
-                            <Stack gap={2} align="center">
+                            <Stack gap="xxxs" align="center">
                                 <Title order={2}>Sign in</Title>
                                 <Text c="dimmed" size="sm">
                                     Station controls are staff only.

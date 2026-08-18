@@ -162,7 +162,7 @@ function Claims({ claims }: { claims: EnrichmentClaim[] }) {
     return (
         <Stack gap="sm">
             {claims.map(claim => (
-                <Stack key={claim.id} gap={4}>
+                <Stack key={claim.id} gap="xxs">
                     <Group gap="xs" wrap="nowrap" align="baseline">
                         {/* `flexShrink: 0` because the claim beside it is a whole sentence and a
                             nowrap row squeezes the badge instead, which turns `summary` into
@@ -173,7 +173,7 @@ function Claims({ claims }: { claims: EnrichmentClaim[] }) {
                         <Text size="sm">{claim.claim}</Text>
                     </Group>
                     <Spoiler maxHeight={0} showLabel="Show the source" hideLabel="Hide the source">
-                        <Stack gap={2} pt={4}>
+                        <Stack gap="xxxs" pt="xxs">
                             <Text size="xs" c="dimmed" fs="italic">
                                 {`“${claim.sourceQuote}”`}
                             </Text>

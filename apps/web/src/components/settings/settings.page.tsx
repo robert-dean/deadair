@@ -107,7 +107,7 @@ function SettingsGroupCard({ group, settings }: SettingsGroupCardProps) {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Title order={2} size="h4">
                         {group.title}
                     </Title>

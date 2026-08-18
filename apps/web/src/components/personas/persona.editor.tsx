@@ -252,7 +252,7 @@ function GenerationNotes({ generated }: { generated: { droppedMarkers: string[];
 
     return (
         <Alert color="yellow" variant="light" title="Some of it was dropped">
-            <Stack gap={4}>
+            <Stack gap="xxs">
                 {generated.droppedMarkers.length === 0 ? undefined : (
                     <Text size="sm">
                         The model called these words its own and then never used them, so they were left out:{' '}

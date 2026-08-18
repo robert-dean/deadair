@@ -71,14 +71,14 @@ function RuledOut({ checks }: { checks: SilenceCheck[] }) {
     if (ok.length === 0) return undefined;
 
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             <Text size="xs" c="dimmed">
                 Ruled out
             </Text>
             <List size="xs" spacing={2}>
                 {ok.map(check => (
                     <List.Item key={check.code}>
-                        <Group gap={6} wrap="nowrap">
+                        <Group gap="xxs" wrap="nowrap">
                             <Badge size="xs" variant="light" color="gray" tt="none">
                                 {TITLES[check.code]}
                             </Badge>

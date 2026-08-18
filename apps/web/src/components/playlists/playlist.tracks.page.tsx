@@ -35,7 +35,7 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
 
     return (
         <Stack gap="lg">
-            <Stack gap={4}>
+            <Stack gap="xxs">
                 {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                     router's own types, and with them the check that `params` matches the path. */}
                 <Anchor renderRoot={props => <Link to="/playlists" {...props} />} size="sm">

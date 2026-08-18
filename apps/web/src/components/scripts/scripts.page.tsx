@@ -136,7 +136,7 @@ export function ScriptsPage() {
 /** Where one day ends and the next begins, as on the activity feed and for the same reason. */
 function DayHeading({ at, first }: { at: string; first: boolean }) {
     return (
-        <Group px="md" py={6} style={{ borderTop: first ? undefined : '1px solid var(--da-border)', background: 'var(--da-raised)' }}>
+        <Group px="md" py="xxs" style={{ borderTop: first ? undefined : '1px solid var(--da-border)', background: 'var(--da-raised)' }}>
             <Eyebrow>{formatDay(at)}</Eyebrow>
         </Group>
     );
@@ -166,7 +166,7 @@ function AttemptRow({ attempt, first }: AttemptRowProps) {
         <Stack gap={0} style={{ borderTop: first ? undefined : '1px solid var(--da-border)' }}>
             <UnstyledButton
                 px="md"
-                py={8}
+                py="xs"
                 onClick={() => {
                     setOpen(value => !value);
                 }}
@@ -226,7 +226,7 @@ function AttemptDetail({ attempt }: { attempt: ScriptAttempt }) {
             {attempt.reason !== undefined && attempt.script !== undefined ? <Fact label="Note" value={attempt.reason} /> : undefined}
 
             {attempt.raw === undefined ? undefined : (
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Eyebrow>Answer, before anything read it</Eyebrow>
                     <Code block style={WRAP}>
                         {attempt.raw}
@@ -239,10 +239,10 @@ function AttemptDetail({ attempt }: { attempt: ScriptAttempt }) {
                     The prompt was not kept. Turn on <Code>llm.captureWrites</Code> to keep it for the attempts after this one.
                 </Text>
             ) : (
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Eyebrow>What it was sent</Eyebrow>
                     {attempt.prompt.map((message, index) => (
-                        <Stack key={index} gap={2}>
+                        <Stack key={index} gap="xxxs">
                             <Text size="xs" c="dimmed" tt="uppercase">
                                 {message.role}
                             </Text>
@@ -280,7 +280,7 @@ function Fact({ label, value, numeric = false }: { label: string; value: string;
 /** A record the writer was told about, and what it was told. */
 function Neighbour({ label, track }: { label: string; track: NonNullable<ScriptAttempt['previous']> }) {
     return (
-        <Stack gap={2} style={{ maxWidth: 420 }}>
+        <Stack gap="xxxs" style={{ maxWidth: 420 }}>
             <Eyebrow>{label}</Eyebrow>
             <Text size="sm">
                 {track.title} <Text span c="dimmed">{track.artist}</Text>

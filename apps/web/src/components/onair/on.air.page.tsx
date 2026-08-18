@@ -61,7 +61,7 @@ export function OnAirPage() {
     return (
         <Stack gap="lg">
             <Group justify="space-between" align="flex-end" wrap="nowrap">
-                <Stack gap={6}>
+                <Stack gap="xxs">
                     <Group gap="sm" wrap="nowrap">
                         <Title order={1}>{loaded?.name || 'On air'}</Title>
                         {/* The tally light, and the one thing on this console that pulses. Stood

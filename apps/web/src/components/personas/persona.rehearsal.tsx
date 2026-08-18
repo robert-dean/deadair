@@ -48,7 +48,7 @@ export function PersonaRehearsalPanel({ rehearsal }: { rehearsal: PersonaRehears
 
 function Attempt({ attempt }: { attempt: PersonaRehearsalAttempt }) {
     return (
-        <Stack gap={4}>
+        <Stack gap="xxs">
             <Group gap="xs" wrap="nowrap">
                 <StatusLamp tone={toneFor(attempt.outcome)} label={attempt.writer} />
                 <Text size="xs" c="dimmed" className="da-num">

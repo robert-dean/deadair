@@ -82,7 +82,7 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
         <Card padding="lg">
             <Stack gap="md">
                 <Group justify="space-between" align="flex-start">
-                    <Stack gap={4}>
+                    <Stack gap="xxs">
                         <Title order={3} size="h5">
                             Logs
                         </Title>
@@ -155,7 +155,7 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
                             This plugin hasn&apos;t written anything yet.
                         </Text>
                     ) : (
-                        <Stack gap={2}>
+                        <Stack gap="xxxs">
                             {entries.map((entry, index) => (
                                 <Text
                                     key={`${entry.ts}-${index}`}

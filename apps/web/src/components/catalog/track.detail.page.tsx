@@ -103,7 +103,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
         <Stack gap="lg">
             <Group align="flex-start" gap="md" wrap="nowrap">
                 <Artwork src={detail.albumImageUrl} alt={detail.title} size={160} />
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
                     <Anchor renderRoot={props => <Link to="/catalog/tracks" {...props} />} size="sm">
@@ -124,7 +124,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
                             </Text>
                         }
                     >
-                        <Group gap="xs" pt={4}>
+                        <Group gap="xs" pt="xxs">
                             <RatingControl
                                 size="xs"
                                 rating={detail.rating}
@@ -160,7 +160,7 @@ function BindingsCard({ detail }: { detail: TrackDetail }) {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Eyebrow>Copies</Eyebrow>
                     <Title order={2} size="h5">
                         Where this record comes from
@@ -188,8 +188,8 @@ function BindingsCard({ detail }: { detail: TrackDetail }) {
                                 return (
                                     <Table.Tr key={binding.sourceId}>
                                         <Table.Td>
-                                            <Stack gap={2}>
-                                                <Group gap={6}>
+                                            <Stack gap="xxxs">
+                                                <Group gap="xxs">
                                                     <Text size="sm">{binding.pluginId}</Text>
                                                     {/* A discovered copy is in no playlist, which is why the
                                                         sync's sweep may not judge it. Worth saying on a page
@@ -250,7 +250,7 @@ function MeasurementCard({ detail }: { detail: TrackDetail }) {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Eyebrow>Measurement</Eyebrow>
                     <Title order={2} size="h5">
                         Cue points and loudness
@@ -292,7 +292,7 @@ function AiringsCard({ detail }: { detail: TrackDetail }) {
         <Card padding="lg">
             <Stack gap="md">
                 <Group justify="space-between" align="flex-end">
-                    <Stack gap={4}>
+                    <Stack gap="xxs">
                         <Eyebrow>On air</Eyebrow>
                         <Title order={2} size="h5">
                             When this has played
@@ -306,7 +306,7 @@ function AiringsCard({ detail }: { detail: TrackDetail }) {
                 {detail.plays.length === 0 ? (
                     <EmptyState>This record has not been on air yet.</EmptyState>
                 ) : (
-                    <Stack gap={6}>
+                    <Stack gap="xxs">
                         {detail.plays.map(play => (
                             <Group key={`${play.airedAt}-${play.source}`} justify="space-between">
                                 <Text size="sm" className="da-num">
@@ -333,7 +333,7 @@ function AiringsCard({ detail }: { detail: TrackDetail }) {
  */
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <Stack gap={2}>
+        <Stack gap="xxxs">
             <Eyebrow>{label}</Eyebrow>
             <Text component="div" size="sm">
                 {children}

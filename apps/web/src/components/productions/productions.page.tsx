@@ -101,7 +101,7 @@ function ProductionCard({ production, stopping, onCancel }: { production: Produc
     return (
         <Card>
             <Group justify="space-between" align="flex-start" wrap="nowrap">
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Group gap="xs">
                         <Text fw={600}>{production.title}</Text>
                         <Badge color={toneColor[toneOf(production.state)]} variant="light">

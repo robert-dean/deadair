@@ -77,7 +77,7 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
     return (
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap={4}>
+                <Stack gap="xxs">
                     <Title order={3} size="h5">
                         Connection
                     </Title>
@@ -86,7 +86,7 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                     </Text>
                 </Stack>
 
-                <Stack gap={6}>
+                <Stack gap="xxs">
                     <Text size="sm" fw={500}>
                         Console callback URL
                     </Text>

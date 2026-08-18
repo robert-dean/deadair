@@ -135,8 +135,29 @@ export const MAX_TOOL_STEPS = 5;
  * could act on. It bit hardest on the best runs. A truncated answer is no longer catastrophic —
  * `readPicks` reads complete objects one at a time — but it still costs whatever the model had left
  * to say, and the records it names last are the ones it thought hardest about.
+ *
+ * **Raised again from 6,000, and this time it is the DEFAULT rather than the number.** Four
+ * consecutive briefed refills finished on `length` with zero tool calls and an empty answer: the
+ * model used the whole allowance thinking and never emitted a word, which is the same failure this
+ * constant already carries a note about at 2,000. That it recurred at 6,000 is the argument for the
+ * setting beside it — how much room a model needs before it will commit to an answer is a fact
+ * about the operator's model and host, not about this code, and the two stations that would want
+ * 4,000 and 24,000 cannot both be served by editing a constant.
  */
-export const MAX_OUTPUT_TOKENS = 6_000;
+export const DEFAULT_MAX_OUTPUT_TOKENS = 12_000;
+
+/**
+ * The answer ceiling this refill may use, from the operator's setting.
+ *
+ * Floored at 1 rather than validated: `AppConfig` hands back whatever the row holds, and a station
+ * whose operator typed a zero should get a slow answer rather than a provider error on every
+ * refill. Nothing here caps the top, because the ceiling that matters is the model's own context
+ * and only the operator knows what that is.
+ */
+export function maxOutputTokens(config: AppConfig): number {
+    const configured = config.get(MODEL_GENERATOR_KEYS.maxTokens, DEFAULT_MAX_OUTPUT_TOKENS);
+    return Number.isFinite(configured) && configured >= 1 ? Math.floor(configured) : DEFAULT_MAX_OUTPUT_TOKENS;
+}
 
 /**
  * How many of the operator's likes and dislikes, per kind, are read for the prompt.
@@ -184,6 +205,7 @@ const ANSWER_LOG_CHARS = 400;
 export const MODEL_GENERATOR_KEYS = {
     enabled: 'llm.setGenerator',
     model: 'llm.setModel',
+    maxTokens: 'llm.setMaxTokens',
 } as const;
 
 @Injectable()
@@ -216,6 +238,9 @@ export class ModelSetGenerator extends SetGenerator {
         }
 
         const model = this.config.get(MODEL_GENERATOR_KEYS.model, '').trim();
+        // Read per refill like the two above it, so an operator raising the ceiling after a run of
+        // `length` finishes gets the new one on the next refill rather than at the next restart.
+        const answerCeiling = maxOutputTokens(this.config);
         const messages = setPrompt(
             { count: inputs.count, avoid: describeAvoided(inputs), ...(inputs.brief === undefined ? {} : { brief: inputs.brief }) },
             {
@@ -235,7 +260,7 @@ export class ModelSetGenerator extends SetGenerator {
             {
                 messages,
                 ...(model.length === 0 ? {} : { model }),
-                maxOutputTokens: MAX_OUTPUT_TOKENS,
+                maxOutputTokens: answerCeiling,
                 // The same call `ModelTalkBreakWriter` makes, for the same MEASURED reason, and it
                 // was not obvious that programming an hour would want it too: choosing records
                 // looks far more like a reasoning problem than writing a link does.
@@ -289,7 +314,12 @@ export class ModelSetGenerator extends SetGenerator {
             this.logger.warn('director: the model ran out of room before it finished answering; some of its choices were lost', {
                 asked: inputs.count,
                 named: picks.length,
-                limit: MAX_OUTPUT_TOKENS,
+                limit: answerCeiling,
+                // The setting to raise, named in the line that reports the failure it fixes. This
+                // is the one warning an operator can act on directly and the key is not guessable
+                // from the sentence.
+                setting: MODEL_GENERATOR_KEYS.maxTokens,
+                ...reasoningFields(result.usage),
             });
         }
 

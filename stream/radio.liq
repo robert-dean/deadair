@@ -326,9 +326,21 @@ thread.run(every=voice_tick, voice_countup)
 # the first frame of the item reaches the operator that reads it.
 on_air_speech = ref(false)
 
+# The gain stamp EXACTLY as it arrived, for the reading.
+#
+# Not used to level anything — `amplify` reads the same key itself — and here because the one thing
+# nobody could see was what this operator was handed. `liq_amplify` is parsed as
+# `Scanf.sscanf " %f dB"` falling back to `float_of_string`, so a value that lost its suffix
+# somewhere between the app and here is applied as a LINEAR factor and is silent about it: a stamp
+# meaning +7.8 dB becomes a multiplication by 7.8, which is +17.8 dB. Measured off the mount, that
+# is what a break has been airing at. A reading that shows the string settles in one look which
+# side of the wire dropped it.
+on_air_gain = ref("")
+
 def playout_note_on_air(m) =
   on_air_item := m["deadair_item"]
   on_air_speech := m["deadair_speech"] == "1"
+  on_air_gain := m["liq_amplify"]
   # Reset HERE, in the streaming loop, which is the whole reason this hook is synchronous: the
   # counter below is what a voice cue is timed against, and starting it anywhere else would start
   # it late by however long an HTTP notify took to arrive.
@@ -824,7 +836,13 @@ def playout_reading() =
   # Which radio.env this process booted with. Constant for the life of the container, which is the
   # entire point: the app compares it against the file as it stands now, and a difference means
   # everything below is being done with credentials that have been replaced.
-  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}", "configStamp": "#{config_stamp}"'
+  # What the mixer thinks it is playing, and what it was told to do about the level. Both are
+  # exactly what arrived on the item's own metadata: `speech` is what switches the compressor in
+  # step 2, and `gain` is the raw `liq_amplify` string, suffix and all. A stamp that lost its
+  # `dB` on the way here is applied as a linear factor and looks like nothing at all from the app
+  # side, which is a difference of ten decibels reported as a difference of none.
+  speech_json = if on_air_speech() then "true" else "false" end
+  '"queued": #{playout_queue.length()}, "ready": #{ready_json}, "onAir": "#{item}", "remainingMs": #{remaining_ms}, "driving": #{driving_json}, "voice": "#{voice_state()}", "speech": #{speech_json}, "gain": "#{on_air_gain()}", "configStamp": "#{config_stamp}"'
 end
 
 def control_status(req) =

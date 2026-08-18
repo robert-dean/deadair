@@ -9,7 +9,7 @@ import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.j
 import { BULLETIN_KEYS, DEFAULT_MAX_AGE_HOURS, DEFAULT_STORY_COUNT } from '#modules/director/bulletin.source.js';
 import { CLOCK_BAND_KEYS } from '#modules/director/clock.bands.js';
 import { CLOCK_KEYS } from '#modules/director/clock.words.js';
-import { MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
+import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
@@ -525,6 +525,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: MODEL_GENERATOR_KEYS.enabled,
         default: '',
         help: "Separate from the talk break's model on purpose: programming an hour is a research task and writing a link is not, so the two are worth sizing differently. Leave empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: MODEL_GENERATOR_KEYS.maxTokens,
+        label: 'Room to answer with',
+        type: 'number',
+        default: DEFAULT_MAX_OUTPUT_TOKENS,
+        dependsOn: MODEL_GENERATOR_KEYS.enabled,
+        help: 'How many tokens the model gets for one hour of programming. Two dozen records of JSON is small, so nearly all of this is room to think in — and a model that runs out mid-thought answers with nothing at all rather than with a short list. Raise it if the log says the model ran out of room; a reasoning model on a long brief can want several times this. The cost of setting it too high is a slower refill, which nobody is waiting on.',
     },
     // What the station plays was a setting here and is now the persona's own `music` line, beside
     // the character that plays it: choosing a persona is one decision about who the station is, and

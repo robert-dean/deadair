@@ -283,7 +283,13 @@ describe('RenderService.getVoiceSample', () => {
 
         await render.getVoiceSample('');
 
-        expect(speakAs).toHaveBeenCalledWith(SPEAKER, 'key:deadair.kokoro:', expect.anything(), { text: SAMPLE_TEXT }, { maxWaitMs: expect.any(Number), priority: 'preview' });
+        expect(speakAs).toHaveBeenCalledWith(
+            SPEAKER,
+            'key:deadair.kokoro:',
+            expect.anything(),
+            { text: SAMPLE_TEXT },
+            { maxWaitMs: expect.any(Number), priority: 'preview' },
+        );
     });
 
     it('answers 503 when nothing can speak', async () => {

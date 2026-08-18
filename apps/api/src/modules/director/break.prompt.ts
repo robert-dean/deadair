@@ -35,6 +35,7 @@ import {
     personaLines,
     personaVoiceReminder,
     spentCatchphrases,
+    type CharacterContext,
     type CharacterFault,
     type PersonaSheet,
 } from '#modules/personas/persona.sheet.js';
@@ -826,6 +827,14 @@ export interface AnswerGuard {
      */
     persona?: PersonaSheet;
     /**
+     * Whether that character's DIALECT is required of the answer, or only its prohibitions.
+     *
+     * `required` by default, which is every kind of break whose job is voice. A bulletin passes
+     * `optional`, and {@link CharacterContext.dialect} carries the whole argument for why one kind
+     * gets to be plain while still being held to what the sheet forbids.
+     */
+    dialect?: CharacterContext['dialect'];
+    /**
      * The last few things the station said, exactly as the prompt was shown them.
      *
      * Read only to decide which signature phrases are spent, and it has to be the same list the
@@ -941,7 +950,10 @@ const namesNothing = (script: string, guard: AnswerGuard): boolean => {
 export function faultIn(script: string, guard: AnswerGuard): CharacterFault | undefined {
     if (guard.persona === undefined) return undefined;
 
-    return characterFault(guard.persona, script, guard.recent === undefined ? {} : { recent: guard.recent });
+    return characterFault(guard.persona, script, {
+        ...(guard.recent === undefined ? {} : { recent: guard.recent }),
+        ...(guard.dialect === undefined ? {} : { dialect: guard.dialect }),
+    });
 }
 
 /**

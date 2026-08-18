@@ -87,9 +87,7 @@ describe('listenerEvent', () => {
     const payload = (fields: Record<string, unknown>) => JSON.stringify(fields);
 
     it('reads the trigger, the mount and the whole count', () => {
-        const event = listenerEvent(
-            payload({ trigger: 'source-listeners-changed', uri: '/live.mp3', 'source-listener-count': 3 }),
-        );
+        const event = listenerEvent(payload({ trigger: 'source-listeners-changed', uri: '/live.mp3', 'source-listener-count': 3 }));
 
         expect(event).toEqual({ trigger: 'source-listeners-changed', uri: '/live.mp3', listeners: 3 });
     });

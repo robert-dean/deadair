@@ -54,7 +54,11 @@ export class StorageRepository extends DataRepository {
 
     /** Cover art, per source URL. */
     async artClaims(): Promise<StoredClaims> {
-        const rows = await this.db.selectFrom('deadair.artAssets').select(['checksum', 'ext', 'byteSize']).where('checksum', 'is not', null).execute();
+        const rows = await this.db
+            .selectFrom('deadair.artAssets')
+            .select(['checksum', 'ext', 'byteSize'])
+            .where('checksum', 'is not', null)
+            .execute();
 
         return rows.reduce((claims, row) => {
             if (row.checksum == null || row.ext == null) return claims;

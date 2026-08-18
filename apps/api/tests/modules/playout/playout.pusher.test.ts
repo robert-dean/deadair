@@ -800,7 +800,7 @@ describe('PlayoutPusher arming a talk-over', () => {
         expect(control.armVoice).toHaveBeenCalledWith(armed, itemId, 8000);
     });
 
-    it('arms the cue against the segment\'s own measurement where there is one', async () => {
+    it("arms the cue against the segment's own measurement where there is one", async () => {
         // The talk-over never becomes a player item, so this is the ONLY route by which what the
         // segment measured reaches the thing that stamps its gain.
         const { pusher, control } = build({ url: 'https://example.test/seg-1.ogg', atMs: 8000, loudnessLufs: -22 });

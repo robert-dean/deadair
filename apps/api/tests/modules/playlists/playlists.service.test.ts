@@ -362,7 +362,9 @@ describe('PlaylistsService.getPlaylistTracks', () => {
     // that reads as a short playlist rather than as a truncated one.
     it('pages to the end of the playlist rather than taking the provider default page', async () => {
         const pager = pagedBy(120, index => track(`t${index}`));
-        const instance = catalogInstance({ getPlaylistTracks: vi.fn(async (_id: string, options?: { limit?: number; offset?: number }) => pager(options)) });
+        const instance = catalogInstance({
+            getPlaylistTracks: vi.fn(async (_id: string, options?: { limit?: number; offset?: number }) => pager(options)),
+        });
         const { service, registry } = makeService(userActor('u-admin', ['admin']));
         registry.upsert(record(SPOTIFY_ID, { instance: instance as never }));
 

@@ -363,9 +363,7 @@ export function matchesDictionMarker(marker: string, text: string): boolean {
     // An apostrophe is a word character to no regex engine, so a trailing one needs its own
     // boundary: preceded by letters, followed by a non-letter. A marker that already carries one is
     // a suffix rule of its own and takes no inflection on top.
-    const pattern = needle.endsWith("'")
-        ? `[a-z]${escaped}(?![a-z])`
-        : `(?<![a-z'])${escaped}(?:${MARKER_INFLECTIONS.join('|')})?(?![a-z'])`;
+    const pattern = needle.endsWith("'") ? `[a-z]${escaped}(?![a-z])` : `(?<![a-z'])${escaped}(?:${MARKER_INFLECTIONS.join('|')})?(?![a-z'])`;
     return new RegExp(pattern).test(straightenApostrophes(text.toLowerCase()));
 }
 
@@ -506,6 +504,34 @@ export type CharacterFault =
 export interface CharacterContext {
     /** The last few things the station said, as `BreakWriteRequest.recent` holds them. */
     recent?: readonly string[];
+    /**
+     * Whether the dialect is REQUIRED of this script, or whether only the prohibitions apply.
+     *
+     * `required` unless a caller says otherwise, which is every kind of break whose whole job is
+     * voice. `optional` is for the one kind where it is not: a BULLETIN.
+     *
+     * ## The split this names, and why it had to be named
+     *
+     * {@link characterFault} is four checks, and only ONE of them is a positive requirement.
+     * {@link echoedSample}, {@link avoidedWording} and {@link spentCatchphrases} are prohibitions —
+     * do not read your own examples back, do not say what the sheet forbids, do not reuse a
+     * signature the station has just used — and none of those is in tension with reporting the news
+     * neutrally. {@link keepsCharacter} is the requirement, and it is the only one that a
+     * deliberately plain script cannot satisfy.
+     *
+     * A bulletin therefore used to drop the persona from its guard ENTIRELY, on the measurement that
+     * every news break under `wisecrack` fell to the floor as `out-of-character`: "no jokes, no
+     * opinions" in the news shape and "sound like nobody else" in the check are not simultaneously
+     * satisfiable. That measurement is real and the conclusion was broader than it. Dropping all
+     * four to avoid one re-permitted exactly the failure this file was built for and documents at
+     * the top: `I said what I said` closing a talk break, a welcome, **and a news bulletin**.
+     *
+     * So the prohibitions now hold everywhere, and only the dialect is a lean. It cannot cost a
+     * bulletin: all three are things a script must not DO, and the deterministic floor underneath is
+     * the operator's own news phrasings, which chain no persona templates and so cannot trip any of
+     * them.
+     */
+    dialect?: 'required' | 'optional';
 }
 
 /**
@@ -520,6 +546,9 @@ export interface CharacterContext {
  *
  * Ordered by how specific the fault is rather than by severity: all four decline, so the only thing
  * the order decides is what the log says, and the narrower reason is the more useful one.
+ *
+ * The three prohibitions run for every caller. Only the last is conditional, and
+ * {@link CharacterContext.dialect} is where that is argued.
  */
 export function characterFault(sheet: PersonaSheet, script: string, context: CharacterContext = {}): CharacterFault | undefined {
     if (echoedSample(sheet, script) !== undefined) return 'quoted-sample';
@@ -527,6 +556,10 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
 
     const spent = spentCatchphrases(sheet, context.recent);
     if (spent.length > 0 && catchphrasesIn(spent, script).length > 0) return 'spent-catchphrase';
+
+    // The one check a kind may be excused, and the only one that ASKS for something rather than
+    // forbidding it. See `CharacterContext.dialect`.
+    if (context.dialect === 'optional') return undefined;
 
     return keepsCharacter(sheet, script) ? undefined : 'out-of-character';
 }

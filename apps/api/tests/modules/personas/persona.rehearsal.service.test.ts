@@ -39,9 +39,7 @@ function registry(result: unknown) {
 const twoAttempts = {
     written: { script: 'Ahoy, me hearties.', label: 'a break' },
     writer: 'model',
-    attempts: [
-        { writer: 'model', outcome: 'written', written: { script: 'Ahoy, me hearties.', label: 'a break' }, durationMs: 900 },
-    ],
+    attempts: [{ writer: 'model', outcome: 'written', written: { script: 'Ahoy, me hearties.', label: 'a break' }, durationMs: 900 }],
 };
 
 const declinedThenFloor = {
@@ -104,12 +102,7 @@ describe('PersonaRehearsalService', () => {
 
     it('reports the decline AND the floor underneath it, not only the winner', async () => {
         const personas = { find: vi.fn(async () => persona()) };
-        const service = new PersonaRehearsalService(
-            personas as never,
-            registry(declinedThenFloor) as never,
-            config() as never,
-            logger() as never,
-        );
+        const service = new PersonaRehearsalService(personas as never, registry(declinedThenFloor) as never, config() as never, logger() as never);
 
         const result = await service.rehearse('p1');
 
@@ -131,7 +124,10 @@ describe('PersonaRehearsalService', () => {
         const personas = { find: vi.fn(async () => persona()) };
         const service = new PersonaRehearsalService(
             personas as never,
-            registry({ attempts: [{ writer: 'model', outcome: 'failed', reason: 'the station is busy', durationMs: 10_000 }], reason: 'nothing wrote this talkbreak' }) as never,
+            registry({
+                attempts: [{ writer: 'model', outcome: 'failed', reason: 'the station is busy', durationMs: 10_000 }],
+                reason: 'nothing wrote this talkbreak',
+            }) as never,
             config() as never,
             logger() as never,
         );

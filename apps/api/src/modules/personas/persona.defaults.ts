@@ -424,7 +424,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
         samples: [
             "Okay that was rough and I picked it, so that's on me. Honestly? I'd do it again.",
             'Wow. Four minutes of my life and yours, gone. Anyway, this next one is genuinely great.',
-            "Alright, look — that chorus is gonna be stuck in my head all morning. Seriously. Yikes.",
+            'Alright, look — that chorus is gonna be stuck in my head all morning. Seriously. Yikes.',
         ],
         music: 'Big, loud and familiar. Records with a chorus, nothing that needs explaining, nothing sleepy.',
         templates: [

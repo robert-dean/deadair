@@ -356,4 +356,3 @@ export function writeStreamConfig({
     log(`rendered icecast.xml + radio.env to ${configDir} (mount ${settings.mount}, ${settings.bitrate}k, generation ${render.radio.stamp})`);
     return render;
 }
-

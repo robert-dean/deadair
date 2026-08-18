@@ -171,19 +171,29 @@ export class ModelNewsBreakWriter extends BreakWriter {
             },
         );
 
-        // The prompt still tells the model who it is (`persona` above, into `breakPrompt`) — a
-        // bulletin is free to sound like this station's presenter. What it must not do is lose the
-        // slot for failing to: `AnswerGuard.persona` is what `faultIn` checks a script against, and
-        // this is the one kind that omits it, on purpose. Measured: every News break under
-        // `wisecrack` this station wrote fell through to the deterministic floor, `out-of-character`,
-        // because a bulletin is reporting rather than a character bit and the two rules pull against
-        // each other — "no jokes, no opinions" in `NEWS_SHAPE.opening` and "sound like nobody else"
-        // in the character check are not simultaneously satisfiable, and asking for both left the
-        // floor writing every single one. A talk break earns its persona by being about nothing but
-        // voice; a bulletin earns its keep by being correct, so the character is a lean here and not
-        // a requirement.
+        // The prompt tells the model who it is (`persona` above, into `breakPrompt`) — a bulletin is
+        // free to sound like this station's presenter — and the guard holds it to three quarters of
+        // that. **The character is a LEAN here and not a requirement**, which is `dialect:
+        // 'optional'` and is the whole of what makes this kind different.
+        //
+        // The measurement it rests on: every News break under `wisecrack` this station wrote fell
+        // through to the deterministic floor as `out-of-character`, because "no jokes, no opinions"
+        // in `NEWS_SHAPE.opening` and "sound like nobody else" in the check are not simultaneously
+        // satisfiable. A talk break earns its persona by being about nothing but voice; a bulletin
+        // earns its keep by being correct.
+        //
+        // What this kind used to do about that was omit `persona` from the guard ENTIRELY, and that
+        // was broader than the measurement. `characterFault` is four checks and only ONE of them
+        // asks for anything: the other three forbid echoing a sample line, using wording the sheet
+        // bans, and reusing a signature the station just spent, none of which is in tension with
+        // reporting neutrally. Dropping all four re-permitted the exact failure `persona.sheet.ts`
+        // was built for and names at the top — `I said what I said` closing a talk break, a welcome
+        // AND a news bulletin. So the prohibitions are back and only the dialect is excused, which
+        // cannot cost a bulletin: all three are things a script must not DO, and the floor underneath
+        // is the operator's own news phrasings, which chain no persona templates and cannot trip them.
         const guard: AnswerGuard = {
             maxWords: NEWS_MAX_WORDS,
+            ...(request.persona === undefined ? {} : { persona: request.persona, dialect: 'optional' as const }),
             // The list the prompt was built from, so a signature is refused here only where the
             // prompt named it as spent. See `AnswerGuard.recent`.
             ...(request.recent === undefined ? {} : { recent: request.recent }),

@@ -142,3 +142,53 @@ describe('the two ways a bulletin runs on', () => {
         expect(systemTurn(converse)).toMatch(/nothing about the sound of the station/i);
     });
 });
+
+// A bulletin holds the character to three of the four checks. Only the DIALECT is excused, because
+// only the dialect asks for something a deliberately plain script cannot give — the other three
+// forbid things a bulletin should never do anyway. Dropping all four, which is what this used to do,
+// re-permitted the exact failure `persona.sheet.ts` was built for: `I said what I said` closing a
+// talk break, a welcome and a news bulletin.
+describe('the character, as a lean rather than a requirement', () => {
+    const persona = {
+        key: 'wisecrack',
+        dictionMarkers: ['apparently', 'somehow', 'allegedly'],
+        catchphrases: ['I said what I said'],
+        avoid: ['buckle up'],
+        samples: ['Four minutes, three key changes and a saxophone nobody asked for.'],
+    } as unknown as NonNullable<BreakWriteRequest['persona']>;
+
+    it('airs a plain bulletin, which is the whole reason the dialect is excused', async () => {
+        // The measurement this rests on: every news break under this persona used to fall to the
+        // floor as out-of-character, because "no jokes, no opinions" and "sound like nobody else"
+        // are not simultaneously satisfiable.
+        const { writer } = build('Here is the news. A bridge has reopened after four years. Now, back to the music.');
+
+        expect(await writer.write(request({ persona }))).toBeDefined();
+    });
+
+    it('still refuses a bulletin that read the persona’s own sample line back', async () => {
+        const { writer } = build('Here is the news. Four minutes, three key changes and a saxophone nobody asked for.');
+
+        expect(await writer.write(request({ persona }))).toBeUndefined();
+    });
+
+    it('still refuses wording the sheet forbids', async () => {
+        const { writer } = build('Here is the news, so buckle up. A bridge has reopened after four years.');
+
+        expect(await writer.write(request({ persona }))).toBeUndefined();
+    });
+
+    it('still refuses a signature the station has just spent', async () => {
+        // The one the bulletin was observed committing, and the one that named this fault.
+        const { writer } = build('A bridge has reopened after four years. I said what I said.');
+
+        expect(await writer.write(request({ persona, recent: ['That was ambitious. I said what I said.'] }))).toBeUndefined();
+    });
+
+    it('says which of the three it was, on the row as well as in the log', async () => {
+        const { writer } = build('Here is the news, so buckle up.');
+        await writer.write(request({ persona }));
+
+        expect(writer.detailOfLastWrite()?.reason).toMatch(/wording the persona forbids/i);
+    });
+});

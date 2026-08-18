@@ -17,7 +17,7 @@ const answer = (over: Record<string, unknown> = {}): string =>
         label: 'Northern soul DJ',
         style: 'a northern soul DJ broadcasting out of the back of a chip shop',
         djName: 'Sal',
-        diction: ["Drop the g from every -ing word", 'Call them love, every time'],
+        diction: ['Drop the g from every -ing word', 'Call them love, every time'],
         dictionMarkers: ['love', "in'"],
         quirks: ['Every record is a stomper or it is nothing'],
         catchphrases: ['Keep the faith'],

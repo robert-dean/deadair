@@ -192,7 +192,7 @@ describe('RenderSegmentJob: measuring what it made', () => {
         expect(segments.recordLoudness).not.toHaveBeenCalled();
     });
 
-    it('reads the analyzer\'s name for the figure and not the item\'s', async () => {
+    it("reads the analyzer's name for the figure and not the item's", async () => {
         // `integratedLufs` here, `loudnessLufs` on the item. Reading the wrong one is invisible:
         // `data` is an unread jsonb blob, so it type-checks, and the guard above then discards
         // every measurement quietly. It did, for 612 segments.

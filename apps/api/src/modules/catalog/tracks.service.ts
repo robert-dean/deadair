@@ -8,7 +8,16 @@ import { EnrichmentRepository } from '#modules/enrichment/enrichment.repository.
 import { PlayHistoryRepository } from '#modules/director/play.history.repository.js';
 import { TrackAudioRepository } from '#modules/playout/audio/track.audio.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
-import { ClearEnrichmentQuery, RateInput, Track, TrackClearResult, TrackDetail, TrackPage, TrackQueryInput, TrackRow } from './types/catalog.types.js';
+import {
+    ClearEnrichmentQuery,
+    RateInput,
+    Track,
+    TrackClearResult,
+    TrackDetail,
+    TrackPage,
+    TrackQueryInput,
+    TrackRow,
+} from './types/catalog.types.js';
 import { TracksRepository } from './tracks.repository.js';
 import { ratingToColumn, withRating } from './rating.js';
 import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
@@ -105,7 +114,8 @@ export class TracksService {
 
         if (outcome === undefined) {
             throw httpError(409).withDetails({
-                message: 'this record is about to air or is being fetched right now, so its audio was left alone; skip it or take it out of the running order first',
+                message:
+                    'this record is about to air or is being fetched right now, so its audio was left alone; skip it or take it out of the running order first',
             });
         }
 

@@ -463,7 +463,12 @@ describe('throwing away what the station can work out again', () => {
         await service.clearAnalysis(TRACK_ID);
 
         expect(record).toHaveBeenCalledWith(
-            expect.objectContaining({ module: 'catalog', kind: 'track.analysisCleared', actorId: OPERATOR_ID, data: expect.objectContaining({ trackId: TRACK_ID }) }),
+            expect.objectContaining({
+                module: 'catalog',
+                kind: 'track.analysisCleared',
+                actorId: OPERATOR_ID,
+                data: expect.objectContaining({ trackId: TRACK_ID }),
+            }),
         );
     });
 

@@ -360,6 +360,39 @@ describe('characterFault', () => {
     it('finds no fault at all in a sheet that made no checkable claim', () => {
         expect(characterFault({ diction: ['Ye for you'] }, 'Anything at all.')).toBeUndefined();
     });
+
+    // Three of these four are PROHIBITIONS and one is a requirement, and only the requirement is in
+    // tension with reporting the news neutrally. A bulletin used to drop the sheet entirely to
+    // escape that one, which re-permitted the failure this whole file was built for — `I said what I
+    // said` closing a talk break, a welcome and a news bulletin.
+    describe('a kind excused the dialect', () => {
+        const lean = { dialect: 'optional' } as const;
+
+        it('lets a deliberately plain script through, which is the only reason this exists', () => {
+            expect(characterFault(sheet, 'That was Pink Moon by Nick Drake. Coming up, Solid Air.', lean)).toBeUndefined();
+        });
+
+        it('still refuses a quoted sample', () => {
+            expect(characterFault(sheet, 'Wow. Four minutes of my life and yours, gone. Anyway.', lean)).toBe('quoted-sample');
+        });
+
+        it('still refuses forbidden wording', () => {
+            expect(characterFault(sheet, 'Here is the news, so buckle up.', lean)).toBe('avoided-wording');
+        });
+
+        it('still refuses a signature the station has just spent', () => {
+            const recent = ['Wow. Anyway, that was Danzig. I said what I said.'];
+
+            expect(characterFault(sheet, 'A bridge reopened. I said what I said.', { ...lean, recent })).toBe('spent-catchphrase');
+        });
+
+        it('requires the dialect when nobody said otherwise', () => {
+            // The default has to stay `required`, or every other kind of break silently loses the
+            // one check a persona exists for.
+            expect(characterFault(sheet, 'That was Pink Moon by Nick Drake.')).toBe('out-of-character');
+            expect(characterFault(sheet, 'That was Pink Moon by Nick Drake.', { dialect: 'required' })).toBe('out-of-character');
+        });
+    });
 });
 
 // Brevity is an instruction and nothing enforces it, which is the whole design: the word ceiling
@@ -367,7 +400,7 @@ describe('characterFault', () => {
 // and hand every one of theirs to the phrasings. These tests pin that it reaches the prompt, that it
 // reaches it LAST, and that nothing else in the sheet moved to make room for it.
 describe('brevity', () => {
-    it('says nothing at all when the character has the station\'s usual length', () => {
+    it("says nothing at all when the character has the station's usual length", () => {
         expect(personaLines({ quirks: ['Plays the record and shuts up'] })).toEqual(['In character: Plays the record and shuts up.']);
     });
 

@@ -419,7 +419,16 @@ export class EnrichmentRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.trackEnrichment')
-            .values({ trackId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt: retry.first, attempts: 1, lastError: error })
+            .values({
+                trackId,
+                provider,
+                providerRef: null,
+                data: toJsonb({}),
+                fetchedAt: sql<never>`now()`,
+                expiresAt: retry.first,
+                attempts: 1,
+                lastError: error,
+            })
             .onConflict(oc =>
                 oc.columns(['trackId', 'provider']).doUpdateSet(eb => ({
                     attempts: eb('deadair.trackEnrichment.attempts', '+', 1),
@@ -436,7 +445,16 @@ export class EnrichmentRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.artistEnrichment')
-            .values({ artistId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt: retry.first, attempts: 1, lastError: error })
+            .values({
+                artistId,
+                provider,
+                providerRef: null,
+                data: toJsonb({}),
+                fetchedAt: sql<never>`now()`,
+                expiresAt: retry.first,
+                attempts: 1,
+                lastError: error,
+            })
             .onConflict(oc =>
                 oc.columns(['artistId', 'provider']).doUpdateSet(eb => ({
                     attempts: eb('deadair.artistEnrichment.attempts', '+', 1),
@@ -453,7 +471,16 @@ export class EnrichmentRepository extends DataRepository {
 
         await this.db
             .insertInto('deadair.albumEnrichment')
-            .values({ albumId, provider, providerRef: null, data: toJsonb({}), fetchedAt: sql<never>`now()`, expiresAt: retry.first, attempts: 1, lastError: error })
+            .values({
+                albumId,
+                provider,
+                providerRef: null,
+                data: toJsonb({}),
+                fetchedAt: sql<never>`now()`,
+                expiresAt: retry.first,
+                attempts: 1,
+                lastError: error,
+            })
             .onConflict(oc =>
                 oc.columns(['albumId', 'provider']).doUpdateSet(eb => ({
                     attempts: eb('deadair.albumEnrichment.attempts', '+', 1),

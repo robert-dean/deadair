@@ -158,7 +158,10 @@ export class AnalysisService {
 
     /** How long to wait after a track the walk had to fetch from a provider. See {@link resolveAnalysisPaceMs}. */
     providerPaceMs(): number {
-        return resolveAnalysisPaceMs(this.config.get(ANALYSIS_PROVIDER_PACE_KEY, DEFAULT_ANALYSIS_PROVIDER_PACE_MS), DEFAULT_ANALYSIS_PROVIDER_PACE_MS);
+        return resolveAnalysisPaceMs(
+            this.config.get(ANALYSIS_PROVIDER_PACE_KEY, DEFAULT_ANALYSIS_PROVIDER_PACE_MS),
+            DEFAULT_ANALYSIS_PROVIDER_PACE_MS,
+        );
     }
 
     /** How long to wait after a track whose audio was already on this machine. See {@link resolveAnalysisPaceMs}. */

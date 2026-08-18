@@ -499,8 +499,14 @@ describe('itemAnnotations: gain', () => {
     it('follows the station target rather than a constant', () => {
         // Read per hand-over from `deadair.settings`, so this is what an operator moving
         // it actually changes.
-        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -14, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: false }).liq_amplify).toBe('6 dB');
-        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -23, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: false }).liq_amplify).toBe('-3 dB');
+        expect(
+            itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -14, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: false })
+                .liq_amplify,
+        ).toBe('6 dB');
+        expect(
+            itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { targetLufs: -23, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: false })
+                .liq_amplify,
+        ).toBe('-3 dB');
     });
 
     it('rides the annotate uri alongside the cue points', () => {
@@ -569,7 +575,12 @@ describe('itemAnnotations: the blend', () => {
         // `cross` reads the end override off the track whose end it is buffering, so the
         // duration for a boundary lives on the OUTGOING item -- even though its value
         // came from measuring both.
-        const stamped = itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: true, next: measured('item-2') });
+        const stamped = itemAnnotations(measured('item-1'), {
+            targetLufs: DEFAULT_TARGET_LUFS,
+            speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
+            crossfade: true,
+            next: measured('item-2'),
+        });
 
         // min(outro 10s, intro 8s).
         expect(stamped.liq_cross_end_duration).toBe('8');
@@ -593,7 +604,8 @@ describe('itemAnnotations: the blend', () => {
             itemAnnotations(measured('item-1'), CONTEXT),
             itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: true }),
             itemAnnotations(measured('item-1', { introEndMs: undefined }), {
-                targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
+                targetLufs: DEFAULT_TARGET_LUFS,
+                speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
                 crossfade: true,
                 next: measured('item-2'),
             }),
@@ -611,13 +623,17 @@ describe('itemAnnotations: the blend', () => {
 
     it('does not blend into nothing', () => {
         // The tail of what has been planned. Nothing follows, so there is no boundary.
-        expect(itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: true }).liq_cross_end_duration).toBe(HARD_JOIN);
+        expect(
+            itemAnnotations(measured('item-1'), { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, crossfade: true })
+                .liq_cross_end_duration,
+        ).toBe(HARD_JOIN);
     });
 
     it('rides the annotate uri alongside everything else', () => {
         const uri = annotateUri(
             itemAnnotations(measured('item-1', { loudnessLufs: -19, truePeakDb: -6 }), {
-                targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
+                targetLufs: DEFAULT_TARGET_LUFS,
+                speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
                 crossfade: true,
                 next: measured('item-2'),
             }),

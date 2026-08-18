@@ -371,7 +371,13 @@ describe('TrackAudioService.sweep', () => {
     /** The store, holding a file per row so a deletion is observable. */
     const fill = async (files: readonly CachedFile[]) => {
         for (const held of files) {
-            await store.writeStreamAs(held.checksum, (async function* () { yield new Uint8Array(RECORD); })(), held.ext);
+            await store.writeStreamAs(
+                held.checksum,
+                (async function* () {
+                    yield new Uint8Array(RECORD);
+                })(),
+                held.ext,
+            );
         }
     };
 

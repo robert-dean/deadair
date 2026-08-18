@@ -142,7 +142,9 @@ export class StorageService {
         if (entry.claims === undefined) return { ...base, orphanFiles: 0, orphanBytes: 0, rowsWithNoFile: 0 };
 
         const orphans = this.unclaimed(files, entry.claims);
-        const present = new Set(files.flatMap(file => (file.checksum === undefined || file.ext === undefined ? [] : [fileName(file.checksum, file.ext)])));
+        const present = new Set(
+            files.flatMap(file => (file.checksum === undefined || file.ext === undefined ? [] : [fileName(file.checksum, file.ext)])),
+        );
 
         return {
             ...base,

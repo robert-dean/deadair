@@ -294,9 +294,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     // only ever inspects `{{…}}` — so `[Mate] That was …` passed every check the station had while
     // being certain to air wrongly. The third is a phrasing with no placeholder at all, which is not
     // a phrasing: it is one fixed sentence the station would say between every pair of records.
-    const templates = phrasings.filter(
-        line => unknownPlaceholders(line).length === 0 && !hasStrayBracket(line) && line.includes('{{'),
-    );
+    const templates = phrasings.filter(line => unknownPlaceholders(line).length === 0 && !hasStrayBracket(line) && line.includes('{{'));
 
     return {
         draft: {
@@ -327,7 +325,10 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
 /** A slug the personas table will accept, or `undefined`. Letters only, which is what the seeds use. */
 function slug(value: unknown): string | undefined {
     if (typeof value !== 'string') return undefined;
-    const cleaned = value.trim().toLowerCase().replace(/[^a-z]/g, '');
+    const cleaned = value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z]/g, '');
     return cleaned.length === 0 ? undefined : cleaned.slice(0, 32);
 }
 
@@ -351,7 +352,11 @@ function list(value: unknown, limit: number): string[] {
 
 /** The phrasings in a `templates` value, which a model may answer as a string or as an array. */
 function lines(value: unknown): string[] {
-    const raw = Array.isArray(value) ? value.map(entry => (typeof entry === 'string' ? entry : '')).join('\n') : typeof value === 'string' ? value : '';
+    const raw = Array.isArray(value)
+        ? value.map(entry => (typeof entry === 'string' ? entry : '')).join('\n')
+        : typeof value === 'string'
+          ? value
+          : '';
     return raw
         .split('\n')
         .map(line => line.trim())

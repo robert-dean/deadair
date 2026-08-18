@@ -452,9 +452,7 @@ export class TrackAudioService {
             // Read fresh on every round: a fetch that finished mid-sweep is a record that must not be
             // taken, and the in-flight map is the only place that is known.
             const untouchable = [...this.protectedNow(), ...this.inFlight.keys()];
-            const candidates = await inScope(this.container, scope =>
-                scope.get(TrackAudioRepository).leastRecentlyServed(SWEEP_BATCH, untouchable),
-            );
+            const candidates = await inScope(this.container, scope => scope.get(TrackAudioRepository).leastRecentlyServed(SWEEP_BATCH, untouchable));
             if (candidates.length === 0) break;
 
             // Only as many as it takes. The batch is a query size, not a quota.
@@ -521,9 +519,7 @@ export class TrackAudioService {
         // cleared cannot answer for themselves — and excluding them as well, because a repository
         // read is not inside the same statement.
         const checksums = [...new Set(taking.map(candidate => candidate.checksum))];
-        const stillClaimed = await inScope(this.container, scope =>
-            scope.get(TrackAudioRepository).checksumsReferenced(checksums, sourceIds),
-        );
+        const stillClaimed = await inScope(this.container, scope => scope.get(TrackAudioRepository).checksumsReferenced(checksums, sourceIds));
 
         let freed = 0;
         const deleted = new Set<string>();

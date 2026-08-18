@@ -427,7 +427,11 @@ export class TrackAudioRepository extends DataRepository {
     async checksumsReferenced(checksums: readonly string[], excludingSourceIds: readonly string[]): Promise<Set<string>> {
         if (checksums.length === 0) return new Set();
 
-        let query = this.db.selectFrom('deadair.trackAudio').select('checksum').distinct().where('checksum', 'in', [...checksums]);
+        let query = this.db
+            .selectFrom('deadair.trackAudio')
+            .select('checksum')
+            .distinct()
+            .where('checksum', 'in', [...checksums]);
 
         if (excludingSourceIds.length > 0) query = query.where('sourceId', 'not in', [...excludingSourceIds]);
 
@@ -486,7 +490,12 @@ export class TrackAudioRepository extends DataRepository {
             .where('sourceId', 'in', ids)
             .execute();
 
-        await this.db.updateTable('deadair.trackSources').set({ missingAt: null }).where('id', 'in', ids).where('missingAt', 'is not', null).execute();
+        await this.db
+            .updateTable('deadair.trackSources')
+            .set({ missingAt: null })
+            .where('id', 'in', ids)
+            .where('missingAt', 'is not', null)
+            .execute();
 
         // The COPIES this reopened, which is what an operator is looking at. Not the rows touched:
         // a copy with no `track_audio` row at all was never failing and is still reopened by this,

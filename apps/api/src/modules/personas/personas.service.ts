@@ -3,7 +3,14 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { LlmService } from '#modules/llm/llm.service.js';
-import type { GeneratedPersona, Persona as PersonaView, PersonaDraftView, PersonaInput, PersonaList, PersonaRequest } from './types/personas.types.js';
+import type {
+    GeneratedPersona,
+    Persona as PersonaView,
+    PersonaDraftView,
+    PersonaInput,
+    PersonaList,
+    PersonaRequest,
+} from './types/personas.types.js';
 import type { Persona, PersonaDraft } from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
@@ -149,7 +156,9 @@ export class PersonasService {
                 finish: result.finishReason,
                 answer: result.text.trim().slice(0, 300),
             });
-            throw httpError(502).withDetails({ message: 'the model did not answer with a persona. Try again, or describe the character differently' });
+            throw httpError(502).withDetails({
+                message: 'the model did not answer with a persona. Try again, or describe the character differently',
+            });
         }
 
         // The cost and the stopping reason ride the SUCCESS line too, not only the failure one. The

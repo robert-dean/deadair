@@ -231,11 +231,7 @@ export class TracksRepository extends DataRepository {
             // Three `exists` rather than three joins, which is what keeps a page of fifty at one
             // query and no row multiplication: a record with four copies must not come back four
             // times because one of them has bytes.
-            .select(eb => [
-                hasAudio(eb).as('hasAudio'),
-                isMeasured(eb, schemaVersion).as('measured'),
-                isEnriched(eb).as('enriched'),
-            ])
+            .select(eb => [hasAudio(eb).as('hasAudio'), isMeasured(eb, schemaVersion).as('measured'), isEnriched(eb).as('enriched')])
             .orderBy('deadair.tracks.title', sort)
             .orderBy('deadair.tracks.id', 'asc')
             .limit(limit)

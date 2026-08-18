@@ -18,6 +18,20 @@ export const BRIEF_ONLY_KEY = 'rotation.briefOnly';
 export const BRIEF_ONLY_DEFAULT = false;
 
 /**
+ * Whether the operator has made a brief binding.
+ *
+ * Coerced rather than read, for the reason `captureWrites` is: the settings source puts a
+ * `deadair.settings` row into the snapshot as the raw string it stored, so a `boolean` field
+ * arrives as `"true"` or `"false"` — and `"false"` is a truthy string. A switch that could not be
+ * turned back off is worse here than one that never worked, because the state it strands the
+ * station in is silence.
+ */
+export function briefIsBinding(config: AppConfig): boolean {
+    const raw = config.get(BRIEF_ONLY_KEY, BRIEF_ONLY_DEFAULT);
+    return typeof raw === 'boolean' ? raw : String(raw).toLowerCase() === 'true';
+}
+
+/**
  * Which generators are asked for a set, in the order they are asked.
  *
  * An explicit list handed in at registration, following {@link BreakWriterRegistry}: what the
@@ -111,7 +125,7 @@ export class SetGeneratorChain extends SetGenerator {
         // Both halves matter: with no brief there is nothing for a binding to be deaf to, so the
         // floor is asked exactly as it always was.
         const briefed = (inputs.brief ?? '').trim().length > 0;
-        const briefOnly = briefed && this.config.get(BRIEF_ONLY_KEY, BRIEF_ONLY_DEFAULT);
+        const briefOnly = briefed && briefIsBinding(this.config);
         /** Bindings that were skipped for it, so the feed can say what the setting cost. */
         const declined: string[] = [];
 

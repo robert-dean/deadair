@@ -212,6 +212,20 @@ describe('SetGeneratorChain', () => {
         expect(chosen).toHaveLength(15);
     });
 
+    it('reads the setting as the string the settings table actually stores', async () => {
+        // `AppConfigSourcePostgres` snapshots the row verbatim, so this arrives as `"true"` rather
+        // than `true`. Read as a boolean it would be truthy either way — which means the OFF state
+        // is the one that breaks, and it strands the station in silence.
+        const floor = new Fake('catalog', picks('catalog', 20));
+        floor.ignoresBrief = true;
+
+        const on = await chain([floor], { [BRIEF_ONLY_KEY]: 'true' }).generate(inputs(15, { brief: 'flamenco guitar' }));
+        expect(on).toHaveLength(0);
+
+        const off = await chain([floor], { [BRIEF_ONLY_KEY]: 'false' }).generate(inputs(15, { brief: 'flamenco guitar' }));
+        expect(off).toHaveLength(15);
+    });
+
     it('treats a blank brief as no brief', async () => {
         const floor = new Fake('catalog', picks('catalog', 20));
         floor.ignoresBrief = true;

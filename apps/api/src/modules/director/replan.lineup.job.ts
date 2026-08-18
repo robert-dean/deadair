@@ -87,28 +87,33 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
 
         const persona = await this.personas.presenting(lineup.personaId);
         const count = Math.max(1, payload?.count ?? DEFAULT_COUNT);
-        const planned = await planRecords(this.generator, this.resolver, {
-            count,
-            rules,
-            // Read off the order, exactly as a refill does: a replan may have just changed it, and
-            // whatever it says now is what this hour is programmed against.
-            ...(lineup.brief ? { brief: lineup.brief } : {}),
-            ...(persona === undefined ? {} : { persona }),
-            // **The whole difference between this and a shuffle.** The keys cover the tail that is
-            // about to be discarded, so the generator cannot hand most of it straight back:
-            // `play_history` only knows what actually aired, and none of these records has.
-            avoidSongKeys: songKeysOf(lineup.all()),
-        }, {
-            took: () => this.preemption.took(),
-            // Logged rather than silent, because from the outside a retried replan and an ordinary one
-            // look identical and the interesting question afterwards is always "why did this hour
-            // take two goes at the model".
-            onRetry: attempt =>
-                this.logger.info('director: a break took the model off this replan; asking again', {
-                    job: this.context.id,
-                    attempt,
-                }),
-        });
+        const planned = await planRecords(
+            this.generator,
+            this.resolver,
+            {
+                count,
+                rules,
+                // Read off the order, exactly as a refill does: a replan may have just changed it, and
+                // whatever it says now is what this hour is programmed against.
+                ...(lineup.brief ? { brief: lineup.brief } : {}),
+                ...(persona === undefined ? {} : { persona }),
+                // **The whole difference between this and a shuffle.** The keys cover the tail that is
+                // about to be discarded, so the generator cannot hand most of it straight back:
+                // `play_history` only knows what actually aired, and none of these records has.
+                avoidSongKeys: songKeysOf(lineup.all()),
+            },
+            {
+                took: () => this.preemption.took(),
+                // Logged rather than silent, because from the outside a retried replan and an ordinary one
+                // look identical and the interesting question afterwards is always "why did this hour
+                // take two goes at the model".
+                onRetry: attempt =>
+                    this.logger.info('director: a break took the model off this replan; asking again', {
+                        job: this.context.id,
+                        attempt,
+                    }),
+            },
+        );
         if (signal?.aborted) return;
 
         if (planned.tracks.length === 0) {

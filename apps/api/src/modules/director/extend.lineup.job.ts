@@ -85,39 +85,44 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
 
         const persona = await this.personas.presenting(lineup.personaId);
         const count = Math.max(1, payload?.count ?? DEFAULT_COUNT);
-        const planned = await planRecords(this.generator, this.resolver, {
-            count,
-            rules,
-            // Read off the order on every refill rather than carried in the payload, for the same
-            // reason the rules are: this job runs again in an hour, and what the operator asked for
-            // has to still be steering it then. An empty brief reads as absent.
-            ...(lineup.brief ? { brief: lineup.brief } : {}),
-            // Read per refill, beside the brief and for the same reason: this job runs again in an
-            // hour, and the character the operator put on air has to still be steering it then.
-            // `undefined` is ordinary — a station that has chosen no persona programmes as it did
-            // before personas existed.
-            ...(persona === undefined ? {} : { persona }),
-            // The songs the lineup ALREADY holds, which history knows nothing about: a
-            // track queued ten minutes ago has not aired, so nothing else would stop the
-            // generator choosing it again and putting it in twice.
-            //
-            // Songs only, deliberately. Excluding every artist already in the list would
-            // starve a long rotation of its own library — a hundred tracks is sixty
-            // artists, and after two refills there would be nobody left to choose. An
-            // artist is spaced within a batch and cooled down once they actually air,
-            // which are the two places it can be judged against something real.
-            avoidSongKeys: songKeysOf(lineup.all()),
-        }, {
-            took: () => this.preemption.took(),
-            // Logged rather than silent, because from the outside a retried refill and an ordinary one
-            // look identical and the interesting question afterwards is always "why did this hour
-            // take two goes at the model".
-            onRetry: attempt =>
-                this.logger.info('director: a break took the model off this refill; asking again', {
-                    job: this.context.id,
-                    attempt,
-                }),
-        });
+        const planned = await planRecords(
+            this.generator,
+            this.resolver,
+            {
+                count,
+                rules,
+                // Read off the order on every refill rather than carried in the payload, for the same
+                // reason the rules are: this job runs again in an hour, and what the operator asked for
+                // has to still be steering it then. An empty brief reads as absent.
+                ...(lineup.brief ? { brief: lineup.brief } : {}),
+                // Read per refill, beside the brief and for the same reason: this job runs again in an
+                // hour, and the character the operator put on air has to still be steering it then.
+                // `undefined` is ordinary — a station that has chosen no persona programmes as it did
+                // before personas existed.
+                ...(persona === undefined ? {} : { persona }),
+                // The songs the lineup ALREADY holds, which history knows nothing about: a
+                // track queued ten minutes ago has not aired, so nothing else would stop the
+                // generator choosing it again and putting it in twice.
+                //
+                // Songs only, deliberately. Excluding every artist already in the list would
+                // starve a long rotation of its own library — a hundred tracks is sixty
+                // artists, and after two refills there would be nobody left to choose. An
+                // artist is spaced within a batch and cooled down once they actually air,
+                // which are the two places it can be judged against something real.
+                avoidSongKeys: songKeysOf(lineup.all()),
+            },
+            {
+                took: () => this.preemption.took(),
+                // Logged rather than silent, because from the outside a retried refill and an ordinary one
+                // look identical and the interesting question afterwards is always "why did this hour
+                // take two goes at the model".
+                onRetry: attempt =>
+                    this.logger.info('director: a break took the model off this refill; asking again', {
+                        job: this.context.id,
+                        attempt,
+                    }),
+            },
+        );
         if (signal?.aborted) return;
 
         const added = planned.tracks;

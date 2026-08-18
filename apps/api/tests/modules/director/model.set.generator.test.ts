@@ -11,7 +11,13 @@ import { writeCapture } from '../../../src/modules/llm/llm.capture.js';
 import type { StationTaste, TasteRepository } from '../../../src/modules/catalog/taste.repository.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { LlmConversation, LlmService } from '../../../src/modules/llm/llm.service.js';
-import { MODEL_GENERATOR_KEYS, ModelSetGenerator, STYLES_SHOWN } from '../../../src/modules/director/model.set.generator.js';
+import {
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    MODEL_GENERATOR_KEYS,
+    ModelSetGenerator,
+    STYLES_SHOWN,
+    maxOutputTokens,
+} from '../../../src/modules/director/model.set.generator.js';
 import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
@@ -515,5 +521,29 @@ describe('ModelSetGenerator', () => {
         const { generator } = build({ enabled: true, fails: true });
 
         await expect(generator.generate(inputs(5))).rejects.toThrow(/model host is down/);
+    });
+});
+
+describe('maxOutputTokens', () => {
+    const config = (rows: Record<string, unknown>): AppConfig =>
+        ({ get: (key: string, fallback: unknown) => rows[key] ?? fallback }) as unknown as AppConfig;
+
+    it('reads the operator’s ceiling as the string the settings table stores', () => {
+        // The whole point of the knob: read as a number this arrives as `"24000"` and every value
+        // the operator ever typed falls silently back to the default.
+        expect(maxOutputTokens(config({ 'llm.setMaxTokens': '24000' }))).toBe(24_000);
+        expect(maxOutputTokens(config({ 'llm.setMaxTokens': 24_000 }))).toBe(24_000);
+    });
+
+    it('falls back rather than sending a provider something it will reject', () => {
+        // Clamped rather than rejected, on `resolveAnalysisConcurrency`'s argument: a setting that
+        // refuses to load stops the refill entirely, which is worse than an unexpected ceiling.
+        expect(maxOutputTokens(config({ 'llm.setMaxTokens': 'lots' }))).toBe(DEFAULT_MAX_OUTPUT_TOKENS);
+        expect(maxOutputTokens(config({ 'llm.setMaxTokens': '0' }))).toBe(DEFAULT_MAX_OUTPUT_TOKENS);
+        expect(maxOutputTokens(config({ 'llm.setMaxTokens': '-5' }))).toBe(DEFAULT_MAX_OUTPUT_TOKENS);
+    });
+
+    it('uses its own default when the operator has said nothing', () => {
+        expect(maxOutputTokens(config({}))).toBe(DEFAULT_MAX_OUTPUT_TOKENS);
     });
 });

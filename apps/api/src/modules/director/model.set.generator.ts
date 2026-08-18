@@ -153,10 +153,18 @@ export const DEFAULT_MAX_OUTPUT_TOKENS = 12_000;
  * whose operator typed a zero should get a slow answer rather than a provider error on every
  * refill. Nothing here caps the top, because the ceiling that matters is the model's own context
  * and only the operator knows what that is.
+ *
+ * PARSED rather than read, and that is not defensive coding: `AppConfigSourcePostgres` puts the
+ * `deadair.settings` row into the snapshot as the raw string it stored, so a `number` field arrives
+ * here as `"12000"`. Reading it as a number would make every value an operator ever typed fall
+ * silently back to the default, which is the one failure a knob must not have. The same reason
+ * `resolveAnalysisConcurrency` and `captureWrites` each coerce.
  */
 export function maxOutputTokens(config: AppConfig): number {
-    const configured = config.get(MODEL_GENERATOR_KEYS.maxTokens, DEFAULT_MAX_OUTPUT_TOKENS);
-    return Number.isFinite(configured) && configured >= 1 ? Math.floor(configured) : DEFAULT_MAX_OUTPUT_TOKENS;
+    const raw = config.get(MODEL_GENERATOR_KEYS.maxTokens, DEFAULT_MAX_OUTPUT_TOKENS);
+    const parsed = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
+
+    return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : DEFAULT_MAX_OUTPUT_TOKENS;
 }
 
 /**

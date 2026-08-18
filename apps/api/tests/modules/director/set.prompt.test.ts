@@ -329,8 +329,20 @@ describe('setPrompt', () => {
 
         const user = userOf(setPrompt({ count: 5, avoid }));
 
-        expect(user).toMatch(/and 20 more/);
+        expect(user).toMatch(/and 48 more already queued/);
         expect(user).not.toMatch(/Song 45/);
+    });
+
+    it('keeps the avoid list on one line, since it is a set to check against and not a list to work through', () => {
+        // The same call `styleLines` makes one section up, made here for the same reason: every
+        // entry is room the model then does not have to think in, and a bullet each reads as work
+        // to do. Measured only as a correlation — four refills carrying fifteen bulleted entries
+        // finished on `length` with no tool call, and the one with an empty list answered in full —
+        // so this is a hypothesis the reasoning figures on the log line are there to settle.
+        const user = userOf(setPrompt({ count: 5, avoid: ['"Windowlicker" by Aphex Twin', '"Rooster" by Alice In Chains'] }));
+
+        expect(user).toContain('"Windowlicker" by Aphex Twin; "Rooster" by Alice In Chains');
+        expect(user).not.toMatch(/^- /m);
     });
 
     it('warns the picker off records with no clean version, but only under the hard rule', () => {

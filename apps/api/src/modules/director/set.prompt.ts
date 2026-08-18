@@ -37,8 +37,23 @@ import type { TrackPick } from './set.generator.js';
 export const NEVER_ECHO =
     'The records listed here are shown ONLY so you avoid them. They are not suggestions and not examples of good answers. Never choose one of them.';
 
-/** How many already-queued records are shown, at most. */
-const MAX_AVOID_SHOWN = 40;
+/**
+ * How many already-queued records are shown, at most.
+ *
+ * **Cut from forty**, on the same argument the style vocabulary is one line for: this is context to
+ * check an answer against rather than a list to work through, and every entry is room the model
+ * then does not have to think in. Forty was chosen when the list was the only thing standing
+ * between a refill and a duplicate; it is not, and never was — `readPicks` and `PickResolver` drop
+ * a repeat whatever the prompt said, so the list is an optimization that saves the model wasting
+ * picks, and an optimization is not worth a third of the user turn.
+ *
+ * The number is a judgement rather than a measurement. What was measured is the correlation it
+ * comes from: five captured refills, and the only one that answered was the one with an empty
+ * avoid list. Four with fifteen entries each finished on `length` having made no tool call at all.
+ * That is a small sample and the mechanism is unproven — see the reasoning figures now on the log
+ * line, which are what will actually settle it.
+ */
+const MAX_AVOID_SHOWN = 12;
 
 /** How many of the operator's likes or dislikes are shown per kind. */
 const MAX_TASTE_SHOWN = 20;
@@ -407,14 +422,22 @@ function userPrompt(request: SetPromptRequest): string {
 
     if (request.avoid.length > 0) {
         const shown = request.avoid.slice(0, MAX_AVOID_SHOWN);
+        const rest = request.avoid.length - shown.length;
+
         lines.push(
             '',
             // The rule travels with the list rather than living only in the standing rules above.
             `Already in the running order — do NOT choose these again. ${NEVER_ECHO}`,
-            ...shown.map(entry => `- ${entry}`),
+            // One line rather than a bullet each, exactly as `styleLines` does it and for the same
+            // reason: a bullet list reads as a set of items to work through, and this is a set to
+            // check against. The separator is `; ` because every entry already contains a comma's
+            // worth of structure in `"Title" by Artist`.
+            shown.join('; '),
         );
-        if (request.avoid.length > shown.length) {
-            lines.push(`(and ${request.avoid.length - shown.length} more)`);
+        if (rest > 0) {
+            // Stated so the list cannot be read as the whole running order, which would invite the
+            // model to fill gaps that are not there. The same failure `styleLines` names.
+            lines.push(`(and ${rest} more already queued, not listed)`);
         }
     }
 

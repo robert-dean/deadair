@@ -8,11 +8,26 @@
 
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { defaultStreamAssetsDir, writeStreamConfig, type StreamPlayoutConfig } from '../../../src/modules/stream/stream.config.js';
+import { writeStreamConfig, type StreamPlayoutConfig } from '../../../src/modules/stream/stream.config.js';
 import type { StreamSettings } from '../../../src/modules/stream/stream.settings.js';
+
+/**
+ * The repo's own `stream/` directory, found from this file rather than from the process.
+ *
+ * `defaultStreamAssetsDir` resolves against `process.cwd()`, which is right for the server — it is
+ * started from `apps/api` and the relative hop is part of how the workspace is laid out — and wrong
+ * for a test, which has no say in where a runner was invoked from. Calling the production helper
+ * here made this the one case in the suite that passed or failed on the caller's directory, and it
+ * failed as `ENOENT` on a temp path that named neither the template nor the reason.
+ *
+ * The template is still the SHIPPED one, which is the whole point of the case below: what broke was
+ * the artifact Icecast actually reads, and a fixture that agrees with itself would go on passing.
+ */
+const shippedAssetsDir = (): string => join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', 'stream');
 
 const TEMPLATE = `<icecast>
   <admin>{{ADMIN_EMAIL}}</admin>
@@ -152,7 +167,12 @@ describe('writeStreamConfig', () => {
         // version of this test worth having: what broke was the artifact Icecast actually reads,
         // and a fixture that agrees with itself would have gone on passing throughout.
         const { configDir } = dirs();
-        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir: defaultStreamAssetsDir(), configDir });
+        const render = writeStreamConfig({ settings: settings(), playout: playout(), assetsDir: shippedAssetsDir(), configDir });
+
+        // Asserted first, because `writeStreamConfig` answers `undefined` for a template it could
+        // not read rather than throwing. Without this, a wrong assets directory surfaces as an
+        // ENOENT on a temp path two lines down, which names neither the template nor the reason.
+        expect(render).toBeDefined();
 
         const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
         const sourcePassword = /<source-password>(.*?)<\/source-password>/.exec(xml)?.[1];

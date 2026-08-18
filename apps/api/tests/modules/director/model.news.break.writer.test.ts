@@ -4,6 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
@@ -27,11 +28,21 @@ const request = (overrides: Partial<BreakWriteRequest> = {}): BreakWriteRequest 
 });
 
 function build(answer: string, values: Record<string, unknown> = enabled) {
-    const converse = vi.fn(async () => ({ text: answer, finishReason: 'stop', usage: { outputTokens: 40 } }));
+    // Params declared rather than inferred, so a case can read back what the model was actually
+    // shown. `ModelWelcomeWriter`'s test does the same, for the same reason.
+    const converse = vi.fn(async (_asked: { messages: LlmMessage[] }, _options?: unknown) => ({
+        text: answer,
+        finishReason: 'stop',
+        usage: { outputTokens: 40 },
+    }));
     const llm = { canGenerate: () => true, explainGenerator: () => 'ready', converse } as unknown as LlmService;
 
     return { writer: new ModelNewsBreakWriter(llm, config(values), logger), converse };
 }
+
+/** The system turn as the model was shown it. */
+const systemTurn = (converse: ReturnType<typeof build>['converse']): string =>
+    String((converse.mock.calls[0]?.[0].messages ?? []).find(message => message.role === 'system')?.content ?? '');
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -118,9 +129,6 @@ describe('what it will air', () => {
 // Two things a bulletin owes that a talk break does not, both of them measured on air rather than
 // imagined. The word ceiling is a backstop and caught neither.
 describe('the two ways a bulletin runs on', () => {
-    const systemTurn = (converse: ReturnType<typeof build>['converse']) =>
-        (converse.mock.calls[0]?.[0]?.messages ?? []).find((message: { role: string }) => message.role === 'system')?.content ?? '';
-
     it('forbids explaining a word out of a story, which is how thin copy gets padded', async () => {
         // "Gravity is an inescapable force. It's why Earth has its atmosphere and orbits the sun"
         // went out as news, twice, off a two-line story about a soap box derby. True, not news, and

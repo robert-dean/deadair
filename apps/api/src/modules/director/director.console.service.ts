@@ -99,6 +99,7 @@ export class DirectorConsoleService {
             airMode: status.airMode,
             ...(status.name === undefined ? {} : { name: status.name }),
             ...(status.source === undefined ? {} : { source: status.source }),
+            ...(status.slotId === undefined ? {} : { slotId: status.slotId }),
             remaining: status.remaining,
         };
     }

@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { ScheduleSlot, ScheduleSlotInput, ScheduleSlotList } from './types/schedule.types.js';
+import type { ScheduleNow, ScheduleSlot, ScheduleSlotInput, ScheduleSlotList } from './types/schedule.types.js';
 
 export class ScheduleClient {
     constructor(private fetch: SdkFetch) {}
@@ -25,6 +25,15 @@ export class ScheduleClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<ScheduleSlotList>(result);
+    }
+
+    /**
+     * @name Read current slot
+     * @description Which slot the clock says should be on, and which one the station is actually airing
+     */
+    async readCurrentSlot(): Promise<ScheduleNow> {
+        const result = await this.fetch(`/schedule/current`, { method: 'GET' });
+        return await parseJson<ScheduleNow>(result);
     }
 
     /**

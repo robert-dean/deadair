@@ -21,3 +21,9 @@ contract ScheduleSlot: {
 contract ScheduleSlotList: {
     slots: array(ScheduleSlot)
 }
+
+# Which slot the clock says should be on right now
+contract ScheduleNow: {
+    slotId?: string(max=100) # The slot in force at this instant. Absent means the station has no schedule
+    airingSlotId?: string(max=100) # The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins
+}

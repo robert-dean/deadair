@@ -74,6 +74,8 @@ export const queryKeys = {
     schedule: {
         /** The station's day. One key: every write answers with the whole grid, since a slot's span is its neighbour's start. */
         list: () => ['schedule', 'list'] as const,
+        /** Which slot is in force and which one is airing. Its own key because it moves with the clock rather than with the grid. */
+        current: () => ['schedule', 'current'] as const,
     },
     productions: {
         list: () => ['productions', 'list'] as const,

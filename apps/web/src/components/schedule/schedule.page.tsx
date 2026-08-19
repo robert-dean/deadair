@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Badge, Button, Card, Group, Stack, Text } from '@mantine/core';
 import type { ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
 
-import { useCreateSlot, useDeleteSlot, useSchedule, useUpdateSlot } from '../../api/schedule.queries';
+import { useCreateSlot, useCurrentSlot, useDeleteSlot, useSchedule, useUpdateSlot } from '../../api/schedule.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { StatusLamp } from '../shared/status.lamp';
 import { daysOf, minutesToClock, spanOf } from './schedule.day';
 import { SlotEditor } from './slot.editor';
 
@@ -35,6 +36,7 @@ import { SlotEditor } from './slot.editor';
  */
 export function SchedulePage() {
     const schedule = useSchedule();
+    const current = useCurrentSlot();
     const create = useCreateSlot();
     const update = useUpdateSlot();
     const remove = useDeleteSlot();
@@ -56,6 +58,17 @@ export function SchedulePage() {
     };
 
     const slots = schedule.data?.slots ?? [];
+
+    // The two answers differ for exactly as long as an operator's own choice is holding, which it
+    // does until the next slot begins. Saying so is the point: otherwise the page shows a slot
+    // marked as due and a station doing something else, with nothing connecting them.
+    //
+    // `airingId` being absent counts, and is in fact the commonest form of it: a station put on by
+    // hand before there was a schedule at all belongs to no slot. Requiring both to be present
+    // would leave exactly that case with a badge and no explanation.
+    const dueId = current.data?.slotId;
+    const airingId = current.data?.airingSlotId;
+    const takenOver = dueId !== undefined && dueId !== airingId;
 
     return (
         <Stack gap="lg">
@@ -83,6 +96,13 @@ export function SchedulePage() {
                 </Stack>
             ) : undefined}
 
+            {takenOver ? (
+                <Text size="sm" c="dimmed">
+                    The station is airing something other than the slot that is due, which is what happens when it was put on by hand. It moves back
+                    to the schedule when the next slot begins.
+                </Text>
+            ) : undefined}
+
             {schedule.data && slots.length === 0 ? (
                 <EmptyState>
                     This station has no schedule, which is an ordinary state rather than a fault: it keeps playing whatever you put on until you put
@@ -104,6 +124,12 @@ export function SchedulePage() {
                                     <Badge variant="outline" color="gray">
                                         {daysOf(slot)}
                                     </Badge>
+                                    {/* `live` for what a listener is actually hearing, and only
+                                        that. A slot the clock is asking for while somebody else's
+                                        choice holds is `standby`, which is the tone for waiting
+                                        rather than for anything wrong. */}
+                                    {slot.id === airingId ? <StatusLamp tone="live" label="On air" /> : undefined}
+                                    {slot.id === dueId && slot.id !== airingId ? <StatusLamp tone="standby" label="Due now" /> : undefined}
                                     {spanOf(slot, slots) ? (
                                         <Badge variant="light" color="gray">
                                             {spanOf(slot, slots)}

@@ -16,6 +16,7 @@ contract StationAir: { # What the station is airing, and whether it is driving a
     name?: string(max=200) # What is on. Absent before the station has ever been given anything to play
     source?: string(max=50) # Who built what is on: `import` or `director`
     remaining: int(min=0) # Items left before the running order runs out and `onEnd` decides what happens
+    slotId?: string(max=100) # Which slot of the schedule this broadcast belongs to. Absent means nothing scheduled it, which is every station with no schedule
 }
 
 contract SetStationAirInput: { # Change how the station decides to be on air

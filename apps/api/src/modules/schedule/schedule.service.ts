@@ -3,8 +3,9 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { stationZone } from '#modules/director/clock.words.js';
+import { DirectorService } from '#modules/director/director.service.js';
 import { resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
-import type { ScheduleSlotInput, ScheduleSlotList } from './types/schedule.types.js';
+import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList } from './types/schedule.types.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
 
 /**
@@ -35,6 +36,10 @@ import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repositor
 export class ScheduleService {
     constructor(
         private readonly slots: ScheduleRepository,
+        // The singleton that owns the running order, for {@link current} alone. Resolved at request
+        // time, so this module sitting above DirectorModule in `modules.ts` is a lifecycle order
+        // rather than a resolution one.
+        private readonly director: DirectorService,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -59,6 +64,33 @@ export class ScheduleService {
      */
     async inForce(at: Date = new Date()): Promise<ScheduleSlot | undefined> {
         return resolveSlot(at, stationZone(this.config), await this.slots.list());
+    }
+
+    /**
+     * Which slot the clock says should be on, and which one the station is actually airing.
+     *
+     * Two facts from their two owners, and the console needs both because they legitimately differ:
+     * an operator's own choice holds until the next slot BEGINS, so between a takeover and the next
+     * boundary the schedule has an answer the station is not following. A page that badged the
+     * in-force slot "on now" without checking would be confidently wrong for exactly as long as
+     * somebody was doing something deliberate.
+     *
+     * It reads the director rather than the director reading the schedule, which is the direction
+     * that already exists: `DirectorConsoleService` resolves this service, and `modules.ts` puts
+     * this module above that one. What is AIRING is the director's to answer.
+     *
+     * Its own route rather than a field on each slot in the list, because this is a function of the
+     * clock: it changes every minute without the schedule changing at all, and folding it in would
+     * make a cached grid go stale for a reason that has nothing to do with the grid.
+     */
+    async current(): Promise<ScheduleNow> {
+        const inForce = await this.inForce();
+        const airing = this.director.status().slotId;
+
+        return {
+            ...(inForce === undefined ? {} : { slotId: inForce.id }),
+            ...(airing === undefined ? {} : { airingSlotId: airing }),
+        };
     }
 
     async create(body: ScheduleSlotInput): Promise<ScheduleSlotList> {

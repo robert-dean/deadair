@@ -337,11 +337,16 @@ export class DirectorService {
     }
 
     /** What the director is doing, for a console that has to draw it. */
-    status(): { active: boolean; airMode: AirMode; name?: string; source?: string; remaining: number } {
+    status(): { active: boolean; airMode: AirMode; name?: string; source?: string; slotId?: string; remaining: number } {
         return {
             active: this.active,
             airMode: this.airMode,
             ...(this.lineup === undefined ? {} : { name: this.lineup.name, source: this.lineup.source }),
+            // Which slot of the day this broadcast belongs to, which only the running order knows.
+            // The schedule holds the slots and the clock decides which one is in force; what is
+            // actually AIRING is the director's answer alone, and a console comparing the two is
+            // how an operator sees their own takeover holding.
+            ...(this.lineup?.slotId === undefined ? {} : { slotId: this.lineup.slotId }),
             remaining: this.lineup?.remaining() ?? 0,
         };
     }

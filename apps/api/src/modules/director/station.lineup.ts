@@ -367,6 +367,11 @@ export class StationLineup implements LiveOrder {
         return this.binding.source;
     }
 
+    /** Which slot of the day this broadcast belongs to, or `undefined` for one nothing scheduled. */
+    get slotId(): string | undefined {
+        return this.binding.slotId;
+    }
+
     /** Which plugin's playlist to pull more from, when it came from one. */
     get sourcePluginId(): string | undefined {
         return this.binding.sourcePluginId;

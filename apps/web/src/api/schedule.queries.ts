@@ -25,6 +25,35 @@ export function useSchedule() {
 }
 
 /**
+ * How often to ask which slot is on.
+ *
+ * Polled rather than cached, unlike the grid above, because this answer moves on its own: the clock
+ * crosses a boundary and the station changes over without anything the console did. Half a minute is
+ * inside the minute the tick itself runs on, so the page is never more than one tick behind the
+ * station.
+ */
+const CURRENT_POLL_MS = 30_000;
+
+export const currentSlotOptions = queryOptions({
+    queryKey: queryKeys.schedule.current(),
+    queryFn: () => sdk.schedule.readCurrentSlot(),
+    refetchInterval: CURRENT_POLL_MS,
+    staleTime: CURRENT_POLL_MS,
+});
+
+/**
+ * Which slot the clock says should be on, and which one the station is airing.
+ *
+ * Two answers rather than one because they legitimately differ: an operator's own choice holds until
+ * the next slot BEGINS, so between a takeover and that boundary the schedule wants something the
+ * station is not doing. A single "on now" would be confidently wrong for exactly as long as somebody
+ * was doing something deliberate.
+ */
+export function useCurrentSlot() {
+    return useQuery(currentSlotOptions);
+}
+
+/**
  * Every write, sharing one success path.
  *
  * The API answers each of them with the whole schedule rather than the row it touched, because a

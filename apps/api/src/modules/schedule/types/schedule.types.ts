@@ -54,6 +54,22 @@ export const ScheduleSlotInput = z.strictObject({
 export type ScheduleSlotInput = z.infer<typeof ScheduleSlotInput>;
 
 /**
+ * Which slot the clock says should be on right now
+ * generated from [ScheduleNow](file://./../../../../data/contracts/schedule/schedule.types.ck#L26)
+ */
+export const ScheduleNow = z.strictObject({
+    slotId: z.string().max(100).optional().describe('The slot in force at this instant. Absent means the station has no schedule'),
+    airingSlotId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            "The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins",
+        ),
+});
+export type ScheduleNow = z.infer<typeof ScheduleNow>;
+
+/**
  * generated from [ScheduleSlotList](file://./../../../../data/contracts/schedule/schedule.types.ck#L21)
  */
 export const ScheduleSlotList = z.strictObject({

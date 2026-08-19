@@ -51,6 +51,26 @@ operation /schedule: {
     }
 }
 
+# Deliberately separate from the list rather than a field on each slot. Which slot is in force is a
+# function of the clock, so it changes without the schedule changing, and folding it into the list
+# would make a cached grid go stale every minute for a reason that has nothing to do with the grid.
+
+operation /schedule/current: {
+    get: { # Which slot the clock says should be on, and which one the station is actually airing
+        name: Read current slot
+        service: ScheduleService.current
+        security: {
+            # A read, like the list above.
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: ScheduleNow
+            }
+        }
+    }
+}
+
 operation /schedule/{id}: {
     params: {
         id: string(min=1, max=100)

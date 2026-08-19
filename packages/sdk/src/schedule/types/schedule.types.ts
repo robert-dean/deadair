@@ -40,6 +40,17 @@ export interface ScheduleSlotInput {
 }
 
 /**
+ * Which slot the clock says should be on right now
+ * generated from [ScheduleNow](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L26)
+ */
+export interface ScheduleNow {
+    /** The slot in force at this instant. Absent means the station has no schedule */
+    slotId?: string;
+    /** The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins */
+    airingSlotId?: string;
+}
+
+/**
  * generated from [ScheduleSlotList](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L21)
  */
 export interface ScheduleSlotList {

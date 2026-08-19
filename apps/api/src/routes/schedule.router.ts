@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
-import { ScheduleSlot, ScheduleSlotInput, ScheduleSlotList } from '../modules/schedule/types/schedule.types.js';
+import { ScheduleNow, ScheduleSlot, ScheduleSlotInput, ScheduleSlotList } from '../modules/schedule/types/schedule.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -38,8 +38,21 @@ ScheduleRouter.post('/schedule', requirePolicy({ policy: 'platform.manage' }), b
 });
 
 /**
+ * Which slot the clock says should be on, and which one the station is actually airing
+ * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L59)
+ */
+ScheduleRouter.get('/schedule/current', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const service = ctx.container.get(ScheduleService);
+    const result: ScheduleNow = await service.current();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Rewrites a slot. Takes effect at its next boundary rather than immediately
- * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L58)
+ * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L78)
  */
 ScheduleRouter.put('/schedule/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -61,7 +74,7 @@ ScheduleRouter.put('/schedule/:id', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Removes a slot. Whatever is on air stays on until the next slot begins
- * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L70)
+ * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L90)
  */
 ScheduleRouter.delete('/schedule/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

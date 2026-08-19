@@ -104,6 +104,19 @@ The original entry, still true of the mechanism: The director already re-reads
 behaviour a scheduler needs. What is deferred is the `Programme` seam (`current(): { slot, lineupId }`)
 and the changeover policy: finish the track, then swap.
 
+**Read back 2026-08-19, and three things above have moved.** "Finish the track, then swap" is not a
+policy still to be written: `Rundown.retract()` reclaims everything handed and not heard and leaves
+the airing record playing, and `putOnAir` calls it first, so it is built. The seam is
+`ScheduleResolver` rather than `Programme` (that word is spent twice over; see the naming note in
+`on-air-ownership.md`), and its `lineupId` half is stale, since there are no stored lineups to name.
+
+**And the sub-hour half of this is already built, which is worth knowing before designing it again.**
+`rotation.clockBands` anchors events inside the hour (`:30 news`, `09:00 news`, `every 90m ident`), so
+the schedule builder in `todo.md` splits: a bulletin at half past is a BREAK and exists today, and a
+slot decides only the source, the host and the brief. A slot therefore stores a start minute rather
+than painting a grid of hours, and the two mechanisms divide cleanly. **Clock bands schedule what the
+station MAKES; the daypart schedule decides what it PLAYS BETWEEN.**
+
 A slot naming a PERSONA as well as a playlist is [personas.md](personas.md) §3, and costs the
 scheduler one uuid on the row it is already building. What the station SAYS at a boundary that
 changes the host is §5 of the same file, and it is the half with an ordering constraint in it: the

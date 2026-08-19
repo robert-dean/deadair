@@ -197,10 +197,34 @@ The five decisions are. What sits on top of them, as of 2026-08-16:
 - **The operator surface**, which is landing as this is written: `data/contracts/productions/` and
   `production.settings.ts` (two keys, `render.productionWritingMode` and `render.productionMinutes`).
   Check the tree rather than this line.
-- **Nothing commissions one on a schedule.** A production is made by a chain of jobs that has to be
-  started, and today `apps/api/scripts/production.smoke.ts` is what starts it. The daypart schedule
-  that would is [director-and-lineups.md](director-and-lineups.md), and it is the same column
-  [personas.md](personas.md) §3 wants for choosing a host.
+- ~~**Nothing commissions one on a schedule.**~~ **Built, and this line was stale by the time it was
+  read back on 2026-08-19.** `ProductionScheduler.ripen()` commissions off the format clock: an
+  ANCHORED `rotation.clockBands` band whose kind is in `render.productionKinds` (default `podcast`)
+  is read ahead by `COMMISSION_AHEAD_MS`, three hours, because a boundary is far too late to start
+  something that takes minutes to hours of model time. It writes a request exactly as the console
+  does, so both ways in are one path; it is idempotent by SLOT rather than by memory, asking the
+  table what is already scheduled, because memory would forget across exactly the restart that makes
+  a double-commission likeliest; and `BreakPlanner` reads the same `isProductionKind`, so a band is
+  never both filled with a break and produced. It runs off every commit pass and swallows everything,
+  since a scheduler that threw would take the commit pass with it.
+
+  **What follows is the division between the two schedulers, and it is worth stating because it is
+  the first question anyone asks.** Clock bands schedule what the station MAKES; the daypart schedule
+  in [director-and-lineups.md](director-and-lineups.md) decides what it PLAYS BETWEEN. A production
+  is a block INSIDE a running order rather than a slot that replaces one, which is right: a
+  production is bounded by `render.productionMinutes`, so an all-talk hour is a question about
+  production length rather than about slot types.
+
+  **One hazard the daypart schedule brings, recorded before it is built.**
+  `DirectorService.injectProductions` moves the row to `aired` the moment it inserts the beats, and
+  with `COMMIT_LEAD` at 1 those beats then sit `planned` for a long time. A changeover discards the
+  whole lineup object, so an episode inserted and not yet heard is lost, and nothing re-injects it
+  because its row already claims it aired. An operator can trigger this today by putting the station
+  on air at an unlucky moment; a schedule would reproduce it unattended at the same hour every day,
+  which is this file's neighbour argument in `on-air-ownership.md` exactly. The fix belongs in
+  `putOnAir` rather than in the schedule, so an operator's changeover is covered by the same code,
+  and it may only return a group NO beat of which has been heard: a part-aired episode is genuinely
+  over and must not restart from the top.
 - **The cast is one.** `OutlineBeat.lead` and `Production.voices` exist and nothing reads them, so
   multi-voice is a shape with no behaviour behind it. Callers cast per episode are personas, per
   [personas.md](personas.md).

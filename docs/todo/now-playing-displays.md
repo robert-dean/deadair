@@ -189,11 +189,16 @@ question will need them:
 At 08:27:12 the amp's screen read `Talk break: Straight Tequila Night into My Boo - Hitman's Club
 Mix`. That is `labelFor` in
 [talk.break.writer.ts](../../apps/api/src/modules/director/talk.break.writer.ts), whose docstring
-says a label is "for a console and a player's display" — so it is deliberate, and it is producer
+said a label is "for a console and a player's display" — so it was deliberate, and it was producer
 language (`Talk break:`, `Back-announce:`, `Intro:`) reaching the audience. Given that the one line
 of text is now known to be the entire ceiling, what that line SAYS during a break is the only
-remaining lever on a hardware player's display, and it is currently spending it on internal
-vocabulary. That is a live question for `dj-voice.md`, not for this file.
+remaining lever on a hardware player's display, and it was spending it on internal vocabulary.
+
+**Fixed.** `listenerTitle` in [annotate.ts](../../apps/api/src/modules/playout/annotate.ts) is the
+boundary: a break is the station talking, so the mount carries `stream.title` and a record is left
+alone. Both routes to the mount go through it — the annotation that rides the boundary and
+`PlayoutPusher.announce`'s mid-track re-label — or a break handed over as the station's name and
+re-announced as `Talk break: …` would put the paperwork straight back.
 
 ## Related
 

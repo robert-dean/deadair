@@ -75,6 +75,14 @@ export interface AnnotationContext {
     /** Whether this broadcast blends one record into the next. See `crossfade.ts`. */
     crossfade: boolean;
     /**
+     * What the station calls itself, as the setting currently stands. See
+     * {@link listenerTitle}, which is the only thing that reads it.
+     *
+     * Read per hand-over like the level settings beside it rather than held, so a
+     * station an operator renames is renamed on the next boundary.
+     */
+    stationName: string;
+    /**
      * What the running order says follows this item, if anything does.
      *
      * The one thing here that is not a fact about the item being stamped, and it
@@ -135,9 +143,10 @@ export interface AnnotationContext {
  */
 export function itemAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
     const artist = item.artists.join(', ');
+    const title = listenerTitle(item, context.stationName);
     return {
         [ITEM_KEY]: item.id,
-        ...(item.title ? { title: item.title } : {}),
+        ...(title ? { title } : {}),
         ...(artist ? { artist } : {}),
         ...(item.album ? { album: item.album } : {}),
         ...(isRenderItem(item) ? { [SPEECH_KEY]: '1' } : {}),
@@ -145,6 +154,40 @@ export function itemAnnotations(item: RundownItem, context: AnnotationContext): 
         ...gainAnnotations(item, context),
         ...crossAnnotations(item, context),
     };
+}
+
+/**
+ * What an item is called ON THE MOUNT, which is not what the station calls it.
+ *
+ * A segment's `title` is `segments.label`, and a label is written for a producer:
+ * `Talk break: Straight Tequila Night into My Boo`, `Back-announce: …`, `Intro: …`,
+ * `Station ident`. That is right for the console, the logs and `script_history`,
+ * and it is the wrong register entirely for the one line a listener gets — the
+ * example above is verbatim off a hardware player's screen, where it read as the
+ * station leaking its own paperwork. `docs/todo/now-playing-displays.md` is why it
+ * matters more than it looks: that single line is the ENTIRE display ceiling on
+ * every player, permanently, so what it says during a break is the only lever
+ * there is.
+ *
+ * A break is the station talking, so the mount carries the station's own name,
+ * which is what broadcast radio does with the same slot. It suits every kind at
+ * once — talk break, welcome, bulletin, ident — and needs no vocabulary kept in
+ * step as kinds are added.
+ *
+ * **A record is untouched**, and that asymmetry is the point: a record has a real
+ * title and a listener wants it. `artists` is already empty for a segment
+ * ({@link segmentRundownTrack}), so a break arrives as the bare station name
+ * rather than as `Deadair - Deadair`.
+ *
+ * Falls back to the label when the station has no name, because a blank title is
+ * worse than an over-informative one: it leaves the mount labelled with whatever
+ * it last said, which is the record BEFORE the break, and a display naming a
+ * record that has finished is the one failure mode here that misinforms rather
+ * than merely over-shares.
+ */
+export function listenerTitle(item: RundownItem, stationName: string): string {
+    if (!isRenderItem(item)) return item.title;
+    return stationName.trim() || item.title;
 }
 
 /**

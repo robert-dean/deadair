@@ -370,7 +370,7 @@ describe('annotateUri', () => {
 /** The station's target, for the cases that are not about levels at all. */
 // No successor and no blending: the boundary annotations are inert, which keeps every
 // test below about the thing it is named for. The blend has its own block at the end.
-const CONTEXT = { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, levelingEnabled: true, crossfade: false };
+const CONTEXT = { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, levelingEnabled: true, crossfade: false, stationName: 'Deadair' };
 
 /** What a boundary the station does not blend is stamped with, as it reaches the player. */
 const HARD_JOIN = String(HARD_JOIN_MS / 1000);

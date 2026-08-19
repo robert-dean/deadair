@@ -2,12 +2,13 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
-import { annotateUri, blendOutOf, itemAnnotations, voiceAnnotations } from './annotate.js';
+import { annotateUri, blendOutOf, itemAnnotations, listenerTitle, voiceAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
 import { DEFAULT_LEVELING_ENABLED, LEVELING_ENABLED_KEY, SPEECH_TRIM_KEY, TARGET_LUFS_KEY, resolveSpeechTrimDb, resolveTargetLufs } from './gain.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
+import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -163,6 +164,11 @@ export class PlayoutPusher {
     /** Whether a record gets the static per-item correction, as the setting currently stands. Read per hand-over, like the target. */
     private levelingEnabled(): boolean {
         return settingIsOn(this.config, LEVELING_ENABLED_KEY, DEFAULT_LEVELING_ENABLED);
+    }
+
+    /** What the station calls itself, as the setting currently stands. Read per hand-over, like the target. See `listenerTitle`. */
+    private stationName(): string {
+        return this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
     }
 
     /** Begin draining the running order. Idempotent. */
@@ -364,6 +370,7 @@ export class PlayoutPusher {
                     speechTrimDb: this.speechTrimDb(),
                     levelingEnabled: this.levelingEnabled(),
                     crossfade: this.rundown.crossfade(),
+                    stationName: this.stationName(),
                     previousBlendMs: this.previousBlendMs,
                     ...(pulled.next === undefined ? {} : { next: pulled.next }),
                 };
@@ -432,8 +439,14 @@ export class PlayoutPusher {
         // The same line Icecast composes for itself out of the `annotate:` pair, so a
         // label that arrives this way is indistinguishable from one that rode the
         // boundary. See `itemAnnotations`.
+        //
+        // Through `listenerTitle` for the same reason: this path and the annotation
+        // path are two ways to say one thing, and a break that rode the boundary as
+        // the station's name and was re-announced as `Talk break: …` would put the
+        // producer's copy back on the mount at the first mid-track re-label.
         const artist = item.artists.join(', ');
-        void this.control.announce(artist ? `${artist} - ${item.title}` : item.title).catch(() => undefined);
+        const title = listenerTitle(item, this.stationName());
+        void this.control.announce(artist ? `${artist} - ${title}` : title).catch(() => undefined);
     }
 
     /**

@@ -13,6 +13,7 @@ import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { ReplanLineupJob } from '#modules/director/replan.lineup.job.js';
 import { ProduceProductionJob } from '#modules/productions/produce.production.job.js';
+import { ScheduleTickJob } from '#modules/schedule/schedule.tick.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
@@ -264,6 +265,25 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'director.produce': {
         job: ProduceProductionJob,
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ hours: 2 }) },
+    },
+
+    // EVERY MINUTE, and it must not be made coarser. A station zone can sit at a :30 or :45 offset
+    // from this host's, so an hourly tick would land in the middle of every slot on the station's
+    // clock rather than at its edges. A minute covers every minute of both clocks.
+    //
+    // Cheap enough to run that often: one small query and, on all but a handful of runs a day, a
+    // comparison of two ids that matches and returns. The changeover itself is the only run that
+    // reads a playlist.
+    //
+    // NO retry, and nothing is lost by that. The resolver is a pure function of the instant, so the
+    // run a minute later asks the same question and acts on the same answer — the cron IS the retry,
+    // and a retry a few seconds behind a failed changeover would only race the next tick. `expiresIn`
+    // sits above a slow provider read, because a wedged run holding the queue is worse than a slot
+    // that arrives late.
+    'schedule.tick': {
+        job: ScheduleTickJob,
+        cron: '* * * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 
     // No cron: a segment is rendered because something planned one, and walking

@@ -11,6 +11,7 @@ import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import type { ScheduleSlot } from './schedule.js';
 import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
 import type { OrderEdit } from './director.mailbox.js';
@@ -200,7 +201,7 @@ export class DirectorConsoleService {
      *
      * @throws 422 when the playlist has nothing to play.
      */
-    async putOnAir(input: PutOnAirInput): Promise<StationAir> {
+    async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot): Promise<StationAir> {
         const tracks = await this.sourceTracks(input);
 
         // Which slot of the day this lands in, stamped even though the operator chose the source
@@ -210,13 +211,20 @@ export class DirectorConsoleService {
         // "leave it unset to mean a human did this" needs a second rule and a timestamp to say when
         // the human did it.
         //
+        // `onSlot` is the schedule's own tick handing back the slot it already resolved, which is
+        // not an optimization: resolving a second time here would open a window across a boundary
+        // where the order is built from one slot's source and stamped with the next one's id, and
+        // nothing afterwards could tell that from a station already airing the right thing.
+        //
         // Never fatal. A schedule that could not be read is a station with no schedule, which is
         // what every station had before this existed, and refusing to go on air over it would be
         // the console declining to broadcast because a page nobody opened would not load.
-        const slot = await this.schedule.inForce().catch(error => {
-            this.logger.warn(`director: could not read the schedule while going on air (${errorText(error)})`);
-            return undefined;
-        });
+        const slot =
+            onSlot ??
+            (await this.schedule.inForce().catch(error => {
+                this.logger.warn(`director: could not read the schedule while going on air (${errorText(error)})`);
+                return undefined;
+            }));
 
         const binding: StationLineupBinding = {
             name: input.name ?? (input.pluginId === undefined ? 'The station' : `From ${input.pluginId}`),

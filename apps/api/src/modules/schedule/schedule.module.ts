@@ -29,5 +29,8 @@ export const ScheduleModule: ServerKitModule = {
         // per-run inside the scope the tick opens.
         registry.register(ScheduleRepository).useClass(ScheduleRepository).asScoped();
         registry.register(ScheduleService).useClass(ScheduleService).asScoped();
+        // `ScheduleTickJob` is deliberately NOT registered here. `JobsModule` walks `JobMappings` and
+        // registers every job class itself, so a second registration is not redundancy, it throws at
+        // boot: "Registration for ScheduleTickJob already exists".
     },
 };

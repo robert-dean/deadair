@@ -1,22 +1,23 @@
 // A timetable that draws one thing while the station airs another is the failure this projection
-// exists to make impossible, so the assertions are about two properties rather than about shapes.
+// exists to make impossible, so the assertion that matters is the second one below: it AGREES with
+// the resolver, checked by asking `slotAt` about every minute in the range, including the ones no
+// block claims. That is cheap only because the two share a function, and the test is pinning that
+// they still do.
 //
-// It TILES: contiguous, no gaps, no overlaps, midnight to midnight. That is a property of the
-// partition, and it is the whole reason the schedule stores starts rather than events.
-//
-// And it AGREES with the resolver, which is checked here by asking `slotAt` about every minute the
-// projection claims to cover. That is cheap only because the two share a function; the test is
-// pinning that they still do.
+// The blocks deliberately do NOT tile any more. A schedule may leave the afternoon unclaimed, and
+// what plays there is the station's sustaining source rather than a slot — a different fact, and not
+// this module's to state.
 
 import { describe, expect, it } from 'vitest';
 
 import { project, type StationDate } from '../../../src/modules/schedule/schedule.occurrences.js';
 import { slotAt, type ScheduleSlot } from '../../../src/modules/director/schedule.js';
 
-const slot = (id: string, startsAtMinutes: number, days: readonly number[] = []): ScheduleSlot => ({
+const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: readonly number[] = []): ScheduleSlot => ({
     id,
     label: id,
     startsAtMinutes,
+    endsAtMinutes,
     days,
     mode: 'rotation',
     onEnd: 'extend',
@@ -30,7 +31,7 @@ const WEDNESDAY_DAY = 3;
 
 const at = (hour: number, minute = 0) => hour * 60 + minute;
 
-/** Minutes since the range began, for a `YYYY-MM-DD HH:mm:ss` stamp. Dates are contiguous by construction. */
+/** Minutes since the range began, for a `YYYY-MM-DD HH:mm:ss` stamp. */
 function offsetOf(stamp: string, from: StationDate): number {
     const [date, time] = stamp.split(' ');
     const [year, month, day] = date!.split('-').map(Number);
@@ -40,85 +41,69 @@ function offsetOf(stamp: string, from: StationDate): number {
     return days * 24 * 60 + hour! * 60 + minute!;
 }
 
+const shapeOf = (blocks: { slotId: string; start: string; end: string }[]) =>
+    blocks.map(block => `${block.slotId} ${block.start.slice(11, 16)}-${block.end.slice(11, 16)}`);
+
 describe('project', () => {
     it('answers nothing for a station with no schedule', () => {
         expect(project(WEDNESDAY, 7, [])).toEqual([]);
     });
 
-    it('gives one block a day to a single all-day slot', () => {
-        const blocks = project(WEDNESDAY, 3, [slot('all-day', 0)]);
+    it('draws a block once per day it runs on', () => {
+        const blocks = project(WEDNESDAY, 3, [slot('breakfast', at(6), at(10))]);
 
         expect(blocks).toHaveLength(3);
-        expect(blocks[0]).toEqual({ slotId: 'all-day', label: 'all-day', start: '2026-08-19 00:00:00', end: '2026-08-20 00:00:00' });
-        expect(blocks[2]?.end).toBe('2026-08-22 00:00:00');
+        expect(blocks[0]).toEqual({ slotId: 'breakfast', label: 'breakfast', start: '2026-08-19 06:00:00', end: '2026-08-19 10:00:00' });
+        expect(blocks[2]?.start).toBe('2026-08-21 06:00:00');
     });
 
-    it('carries the previous day into the small hours rather than leaving them blank', () => {
-        // The reason the day columns are not independent. Nothing starts before six, so midnight to
-        // six belongs to whatever was on last night — which on a wrapping schedule is the late slot.
-        const blocks = project(WEDNESDAY, 1, [slot('breakfast', at(6)), slot('late', at(22))]);
+    it('leaves the hours nothing claims empty', () => {
+        // The whole of what changed. There is no block between ten and four, and the answer simply
+        // has nothing there rather than stretching breakfast across it.
+        const blocks = project(WEDNESDAY, 1, [slot('breakfast', at(6), at(10)), slot('drive', at(16), at(19))]);
 
-        expect(blocks).toEqual([
-            { slotId: 'late', label: 'late', start: '2026-08-19 00:00:00', end: '2026-08-19 06:00:00' },
-            { slotId: 'breakfast', label: 'breakfast', start: '2026-08-19 06:00:00', end: '2026-08-19 22:00:00' },
-            { slotId: 'late', label: 'late', start: '2026-08-19 22:00:00', end: '2026-08-20 00:00:00' },
-        ]);
+        expect(shapeOf(blocks)).toEqual(['breakfast 06:00-10:00', 'drive 16:00-19:00']);
     });
 
-    it('lets a weekday-only slot interrupt an every-day one, on its day alone', () => {
-        // No precedence rule is involved and that is the point: both run on Wednesday, they sort by
-        // start, and the later one simply covers until the next boundary. This is the case the
-        // retired `spanOf` got wrong, because it reported one span for a slot whose span differs by
-        // day.
-        const slots = [slot('always', at(6)), slot('midweek', at(9), [WEDNESDAY_DAY])];
-        const shape = (blocks: { slotId: string; start: string; end: string }[]) =>
-            blocks.map(block => `${block.slotId} ${block.start.slice(11, 16)}-${block.end.slice(11, 16)}`);
+    it('splits a block that runs past midnight across the two days it touches', () => {
+        // A timetable draws it that way anyway, and it means no consumer ever has to clip anything.
+        const blocks = project(WEDNESDAY, 2, [slot('late', at(22), at(2))]);
 
-        // Wednesday. `always` covers midnight to nine as ONE block rather than two: it was in force
-        // overnight from Tuesday and it starts again at six, and since it is the same slot the
-        // station never changes over there. Then the midweek show takes the rest of the day.
-        expect(shape(project(WEDNESDAY, 1, slots))).toEqual(['always 00:00-09:00', 'midweek 09:00-00:00']);
-
-        // Thursday, where the midweek show is not on: it carries overnight until `always` starts,
-        // and then runs the rest of the day. The same two slots, a different shape, which is the
-        // whole reason a span cannot live on the row.
-        expect(shape(project({ year: 2026, month: 8, day: 20, weekday: 4 }, 1, slots))).toEqual(['midweek 00:00-06:00', 'always 06:00-00:00']);
+        // Four, not three: the FIRST morning has a tail too, from the night before the range began.
+        // Each day emits what lands on it, which is what keeps every block inside the range asked
+        // for — the alternative spills a tail past the end and leaves the first morning blank.
+        expect(shapeOf(blocks)).toEqual(['late 00:00-02:00', 'late 22:00-00:00', 'late 00:00-02:00', 'late 22:00-00:00']);
+        expect(blocks[0]?.start).toBe('2026-08-19 00:00:00');
+        expect(blocks[1]?.end).toBe('2026-08-20 00:00:00');
     });
 
-    it('never merges across midnight, however long one slot holds', () => {
-        // A single slot is on continuously for a fortnight, and still comes back as one block per
-        // day. Merging those would produce something a day column has to clip, and clipping is what
-        // splitting per day exists to avoid.
-        const blocks = project(WEDNESDAY, 14, [slot('always', at(6))]);
+    it('lets a day-specific block sit beside an every-day one', () => {
+        // No precedence rule is involved, and now no interruption either: the two blocks are simply
+        // both there, on the day they share, at the times each says. That they cannot OVERLAP is
+        // `ScheduleService`'s business rather than this one's.
+        const slots = [slot('always', at(6), at(9)), slot('midweek', at(9), at(12), [WEDNESDAY_DAY])];
 
-        expect(blocks).toHaveLength(14);
-        expect(new Set(blocks.map(block => block.slotId))).toEqual(new Set(['always']));
+        expect(shapeOf(project(WEDNESDAY, 1, slots))).toEqual(['always 06:00-09:00', 'midweek 09:00-12:00']);
+        // Thursday: the midweek show is not on, and nothing stretches to cover it.
+        expect(shapeOf(project({ year: 2026, month: 8, day: 20, weekday: 4 }, 1, slots))).toEqual(['always 06:00-09:00']);
     });
 
-    it('treats a slot starting at midnight as the first boundary rather than adding a second', () => {
-        const blocks = project(WEDNESDAY, 1, [slot('overnight', 0), slot('breakfast', at(6))]);
+    it('comes back earliest first however the slots were ordered', () => {
+        const blocks = project(WEDNESDAY, 1, [slot('late', at(22), at(23)), slot('breakfast', at(6), at(10))]);
 
-        expect(blocks.map(block => block.start)).toEqual(['2026-08-19 00:00:00', '2026-08-19 06:00:00']);
+        expect(blocks.map(block => block.slotId)).toEqual(['breakfast', 'late']);
     });
 
-    it('tiles the whole range with no gap and no overlap', () => {
-        const slots = [slot('breakfast', at(6)), slot('drive', at(16, 30)), slot('late', at(22)), slot('sunday-brunch', at(10), [SUNDAY])];
-        const days = 14;
-        const blocks = project(WEDNESDAY, days, slots);
-
-        // Starts where the range starts, ends where it ends, and every block begins exactly where
-        // the one before it stopped.
-        expect(offsetOf(blocks[0]!.start, WEDNESDAY)).toBe(0);
-        expect(offsetOf(blocks.at(-1)!.end, WEDNESDAY)).toBe(days * 24 * 60);
-        for (let index = 1; index < blocks.length; index++) {
-            expect(offsetOf(blocks[index]!.start, WEDNESDAY)).toBe(offsetOf(blocks[index - 1]!.end, WEDNESDAY));
-        }
-    });
-
-    it('agrees with the resolver at every minute it claims to cover', () => {
-        // The property that matters. Ten-minute steps rather than every minute keeps it quick while
-        // still landing either side of every boundary these slots have.
-        const slots = [slot('breakfast', at(6)), slot('drive', at(16, 30)), slot('late', at(22)), slot('sunday-brunch', at(10), [SUNDAY])];
+    it('agrees with the resolver at every minute, including the ones nothing claims', () => {
+        // The property that matters, and the gaps are half of it: a minute the projection draws
+        // nothing for must be a minute the resolver answers nothing for, or the grid and the station
+        // disagree about whether anything is on.
+        const slots = [
+            slot('breakfast', at(6), at(10)),
+            slot('drive', at(16, 30), at(19)),
+            slot('late', at(22), at(2)),
+            slot('sunday-brunch', at(10), at(13), [SUNDAY]),
+        ];
         const days = 14;
         const blocks = project(WEDNESDAY, days, slots);
 
@@ -132,8 +117,8 @@ describe('project', () => {
 
     it('walks across a month boundary', () => {
         // Calendar arithmetic rather than adding milliseconds, so the end of a month is not a case.
-        const blocks = project({ year: 2026, month: 8, day: 31, weekday: 1 }, 2, [slot('all-day', 0)]);
+        const blocks = project({ year: 2026, month: 8, day: 31, weekday: 1 }, 2, [slot('breakfast', at(6), at(10))]);
 
-        expect(blocks.map(block => block.start)).toEqual(['2026-08-31 00:00:00', '2026-09-01 00:00:00']);
+        expect(blocks.map(block => block.start)).toEqual(['2026-08-31 06:00:00', '2026-09-01 06:00:00']);
     });
 });

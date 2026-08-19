@@ -1,14 +1,12 @@
-import { slotAt, type ScheduleSlot } from '#modules/director/schedule.js';
+import type { ScheduleSlot } from '#modules/director/schedule.js';
 
 /**
  * The station's schedule as a timetable: what is on, on which day, between which two times.
  *
  * ## Why this exists at all
  *
- * The schedule stores STARTS. A slot runs until the next one begins and the last of the week wraps
- * round, which is what makes every instant land somewhere with no gap to represent and no overlap to
- * resolve. A timetable needs the opposite shape — blocks with both ends — so something has to turn
- * one into the other, and it is better here than in a console: the browser does not know
+ * The schedule stores a block per weekday mask; a timetable needs one per DAY, with real dates on it.
+ * Turning one into the other belongs here rather than in a console, because the browser does not know
  * `station.timezone` and has no business deriving real dates from a weekday mask.
  *
  * ## It is wall-clock throughout, and never touches an instant
@@ -22,9 +20,15 @@ import { slotAt, type ScheduleSlot } from '#modules/director/schedule.js';
  *
  * ## Every block stays inside one day
  *
- * A slot that runs from 22:00 to 06:00 comes back as two blocks: one at the bottom of its day and
- * one at the top of the next. That is what a timetable draws anyway, and it means a consumer never
- * has to clip anything.
+ * A slot that runs from 22:00 to 06:00 comes back as two: one at the bottom of its day and one at
+ * the top of the next. That is what a timetable draws anyway, and it means a consumer never has to
+ * clip anything.
+ *
+ * ## Gaps are real, and are simply absent
+ *
+ * A schedule need not cover the day. The hours nothing claims come back as nothing at all, because
+ * what plays there is not a slot: it is the station's sustaining source, which is a different fact
+ * and belongs to whoever is asking about the station rather than to a drawing of its schedule.
  */
 
 /** A date on the station's own calendar, with the weekday it falls on. Sunday is `0`. */
@@ -58,14 +62,12 @@ const MINUTES_IN_DAY = 24 * 60;
 const DAYS_IN_WEEK = 7;
 
 /**
- * Every block covering `days` days from `from`, in order.
+ * Every block in `days` days from `from`, earliest first.
  *
- * The blocks TILE the range: contiguous, no gaps, no overlaps, from `from 00:00:00` to the midnight
- * that ends the last day. That is a property of the partition rather than something this arranges,
- * and it is what the tests assert.
- *
- * Answers nothing at all for a station with no schedule, which is an ordinary state: a station that
- * has never opened the page keeps playing whatever it was put on.
+ * They do NOT tile. A schedule is free to leave the afternoon unclaimed and the answer simply has
+ * nothing there — what plays in that hour is the sustaining source's business rather than this
+ * one's. Nor do they overlap, which `ScheduleService` refuses on the way IN rather than this
+ * resolving on the way out.
  */
 export function project(from: StationDate, days: number, slots: readonly ScheduleSlot[]): ScheduleOccurrence[] {
     if (slots.length === 0 || days <= 0) return [];
@@ -75,50 +77,40 @@ export function project(from: StationDate, days: number, slots: readonly Schedul
     let date = from;
     for (let index = 0; index < days; index++) {
         const next = nextDate(date);
+        const yesterday = (date.weekday - 1 + DAYS_IN_WEEK) % DAYS_IN_WEEK;
 
-        // The starts that fall on this day, in order. A slot running on no day here contributes
-        // nothing, and two slots at one minute collapse to one boundary — which the unique index
-        // refuses anyway, so it is a defence rather than a case.
-        const starts = [...new Set(slots.filter(slot => runsOn(slot, date.weekday)).map(slot => slot.startsAtMinutes))].sort((a, b) => a - b);
+        // Each day emits what lands ON it, rather than each block emitting where it goes. That is
+        // what keeps every block inside the requested range: the tail of a block that started the
+        // night before belongs to this morning, and the tail of one starting on the last day belongs
+        // to a day nobody asked about.
+        for (const slot of slots) {
+            const overnight = slot.endsAtMinutes <= slot.startsAtMinutes;
 
-        // Midnight is covered by whatever was in force then, which is usually the previous day's
-        // last slot and is the whole reason the day columns are not independent. Asking `slotAt`
-        // rather than reaching backwards by hand is what keeps this and the tick one implementation.
-        const boundaries = starts[0] === 0 ? starts : [0, ...starts];
+            // Last night's block, still running.
+            if (overnight && slot.endsAtMinutes > 0 && runsOn(slot, yesterday)) occurrences.push(one(slot, date, 0, slot.endsAtMinutes, next));
 
-        boundaries.forEach((minute, position) => {
-            const slot = slotAt(date.weekday, minute, slots);
-            if (slot === undefined) return;
-
-            const until = boundaries[position + 1];
-            // The last block of a day ends at the next day's midnight rather than at 24:00, which is
-            // not a time. Consumers get a real timestamp either way.
-            const end = until === undefined ? stamp(next, 0) : stamp(date, until);
-
-            // A boundary where the SAME slot continues is not a boundary, and drawing one would be
-            // a lie about what the station does. It happens whenever the slot in force at midnight
-            // is also the one starting later that day — an every-day slot wrapping into its own next
-            // morning, which is the ordinary state of a station with one slot. The tick compares
-            // slot IDS, so it fires no changeover there either; merging is what keeps the timetable
-            // saying the same thing.
-            //
-            // Within a day only, which is what `position > 0` buys: the first boundary of a day is
-            // always midnight, and merging there would join yesterday's block to today's and produce
-            // something a day column has to clip. Clipping is the thing this deliberately never asks
-            // a consumer to do.
-            const previous = occurrences.at(-1);
-            if (position > 0 && previous?.slotId === slot.id) {
-                previous.end = end;
-                return;
+            // And today's own, cut off at midnight when it runs past it.
+            if (runsOn(slot, date.weekday)) {
+                occurrences.push(one(slot, date, slot.startsAtMinutes, overnight ? MINUTES_IN_DAY : slot.endsAtMinutes, next));
             }
-
-            occurrences.push({ slotId: slot.id, label: slot.label, start: stamp(date, minute), end });
-        });
+        }
 
         date = next;
     }
 
-    return occurrences;
+    // Earliest first, which is what a caller drawing a column wants. Sorting on the stamp is safe
+    // because they are fixed-width and zero-padded.
+    return occurrences.sort((left, right) => left.start.localeCompare(right.start));
+}
+
+/** One block as the wire shape. A whole day ends at the NEXT midnight rather than at 24:00, which is not a time. */
+function one(slot: ScheduleSlot, date: StationDate, from: number, until: number, next: StationDate): ScheduleOccurrence {
+    return {
+        slotId: slot.id,
+        label: slot.label,
+        start: stamp(date, from),
+        end: until >= MINUTES_IN_DAY ? stamp(next, 0) : stamp(date, until),
+    };
 }
 
 /** Whether this slot runs on a given weekday. Empty `days` is every day, as everywhere else. */

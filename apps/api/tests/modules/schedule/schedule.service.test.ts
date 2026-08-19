@@ -14,10 +14,11 @@ import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
-const slot = (id: string, startsAtMinutes: number, days: readonly number[] = []): ScheduleSlot => ({
+const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: readonly number[] = []): ScheduleSlot => ({
     id,
     label: id,
     startsAtMinutes,
+    endsAtMinutes,
     days,
     mode: 'rotation',
     onEnd: 'extend',
@@ -48,7 +49,7 @@ describe('ScheduleService.current', () => {
 
     it('reports the same slot twice when the station is airing what is due', async () => {
         // Midnight and midday both exist, so whichever the clock is in, the station is on it.
-        const service = build({ slots: [slot('all-day', 0)], airing: 'all-day' });
+        const service = build({ slots: [slot('all-day', 0, 0)], airing: 'all-day' });
 
         expect(await service.current()).toEqual({ slotId: 'all-day', airingSlotId: 'all-day' });
     });
@@ -57,7 +58,7 @@ describe('ScheduleService.current', () => {
         // The state the manual-takeover rule creates: the clock wants one slot and the running order
         // belongs to another, and it stays that way until the next slot BEGINS. Both have to come
         // back or the console cannot draw the difference.
-        const service = build({ slots: [slot('daytime', 0)], airing: 'evening' });
+        const service = build({ slots: [slot('daytime', 0, 0)], airing: 'evening' });
 
         expect(await service.current()).toEqual({ slotId: 'daytime', airingSlotId: 'evening' });
     });
@@ -66,7 +67,7 @@ describe('ScheduleService.current', () => {
         // The commonest form of a takeover, and the one worth pinning: a station put on by hand
         // before there was a schedule at all has no slot on its running order. That is an absent
         // field rather than a match, so the console still knows the two disagree.
-        const service = build({ slots: [slot('daytime', 0)] });
+        const service = build({ slots: [slot('daytime', 0, 0)] });
 
         expect(await service.current()).toEqual({ slotId: 'daytime' });
     });
@@ -77,7 +78,7 @@ describe('ScheduleService.timetable', () => {
         // The reason `from` is optional at all: a browser cannot work out what day it is at the
         // station, so an absent one has to mean "you tell me" and the answer has to say what it
         // chose. Everything after that is a caller adding days to a string.
-        const service = build({ slots: [slot('all-day', 0)] });
+        const service = build({ slots: [slot('all-day', 0, 0)] });
 
         const drawn = await service.timetable({});
 
@@ -90,19 +91,20 @@ describe('ScheduleService.timetable', () => {
         // 2026-08-19 is a Wednesday. A slot that runs only on Wednesdays must therefore be drawn on
         // the first day and on nothing else in the week. This is the one field a client could get
         // wrong in a way that silently draws a different schedule than the station will air.
-        const service = build({ slots: [slot('midweek', 0, [3])] });
+        const service = build({ slots: [slot('midweek', 0, 0, [3])] });
 
         const drawn = await service.timetable({ from: '2026-08-19', days: 3 });
 
-        expect(drawn.occurrences.map(block => block.start.slice(0, 10))).toEqual(['2026-08-19', '2026-08-20', '2026-08-21']);
-        // Wednesday's own block, then the same slot carrying overnight because nothing else runs.
-        expect(new Set(drawn.occurrences.map(block => block.slotId))).toEqual(new Set(['midweek']));
+        // Wednesday alone, out of three days asked for. Nothing stretches to cover Thursday and
+        // Friday any more, so this genuinely tests the weekday rather than passing because every day
+        // was covered regardless.
+        expect(drawn.occurrences.map(block => block.start.slice(0, 10))).toEqual(['2026-08-19']);
     });
 
     it('falls back to today for a date it cannot read, rather than erroring', async () => {
         // A hand-typed URL should not produce a blank page, and there is nothing here worth a 400:
         // the worst outcome of falling back is that the operator is looking at this week.
-        const service = build({ slots: [slot('all-day', 0)] });
+        const service = build({ slots: [slot('all-day', 0, 0)] });
 
         const drawn = await service.timetable({ from: 'yesterday' });
 

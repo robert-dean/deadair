@@ -409,6 +409,7 @@ export interface DeadairScheduleSlots {
   brief: Generated<string>;
   createdAt: Generated<DateTime>;
   days: Generated<Json>;
+  endsAtMinutes: number;
   id: Generated<string>;
   label: Generated<string>;
   mode: Generated<"rotation" | "setlist" | "feature">;

@@ -1,6 +1,7 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { ScheduleRepository } from './schedule.repository.js';
+import { ScheduleNotices } from './schedule.notices.js';
 import { ScheduleService } from './schedule.service.js';
 
 /**
@@ -29,6 +30,9 @@ export const ScheduleModule: ServerKitModule = {
         // per-run inside the scope the tick opens.
         registry.register(ScheduleRepository).useClass(ScheduleRepository).asScoped();
         registry.register(ScheduleService).useClass(ScheduleService).asScoped();
+        // A SINGLETON, unlike everything else here, and that is the point of it: the tick is rebuilt
+        // on every run, so the mark saying "I have already reported this" has to outlive it.
+        registry.register(ScheduleNotices).useClass(ScheduleNotices).asSingleton();
         // `ScheduleTickJob` is deliberately NOT registered here. `JobsModule` walks `JobMappings` and
         // registers every job class itself, so a second registration is not redundancy, it throws at
         // boot: "Registration for ScheduleTickJob already exists".

@@ -7,6 +7,7 @@ import { DirectorService } from '#modules/director/director.service.js';
 import type { ScheduleSlot } from '#modules/director/schedule.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { ScheduleNotices } from './schedule.notices.js';
 import { ScheduleService } from './schedule.service.js';
 
 /**
@@ -42,6 +43,13 @@ import { ScheduleService } from './schedule.service.js';
  * it within the minute is the right answer. The takeover rule covers `putOnAir` because there the
  * operator chose a source.
  *
+ * ## A gap is a real answer rather than an impossible state
+ *
+ * A slot is a BLOCK now: it ends when it says it ends rather than when the next one starts, so a
+ * schedule may leave the afternoon unclaimed. What plays there is the sustaining source, handed over
+ * exactly once — the running order ceasing to belong to any slot is the mark that it happened, which
+ * is the same comparison the block case makes and needs no second piece of state.
+ *
  * ## Three ways it declines, all of them ordinary
  *
  * A station that is stood down is left alone: **a schedule changes the station over, it does not put
@@ -61,6 +69,8 @@ export class ScheduleTickJob extends PlainJob {
         private readonly console: DirectorConsoleService,
         private readonly director: DirectorService,
         private readonly activity: ActivityRecorder,
+        // What has already been said, so a standing failure is one line rather than sixty an hour.
+        private readonly notices: ScheduleNotices,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -77,12 +87,74 @@ export class ScheduleTickJob extends PlainJob {
         // with the next slot's id, which nothing afterwards could tell from a station that is
         // already airing the right thing.
         const slot = await this.schedule.inForce();
-        if (slot === undefined) return;
-
         const airing = this.director.order()?.slotId;
+
+        // A GAP: no block is on. The station falls back to its sustaining source, once — the mark
+        // that it already has is the running order no longer belonging to any slot, which is the
+        // same comparison the block case makes and needs no second piece of state.
+        if (slot === undefined) {
+            if (airing !== undefined) await this.sustain();
+            return;
+        }
+
         if (airing === slot.id) return;
 
         await this.changeOver(slot, airing);
+    }
+
+    /**
+     * Hand the station to its sustaining source, because a block ended and nothing follows it.
+     *
+     * A schedule need not cover the day, and this is the whole of what makes ending a block mean
+     * anything: without it the station would carry on with whatever the last block left it, which is
+     * indistinguishable from that block never having ended.
+     *
+     * **Never silence.** A gap plays something, or the station keeps what it has — so the schedule
+     * can never take a running station off air, which is what keeps `Stop` meaning only what an
+     * operator meant by it and leaves the mount lease and the audience gate as the only things
+     * deciding whether anybody is hearing this.
+     *
+     * A station that has named no sustaining source therefore carries on and says so on the feed
+     * ONCE rather than every minute: the running order still belongs to the block that ended, so the
+     * guard above stops this repeating until something changes it.
+     */
+    private async sustain(): Promise<void> {
+        const source = this.schedule.sustaining();
+        if (source === undefined) {
+            this.say('gap:unset', {
+                kind: 'schedule.gap',
+                detail: 'The schedule ran out and there is nothing set to play between blocks, so the station kept what was on.',
+            });
+            return;
+        }
+
+        try {
+            await this.console.putOnAir({
+                name: 'Sustaining',
+                ...(source.pluginId === undefined || source.playlistId === undefined
+                    ? {}
+                    : { pluginId: source.pluginId, playlistId: source.playlistId }),
+                ...(source.brief === undefined ? {} : { brief: source.brief }),
+                mode: 'rotation',
+                onEnd: 'extend',
+            });
+        } catch (error) {
+            this.logger.warn(`schedule: could not hand the station to its sustaining source, so it keeps what it is airing (${errorText(error)})`);
+            this.say('gap:failed', {
+                kind: 'schedule.declined',
+                detail: 'The schedule ran out and the sustaining source could not be aired, so the station kept what was on.',
+            });
+            return;
+        }
+
+        this.notices.settled();
+
+        this.logger.info('schedule: the schedule ran out, so the station moved to its sustaining source');
+        void this.activity.record({
+            module: 'director',
+            kind: 'schedule.sustaining',
+            detail: 'Nothing is scheduled now, so the station moved to what it plays between blocks.',
+        });
     }
 
     /**
@@ -112,11 +184,10 @@ export class ScheduleTickJob extends PlainJob {
             // plugin that is gone or refusing arrives as its own status. All of them mean the same
             // thing here: this slot cannot be aired, so the station keeps doing what it was doing.
             this.logger.warn(`schedule: could not change over to "${slot.label}", so the station keeps what it is airing (${errorText(error)})`);
-            void this.activity.record({
-                // `director` rather than an arm of its own. The module is the console's only filter
-                // axis and a changeover is a fact about what the station is AIRING, which is where
-                // `air.on` and `order.*` already sit; who caused it is what `kind` says.
-                module: 'director',
+            // Once per slot rather than once a minute. What caused this is still true on the next
+            // pass, so without the mark a slot whose playlist has emptied would write a row sixty
+            // times an hour until somebody noticed.
+            this.say(`slot:${slot.id}`, {
                 kind: 'schedule.declined',
                 detail: `The schedule asked for ${named(slot)} and it could not be aired, so the station kept what was on.`,
                 data: { slot: slot.id, label: slot.label },
@@ -124,6 +195,7 @@ export class ScheduleTickJob extends PlainJob {
             return;
         }
 
+        this.notices.settled();
         this.logger.info('schedule: the station changed over', { slot: slot.id, label: slot.label, from });
         void this.activity.record({
             module: 'director',
@@ -134,6 +206,23 @@ export class ScheduleTickJob extends PlainJob {
             detail: `The station moved to ${named(slot)} on the schedule.`,
             data: { slot: slot.id, label: slot.label, ...(from === undefined ? {} : { from }) },
         });
+    }
+
+    /**
+     * Put something on the feed, unless it is what was said last.
+     *
+     * Every failure here is STICKY — what caused it is still true on the next pass — so the edge
+     * cannot be spotted from anything the tick can read. `ScheduleNotices` holds it instead. The
+     * recorder is voided as everywhere else: nothing reads these rows to decide anything.
+     *
+     * `director` rather than an arm of its own, because the module is the console's only filter axis
+     * and all of this is a fact about what the station is AIRING, which is where `air.on` and
+     * `order.*` already sit. Who caused it is what `kind` says.
+     */
+    private say(notice: string, event: { kind: string; detail: string; data?: Record<string, unknown> }): void {
+        if (!this.notices.shouldSay(notice)) return;
+
+        void this.activity.record({ module: 'director', ...event });
     }
 }
 

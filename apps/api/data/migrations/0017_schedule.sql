@@ -23,19 +23,33 @@ create table deadair.schedule_slots (
     -- What the operator calls this stretch of the day. Becomes the broadcast's `name`, so it is the
     -- label a console shows rather than an identity anything looks up.
     label text not null default '',
-    -- When it starts, as minutes past midnight ON THE STATION'S CLOCK (`station.timezone`).
+    -- When it starts and ends, as minutes past midnight ON THE STATION'S CLOCK (`station.timezone`).
     --
-    -- Only a START, and the absence of an end is the design. A slot runs until the next one begins
-    -- and the last of the week wraps round to the first, so every instant lands somewhere: there is
-    -- no gap to represent, no overlap to resolve, and an operator who wants the evening to finish
-    -- simply starts the next slot. `docs/todo/station-moment.md` wants its mood bands in this exact
-    -- shape, which is why it is worth being deliberate: that feature is a column here later rather
-    -- than a second table.
+    -- **A slot is a BLOCK, and this used to be only a start.** It ran until the next slot began, so
+    -- every instant landed somewhere and there was no gap to represent — which was tidy and meant
+    -- something the operator did not: one slot at six in the morning was on air around the clock,
+    -- for ever, because there was no next one to end it. Every awkwardness that shape produced was
+    -- the same awkwardness (a whole-day block rendered as an all-day banner, a block at the top of a
+    -- column belonging to the night before, a lower edge that edited a different row) and it is now
+    -- one fix rather than four workarounds.
     --
-    -- Minutes rather than a `time`, because the whole point is that this is a wall-clock reading in a
-    -- named zone rather than an instant, and a `time` column invites arithmetic that is wrong twice a
-    -- year. The resolver compares it against what the station's clock currently says.
+    -- What it costs is a GAP, which is a real state and has a real answer: the sustaining source in
+    -- `schedule.sustaining*`. A gap plays that rather than falling silent, so the schedule never
+    -- gains the power to stop a running station and `Stop` keeps meaning only what an operator meant
+    -- by it.
+    --
+    -- `ends_at_minutes` BEFORE the start means the block runs past midnight (`22:00` to `02:00`),
+    -- which is ordinary for a late show. Equal to it means a full twenty-four hours, which needs no
+    -- rule of its own: the wrap arithmetic already covers from the start to midnight and from
+    -- midnight back to the start, and those two are the whole day. There is no competing reading,
+    -- because a zero-length block is not a thing anybody wants — and without it a station that
+    -- genuinely runs one show around the clock could not say so.
+    --
+    -- Minutes rather than a `time` pair, because the whole point is that these are wall-clock
+    -- readings in a named zone rather than instants, and a `time` column invites arithmetic that is
+    -- wrong twice a year. The resolver compares them against what the station's clock says.
     starts_at_minutes integer not null check (starts_at_minutes >= 0 and starts_at_minutes < 1440),
+    ends_at_minutes integer not null check (ends_at_minutes >= 0 and ends_at_minutes < 1440),
     -- The weekdays it runs on, Sunday 0, as a jsonb array of integers.
     --
     -- **Empty means EVERY day**, which is the ordinary case, and that is why it is an empty list
@@ -71,9 +85,11 @@ create table deadair.schedule_slots (
     mode text not null default 'rotation' constraint schedule_slots_mode_check check (mode in ('rotation', 'setlist', 'feature')),
     on_end text not null default 'extend' constraint schedule_slots_on_end_check check (on_end in ('extend', 'repeat', 'stop')),
 
-    -- Two slots starting at the same minute is an operator mistake with no coherent answer, so it is
-    -- refused rather than resolved by an ordering nobody chose. It is per `days` as well because a
-    -- weekday slot and a weekend one legitimately share a start time.
+    -- Two slots starting at the same minute on the same days is an operator mistake with no coherent
+    -- answer, so it is refused rather than resolved by an ordering nobody chose. Blocks that OVERLAP
+    -- without sharing a start are refused too, but in `ScheduleService` rather than here: the check
+    -- has to expand an empty `days` to every day and compare two ranges that may wrap midnight,
+    -- which is not something a table constraint can say.
     constraint schedule_slots_start_unique unique (station_key, starts_at_minutes, days)
 );
 

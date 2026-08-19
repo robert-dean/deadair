@@ -9,7 +9,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { colorOf, weekdayOf } from './schedule.day';
-import { minutesOf, moveEdit, resizeEdit, splitAt, type DraggedBlock, type SlotEdit } from './schedule.edits';
+import { blockEdit, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
 
 /**
@@ -29,19 +29,14 @@ import { SlotEditor, type EditorTarget } from './slot.editor';
  * seven days asked for. Without it the view would render a calendar week (Monday first) while the
  * query returned seven days from today, and the two would disagree at both ends.
  *
- * ## Clicking an hour reaches the cases that need it
+ * ## Clicking an empty hour adds a block there
  *
- * `onTimeSlotClick` fires wherever the grid has space, and a partition leaves space in exactly two
- * states: a station with NO schedule, where the grid is nothing but space, and one whose only slot
- * covers whole days, which the scheduler draws in its all-day row rather than down the grid. Both
- * are the setting-up station, which is when pointing at six in the morning and saying "start here"
- * is most of what somebody wants. So the grid draws whether or not there is anything in it, and an
- * empty one is a canvas rather than a placeholder.
- *
- * Once the day is actually divided there is no space left and the handler stops firing, so adding a
- * third slot goes through the button. The gesture that would suit a partition is splitting a block
- * where it was clicked — a partition being a set of boundaries — but that collides with clicking a
- * block to edit it, and choosing between them is a decision rather than a wiring job.
+ * Which works nearly everywhere now, because a schedule need not cover the day: the hours nothing
+ * claims are real empty space on the grid. Under the old shape every pixel belonged to some slot and
+ * this handler could not fire at all once a day was divided, which is why there used to be an
+ * alt-click gesture that SPLIT a block. That has gone with the model that needed it — subdividing a
+ * block is now dragging its edge in and clicking the hour that frees up, which is two gestures that
+ * already exist rather than one that had to be explained.
  *
  * ## Nothing here changes what is on air
  *
@@ -117,25 +112,9 @@ export function SchedulePage() {
         });
     };
 
-    const openSlot = (event: ScheduleEventData, mouse: React.MouseEvent<HTMLButtonElement>) => {
+    const openSlot = (event: ScheduleEventData) => {
         const slot = slots.find(candidate => candidate.id === event.payload?.slotId);
-        if (slot === undefined) return;
-
-        // Alt-click SPLITS rather than opens. A partition is a set of boundaries, so adding a slot
-        // is adding one — and once the day is divided there is no empty space left to click, which
-        // is what otherwise makes the button the only way in. It opens the editor rather than
-        // writing straight away, because a slot needs a name.
-        if (mouse.altKey) {
-            const rect = mouse.currentTarget.getBoundingClientRect();
-            const block = blockOf(event);
-            if (block === undefined || rect.height === 0) return;
-
-            setRefusal(undefined);
-            setEditing({ kind: 'new', startsAtMinutes: splitAt(block, (mouse.clientY - rect.top) / rect.height), days: [...(slot.days ?? [])] });
-            return;
-        }
-
-        setEditing({ kind: 'edit', slot });
+        if (slot) setEditing({ kind: 'edit', slot });
     };
 
     /**
@@ -162,13 +141,16 @@ export function SchedulePage() {
         // to the slot, so it is not draggable at all. `moveEdit` refuses it too; this is what stops
         // somebody trying and watching it spring back.
         canDragEvent: (event: ScheduleEventData) => beginsItsSlot(event, slots),
-        onEventDrop: ({ event, newStart }: { event: ScheduleEventData; newStart: string }) => {
+        // Move and resize are the same edit now: the block ends up where it was dropped. A slot
+        // used to be a START, so its lower edge belonged to the NEXT slot and the two gestures meant
+        // different things to different rows.
+        onEventDrop: ({ event, newStart, newEnd }: { event: ScheduleEventData; newStart: string; newEnd: string }) => {
             const block = blockOf(event);
-            if (block) apply(moveEdit(block, newStart, slots));
+            if (block) apply(blockEdit(block, newStart, newEnd, slots));
         },
         onEventResize: ({ event, newStart, newEnd }: { event: ScheduleEventData; newStart: string; newEnd: string }) => {
             const block = blockOf(event);
-            if (block) apply(resizeEdit(block, newStart, newEnd, slots));
+            if (block) apply(blockEdit(block, newStart, newEnd, slots));
         },
     };
 
@@ -178,8 +160,9 @@ export function SchedulePage() {
                 title="Schedule"
                 description={
                     <Text c="dimmed" size="sm">
-                        What the station plays at each stretch of the day, on its own clock. A slot runs until the next one begins. Changing one takes
-                        effect when it next comes round, and the record playing at a boundary always finishes.
+                        What the station plays at each stretch of the day, on its own clock. Blocks may leave gaps, and the hours nothing covers play
+                        whatever the station is set to sustain on. Changing a block takes effect when it next comes round, and the record playing at a
+                        boundary always finishes.
                     </Text>
                 }
                 actions={<Button onClick={() => setEditing({ kind: 'new' })}>New slot</Button>}
@@ -211,19 +194,8 @@ export function SchedulePage() {
             {schedule.data && slots.length === 0 ? (
                 <EmptyState>
                     This station has no schedule, which is an ordinary state rather than a fault: it keeps playing whatever you put on until you put
-                    something else on. Click any hour below to start the day there. A bulletin or an ident inside the hour is the station clock in
-                    Settings, not a slot here.
-                </EmptyState>
-            ) : undefined}
-
-            {/* ABOVE the grid, which is the whole point of it. A day is twenty-four hours tall, so
-                anything said underneath is a scroll away from the thing it is explaining — and this
-                is the one state where somebody is most likely to think the page is broken. */}
-            {slots.length === 1 ? (
-                <EmptyState>
-                    A slot runs until the next one begins, and there is no next one — so {slots[0]?.label || 'this slot'} is on around the clock,
-                    which is why it fills every day. That is what the station will actually do. Add a second slot and the day divides between them at
-                    the times you set.
+                    something else on. Click any hour below to add a block there. A bulletin or an ident inside the hour is the station clock in
+                    Settings, not a block here.
                 </EmptyState>
             ) : undefined}
 
@@ -251,8 +223,8 @@ export function SchedulePage() {
                     ) : undefined}
 
                     <Text size="xs" c="dimmed">
-                        {caption(slots.length)} Drag a block to move it, drag its lower edge to move what follows, or alt-click inside one to start a
-                        new slot there.
+                        {caption(slots.length)} Drag a block to move it, drag an edge to change when it starts or ends, or click an empty hour to add
+                        one.
                         {airingId === undefined ? '' : ' The block the station is airing now is filled in.'}
                     </Text>
                 </Stack>
@@ -322,12 +294,9 @@ function newSlotAt(slotStart: string): EditorTarget {
  * conclude nothing was saved.
  */
 function caption(slotCount: number): string {
-    if (slotCount === 0) return 'Nothing is scheduled, so the station keeps playing whatever it was last put on.';
-    // The one-slot case is explained ABOVE the grid rather than here, where it would be a screen
-    // away from what it is about.
-    if (slotCount === 1) return '';
+    if (slotCount === 0) return 'Nothing is scheduled, so the station plays whatever it is set to sustain on.';
 
-    return 'A repeating week: every slot runs on the days it is set to, so these dates show the pattern rather than one-off programming.';
+    return 'A repeating week: every block runs on the days it is set to, so these dates show the pattern rather than one-off programming. The hours nothing covers play the sustaining source.';
 }
 
 /**
@@ -370,6 +339,7 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
     return {
         label: slot.label,
         startsAtMinutes: slot.startsAtMinutes,
+        endsAtMinutes: slot.endsAtMinutes,
         days: [...(slot.days ?? [])],
         ...(slot.sourcePluginId === undefined ? {} : { sourcePluginId: slot.sourcePluginId }),
         ...(slot.sourcePlaylistId === undefined ? {} : { sourcePlaylistId: slot.sourcePlaylistId }),

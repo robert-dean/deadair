@@ -16,6 +16,7 @@ import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.j
 import { BULLETIN_KEYS, DEFAULT_MAX_AGE_HOURS, DEFAULT_STORY_COUNT } from '#modules/director/bulletin.source.js';
 import { CLOCK_BAND_KEYS } from '#modules/director/clock.bands.js';
 import { CLOCK_KEYS } from '#modules/director/clock.words.js';
+import { SUSTAINING_KEYS } from '#modules/schedule/schedule.service.js';
 import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_DEFAULT, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
@@ -333,6 +334,32 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'One phrasing per line, in the same syntax as the breaks above, with {{greeting}} for "good morning" and the like. ' +
             'A greeting is deliberately not a back-announce: somebody who has just arrived did not hear the last record, so ' +
             "{{previous.*}} is not offered here. Empty restores the station's own.",
+    },
+    {
+        group: 'rotation',
+        key: SUSTAINING_KEYS.pluginId,
+        label: 'Between scheduled blocks: which plugin',
+        type: 'string',
+        help:
+            'A schedule need not cover the whole day. The hours no block claims play this instead — what a broadcaster calls a sustaining service. ' +
+            'Leave all three empty and the station simply carries on with whatever the last block left it, which makes ending a block mean nothing.',
+    },
+    {
+        group: 'rotation',
+        key: SUSTAINING_KEYS.playlistId,
+        label: 'Between scheduled blocks: which playlist',
+        type: 'string',
+        help: 'The playlist id, as listed at /playlists. Both this and the plugin are needed for a playlist to be read; a brief alone is also a coherent answer.',
+    },
+    {
+        group: 'rotation',
+        key: SUSTAINING_KEYS.brief,
+        label: 'Between scheduled blocks: what to play',
+        type: 'text',
+        help:
+            "In your own words, for the model that chooses records, exactly as a block's own brief works. Set on its own it makes the station " +
+            'programme itself towards something between blocks rather than from a playlist. It never falls silent: a gap plays something or the ' +
+            'station keeps what it has, so the schedule can never take a running station off air.',
     },
     {
         group: 'rotation',

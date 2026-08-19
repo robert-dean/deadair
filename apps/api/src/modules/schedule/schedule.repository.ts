@@ -93,6 +93,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
     return {
         label: draft.label,
         startsAtMinutes: draft.startsAtMinutes,
+        endsAtMinutes: draft.endsAtMinutes,
         days: sql<string>`${JSON.stringify([...draft.days])}::jsonb`,
         sourcePluginId: draft.source?.pluginId ?? null,
         sourcePlaylistId: draft.source?.playlistId ?? null,
@@ -115,6 +116,7 @@ function toSlot(row: {
     id: string;
     label: string;
     startsAtMinutes: number;
+    endsAtMinutes: number;
     days: unknown;
     sourcePluginId: string | null;
     sourcePlaylistId: string | null;
@@ -127,6 +129,7 @@ function toSlot(row: {
         id: row.id,
         label: row.label,
         startsAtMinutes: row.startsAtMinutes,
+        endsAtMinutes: row.endsAtMinutes,
         days: weekdaysIn(row.days),
         // Both halves or neither. One without the other is not a source anything could read, and the
         // resolver's caller treats a slot with no source as one the station fills itself.

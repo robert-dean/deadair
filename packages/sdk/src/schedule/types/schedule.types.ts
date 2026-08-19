@@ -6,8 +6,10 @@ export interface ScheduleSlot {
     id: string;
     /** What the operator calls this stretch of the day. Becomes the broadcast's name */
     label: string;
-    /** When it starts, as minutes past midnight on the station's clock. Only a start: a slot runs until the next one begins, and the last of the week wraps round */
+    /** When it starts, as minutes past midnight on the station's clock */
     startsAtMinutes: number;
+    /** When it stops, in the same terms. Before the start means the block runs past midnight, which is ordinary for a late show; equal to it means a full twenty-four hours */
+    endsAtMinutes: number;
     /** The weekdays it runs on, Sunday 0. Absent or empty means every day */
     days?: number[];
     /** The plugin the records come from. Absent, with no playlist, is a slot the station fills itself */
@@ -24,8 +26,10 @@ export interface ScheduleSlot {
 export interface ScheduleSlotInput {
     /** What the operator calls this stretch of the day. Becomes the broadcast's name */
     label: string;
-    /** When it starts, as minutes past midnight on the station's clock. Only a start: a slot runs until the next one begins, and the last of the week wraps round */
+    /** When it starts, as minutes past midnight on the station's clock */
     startsAtMinutes: number;
+    /** When it stops, in the same terms. Before the start means the block runs past midnight, which is ordinary for a late show; equal to it means a full twenty-four hours */
+    endsAtMinutes: number;
     /** The weekdays it runs on, Sunday 0. Absent or empty means every day */
     days?: number[];
     /** The plugin the records come from. Absent, with no playlist, is a slot the station fills itself */
@@ -41,7 +45,7 @@ export interface ScheduleSlotInput {
 
 /**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L26)
+ * generated from [ScheduleTimetableQuery](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L27)
  */
 export interface ScheduleTimetableQuery {
     /** The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor */
@@ -52,7 +56,7 @@ export interface ScheduleTimetableQuery {
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L39)
+ * generated from [ScheduleOccurrence](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L40)
  */
 export interface ScheduleOccurrence {
     slotId: string;
@@ -65,7 +69,7 @@ export interface ScheduleOccurrence {
 
 /**
  * Which slot the clock says should be on right now
- * generated from [ScheduleNow](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L47)
+ * generated from [ScheduleNow](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L48)
  */
 export interface ScheduleNow {
     /** The slot in force at this instant. Absent means the station has no schedule */
@@ -75,7 +79,7 @@ export interface ScheduleNow {
 }
 
 /**
- * generated from [ScheduleSlotList](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L21)
+ * generated from [ScheduleSlotList](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L22)
  */
 export interface ScheduleSlotList {
     slots: ScheduleSlot[];
@@ -87,7 +91,7 @@ export interface ScheduleSlotListInput {
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L32)
+ * generated from [ScheduleTimetable](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L33)
  */
 export interface ScheduleTimetable {
     /** The range actually drawn, echoed so a caller steps forward and back by adding days to a string rather than by knowing the station's timezone */

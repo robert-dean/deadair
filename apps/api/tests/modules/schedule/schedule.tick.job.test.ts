@@ -11,6 +11,7 @@ import type { JobContext } from '@maroonedsoftware/jobbroker';
 
 import { ScheduleTickJob } from '../../../src/modules/schedule/schedule.tick.job.js';
 import type { ScheduleService } from '../../../src/modules/schedule/schedule.service.js';
+import { ScheduleNotices } from '../../../src/modules/schedule/schedule.notices.js';
 import type { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
@@ -22,6 +23,7 @@ const slot = (id: string, over: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
     id,
     label: id,
     startsAtMinutes: 540,
+    endsAtMinutes: 720,
     days: [],
     source: { pluginId: 'deadair.spotify', playlistId: 'pl_1' },
     mode: 'rotation',
@@ -38,10 +40,15 @@ interface Options {
     airing?: string;
     /** What going on air does, for the decline case. */
     putOnAir?: () => Promise<unknown>;
+    /** What the station plays between blocks. Absent is a station that has named nothing. */
+    sustaining?: { pluginId?: string; playlistId?: string; brief?: string };
 }
 
 function build(options: Options = {}) {
-    const schedule = { inForce: vi.fn(async () => options.inForce) } as unknown as ScheduleService;
+    const schedule = {
+        inForce: vi.fn(async () => options.inForce),
+        sustaining: vi.fn(() => options.sustaining),
+    } as unknown as ScheduleService;
 
     const director = {
         status: vi.fn(() => ({ active: options.active ?? true, airMode: 'audience' as const, remaining: 0 })),
@@ -52,11 +59,23 @@ function build(options: Options = {}) {
         putOnAir: vi.fn(options.putOnAir ?? (async () => ({}))),
     } as unknown as DirectorConsoleService;
 
-    const activity = { record: vi.fn(async () => undefined) };
+    const activity = { record: vi.fn(async (_event?: Record<string, unknown>) => undefined) };
 
     // `run` installs the job actor through the scope, which a unit test has none of, so the body is
     // driven directly. What `run` adds is attribution and never an authorization outcome.
-    const job = new ScheduleTickJob(schedule, console, director, activity as unknown as ActivityRecorder, {} as JobContext, {} as Container, logger);
+    // The real one, not a double: it is fifteen lines of "have I said this already" and the whole
+    // point of the tests below is what reaches the feed.
+    const notices = new ScheduleNotices();
+    const job = new ScheduleTickJob(
+        schedule,
+        console,
+        director,
+        activity as unknown as ActivityRecorder,
+        notices,
+        {} as JobContext,
+        {} as Container,
+        logger,
+    );
 
     return {
         tick: () => (job as unknown as { execute(): Promise<void> }).execute(),
@@ -83,8 +102,35 @@ describe('ScheduleTickJob', () => {
         expect(schedule.inForce).not.toHaveBeenCalled();
     });
 
-    it('does nothing when the station has no schedule', async () => {
-        const { tick, console } = build({ inForce: undefined, airing: 'whatever' });
+    it('hands a station in a GAP to its sustaining source', async () => {
+        // The whole of what ending a block means. Without this the station would carry on with what
+        // the last block left it, which is indistinguishable from that block never having ended.
+        const { tick, console } = build({ inForce: undefined, airing: 'breakfast', sustaining: { pluginId: 'p', playlistId: 'l' } });
+
+        await tick();
+
+        expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining', pluginId: 'p', playlistId: 'l' }));
+    });
+
+    it('carries on through a gap when no sustaining source is named, and says so once', async () => {
+        // Never silence: a gap plays something or the station keeps what it has, so the schedule can
+        // never take a running station off air. And the notice is on an EDGE — the mismatch causing
+        // it is still there next minute, so without the mark this would write a row sixty times an
+        // hour.
+        const { tick, console, activity } = build({ inForce: undefined, airing: 'breakfast' });
+
+        await tick();
+        await tick();
+
+        expect(console.putOnAir).not.toHaveBeenCalled();
+        const gaps = activity.record.mock.calls.filter(call => (call[0] as { kind?: string } | undefined)?.kind === 'schedule.gap');
+        expect(gaps).toHaveLength(1);
+    });
+
+    it('does nothing in a gap the station is already sustaining through', async () => {
+        // The running order no longer belonging to any slot IS the mark that it happened, which is
+        // the same comparison the block case makes and needs no second piece of state.
+        const { tick, console } = build({ inForce: undefined, airing: undefined, sustaining: { pluginId: 'p', playlistId: 'l' } });
 
         await tick();
 

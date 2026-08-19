@@ -5,13 +5,38 @@ import { Logger } from '@maroonedsoftware/logger';
 import { readClock } from '#modules/director/clock.bands.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
-import { resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
+import { overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
 import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
 import { project, type StationDate } from './schedule.occurrences.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
 
 /** A week, which is what a schedule page opens on. */
 const DEFAULT_TIMETABLE_DAYS = 7;
+
+/**
+ * What the station plays in the hours no block claims.
+ *
+ * A schedule need not cover the day, so a GAP is an ordinary state rather than a fault, and it has to
+ * have an answer or ending a block would mean nothing — the station would simply carry on with what
+ * the last one left it, which is the shape this schedule was rebuilt to stop meaning.
+ *
+ * The answer is a SUSTAINING service, which is what a broadcaster calls the thing that plays when
+ * nothing is scheduled. Deliberately NOT silence: the schedule can then never stop a running station,
+ * so `Stop` keeps meaning only what an operator meant by it, and the mount lease and the audience
+ * gate stay the only things that decide whether the station is on air at all.
+ */
+export const SUSTAINING_KEYS = {
+    pluginId: 'schedule.sustainingPluginId',
+    playlistId: 'schedule.sustainingPlaylistId',
+    brief: 'schedule.sustainingBrief',
+} as const;
+
+/** What the station falls back to between blocks, or `undefined` when the operator has named nothing. */
+export interface SustainingSource {
+    pluginId?: string;
+    playlistId?: string;
+    brief?: string;
+}
 
 const pad = (value: number, width = 2) => String(value).padStart(width, '0');
 
@@ -90,6 +115,30 @@ export class ScheduleService {
      * clock: it changes every minute without the schedule changing at all, and folding it in would
      * make a cached grid go stale for a reason that has nothing to do with the grid.
      */
+    /**
+     * What the station plays when no block is on, or `undefined` when nothing has been named.
+     *
+     * `undefined` is a real state and not a misconfiguration to shout about: a station whose schedule
+     * covers the whole day never reaches a gap. It becomes worth saying only when there IS a gap,
+     * which is a question the console can answer and this cannot.
+     */
+    sustaining(): SustainingSource | undefined {
+        const read = (key: string): string | undefined => {
+            const value = this.config.get(key, '').trim();
+            return value.length === 0 ? undefined : value;
+        };
+
+        const source: SustainingSource = {
+            ...(read(SUSTAINING_KEYS.pluginId) === undefined ? {} : { pluginId: read(SUSTAINING_KEYS.pluginId) }),
+            ...(read(SUSTAINING_KEYS.playlistId) === undefined ? {} : { playlistId: read(SUSTAINING_KEYS.playlistId) }),
+            ...(read(SUSTAINING_KEYS.brief) === undefined ? {} : { brief: read(SUSTAINING_KEYS.brief) }),
+        };
+
+        // A brief on its own is a coherent sustaining service: the station programmes itself and is
+        // told what to aim for. Nothing at all is not.
+        return Object.keys(source).length === 0 ? undefined : source;
+    }
+
     async current(): Promise<ScheduleNow> {
         const inForce = await this.inForce();
         const airing = this.director.status().slotId;
@@ -151,14 +200,20 @@ export class ScheduleService {
     }
 
     async create(body: ScheduleSlotInput): Promise<ScheduleSlotList> {
-        const created = await this.slots.create(draftOf(body));
+        const draft = draftOf(body);
+        await this.refuseOverlap(draft);
+
+        const created = await this.slots.create(draft);
         this.logger.info('schedule: an operator added a slot', { slot: created.id, label: created.label, startsAt: created.startsAtMinutes });
 
         return this.answer();
     }
 
     async update(id: string, body: ScheduleSlotInput): Promise<ScheduleSlotList> {
-        const updated = await this.slots.update(id, draftOf(body));
+        const draft = draftOf(body);
+        await this.refuseOverlap(draft, id);
+
+        const updated = await this.slots.update(id, draft);
         if (updated === undefined) throw httpError(404).withDetails({ message: `schedule slot "${id}" does not exist` });
 
         this.logger.info('schedule: an operator edited a slot', { slot: id, label: updated.label, startsAt: updated.startsAtMinutes });
@@ -170,6 +225,30 @@ export class ScheduleService {
 
         this.logger.info('schedule: an operator deleted a slot', { slot: id });
         return this.answer();
+    }
+
+    /**
+     * Refuse a block that is on at the same time as one already there.
+     *
+     * A 409 rather than a resolution, and the editor is why: "the usual show, except Wednesdays" is
+     * the usual one on the other six days plus a second block on Wednesday, which an operator writes
+     * with the day checkboxes and can then SEE on the grid. A precedence rule would air the same
+     * schedule while keeping the reason for it in the code.
+     *
+     * The comparison is `overlap`, which expands both sides first: an empty `days` means all seven,
+     * and a block running past midnight spends its tail on the following weekday, so a late Monday
+     * show and an early Tuesday one can collide without either row mentioning a shared day.
+     *
+     * `except` is the row being edited, which must not be compared against itself.
+     */
+    private async refuseOverlap(draft: ScheduleSlotDraft, except?: string): Promise<void> {
+        const candidate = { ...draft, id: except ?? '' } as ScheduleSlot;
+        const clash = (await this.slots.list()).find(slot => slot.id !== except && overlap(candidate, slot));
+        if (clash === undefined) return;
+
+        throw httpError(409).withDetails({
+            message: `that overlaps "${clash.label || 'another slot'}", which is already on then. Two blocks cannot be on at once — take the days they share off one of them.`,
+        });
     }
 
     private async answer(): Promise<ScheduleSlotList> {
@@ -188,6 +267,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
     return {
         label: body.label,
         startsAtMinutes: body.startsAtMinutes,
+        endsAtMinutes: body.endsAtMinutes,
         days: body.days ?? [],
         ...(body.sourcePluginId === undefined || body.sourcePlaylistId === undefined
             ? {}
@@ -205,6 +285,7 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         id: slot.id,
         label: slot.label,
         startsAtMinutes: slot.startsAtMinutes,
+        endsAtMinutes: slot.endsAtMinutes,
         days: [...slot.days],
         ...(slot.source === undefined ? {} : { sourcePluginId: slot.source.pluginId, sourcePlaylistId: slot.source.playlistId }),
         ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),

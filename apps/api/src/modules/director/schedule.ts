@@ -15,13 +15,24 @@
  * what it PLAYS BETWEEN.** So a slot needs no sub-hour resolution and stores a start minute rather
  * than painting a grid of hours.
  *
- * ## Only a start is stored
+ * ## A slot is a BLOCK, with both ends
  *
- * A slot runs until the next one begins, and the last one of the week wraps round to the first. So
- * every instant lands somewhere, there is no gap to represent and no overlap to resolve, and an
- * operator who wants the evening to end simply starts the next slot. `station-moment.md` wants its
- * mood bands in this same shape, which is why it is worth being deliberate about: that feature
- * should be a column here rather than a second table.
+ * It used to be only a start, running until the next slot began — which made every instant land
+ * somewhere and meant there was no gap to represent. That was tidy and it meant something an
+ * operator does not: a single slot at six in the morning was on air around the clock for ever,
+ * because nothing came after it to end it. Four separate awkwardnesses came out of that one
+ * mismatch, and they are one fix rather than four workarounds.
+ *
+ * What it costs is a GAP, which is now a real answer rather than an impossible state. Between blocks
+ * the station plays its SUSTAINING source; see `ScheduleService`. A gap is never silence, so the
+ * schedule cannot stop a running station and `Stop` keeps meaning only what an operator meant by it.
+ *
+ * ## Blocks may not overlap, and the day mask is how you say "except Wednesdays"
+ *
+ * Refused rather than resolved by precedence, because the editor already lets an operator choose the
+ * days: a show that is different on Wednesdays is the ordinary block running on the other six days
+ * and a second block on Wednesday. That is visible on the grid, where a precedence rule would be a
+ * fact about the schedule that only the code knew.
  */
 
 import { readClock } from './clock.bands.js';
@@ -55,6 +66,16 @@ export interface ScheduleSlot {
     /** Minutes past midnight in the station's zone, `0` to `1439`. */
     startsAtMinutes: number;
     /**
+     * When it stops, in the same terms.
+     *
+     * BEFORE {@link startsAtMinutes} the block runs past midnight, which is ordinary for a late show.
+     * EQUAL to it is a full twenty-four hours, and that needs no rule of its own: the wrap arithmetic
+     * already covers start-to-midnight and midnight-to-start, which together are the day. A
+     * zero-length block is not a thing anybody wants, so there is nothing for it to be confused with
+     * — and without this a station running one show around the clock could not say so.
+     */
+    endsAtMinutes: number;
+    /**
      * The weekdays this slot runs on, Sunday `0`. **Empty means every day**, which is the ordinary
      * case and is why it is an empty list rather than all seven: an operator who has never thought
      * about weekdays should not have to fill in a set to say so.
@@ -71,7 +92,7 @@ export interface ScheduleSlot {
 const runsOn = (slot: ScheduleSlot, weekday: number): boolean => slot.days.length === 0 || slot.days.includes(weekday);
 
 /**
- * The slot in force at an instant, or `undefined` when the station has no schedule.
+ * The slot in force at an instant, or `undefined` when nothing is scheduled then.
  *
  * ## It takes an INSTANT rather than reading the clock itself
  *
@@ -84,14 +105,6 @@ const runsOn = (slot: ScheduleSlot, weekday: number): boolean => slot.days.lengt
  * tick resolves for NOW and nothing else writes the slot onto the running order, so the disagreement
  * has nowhere to happen. Material a refill generated for the outgoing show is discarded by
  * `Rundown.retract()` at the changeover anyway, which is self-correcting and needs no look-ahead.
- *
- * ## How it walks
- *
- * The latest slot that has already started on a day it runs, looking back a day at a time. `back` is
- * inclusive of `7` on purpose: at that point it is the same weekday a week earlier, so every slot on
- * that day qualifies rather than only those before the current time. Without it, a station whose only
- * slot is Wednesday at nine would resolve to nothing from Wednesday midnight until nine, when the
- * truthful answer is that last Wednesday's slot has been in force all week.
  *
  * ## Daylight saving needs no special case
  *
@@ -122,25 +135,65 @@ export function resolveSlot(at: Date | number, zone: string, slots: readonly Sch
  * @param minutesOfDay - `0` to `1439`, on the station's own clock.
  */
 export function slotAt(weekday: number, minutesOfDay: number, slots: readonly ScheduleSlot[]): ScheduleSlot | undefined {
-    if (slots.length === 0) return undefined;
+    // Today's blocks, and YESTERDAY's, because a block that runs past midnight is still on. Nothing
+    // further back can reach: a block is at most a day long, so two days is the whole of it.
+    return (
+        slots.find(slot => runsOn(slot, weekday) && covers(slot, minutesOfDay)) ??
+        slots.find(slot => runsOn(slot, (weekday - 1 + DAYS_IN_WEEK) % DAYS_IN_WEEK) && wraps(slot) && minutesOfDay < slot.endsAtMinutes)
+    );
+}
 
-    for (let back = 0; back <= DAYS_IN_WEEK; back++) {
-        const day = (weekday - back + DAYS_IN_WEEK * 2) % DAYS_IN_WEEK;
+/**
+ * Whether a block is on at a minute of the day it STARTED on.
+ *
+ * A block that wraps past midnight is on from its start to the end of the day; the hours it claims
+ * on the following morning belong to the following day and are found by the second pass above.
+ */
+const covers = (slot: ScheduleSlot, minutesOfDay: number): boolean =>
+    wraps(slot) ? minutesOfDay >= slot.startsAtMinutes : minutesOfDay >= slot.startsAtMinutes && minutesOfDay < slot.endsAtMinutes;
 
-        let best: ScheduleSlot | undefined;
-        for (const slot of slots) {
-            if (!runsOn(slot, day)) continue;
-            // Only today's slots are bounded by the current time. A slot on an earlier day has, by
-            // definition, already started.
-            if (back === 0 && slot.startsAtMinutes > minutesOfDay) continue;
-            // Ties keep the earlier entry, so the answer is stable rather than depending on the
-            // order rows came back in. Two slots at one minute on one day is an operator mistake the
-            // unique index refuses anyway.
-            if (best === undefined || slot.startsAtMinutes > best.startsAtMinutes) best = slot;
-        }
+/** Whether a block runs past midnight. An end EQUAL to the start is the whole day, which this covers too. */
+export const wraps = (slot: ScheduleSlot): boolean => slot.endsAtMinutes <= slot.startsAtMinutes;
 
-        if (best !== undefined) return best;
-    }
+/** One stretch of one weekday that a block occupies. `to` is exclusive and never wraps. */
+interface Occupied {
+    weekday: number;
+    from: number;
+    to: number;
+}
 
-    return undefined;
+/**
+ * Which stretches of which weekdays a block actually occupies.
+ *
+ * Expanded rather than compared as-is, because two of the things that make a block hard to compare
+ * are independent: an empty `days` means all seven, and a block running past midnight spends its
+ * tail on the FOLLOWING weekday. A late Monday show and an early Tuesday one can therefore collide
+ * without sharing a day in the sense either row states, which is precisely the overlap somebody
+ * writing a schedule by hand would never spot.
+ */
+function occupies(slot: ScheduleSlot): Occupied[] {
+    const days = slot.days.length === 0 ? [0, 1, 2, 3, 4, 5, 6] : slot.days;
+
+    return days.flatMap(weekday =>
+        wraps(slot)
+            ? [
+                  { weekday, from: slot.startsAtMinutes, to: MINUTES_IN_DAY },
+                  ...(slot.endsAtMinutes > 0 ? [{ weekday: (weekday + 1) % DAYS_IN_WEEK, from: 0, to: slot.endsAtMinutes }] : []),
+              ]
+            : [{ weekday, from: slot.startsAtMinutes, to: slot.endsAtMinutes }],
+    );
+}
+
+/**
+ * Whether two blocks are ever on at the same time.
+ *
+ * The schedule refuses these rather than resolving them by precedence, and the reason is the editor:
+ * an operator saying "the usual show, except Wednesdays" writes the usual one on the other six days
+ * and a second block on Wednesday. That is visible on the grid, where a precedence rule would be a
+ * fact about the schedule that only the code knew.
+ */
+export function overlap(left: ScheduleSlot, right: ScheduleSlot): boolean {
+    const theirs = occupies(right);
+
+    return occupies(left).some(ours => theirs.some(other => ours.weekday === other.weekday && ours.from < other.to && other.from < ours.to));
 }

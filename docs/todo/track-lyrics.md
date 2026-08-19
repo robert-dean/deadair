@@ -66,7 +66,7 @@ Three things keep that honest and all three belong in the code that reads it:
 **The derived labels are what makes the text worth keeping.** What a song is ABOUT is not in any
 metadata field anyone sells, and it is what two deferred features are short of:
 `station-moment.md` wants a mood vocabulary that something can actually match a record against, and
-`station-intelligence.md` §5 wants never-play predicates an operator can state ("nothing about
+`never-play-rules.md` wants never-play predicates an operator can state ("nothing about
 Christmas in July", "nothing explicit before nine"). The split is the one `fact-enrichment.md`
 already made and named: **a plugin fetches, the host thinks.** The durable artifact is the labels,
 not the lyric, which means an operator who is uneasy about holding the text can be given a switch
@@ -175,8 +175,10 @@ feature justified by a talk-up limit.
   care.
 - [track-analysis.md](track-analysis.md) for `vocal_onset`, its one consumer, and the beat layer this
   does not replace.
-- [station-moment.md](station-moment.md) and [station-intelligence.md](station-intelligence.md) §5
-  for the two consumers of derived labels.
+- [station-moment.md](station-moment.md) and [never-play-rules.md](never-play-rules.md) for the two
+  consumers of derived labels. The second was `station-intelligence.md` §5 and was rescoped out of it
+  on 2026-08-19; it is also where the "own field, never written over `track_sources.advisory`" trap
+  below is recorded from the other side.
 - [pick-artist-matching.md](pick-artist-matching.md) for what a near-miss match costs when nothing
   errors.
 - `docs/decisions/analysis-licensing.md` for the shape of the licence argument this file makes a

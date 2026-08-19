@@ -429,6 +429,16 @@ level difference against a gained record is worth hearing before it is designed 
 
 **Lands at:** `rejectDisliked`'s neighbourhood in `rotation.rules.ts`, and the candidate SQL.
 
+**Rescoped 2026-08-19 into [never-play-rules.md](never-play-rules.md), which supersedes this section
+for the build.** What is below is still the design and the two rules under it are still the rules.
+Three things it could not have known, all in that file: `PickResolver` is now the single chokepoint
+every pick passes through, so "enforcement is inherited" is already paid for rather than something to
+arrange; `RotationCandidate` is `{ songKey, artistKey, rating? }` and carries nothing a predicate
+could read, which is the actual work; and the scope axes are four rather than two, since
+`track-lyrics.md` needs a DAYPART ("nothing explicit before nine") and the daypart schedule brings a
+slot. It also records two refusals this section leaves open: no `require` direction, and no weight
+column, on the argument the bubble section below already makes.
+
 A dislike is per entity. What a station also needs is a **predicate**: never play this genre, this
 tag, this mood, anything on this playlist, anything by this artist, with two qualifiers.
 

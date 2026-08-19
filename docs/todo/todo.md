@@ -64,8 +64,9 @@ points at that file. Checked against the tree on 2026-08-11.
       remembers is a persona that remembers, and building it twice gives the station two characters
       with one name
 - [ ] view saved track metadata
-- [ ] like/dislike artist/song/album maybe genre — operator dislikes and never-play predicates are
-      `station-intelligence.md` §5, the accountless listener version is §7
+- [ ] like/dislike artist/song/album maybe genre — the dislike half is BUILT (a `-1` rating at all
+      three levels, collapsed by `effectiveRating`); the genre half is `never-play-rules.md`, and the
+      accountless listener version is `station-intelligence.md` §7
 - [ ] integrate with genuis for enrichment — note that the Genius API returns no lyric TEXT, only
       metadata and annotation anchors, so this is an annotations integration and belongs to
       `fact-enrichment.md` (third-party prose the host can extract sourced claims from) rather than

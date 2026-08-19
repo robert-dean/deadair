@@ -28,15 +28,19 @@ import { SlotEditor, type EditorTarget } from './slot.editor';
  * seven days asked for. Without it the view would render a calendar week (Monday first) while the
  * query returned seven days from today, and the two would disagree at both ends.
  *
- * ## There is no empty space to click, which is the partition showing through
+ * ## Clicking an hour reaches the cases that need it
  *
- * `onTimeSlotClick` is deliberately not wired. The scheduler offers it because an event calendar has
- * gaps between events, and this has none by construction: every minute of every column belongs to
- * some slot, so the handler could never fire. Creating goes through the button instead.
+ * `onTimeSlotClick` fires wherever the grid has space, and a partition leaves space in exactly two
+ * states: a station with NO schedule, where the grid is nothing but space, and one whose only slot
+ * covers whole days, which the scheduler draws in its all-day row rather than down the grid. Both
+ * are the setting-up station, which is when pointing at six in the morning and saying "start here"
+ * is most of what somebody wants. So the grid draws whether or not there is anything in it, and an
+ * empty one is a canvas rather than a placeholder.
  *
- * The gesture that WOULD suit a partition is splitting a block at the point it was clicked, since a
- * partition is a set of boundaries — but that collides with clicking a block to edit it, and picking
- * between them is a decision rather than a wiring job.
+ * Once the day is actually divided there is no space left and the handler stops firing, so adding a
+ * third slot goes through the button. The gesture that would suit a partition is splitting a block
+ * where it was clicked — a partition being a set of boundaries — but that collides with clicking a
+ * block to edit it, and choosing between them is a decision rather than a wiring job.
  *
  * ## Nothing here changes what is on air
  *
@@ -108,6 +112,7 @@ export function SchedulePage() {
         viewSelectProps: { views: ['day', 'week'] as const },
         onDateChange: setAnchor,
         onEventClick: openSlot,
+        onTimeSlotClick: ({ slotStart }: { slotStart: string }) => setEditing(newSlotAt(slotStart)),
     };
 
     return (
@@ -145,12 +150,12 @@ export function SchedulePage() {
             {schedule.data && slots.length === 0 ? (
                 <EmptyState>
                     This station has no schedule, which is an ordinary state rather than a fault: it keeps playing whatever you put on until you put
-                    something else on. Add a slot to have it change over on its own. A bulletin or an ident inside the hour is the station clock in
+                    something else on. Click any hour below to start the day there. A bulletin or an ident inside the hour is the station clock in
                     Settings, not a slot here.
                 </EmptyState>
             ) : undefined}
 
-            {from !== undefined && slots.length > 0 ? (
+            {from === undefined ? undefined : (
                 <Stack gap="sm">
                     {view === 'week' ? (
                         <WeekView
@@ -168,13 +173,19 @@ export function SchedulePage() {
                     )}
 
                     <Text size="xs" c="dimmed">
-                        A repeating week: every slot runs on the days it is set to, so these dates show the pattern rather than one-off programming.
-                        {airingId === undefined ? '' : ' The block the station is airing now is outlined.'}
+                        {caption(slots.length)}
+                        {airingId === undefined ? '' : ' The block the station is airing now is filled in.'}
                     </Text>
                 </Stack>
-            ) : undefined}
+            )}
 
             <SlotEditor
+                // Keyed, so opening a different slot — or the same hour on a different day — builds
+                // a fresh form rather than showing the last one's values. `useForm` reads its
+                // `initialValues` once per mount, so without this the editor opens on whatever it
+                // was first constructed with, which is an empty new slot. Same reason and same
+                // spelling as the persona editor.
+                key={keyOf(editing)}
                 target={editing}
                 onClose={close}
                 onSubmit={submit}
@@ -207,4 +218,47 @@ function toEvents(timetable: ScheduleTimetable | undefined, airingSlotId: string
         variant: block.slotId === airingSlotId ? ('filled' as const) : ('light' as const),
         payload: { slotId: block.slotId },
     }));
+}
+
+/**
+ * A new slot prefilled from the hour somebody clicked: that weekday, at that time.
+ *
+ * Reachable only on a station with no schedule yet, since a partition leaves nothing else to click.
+ * That is the case it exists for.
+ */
+function newSlotAt(slotStart: string): EditorTarget {
+    const [date, time] = slotStart.split(' ');
+    const [hour, minute] = (time ?? '00:00:00').split(':').map(Number);
+
+    return { kind: 'new', startsAtMinutes: (hour ?? 0) * 60 + (minute ?? 0), days: [weekdayOf(date!)] };
+}
+
+/**
+ * What the grid needs saying about it in words.
+ *
+ * The middle case is the one worth having. A single slot covers every hour of every day, and the
+ * scheduler draws a block running midnight to midnight in its ALL-DAY row rather than down the grid
+ * — which is its own definition of all-day and a fair one, but it leaves the hours below empty on
+ * exactly the station that has just made its first slot. Saying so beats leaving somebody to
+ * conclude nothing was saved.
+ */
+function caption(slotCount: number): string {
+    if (slotCount === 0) return 'Nothing is scheduled, so the station keeps playing whatever it was last put on.';
+    if (slotCount === 1) return 'One slot covers the whole day, so it shows as an all-day block. Add another and the day divides between them.';
+
+    return 'A repeating week: every slot runs on the days it is set to, so these dates show the pattern rather than one-off programming.';
+}
+
+/**
+ * A key that changes whenever the editor should start over.
+ *
+ * The hour and the day are in it, not just the kind: clicking six on Wednesday and then six on
+ * Thursday are two different forms, and a key of `new` for both would leave the second showing the
+ * first's day.
+ */
+function keyOf(target: EditorTarget | undefined): string {
+    if (target === undefined) return 'closed';
+    if (target.kind === 'edit') return target.slot.id;
+
+    return `new:${target.startsAtMinutes ?? ''}:${(target.days ?? []).join(',')}`;
 }

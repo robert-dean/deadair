@@ -29,6 +29,7 @@ describe('SideNav', () => {
         const labels = [
             'Home',
             'On air',
+            'Schedule',
             'Activity',
             'Catalog',
             'Playlists',

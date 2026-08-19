@@ -24,6 +24,10 @@ const GROUPS: NavGroup[] = [
         items: [
             { to: '/', label: 'Home' },
             { to: '/onair', label: 'On air' },
+            // Beside On air rather than under Station: both answer "what is the station playing",
+            // one now and one later, and an operator who wants to change tonight arrives with the
+            // same question as one changing this minute. What is under Station is who plays it.
+            { to: '/schedule', label: 'Schedule' },
             { to: '/activity', label: 'Activity' },
         ],
     },

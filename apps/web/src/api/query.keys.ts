@@ -71,6 +71,10 @@ export const queryKeys = {
     personas: {
         list: () => ['personas', 'list'] as const,
     },
+    schedule: {
+        /** The station's day. One key: every write answers with the whole grid, since a slot's span is its neighbour's start. */
+        list: () => ['schedule', 'list'] as const,
+    },
     productions: {
         list: () => ['productions', 'list'] as const,
     },

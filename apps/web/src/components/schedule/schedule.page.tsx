@@ -216,6 +216,17 @@ export function SchedulePage() {
                 </EmptyState>
             ) : undefined}
 
+            {/* ABOVE the grid, which is the whole point of it. A day is twenty-four hours tall, so
+                anything said underneath is a scroll away from the thing it is explaining — and this
+                is the one state where somebody is most likely to think the page is broken. */}
+            {slots.length === 1 ? (
+                <EmptyState>
+                    A slot runs until the next one begins, and there is no next one — so {slots[0]?.label || 'this slot'} is on around the clock,
+                    which is why it fills every day. That is what the station will actually do. Add a second slot and the day divides between them at
+                    the times you set.
+                </EmptyState>
+            ) : undefined}
+
             {from === undefined ? undefined : (
                 <Stack gap="sm">
                     {view === 'week' ? (
@@ -312,7 +323,9 @@ function newSlotAt(slotStart: string): EditorTarget {
  */
 function caption(slotCount: number): string {
     if (slotCount === 0) return 'Nothing is scheduled, so the station keeps playing whatever it was last put on.';
-    if (slotCount === 1) return 'One slot covers the whole day, so it shows as an all-day block. Add another and the day divides between them.';
+    // The one-slot case is explained ABOVE the grid rather than here, where it would be a screen
+    // away from what it is about.
+    if (slotCount === 1) return '';
 
     return 'A repeating week: every slot runs on the days it is set to, so these dates show the pattern rather than one-off programming.';
 }

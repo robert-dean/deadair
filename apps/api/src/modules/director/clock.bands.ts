@@ -168,8 +168,31 @@ function alignedTo(band: AnchoredBand, around: number, zone: string): number | u
     return at;
 }
 
-/** What the station's clock reads at an instant. */
-function readClock(at: number, zone: string): { year: number; month: number; day: number; hour: number; minute: number; second: number } {
+/** What the station's clock reads at an instant. Sunday is 0, matching `Date.getDay()`. */
+export interface StationClock {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second: number;
+    weekday: number;
+}
+
+const WEEKDAYS: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+/**
+ * What the station's clock reads at an instant.
+ *
+ * Exported for `schedule.ts`, which asks the same question of the same zone and should not own a
+ * second `formatToParts`: there are two in this tree already (here and `clock.words.ts`) and a third
+ * is where they start disagreeing.
+ *
+ * `hourCycle: 'h23'` rather than `hour12: false`, which is not the same thing — the latter renders
+ * midnight as `24` under `en-GB` and would put every instant in the first hour of the day onto the
+ * wrong date.
+ */
+export function readClock(at: number, zone: string): StationClock {
     const parts = new Intl.DateTimeFormat('en-GB', {
         timeZone: zone,
         hourCycle: 'h23',
@@ -179,8 +202,17 @@ function readClock(at: number, zone: string): { year: number; month: number; day
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
+        weekday: 'short',
     }).formatToParts(new Date(at));
 
     const value = (type: string): number => Number(parts.find(part => part.type === type)?.value ?? '0');
-    return { year: value('year'), month: value('month'), day: value('day'), hour: value('hour'), minute: value('minute'), second: value('second') };
+    return {
+        year: value('year'),
+        month: value('month'),
+        day: value('day'),
+        hour: value('hour'),
+        minute: value('minute'),
+        second: value('second'),
+        weekday: WEEKDAYS[parts.find(part => part.type === 'weekday')?.value ?? ''] ?? 0,
+    };
 }

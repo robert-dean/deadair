@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { ScheduleService } from '#src/modules/schedule/schedule.service.js';
-import { ScheduleNow, ScheduleSlot, ScheduleSlotInput, ScheduleSlotList } from '../modules/schedule/types/schedule.types.js';
+import {
+    ScheduleNow,
+    ScheduleSlot,
+    ScheduleSlotInput,
+    ScheduleSlotList,
+    ScheduleTimetable,
+    ScheduleTimetableQuery,
+} from '../modules/schedule/types/schedule.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -51,8 +58,23 @@ ScheduleRouter.get('/schedule/current', requirePolicy({ policy: 'platform.view' 
 });
 
 /**
+ * The station's day as blocks, contiguous and gapless, for drawing
+ * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L81)
+ */
+ScheduleRouter.get('/schedule/timetable', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const query = await parseAndValidate(ctx.query, ScheduleTimetableQuery.strict());
+
+    const service = ctx.container.get(ScheduleService);
+    const result: ScheduleTimetable = await service.timetable(query);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Rewrites a slot. Takes effect at its next boundary rather than immediately
- * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L78)
+ * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L101)
  */
 ScheduleRouter.put('/schedule/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -74,7 +96,7 @@ ScheduleRouter.put('/schedule/:id', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Removes a slot. Whatever is on air stays on until the next slot begins
- * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L90)
+ * from [schedule.ck](file://./../../data/contracts/schedule/schedule.ck#L113)
  */
 ScheduleRouter.delete('/schedule/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

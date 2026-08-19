@@ -14,11 +14,11 @@ import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
-const slot = (id: string, startsAtMinutes: number): ScheduleSlot => ({
+const slot = (id: string, startsAtMinutes: number, days: readonly number[] = []): ScheduleSlot => ({
     id,
     label: id,
     startsAtMinutes,
-    days: [],
+    days,
     mode: 'rotation',
     onEnd: 'extend',
 });
@@ -69,5 +69,44 @@ describe('ScheduleService.current', () => {
         const service = build({ slots: [slot('daytime', 0)] });
 
         expect(await service.current()).toEqual({ slotId: 'daytime' });
+    });
+});
+
+describe('ScheduleService.timetable', () => {
+    it("anchors on the station's own today and echoes the range it drew", async () => {
+        // The reason `from` is optional at all: a browser cannot work out what day it is at the
+        // station, so an absent one has to mean "you tell me" and the answer has to say what it
+        // chose. Everything after that is a caller adding days to a string.
+        const service = build({ slots: [slot('all-day', 0)] });
+
+        const drawn = await service.timetable({});
+
+        expect(drawn.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(drawn.days).toBe(7);
+        expect(drawn.occurrences).toHaveLength(7);
+    });
+
+    it('derives the weekday from the date rather than trusting the caller', async () => {
+        // 2026-08-19 is a Wednesday. A slot that runs only on Wednesdays must therefore be drawn on
+        // the first day and on nothing else in the week. This is the one field a client could get
+        // wrong in a way that silently draws a different schedule than the station will air.
+        const service = build({ slots: [slot('midweek', 0, [3])] });
+
+        const drawn = await service.timetable({ from: '2026-08-19', days: 3 });
+
+        expect(drawn.occurrences.map(block => block.start.slice(0, 10))).toEqual(['2026-08-19', '2026-08-20', '2026-08-21']);
+        // Wednesday's own block, then the same slot carrying overnight because nothing else runs.
+        expect(new Set(drawn.occurrences.map(block => block.slotId))).toEqual(new Set(['midweek']));
+    });
+
+    it('falls back to today for a date it cannot read, rather than erroring', async () => {
+        // A hand-typed URL should not produce a blank page, and there is nothing here worth a 400:
+        // the worst outcome of falling back is that the operator is looking at this week.
+        const service = build({ slots: [slot('all-day', 0)] });
+
+        const drawn = await service.timetable({ from: 'yesterday' });
+
+        expect(drawn.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(drawn.occurrences.length).toBeGreaterThan(0);
     });
 });

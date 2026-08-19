@@ -1,6 +1,13 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { ScheduleNow, ScheduleSlot, ScheduleSlotInput, ScheduleSlotList } from './types/schedule.types.js';
+import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
+import type {
+    ScheduleNow,
+    ScheduleSlot,
+    ScheduleSlotInput,
+    ScheduleSlotList,
+    ScheduleTimetable,
+    ScheduleTimetableQuery,
+} from './types/schedule.types.js';
 
 export class ScheduleClient {
     constructor(private fetch: SdkFetch) {}
@@ -34,6 +41,18 @@ export class ScheduleClient {
     async readCurrentSlot(): Promise<ScheduleNow> {
         const result = await this.fetch(`/schedule/current`, { method: 'GET' });
         return await parseJson<ScheduleNow>(result);
+    }
+
+    /**
+     * @name Read timetable
+     * @description The station's day as blocks, contiguous and gapless, for drawing
+     */
+    async readTimetable(query?: ScheduleTimetableQuery): Promise<ScheduleTimetable> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/schedule/timetable${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<ScheduleTimetable>(result);
     }
 
     /**

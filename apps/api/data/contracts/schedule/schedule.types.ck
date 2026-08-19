@@ -22,6 +22,27 @@ contract ScheduleSlotList: {
     slots: array(ScheduleSlot)
 }
 
+# A window of the station's day to draw
+contract ScheduleTimetableQuery: {
+    from?: string(min=10, max=10) # The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor
+    days?: int(min=1, max=31) # How many days from `from`. Defaults to a week
+}
+
+# The station's day as blocks, ready to draw
+contract ScheduleTimetable: {
+    from: string(min=10, max=10) # The range actually drawn, echoed so a caller steps forward and back by adding days to a string rather than by knowing the station's timezone
+    days: int(min=1, max=31)
+    occurrences: array(ScheduleOccurrence)
+}
+
+# One block: this slot, on this day, between these two times
+contract ScheduleOccurrence: {
+    slotId: string(min=1, max=100)
+    label: string(max=200)
+    start: string(min=19, max=19) # `YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running
+    end: string(min=19, max=19) # The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two
+}
+
 # Which slot the clock says should be on right now
 contract ScheduleNow: {
     slotId?: string(max=100) # The slot in force at this instant. Absent means the station has no schedule

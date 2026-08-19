@@ -2,11 +2,18 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
+import { readClock } from '#modules/director/clock.bands.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import { resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
-import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList } from './types/schedule.types.js';
+import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
+import { project, type StationDate } from './schedule.occurrences.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
+
+/** A week, which is what a schedule page opens on. */
+const DEFAULT_TIMETABLE_DAYS = 7;
+
+const pad = (value: number, width = 2) => String(value).padStart(width, '0');
 
 /**
  * The operator's surface over the station's day.
@@ -91,6 +98,56 @@ export class ScheduleService {
             ...(inForce === undefined ? {} : { slotId: inForce.id }),
             ...(airing === undefined ? {} : { airingSlotId: airing }),
         };
+    }
+
+    /**
+     * The station's day as blocks with both ends, for a console that draws a timetable.
+     *
+     * ## The station anchors it, not the caller
+     *
+     * `from` is a date on the STATION's calendar, and a browser cannot work one out: it does not know
+     * `station.timezone`, and a console in another zone would ask for the wrong day for several hours
+     * either side of midnight. So an absent `from` means the station's own today, and the answer
+     * echoes the range it used — which is what lets a caller step forward and back by adding days to
+     * a string rather than by learning the zone.
+     *
+     * ## It never touches an instant after this line
+     *
+     * One `readClock` to find out what day it is here, and everything below is wall-clock arithmetic.
+     * That is what keeps the timetable as free of daylight-saving trouble as the resolver it shares
+     * its core with; see `schedule.occurrences.ts`.
+     */
+    async timetable(query: ScheduleTimetableQuery): Promise<ScheduleTimetable> {
+        const days = query.days ?? DEFAULT_TIMETABLE_DAYS;
+        const from = this.anchor(query.from);
+        const slots = await this.slots.list();
+
+        return {
+            from: `${pad(from.year, 4)}-${pad(from.month)}-${pad(from.day)}`,
+            days,
+            occurrences: project(from, days, slots),
+        };
+    }
+
+    /**
+     * The day to start drawing from, as a date on the station's calendar.
+     *
+     * A `from` that does not parse falls back to today rather than erroring, because the failure it
+     * would otherwise produce is a blank timetable on a page whose only fault is a hand-typed URL.
+     * The weekday has to be DERIVED from the date rather than taken from the caller — it is the one
+     * field a client could get wrong in a way that silently draws the wrong schedule.
+     */
+    private anchor(from: string | undefined): StationDate {
+        const today = readClock(Date.now(), stationZone(this.config));
+        const match = from === undefined ? null : /^(\d{4})-(\d{2})-(\d{2})$/.exec(from);
+        if (!match) return { year: today.year, month: today.month, day: today.day, weekday: today.weekday };
+
+        const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+        // Through UTC, which is safe because this is civil arithmetic on a date rather than a claim
+        // about a moment: UTC has no daylight saving, so it is the calendar with no opinions.
+        const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+
+        return { year, month, day, weekday };
     }
 
     async create(body: ScheduleSlotInput): Promise<ScheduleSlotList> {

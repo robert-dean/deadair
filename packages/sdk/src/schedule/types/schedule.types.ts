@@ -40,8 +40,32 @@ export interface ScheduleSlotInput {
 }
 
 /**
+ * A window of the station's day to draw
+ * generated from [ScheduleTimetableQuery](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L26)
+ */
+export interface ScheduleTimetableQuery {
+    /** The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor */
+    from?: string;
+    /** How many days from `from`. Defaults to a week */
+    days?: number;
+}
+
+/**
+ * One block: this slot, on this day, between these two times
+ * generated from [ScheduleOccurrence](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L39)
+ */
+export interface ScheduleOccurrence {
+    slotId: string;
+    label: string;
+    /** `YYYY-MM-DD HH:mm:ss` on the station's own clock, deliberately carrying no timezone offset: it is a reading rather than a moment, so it draws as written wherever the console is running */
+    start: string;
+    /** The same, exclusive. Every block stays inside one day, so a slot running past midnight arrives as two */
+    end: string;
+}
+
+/**
  * Which slot the clock says should be on right now
- * generated from [ScheduleNow](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L26)
+ * generated from [ScheduleNow](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L47)
  */
 export interface ScheduleNow {
     /** The slot in force at this instant. Absent means the station has no schedule */
@@ -59,4 +83,15 @@ export interface ScheduleSlotList {
 
 export interface ScheduleSlotListInput {
     slots: ScheduleSlotInput[];
+}
+
+/**
+ * The station's day as blocks, ready to draw
+ * generated from [ScheduleTimetable](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L32)
+ */
+export interface ScheduleTimetable {
+    /** The range actually drawn, echoed so a caller steps forward and back by adding days to a string rather than by knowing the station's timezone */
+    from: string;
+    days: number;
+    occurrences: ScheduleOccurrence[];
 }

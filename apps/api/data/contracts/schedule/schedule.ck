@@ -71,6 +71,29 @@ operation /schedule/current: {
     }
 }
 
+# The same schedule the list above holds, projected into blocks with both ends.
+#
+# A slot stores only a START — it runs until the next one begins — so something has to turn a
+# partition into a timetable, and it is here rather than in the console because the browser does not
+# know the station's timezone and has no business deriving real dates from a weekday mask.
+
+operation /schedule/timetable: {
+    get: { # The station's day as blocks, contiguous and gapless, for drawing
+        name: Read timetable
+        service: ScheduleService.timetable
+        security: {
+            # A read, like the list above.
+            policy: platform.view
+        }
+        query: ScheduleTimetableQuery
+        response: {
+            200: {
+                application/json: ScheduleTimetable
+            }
+        }
+    }
+}
+
 operation /schedule/{id}: {
     params: {
         id: string(min=1, max=100)

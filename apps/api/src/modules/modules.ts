@@ -17,6 +17,7 @@ import { SimilarityModule } from './similarity/similarity.module.js';
 import { ScrobbleModule } from './scrobble/scrobble.module.js';
 import { LlmModule } from './llm/llm.module.js';
 import { PersonasModule } from './personas/personas.module.js';
+import { ScheduleModule } from './schedule/schedule.module.js';
 import { RenderModule } from './render/render.module.js';
 import { PlayoutModule } from './playout/playout.module.js';
 import { DirectorModule } from './director/director.module.js';
@@ -103,6 +104,17 @@ const ordered: ServerKitModule[] = [
     // phrasings underneath them. Nothing here reaches forward into either, and it
     // owns no loop — its ready() seeds a station that has no personas at all.
     PersonasModule,
+    // After PlaylistsModule and PersonasModule, whose rows a slot names, and before
+    // DirectorModule, which is the thing that actually changes the station over.
+    // Nothing here reaches forward into any of them: a slot stores ids and both
+    // readers resolve them at the moment of use, which is what lets a deleted
+    // persona or a vanished playlist fall back rather than fault.
+    //
+    // It owns no loop and starts nothing, deliberately. The schedule is a stored
+    // document with a pure resolver over it and a timer that posts commands; a
+    // second stateful owner of what airs is the defect `on-air-ownership.md`
+    // exists to remove. This module is only the table underneath.
+    ScheduleModule,
     // Before PlayoutModule: the transport resolves a committed segment by reading
     // a row and a file from here, the way it resolves a track through a plugin.
     // Nothing here reaches back into playout or the director.

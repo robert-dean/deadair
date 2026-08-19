@@ -405,6 +405,22 @@ export interface DeadairProductions {
   writingMode: Generated<"quick" | "outlined" | "polished">;
 }
 
+export interface DeadairScheduleSlots {
+  brief: Generated<string>;
+  createdAt: Generated<DateTime>;
+  days: Generated<Json>;
+  id: Generated<string>;
+  label: Generated<string>;
+  mode: Generated<"rotation" | "setlist" | "feature">;
+  onEnd: Generated<"extend" | "repeat" | "stop">;
+  personaId: string | null;
+  sourcePlaylistId: string | null;
+  sourcePluginId: string | null;
+  startsAtMinutes: number;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairScriptHistory {
   broadcastId: string | null;
   createdAt: Generated<DateTime>;
@@ -518,6 +534,7 @@ export interface DeadairStationLineup {
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
   rules: Json | null;
+  slotId: string | null;
   source: Generated<string>;
   sourcePlaylistId: string | null;
   sourcePluginId: string | null;
@@ -642,6 +659,7 @@ export interface DB {
   "deadair.pluginGrants": DeadairPluginGrants;
   "deadair.pluginStorage": DeadairPluginStorage;
   "deadair.productions": DeadairProductions;
+  "deadair.scheduleSlots": DeadairScheduleSlots;
   "deadair.scriptHistory": DeadairScriptHistory;
   "deadair.scrobbleQueue": DeadairScrobbleQueue;
   "deadair.segmentEvents": DeadairSegmentEvents;

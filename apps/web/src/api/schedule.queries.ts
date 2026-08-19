@@ -54,6 +54,21 @@ export function useCurrentSlot() {
 }
 
 /**
+ * The station's day as blocks, for the window being drawn.
+ *
+ * `from` is a date on the STATION's calendar and the browser cannot work one out, so `undefined`
+ * means "the station's today" and the answer echoes the range it drew. Every step forward and back
+ * after that is adding days to that string, which is why nothing here needs to know the zone.
+ */
+export function useTimetable(from: string | undefined, days: number) {
+    return useQuery({
+        queryKey: queryKeys.schedule.timetable(from, days),
+        queryFn: () => sdk.schedule.readTimetable({ ...(from === undefined ? {} : { from }), days }),
+        staleTime: SCHEDULE_STALE_TIME,
+    });
+}
+
+/**
  * Every write, sharing one success path.
  *
  * The API answers each of them with the whole schedule rather than the row it touched, because a
@@ -66,6 +81,10 @@ function useListWrite<TArgs>(mutationFn: (args: TArgs) => Promise<ScheduleSlotLi
         mutationFn,
         onSuccess: (schedule: ScheduleSlotList) => {
             queryClient.setQueryData(queryKeys.schedule.list(), schedule);
+            // The blocks are DERIVED from the slots, so a write invalidates every window rather than
+            // being written into the cache: the answer depends on a range this callback knows
+            // nothing about, and one slot moving changes how its neighbours read in all of them.
+            void queryClient.invalidateQueries({ queryKey: ['schedule', 'timetable'] });
         },
     });
 }

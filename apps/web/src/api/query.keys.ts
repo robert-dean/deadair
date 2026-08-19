@@ -76,6 +76,8 @@ export const queryKeys = {
         list: () => ['schedule', 'list'] as const,
         /** Which slot is in force and which one is airing. Its own key because it moves with the clock rather than with the grid. */
         current: () => ['schedule', 'current'] as const,
+        /** The day drawn as blocks. Keyed on the window, since a different range is a different page rather than a stale one. */
+        timetable: (from: string | undefined, days: number) => ['schedule', 'timetable', from ?? 'today', days] as const,
     },
     productions: {
         list: () => ['productions', 'list'] as const,

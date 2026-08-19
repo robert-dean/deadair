@@ -1,5 +1,3 @@
-import type { ScheduleSlot } from '@deadair/sdk';
-
 /**
  * Reading and writing the station's day, for the console alone.
  *
@@ -12,8 +10,6 @@ import type { ScheduleSlot } from '@deadair/sdk';
  */
 
 export const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-
-const MINUTES_IN_DAY = 24 * 60;
 
 /** `360` to `06:00`. Always two digits, so a column of these lines up under `.da-num`. */
 export function minutesToClock(minutes: number): string {
@@ -40,50 +36,40 @@ export function clockToMinutes(value: string): number | undefined {
     return hour * 60 + minute;
 }
 
-/** Which days a slot runs on, in words. Empty means every day, which is what the API means by it. */
-export function daysOf(slot: ScheduleSlot): string {
-    const days = slot.days ?? [];
-    if (days.length === 0 || days.length === DAY_LABELS.length) return 'Every day';
+/**
+ * Civil arithmetic on a `YYYY-MM-DD` string.
+ *
+ * Through `Date.UTC`, which is right here precisely because these are NOT instants: a station date
+ * is a reading on the station's calendar, and UTC is simply the calendar with no daylight saving to
+ * have an opinion about. Using the browser's local zone would put the console a day out for anyone
+ * whose midnight falls on the other side of the station's.
+ */
+export function addDays(date: string, days: number): string {
+    const [year, month, day] = date.split('-').map(Number);
+    const moved = new Date(Date.UTC(year!, month! - 1, day! + days));
 
-    // In week order rather than the order they were saved in, so two slots on the same days read
-    // the same way.
-    return [...days]
-        .sort((a, b) => a - b)
-        .map(day => DAY_LABELS[day] ?? '?')
-        .join(', ');
+    const pad = (value: number, width = 2) => String(value).padStart(width, '0');
+    return `${pad(moved.getUTCFullYear(), 4)}-${pad(moved.getUTCMonth() + 1)}-${pad(moved.getUTCDate())}`;
+}
+
+/** Which weekday a `YYYY-MM-DD` falls on, Sunday `0`. Same civil-arithmetic argument as {@link addDays}. */
+export function weekdayOf(date: string): number {
+    const [year, month, day] = date.split('-').map(Number);
+    return new Date(Date.UTC(year!, month! - 1, day!)).getUTCDay();
 }
 
 /**
- * How long a slot runs, given the whole schedule.
+ * A stable colour per slot, so one show is one colour across the week.
  *
- * A slot's span is its NEIGHBOUR's start, which is why this takes the list: the answer changes when
- * a different slot moves, and a duration stored on the row would be a second copy of a fact that
- * can go stale. Only slots sharing a day can bound each other, and the last of a day wraps to the
- * first, which is what makes every instant land somewhere.
- *
- * `undefined` when nothing else runs on that day, meaning it holds until it comes round again.
+ * Red and yellow are deliberately absent. `status.ts` owns those — red means ON AIR in this console
+ * and amber means something is broken — and a show that happened to hash into either would be
+ * claiming a state rather than an identity.
  */
-export function spanOf(slot: ScheduleSlot, slots: readonly ScheduleSlot[]): string | undefined {
-    const runsTogether = slots.filter(other => sharesADay(other, slot));
-    if (runsTogether.length < 2) return undefined;
+const SLOT_COLORS = ['teal', 'blue', 'grape', 'orange', 'green', 'cyan'] as const;
 
-    const starts = [...new Set(runsTogether.map(other => other.startsAtMinutes))].sort((a, b) => a - b);
-    const after = starts.find(start => start > slot.startsAtMinutes) ?? starts[0]!;
+export function colorOf(slotId: string): string {
+    let hash = 0;
+    for (const character of slotId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
 
-    const length = (after - slot.startsAtMinutes + MINUTES_IN_DAY) % MINUTES_IN_DAY;
-    if (length === 0) return undefined;
-
-    const hours = Math.floor(length / 60);
-    const minutes = length % 60;
-    if (hours === 0) return `${minutes}m`;
-    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
-}
-
-/** Whether two slots ever run on the same day, which is what lets one bound the other. Empty is every day. */
-function sharesADay(a: ScheduleSlot, b: ScheduleSlot): boolean {
-    const left = a.days ?? [];
-    const right = b.days ?? [];
-    if (left.length === 0 || right.length === 0) return true;
-
-    return left.some(day => right.includes(day));
+    return SLOT_COLORS[hash % SLOT_COLORS.length]!;
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Stack, Text } from '@mantine/core';
+import { Stack, Text } from '@mantine/core';
 import { DayView, WeekView, type ScheduleEventData } from '@mantine/schedule';
 import type { ScheduleSlot, ScheduleSlotInput, ScheduleTimetable } from '@deadair/sdk';
 
@@ -28,6 +28,14 @@ import { SlotEditor, type EditorTarget } from './slot.editor';
  * `firstDayOfWeek` is set to the weekday the range STARTS on, so the seven columns are exactly the
  * seven days asked for. Without it the view would render a calendar week (Monday first) while the
  * query returned seven days from today, and the two would disagree at both ends.
+ *
+ * ## There is no "new block" button, and that is not an omission
+ *
+ * Clicking an empty hour is the only way in, because a button could only ever guess a time. On a day
+ * with no gaps that guess overlaps something and the API refuses it, so the operator has to shorten a
+ * block first — after which there is an empty hour to click. It could not work in the one case that
+ * would have justified keeping it, and everywhere else it is a worse version of pointing at the hour
+ * you actually meant.
  *
  * ## Clicking an empty hour adds a block there
  *
@@ -165,7 +173,6 @@ export function SchedulePage() {
                         boundary always finishes.
                     </Text>
                 }
-                actions={<Button onClick={() => setEditing({ kind: 'new' })}>New slot</Button>}
             />
 
             {schedule.error ? (

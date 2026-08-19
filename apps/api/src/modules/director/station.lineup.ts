@@ -246,6 +246,25 @@ export interface StationLineupBinding {
      * station nobody has thought about this on behaving exactly as it did.
      */
     personaId?: string;
+    /**
+     * WHICH slot of the station's day this broadcast belongs to.
+     *
+     * It rides the running order for the same reason {@link brief} and {@link personaId} do, and it
+     * does one more job than either: it is how the schedule's tick knows whether the station is
+     * already airing what it should be. Comparing the resolved slot's id against this is the whole
+     * of the idempotence, which is why the fact lives HERE rather than beside the schedule — a
+     * "current slot" held over there would be a second stateful owner of what airs, and
+     * `docs/decisions/on-air-ownership.md` exists to remove exactly that.
+     *
+     * **An operator's own `putOnAir` stamps it too**, with whichever slot is in force at that
+     * moment, which is what makes a manual takeover hold until the NEXT slot begins rather than
+     * being stomped by the tick a minute later. Leaving it absent to mean "a human did this" would
+     * have needed a second rule and a timestamp beside it.
+     *
+     * Absent means genuinely no schedule, or none in force. Ordinary, and it is what every station
+     * that has never opened the schedule page has.
+     */
+    slotId?: string;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
     /** Who built it: `import`, or `director` for anything generated. */

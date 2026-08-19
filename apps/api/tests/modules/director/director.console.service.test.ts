@@ -36,6 +36,8 @@ interface Options {
     ratings?: Record<string, 'liked' | 'neutral' | 'disliked'>;
     /** The persona a host id resolves to, for the order that names one. */
     persona?: (id: string) => { id: string; label: string } | undefined;
+    /** The slot of the day in force. Absent is the ordinary state: a station with no schedule. */
+    slot?: { id: string };
 }
 
 function build(options: Options = {}) {
@@ -100,9 +102,26 @@ function build(options: Options = {}) {
     // Read-only here: the console names a host and the personas page owns it. `find` answers for
     // the one test that draws a host's name onto the running order.
     const personas = { find: vi.fn(async (id: string) => options.persona?.(id)) } as never;
+    // Read-only here too, and the default is the ordinary state: a station with no schedule, so a
+    // broadcast an operator starts by hand is stamped with no slot. The one test that cares hands
+    // over its own.
+    const schedule = { inForce: vi.fn(async () => options.slot) } as never;
 
     return {
-        service: new DirectorConsoleService(air, director, playlists, tracks, segments, personas, settings, jobs, context, activity as never, logger),
+        service: new DirectorConsoleService(
+            air,
+            director,
+            playlists,
+            tracks,
+            segments,
+            personas,
+            schedule,
+            settings,
+            jobs,
+            context,
+            activity as never,
+            logger,
+        ),
         activity,
         segments,
         settings,
@@ -113,6 +132,7 @@ function build(options: Options = {}) {
         posted: () => posted,
         jobs,
         tracks,
+        schedule,
     };
 }
 
@@ -202,6 +222,38 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1', personaId: 'p-gone' });
 
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { personaId: 'p-gone' } });
+    });
+
+    it('stamps the slot of the day an operator started the broadcast in', async () => {
+        // The whole of the manual-takeover rule. The tick compares this against the slot it
+        // resolves, so stamping it here is what makes an operator's own choice hold until the NEXT
+        // slot begins rather than being changed over a minute later by a schedule that sees a
+        // mismatch. Nothing about the source, the host or the brief comes from the slot: the
+        // operator chose those.
+        const { service, posted } = build({ slot: { id: 'slot-morning' } });
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { slotId: 'slot-morning' } });
+    });
+
+    it('goes on air with no slot when the station has no schedule', async () => {
+        const { service, posted } = build();
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(posted()[0]?.kind === 'putOnAir' ? posted()[0] : undefined).not.toHaveProperty('binding.slotId');
+    });
+
+    it('still goes on air when the schedule cannot be read', async () => {
+        // Same call as the dangling host above: a page nobody opened failing to load must not be
+        // the reason the station will not broadcast.
+        const { service, posted, schedule } = build();
+        (schedule as { inForce: ReturnType<typeof vi.fn> }).inForce.mockRejectedValueOnce(new Error('no'));
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir' });
     });
 
     it('treats a blank brief as no brief at all', async () => {

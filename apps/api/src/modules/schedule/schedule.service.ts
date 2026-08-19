@@ -1,7 +1,9 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
-import type { ScheduleSlot } from '#modules/director/schedule.js';
+import { stationZone } from '#modules/director/clock.words.js';
+import { resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
 import type { ScheduleSlotInput, ScheduleSlotList } from './types/schedule.types.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
 
@@ -33,11 +35,30 @@ import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repositor
 export class ScheduleService {
     constructor(
         private readonly slots: ScheduleRepository,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
     async list(): Promise<ScheduleSlotList> {
         return this.answer();
+    }
+
+    /**
+     * The slot in force at an instant, or `undefined` for a station with no schedule.
+     *
+     * Not a route. It is the one reader both changeover paths share: the tick asks it to decide
+     * whether the station is airing what it should be, and an operator's own `putOnAir` asks it so
+     * the broadcast it starts is STAMPED with the slot it lands in. That second one is what makes a
+     * manual takeover hold until the next boundary rather than being undone a minute later, and
+     * having one implementation is what stops the two from ever disagreeing about which slot is on.
+     *
+     * **Ask it for NOW.** It takes an instant because that is what keeps `resolveSlot` pure, not
+     * because anything should look ahead: a caller resolving for a later airtime would straddle a
+     * boundary and disagree with a live-clock caller about which show is on, and whoever wrote
+     * second would win. See the note on `resolveSlot`.
+     */
+    async inForce(at: Date = new Date()): Promise<ScheduleSlot | undefined> {
+        return resolveSlot(at, stationZone(this.config), await this.slots.list());
     }
 
     async create(body: ScheduleSlotInput): Promise<ScheduleSlotList> {

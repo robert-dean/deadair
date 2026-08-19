@@ -44,7 +44,20 @@ export class StationLineupRepository extends DataRepository {
     async load(stationKey = MAIN_STATION): Promise<StationLineup | undefined> {
         const row = await this.db
             .selectFrom('deadair.stationLineup')
-            .select(['broadcastId', 'name', 'brief', 'personaId', 'mode', 'onEnd', 'source', 'sourcePluginId', 'sourcePlaylistId', 'items', 'rules'])
+            .select([
+                'broadcastId',
+                'name',
+                'brief',
+                'personaId',
+                'slotId',
+                'mode',
+                'onEnd',
+                'source',
+                'sourcePluginId',
+                'sourcePlaylistId',
+                'items',
+                'rules',
+            ])
             .where('stationKey', '=', stationKey)
             .executeTakeFirst();
         if (!row) return undefined;
@@ -62,6 +75,10 @@ export class StationLineupRepository extends DataRepository {
                 // Null means the station's own active persona, so an absent host and a station that
                 // was never told who is presenting are the same thing everywhere above.
                 ...(row.personaId == null ? {} : { personaId: row.personaId }),
+                // Which slot of the day this belongs to. Read back so a restart mid-programme knows
+                // whether it is still airing what the schedule wants, rather than changing over
+                // once on every boot.
+                ...(row.slotId == null ? {} : { slotId: row.slotId }),
                 mode: row.mode as StationLineupMode,
                 onEnd: row.onEnd as StationLineupOnEnd,
                 source: row.source,
@@ -91,6 +108,7 @@ export class StationLineupRepository extends DataRepository {
             name: snapshot.name,
             brief: snapshot.brief ?? '',
             personaId: snapshot.personaId ?? null,
+            slotId: snapshot.slotId ?? null,
             mode: snapshot.mode,
             onEnd: snapshot.onEnd,
             source: snapshot.source,

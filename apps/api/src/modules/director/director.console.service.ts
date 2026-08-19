@@ -11,6 +11,7 @@ import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
 import type { OrderEdit } from './director.mailbox.js';
 import { DirectorService } from './director.service.js';
@@ -56,6 +57,11 @@ export class DirectorConsoleService {
         // Read-only too, and for the same reason: a running order names its host and the personas
         // page owns it.
         private readonly personas: PersonaRepository,
+        // Read-only, and for a third instance of the same reason: a broadcast records which slot of
+        // the day it belongs to, and the schedule page owns the slots. Resolved at request time, so
+        // ScheduleModule sitting above this one in `modules.ts` is a dependency order rather than a
+        // resolution one.
+        private readonly schedule: ScheduleService,
         private readonly settings: SettingsService,
         // Scoped, so a send commits with the request's own transaction rather than
         // ahead of it. See JobsModule for why the request path takes this one.
@@ -197,6 +203,21 @@ export class DirectorConsoleService {
     async putOnAir(input: PutOnAirInput): Promise<StationAir> {
         const tracks = await this.sourceTracks(input);
 
+        // Which slot of the day this lands in, stamped even though the operator chose the source
+        // themselves. That is what makes a manual takeover hold until the NEXT slot begins: the
+        // tick compares ids, so they match until the boundary moves and then they do not. Stamping
+        // nothing would leave the schedule free to change the station over a minute later, and
+        // "leave it unset to mean a human did this" needs a second rule and a timestamp to say when
+        // the human did it.
+        //
+        // Never fatal. A schedule that could not be read is a station with no schedule, which is
+        // what every station had before this existed, and refusing to go on air over it would be
+        // the console declining to broadcast because a page nobody opened would not load.
+        const slot = await this.schedule.inForce().catch(error => {
+            this.logger.warn(`director: could not read the schedule while going on air (${errorText(error)})`);
+            return undefined;
+        });
+
         const binding: StationLineupBinding = {
             name: input.name ?? (input.pluginId === undefined ? 'The station' : `From ${input.pluginId}`),
             // Kept as the operator wrote it, whitespace aside. It is read by a model rather than
@@ -208,6 +229,7 @@ export class DirectorConsoleService {
             // is the same answer a persona deleted mid-broadcast gets. Refusing to go on air over a
             // stale id would be the station declining to broadcast over a question about its DJ.
             ...(input.personaId?.trim() ? { personaId: input.personaId.trim() } : {}),
+            ...(slot === undefined ? {} : { slotId: slot.id }),
             mode: input.mode ?? 'rotation',
             onEnd: input.onEnd ?? 'extend',
             source: input.pluginId === undefined ? 'director' : 'import',

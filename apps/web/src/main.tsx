@@ -17,9 +17,14 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import '@fontsource/ibm-plex-mono/600.css';
 
+// This order is required rather than conventional: `@mantine/schedule` builds on `@mantine/dates`,
+// which builds on core, and each expects the one below it to have been laid down first. Loaded out
+// of order the timetable renders unstyled rather than merely differently.
 import '@mantine/core/styles.css';
-// After Mantine's stylesheet: the theme's variable resolver points at `--da-*`, which this
-// defines.
+import '@mantine/dates/styles.css';
+import '@mantine/schedule/styles.css';
+// LAST, after every Mantine stylesheet: the theme's variable resolver points at `--da-*`, which this
+// defines, and the console's own surfaces have to win over the packages'.
 import './tokens.css';
 
 import { createQueryClient } from './api/query.client';

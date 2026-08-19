@@ -905,6 +905,10 @@ export class DirectorService {
      * imported once.
      */
     private async putOnAir(binding: StationLineupBinding, tracks: readonly RundownTrack[]): Promise<void> {
+        // Before the old order is let go of, because it is the only thing that knows an episode was
+        // sitting in it. See {@link releaseUnheardProductions}.
+        await this.releaseUnheardProductions(this.lineup);
+
         // Retract FIRST, then rebuild. What the player is holding belongs to the programme
         // coming off, and leaving it there would air a few records of it behind the new one.
         // What is ON AIR is left alone: changing the programming is not a reason to cut a
@@ -1104,6 +1108,64 @@ export class DirectorService {
      * already happened and been written down, so throwing here would report a removal that stuck
      * as a removal that failed.
      */
+    /**
+     * Hand back any produced episode the order coming off never actually played.
+     *
+     * `injectProductions` marks a production `aired` the moment it puts its beats into the running
+     * order, which is right for the ordinary case and wrong for exactly one: with `COMMIT_LEAD` at
+     * one, those beats then sit `planned` for a long time. {@link putOnAir} builds a NEW order and
+     * lets the old object go, so an episode that was inserted and not yet heard vanished with it,
+     * and nothing re-injected it because its own row already claimed it had aired. Three hours of
+     * model time, thrown away by a boundary it happened to straddle, silently.
+     *
+     * Moving it back to `rendering` is all that is needed: the next commit pass walks the unfinished
+     * productions, finds its beats still `ready`, and puts it into the new order.
+     *
+     * **Only when NO beat has been heard.** A part-aired episode is genuinely over — the listener
+     * has had the first half of it — and re-injecting from the top would play those beats twice.
+     * That is what makes this a narrow repair rather than a rule about what a changeover means.
+     *
+     * It lives here rather than in the schedule's tick so an operator's changeover is covered by the
+     * same code as the clock's, which is the one thing that keeps them from disagreeing. Failures
+     * are swallowed for {@link collectRemoved}'s reason: the changeover is happening either way, and
+     * an episode that stays marked `aired` is the state this is trying to improve on rather than a
+     * reason to stop the station going on air.
+     */
+    private async releaseUnheardProductions(lineup: StationLineup | undefined): Promise<void> {
+        if (lineup === undefined) return;
+
+        // A `groupId` on a segment item is the production it is a beat of; an ordinary break has
+        // none. Heard means the player got to it, which is the only thing that makes an episode
+        // genuinely spent.
+        const heard = new Set<string>();
+        const groups = new Set<string>();
+        for (const item of lineup.toSnapshot().items) {
+            if (item.kind !== 'segment' || item.groupId === undefined) continue;
+            groups.add(item.groupId);
+            if (item.state === 'airing' || item.state === 'played') heard.add(item.groupId);
+        }
+
+        const unheard = [...groups].filter(groupId => !heard.has(groupId));
+        if (unheard.length === 0) return;
+
+        try {
+            await inScope(this.container, async scope => {
+                const productions = scope.get(ProductionRepository);
+                for (const productionId of unheard) {
+                    // Guarded on `aired`, so this can only ever undo the mark `injectProductions`
+                    // made. One that failed, was cancelled or is still being made is left alone.
+                    if (!(await productions.moveTo(productionId, 'rendering', 'aired'))) continue;
+
+                    this.logger.info('director: a produced episode was not heard before the programme changed, so it goes back in the queue', {
+                        production: productionId,
+                    });
+                }
+            });
+        } catch (error) {
+            this.logger.warn(`director: could not hand back an unheard production (${errorText(error)})`);
+        }
+    }
+
     private async collectRemoved(lineup: StationLineup, itemId: string): Promise<void> {
         const item = lineup.find(itemId);
         if (item?.kind !== 'segment') return;

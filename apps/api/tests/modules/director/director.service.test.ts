@@ -19,6 +19,7 @@ import {
     type StationLineupSnapshot,
 } from '../../../src/modules/director/station.lineup.js';
 import { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
+import { ProductionRepository } from '../../../src/modules/productions/production.repository.js';
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
 import { StationAirRepository, type StationAir } from '../../../src/modules/director/station.air.repository.js';
@@ -149,6 +150,15 @@ function build(options: Options = {}) {
 
     const history = { record: vi.fn(async () => {}) } as unknown as PlayHistoryRepository;
 
+    // Produced episodes. `unfinished` answers nothing by default, so the commit pass's injection
+    // step is a no-op unless a test says otherwise; `moveTo` is what a changeover uses to hand back
+    // an episode nobody heard, and it reports whether the row was in the state it was guarded on.
+    const productions = {
+        unfinished: vi.fn(async () => []),
+        moveTo: vi.fn(async () => true),
+        fail: vi.fn(async () => true),
+    };
+
     // The air mode is a SETTING, and settings are a layer of the app's config now, so it reaches
     // the director and the audience gate through this rather than through a scoped repository.
     const station = settingsConfig(options.airMode === undefined ? {} : { [AIR_MODE_KEY]: options.airMode });
@@ -246,23 +256,25 @@ function build(options: Options = {}) {
 
     const scope = {
         get: vi.fn((token: unknown) =>
-            token === BreakRequestRepository
-                ? requests
-                : token === StationLineupRepository
-                  ? lineups
-                  : token === StationAirRepository
-                    ? airRepository
-                    : token === SegmentRepository
-                      ? segments
-                      : token === BreakPlanner
-                        ? breaks
-                        : token === CandidatesRepository
-                          ? candidates
-                          : token === TrackAudioService
-                            ? trackAudio
-                            : token === TrackCachePlanner
-                              ? cachePlanner
-                              : history,
+            token === ProductionRepository
+                ? productions
+                : token === BreakRequestRepository
+                  ? requests
+                  : token === StationLineupRepository
+                    ? lineups
+                    : token === StationAirRepository
+                      ? airRepository
+                      : token === SegmentRepository
+                        ? segments
+                        : token === BreakPlanner
+                          ? breaks
+                          : token === CandidatesRepository
+                            ? candidates
+                            : token === TrackAudioService
+                              ? trackAudio
+                              : token === TrackCachePlanner
+                                ? cachePlanner
+                                : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -298,6 +310,7 @@ function build(options: Options = {}) {
         rundown,
         readyFor,
         lineups,
+        productions,
         snapshots,
         breaks,
         segmentStub,
@@ -1143,6 +1156,64 @@ describe('DirectorService going on air', () => {
         expect(idsOf(rundown.upcoming())).toEqual(['x']);
         expect(snapshots.at(-1)?.items.map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y']);
         expect(director.status().name).toBe('Something else');
+    });
+
+    // `injectProductions` marks an episode `aired` the moment it puts the beats in, and with
+    // COMMIT_LEAD at one they then sit `planned` for a long time. A changeover lets the whole order
+    // object go, so three hours of model time used to vanish with it — and nothing re-injected it,
+    // because its own row already claimed it had aired.
+    it('hands back a produced episode the outgoing order never played', async () => {
+        const { director, lineup, productions, seed } = build();
+        await seed();
+        await director.start();
+        lineup.insertGroup('prod-1', ['beat-1', 'beat-2'], lineup.size(), 'podcast');
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x')],
+        });
+
+        // Back to `rendering`, guarded on `aired` so it can only ever undo the injection's own mark.
+        // The next commit pass finds the beats still `ready` and puts it into the new order.
+        expect(productions.moveTo).toHaveBeenCalledWith('prod-1', 'rendering', 'aired');
+    });
+
+    it('leaves a part-aired episode alone, because the listener has already had half of it', async () => {
+        const { director, lineup, productions, seed } = build();
+        await seed();
+        await director.start();
+        lineup.insertGroup('prod-1', ['beat-1', 'beat-2'], lineup.size(), 'podcast');
+        // By group rather than by position: the commit pass may have planted an ordinary break into
+        // the seeded order, and picking the first segment would mark that one instead.
+        const beats = lineup.toSnapshot().items.filter(item => item.kind === 'segment' && item.groupId === 'prod-1');
+        expect(beats).toHaveLength(2);
+        lineup.markAiring(beats[0]!.id);
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x')],
+        });
+
+        // Re-injecting would play the first half twice, which is worse than losing the second.
+        expect(productions.moveTo).not.toHaveBeenCalledWith('prod-1', 'rendering', 'aired');
+    });
+
+    it('leaves an ordinary break alone, since only a group is an episode', async () => {
+        const { director, lineup, productions, seed } = build();
+        await seed();
+        await director.start();
+        // No `groupId`: a break stands alone, which is exactly what makes it disposable.
+        lineup.insertSegment('seg-ident', lineup.size());
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x')],
+        });
+
+        expect(productions.moveTo).not.toHaveBeenCalled();
     });
 
     it('asks for the new records to be described, rather than waiting for the next quarter hour', async () => {

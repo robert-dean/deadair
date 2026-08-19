@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Stack, Text } from '@mantine/core';
 import { DayView, WeekView, type ScheduleEventData } from '@mantine/schedule';
-import type { ScheduleSlotInput, ScheduleTimetable } from '@deadair/sdk';
+import type { ScheduleSlot, ScheduleSlotInput, ScheduleTimetable } from '@deadair/sdk';
 
 import { useCreateSlot, useCurrentSlot, useDeleteSlot, useSchedule, useTimetable, useUpdateSlot } from '../../api/schedule.queries';
 import { EmptyState } from '../shared/empty.state';
@@ -9,6 +9,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { colorOf, weekdayOf } from './schedule.day';
+import { minutesOf, moveEdit, resizeEdit, splitAt, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
 
 /**
@@ -68,6 +69,9 @@ export function SchedulePage() {
     const days = view === 'week' ? 7 : 1;
     const timetable = useTimetable(anchor, days);
     const [editing, setEditing] = useState<EditorTarget | undefined>(undefined);
+    // Why the last gesture sprang back. A drag that is refused looks identical to one that failed,
+    // and the block returning to where it was is the only other feedback there is.
+    const [refusal, setRefusal] = useState<string | undefined>(undefined);
 
     const slots = schedule.data?.slots ?? [];
     const from = timetable.data?.from;
@@ -90,9 +94,48 @@ export function SchedulePage() {
         else create.mutate(draft, done);
     };
 
-    const openSlot = (event: ScheduleEventData) => {
+    /**
+     * Carry out what a gesture came to, or say why it could not be.
+     *
+     * Saved straight away rather than through the editor, because a drag is a direct manipulation:
+     * putting a modal in front of it would undo the point of dragging. The block springs back on its
+     * own when nothing is written, since the grid is drawn from what the server last said.
+     */
+    const apply = (edit: SlotEdit) => {
+        if (edit.kind === 'refused') {
+            setRefusal(edit.reason);
+            return;
+        }
+
+        const slot = slots.find(candidate => candidate.id === edit.slotId);
+        if (slot === undefined) return;
+
+        setRefusal(undefined);
+        update.mutate({
+            id: slot.id,
+            body: { ...bodyOf(slot), startsAtMinutes: edit.startsAtMinutes, ...(edit.days ? { days: [...edit.days] } : {}) },
+        });
+    };
+
+    const openSlot = (event: ScheduleEventData, mouse: React.MouseEvent<HTMLButtonElement>) => {
         const slot = slots.find(candidate => candidate.id === event.payload?.slotId);
-        if (slot) setEditing({ kind: 'edit', slot });
+        if (slot === undefined) return;
+
+        // Alt-click SPLITS rather than opens. A partition is a set of boundaries, so adding a slot
+        // is adding one — and once the day is divided there is no empty space left to click, which
+        // is what otherwise makes the button the only way in. It opens the editor rather than
+        // writing straight away, because a slot needs a name.
+        if (mouse.altKey) {
+            const rect = mouse.currentTarget.getBoundingClientRect();
+            const block = blockOf(event);
+            if (block === undefined || rect.height === 0) return;
+
+            setRefusal(undefined);
+            setEditing({ kind: 'new', startsAtMinutes: splitAt(block, (mouse.clientY - rect.top) / rect.height), days: [...(slot.days ?? [])] });
+            return;
+        }
+
+        setEditing({ kind: 'edit', slot });
     };
 
     /**
@@ -113,6 +156,20 @@ export function SchedulePage() {
         onDateChange: setAnchor,
         onEventClick: openSlot,
         onTimeSlotClick: ({ slotStart }: { slotStart: string }) => setEditing(newSlotAt(slotStart)),
+        withEventsDragAndDrop: true,
+        withEventResize: true,
+        // A block that is last night carrying over has a top edge belonging to the DAY rather than
+        // to the slot, so it is not draggable at all. `moveEdit` refuses it too; this is what stops
+        // somebody trying and watching it spring back.
+        canDragEvent: (event: ScheduleEventData) => beginsItsSlot(event, slots),
+        onEventDrop: ({ event, newStart }: { event: ScheduleEventData; newStart: string }) => {
+            const block = blockOf(event);
+            if (block) apply(moveEdit(block, newStart, slots));
+        },
+        onEventResize: ({ event, newStart, newEnd }: { event: ScheduleEventData; newStart: string; newEnd: string }) => {
+            const block = blockOf(event);
+            if (block) apply(resizeEdit(block, newStart, newEnd, slots));
+        },
     };
 
     return (
@@ -137,6 +194,10 @@ export function SchedulePage() {
             ) : undefined}
 
             {remove.error ? <ErrorAlert title="That slot could not be deleted" error={remove.error} fallback="Nothing was removed." /> : undefined}
+
+            {update.error ? (
+                <ErrorAlert title="That change could not be saved" error={update.error} fallback="The schedule is as it was." />
+            ) : undefined}
 
             {takenOver ? (
                 <Text size="sm" c="dimmed">
@@ -172,8 +233,15 @@ export function SchedulePage() {
                         <DayView {...shared} date={from} />
                     )}
 
+                    {refusal ? (
+                        <Text size="xs" c="dimmed">
+                            {refusal}
+                        </Text>
+                    ) : undefined}
+
                     <Text size="xs" c="dimmed">
-                        {caption(slots.length)}
+                        {caption(slots.length)} Drag a block to move it, drag its lower edge to move what follows, or alt-click inside one to start a
+                        new slot there.
                         {airingId === undefined ? '' : ' The block the station is airing now is filled in.'}
                     </Text>
                 </Stack>
@@ -261,4 +329,40 @@ function keyOf(target: EditorTarget | undefined): string {
     if (target.kind === 'edit') return target.slot.id;
 
     return `new:${target.startsAtMinutes ?? ''}:${(target.days ?? []).join(',')}`;
+}
+
+/** The slice of a rendered event the edit rules read, or nothing for one that carries no slot. */
+function blockOf(event: ScheduleEventData): DraggedBlock | undefined {
+    const slotId = event.payload?.slotId;
+    if (typeof slotId !== 'string' || typeof event.start !== 'string' || typeof event.end !== 'string') return undefined;
+
+    return { slotId, start: event.start, end: event.end };
+}
+
+/** Whether a rendered block begins where its slot does, rather than being the night before carrying over. */
+function beginsItsSlot(event: ScheduleEventData, slots: readonly ScheduleSlot[]): boolean {
+    const block = blockOf(event);
+    const slot = slots.find(candidate => candidate.id === block?.slotId);
+
+    return block !== undefined && slot !== undefined && minutesOf(block.start) === slot.startsAtMinutes;
+}
+
+/**
+ * A slot as the shape a write takes.
+ *
+ * Every field has to go back, because `PUT` replaces the row rather than patching it — so a drag
+ * that sent only the new time would quietly clear the brief, the host and the source.
+ */
+function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
+    return {
+        label: slot.label,
+        startsAtMinutes: slot.startsAtMinutes,
+        days: [...(slot.days ?? [])],
+        ...(slot.sourcePluginId === undefined ? {} : { sourcePluginId: slot.sourcePluginId }),
+        ...(slot.sourcePlaylistId === undefined ? {} : { sourcePlaylistId: slot.sourcePlaylistId }),
+        ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
+        ...(slot.brief === undefined ? {} : { brief: slot.brief }),
+        mode: slot.mode,
+        onEnd: slot.onEnd,
+    };
 }

@@ -101,20 +101,38 @@ const runsOn = (slot: ScheduleSlot, weekday: number): boolean => slot.days.lengt
  * a second changeover.
  */
 export function resolveSlot(at: Date | number, zone: string, slots: readonly ScheduleSlot[]): ScheduleSlot | undefined {
+    const clock = readClock(typeof at === 'number' ? at : at.getTime(), zone);
+
+    return slotAt(clock.weekday, clock.hour * 60 + clock.minute, slots);
+}
+
+/**
+ * The slot in force at a point on the station's WEEKLY clock, rather than at an instant.
+ *
+ * The whole of {@link resolveSlot}'s decision, with the reading of the clock lifted out. It is split
+ * because two things ask this question of different inputs and they must not be two implementations:
+ * the tick asks it of an instant, and the timetable projection
+ * (`modules/schedule/schedule.occurrences.ts`) asks it of every day it is drawing, where there is no
+ * instant to read. A schedule that fired at one time and drew at another would be the exact failure
+ * `station-intelligence.md` §6 describes for era — a filter and a badge disagreeing about the same
+ * thing — and sharing the function is what makes that structurally impossible rather than merely
+ * tested for.
+ *
+ * @param weekday - Sunday `0`, matching `Date.getDay()` and `StationClock`.
+ * @param minutesOfDay - `0` to `1439`, on the station's own clock.
+ */
+export function slotAt(weekday: number, minutesOfDay: number, slots: readonly ScheduleSlot[]): ScheduleSlot | undefined {
     if (slots.length === 0) return undefined;
 
-    const clock = readClock(typeof at === 'number' ? at : at.getTime(), zone);
-    const nowMinutes = clock.hour * 60 + clock.minute;
-
     for (let back = 0; back <= DAYS_IN_WEEK; back++) {
-        const weekday = (clock.weekday - back + DAYS_IN_WEEK * 2) % DAYS_IN_WEEK;
+        const day = (weekday - back + DAYS_IN_WEEK * 2) % DAYS_IN_WEEK;
 
         let best: ScheduleSlot | undefined;
         for (const slot of slots) {
-            if (!runsOn(slot, weekday)) continue;
+            if (!runsOn(slot, day)) continue;
             // Only today's slots are bounded by the current time. A slot on an earlier day has, by
             // definition, already started.
-            if (back === 0 && slot.startsAtMinutes > nowMinutes) continue;
+            if (back === 0 && slot.startsAtMinutes > minutesOfDay) continue;
             // Ties keep the earlier entry, so the answer is stable rather than depending on the
             // order rows came back in. Two slots at one minute on one day is an operator mistake the
             // unique index refuses anyway.

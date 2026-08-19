@@ -30,6 +30,18 @@ import { ScheduleService } from './schedule.service.js';
  * hourly tick would land in the middle of every slot rather than at its edges. Per-minute is immune
  * to that because it covers every minute of both clocks.
  *
+ * **A restart needs nothing of its own, and this was checked rather than assumed.** `restore` reads
+ * `station_air` back into `active` and loads the running order with the `slot_id` it was stamped
+ * with, so a process that came back at 09:04 inside a boundary it slept through is a plain mismatch
+ * and the next tick corrects it. Hooking the resolver into `restore` as well would have the director
+ * reaching into the console service to read a playlist, which is backwards, and it would buy at most
+ * the sixty seconds to the next tick. That is precisely the promptness this is allowed to cost.
+ *
+ * A `resume` is the same shape and deliberately gets no exemption. It picks up whatever order was
+ * stopped rather than choosing one, so if the day has moved on underneath it the schedule correcting
+ * it within the minute is the right answer. The takeover rule covers `putOnAir` because there the
+ * operator chose a source.
+ *
  * ## Three ways it declines, all of them ordinary
  *
  * A station that is stood down is left alone: **a schedule changes the station over, it does not put

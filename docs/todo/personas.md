@@ -15,6 +15,13 @@ They are ordered by what blocks what. §1 is a schema change §2 wants to be mad
 own; §3 needs both; §4 needs neither and can be taken on any afternoon. §5 needs §3 to exist and
 nothing else.
 
+**That ordering was wrong about §3, which landed first (2026-08-19) and needed neither §1 nor §2.**
+The blocker it was waiting on was the daypart schedule rather than anything about personas: a slot
+carries a `persona_id` and the changeover copies it onto the running order, which is all this ever
+was. §5 is therefore unblocked and is now the one to take, and its rule is already written down in
+`docs/decisions/on-air-ownership.md` — a clock-fired changeover defers its spoken half to the next
+track boundary, where an operator's airs at once.
+
 ## 1. One station, one persona, and the newsreader is the case that broke it
 
 `PersonaRepository.presenting(lineupPersonaId)` answers ONE row: this broadcast's host, then the
@@ -102,7 +109,22 @@ This is also the whole of the raw list's `have the talk shows keep a history so 
 organically`: a show that remembers is a persona that remembers, and building it twice would give the
 station two characters with the same name.
 
-## 3. A schedule chooses the persona
+## 3. A schedule chooses the persona — BUILT
+
+**Built 2026-08-19**, with the daypart schedule, and it cost exactly what this entry predicted:
+`deadair.schedule_slots.persona_id` rides the slot, the changeover copies it onto the binding, and
+`presenting` reads it as it already did. Nothing in the director, the writers or the console changed.
+"9-12 is the warm host, midnight is the late-night one" is now a row an operator writes at
+`/schedule`.
+
+The one thing the entry did not anticipate is which way the fallback points at the SLOT level.
+`schedule_slots.persona_id` is `on delete set null` like the lineup's, so deleting a persona leaves
+the slot standing and drops it back to the station's own host — and a slot naming a persona that has
+since gone is voided when the schedule is RESOLVED rather than refused when it is saved, on the same
+argument `presenting` already makes. Refusing to broadcast over a question about the DJ is worse than
+falling back.
+
+What follows is the entry as it stood.
 
 Nothing here is new work on personas — it is the daypart schedule in
 [director-and-lineups.md](director-and-lineups.md) reaching a column that already exists.

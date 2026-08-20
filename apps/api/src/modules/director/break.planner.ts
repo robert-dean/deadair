@@ -5,7 +5,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
 import { brokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
-import { isAnchored, nextOccurrence, type ClockBand } from './clock.bands.js';
+import { isAnchored, nextOccurrence, type ClockBand, type ClockBandSubject } from './clock.bands.js';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { isProductionKind } from '#modules/productions/production.scheduler.js';
 import { stationZone } from './clock.words.js';
@@ -555,10 +555,15 @@ export class BreakPlanner {
         const taken = new Set<number>();
         const slots: Slot[] = [];
 
-        const claim = (atIndex: number, band?: string, airsAt?: number): void => {
+        const claim = (atIndex: number, band?: ClockBand, airsAt?: number): void => {
             if (taken.has(atIndex)) return;
             taken.add(atIndex);
-            slots.push({ atIndex, ...(band === undefined ? {} : { band }), ...(airsAt === undefined ? {} : { airsAt }) });
+            slots.push({
+                atIndex,
+                ...(band === undefined ? {} : { band: band.kind }),
+                ...(band?.topic === undefined ? {} : { topic: band.topic }),
+                ...(airsAt === undefined ? {} : { airsAt }),
+            });
         };
 
         // ── anchored ───────────────────────────────────────────────────────────
@@ -595,7 +600,7 @@ export class BreakPlanner {
             // written about 14:14 describe a moment that has passed by the time anybody hears them.
             // The writer needs to know when this will actually be spoken; that the projection may be
             // a minute out is exactly what the claim window covers.
-            claim(at, band.kind, projected[at]!);
+            claim(at, band, projected[at]!);
         }
 
         // ── the operator's own intervals ───────────────────────────────────────
@@ -603,7 +608,7 @@ export class BreakPlanner {
             if (isAnchored(band)) continue;
 
             const counts = (item: StationLineupSegmentItem): boolean => item.segmentKind === band.kind;
-            for (const at of placementsFor(items, cursor, band.everyMs, counts, sameKind(slots, band.kind))) claim(at, band.kind);
+            for (const at of placementsFor(items, cursor, band.everyMs, counts, sameKind(slots, band.kind))) claim(at, band);
         }
 
         // ── the station's own, last, because the floor goes last ───────────────
@@ -859,7 +864,7 @@ export class BreakPlanner {
         // with no schedule pays nothing for this.
         const shelved = new Map<string, readonly Segment[]>();
 
-        for (const { atIndex, band, airsAt } of wanted) {
+        for (const { atIndex, band, topic, airsAt } of wanted) {
             // A slot the operator's clock placed is filled with EXACTLY the kind they named, and
             // never handed to the alternation below. That looks like it should have an exception
             // for `talkbreak`, which the station's own rule also plants, and it must not have one:
@@ -869,7 +874,7 @@ export class BreakPlanner {
             // writes a clock, never once said what time it was. What makes a break a band's is that
             // a time was asked for, not which kind was named.
             if (band !== undefined) {
-                const planted = await this.fillBand(band, atIndex, shelved, airsAt);
+                const planted = await this.fillBand(band, atIndex, shelved, airsAt, topic);
                 if (planted !== undefined) placements.push(planted);
                 // The alternation is deliberately NOT advanced. What the operator scheduled is not
                 // the station taking its turn at anything.
@@ -914,12 +919,24 @@ export class BreakPlanner {
         atIndex: number,
         shelved: Map<string, readonly Segment[]>,
         airsAt: number | undefined,
+        topic: ClockBandSubject | undefined,
     ): Promise<Placement | undefined> {
         if (this.writers.canWrite(kind) && this.speech.speaker() !== undefined) {
             // `airsAt` travels on the row rather than in the write job's payload, because the words
             // are asked for on a LATER pass than this one and nothing recomputes the schedule in
             // between: `ripen` re-offers whatever is still planned and knows nothing about bands.
-            const segment = await this.segments.plan({ kind, label: labelFor(kind), ...(airsAt === undefined ? {} : { airsAt }) });
+            const segment = await this.segments.plan({
+                kind,
+                // The subject's own label where it named one, so a console reading the running order
+                // says "Technology news" rather than leaving an operator to work out why one
+                // bulletin differs from the next.
+                label: topic === undefined ? labelFor(kind) : `${topic.label} ${labelFor(kind).toLowerCase()}`,
+                ...(airsAt === undefined ? {} : { airsAt }),
+                // What this break is about, on the ROW: the words are asked for several passes later
+                // and nothing recomputes the clock in between. The KEY rather than the id, because
+                // that is what the writer for the kind reads and what a log line names.
+                ...(topic === undefined ? {} : { context: { topic: topic.key } }),
+            });
             return { segmentId: segment.id, atIndex, kind, written: true };
         }
 
@@ -995,6 +1012,14 @@ export interface AirClock {
 interface Slot {
     atIndex: number;
     band?: string;
+    /**
+     * What the band that claimed this slot is ABOUT, when it named something.
+     *
+     * Carried through as the band's own `topic` rather than looked up again: the walk already has
+     * the band in hand, and a second read on the commit path to answer a question already answered
+     * would be work for nothing.
+     */
+    topic?: ClockBandSubject;
     /**
      * When this slot is expected to reach the air, for an anchored rule.
      *

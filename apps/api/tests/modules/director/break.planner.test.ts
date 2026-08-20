@@ -513,6 +513,28 @@ describe('BreakPlanner against the clock', () => {
         expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'news' }));
     });
 
+    it('stamps what a band is about on the row it plants, and names the break for it', async () => {
+        // The subject has to survive to a job that runs several passes later, and nothing recomputes
+        // the clock in between — so it rides the row, as the airs-at does, and as the KEY rather
+        // than the id because that is what the writer for the kind reads.
+        const technology = { id: 'topic-1', key: 'technology', label: 'Technology' };
+        const { planner, plan } = build({ settings: utc(), bands: [{ ...at(30, 'news'), topic: technology }], canWrite: true });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'news', label: 'Technology news', context: { topic: 'technology' } }));
+    });
+
+    it('plants no context for a band that is about nothing, which is most of them', async () => {
+        const { planner, plan } = build({ settings: utc(), bands: [at(30, 'news')], canWrite: true });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        expect(plan).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }));
+    });
+
     it('leaves a band alone once its boundary already holds a break', async () => {
         const { planner } = build({ settings: utc(), bands: [at(30, 'news')] });
         const lineup = await lineupOf(20);

@@ -189,12 +189,17 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // before personas existed.
         const persona = await this.personas.presenting(lineup.personaId);
 
-        // What this break is about, for a break something asked for. Read off the row rather than
-        // carried in the payload, for the reason the neighbours are: the row is the record, and a job
-        // re-sent after a restart has to be able to find out what it is writing about. A break the
-        // station planted for itself has no request and no context, which is most of them.
+        // What this break is about. Read off the row rather than carried in the payload, for the
+        // reason the neighbours are: the row is the record, and a job re-sent after a restart has to
+        // be able to find out what it is writing about.
+        //
+        // Two places it can come from, and they are two different producers rather than one with a
+        // fallback: a REQUEST carries why something asked for this break, and the SEGMENT carries
+        // what the format clock asked a planted one to be about. Merged with the request on top,
+        // since a break that exists because something happened is described by that thing first.
+        // Most breaks have neither.
         const asked = await this.requestFor(segment.requestId, request);
-        const context = asked?.context;
+        const context = segment.context === undefined && asked?.context === undefined ? undefined : { ...segment.context, ...(asked?.context ?? {}) };
 
         // What a bulletin has to report, for the kinds that report. `undefined` for every other
         // kind, which is how the branch about news stays inside a file about news: this job serves

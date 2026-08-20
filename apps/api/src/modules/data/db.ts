@@ -491,6 +491,7 @@ export interface DeadairSegments {
   claimsItemId: string | null;
   claimsTimeFrom: DateTime | null;
   claimsTimeUntil: DateTime | null;
+  context: Json | null;
   createdAt: Generated<DateTime>;
   durationMs: number | null;
   error: string | null;

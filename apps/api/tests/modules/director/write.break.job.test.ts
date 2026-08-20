@@ -185,6 +185,43 @@ describe('WriteBreakJob', () => {
         expect(planted.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ context: expect.anything() }));
     });
 
+    it('hands over what the format clock asked a planted break to be about', async () => {
+        // The other producer of a context, and it is a different fact rather than a fallback: a
+        // request says why something asked for this break, and a band says what the station's own
+        // clock wanted this one to cover. It rides the ROW because the words are asked for several
+        // passes after the band claimed the slot.
+        const { job, writers } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ kind: 'news', context: { topic: 'technology' } }),
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ context: { topic: 'technology' } }));
+    });
+
+    it('lets what asked for a break outrank what the clock planted it for', async () => {
+        // Both, which happens when an operator asks for a bulletin at a slot a band already claimed.
+        // The request is on top: a break that exists because something happened is described by that
+        // thing first.
+        const { job, writers } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ kind: 'news', requestId: 'req-1', context: { topic: 'technology' } }),
+            request: {
+                id: 'req-1',
+                kind: 'news',
+                urgency: 'next',
+                source: 'operator',
+                state: 'pending',
+                context: { topic: 'world', headline: 'the bridge is shut' },
+            },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ context: { topic: 'world', headline: 'the bridge is shut' } }));
+    });
+
     it('hands a bulletin the stories, against the moment it will actually air', async () => {
         const stories = [{ headline: 'Bridge reopens after four years.' }];
         const { job, writers, bulletin } = harness({

@@ -3,6 +3,7 @@ import { Kysely, sql } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
+import type { BreakContext } from '#modules/director/break.request.js';
 import { isSegmentExtension, type SegmentExtension } from './segment.store.js';
 
 /**
@@ -111,6 +112,14 @@ export interface Segment {
      * the reason it exists, which is what the writer for its kind is given.
      */
     requestId?: string;
+    /**
+     * What this break is about, for one the station planted for itself.
+     *
+     * The other half of the answer a request's own context gives: a band on the format clock can ask
+     * for a bulletin about a category, and that has to reach the job that writes the words several
+     * passes later. Absent for most breaks, which are about whatever they find.
+     */
+    context?: BreakContext;
 }
 
 /**
@@ -161,6 +170,15 @@ export interface PlannedSegment {
     productionOrdinal?: number;
     /** The request that asked for this break. See {@link Segment.requestId}. */
     requestId?: string;
+    /**
+     * What this break is ABOUT, for one the station planted for itself.
+     *
+     * The planted sibling of a request's `context`, and it travels on the ROW for the same reason
+     * `airsAt` does: the words are asked for on a later pass, and nothing recomputes the schedule in
+     * between. Deliberately shapeless — the writers for a kind read what they expect and nothing
+     * generic reads it. For a news bulletin planted by a band, the category the band named.
+     */
+    context?: BreakContext;
 }
 
 /** What the renderer writes back when it worked. */
@@ -224,6 +242,7 @@ interface SegmentRow {
     claimsTimeFrom: DateTime | null;
     claimsTimeUntil: DateTime | null;
     requestId: string | null;
+    context: unknown;
     productionId: string | null;
     productionOrdinal: number | null;
 }
@@ -249,6 +268,7 @@ const SEGMENT_COLUMNS = [
     'claimsTimeFrom',
     'claimsTimeUntil',
     'requestId',
+    'context',
     'productionId',
     'productionOrdinal',
 ] as const;
@@ -305,6 +325,10 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.writer == null ? {} : { writer: row.writer }),
         ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),
         ...(row.requestId == null ? {} : { requestId: row.requestId }),
+        // Read back defensively, like every other jsonb column here: a value that is not an object
+        // is a context nothing can read, and no context and an unreadable one are one state to every
+        // caller. See `contextIn`.
+        ...contextIn(row.context),
         ...(row.productionId == null || row.productionOrdinal == null
             ? {}
             : { productionId: row.productionId, productionOrdinal: row.productionOrdinal }),
@@ -476,6 +500,7 @@ export class SegmentRepository extends DataRepository {
                 writer: planned.writer ?? null,
                 airsAt: planned.airsAt === undefined ? null : instant(planned.airsAt),
                 requestId: planned.requestId ?? null,
+                context: planned.context === undefined ? null : sql<string>`${JSON.stringify(planned.context)}::jsonb`,
                 productionId: planned.productionId ?? null,
                 productionOrdinal: planned.productionOrdinal ?? null,
                 source: RENDER_SOURCE,
@@ -963,4 +988,18 @@ export class SegmentRepository extends DataRepository {
         // same inbox is not a state the station ends up in by itself.
         return { segment: toSegment(row), created: true };
     }
+}
+
+/**
+ * The context a row holds, as the field a caller spreads.
+ *
+ * `{}` for anything that is not a plain object, which covers null, a hand-edited string and an
+ * array. A writer reads keys off this, so handing it a string would have it reaching into
+ * characters — and a break with no context is an ordinary break, which is what an unreadable one
+ * should look like too.
+ */
+function contextIn(value: unknown): { context?: BreakContext } {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+
+    return { context: value as BreakContext };
 }

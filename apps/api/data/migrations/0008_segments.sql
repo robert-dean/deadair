@@ -315,7 +315,22 @@ create table deadair.script_history (
 create index script_history_recent_idx on deadair.script_history (created_at desc);
 create index script_history_segment_idx on deadair.script_history (segment_id, created_at) where segment_id is not null;
 
+-- What this break is ABOUT, for one the station planted for itself.
+--
+-- The planted sibling of `break_requests.context`, and the same rule applies: DELIBERATELY SHAPELESS.
+-- The writers for a kind know what their own kind's context looks like, read what they expect and
+-- ignore the rest, and nothing generic ever reads it — so a shared schema would be a shape nobody is
+-- in a position to define. For a news bulletin it is the category the format clock asked for.
+--
+-- On the ROW rather than in the job's payload, for the reason the neighbours and `airs_at` are: the
+-- words are asked for on a LATER pass than the one that planted this, `ripen` re-offers whatever is
+-- still planned and knows nothing about bands, and a job re-sent after a restart has to be able to
+-- find out what it is writing about.
+alter table deadair.segments add column context jsonb;
+
 -- migrate:down
+
+alter table deadair.segments drop column context;
 
 -- Dropped explicitly and first, rather than left to the cascade, so the down migration says what it
 -- removes instead of relying on a foreign key to imply it.

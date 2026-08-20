@@ -112,6 +112,24 @@ call comes back, both plain JSON, so nothing executable crosses. **A station wit
 an ordinary state, not a fault** — `canGenerate()` answers it without throwing, so a writer picks its
 deterministic binding.
 
+**A tool call the model wrote as TEXT is still a tool call, and the loop re-issues it.** A
+conversation ends when a generation comes back with no tool calls, because that is what an answer
+looks like — and a local model does not always agree: one refill's entire final message was
+`{"artist":"Mitch Murder","limit":12}`, the arguments of a `similar_artists` call with no call around
+them. The loop read it as an answer, `readPicks` found no record in it, and the hour went to the
+floor one step before the model would have answered. So `LlmService.runConversation` asks
+`strayToolCall` whether the words ARE a call before accepting them as an answer. The rescue lives in
+the loop rather than in the parser because `readPicks` is RIGHT to read that object as no records:
+what the moment wants is the call to be made, which only the thing holding the tools can do. The bar
+is deliberately high, since a false positive turns a real answer into a search and loses it — the
+whole message must be one JSON object and nothing else, a named form must name a tool actually on
+offer, and a bare argument bag must fit EXACTLY ONE tool (every key declared, every required
+parameter present), which is why `{"limit":20}` is left alone and why `{"title":…,"artist":…}` can
+never be mistaken for a call. Two bounds: there is no rescue on the LAST step, where withdrawing the
+tools to force words is the point, and the replayed assistant turn carries empty content rather than
+the stray text, because the transcript is also the model's own record of what it did and it should be
+shown the shape to repeat, not the mistake. The raw text survives in the log line.
+
 **A kind of break has SEVERAL writers, and the last one is its floor.** `BreakWriterRegistry` is
 keyed by `segments.kind` and holds them in registration order, which IS preference order
 (`director.module.ts`): `ModelTalkBreakWriter` in front, `TalkBreakWriter` behind it. A writer that

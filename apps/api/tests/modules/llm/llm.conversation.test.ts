@@ -267,6 +267,76 @@ describe('bounding the loop', () => {
     });
 });
 
+describe('a tool call the model wrote as text', () => {
+    /** A tool with real properties, since that is what a stray call is matched against. */
+    const searchTool = (run: StationTool['run']): StationTool => ({
+        declaration: {
+            name: 'similar_artists',
+            description: 'neighbours',
+            parameters: { type: 'object', properties: { artist: { type: 'string' }, limit: { type: 'number' } }, required: ['artist'] },
+        },
+        run,
+    });
+
+    it('re-issues it rather than ending the conversation on a question', async () => {
+        // The measured failure: the final message was the arguments of a `similar_artists` call with
+        // no call around them, the loop read it as an answer, and a briefed hour was filled by the
+        // floor. The model was one step short of answering.
+        const { record } = scriptedPlugin([
+            { text: '{"artist":"Mitch Murder","limit":12}' },
+            { text: '[{"title":"Ocean Drive","artist":"Miami Nights 1984"}]' },
+        ]);
+        const run = vi.fn(async () => ({ similar: [{ artist: 'Miami Nights 1984' }] }));
+        const { service } = serviceFor(record, [searchTool(run)]);
+
+        const result = await service.converse(ask());
+
+        expect(run).toHaveBeenCalledWith({ artist: 'Mitch Murder', limit: 12 }, expect.anything());
+        expect(result.text).toBe('[{"title":"Ocean Drive","artist":"Miami Nights 1984"}]');
+        // It counts as a search, because one ran.
+        expect(result.toolCallsMade).toBe(1);
+    });
+
+    it('replays the rescued call as a well-formed one, and the tool turn answers its id', async () => {
+        // The transcript is the model's own record of what it just did, so it is shown the shape to
+        // repeat rather than the loose object it produced.
+        const { record, asked } = scriptedPlugin([{ text: '{"artist":"Mitch Murder"}' }, { text: 'done' }]);
+        const { service } = serviceFor(record, [searchTool(async () => ({ similar: [] }))]);
+
+        await service.converse(ask());
+
+        const replayed = asked[1]?.messages ?? [];
+        const assistant = replayed.find(message => message.role === 'assistant');
+        expect(assistant?.content).toBe('');
+        expect(assistant?.toolCalls?.[0]?.name).toBe('similar_artists');
+        expect(replayed.find(message => message.role === 'tool')?.toolCallId).toBe(assistant?.toolCalls?.[0]?.id);
+    });
+
+    it('leaves an answer that merely looks JSON-ish alone', async () => {
+        const answer = '[{"title":"Prime Operator","artist":"Mitch Murder"}]';
+        const { record } = scriptedPlugin([{ text: answer }]);
+        const run = vi.fn(async () => ({ similar: [] }));
+        const { service } = serviceFor(record, [searchTool(run)]);
+
+        const result = await service.converse(ask());
+
+        expect(run).not.toHaveBeenCalled();
+        expect(result.text).toBe(answer);
+    });
+
+    it('does not rescue on the last step, where withdrawing the tools is the point', async () => {
+        // The step cap exists to force words. A rescue there would reopen the loop it closes.
+        const { record } = scriptedPlugin([{ text: '{"artist":"Mitch Murder","limit":12}' }]);
+        const run = vi.fn(async () => ({ similar: [] }));
+        const { service } = serviceFor(record, [searchTool(run)]);
+
+        const result = await service.converse(ask(), { maxToolSteps: 0 });
+
+        expect(run).not.toHaveBeenCalled();
+        expect(result.text).toBe('{"artist":"Mitch Murder","limit":12}');
+    });
+});
+
 describe('the gate', () => {
     it('holds the model for the WHOLE loop rather than per round trip', async () => {
         // Asserted from inside a tool, which is the station's own work between two generations. If

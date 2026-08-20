@@ -19,6 +19,7 @@ import type { GatePriority } from '#modules/shared/gate.priority.js';
 import { LlmGate } from './llm.gate.js';
 import { explainNoGenerator, LLM_PLUGIN_KEY, selectLlmPlugin } from './llm.settings.js';
 import { ToolRegistry, type StationTool } from './llm.tools.js';
+import { strayToolCall } from './stray.tool.call.js';
 
 /**
  * How long the plugin gets to hand back a handle.
@@ -54,6 +55,9 @@ export const GENERATION_BUDGET_MS = 600_000;
  * another whole generation held against the station's only model slot.
  */
 export const MAX_TOOL_STEPS = 4;
+
+/** How much of a stray tool call is quoted when one is re-issued. Enough to see the shape. */
+const STRAY_LOG_CHARS = 200;
 
 /** How one caller wants its generation treated. Every field falls back to this module's own bounds. */
 export interface LlmCallOptions {
@@ -334,6 +338,14 @@ export class LlmService {
      * model has to answer in words. Without that a caller can be handed a result whose only content
      * is a request for a tool call nobody is going to make, which reads downstream as the model
      * having said nothing.
+     *
+     * ## A tool call written as text is still a tool call
+     *
+     * Before the loop accepts a generation as an answer it asks whether the words ARE a call — a
+     * bare `{"artist":"…","limit":12}` and nothing else — and re-issues one that is. A local model
+     * does this instead of calling, and without the rescue the conversation ends on a question, one
+     * step short of the answer it was about to give. `strayToolCall` holds the bar, which is high on
+     * purpose. The rescue is not offered on the last step, where withdrawing the tools is the point.
      */
     async converse(request: LlmRequest, options: LlmConverseOptions = {}): Promise<LlmConversation> {
         const plugin = this.generator();
@@ -393,7 +405,31 @@ export class LlmService {
             const result = await this.generateOnce(plugin, { ...request, messages, ...(offered === undefined ? {} : { tools: offered }) });
             addUsage(usage, result.usage);
 
-            if (result.toolCalls.length === 0 || lastStep) {
+            // The last step was asked for words, so words are what it gets to be. A model that asks
+            // for a tool there — as a call or as text — is answered by ending the conversation,
+            // which is the whole point of withdrawing the declarations.
+            if (lastStep) {
+                return { ...result, usage, toolCallsMade, transcript: messages, preempted: false };
+            }
+
+            // A tool call the model wrote as TEXT rather than as a call is still a tool call, and
+            // ending here spends a whole generation on a question nobody answers. See
+            // `strayToolCall`, which is deliberately hard to satisfy: a real answer must never be
+            // mistaken for a search.
+            const stray = result.toolCalls.length === 0 ? strayToolCall(result.text, tools, step) : undefined;
+            if (stray !== undefined) {
+                this.logger.info('llm: the model wrote a tool call as text; re-issuing it as the call it asked for', {
+                    plugin: plugin.record.id,
+                    step,
+                    tool: stray.name,
+                    // The raw text, because what a model does instead of calling a tool is a fact
+                    // about the model and this line is the only place it survives.
+                    said: result.text.trim().slice(0, STRAY_LOG_CHARS),
+                });
+            }
+
+            const asked = stray === undefined ? result.toolCalls : [stray];
+            if (asked.length === 0) {
                 return { ...result, usage, toolCallsMade, transcript: messages, preempted: false };
             }
 
@@ -412,22 +448,27 @@ export class LlmService {
                     step,
                     // The number that says what was lost. A preemption at step 0 costs the whole
                     // refill; one at step 3 costs the answer and keeps the searching.
-                    wanted: result.toolCalls.length,
+                    wanted: asked.length,
                 });
                 return { ...result, usage, toolCallsMade, transcript: messages, finishReason: 'length', preempted: true };
             }
 
             // The assistant turn AND its calls, as one message. A model that cannot see its own
             // request has no idea what the results after it are answering.
-            messages.push({ role: 'assistant', content: result.text, toolCalls: result.toolCalls });
+            //
+            // A rescued call goes in with EMPTY content rather than the text it was read out of.
+            // The transcript is also the model's own record of what it just did, and showing it a
+            // well-formed call is showing it the shape to repeat; showing it the loose object is
+            // showing it the mistake. The text is not lost — the log line above quotes it.
+            messages.push({ role: 'assistant', content: stray === undefined ? result.text : '', toolCalls: asked });
 
-            for (const call of result.toolCalls) {
+            for (const call of asked) {
                 const answer = await this.tools.run(call, tools, signal);
                 messages.push({ role: 'tool', toolCallId: call.id, content: answer });
                 toolCallsMade += 1;
             }
 
-            this.logger.debug('llm: ran tools for a conversation', { plugin: plugin.record.id, step, calls: result.toolCalls.length });
+            this.logger.debug('llm: ran tools for a conversation', { plugin: plugin.record.id, step, calls: asked.length });
         }
     }
 

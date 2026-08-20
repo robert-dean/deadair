@@ -61,7 +61,7 @@ Measured on the M10 V2, added as a custom station and therefore filed under Tune
 | `title1` | `Deadair` | Icecast `server_name` |
 | `title2` | `Snow - Informer` | the whole flattened ICY `StreamTitle`, verbatim |
 | `title3` | absent | — |
-| `image` | absent | — |
+| `image` | absent on 2026-08-19, **present on 2026-08-20** | the SERVICE, not the stream. See below |
 
 It does **not** split on the dash, which was the worry worth having: the station's own labels carry
 more than one `" - "` (`2Pac, Roger, Dr. Dre - California Love - Original Version`), and a player
@@ -87,6 +87,43 @@ and the spec-level ones are not.
 
 Written down because the timeline was re-derived once from the release date alone and came out
 backwards: 4.16.6 reads older than 4.14.9 if the version is compared as a decimal.
+
+### The image slot is filled by the DIRECTORY, and it is currently a placeholder
+
+Re-read 2026-08-20, live, same player and same custom-URL station:
+
+```
+image>http://cdn-radiotime-logos.tunein.com/s0q.png   service>TuneIn   serviceType>RadioService
+stationImage>http://cdn-radiotime-logos.tunein.com/s0q.png             streamFormat>MP3 128 kb/s
+title1>Deadair   title2>Warren G, Nate Dogg - Regulate   secs>692   state>stream
+```
+
+`image` and `stationImage` are populated, which the August table recorded as absent, and **neither
+comes from the stream**. Fetched, `s0q.png` is a 145×145 grey placeholder mark: it is the service's
+own "this station has no logo" image, `s0` being a station id that is no station. So the slot is not
+empty and never was reachable from our side — **the service fills it out of its directory, for a
+station the operator typed in as a URL, by matching that URL against entries it holds.** deadair
+matches nothing, so it gets the placeholder.
+
+That is the single actionable finding in this file, and it is not the feature the file is about:
+**listing the station in that directory would put a real logo in this slot, with no reconnect, no
+`/Play`, no preset and no code.** It is a cheaper route to the same static logo the section below
+recommends a hand-added preset for, and unlike the preset it survives the station being added on a
+device the operator never touched. It buys a STATION LOGO and nothing else — the slot is per
+connection and per station, so it is still not cover art, still not a field, and the verdict is
+unchanged.
+
+Two things it corrects rather than adds. The August reading of `image` as absent was true of an
+unlisted station and was written down as though it were true of the slot, which is why the file
+concluded the only way to fill it was a reconnect: there was a third way the whole time and the probe
+could not see it, because a placeholder had not yet been served. And the note above is now half
+wrong in the useful direction — a directory listing does not merely reopen this for a station added
+FROM the directory, it reaches a station added by URL as well.
+
+Unmeasured, and worth knowing before anyone acts on it: whether the slot refreshes without a
+reconnect when the directory entry changes (assume not, it is almost certainly read at connect),
+whether a listing would also take `title1` away from Icecast's `server_name`, and what the exact
+firmware on this reading was.
 
 ## The unknown the design hung on, and its answer
 

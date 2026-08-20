@@ -44,13 +44,27 @@ has not measured, and its arguments are set against the one thing a follower rel
 fade is a level falling for tens of seconds, which reads as a record that needs lifting, so the
 default follower rides the gain up as the music leaves and makes an ending get louder. `threshold=-25.`
 holds the gain through anything that quiet and `up=30.` puts its reaction time outside the length of a
-passage, but neither closes it, because the lift is only half the fault. This is one operator over the
-whole queue, so its gain state is continuous across a track boundary: the gain it rode up as one
-record left is still applied when the next one starts at full level, and the two together are heard as
-every track being loud at both ends. `gain_max=0.` is what closes it, since an elevation that is never
-built cannot carry across. It costs nothing here, because every record this station has measured falls
-between -18.5 and -4.9 LUFS and nothing in the library wants lifting towards -16. When coverage is
-complete the operator comes out entirely and `gain.ts` is the whole level policy.
+passage, but neither closes it, because the lift is only half the fault. `gain_max=0.` closes that
+half, since an elevation that is never built cannot carry across, and it costs nothing here: every
+record this station has measured falls between -18.5 and -4.9 LUFS and nothing in the library wants
+lifting towards -16.
+
+**The other half was a claim about this operator that was written down and never true.** It said the
+gain state is continuous across a track boundary, because there is one operator over the whole queue.
+Read against 2.4.5's `normalize` in `src/libs/audio.liq`, `track_sensitive` defaults to true and
+installs `on_track(fun (_) -> v := 1.)`: the gain snaps to unity at every boundary. Once `gain_max` is
+0, unity is the loudest this operator can be, so that snap is always UPWARD — each record opens at the
+top of the follower's range and is pulled back down over `down`, a tenth of a second, while the RMS
+smoother behind it is still reading the tail of the record that just ended and so holds it there
+longer. A record following a fade opens at full level, and under a crossfade the swell is the whole
+transition: the outgoing tail rides whatever cut it had earned while the incoming record is mixed in
+with none. `track_sensitive=false` is what makes the sentence true rather than merely written, and the
+reset it removes is not the safety it looks like, because the only state left to carry is a cut,
+released by `up` over thirty seconds and never inside a fade. When coverage is complete the operator
+comes out entirely and `gain.ts` is the whole level policy.
+
+`radio.liq` is read once at process start, so a change here needs `docker compose restart liquidsoap`;
+`config-watch.sh` watches `radio.env` and nothing else.
 
 Then one record is **blended into the next**, from the same measurement again: `cross` sits above
 `normalize`, so the two records overlapping are each already at the station's level and the follower

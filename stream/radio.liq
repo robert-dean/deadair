@@ -495,31 +495,45 @@ playout_bed = compress(
 #              a record that needs turning up.
 #   up         30 rather than 10 seconds, so nothing it does can happen inside one passage of a
 #              record. It is there to correct a track, not to follow one.
-#   gain_max   0, so the follower can only ever pull DOWN. See below; this is the one that
-#              actually closes it.
+#   gain_max   0, so the follower can only ever pull DOWN. There is then no elevation for a
+#              boundary to carry, which is the half of the old fault that WAS the lift.
+#   track_sensitive
+#              false, and this is the other half. See below.
 #
 # `gain_min` is left alone: pulling a loud unmeasured record down is the half of this that was
 # never audible as a fault.
 #
-# **`gain_max` was 6 and bounding the lift was not enough, because the lift is not the whole bug.**
-# This is ONE operator over the whole queue, so its gain state is continuous across a track boundary
-# and its RMS window straddles one. That makes the fade above and the opening of the record after it
-# the same event, heard from both sides: the follower rides up as a record leaves, and the next
-# record then starts at full level with that elevated gain still applied, snapping back over the
-# `down` time. Reported as "loud at the beginning and end of every track", which is what a boundary
-# fault sounds like when you are listening to tracks.
+# **`gain_max` was 6 and bounding the lift was not enough, and `track_sensitive` is why.** The
+# argument written here for as long as this operator existed was that this is ONE operator over the
+# whole queue, so its gain state is continuous across a track boundary. Read against 2.4.5's
+# `normalize` in `src/libs/audio.liq`, that is FALSE and always was: `track_sensitive` defaults to
+# true and installs `on_track(fun (_) -> v := 1.)`, so the gain snaps to unity at every boundary.
+# With `gain_max=0.` unity is the loudest this operator can ever be, so the snap is always UPWARD —
+# every record now begins at the top of the follower's range and is pulled back down over `down`
+# (a tenth of a second, its default), while the RMS smoother behind it is not reset and is still
+# reading the tail of the record that just ended. A record that follows a fade therefore opens at
+# full level, held there until the smoother catches up. That is the surviving half of "loud at the
+# beginning and end of every track", and under a crossfade it is heard as the transition swelling:
+# the outgoing tail is riding whatever cut it had earned while the incoming record is mixed in with
+# no cut at all.
 #
-# At 0 there is no elevation to carry across, so both halves go at once. It costs nothing this
-# station can hear: every record it has measured falls between -18.5 and -4.9 LUFS, averaging -9.5,
-# so nothing in the library is quiet enough to want lifting towards -16 and the up half of the
-# follower had no legitimate work to do here.
+# `track_sensitive=false` is what makes the sentence above true rather than merely written down.
+# The reset it removes cannot be the safety it looks like, because the only state to carry is a CUT
+# and a cut is released by `up`, deliberately over thirty seconds, and never inside a fade — below
+# `threshold` the gain is held rather than chased.
+#
+# At `gain_max=0.` there is no elevation to carry across either, and that costs nothing this station
+# can hear: every record it has measured falls between -18.5 and -4.9 LUFS, averaging -9.5, so
+# nothing in the library is quiet enough to want lifting towards -16 and the up half of the follower
+# had no legitimate work to do here.
 #
 # What is left is the honest half of the fallback, which is holding down an unmeasured loud master
 # until it has been measured. When coverage is complete this operator comes out of the chain
 # entirely and `gain.ts` is the whole level policy.
 #
 # These numbers can only be judged by listening, and they are a first answer rather than a tuned one.
-playout_bed = normalize(target=-16., threshold=-25., up=30., gain_max=0., playout_bed)
+playout_bed =
+  normalize(target=-16., threshold=-25., up=30., gain_max=0., track_sensitive=false, playout_bed)
 
 # Blend one record into the next.
 #

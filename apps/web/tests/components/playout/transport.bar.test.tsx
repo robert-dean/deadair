@@ -33,6 +33,16 @@ vi.mock('../../../src/api/director.queries', () => ({
     useSetAirMode: () => ({ mutate: setAirMode, isPending: false }),
 }));
 
+// The strip's titles link into the catalog, and a real Link wants a router context this render
+// helper deliberately does not build. The href is composed so the case below can say where it goes.
+vi.mock('@tanstack/react-router', () => ({
+    Link: ({ to, params, children, ...rest }: { to: string; params?: Record<string, string>; children?: React.ReactNode }) => (
+        <a href={Object.entries(params ?? {}).reduce((path, [key, value]) => path.replace(`$${key}`, value), to)} {...rest}>
+            {children}
+        </a>
+    ),
+}));
+
 describe('hasTransportToShow', () => {
     it('says nothing while the station is idle and the stream is fine', () => {
         // The one state with nothing to report. A permanent empty strip under every
@@ -82,6 +92,25 @@ describe('TransportBar', () => {
         // 6:06 long with 2:00 left, so four minutes in.
         expect(screen.getByText('4:06')).toBeInTheDocument();
         expect(screen.getByText('-2:00')).toBeInTheDocument();
+    });
+
+    // The strip sits under every page, so the record airing is the one thing an operator can always
+    // reach. It carries the canonical track id and nothing else, which is why only the title links.
+    it('takes what is airing to its own page, and only when the catalog holds it', () => {
+        renderBar(playoutStatus({ nowPlaying: { item: playoutItem({ trackId: 'trk_1' }), startedAt: 1_700_000_000_000 } }));
+
+        expect(screen.getByRole('link', { name: 'Windowlicker' })).toHaveAttribute('href', '/catalog/tracks/trk_1');
+
+        // The default fixture is a record the catalog has never seen, which is an ordinary state
+        // for a station and must not draw a link into nothing.
+        expect(screen.queryByRole('link', { name: 'Aphex Twin' })).not.toBeInTheDocument();
+    });
+
+    it('draws an uningested record as words rather than as a link', () => {
+        renderBar();
+
+        expect(screen.getByText('Windowlicker')).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Windowlicker' })).not.toBeInTheDocument();
     });
 
     it('shows no clock at all when the decoder could not say', () => {

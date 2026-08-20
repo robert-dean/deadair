@@ -2,6 +2,7 @@ import { Group, ScrollArea, Stack, Text } from '@mantine/core';
 import type { PlayoutItem } from '@deadair/sdk';
 
 import { Artwork } from '../shared/artwork';
+import { TrackLink } from '../shared/catalog.links';
 import { Eyebrow } from '../shared/eyebrow';
 import { formatDuration } from '../shared/format.duration';
 
@@ -45,9 +46,12 @@ export function TransportQueue({ upNext, queuedCount }: TransportQueueProps) {
                                 {index + 1}
                             </Text>
                             <Artwork src={item.artworkUrl} alt={item.title} size={24} radius="xs" />
-                            <Text size="sm" truncate style={{ flex: 1, minWidth: 0 }}>
+                            {/* Read-only about the ORDER and still a way into the catalog: nothing
+                                here can move or drop an item, but a title an operator is squinting
+                                at should reach the record it names. */}
+                            <TrackLink id={item.trackId} size="sm" truncate style={{ flex: 1, minWidth: 0 }}>
                                 {item.title}
-                            </Text>
+                            </TrackLink>
                             <Text size="sm" c="dimmed" truncate style={{ flex: 1, minWidth: 0 }}>
                                 {item.artists.join(', ')}
                             </Text>

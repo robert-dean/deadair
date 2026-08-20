@@ -4,6 +4,7 @@ import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
 import { RatingControl } from '../catalog/rating.control';
 import { Artwork } from '../shared/artwork';
+import { AlbumLink, ArtistLink, TrackLink } from '../shared/catalog.links';
 import { formatDuration } from '../shared/format.duration';
 
 export interface StationOrderTableProps {
@@ -150,9 +151,20 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                         thing that gives. */}
                                     <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
                                         <Artwork src={item.artworkUrl} alt={item.title} size={28} radius="xs" />
-                                        <Text size="sm" truncate fw={item.state === 'airing' ? 600 : undefined} style={{ minWidth: 0 }}>
+                                        {/* The way into everything the record has accumulated,
+                                            which is where an operator hearing something odd
+                                            actually wants to go. A record the catalog has never
+                                            seen has no page, and `TrackLink` draws it as the same
+                                            text it always was. */}
+                                        <TrackLink
+                                            id={trackId}
+                                            size="sm"
+                                            truncate
+                                            fw={item.state === 'airing' ? 600 : undefined}
+                                            style={{ minWidth: 0 }}
+                                        >
                                             {item.title}
-                                        </Text>
+                                        </TrackLink>
                                         {/* A segment is not a record and should not have to be worked
                                             out from an empty artist column. */}
                                         {item.kind === 'segment' ? (
@@ -174,7 +186,12 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                             answer has been on the row since it was written. */}
                                         {item.segmentWriter === undefined ? undefined : (
                                             <Tooltip label={writerHint(item.segmentWriter)} multiline maw={360}>
-                                                <Badge size="xs" variant="light" color={item.segmentWriter === 'model' ? 'grape' : 'gray'} style={{ flexShrink: 0 }}>
+                                                <Badge
+                                                    size="xs"
+                                                    variant="light"
+                                                    color={item.segmentWriter === 'model' ? 'grape' : 'gray'}
+                                                    style={{ flexShrink: 0 }}
+                                                >
                                                     {item.segmentWriter}
                                                 </Badge>
                                             </Tooltip>
@@ -217,16 +234,19 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                         ) : undefined}
                                     </Group>
                                 </Table.Td>
+                                {/* The CREDIT is drawn and the LEAD is linked, which is the same
+                                    split the rest of the station runs on: `artists` is what the
+                                    provider wrote on the copy and `artistId` is who it is by. */}
                                 <Table.Td style={{ maxWidth: 220 }}>
-                                    <Text size="sm" c="dimmed" truncate>
+                                    <ArtistLink id={item.artistId} size="sm" c="dimmed" truncate>
                                         {formatArtists(item.artists)}
-                                    </Text>
+                                    </ArtistLink>
                                 </Table.Td>
                                 <Table.Td visibleFrom="xl">
-                                    <Text size="sm" c="dimmed" truncate>
+                                    <AlbumLink id={item.albumId} size="sm" c="dimmed" truncate>
                                         {item.album ?? ''}
                                         {item.year ? ` (${item.year})` : ''}
-                                    </Text>
+                                    </AlbumLink>
                                 </Table.Td>
                                 <Table.Td>
                                     <Text size="xs" c="dimmed" className="da-num">

@@ -39,9 +39,11 @@ vi.mock('../../../src/api/client', () => ({
     },
 }));
 
+// The href is composed from `to` and `params` rather than stubbed as `#`, so the deep-link cases
+// below can assert where a row actually goes rather than only that it is clickable.
 vi.mock('@tanstack/react-router', () => ({
-    Link: ({ children, className }: { children?: ReactNode; className?: string }) => (
-        <a href="#" className={className}>
+    Link: ({ to, params, children, ...rest }: { to: string; params?: Record<string, string>; children?: ReactNode }) => (
+        <a href={Object.entries(params ?? {}).reduce((path, [key, value]) => path.replace(`$${key}`, value), to)} {...rest}>
             {children}
         </a>
     ),
@@ -165,6 +167,51 @@ describe('OnAirPage', () => {
         await waitFor(() => {
             expect(rateTrack).toHaveBeenCalledWith('trk_9', { rating: 'disliked' });
         });
+    });
+
+    // The running order is where an operator forms an opinion about a record, so it has to be the
+    // way into everything that record has accumulated rather than a dead end they retype into the
+    // catalog's search box.
+    it('takes a row to the record, the artist and the release behind it', async () => {
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({
+                        id: 'item-1',
+                        state: 'airing',
+                        title: 'Windowlicker',
+                        artists: ['Aphex Twin'],
+                        album: 'Come to Daddy EP',
+                        trackId: 'trk_1',
+                        artistId: 'art_1',
+                        albumId: 'alb_1',
+                    }),
+                ],
+            }),
+        );
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByRole('link', { name: 'Windowlicker' })).toHaveAttribute('href', '/catalog/tracks/trk_1');
+        expect(screen.getByRole('link', { name: 'Aphex Twin' })).toHaveAttribute('href', '/catalog/artists/art_1');
+    });
+
+    // The station can air a record it never ingested, and a record can be ingested outside any
+    // release. Neither has a page, so neither may be drawn as a link that answers 404.
+    it('draws a record the catalog has never seen as words rather than as a link', async () => {
+        getTheRunningOrder.mockResolvedValue(
+            order({ items: [orderItem({ id: 'item-1', state: 'planned', title: 'Uningested', artists: ['Nobody'] })] }),
+        );
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByText('Uningested')).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Uningested' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Nobody' })).not.toBeInTheDocument();
     });
 
     it('offers no way to drop anything but what is still planned', async () => {

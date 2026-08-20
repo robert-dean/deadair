@@ -5,6 +5,7 @@ import type { PlayoutStatus } from '@deadair/sdk';
 import { useSetAirMode } from '../../api/director.queries';
 import { useSkipCurrent, useStartPlayout, useStopPlayout } from '../../api/playout.queries';
 import { Artwork } from '../shared/artwork';
+import { TrackLink } from '../shared/catalog.links';
 import { formatDuration } from '../shared/format.duration';
 import { listenerLabel, OnAirBadge } from './on.air.badge';
 import { usePlayhead } from './playhead';
@@ -110,9 +111,13 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                         {nowPlaying ? (
                             <>
                                 <Group gap="xs" wrap="nowrap">
-                                    <Text size="sm" fw={600} truncate>
+                                    {/* The title alone is linked: the player is handed a copy and
+                                        knows its canonical track, not which artist or release the
+                                        catalog files it under. Only the title, and only when the
+                                        catalog holds the record. */}
+                                    <TrackLink id={nowPlaying.item.trackId} size="sm" fw={600} truncate>
                                         {nowPlaying.item.title}
-                                    </Text>
+                                    </TrackLink>
                                     <Text size="sm" c="dimmed" truncate>
                                         {nowPlaying.item.artists.join(', ')}
                                     </Text>

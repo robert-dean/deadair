@@ -90,7 +90,8 @@ backwards: 4.16.6 reads older than 4.14.9 if the version is compared as a decima
 
 ### The image slot is filled by the DIRECTORY, and it is currently a placeholder
 
-Re-read 2026-08-20, live, same player and same custom-URL station:
+Re-read 2026-08-20, live, same player (NAD M10 V2 `Office`, **BluOS 4.16.6, byte-identical firmware
+to the probe the day before**) and same custom-URL station:
 
 ```
 image>http://cdn-radiotime-logos.tunein.com/s0q.png   service>TuneIn   serviceType>RadioService
@@ -121,9 +122,22 @@ wrong in the useful direction — a directory listing does not merely reopen thi
 FROM the directory, it reaches a station added by URL as well.
 
 Unmeasured, and worth knowing before anyone acts on it: whether the slot refreshes without a
-reconnect when the directory entry changes (assume not, it is almost certainly read at connect),
-whether a listing would also take `title1` away from Icecast's `server_name`, and what the exact
-firmware on this reading was.
+reconnect when the directory entry changes (assume not, it is almost certainly read at connect), and
+whether a listing would also take `title1` away from Icecast's `server_name`.
+
+### The version number moved on nothing, which is the lesson
+
+The firmware on both readings is **4.16.6**. Not a bump, not a controller-app update, not a change on
+our side: the stream, the mount, the ICY line and the way the station was added are all the same, and
+a slot that was empty one day held a service-supplied image the next. **The thing that changed is the
+DIRECTORY, which carries no version this file can read and ships whenever it likes.**
+
+So the claim two sections up that a firmware bump is not a reason to re-probe was right for the wrong
+reason and is too narrow. The reverse-engineered surface here has **two** suppliers, and only one of
+them has a version number. What follows is not to re-probe more often, which would find nothing most
+days, but to distrust an ABSENCE: every "absent" in the table above is a measurement of what the
+directory served that afternoon for a station it does not have, and none of them is a statement about
+what the slot can hold. The presences are the durable half.
 
 ## The unknown the design hung on, and its answer
 

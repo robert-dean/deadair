@@ -1,11 +1,9 @@
 import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
-import { CatalogSearchTool } from './catalog.search.tool.js';
 import { MusicSearchTool } from './music.search.tool.js';
 import { ProviderSearch } from './provider.search.js';
 import { ChartsTool } from './charts.tool.js';
-import { LibrarySearchTool } from './library.search.tool.js';
 import { LlmGate } from './llm.gate.js';
 import { LlmService } from './llm.service.js';
 import { NewsTool } from './news.tool.js';
@@ -55,14 +53,9 @@ export const LlmModule: ServerKitModule = {
         // consumer here. The fan-out is its own thing rather than the tool's body, because reaching
         // the providers and telling a model how to ask are two jobs and only the second is a tool.
         registry.register(ProviderSearch).useClass(ProviderSearch).asScoped();
-        registry.register(CatalogSearchTool).useClass(CatalogSearchTool).asScoped();
-        // Scoped with the catalog repository it reads. Not a plugin consumer at all, which is the
-        // difference between the two search tools: this one asks what the station HAS.
-        registry.register(LibrarySearchTool).useClass(LibrarySearchTool).asScoped();
-        // What the model is actually offered: both of the above in one answer, with `owned` on the
-        // row. The two they were built from are still registered and no longer reach a model — they
-        // go in the commit that deletes them, so this one can be reverted on its own if a live
-        // refill says the merge was wrong.
+        // One search over the catalog and the providers together, marking on the row which is which.
+        // It was two tools and a rule telling the model to prefer one, which is a decision the host
+        // can simply make. Scoped with both the repository and the fan-out it reads.
         registry.register(MusicSearchTool).useClass(MusicSearchTool).asScoped();
         // Also a catalog read rather than a plugin one, and offered to every caller rather than to
         // selection alone: "the station loves this band" is a thing a break writer says on air.
@@ -88,7 +81,7 @@ export const LlmModule: ServerKitModule = {
         // readable line rather than the sum of whatever registered itself. A `tool` plugin
         // capability becomes another entry here and nothing else changes.
         //
-        // The library first. Order here is only a tie-break on duplicate NAMES, which these do not
+        // The search first. Order here is only a tie-break on duplicate NAMES, which these do not
         // have, but it is also the order the declarations reach the model — and the tool a DJ should
         // reach for when choosing what to play is the one that answers with records it can actually
         // schedule. The charts go last for the same reason read the other way round: they are the

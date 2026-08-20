@@ -85,7 +85,7 @@ export class StationTasteTool implements ToolSource {
 /**
  * The requested limit, or the ceiling.
  *
- * The same shape `LibrarySearchTool` uses and for the same reason: a model asking for everything is
+ * The same shape `MusicSearchTool` uses and for the same reason: a model asking for everything is
  * asking for its own context to be filled with a list, so the ceiling is enforced rather than
  * honoured, and a nonsense value falls back to it rather than erroring.
  */

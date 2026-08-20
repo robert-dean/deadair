@@ -61,7 +61,7 @@ export class NewsTool implements ToolSource {
         // Nothing to offer when no news plugin is installed, which is the
         // default. A declaration whose every call answers "there is no news"
         // spends context teaching the model about a tool that cannot help it —
-        // the rule `ChartsTool` and `CatalogSearchTool` both follow.
+        // the rule `ChartsTool` follows too.
         if (!this.news.hasNews()) return [];
 
         return [

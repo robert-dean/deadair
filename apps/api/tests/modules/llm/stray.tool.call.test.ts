@@ -12,11 +12,10 @@ const declare = (name: string, properties: Record<string, unknown>, required: st
     run: async () => ({}),
 });
 
-/** The three the measured failure actually had on offer. */
+/** The shape of what a refill is actually offered. */
 const offered = new Map<string, StationTool>(
     [
-        declare('search_library', { query: { type: 'string' }, limit: { type: 'number' } }, ['query']),
-        declare('search_catalog', { query: { type: 'string' }, yearFrom: { type: 'number' }, yearTo: { type: 'number' }, limit: { type: 'number' } }),
+        declare('search_music', { query: { type: 'string' }, yearFrom: { type: 'number' }, yearTo: { type: 'number' }, limit: { type: 'number' } }),
         declare('similar_artists', { artist: { type: 'string' }, limit: { type: 'number' } }, ['artist']),
         declare('station_taste', { limit: { type: 'number' } }),
     ].map(tool => [tool.declaration.name, tool]),
@@ -36,13 +35,13 @@ describe('strayToolCall', () => {
     });
 
     it('reads a named call, however the model spelled the two fields', () => {
-        expect(read('{"name":"search_library","arguments":{"query":"lazerhawk"}}')).toEqual({
+        expect(read('{"name":"search_music","arguments":{"query":"lazerhawk"}}')).toEqual({
             id: 'stray-2',
-            name: 'search_library',
+            name: 'search_music',
             arguments: { query: 'lazerhawk' },
         });
-        expect(read('{"tool":"search_library","parameters":{"query":"lazerhawk"}}')?.name).toBe('search_library');
-        expect(read('{"function":"search_library","args":{"query":"lazerhawk"}}')?.name).toBe('search_library');
+        expect(read('{"tool":"search_music","parameters":{"query":"lazerhawk"}}')?.name).toBe('search_music');
+        expect(read('{"function":"search_music","args":{"query":"lazerhawk"}}')?.name).toBe('search_music');
     });
 
     it('takes a named call with no arguments at its word, because several tools need none', () => {
@@ -58,14 +57,19 @@ describe('strayToolCall', () => {
     });
 
     it('leaves an answer alone when the arguments fit more than one tool', () => {
-        // `{"limit":20}` fits `search_catalog` and `station_taste`. Guessing between them is how a
+        // `{"limit":20}` fits `search_music` and `station_taste`. Guessing between them is how a
         // rescue starts inventing, and running the wrong search is worse than ending honestly.
         expect(read('{"limit":20}')).toBeUndefined();
     });
 
     it('refuses a bag of arguments missing what the tool requires', () => {
-        // Fits `search_library`'s properties, but the query is the entire tool.
-        expect(read('{"limit":5}')).toBeUndefined();
+        // `limit` is one of `similar_artists`' two properties, and the artist is the entire tool.
+        // Checked against a lone tool, because with several on offer the ambiguity rule above would
+        // refuse this anyway and prove nothing about the required one.
+        const lonely = new Map([['similar_artists', declare('similar_artists', { artist: {}, limit: {} }, ['artist'])]]);
+
+        expect(strayToolCall('{"limit":5}', lonely, 0)).toBeUndefined();
+        expect(strayToolCall('{"artist":"Mitch Murder"}', lonely, 0)?.name).toBe('similar_artists');
     });
 
     it('refuses an empty object, which fits everything that requires nothing', () => {
@@ -74,7 +78,8 @@ describe('strayToolCall', () => {
 
     it('never mistakes a record for a call, which is what keeps a one-record answer safe', () => {
         // `artist` is a `similar_artists` property; `title` is nobody's, and both directions are
-        // checked precisely so this cannot resolve.
+        // checked precisely so this cannot resolve. This is the row shape `search_music` answers
+        // with, so it is exactly what a set generator's one-record answer looks like.
         expect(read('{"title":"Prime Operator","artist":"Mitch Murder"}')).toBeUndefined();
     });
 

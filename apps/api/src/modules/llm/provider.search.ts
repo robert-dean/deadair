@@ -9,10 +9,11 @@ import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
  *
  * ## Why this is not a tool
  *
- * It was the whole body of `CatalogSearchTool`, and it stayed there for as long as exactly one thing
- * needed it. Two do now, so what a MODEL is offered and what the station can REACH are separated:
- * this answers the second question and holds no declaration, no argument parsing and no opinion
- * about how a model should be told to use it.
+ * It was the whole body of the tool that used to fan out, and it stayed there for as long as that was
+ * the only thing reaching the providers. `MusicSearchTool` needs the same fan-out as HALF of its
+ * answer, so what a MODEL is offered and what the station can REACH are separated: this answers the
+ * second question and holds no declaration, no argument parsing and no opinion about how a model
+ * should be told to use it.
  *
  * Everything below is the behaviour that was already there, unchanged, and each rule is load-bearing:
  *

@@ -127,7 +127,7 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
      * the caller merges every provider into one list and nothing marks which rows honoured a
      * filter, so ignoring a period would hand the station unfiltered records indistinguishable from
      * the ones it asked for. A local library is not lost by this — the station's own
-     * `search_library` tool reads the catalog, where the year is a real column.
+     * `search_music` tool reads the catalog, where the year is a real column.
      */
     async searchTracks(query: string, options?: SearchTracksOptions): Promise<ProviderTrack[]> {
         if (options?.yearFrom !== undefined || options?.yearTo !== undefined) return [];

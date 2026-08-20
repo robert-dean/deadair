@@ -34,7 +34,7 @@ import type { StationTool } from './llm.tools.js';
  *
  * - the whole message must be ONE JSON object and nothing else, so an answer that merely contains
  *   an object (a set generator's array of picks, a break that quotes something) is never touched;
- * - a named form (`{"name":"search_library","arguments":{…}}`) has to name a tool that is actually
+ * - a named form (`{"name":"search_music","arguments":{…}}`) has to name a tool that is actually
  *   on offer;
  * - an unnamed form has to fit EXACTLY ONE offered tool — every key declared by it, every required
  *   parameter present. `{"limit":20}` fits four of them and is left alone, because guessing which
@@ -137,7 +137,7 @@ function fromArguments(object: Record<string, unknown>, tools: Map<string, Stati
  *
  * Both directions are checked and both matter. Every key must be one the tool declares, or a pick
  * whose fields happen to overlap a tool's would be run as a search; and every required parameter
- * must be present, or `{"limit":12}` would fit `search_library`, whose whole point is the query.
+ * must be present, or `{"limit":12}` would fit `similar_artists`, whose whole point is the artist.
  */
 function accepts(declaration: LlmToolDeclaration, keys: readonly string[]): boolean {
     const schema = declaration.parameters;

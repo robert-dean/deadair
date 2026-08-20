@@ -8,7 +8,7 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  *
  * ## The third question, beside what the station HAS and what it can GET
  *
- * `LibrarySearchTool` answers from the catalog and `CatalogSearchTool` fans out over the providers.
+ * `MusicSearchTool` answers from the catalog and the providers together, marking which is which.
  * Both answer "does this record exist and can we play it", which is a question about a record the
  * model already had in mind. This one answers a question it could not otherwise ask at all: what
  * other people are listening to this week. A position in a chart is a FACT, and a fact is what a
@@ -59,7 +59,7 @@ export class ChartsTool implements ToolSource {
     async tools(): Promise<StationTool[]> {
         // Nothing to offer when no chart plugin is installed, which is the default. A declaration
         // whose every call answers "there are no charts" spends context teaching the model about a
-        // tool that cannot help it — the same rule `CatalogSearchTool` follows with no providers.
+        // tool that cannot help it — the same rule `MusicSearchTool` follows for its provider half.
         if (!this.charts.hasCharts()) return [];
 
         return [

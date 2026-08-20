@@ -107,7 +107,7 @@ export class ShowSoFarTool implements ToolSource {
 /**
  * The requested limit, or the ceiling.
  *
- * The same shape `StationTasteTool` and `LibrarySearchTool` use, and for the same reason: a model
+ * The same shape `StationTasteTool` and `MusicSearchTool` use, and for the same reason: a model
  * asking for everything is asking for its own context to be filled with a list, so the ceiling is
  * enforced rather than honoured, and a nonsense value falls back to it rather than erroring.
  */

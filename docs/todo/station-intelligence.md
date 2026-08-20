@@ -162,12 +162,12 @@ case [director-and-lineups.md](director-and-lineups.md) scoped as live provider 
 provider plugins, ingests the exact match and airs it. A pick nothing carries is still dropped and
 the count still comes up short, which `generate` documents as an ordinary outcome.
 
-That change also settles the paragraph above about the discovery tool. `search_library` and
-`search_catalog` are both registered and both now answer with records that can air, so the split is
-no longer schedulable versus not — it is what the station HAS versus what it can GET, and the
-descriptions carry a preference rather than a prohibition. The library stays first because those
-records are catalogued, often cached and measured; the providers are what make a brief the library
-cannot fill answerable at all.
+That change also settled the paragraph above about the discovery tool, and then unsettled the two
+tools themselves. Both answered with records that could air, so the split stopped being schedulable
+versus not and became what the station HAS versus what it can GET — a PREFERENCE the descriptions
+carried and the model had to arbitrate. **That arbitration is now gone** (2026-08-20): `search_music`
+answers from both and marks every row `owned`, because the preference was real and the decision was
+one the host could make itself. See the CLAUDE.md gotcha for what is load-bearing in it.
 
 **The operator can now say what an hour should be**, which is the other half of this entry that was
 never written down here because it did not exist: `station_lineup.brief`, free text, set when the
@@ -680,15 +680,13 @@ real record are independent failures and a single instruction covering both gets
 
 ## Smaller entries, noted so they are not re-derived
 
-- **`search_catalog` does not say which results the station already owns.** Both search tools now
-  answer with records that can air, and the prompt tells the model to prefer the library — but within
-  one `search_catalog` answer it cannot tell a record already in `deadair.tracks` from one that will
-  cost a lookup, an ingest and a download. Every row carries `source` and nothing else. An `owned`
-  boolean per row (one batch query against `track_sources` over the merged results, the way
-  `CatalogSearchTool` already dedupes them) would let the preference apply inside a single search
-  rather than only between the two tools. Worth doing when a station's own library is large enough
-  that the two answers overlap heavily; on a small one it makes no difference, because the overlap is
-  the part the library search already returned.
+- ~~**`search_catalog` does not say which results the station already owns.**~~ **Done 2026-08-20**,
+  as `search_music`. Worth recording what this entry got WRONG, because it deferred the work on the
+  wrong axis: it judged the value by how much the two answers OVERLAP, and reasoned that a small
+  library makes the flag pointless. What actually cost hours was not the overlap, it was the
+  ARBITRATION — a model asked which store to search, on a library that overlapped the providers
+  almost nowhere, spent every tool step it had asking the wrong one. The flag was the cheap half; the
+  expensive half was deleting the choice.
 - **The taste block has never been exercised against real data.** `TasteRepository`, the prompt block
   and `station_taste` are all built and tested, and on this install `deadair.tracks`, `albums` and
   `artists` hold zero non-zero ratings — so every list is empty, every total is 0, and the steering

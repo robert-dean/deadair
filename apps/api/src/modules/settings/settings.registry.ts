@@ -567,7 +567,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Let a model choose what plays',
         type: 'boolean',
         default: MODEL_GENERATOR_DEFAULT,
-        help: 'With this off the station picks by rule: a weighted draw shaped by the repeat window, the artist cooldown and your ratings. With it on the model chooses first and that draw finishes whatever it did not — a model that names six good records has done most of the job, so a partial answer is kept rather than thrown away. It can only choose records already in your library.',
+        help: 'With this off the station picks by rule: a weighted draw shaped by the repeat window, the artist cooldown and your ratings. With it on the model chooses first and that draw finishes whatever it did not — a model that names six good records has done most of the job, so a partial answer is kept rather than thrown away. It chooses from your library and from your providers, and a record you do not own yet is fetched when it is picked.',
     },
     {
         group: 'llm',

@@ -365,6 +365,50 @@ why Earth has its atmosphere and orbits the sun" aired as news, twice), and it S
 stop, because one bulletin reported three stories correctly and then wrote twelve more sentences
 about the needle sliding into rhythm.
 
+**The format clock is ROWS, and what a break is ABOUT is the operator's own word.** `rotation.clockBands`
+was a settings box parsed line by line, which was right while a band was three tokens somebody could
+hold in their head and stopped being right the moment a band REFERENCED something: a mistyped line is
+silence at a time nobody chose, reported only in a log. `deadair.clock_bands` replaced it (`position`
+is the line order that was already precedence, `enabled` is what commenting a line out did, and a
+check constraint keeps the anchored and spacing shapes exclusive), edited on the schedule page
+because a slot and a band are one question with two answers. `clock.bands.ts` keeps only what was
+always the hard half: `nextOccurrence` and the daylight-saving care under it. **Minutes rather than an
+SQL `interval`**, for `starts_at_minutes`'s reason — every occurrence is computed in JS against `Intl`,
+nothing does interval arithmetic in SQL, and `interval '1 mon'` is not a fixed number of milliseconds
+a spacing rule could use.
+
+What a band points at is a **topic**: `deadair.topics`, keyed by `segments.kind`, holding the
+operator's own vocabulary with a `config` that is DELIBERATELY SHAPELESS (`break_requests.context`'s
+rule — the code for a kind reads what it expects and nothing generic reads it). News categories are
+its first kind and `docs/todo/station-moment.md`'s weather locations are the second, which is the
+whole reason it is a chassis rather than a news feature; a kind declares itself to `TopicKindRegistry`
+with the plugin SDK's `ConfigField`, so the console renders its form with the component that already
+draws a plugin's settings and the station's. Two rules are load-bearing. `clock_bands.topic_id`
+**cascades** rather than nulling, against the habit of every other reference here: a band that quietly
+lost its subject would read a GENERAL bulletin under a category's name, and silence is a state an
+operator can see where a wrong bulletin is not. And the subject reaches the writer through
+`segments.context` — the planted sibling of a request's context, on the ROW because the words are
+asked for several passes after the band claimed the slot — resolved once by `BulletinSource` into a
+`BreakSubject`, so the model binding and the floor cannot resolve it differently.
+
+**A story's category is decided by three signals, ranked, and a category that matches nothing declines
+the slot.** `news.classify.ts` is pure and runs on the floor as well as under the model, so it may not
+fetch and may not fail. A FEED an operator named cannot be wrong; a publisher's own LABEL is nearly as
+good and is what most feeds carry; a WORD in a headline is the weakest by a distance ("chip" is a
+semiconductor in one story and a shop in the next), so it catches what the first two miss and never
+defines a category. The strongest signal wins rather than the sum, or a long word list would outrank a
+publisher who has already sorted their own newsroom — and a word is matched as a WHOLE word, because
+`ai` inside "said" and "chain" is most of a front page. Asked for a category it cannot fill, the
+bulletin DECLINES on the `clean-only` posture: demand a positive match, say so on the edge through
+`CategoryWatch` (a singleton for `AdvisoryWatch`'s reason, keyed by category), and never air the
+wrong thing under the right name. An UNBRIEFED bulletin spreads across categories instead of taking
+the top three, because a wire is newest-first and three sport stories landing together is a sports
+bulletin the station never announced as one; only the ORDER changes, and a story no category claims
+takes its turn — on most stations the categories cover a fraction of what the feeds carry. Eleven
+categories are seeded on `persona.defaults.ts`'s rule, none naming a feed (only this operator has
+one) and `local` naming nothing at all, because only the operator knows their town and a guess would
+look as though it worked.
+
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
 words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next

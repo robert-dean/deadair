@@ -111,7 +111,8 @@ the airing record playing, and `putOnAir` calls it first, so it is built. The se
 `on-air-ownership.md`), and its `lineupId` half is stale, since there are no stored lineups to name.
 
 **And the sub-hour half of this is already built, which is worth knowing before designing it again.**
-`rotation.clockBands` anchors events inside the hour (`:30 news`, `09:00 news`, `every 90m ident`), so
+`deadair.clock_bands` anchors events inside the hour (half past for the news, nine o'clock for it, an
+ident every ninety minutes), so
 the schedule builder in `todo.md` splits: a bulletin at half past is a BREAK and exists today, and a
 slot decides only the source, the host and the brief. A slot therefore stores a start minute rather
 than painting a grid of hours, and the two mechanisms divide cleanly. **Clock bands schedule what the

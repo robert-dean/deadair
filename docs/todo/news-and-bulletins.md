@@ -3,6 +3,8 @@
 **Written:** 2026-08-15, the day the source half landed.
 **Revised:** 2026-08-15, when the bulletin landed too. **§1 is now BUILT**; what shipped is
 described in its place, and the sections below it are the ones still open.
+**Revised again:** 2026-08-20, when categories landed. §1 grew a subject; §4's console page is still
+open and is now the last place `GET /news` is drawn nowhere.
 **State of the tree:** the source half and the bulletin are built and are described as fact.
 Everything under "What is deferred" is not built, and each piece names the seam it drops into.
 
@@ -39,7 +41,7 @@ state per caller is the version of this that would have to be redesigned first.
 ### 1. The bulletin — BUILT 2026-08-15
 
 A `news` segment kind, with two writers ranked the way every other kind is: `ModelNewsBreakWriter`
-in front, `NewsBreakWriter` as the floor. `:30 news` in `rotation.clockBands` now produces one, and
+in front, `NewsBreakWriter` as the floor. A `news` band on the format clock now produces one, and
 the planner's "nothing on this station knows how to write a news" refusal is gone.
 
 Six things are load-bearing, and four of them were not obvious before it was built:
@@ -71,8 +73,17 @@ Six things are load-bearing, and four of them were not obvious before it was bui
 
 The settings are `rotation.newsTemplates` (with `{{news.headlines}}`, the first new row in the
 template vocabulary since it was written), `rotation.newsStories`, `rotation.newsMaxAgeHours` and
-`rotation.newsFeed`. `rotation.clockBands` was registered as a setting at the same time: it is how
-an operator schedules any of this and it had existed only in `psql`.
+`rotation.newsFeed`. The format clock that schedules it was a setting too, briefly; it is now
+`deadair.clock_bands` and is edited on the schedule page.
+
+**A bulletin can be about ONE CATEGORY, as of 2026-08-20.** `deadair.topics` is the operator's own
+vocabulary keyed by `segments.kind` — a chassis rather than a news feature, because
+[station-moment.md](station-moment.md)'s weather wants the same shape with a location in it — and a
+band on the format clock points at one. `news.classify.ts` ranks three signals (the feed, the
+publisher's own labels, a word in the headline), a category that matches nothing DECLINES the slot
+rather than reading general news under its name, and an unbriefed bulletin spreads across whatever
+the categories say the page holds. `{{news.topic}}`, the model's opening line and the break's own
+label all say which one it is.
 
 What is still open here, and was deliberately not decided on paper: whether a bulletin should
 attribute its sources out loud. Nothing offers the publisher's name to a writer today (`BreakStory`
@@ -121,7 +132,10 @@ failure mode, which is a model calling the tool twice inside one break.
 
 `GET /news/feeds` and `GET /news` exist and nothing draws them. The charts page is the shape to
 copy. Worth having before the bulletin lands rather than after: "what does the station think the
-news is" is the first question when a bulletin reads oddly.
+news is" is the first question when a bulletin reads oddly — and it is a better question again now
+that categories exist, since the page that would answer it is also the page that would show which
+stories a category is actually claiming. `apps/api/scripts/news.smoke.ts` prints exactly that
+against the real feeds and is what stands in for it today.
 
 ---
 

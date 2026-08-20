@@ -33,7 +33,8 @@ import { rssManifest } from '../../../plugins/rss/src/rss.manifest.js';
 
 import type { DB } from '../src/modules/data/db.js';
 import { settingsConfigSource } from '../src/server/settings.config.source.js';
-import { BulletinSource, ReadLog } from '../src/modules/director/bulletin.source.js';
+import { BulletinSource, CategoryWatch, ReadLog } from '../src/modules/director/bulletin.source.js';
+import type { ActivityRecorder } from '../src/modules/activity/activity.recorder.js';
 import { breakPrompt } from '../src/modules/director/break.prompt.js';
 import { NEWS_KIND, NewsBreakWriter } from '../src/modules/director/news.break.writer.js';
 import { NEWS_MAX_WORDS, NEWS_SHAPE } from '../src/modules/director/model.news.break.writer.js';
@@ -154,15 +155,35 @@ const news = {
         }),
 } as unknown as NewsService;
 
+// The station's own categories, read once. They decide two things below: which category each story
+// belongs to, and — for a run given one on the command line — which stories a bulletin about it
+// would have.
+const topics = new TopicRepository(db, new StationIdentity());
+const rules = (await topics.list(NEWS_KIND)).map(newsTopicRules);
+
+/**
+ * The category to write a bulletin about, from the command line.
+ *
+ * `node ./scripts/news.smoke.ts technology` is the run that answers "would the half-past technology
+ * bulletin have anything to read", which is the question a band with a category on it raises and
+ * which nothing else here can answer.
+ */
+const wanted = process.argv[2]?.trim();
+const asked = wanted === undefined || wanted.length === 0 ? undefined : { topic: wanted };
+
 // A fresh `ReadLog`, which is what makes this a smoke test of the FEED rather than of the station's
 // memory: in the app it is a singleton holding what the last bulletins said, and one run of a script
 // has nothing to have said before.
-const stories = (await new BulletinSource(news, new ReadLog(), config, loud).storiesFor(NEWS_KIND)) ?? [];
+const watch = new CategoryWatch({ record: async () => {} } as unknown as ActivityRecorder, loud);
+const bulletin = await new BulletinSource(news, new ReadLog(), topics, watch, config, loud).storiesFor(NEWS_KIND, asked);
+const stories = bulletin?.stories ?? [];
 
 console.log(
     `\n${manifest.id}: ${allowed.size} feed host(s), ${NETWORK_OPEN}=${granted?.decision ?? 'undecided'}, stories=${settings.fetchArticles !== false}`,
 );
-console.log(`${stories.length} stor${stories.length === 1 ? 'y' : 'ies'} for a bulletin\n`);
+console.log(
+    `${stories.length} stor${stories.length === 1 ? 'y' : 'ies'} for a bulletin${bulletin?.subject === undefined ? '' : ` about ${bulletin.subject.label}`}\n`,
+);
 
 for (const [at, story] of stories.entries()) {
     console.log(`  ${at + 1}. ${story.headline}`);
@@ -178,7 +199,6 @@ for (const [at, story] of stories.entries()) {
 // against. A run where every story comes back uncategorised means the categories are word lists
 // against publishers who tag nothing — which is the state where a band asking for one is silent, so
 // it is worth seeing before it is heard.
-const rules = (await new TopicRepository(db, new StationIdentity()).list(NEWS_KIND)).map(newsTopicRules);
 const page = await news.fetchItems({ limit: 25 });
 
 console.log(`─ categories (${rules.length} on this station, ${page.length} stories read) ───────────────`);

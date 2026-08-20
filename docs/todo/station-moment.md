@@ -69,6 +69,13 @@ for, and `host.fetch` gives it the allowlist and the rate limit for free.
 Prefer a keyless source so a fresh install has weather without an operator signing up for anything.
 Open-Meteo qualifies and needs no key.
 
+**Its locations are TOPICS, and that half already exists.** `deadair.topics` is the operator's own
+vocabulary keyed by `segments.kind`, built for news categories on 2026-08-20 and deliberately built as
+a chassis: a weather kind registers a `TopicKind` with its own `ConfigField`s (a place, a unit), the
+console page draws it with no new component, and a band on the format clock can already say
+`weather` / `Atlanta`. What a location MEANS is the weather kind's own business, exactly as what a
+category means is `news.classify.ts`'s.
+
 **Ship it as the `tool` capability rather than a `weather` one.** See
 [tool-plugins.md](tool-plugins.md): weather is something the DJ asks about in the middle of writing,
 which is a tool call, and a plugin can declare more than one capability if the resolver later wants a

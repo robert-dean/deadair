@@ -1,6 +1,9 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { categoriesOf, newsTopicRules, type NewsTopicRules } from '#modules/news/news.classify.js';
 import { NewsService } from '#modules/news/news.service.js';
+import { TopicRepository } from '#modules/topics/topic.repository.js';
+import { NEWS_KIND } from '#modules/director/news.break.writer.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 
 /**
@@ -25,6 +28,19 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  * deadair. Every feed here belongs to a publisher, so the egress, the rate
  * bucket and the shape of the document live behind `host.fetch` in a plugin, and
  * this file is only the adapter that lets a model reach {@link NewsService}.
+ *
+ * ## The station's own categories are offered, and are not a filter it applies for free
+ *
+ * A DJ asking "what is happening in technology" is asking a real question, so the categories the
+ * operator named are declared as a parameter and the answer is cut to one when it is given. They are
+ * the STATION's words rather than the publishers' labels — the same vocabulary a band on the format
+ * clock points at — which is what stops a model inventing a category nobody has defined and getting
+ * an empty list back with no way to tell that from the world being quiet.
+ *
+ * A category with nothing in it answers with an empty list and SAYS SO, rather than quietly
+ * widening back out: the bulletin's own answer to the same state is to decline the slot, and a tool
+ * that silently substituted general news would teach the model that its filter works when it does
+ * not.
  *
  * ## Nothing here airs
  *
@@ -54,6 +70,7 @@ interface FeedOption {
 export class NewsTool implements ToolSource {
     constructor(
         private readonly news: NewsService,
+        private readonly topics: TopicRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -63,6 +80,11 @@ export class NewsTool implements ToolSource {
         // spends context teaching the model about a tool that cannot help it —
         // the rule `ChartsTool` follows too.
         if (!this.news.hasNews()) return [];
+
+        // The station's own vocabulary, read once per conversation. A station that has named none
+        // gets no `topic` parameter at all rather than one with an empty list behind it, which is
+        // the same rule as the tool itself: do not teach a model about a knob that cannot turn.
+        const categories = await this.categories();
 
         return [
             {
@@ -81,6 +103,17 @@ export class NewsTool implements ToolSource {
                                 type: 'string',
                                 description: 'Which feed, exactly as an earlier answer listed it. Leave it out for everything the station follows.',
                             },
+                            ...(categories.length === 0
+                                ? {}
+                                : {
+                                      topic: {
+                                          type: 'string',
+                                          enum: categories.map(rule => rule.key),
+                                          description: `Only stories in one of the station's own categories: ${categories
+                                              .map(rule => `${rule.key} (${rule.label})`)
+                                              .join(', ')}. Leave it out for everything.`,
+                                      },
+                                  }),
                             limit: { type: 'number', description: `How many stories, at most ${MAX_RESULTS}.` },
                             since: {
                                 type: 'string',
@@ -92,7 +125,7 @@ export class NewsTool implements ToolSource {
                         additionalProperties: false,
                     },
                 },
-                run: async args => await this.read(args),
+                run: async args => await this.read(args, categories),
             },
         ];
     }
@@ -112,14 +145,25 @@ export class NewsTool implements ToolSource {
      * DJ. The count is in the answer so the model can see it found nothing rather
      * than inferring it from silence.
      */
-    private async read(args: Record<string, unknown>): Promise<{ feeds: FeedOption[]; stories: unknown[] }> {
+    private async read(
+        args: Record<string, unknown>,
+        categories: readonly NewsTopicRules[],
+    ): Promise<{ feeds: FeedOption[]; stories: unknown[]; note?: string }> {
         const feedId = readText(args.feedId);
         const since = readText(args.since);
-        const stories = await this.news.fetchItems({
+        const wanted = readText(args.topic);
+        const asked = categories.find(rule => rule.key === wanted);
+
+        const page = await this.news.fetchItems({
             ...(feedId === undefined ? {} : { feedId }),
-            limit: clampLimit(args.limit),
+            // Reaching further down the page when a category was asked for, since most of what comes
+            // back will not belong to it. Bounded by `MAX_NEWS_ITEMS` inside `NewsService` either
+            // way, because this number reaches somebody else's server.
+            limit: asked === undefined ? clampLimit(args.limit) : MAX_RESULTS,
             ...(since === undefined ? {} : { since }),
         });
+
+        const stories = asked === undefined ? page : page.filter(story => categoriesOf(story, [asked]).length > 0).slice(0, clampLimit(args.limit));
 
         const feeds = (await this.news.listFeeds()).map(feed => ({
             id: feed.id,
@@ -130,10 +174,21 @@ export class NewsTool implements ToolSource {
         // The line every tool here carries: "how many stories did the model
         // actually have to work with" has to be answerable from the log alone
         // when a break turns out to have mentioned nothing.
-        this.logger.debug('llm: read the news', { feedId: feedId ?? 'all', found: stories.length });
+        this.logger.debug('llm: read the news', { feedId: feedId ?? 'all', topic: asked?.key ?? 'anything', found: stories.length });
 
         return {
             feeds,
+            // Said rather than left to be inferred from an empty list, and only for the case that
+            // is genuinely ambiguous: a model that asked for a category and got nothing cannot
+            // otherwise tell "nothing has happened in technology" from "this station has no
+            // technology feeds", and those want different next moves.
+            ...(asked !== undefined && stories.length === 0
+                ? {
+                      note:
+                          `Nothing the station follows is currently filed under ${asked.label}. That is about this station's feeds rather ` +
+                          'than about the world. Read the news without a category, or talk about something else.',
+                  }
+                : {}),
             stories: stories.map(story => ({
                 feedId: story.feedId,
                 feedName: story.feedName,
@@ -145,6 +200,22 @@ export class NewsTool implements ToolSource {
                 // sentence a station can broadcast.
             })),
         };
+    }
+
+    /**
+     * The categories this station has named, as rules.
+     *
+     * Read per conversation rather than at boot, for the reason the feeds are asked for per call: an
+     * operator adding a category should have the DJ able to ask for it on the next break. A failure
+     * is a station with no categories, which is a tool with no `topic` parameter and every other
+     * thing it does intact.
+     */
+    private async categories(): Promise<NewsTopicRules[]> {
+        try {
+            return (await this.topics.list(NEWS_KIND)).map(newsTopicRules);
+        } catch {
+            return [];
+        }
     }
 }
 

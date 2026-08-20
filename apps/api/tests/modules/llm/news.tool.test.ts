@@ -8,6 +8,8 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { NewsItem } from '@deadair/plugin-sdk';
 
 import type { NewsService } from '../../../src/modules/news/news.service.js';
+import type { Topic } from '../../../src/modules/topics/topic.js';
+import type { TopicRepository } from '../../../src/modules/topics/topic.repository.js';
 import { NewsTool } from '../../../src/modules/llm/news.tool.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -29,7 +31,19 @@ interface ServiceOptions {
     hasNews?: boolean;
     feeds?: { id: string; pluginId: string; name: string; category?: string }[];
     stories?: NewsItem[];
+    /** The station's own categories. None by default, which is what a fresh install had. */
+    topics?: Topic[];
 }
+
+/** One of the operator's categories, as the classifier reads it. */
+const category = (key: string, label: string, config: Record<string, unknown>): Topic => ({
+    id: `topic-${key}`,
+    kind: 'news',
+    key,
+    label,
+    config,
+    position: 0,
+});
 
 function build(options: ServiceOptions = {}) {
     const listFeeds = vi.fn(async () => options.feeds ?? [{ id: FEED, pluginId: 'deadair.rss', name: 'World news', category: 'world' }]);
@@ -40,7 +54,9 @@ function build(options: ServiceOptions = {}) {
         fetchItems,
     } as unknown as NewsService;
 
-    return { tool: new NewsTool(news, logger), listFeeds, fetchItems };
+    const topics = { list: vi.fn(async () => options.topics ?? []) } as unknown as TopicRepository;
+
+    return { tool: new NewsTool(news, topics, logger), listFeeds, fetchItems };
 }
 
 const only = async (tool: NewsTool) => (await tool.tools())[0]!;
@@ -113,5 +129,52 @@ describe('what comes back', () => {
         const { tool } = build({ stories: [] });
 
         await expect((await only(tool)).run({})).resolves.toMatchObject({ stories: [] });
+    });
+});
+
+// A DJ asking "what is happening in technology" is asking a real question, and the answer has to be
+// the station's own vocabulary rather than a word the model made up — otherwise an empty list is
+// indistinguishable from a category nobody defined.
+describe('the station’s own categories', () => {
+    const technology = category('technology', 'Technology', { labels: ['Technology'], words: ['semiconductor'] });
+
+    it('offers no category parameter at all on a station that has named none', async () => {
+        const { tool } = build();
+        const [declared] = await tool.tools();
+
+        expect(declared?.declaration.parameters.properties).not.toHaveProperty('topic');
+    });
+
+    it('offers the categories the operator wrote, by their keys', async () => {
+        const { tool } = build({ topics: [technology] });
+        const [declared] = await tool.tools();
+
+        const topic = (declared?.declaration.parameters.properties as Record<string, { enum?: string[] }>).topic;
+        expect(topic?.enum).toEqual(['technology']);
+    });
+
+    it('cuts the answer to the category asked for', async () => {
+        const { tool } = build({
+            topics: [technology],
+            stories: [story({ title: 'Semiconductor plant reopens' }), story({ id: 'other', title: 'Council votes on the harbour' })],
+        });
+        const [declared] = await tool.tools();
+
+        const answer = (await declared!.run({ topic: 'technology' })) as { stories: { title: string }[] };
+
+        expect(answer.stories.map(one => one.title)).toEqual(['Semiconductor plant reopens']);
+    });
+
+    it('says an empty category is about the station rather than about the world', async () => {
+        // A model that asked for technology and got nothing cannot otherwise tell "nothing has
+        // happened" from "this station follows no technology feeds", and those want different next
+        // moves. Widening the answer back out silently would teach it that its filter works.
+        const { tool } = build({ topics: [technology], stories: [story({ title: 'Council votes on the harbour' })] });
+        const [declared] = await tool.tools();
+
+        const answer = (await declared!.run({ topic: 'technology' })) as { stories: unknown[]; note?: string };
+
+        expect(answer.stories).toEqual([]);
+        expect(answer.note).toMatch(/feeds rather than about the world/);
     });
 });

@@ -199,7 +199,7 @@ The five decisions are. What sits on top of them, as of 2026-08-16:
   Check the tree rather than this line.
 - ~~**Nothing commissions one on a schedule.**~~ **Built, and this line was stale by the time it was
   read back on 2026-08-19.** `ProductionScheduler.ripen()` commissions off the format clock: an
-  ANCHORED `rotation.clockBands` band whose kind is in `render.productionKinds` (default `podcast`)
+  ANCHORED band on the format clock whose kind is in `render.productionKinds` (default `podcast`)
   is read ahead by `COMMISSION_AHEAD_MS`, three hours, because a boundary is far too late to start
   something that takes minutes to hours of model time. It writes a request exactly as the console
   does, so both ways in are one path; it is idempotent by SLOT rather than by memory, asking the

@@ -213,7 +213,7 @@ function readItem(entry: Record<string, unknown>): FeedItem | undefined {
 
 /** See {@link FeedItem.id} for why the ladder is in this order and why it ends in a hash. */
 function readId(entry: Record<string, unknown>, title: string, publishedAt: string | undefined, url: string | undefined): string {
-    return text(entry.guid) ?? text(entry.id) ?? url ?? `hash:${hash(`${title} ${publishedAt ?? ''}`)}`;
+    return text(entry.guid) ?? text(entry.id) ?? url ?? `hash:${hash(`${title}\u0000${publishedAt ?? ''}`)}`;
 }
 
 /**

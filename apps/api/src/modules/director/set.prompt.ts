@@ -123,6 +123,20 @@ export interface SetPromptSettings {
         total: number;
     };
     /**
+     * How many records by one artist this batch will actually use, from `rules.maxPerArtist`.
+     *
+     * A rule the station enforces whatever the model does (`capPerArtist`), sent so the model does
+     * not spend picks that will be thrown away. That is the whole value of it: the cap is not a
+     * question, it is arithmetic the model can do for itself once it knows the number, and the
+     * alternative is a brief served correctly and then diluted by the rotation that filled in for
+     * the dropped picks.
+     *
+     * Absent or zero sends nothing, because zero is how `capPerArtist` spells "no cap" and a
+     * sentence saying at most 0 records may be used would be false in the most damaging direction.
+     */
+    maxPerArtist?: number;
+
+    /**
      * Whether the station may play only records positively marked clean.
      *
      * Named for the RECORDS rather than for the language, unlike `PromptSettings.cleanLanguage` on
@@ -310,6 +324,20 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // is no answer -- and it is the one outcome that cannot be told apart from a broken binding.
         '- Never answer with an empty list before you have searched. Deciding the station has nothing without looking is the one mistake you can make here that costs the whole request.',
         '- Do not put two records by the same artist next to each other.',
+        // The cap the station is going to apply either way, stated as what will HAPPEN — the same
+        // shape as the clean rule below and the dislikes further down, and for the same reason.
+        //
+        // It was missing, and the adjacency rule above was the only thing in the room that sounded
+        // like it covered this. Measured on a briefed refill that worked: the model named 22 records
+        // and spent twelve of them on ONE artist, `capPerArtist` kept two, and the ten it dropped
+        // were filled by ordinary rotation — so a brief that was served perfectly well by the model
+        // still came out as a half-rotation hour. The model had a dozen other acts in hand from
+        // `similar_artists` at the time, which is why this points at them rather than just refusing.
+        ...(settings.maxPerArtist !== undefined && settings.maxPerArtist > 0
+            ? [
+                  `- At most ${settings.maxPerArtist} record${settings.maxPerArtist === 1 ? '' : 's'} by any one artist will be used. Name more and the extra ones are dropped and ordinary rotation plays instead, so a thirteenth track by your favourite act costs you a slot — spend it on another artist. similar_artists is how you find one.`,
+              ]
+            : []),
         '- Order them so the set flows: think about what follows what.',
         // Same shape as the dislikes below: stated as a fact about what will happen rather than as
         // a prohibition, because a model told a rule is advisory spends picks testing it.

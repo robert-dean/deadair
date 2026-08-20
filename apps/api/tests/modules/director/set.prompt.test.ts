@@ -358,6 +358,31 @@ describe('setPrompt', () => {
         expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/clean version/i);
     });
 
+    it('tells the picker the per-artist cap, because it is arithmetic it can do for itself', () => {
+        // Measured on a briefed refill that WORKED: the model named 22 records and spent twelve on
+        // one artist, `capPerArtist` kept two, and ordinary rotation filled in for the ten it
+        // dropped — a brief served correctly and then diluted. Nothing in the prompt had ever said
+        // there was a cap; the adjacency rule was the only thing that sounded like it.
+        const system = systemOf(setPrompt({ count: 24, avoid: [] }, { maxPerArtist: 2 }));
+
+        expect(system).toMatch(/At most 2 records by any one artist will be used/);
+        // Phrased as what will happen and pointed at the way out, like the clean rule above: a model
+        // told only what it may not do spends the slot on nothing.
+        expect(system).toMatch(/costs you a slot/);
+        expect(system).toMatch(/similar_artists is how you find one/);
+    });
+
+    it('says nothing when there is no cap, because zero is how the rule spells "no cap"', () => {
+        // A sentence saying at most 0 records may be used would be false in the most damaging
+        // direction there is: the model would have nothing it could legally name.
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { maxPerArtist: 0 }))).not.toMatch(/by any one artist will be used/);
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/by any one artist will be used/);
+    });
+
+    it('says one RECORD rather than one records', () => {
+        expect(systemOf(setPrompt({ count: 5, avoid: [] }, { maxPerArtist: 1 }))).toMatch(/At most 1 record by any one artist/);
+    });
+
     it('says nothing about it for a mere preference, which is settled after the pick', () => {
         // A preference chooses between two COPIES of a work the model already named, long after this
         // prompt. There is nothing here for it to act on, so sending it would be spending context on

@@ -260,10 +260,13 @@ export class ModelSetGenerator extends SetGenerator {
                 ...(inputs.persona?.music === undefined ? {} : { music: inputs.persona.music }),
                 taste: await this.describeTaste(),
                 styles: await this.describeStyles(inputs.brief),
-                // Only the hard rule, and only as advice. `PickResolver` enforces it whatever the
-                // model does; this is here so a briefed refill does not spend half its picks on
-                // records that will be dropped. See `SetPromptSettings.cleanOnly`.
+                // The two rules the model is told about, and both for one reason: `PickResolver`
+                // enforces them whatever it does, so a refill that does not know them spends picks
+                // on records that will be dropped and lets ordinary rotation fill in for them. The
+                // rest of `rules` stays out — a repeat window is not something a model can reason
+                // about without the history to check it against, and it is judged at the resolver.
                 cleanOnly: demandsClean(advisoryPolicy(this.config)),
+                maxPerArtist: inputs.rules.maxPerArtist,
             },
         );
 

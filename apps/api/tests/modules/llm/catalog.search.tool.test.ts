@@ -10,6 +10,7 @@ import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { CatalogSearchTool } from '../../../src/modules/llm/catalog.search.tool.js';
+import { ProviderSearch } from '../../../src/modules/llm/provider.search.js';
 
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) as never;
 
@@ -57,7 +58,7 @@ function fakeCatalog(options: FakeCatalogOptions = {}): PluginRecord {
 }
 
 const toolFor = (records: PluginRecord[]) =>
-    new CatalogSearchTool({ list: () => records } as unknown as PluginRegistry, passthroughInvoker(), logger());
+    new CatalogSearchTool(new ProviderSearch({ list: () => records } as unknown as PluginRegistry, passthroughInvoker(), logger()));
 
 /** The tool's single declaration and its runner, or undefined when it offered nothing. */
 async function offered(records: PluginRecord[]) {

@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { CatalogSearchTool } from './catalog.search.tool.js';
+import { ProviderSearch } from './provider.search.js';
 import { ChartsTool } from './charts.tool.js';
 import { LibrarySearchTool } from './library.search.tool.js';
 import { LlmGate } from './llm.gate.js';
@@ -50,7 +51,9 @@ export const LlmModule: ServerKitModule = {
         registry.register(LlmGate).useClass(LlmGate).asSingleton();
 
         // Scoped with the plugin registry and invoker it reads, like every other capability
-        // consumer here.
+        // consumer here. The fan-out is its own thing rather than the tool's body, because reaching
+        // the providers and telling a model how to ask are two jobs and only the second is a tool.
+        registry.register(ProviderSearch).useClass(ProviderSearch).asScoped();
         registry.register(CatalogSearchTool).useClass(CatalogSearchTool).asScoped();
         // Scoped with the catalog repository it reads. Not a plugin consumer at all, which is the
         // difference between the two search tools: this one asks what the station HAS.

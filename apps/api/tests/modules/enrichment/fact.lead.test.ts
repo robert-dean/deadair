@@ -61,8 +61,36 @@ describe('tidying a sentence', () => {
         expect(tidy('Bjork (pronounced BYURK) released it in 1993.')).toBe('Bjork released it in 1993.');
     });
 
+    // Every one of these is a span taken off a real stored article, and every one
+    // of them was being spoken on air: the respelling key renders with no keyword
+    // for the gloss pattern to find, so nine claims in the store held one.
+    it('drops a respelling key that announces itself with nothing but its own shape', () => {
+        expect(tidy('Lynyrd Skynyrd ( LEH-nerd SKIN-nerd) is an American rock band.')).toBe('Lynyrd Skynyrd is an American rock band.');
+        expect(tidy('Slipknot ( SLIP-not) is an American heavy metal band.')).toBe('Slipknot is an American heavy metal band.');
+        expect(tidy('Ænima ( AH-ni-mə) is the second studio album by Tool.')).toBe('Ænima is the second studio album by Tool.');
+    });
+
+    it('takes the whole parenthetical, because a respelling shares it with whatever else the lead crams in', () => {
+        expect(tidy('Aretha Franklin ( ə-REE-thə; March 25, 1942 – August 16, 2018) was an American singer.')).toBe(
+            'Aretha Franklin was an American singer.',
+        );
+        expect(tidy('Blue Öyster Cult ( OY-ster; sometimes abbreviated BÖC or BOC) is an American rock band.')).toBe(
+            'Blue Öyster Cult is an American rock band.',
+        );
+    });
+
     it('leaves an ordinary parenthetical alone, because that is content', () => {
         expect(tidy('It appeared on Badmotorfinger (1991).')).toBe('It appeared on Badmotorfinger (1991).');
+    });
+
+    // The pattern is two signals and needs both. A parenthetical of prose opens on
+    // a letter, and one that happens to open on a space is still not a respelling
+    // unless what follows is letters and a stressed syllable.
+    it('leaves a bare parenthetical alone when it is prose rather than a respelling', () => {
+        expect(tidy('The band signed to Bad Boy Records ( an imprint of Arista) in 1996.')).toBe(
+            'The band signed to Bad Boy Records ( an imprint of Arista) in 1996.',
+        );
+        expect(tidy('It reached the chart ( 12 weeks) that summer.')).toBe('It reached the chart ( 12 weeks) that summer.');
     });
 });
 

@@ -48,6 +48,36 @@ const ABBREVIATIONS = /\b(?:Mr|Mrs|Ms|Dr|Prof|St|Jr|Sr|vs|feat|ft|no|No|Vol|Op|a
 /** A pronunciation gloss or a foreign-script rendering of the title, which nobody wants read out. */
 const GLOSS = /\((?:[^()]*(?:pronounced|IPA|listen|help·info|born|née|Japanese|Korean|Chinese|Russian|Hebrew|Arabic|lit\.)[^()]*)\)/gi;
 
+/**
+ * The same thing with no word announcing it, which is how most of them arrive.
+ *
+ * A respelling key renders into a plaintext extract as a bare parenthetical —
+ * "Lynyrd Skynyrd ( LEH-nerd SKIN-nerd) is an American rock band" — carrying no
+ * keyword for {@link GLOSS} to find. It went out over the air that way: nine
+ * claims in this station's store held one, and a voice engine reads
+ * "LEH-nerd SKIN-nerd" as enthusiastically as it reads the band's name.
+ *
+ * Two signals together, because either alone is a common shape of ordinary
+ * prose. The parenthesis opens on WHITESPACE, which is an artefact of the
+ * template rather than anything a sentence does, and the clause before the first
+ * separator is a run of letters and hyphens carrying a capitalised syllable —
+ * the stress mark of the respelling key itself. Measured against 539 stored
+ * articles, the pair matches 34 documents and nothing that is not one.
+ *
+ * The clause is only the HEAD of the parenthetical because the rest of it is
+ * whatever else the lead crams in there ("; sometimes abbreviated BÖC or BOC",
+ * a span of dates), and all of it goes: dropping the whole parenthesis is what
+ * {@link GLOSS} has always done to the keyword-carrying half of the same
+ * construction.
+ */
+const RESPELLING = /\(\s[^()]*\)/g;
+
+/** Whether what a bare parenthetical opens with is a respelling rather than a parenthesis of prose. */
+const isRespelling = (inside: string): boolean => {
+    const head = inside.replace(/^\(|\)$/g, '').split(/[;,]/)[0] ?? '';
+    return /\p{Lu}{2,}/u.test(head) && /^[\p{L}\p{M}\s'’.-]+$/u.test(head);
+};
+
 /** Wikipedia's own inline furniture: reference markers and edit hints that survive a plaintext extract. */
 const FURNITURE = /\[(?:\d+|citation needed|note \d+|[a-z])\]/gi;
 
@@ -140,6 +170,7 @@ export function tidy(sentence: string): string {
     return sentence
         .replace(FURNITURE, '')
         .replace(GLOSS, '')
+        .replace(RESPELLING, match => (isRespelling(match) ? '' : match))
         .replace(/\s+([,.;:])/g, '$1')
         .replace(/\s+/g, ' ')
         .trim();

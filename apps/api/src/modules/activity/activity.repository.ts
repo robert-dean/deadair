@@ -50,6 +50,15 @@ const AT_LEAST: Record<ActivitySeverity, readonly ActivitySeverity[]> = {
     fault: ['fault'],
 };
 
+/**
+ * One row of the union, as it arrives here rather than as the SQL spells it.
+ *
+ * Keys are camelCase even though this is raw SQL: `CamelCasePlugin` is in `KyselyDefaultPlugins`
+ * and rewrites the result keys on the way out, which `TrackAudioRepository` and
+ * `StationLineupRepository` both document for the same reason. Declaring these two as `segment_id`
+ * and `track_id` reads perfectly and answers `undefined` every time — which is exactly what it did,
+ * silently, for as long as the feed carried them and nothing read them.
+ */
 interface RawRow {
     id: string;
     at: DateTime;
@@ -58,8 +67,8 @@ interface RawRow {
     severity: ActivitySeverity;
     detail: string | null;
     data: Record<string, unknown> | null;
-    segment_id: string | null;
-    track_id: string | null;
+    segmentId: string | null;
+    trackId: string | null;
 }
 
 @Injectable()
@@ -146,8 +155,8 @@ export class ActivityRepository extends DataRepository {
             severity: row.severity,
             detail: row.detail,
             data: row.data,
-            segmentId: row.segment_id,
-            trackId: row.track_id,
+            segmentId: row.segmentId,
+            trackId: row.trackId,
         }));
     }
 }

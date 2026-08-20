@@ -251,14 +251,19 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                 </Table.Td>
                                 {/* The CREDIT is drawn and the LEAD is linked, which is the same
                                     split the rest of the station runs on: `artists` is what the
-                                    provider wrote on the copy and `artistId` is who it is by. */}
+                                    provider wrote on the copy and `artistId` is who it is by.
+
+                                    `dimmed` only where there is nowhere to go, because a dimmed
+                                    anchor is indistinguishable from the text beside it: a link
+                                    nobody can see is a page nobody finds, which is the reason the
+                                    catalog's own table draws these two as links at all. */}
                                 <Table.Td style={{ maxWidth: 220 }}>
-                                    <ArtistLink id={item.artistId} size="sm" c="dimmed" truncate>
+                                    <ArtistLink id={item.artistId} size="sm" c={item.artistId === undefined ? 'dimmed' : undefined} truncate>
                                         {formatArtists(item.artists)}
                                     </ArtistLink>
                                 </Table.Td>
                                 <Table.Td visibleFrom="xl">
-                                    <AlbumLink id={item.albumId} size="sm" c="dimmed" truncate>
+                                    <AlbumLink id={item.albumId} size="sm" c={item.albumId === undefined ? 'dimmed' : undefined} truncate>
                                         {item.album ?? ''}
                                         {item.year ? ` (${item.year})` : ''}
                                     </AlbumLink>

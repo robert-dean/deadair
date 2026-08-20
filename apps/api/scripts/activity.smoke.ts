@@ -118,6 +118,36 @@ async function walk(): Promise<void> {
     console.log(`    sources represented: ${[...modules].join(', ') || 'none'}`);
 }
 
+/**
+ * The two ids a line carries, which are what a console links from.
+ *
+ * Its own check because of how it failed: the union selects `segment_id` and `track_id`, and
+ * `CamelCasePlugin` rewrites raw-SQL result keys, so a repository reading `row.segment_id` answered
+ * `undefined` for every row and every one of these was silently absent. Nothing noticed until
+ * something tried to link from them, which is precisely the class of bug this script is for.
+ */
+async function ids(): Promise<void> {
+    const entries = (await service.readActivity({ limit: 200 })).entries;
+
+    const segments = entries.filter(entry => entry.kind.startsWith('segment.'));
+    const aired = entries.filter(entry => entry.kind === 'track.aired');
+
+    if (segments.length === 0) console.log('  · no break entries in this window, so nothing to check the segment id against');
+    else
+        check(
+            segments.every(entry => entry.segmentId !== undefined),
+            `every one of ${segments.length} break entries names the segment it is about`,
+        );
+
+    // Not every airing has one: a station can air a record the catalog has never seen.
+    if (aired.length === 0) console.log('  · nothing aired in this window, so nothing to check the track id against');
+    else
+        check(
+            aired.some(entry => entry.trackId !== undefined),
+            `${aired.filter(entry => entry.trackId !== undefined).length} of ${aired.length} airings name the record they were`,
+        );
+}
+
 /** The filters, which are the console's chips and the one thing a reader can get wrong silently. */
 async function filters(): Promise<void> {
     const everything = await service.readActivity({ limit: 50 });
@@ -155,6 +185,7 @@ console.log('activity feed\n');
 console.log(`  rows: ${JSON.stringify(await counts())}\n`);
 
 await walk();
+await ids();
 await filters();
 if (WRITE) await withAnEvent();
 else console.log('  · pass --write to exercise station_events, which this install may have none of');

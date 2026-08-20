@@ -46,6 +46,33 @@ const LEVEL_ORDER: Record<string, number> = {
 
 /** Meta keys whose value is replaced with `***` before a line is written. */
 const REDACT_KEY_PATTERN = /token|secret|password|authorization|api[_-]?key|credential/i;
+
+/**
+ * Meta keys that match {@link REDACT_KEY_PATTERN} on the word "token" but hold a COUNT.
+ *
+ * The pattern matches on a substring, which is right for `access_token` and `refreshToken` and
+ * wrong for `tokens` — a number of tokens a model produced is a measurement, not a credential, and
+ * redacting it destroys the one figure that says what a model call actually did.
+ *
+ * It was live on every model path the station has: set generation, break writing and fact
+ * extraction all logged `tokens=***`, and it was the ONLY redacted field in the whole log. It cost
+ * a real diagnosis — a refill reported as having exhausted a 12,000-token ceiling had to be shown
+ * to have used about 290 of them by measuring the host's token rate out of `script_history` and
+ * dividing, because the number itself had been scrubbed on the way to disk.
+ *
+ * An ALLOWLIST of exact keys rather than a cleverer pattern, and that direction is the whole point:
+ * a narrower regex risks letting a real credential through for the sake of a log line, where a
+ * missing entry here costs nothing worse than a `***` somebody comes back and adds a word to. Held
+ * lower-case and compared lower-case, so `outputTokens` and `output_tokens` are one entry.
+ *
+ * Every name here is one the tree actually logs or that the AI SDK's usage object carries. Do not
+ * add a key speculatively: an entry for a name nobody writes is a hole waiting for somebody to
+ * write a secret under it.
+ */
+const COUNT_KEYS = new Set(['tokens', 'totaltokens', 'outputtokens', 'inputtokens', 'reasoningtokens', 'maxtokens', 'maxoutputtokens']);
+
+/** Whether a meta key's value is a credential rather than a count, and so must not be written. */
+const isRedacted = (key: string): boolean => !COUNT_KEYS.has(key.toLowerCase()) && REDACT_KEY_PATTERN.test(key);
 /** Matches a bearer token embedded inside an otherwise-innocuous string value. */
 const BEARER_TOKEN_PATTERN = /Bearer\s+\S+/gi;
 
@@ -507,7 +534,7 @@ function renderMeta(meta: Record<string, unknown>, maxValueChars: number): strin
     const parts: string[] = [];
 
     for (const [key, value] of Object.entries(meta)) {
-        const rendered = REDACT_KEY_PATTERN.test(key) ? '***' : renderMetaValue(value, maxValueChars);
+        const rendered = isRedacted(key) ? '***' : renderMetaValue(value, maxValueChars);
         parts.push(`${key}=${rendered}`);
     }
 

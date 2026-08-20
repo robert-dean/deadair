@@ -154,6 +154,36 @@ describe('RotatingLogStore.append / tail', () => {
         expect(raw).not.toContain('secret-value');
     });
 
+    it('writes a token COUNT, which is a measurement rather than a credential', async () => {
+        // The pattern matches on a substring, so `tokens` was redacted alongside `access_token` and
+        // every model path in the station logged `tokens=***`. It was the only redacted field in
+        // the whole live log, and it destroyed the one figure that says what a model call did: a
+        // refill accused of exhausting a 12,000-token ceiling could only be shown to have used
+        // about 290 by measuring the host's rate elsewhere and dividing.
+        const { store, root } = await makeStore();
+        store.append(undefined, 'info', 'wrote a break', { tokens: 2897, outputTokens: 332, totalTokens: 2897, maxOutputTokens: 12000 });
+        await store.close();
+
+        const raw = await readFile(join(root, 'api.log'), 'utf8');
+        expect(raw).toContain('tokens=2897');
+        expect(raw).toContain('outputTokens=332');
+        expect(raw).toContain('maxOutputTokens=12000');
+        expect(raw).not.toContain('***');
+    });
+
+    it('still redacts a credential whose key merely starts the same way', async () => {
+        // The allowlist is exact keys, so widening it for counts cannot widen it for anything else.
+        const { store, root } = await makeStore();
+        store.append(undefined, 'info', 'auth', { accessToken: 'abc123', refresh_token: 'def456', token: 'ghi789' });
+        await store.close();
+
+        const raw = await readFile(join(root, 'api.log'), 'utf8');
+        expect(raw).toContain('accessToken=***');
+        expect(raw).toContain('refresh_token=***');
+        expect(raw).toContain('token=***');
+        expect(raw).not.toMatch(/abc123|def456|ghi789/);
+    });
+
     it('redacts a bearer token embedded inside an otherwise-normal meta value', async () => {
         const { store, root } = await makeStore();
         store.append(undefined, 'info', 'request', { header: 'Bearer abcdef123456' });

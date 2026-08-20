@@ -84,6 +84,12 @@ export const NEWS_TEMPLATES: readonly string[] = [
     "Here's the news[[ on {{station.name}}]]. {{news.headlines}}[[ Now, {{next.title}}.]]",
     '[[{{greeting}}. ]]Time for the headlines. {{news.headlines}}[[ Then, {{next.artist}}.]]',
     "It's {{clock.rough}}, and this is the news[[ on {{station.name}}]]. {{news.headlines}}",
+    // The two that say what this bulletin is ABOUT, which is what makes a categorised band sound
+    // like one. Both name `{{news.topic}}` OUTSIDE an optional chunk, so `usable` drops them on an
+    // ordinary bulletin rather than the station announcing "the news" twice in different words —
+    // that is the same rule every phrasing here follows about `{{news.headlines}}`.
+    'Now the {{news.topic}} news. {{news.headlines}}[[ Next up, {{next.artist}}.]]',
+    "Here's what's happening in {{news.topic}}[[ on {{station.name}}]]. {{news.headlines}}",
 ];
 
 /**
@@ -136,6 +142,10 @@ export class NewsBreakWriter extends BreakWriter {
         // decided what this break is. Withholding it makes every phrasing here usable mid-order.
         const inputs: TemplateInputs = {
             news,
+            // What this bulletin is about, when a band asked for one. Absent leaves the two phrasings
+            // that name it unusable, which is what keeps "Now the technology news" out of a bulletin
+            // that is not about technology.
+            ...(request.subject === undefined ? {} : { subject: request.subject.label }),
             ...(request.next === undefined ? {} : { next: request.next }),
             ...(request.station === undefined ? {} : { station: request.station }),
             ...(dj.length === 0 ? {} : { dj }),
@@ -157,7 +167,9 @@ export class NewsBreakWriter extends BreakWriter {
 
         return {
             script: chosen.script,
-            label: 'News',
+            // Named for what it covers, so an operator reading the running order or the script
+            // history can tell one bulletin from the next without opening either.
+            label: request.subject === undefined ? 'News' : `${request.subject.label} news`,
             claimsNext: chosen.saysNext,
             // Only when the phrasing really says what time it is, which is the answered-rather-than-
             // assumed posture every deterministic writer here takes.

@@ -79,8 +79,13 @@ export const NEWS_SHAPE: BreakPromptShape = {
     // break where being wrong is worst. Both of the false discography claims this station has put on
     // air arrived exactly that way; see `BreakPromptShape.showsFacts`.
     showsFacts: false,
-    opening: () =>
-        'This is the news. Introduce it in a sentence, report the stories below in the order they are given, and then hand back to the music. ' +
+    opening: request =>
+        // What it is ABOUT, when a band asked for one. Said in the opening rather than as a rule
+        // because it changes what the bulletin IS rather than constraining how it is written — and
+        // it is only a description: the stories below have already been cut to the category, so a
+        // model that ignored this sentence would still be reading the right ones.
+        (request.subject === undefined ? 'This is the news.' : `This is the ${request.subject.label} news, so say so as you introduce it.`) +
+        ' Introduce it in a sentence, report the stories below in the order they are given, and then hand back to the music. ' +
         'Each story gets its headline and a sentence of what happened, from the text you are given and nowhere else. ' +
         'You are reporting, not commenting: no jokes about the stories, no opinions, and nothing about how they make anyone feel.',
     // Two rules a bulletin owes and a talk break does not, both of them measured failures rather
@@ -226,7 +231,8 @@ export class ModelNewsBreakWriter extends BreakWriter {
 
         return {
             script,
-            label: 'News',
+            // Named for what it covers, as the floor beneath it is. See `NewsBreakWriter`.
+            label: request.subject === undefined ? 'News' : `${request.subject.label} news`,
             // Told what plays next means allowed to name it, so assume it did: over-stamping costs a
             // bulletin the order drifted under, which is the safe direction.
             claimsNext: request.next !== undefined,

@@ -88,6 +88,19 @@ describe('what it will air', () => {
         });
     });
 
+    it('tells the model what this bulletin is about, and names the break for it', async () => {
+        // Said in the OPENING rather than as a rule, because it changes what the bulletin is rather
+        // than constraining how it is written — and it only describes: the stories were cut to the
+        // category before the model saw them, so ignoring the sentence still reads the right ones.
+        const { writer, converse } = build('Here is the technology news. A chip plant reopened.');
+
+        const written = await writer.write(request({ subject: { key: 'technology', label: 'Technology' } }));
+
+        expect(written?.label).toBe('Technology news');
+        const user = String((converse.mock.calls[0]?.[0].messages ?? []).find(message => message.role === 'user')?.content ?? '');
+        expect(user).toContain('This is the Technology news');
+    });
+
     it('gives itself room for a bulletin rather than a talk break', async () => {
         const { writer, converse } = build(`${'word '.repeat(NEWS_MAX_WORDS - 1)}end.`);
 

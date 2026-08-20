@@ -9,7 +9,7 @@ import { BreakWriterRegistry } from './break.writer.registry.js';
 import { ModelNewsBreakWriter } from './model.news.break.writer.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { NewsBreakWriter } from './news.break.writer.js';
-import { BulletinSource, ReadLog } from './bulletin.source.js';
+import { BulletinSource, CategoryWatch, ReadLog } from './bulletin.source.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
@@ -135,6 +135,10 @@ export const DirectorModule: ServerKitModule = {
         // therefore per-job, which made it inert — ten consecutive bulletins read the same three
         // stories on 19 August. See `ReadLog`.
         registry.register(ReadLog).useClass(ReadLog).asSingleton();
+        // A singleton for the same reason and one kind of fact over: which categories the clock asks
+        // for and the feeds never fill. An edge flag on the scoped source below would reset every
+        // bulletin, and the activity feed would take a row every half hour. See `CategoryWatch`.
+        registry.register(CategoryWatch).useClass(CategoryWatch).asSingleton();
         // Scoped with the `NewsService` it reads — which is why the log above is registered apart
         // from it rather than made a singleton itself, since that would capture a scoped
         // `NewsService` at the root. What a bulletin is written FROM, fetched once for whichever

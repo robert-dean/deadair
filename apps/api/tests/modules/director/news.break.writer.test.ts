@@ -39,6 +39,27 @@ describe('reading the headlines', () => {
         expect(written?.label).toBe('News');
     });
 
+    it('names a bulletin for the category it covers, and says so out loud where a phrasing allows', async () => {
+        // The label reaches the running order and the script history, so an operator can tell one
+        // bulletin from the next without opening either.
+        const written = await writer.write(request({ subject: { key: 'technology', label: 'Technology' } }));
+
+        expect(written?.label).toBe('Technology news');
+    });
+
+    it('uses a phrasing that names the category only when there IS one', async () => {
+        // `{{news.topic}}` sits outside an optional chunk in both phrasings that carry it, so
+        // `usable` drops them on an ordinary bulletin — which is what keeps "Now the technology
+        // news" out of a bulletin that is not about technology.
+        const onlyTopical = config({ [NEWS_KEYS.templates]: 'Now the {{news.topic}} news. {{news.headlines}}' });
+        const topical = new NewsBreakWriter(onlyTopical, logger);
+
+        expect(await topical.write(request())).toBeUndefined();
+
+        const named = await topical.write(request({ subject: { key: 'technology', label: 'Technology' } }));
+        expect(named?.script).toContain('Now the Technology news.');
+    });
+
     // Not a softening of the read-as-published rule but an application of it: a published first
     // sentence quoted word for word is exactly as checkable as a headline, and a bulletin of titles
     // alone tells a listener nothing.

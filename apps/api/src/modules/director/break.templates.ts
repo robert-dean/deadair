@@ -71,6 +71,15 @@ export interface TemplateInputs {
      */
     news?: string;
     /**
+     * What this break is ABOUT, in the operator's own word for it: `Technology`, `Atlanta`.
+     *
+     * The subject a band on the format clock asked for, when it asked for one. Absent for a break
+     * that covers whatever it finds, which is most of them — so a phrasing naming it is simply not
+     * used there, which is the no-branch behaviour {@link clock} has and is exactly right: "Now the
+     * technology news" is a sentence only a technology bulletin should ever say.
+     */
+    subject?: string;
+    /**
      * How the station greets somebody at this hour: "good morning", "good evening".
      *
      * Absent in the small hours, where the station greets nobody by name of day, and absent for
@@ -160,6 +169,9 @@ const VALUES: Record<string, Resolver> = {
     // speakable (see `BreakStory.headline`), and `spoken` strips catalogue furniture off a TITLE,
     // which would be the wrong operation entirely on a sentence.
     'news.headlines': inputs => inputs.news,
+    // Out of `SPOKEN_VALUES` with the two above it: a subject is the operator's own label and has no
+    // catalogue furniture to strip.
+    'news.topic': inputs => inputs.subject,
     // Out of `SPOKEN_VALUES` for `clock.rough`'s reason, which the filter below already gets right by
     // naming the two prefixes that ARE read as titles: "good morning" has no catalogue furniture.
     greeting: inputs => inputs.greeting,

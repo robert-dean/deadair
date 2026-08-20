@@ -51,6 +51,8 @@ function harness(
         request?: StoredBreakRequest;
         /** What a bulletin has to report, for the one test about handing the stories over. */
         stories?: readonly BreakStory[];
+        /** What the bulletin is ABOUT, once the source has resolved the band's category. */
+        subject?: { key: string; label: string };
         /** What this broadcast has played, for the tests about the writer's memory of the show. */
         played?: readonly { title: string; artist: string }[];
         /** What the station has already said this broadcast. */
@@ -101,7 +103,13 @@ function harness(
     const activity = { record: vi.fn(async (_event: Record<string, unknown>) => undefined) };
     // What a bulletin is written from. `undefined` for every kind that does not report, which is
     // every kind these assertions are about.
-    const bulletin = { storiesFor: vi.fn(async (_kind: string, _now?: number) => options.stories) };
+    const bulletin = {
+        storiesFor: vi.fn(async (_kind: string, _context?: unknown, _now?: number) =>
+            options.stories === undefined
+                ? undefined
+                : { stories: options.stories, ...(options.subject === undefined ? {} : { subject: options.subject }) },
+        ),
+    };
     // What this broadcast has played, for the writer's memory of the show it is presenting. Empty
     // unless a test asks otherwise, which is the state every other assertion here was written
     // against.
@@ -234,8 +242,24 @@ describe('WriteBreakJob', () => {
 
         // The slot's own time rather than now: a bulletin written a quarter of an hour early is
         // judged fresh against when it is heard, not against when it was written.
-        expect(bulletin.storiesFor).toHaveBeenCalledWith('news', 1_700_000_000_000);
+        expect(bulletin.storiesFor).toHaveBeenCalledWith('news', undefined, 1_700_000_000_000);
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ stories }));
+    });
+
+    it('hands over what the bulletin turned out to be about, resolved rather than as a key', async () => {
+        // The writers are handed a SUBJECT and never the raw context: the label is what a bulletin
+        // says out loud, and resolving it in one place is what keeps the model binding and the floor
+        // from resolving it differently.
+        const { job, writers } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ kind: 'news', context: { topic: 'technology' } }),
+            stories: [{ headline: 'Chip plant reopens.' }],
+            subject: { key: 'technology', label: 'Technology' },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ subject: { key: 'technology', label: 'Technology' } }));
     });
 
     it('hands no stories at all to a kind that does not report', async () => {

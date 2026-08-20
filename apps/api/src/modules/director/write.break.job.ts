@@ -207,7 +207,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // AFTER the claim for the facts' reason — a job that was merely early does no work at all —
         // and against the moment the break was placed for rather than now, so a bulletin written a
         // quarter of an hour early is judged fresh against the slot it will actually air in.
-        const stories = await this.bulletin.storiesFor(segment.kind, segment.airsAt ?? Date.now());
+        const bulletin = await this.bulletin.storiesFor(segment.kind, context, segment.airsAt ?? Date.now());
 
         const result = await this.writers.write({
             kind: segment.kind,
@@ -215,7 +215,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(greeting === undefined ? {} : { greeting }),
             ...(part === undefined ? {} : { dayPart: part }),
             ...(context === undefined ? {} : { context }),
-            ...(stories === undefined ? {} : { stories }),
+            ...(bulletin === undefined ? {} : { stories: bulletin.stories }),
+            // What the format clock asked this break to be ABOUT, resolved out of the context above
+            // by the thing that owns the kind's substrate. A writer reads it here rather than
+            // digging the key out of `context` itself, so the model binding and the floor cannot
+            // resolve it differently.
+            ...(bulletin?.subject === undefined ? {} : { subject: bulletin.subject }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),

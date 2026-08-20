@@ -2,9 +2,13 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { truncateSentences } from '@deadair/plugin-sdk';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { categoriesOf, newsTopicRules, type NewsTopicRules } from '#modules/news/news.classify.js';
 import { NewsService } from '#modules/news/news.service.js';
+import { TopicRepository } from '#modules/topics/topic.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
-import type { BreakStory } from './break.writer.js';
+import type { BreakContext } from './break.request.js';
+import type { BreakStory, BreakSubject } from './break.writer.js';
 import { NEWS_KIND } from './news.break.writer.js';
 
 /**
@@ -21,6 +25,20 @@ import { NEWS_KIND } from './news.break.writer.js';
  * `storiesFor` answers `undefined` for every other kind, which is what keeps `WriteBreakJob` free
  * of a branch about news. It is a real answer rather than politeness: reading a feed costs a
  * request, and a talk break has no use for one.
+ *
+ * ## What it is ABOUT is decided here too
+ *
+ * A band on the format clock may ask for a bulletin about one of the operator's categories, which
+ * arrives as `context.topic` on the segment. Resolving that key, classifying the page and cutting it
+ * to the category all happen HERE for the same reason the freshness window does: both writers see
+ * one substrate, and the model binding and the floor cannot disagree about what a technology
+ * bulletin is.
+ *
+ * A category that matches nothing DECLINES the slot rather than falling back to general news. That
+ * is the `clean-only` advisory posture — demand a positive match, say so where an operator will see
+ * it, and never air the wrong thing under the right name — and it is the same trade the freshness
+ * window and the read log already make: silence is a state somebody can act on, and a general
+ * bulletin read under a category's name is not.
  *
  * ## Nothing here throws
  *
@@ -190,12 +208,69 @@ const key = (headline: string): string =>
         .replace(/[^\p{L}\p{N}]+/gu, ' ')
         .trim();
 
+/**
+ * Says out loud when a category the clock asks for has nothing in it.
+ *
+ * `AdvisoryWatch`'s shape and its argument, one kind of break over: a bulletin that declines because
+ * its category matched nothing is CORRECT and must not be silent about it — a station whose
+ * technology band has been passing over its slot all afternoon and a station whose feeds are down
+ * produce the same quiet half-hours and want opposite fixes.
+ *
+ * Its own singleton for `AdvisoryWatch`'s reason as well: `BulletinSource` is scoped, so an edge flag
+ * on it would reset before it could suppress anything and the feed would take a row every bulletin.
+ * Keyed by category, because two categories running dry are two facts.
+ */
+@Injectable()
+export class CategoryWatch {
+    private readonly reported = new Set<string>();
+
+    constructor(
+        private readonly activity: ActivityRecorder,
+        private readonly logger: Logger,
+    ) {}
+
+    /** The rising edge: this category had nothing in the window the bulletin could read. */
+    empty(subject: BreakSubject, offered: number): void {
+        if (this.reported.has(subject.key)) return;
+        this.reported.add(subject.key);
+
+        this.logger.info('director: a bulletin asked for a category with nothing in it, so the station passed over the slot', {
+            topic: subject.key,
+            offered,
+        });
+        void this.activity.record({
+            module: 'director',
+            kind: 'news.categoryEmpty',
+            detail:
+                `The clock asks for a ${subject.label} bulletin, and none of the ${offered} stories the station could read belongs to that ` +
+                'category. It will pass over that slot until something does, or until the category is pointed at a feed that carries it.',
+            data: { topic: subject.key, offered },
+        });
+    }
+
+    /** The falling edge, so a category that fills up again is reported the next time it runs dry. */
+    filled(subject: BreakSubject): void {
+        if (!this.reported.delete(subject.key)) return;
+        this.logger.info('director: a category the station had nothing for has stories again', { topic: subject.key });
+    }
+}
+
+/** What a bulletin was given to read, and what it is about. */
+export interface Bulletin {
+    stories: readonly BreakStory[];
+    /** The category the format clock asked for, when it asked for one. */
+    subject?: BreakSubject;
+}
+
 @Injectable()
 export class BulletinSource {
     constructor(
         private readonly news: NewsService,
         /** See {@link ReadLog}. A singleton beside this scoped class, and deliberately not persisted. */
         private readonly read: ReadLog,
+        private readonly topics: TopicRepository,
+        /** See {@link CategoryWatch}. A singleton for the same reason the read log is. */
+        private readonly watch: CategoryWatch,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -206,17 +281,22 @@ export class BulletinSource {
      * `now` is a parameter rather than a call to the clock so the staleness window is testable, and
      * because the caller already has the instant it is writing for.
      */
-    async storiesFor(kind: string, now: number = Date.now()): Promise<readonly BreakStory[] | undefined> {
+    async storiesFor(kind: string, context: BreakContext | undefined, now: number = Date.now()): Promise<Bulletin | undefined> {
         if (kind !== NEWS_KIND) return undefined;
 
         // Asked before anything else, so a station with no news plugin costs nothing and says
         // nothing: `BreakPlanner` would not have planted this break if nothing could write the kind,
         // but a plugin can be uninstalled between planting and writing.
-        if (!this.news.hasNews()) return [];
+        if (!this.news.hasNews()) return { stories: [] };
 
         const wanted = clamp(this.config.get(BULLETIN_KEYS.stories, DEFAULT_STORY_COUNT), 1, MAX_STORY_COUNT, DEFAULT_STORY_COUNT);
         const maxAgeHours = clamp(this.config.get(BULLETIN_KEYS.maxAgeHours, DEFAULT_MAX_AGE_HOURS), 1, MAX_AGE_HOURS, DEFAULT_MAX_AGE_HOURS);
         const feed = this.config.get(BULLETIN_KEYS.feed, '').trim();
+
+        // Every category this station holds, read once: the one this bulletin was asked for cuts the
+        // page down, and the rest are what a general bulletin spreads across.
+        const rules = await this.categories();
+        const asked = subjectOf(context, rules);
 
         try {
             const windowMs = maxAgeHours * 3_600_000;
@@ -234,9 +314,25 @@ export class BulletinSource {
             // station whose every recent bulletin declined. See `ReadLog.forget`.
             this.read.forget(now - windowMs);
 
-            const offered = items.flatMap(item => toStory(item) ?? []);
+            const offered = items.flatMap(item => toStory(item, rules) ?? []);
             const unread = offered.filter(story => !this.read.has(story.headline));
-            const stories = unread.slice(0, wanted);
+
+            // Cut to what this bulletin is about, or spread across whatever the categories say the
+            // page holds. Two different jobs and one line, because a bulletin that was asked for a
+            // category has already had its variety decided for it.
+            const eligible = asked === undefined ? spread(unread) : unread.filter(story => (story.categories ?? []).includes(asked.key));
+            const stories = eligible.slice(0, wanted);
+
+            // The category is empty. DECLINED rather than filled with general news, which is the
+            // whole point of asking for one: a listener cannot tell a technology bulletin that is
+            // really the day's headlines from a station that has got it wrong. Said on the EDGE and
+            // on the activity feed, because a slot passed over every half hour all afternoon is
+            // otherwise invisible.
+            if (asked !== undefined && stories.length === 0) {
+                this.watch.empty(asked, offered.length);
+                return { stories: [], subject: asked };
+            }
+            if (asked !== undefined) this.watch.filled(asked);
 
             // Nothing the station has not already said. DECLINED rather than repeated, on the same
             // argument the freshness window is on: a feed that has not moved and a station reading
@@ -250,7 +346,7 @@ export class BulletinSource {
             if (stories.length === 0) {
                 if (offered.length > 0)
                     this.logger.info('director: every story in the news window has already been read, so the bulletin was skipped');
-                return [];
+                return { stories: [] };
             }
 
             this.read.keep(
@@ -271,20 +367,95 @@ export class BulletinSource {
                 using: stories.length,
                 repeats: offered.length - unread.length,
                 feed: feed || 'all',
+                topic: asked?.key ?? 'anything',
             });
-            return stories;
+            return { stories, ...(asked === undefined ? {} : { subject: asked }) };
         } catch (error) {
             // `NewsService` already absorbs a failing plugin, so reaching here means something
             // further in broke. Still not a fault worth failing the break over: the writer declines,
             // the station passes over the slot, and the next bulletin tries again.
             this.logger.info(`director: the news could not be read for a bulletin (${errorText(error)})`);
+            return { stories: [] };
+        }
+    }
+
+    /**
+     * The station's own categories, as rules.
+     *
+     * Read per bulletin rather than held, for the reason the planner reads its bands per pass: an
+     * operator who has just pointed a category at a feed should hear it on the next bulletin rather
+     * than after a restart. A station that has named none answers `[]`, which classifies nothing and
+     * is exactly what every station did before categories existed.
+     */
+    private async categories(): Promise<NewsTopicRules[]> {
+        try {
+            return (await this.topics.list(NEWS_KIND)).map(newsTopicRules);
+        } catch (error) {
+            // A read that failed is a station with no categories for this bulletin, which is a
+            // general bulletin — never a reason to lose the slot. A band that asked for a category
+            // then finds nothing carrying it and declines, which is the honest outcome.
+            this.logger.info(`director: the news categories could not be read (${errorText(error)})`);
             return [];
         }
     }
 }
 
+/**
+ * Which category this bulletin was asked for, out of the context its band stamped.
+ *
+ * A key naming a category the station no longer holds answers `undefined`, so the bulletin covers
+ * whatever it finds. That cannot happen through the console — deleting a category takes its bands
+ * with it — so reaching here means somebody edited a row by hand, and a general bulletin is a better
+ * answer than a slot that can never be filled again.
+ */
+function subjectOf(context: BreakContext | undefined, rules: readonly NewsTopicRules[]): BreakSubject | undefined {
+    const key = typeof context?.topic === 'string' ? context.topic.trim() : '';
+    if (key.length === 0) return undefined;
+
+    const held = rules.find(rule => rule.key === key);
+    return held === undefined ? undefined : { key: held.key, label: held.label };
+}
+
+/**
+ * The page, ordered so one category cannot take the whole bulletin while others go unread.
+ *
+ * A round over the categories represented, newest first within each, then everything that follows.
+ * The failure it fixes is ordinary rather than exotic: a wire is newest-first, three sport stories
+ * land together at teatime, and the station reads a sports bulletin it never announced as one.
+ *
+ * A story with no category is kept and takes its turn, because most stations will have categories
+ * that cover a fraction of what their feeds carry — dropping the rest would silently narrow every
+ * bulletin to whatever happened to be classified.
+ */
+function spread(stories: readonly BreakStory[]): readonly BreakStory[] {
+    const first: BreakStory[] = [];
+    const rest: BreakStory[] = [];
+    const used = new Set<string>();
+
+    for (const story of stories) {
+        // The strongest match, which `categoriesOf` already sorted to the front: what a listener
+        // would call this story is the category that claimed it most confidently.
+        const category = story.categories?.[0];
+        if (category === undefined || !used.has(category)) {
+            if (category !== undefined) used.add(category);
+            first.push(story);
+            continue;
+        }
+
+        rest.push(story);
+    }
+
+    // Everything is kept and only the ORDER changes, so a bulletin on a page where one category
+    // holds every story still gets its full count: the second and third sport stories are behind
+    // everything else rather than dropped.
+    return [...first, ...rest];
+}
+
 /** One story, or nothing when there is no headline worth reading. */
-function toStory(item: { title: string; summary?: string; content?: string; feedName?: string; publishedAt?: string }): BreakStory | undefined {
+function toStory(
+    item: { title: string; summary?: string; content?: string; feedName?: string; feedId?: string; publishedAt?: string; categories?: string[] },
+    rules: readonly NewsTopicRules[],
+): BreakStory | undefined {
     const headline = speakable(item.title);
     if (headline === undefined) return undefined;
 
@@ -297,6 +468,10 @@ function toStory(item: { title: string; summary?: string; content?: string; feed
         ...(body === undefined || body.length === 0 ? {} : { body: truncateSentences(body, MAX_BODY_CHARS) }),
         ...(item.feedName === undefined ? {} : { source: item.feedName }),
         ...(item.publishedAt === undefined ? {} : { publishedAt: item.publishedAt }),
+        // The station's OWN categories, strongest match first — not the publisher's labels, which
+        // are one of the three things those are judged on. Classified here so both writers and the
+        // cut below read one answer.
+        categories: categoriesOf(item, rules).map(match => match.key),
     };
 }
 

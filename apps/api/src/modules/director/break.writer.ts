@@ -95,6 +95,30 @@ export interface BreakStory {
     source?: string;
     /** ISO-8601, when the publisher gave one. For a writer that wants to say how fresh this is. */
     publishedAt?: string;
+    /**
+     * Which of the STATION's own categories this story belongs to, strongest match first.
+     *
+     * The operator's vocabulary rather than the publisher's labels — those are one of the three
+     * things a category is judged on, and are deliberately not passed through: what a writer might
+     * act on is "this is one of ours and it is technology", never "the wire filed it under Gadgets".
+     *
+     * Empty is ordinary: a station that has named no categories, or a story none of them claims.
+     * Nothing is dropped for being uncategorised.
+     */
+    categories?: readonly string[];
+}
+
+/**
+ * What a break is about, as a writer sees it.
+ *
+ * The station's own vocabulary — `deadair.topics` — narrowed to the two fields a writer needs. It is
+ * a resolved ROW rather than the key on the segment's context, because a key is a reference and a
+ * writer needs the words: "Now the technology news" is the label, spelled the way the operator
+ * spelled it.
+ */
+export interface BreakSubject {
+    key: string;
+    label: string;
 }
 
 /** What a writer is told before it writes. */
@@ -263,6 +287,20 @@ export interface BreakWriteRequest {
      * and a writer having to read its own substrate out of two places is how the two drift.
      */
     stories?: readonly BreakStory[];
+    /**
+     * What this break is ABOUT, when something asked it to be about one thing.
+     *
+     * A `deadair.topics` row for this break's kind, resolved by the CALLER out of the context the
+     * format clock stamped — a news category today, a weather location when that kind exists. The
+     * label is the operator's own word for it and is what a writer says out loud; the key is what a
+     * log line names.
+     *
+     * Absent is the ordinary case and means the break covers whatever it finds. A writer that wants
+     * to say what this one is about reads it here rather than out of {@link context}, for the reason
+     * {@link stories} is separate: the substrate a writer is handed should already be resolved, so
+     * that the model binding and the floor cannot resolve it differently.
+     */
+    subject?: BreakSubject;
     /**
      * What time this break was placed for, as words and as the window they stay true in.
      *

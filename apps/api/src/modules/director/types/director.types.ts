@@ -31,7 +31,7 @@ export type StationItemState = z.infer<typeof StationItemState>;
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L77)
+ * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L79)
  */
 export const AddStationSegmentInput = z.strictObject({
     segmentId: z.string().min(1).max(100),
@@ -55,7 +55,7 @@ export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L83)
+ * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L85)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -64,7 +64,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L87)
+ * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L89)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -73,7 +73,7 @@ export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L91)
+ * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L93)
  */
 export const ReplanStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional().describe('How many records to programme. Absent is roughly an hour'),
@@ -120,7 +120,7 @@ export type SetStationAirInput = z.infer<typeof SetStationAirInput>;
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L67)
+ * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L69)
  */
 export const PutOnAirInput = z.strictObject({
     pluginId: z
@@ -182,6 +182,20 @@ export const StationOrderItem = z.strictObject({
     artworkUrl: z.string().max(2000).optional(),
     year: z.coerce.number().int().min(0).optional(),
     trackId: z.string().max(100).optional().describe('The canonical catalog track, when this is one the catalog holds'),
+    artistId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            'The canonical artist behind that track, so a console can reach their page from the running order. Absent on a segment, and on a record the catalog has never seen',
+        ),
+    albumId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            'The release that track was ingested inside. Absent for the two reasons above and for a third: a single ingested outside any release has none',
+        ),
     rating: Rating.optional().describe(
         'What the station thinks of this record, read as the order is drawn rather than stored on it. Absent on a segment, and on a record the catalog has never seen',
     ),
@@ -210,7 +224,7 @@ export type StationOrderItem = z.infer<typeof StationOrderItem>;
 
 /**
  * The station's live running order: what is airing, item by item
- * generated from [StationOrder](file://./../../../../data/contracts/director/director.types.ck#L54)
+ * generated from [StationOrder](file://./../../../../data/contracts/director/director.types.ck#L56)
  */
 export const StationOrder = z.strictObject({
     name: z.string().max(200).describe('What is on, for a console to draw. A label for this broadcast rather than the name of a stored object'),

@@ -26,7 +26,7 @@ export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'ski
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L77)
+ * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L79)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -38,7 +38,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L83)
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L85)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -46,7 +46,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L87)
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L89)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -54,7 +54,7 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L91)
+ * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L93)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
@@ -92,7 +92,7 @@ export interface SetStationAirInput {
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L67)
+ * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L69)
  */
 export interface PutOnAirInput {
     /** The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming */
@@ -133,6 +133,10 @@ export interface StationOrderItem {
     year?: number;
     /** The canonical catalog track, when this is one the catalog holds */
     trackId?: string;
+    /** The canonical artist behind that track, so a console can reach their page from the running order. Absent on a segment, and on a record the catalog has never seen */
+    artistId?: string;
+    /** The release that track was ingested inside. Absent for the two reasons above and for a third: a single ingested outside any release has none */
+    albumId?: string;
     /** What the station thinks of this record, read as the order is drawn rather than stored on it. Absent on a segment, and on a record the catalog has never seen */
     rating?: Rating;
     /** Which segment this plays. Present only on a segment */
@@ -150,7 +154,7 @@ export interface StationOrderItem {
 
 /**
  * The station's live running order: what is airing, item by item
- * generated from [StationOrder](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L54)
+ * generated from [StationOrder](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L56)
  */
 export interface StationOrder {
     /** What is on, for a console to draw. A label for this broadcast rather than the name of a stored object */

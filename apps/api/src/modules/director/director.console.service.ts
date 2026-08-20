@@ -486,7 +486,9 @@ export class DirectorConsoleService {
         // Read here rather than stored on the lineup, for the reason a segment's label is: the
         // document holds an id and the catalog holds the opinion, so an operator who rates a record
         // sees it against what is on air instead of against what it was when the order was built.
-        const ratings = await this.tracks.ratingsByTrackId(
+        // The same row carries the artist and album this record belongs to, which is what lets a
+        // console reach either page from the running order.
+        const known = await this.tracks.catalogRowsByTrackId(
             order.items.flatMap(item => (item.kind === 'track' && item.track.trackId !== undefined ? [item.track.trackId] : [])),
         );
 
@@ -507,6 +509,10 @@ export class DirectorConsoleService {
             items: order.items.map(item => {
                 if (item.kind === 'segment') return toOrderSegment(item, segments.get(item.segmentId));
 
+                // One lookup for the opinion and both links: absent means the catalog has never
+                // seen this record, which is a station airing something it never ingested rather
+                // than a fault, and the console draws its row as words instead of links.
+                const row = item.track.trackId === undefined ? undefined : known.get(item.track.trackId);
                 return {
                     id: item.id,
                     kind: 'track' as const,
@@ -521,7 +527,10 @@ export class DirectorConsoleService {
                     ...(item.track.year === undefined ? {} : { year: item.track.year }),
                     ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
                     // Absent for a record the catalog has never seen, which has nothing to rate.
-                    ...(item.track.trackId === undefined || !ratings.has(item.track.trackId) ? {} : { rating: ratings.get(item.track.trackId) }),
+                    ...(row === undefined ? {} : { rating: row.rating, artistId: row.artistId }),
+                    // One more reason for this one to be absent: a single ingested outside any
+                    // release has no album to reach.
+                    ...(row?.albumId === undefined ? {} : { albumId: row.albumId }),
                 };
             }),
         };

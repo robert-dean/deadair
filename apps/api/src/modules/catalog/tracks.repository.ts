@@ -675,32 +675,46 @@ export class TracksRepository extends DataRepository {
     }
 
     /**
-     * What the station thinks of a batch of tracks, as the wire spells it.
+     * What a batch of tracks is, and what the station thinks of them: the opinion the running order
+     * draws a control from, and the two ids it draws its links from.
      *
-     * For the running order, which holds ids and needs each row's opinion to draw a control that is
-     * not lying about what the operator already said. It is read as the order is DRAWN rather than
-     * stored in the lineup document: the director owns that document, and a rating copied into it
-     * would be a second answer going stale the moment the operator changed their mind.
+     * For the running order, which holds track ids alone and needs each row's opinion to draw a
+     * control that is not lying about what the operator already said. It is read as the order is
+     * DRAWN rather than stored in the lineup document: the director owns that document, and a
+     * rating copied into it would be a second answer going stale the moment the operator changed
+     * their mind. The artist and album ids ride the same query for the same reason and at no extra
+     * cost — one read for the whole order either way.
      *
      * Deliberately each track's OWN rating rather than the effective one `CandidatesRepository`
-     * resolves. That one answers "may this air", which is a `least()` over three rows; this one is
-     * what a control has to show, and a track reading as disliked because of its artist would
-     * change the wrong row when the operator clicked it.
+     * resolves. That one answers "may this air", which collapses three rows; this one is what a
+     * control has to show, and a track reading as disliked because of its artist would change the
+     * wrong row when the operator clicked it.
      *
      * Ids the catalog has never seen are absent, which is an ordinary state: a station can air a
      * track it has not ingested.
      */
-    async ratingsByTrackId(trackIds: readonly string[]): Promise<Map<string, Rating>> {
+    async catalogRowsByTrackId(trackIds: readonly string[]): Promise<Map<string, { rating: Rating; artistId: string; albumId?: string }>> {
         if (trackIds.length === 0) return new Map();
 
         const rows = await this.db
             .selectFrom('deadair.tracks')
-            .select(['deadair.tracks.id', 'deadair.tracks.rating'])
+            .select(['deadair.tracks.id', 'deadair.tracks.rating', 'deadair.tracks.artistId', 'deadair.tracks.albumId'])
             .where('deadair.tracks.id', 'in', [...trackIds])
             .where('deadair.tracks.mergedIntoId', 'is', null)
             .execute();
 
-        return new Map(rows.map(row => [row.id, ratingFromColumn(Number(row.rating))]));
+        return new Map(
+            rows.map(row => [
+                row.id,
+                {
+                    rating: ratingFromColumn(Number(row.rating)),
+                    artistId: row.artistId,
+                    // Nullable in the schema: a single ingested outside any release belongs to no
+                    // album, and the console draws that as a title with nowhere to click.
+                    ...(row.albumId == null ? {} : { albumId: row.albumId }),
+                },
+            ]),
+        );
     }
 
     /** One track, in the shape a list row has. Undefined when there is no such track, and equally when it was merged away. */

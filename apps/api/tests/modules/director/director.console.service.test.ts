@@ -80,8 +80,24 @@ function build(options: Options = {}) {
             if (options.catalogError) throw options.catalogError;
             return options.catalogRows ?? [];
         }),
-        ratingsByTrackId: vi.fn(
-            async (ids: readonly string[]) => new Map(ids.flatMap(id => (options.ratings?.[id] ? [[id, options.ratings[id]]] : []))),
+        catalogRowsByTrackId: vi.fn(
+            async (ids: readonly string[]) =>
+                new Map(
+                    ids.flatMap(id =>
+                        options.ratings?.[id]
+                            ? [
+                                  [
+                                      id,
+                                      {
+                                          rating: options.ratings[id],
+                                          artistId: `art_${id}`,
+                                          ...(id.endsWith('_single') ? {} : { albumId: `alb_${id}` }),
+                                      },
+                                  ],
+                              ]
+                            : [],
+                    ),
+                ),
         ),
     } as unknown as TracksRepository;
 
@@ -565,8 +581,38 @@ describe('DirectorConsoleService editing the running order', () => {
 
         const drawn = await service.getOrder();
 
-        expect(tracks.ratingsByTrackId).toHaveBeenCalledWith(['trk_known']);
+        expect(tracks.catalogRowsByTrackId).toHaveBeenCalledWith(['trk_known']);
         expect(drawn.items.map(item => item.rating)).toEqual(['disliked', undefined]);
+    });
+
+    // What a console draws its links from. The uningested record is the case that matters: it has
+    // no page to reach, and a row that offered one would be a link into a 404.
+    it('names the artist and album behind a record it holds, and neither for one it does not', async () => {
+        const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.append([
+            { pluginId: 'p', externalId: 't0', title: 'Known', artists: ['X'], artist: 'X', trackId: 'trk_known' },
+            { pluginId: 'p', externalId: 't1', title: 'Uningested', artists: ['Y'], artist: 'Y' },
+        ]);
+        const { service } = build({ order, ratings: { trk_known: 'liked' } });
+
+        const drawn = await service.getOrder();
+
+        expect(drawn.items[0]).toMatchObject({ artistId: 'art_trk_known', albumId: 'alb_trk_known' });
+        expect(drawn.items[1]!.artistId).toBeUndefined();
+        expect(drawn.items[1]!.albumId).toBeUndefined();
+    });
+
+    // A single ingested outside any release. The artist is still reachable and the album is not,
+    // which is the one row where the two ids disagree.
+    it('names an artist but no album for a record that belongs to no release', async () => {
+        const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.append([{ pluginId: 'p', externalId: 't0', title: 'Loose', artists: ['X'], artist: 'X', trackId: 'trk_single' }]);
+        const { service } = build({ order, ratings: { trk_single: 'neutral' } });
+
+        const drawn = await service.getOrder();
+
+        expect(drawn.items[0]).toMatchObject({ artistId: 'art_trk_single' });
+        expect(drawn.items[0]!.albumId).toBeUndefined();
     });
 
     it('draws an empty running order rather than a 404 when nothing is on', async () => {

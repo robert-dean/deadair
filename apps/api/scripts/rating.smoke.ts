@@ -146,9 +146,14 @@ try {
     const listed = await tracksService.listTracks({ page: 0, pageSize: 100, sort: 'asc', search: track.title });
     check('a list read spells the opinion the same way', listed.data.find(row => row.id === track.trackId)?.rating, 'liked');
 
-    check('the running order reads it in one batch', (await tracks.ratingsByTrackId([track.trackId])).get(track.trackId), 'liked');
-    check('an id the catalog has never seen is simply absent', (await tracks.ratingsByTrackId(['00000000-0000-4000-8000-000000000000'])).size, 0);
-    check('no ids is no query and no answer', (await tracks.ratingsByTrackId([])).size, 0);
+    check('the running order reads it in one batch', (await tracks.catalogRowsByTrackId([track.trackId])).get(track.trackId)?.rating, 'liked');
+    check(
+        'and reads the artist it links to out of the same row',
+        (await tracks.catalogRowsByTrackId([track.trackId])).get(track.trackId)?.artistId,
+        track.artistId,
+    );
+    check('an id the catalog has never seen is simply absent', (await tracks.catalogRowsByTrackId(['00000000-0000-4000-8000-000000000000'])).size, 0);
+    check('no ids is no query and no answer', (await tracks.catalogRowsByTrackId([])).size, 0);
 
     check('clearing puts it back to no opinion', (await tracksService.rateTrack(track.trackId, { rating: 'neutral' })).rating, 'neutral');
 

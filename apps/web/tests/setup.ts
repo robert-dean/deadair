@@ -59,3 +59,12 @@ class ResizeObserverStub {
 }
 
 window.ResizeObserver = ResizeObserverStub;
+
+// jsdom has no font loading API, and Mantine's autosizing textarea waits on one: it measures a box
+// again once the fonts have settled, which is a real thing to do in a browser and a `TypeError` on
+// mount here. Stubbed rather than avoided, because otherwise the rule becomes "do not use `autosize`
+// in anything you want to test", which is a layout decision made by the test runner.
+Object.defineProperty(document, 'fonts', {
+    writable: true,
+    value: { addEventListener: vi.fn(), removeEventListener: vi.fn(), ready: Promise.resolve(), status: 'loaded' },
+});

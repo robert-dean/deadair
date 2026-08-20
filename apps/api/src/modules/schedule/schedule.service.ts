@@ -7,11 +7,29 @@ import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import { overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
 import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
-import { project, type StationDate } from './schedule.occurrences.js';
+import { project, stamp, type StationDate } from './schedule.occurrences.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
 
 /** A week, which is what a schedule page opens on. */
 const DEFAULT_TIMETABLE_DAYS = 7;
+
+/**
+ * How many blocks ahead {@link ScheduleService.current} answers with.
+ *
+ * Three: what is on, what is next, and what is after that. A fourth is a timetable, and there is one
+ * of those on the same page.
+ */
+const UPCOMING_BLOCKS = 3;
+
+/**
+ * How far ahead to project to find them.
+ *
+ * A week plus the day we are part-way through, because a slot may run one weekday in seven: looking
+ * two days ahead would answer "nothing is scheduled" for a station whose only block is on Sundays,
+ * which is the opposite of what it wants said. The projection is over a handful of rows and is
+ * thrown away, so the width costs nothing worth saving.
+ */
+const UPCOMING_DAYS = 8;
 
 /**
  * What the station plays in the hours no block claims.
@@ -99,23 +117,6 @@ export class ScheduleService {
     }
 
     /**
-     * Which slot the clock says should be on, and which one the station is actually airing.
-     *
-     * Two facts from their two owners, and the console needs both because they legitimately differ:
-     * an operator's own choice holds until the next slot BEGINS, so between a takeover and the next
-     * boundary the schedule has an answer the station is not following. A page that badged the
-     * in-force slot "on now" without checking would be confidently wrong for exactly as long as
-     * somebody was doing something deliberate.
-     *
-     * It reads the director rather than the director reading the schedule, which is the direction
-     * that already exists: `DirectorConsoleService` resolves this service, and `modules.ts` puts
-     * this module above that one. What is AIRING is the director's to answer.
-     *
-     * Its own route rather than a field on each slot in the list, because this is a function of the
-     * clock: it changes every minute without the schedule changing at all, and folding it in would
-     * make a cached grid go stale for a reason that has nothing to do with the grid.
-     */
-    /**
      * What the station plays when no block is on, or `undefined` when nothing has been named.
      *
      * `undefined` is a real state and not a misconfiguration to shout about: a station whose schedule
@@ -139,13 +140,57 @@ export class ScheduleService {
         return Object.keys(source).length === 0 ? undefined : source;
     }
 
+    /**
+     * Which slot the clock says should be on, which one the station is actually airing, and what is
+     * coming after it.
+     *
+     * ## Two slot ids rather than one
+     *
+     * They legitimately differ: an operator's own choice holds until the next slot BEGINS, so between
+     * a takeover and the next boundary the schedule has an answer the station is not following. A page
+     * that badged the in-force slot "on now" without checking would be confidently wrong for exactly
+     * as long as somebody was doing something deliberate. It reads the director rather than the
+     * director reading the schedule, which is the direction that already exists: `DirectorConsoleService`
+     * resolves this service, and `modules.ts` puts this module above that one. What is AIRING is the
+     * director's to answer.
+     *
+     * ## The blocks come from here rather than from the console
+     *
+     * A page that leads with "on now, up next" needs blocks with both ENDS, and `schedule.occurrences.ts`
+     * opens by saying why a browser must not derive them: it does not know `station.timezone` and has
+     * no business turning a weekday mask into dates. So it reuses `project` — one projection, not a
+     * second implementation that could disagree with the grid drawn underneath it.
+     *
+     * `now` rides along for the same reason one step further out. "One hour left" is a subtraction
+     * between two readings of one clock, which a caller can do; picking the clock is what it cannot.
+     * Both readings come from the same `readClock` here, so they cannot be a boundary apart.
+     *
+     * ## Its own route rather than a field on each slot
+     *
+     * Because this is a function of the clock: it changes every minute without the schedule changing
+     * at all, and folding it in would make a cached grid go stale for a reason that has nothing to do
+     * with the grid.
+     */
     async current(): Promise<ScheduleNow> {
+        const clock = readClock(Date.now(), stationZone(this.config));
+        const today: StationDate = { year: clock.year, month: clock.month, day: clock.day, weekday: clock.weekday };
+        const now = stamp(today, clock.hour * 60 + clock.minute, clock.second);
+
         const inForce = await this.inForce();
         const airing = this.director.status().slotId;
 
+        // Anything still to come, which for the block on now means the one it is part-way through:
+        // a block is over when it ENDS, and its end is exclusive. String comparison is the whole
+        // check because both stamps are fixed-width and zero-padded readings of one clock.
+        const upcoming = project(today, UPCOMING_DAYS, await this.slots.list())
+            .filter(occurrence => occurrence.end > now)
+            .slice(0, UPCOMING_BLOCKS);
+
         return {
+            now,
             ...(inForce === undefined ? {} : { slotId: inForce.id }),
             ...(airing === undefined ? {} : { airingSlotId: airing }),
+            upcoming,
         };
     }
 

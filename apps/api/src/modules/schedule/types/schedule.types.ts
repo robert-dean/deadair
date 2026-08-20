@@ -91,22 +91,6 @@ export const ScheduleOccurrence = z.strictObject({
 export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
 /**
- * Which slot the clock says should be on right now
- * generated from [ScheduleNow](file://./../../../../data/contracts/schedule/schedule.types.ck#L48)
- */
-export const ScheduleNow = z.strictObject({
-    slotId: z.string().max(100).optional().describe('The slot in force at this instant. Absent means the station has no schedule'),
-    airingSlotId: z
-        .string()
-        .max(100)
-        .optional()
-        .describe(
-            "The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins",
-        ),
-});
-export type ScheduleNow = z.infer<typeof ScheduleNow>;
-
-/**
  * generated from [ScheduleSlotList](file://./../../../../data/contracts/schedule/schedule.types.ck#L22)
  */
 export const ScheduleSlotList = z.strictObject({
@@ -135,3 +119,31 @@ export const ScheduleTimetable = z.strictObject({
     occurrences: z.array(ScheduleOccurrence),
 });
 export type ScheduleTimetable = z.infer<typeof ScheduleTimetable>;
+
+/**
+ * Which slot the clock says should be on right now, and what follows it
+ * generated from [ScheduleNow](file://./../../../../data/contracts/schedule/schedule.types.ck#L48)
+ */
+export const ScheduleNow = z.strictObject({
+    now: z
+        .string()
+        .min(19)
+        .max(19)
+        .describe(
+            "What time it is on the station's own clock, in the same zone-naive `YYYY-MM-DD HH:mm:ss` shape as a block's ends. It is here so a caller can say how much of the block is left without knowing the station's timezone: subtracting two readings taken in one frame is arithmetic, deriving one is not",
+        ),
+    slotId: z.string().max(100).optional().describe('The slot in force at this instant. Absent means the station has no schedule'),
+    airingSlotId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            "The slot the running order actually belongs to. Different from the one above while an operator's own choice holds, which it does until the next slot begins",
+        ),
+    upcoming: z
+        .array(ScheduleOccurrence)
+        .describe(
+            'The block on now, if there is one, and the few that follow it, earliest first. Empty for a station with nothing scheduled from here on. A gap is simply absent, exactly as it is on the timetable: what plays there is the sustaining source rather than a block',
+        ),
+});
+export type ScheduleNow = z.infer<typeof ScheduleNow>;

@@ -17,6 +17,7 @@ import { PluginsRouter } from './plugins.router.js';
 import { RenderRouter } from './render.router.js';
 import { ScheduleRouter } from './schedule.router.js';
 import { SettingsRouter } from './settings.router.js';
+import { StationRouter } from './station.router.js';
 import { StorageRouter } from './storage.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
 
@@ -39,6 +40,7 @@ export const routers = [
     ScheduleRouter,
     ProductionsRouter,
     PluginsRouter,
+    StationRouter,
     SettingsRouter,
     StorageRouter,
     OnboardingRouter,

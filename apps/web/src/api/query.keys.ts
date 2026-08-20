@@ -82,6 +82,10 @@ export const queryKeys = {
     productions: {
         list: () => ['productions', 'list'] as const,
     },
+    station: {
+        /** What needs somebody. One key: it is a reading of the whole station, and there is only one. */
+        attention: () => ['station', 'attention'] as const,
+    },
     playlists: {
         list: () => ['playlists', 'list'] as const,
         tracks: (pluginId: string, playlistId: string) => ['playlists', 'tracks', pluginId, playlistId] as const,

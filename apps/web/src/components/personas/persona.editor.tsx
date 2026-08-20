@@ -204,6 +204,14 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         />
                     </Group>
 
+                    {/* The two compose, and neither control can say so on its own: a terse character
+                        can be unfiltered, and reading the pair back is the only way an operator sees
+                        what they have actually asked for. Each field's own description explains what
+                        it does; this says what the combination comes to. */}
+                    <Text size="xs" c="dimmed">
+                        {voiceReadout(form.values.brevity, form.values.latitude)}
+                    </Text>
+
                     <Textarea
                         label="True about them"
                         description="A couple of grounded facts they may mention about themselves."
@@ -236,7 +244,8 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                     <Group justify="space-between">
                         <Text c="dimmed" size="xs">
                             Nothing here can loosen the rules the station always sends: never name a record it was not given, and be certain or say
-                            nothing.
+                            nothing. Saving is heard on the next break the station writes — one already written or being spoken keeps the words it
+                            has.
                         </Text>
                         <Group>
                             <Button variant="subtle" onClick={onClose}>
@@ -251,6 +260,38 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
             </form>
         </Modal>
     );
+}
+
+/**
+ * What the two voice settings come to together.
+ *
+ * They are two fields because they are two kinds of thing — brevity is a habit and latitude is a
+ * permission — and they compose, so neither control can describe the result on its own. An operator
+ * who has asked for a terse character with no filter should be able to read that back rather than
+ * work it out from two dropdowns.
+ *
+ * It describes the SHAPE and never a word count. The ceilings live in `break.prompt.ts` and move
+ * with what gets measured on air, and a number repeated here would be a second claim about them that
+ * nothing keeps true.
+ */
+function voiceReadout(brevity: string, latitude: string): string {
+    const length =
+        brevity === 'one-line'
+            ? 'one line'
+            : brevity === 'short'
+              ? 'a sentence or two'
+              : latitude === ''
+                ? "the station's usual length"
+                : 'as long as it takes';
+
+    const manner =
+        latitude === 'unleashed'
+            ? 'Says what it likes, however it likes'
+            : latitude === 'loose'
+              ? 'Follows a thought where it goes'
+              : 'Makes one point';
+
+    return `${manner}, in ${length}. The station's content rules and its refusals are unchanged either way.`;
 }
 
 /**

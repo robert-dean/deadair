@@ -59,6 +59,32 @@ describe('SideNav', () => {
         expect(screen.queryByRole('link', { name: 'Lineups' })).not.toBeInTheDocument();
     });
 
+    it('counts what needs somebody against the page that can act on it', () => {
+        // A row pointing at one plugin's own page counts against Plugins, because the first segment
+        // is the page. Two rows on the catalog is one badge saying 2.
+        render(
+            <SideNav
+                attention={[
+                    { code: 'benchedCopies', severity: 'warning', title: 'a', detail: 'a', route: '/catalog' },
+                    { code: 'failingFetches', severity: 'warning', title: 'b', detail: 'b', route: '/catalog' },
+                    { code: 'plugin.failed', severity: 'warning', title: 'c', detail: 'c', route: '/plugins/deadair.spotify' },
+                ]}
+            />,
+        );
+
+        expect(screen.getByText('2')).toBeInTheDocument();
+        expect(screen.getByText('1')).toBeInTheDocument();
+    });
+
+    it('leaves the accessible name of a link alone when it carries a badge', () => {
+        // Mantine folds a `rightSection` into the link's accessible name, so an unguarded badge
+        // renames "Catalog" to "Catalog 4" for a screen reader. The number is a visual shortcut and
+        // the sentence behind it is on the page this links to.
+        render(<SideNav attention={[{ code: 'benchedCopies', severity: 'warning', title: 'a', detail: 'a', route: '/catalog' }]} />);
+
+        expect(screen.getByRole('link', { name: 'Catalog' })).toBeInTheDocument();
+    });
+
     it('tells the shell to shut the drawer once a link is followed', async () => {
         const onNavigate = vi.fn();
         render(<SideNav onNavigate={onNavigate} />);

@@ -116,12 +116,21 @@ function one(slot: ScheduleSlot, date: StationDate, from: number, until: number,
 /** Whether this slot runs on a given weekday. Empty `days` is every day, as everywhere else. */
 const runsOn = (slot: ScheduleSlot, weekday: number): boolean => slot.days.length === 0 || slot.days.includes(weekday);
 
-/** `YYYY-MM-DD HH:mm:ss` for a station-local date and a minute of it. */
-function stamp(date: StationDate, minutesOfDay: number): string {
+/**
+ * `YYYY-MM-DD HH:mm:ss` for a station-local date and a minute of it.
+ *
+ * Exported because a reading of the station's clock is the same shape as a block's ends and has to
+ * stay that way: `ScheduleService.current` sends both, and a caller works out how much of a block is
+ * left by comparing them. Two formatters would be two chances to pad a field differently, and the
+ * comparison is a string one.
+ *
+ * `seconds` is only ever set for a clock reading. A block boundary is a minute.
+ */
+export function stamp(date: StationDate, minutesOfDay: number, seconds = 0): string {
     const minute = ((minutesOfDay % MINUTES_IN_DAY) + MINUTES_IN_DAY) % MINUTES_IN_DAY;
     const pad = (value: number, width = 2) => String(value).padStart(width, '0');
 
-    return `${pad(date.year, 4)}-${pad(date.month)}-${pad(date.day)} ${pad(Math.floor(minute / 60))}:${pad(minute % 60)}:00`;
+    return `${pad(date.year, 4)}-${pad(date.month)}-${pad(date.day)} ${pad(Math.floor(minute / 60))}:${pad(minute % 60)}:${pad(seconds)}`;
 }
 
 /**

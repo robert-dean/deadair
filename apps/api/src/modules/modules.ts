@@ -26,6 +26,7 @@ import { ActivityModule } from './activity/activity.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { EnrichmentModule } from './enrichment/enrichment.module.js';
 import { ProductionsModule } from './productions/productions.module.js';
+import { StationModule } from './station/station.module.js';
 import { AnalysisModule } from './analysis/analysis.module.js';
 import { ArtModule } from './art/art.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
@@ -171,6 +172,11 @@ const ordered: ServerKitModule[] = [
     // sole writer of the running order. Nothing in either reaches forward into this, and this owns
     // no loop — a production is made entirely by jobs, one per pass.
     ProductionsModule,
+    // After everything it reads, which is nearly everything: playout for the silence diagnosis, the
+    // director for the running order, the catalog for the library's state, and the plugin host. It
+    // composes them and owns nothing, so nothing resolves it back — which is what makes the bottom
+    // of the list a free position rather than a compromise.
+    StationModule,
     // Registers nothing and starts nothing: it exists to close the database and Redis at the END,
     // because shutdown runs in this list's order and DataModule has to be at the front of it. With
     // the close still up there, every module below tore down against a pool that had already gone —

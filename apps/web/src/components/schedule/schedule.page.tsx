@@ -3,11 +3,13 @@ import { Stack, Text } from '@mantine/core';
 import { DayView, WeekView, type ScheduleEventData } from '@mantine/schedule';
 import type { ScheduleSlot, ScheduleSlotInput, ScheduleTimetable } from '@deadair/sdk';
 
+import { usePersonas } from '../../api/personas.queries';
 import { useCreateSlot, useCurrentSlot, useDeleteSlot, useSchedule, useTimetable, useUpdateSlot } from '../../api/schedule.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { OnNowStrip } from './on.now.strip';
 import { colorOf, weekdayOf } from './schedule.day';
 import { blockEdit, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
@@ -60,6 +62,9 @@ import { SlotEditor, type EditorTarget } from './slot.editor';
 export function SchedulePage() {
     const schedule = useSchedule();
     const current = useCurrentSlot();
+    // For the host's name on the strip. Cached for half a minute and fetched once on mount, which is
+    // the same list the slot editor on this page already reads.
+    const personas = usePersonas();
     const create = useCreateSlot();
     const update = useUpdateSlot();
     const remove = useDeleteSlot();
@@ -79,11 +84,7 @@ export function SchedulePage() {
     const slots = schedule.data?.slots ?? [];
     const from = timetable.data?.from;
 
-    const dueId = current.data?.slotId;
     const airingId = current.data?.airingSlotId;
-    // Absent counts, and is in fact the commonest form of it: a station put on by hand before there
-    // was a schedule belongs to no slot at all.
-    const takenOver = dueId !== undefined && dueId !== airingId;
 
     const close = () => {
         setEditing(undefined);
@@ -189,12 +190,10 @@ export function SchedulePage() {
                 <ErrorAlert title="That change could not be saved" error={update.error} fallback="The schedule is as it was." />
             ) : undefined}
 
-            {takenOver ? (
-                <Text size="sm" c="dimmed">
-                    The station is airing something other than the slot that is due, which is what happens when it was put on by hand. It moves back
-                    to the schedule when the next slot begins.
-                </Text>
-            ) : undefined}
+            {/* Above the grid, because "what is on" is the question somebody arrives with and reading
+                it off a week of columns is work. The takeover note lives inside it now, on the block
+                it is about, rather than as a loose paragraph here. */}
+            {current.data ? <OnNowStrip current={current.data} slots={slots} personas={personas.data?.personas ?? []} /> : undefined}
 
             {schedule.isPending || timetable.isPending ? <PageSkeleton variant="card" /> : undefined}
 

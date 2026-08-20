@@ -52,6 +52,54 @@ export function addDays(date: string, days: number): string {
     return `${pad(moved.getUTCFullYear(), 4)}-${pad(moved.getUTCMonth() + 1)}-${pad(moved.getUTCDate())}`;
 }
 
+/**
+ * How many minutes apart two readings of the station's clock are.
+ *
+ * `YYYY-MM-DD HH:mm:ss`, the shape the API sends for a block's ends and for the station's own now.
+ * Both go through `Date.UTC` for the same reason {@link addDays} does: these are readings rather than
+ * instants, and UTC is the calendar with no daylight saving to have an opinion about.
+ *
+ * What that means at a clock change is worth being plain about. The answer is how much CLOCK is left,
+ * not how much time — so on the night the clocks go back, a block ending at two reads an hour shorter
+ * than it will actually run. That is the same arithmetic the grid above it is drawn with, and it is
+ * the right one for a strip whose whole subject is what the station's clock says.
+ */
+export function minutesBetween(from: string, to: string): number {
+    return Math.round((instantOf(to) - instantOf(from)) / 60_000);
+}
+
+function instantOf(stamp: string): number {
+    const [date, time] = stamp.split(' ');
+    const [year, month, day] = (date ?? '').split('-').map(Number);
+    const [hour, minute, second] = (time ?? '00:00:00').split(':').map(Number);
+
+    return Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1, hour ?? 0, minute ?? 0, second ?? 0);
+}
+
+/**
+ * A number of minutes as a length somebody would say out loud.
+ *
+ * Rounded down to the minute and never to the second, because a strip that re-reads the clock every
+ * half minute cannot honestly count seconds and a number that jumped in thirties would say so.
+ *
+ * The unit gets coarser as the number gets bigger, which is the whole point of it: a block that runs
+ * once a week is genuinely six days off, and "161 h" is a true answer nobody can read. Past a day
+ * the minutes stop being information.
+ */
+export function formatSpan(minutes: number): string {
+    if (minutes <= 0) return 'ending';
+    if (minutes < 60) return `${minutes} min`;
+
+    if (minutes < 24 * 60) {
+        const hours = Math.floor(minutes / 60);
+        const rest = minutes % 60;
+        return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+    }
+
+    const days = Math.round(minutes / (24 * 60));
+    return days === 1 ? 'a day' : `${days} days`;
+}
+
 /** Which weekday a `YYYY-MM-DD` falls on, Sunday `0`. Same civil-arithmetic argument as {@link addDays}. */
 export function weekdayOf(date: string): number {
     const [year, month, day] = date.split('-').map(Number);

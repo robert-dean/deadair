@@ -1,6 +1,8 @@
 import { Box, Stack } from '@mantine/core';
+import type { AttentionItem } from '@deadair/sdk';
 
 import { Eyebrow } from '../shared/eyebrow';
+import type { Severity } from '../shared/status';
 import { NavItem, type NavItemProps } from './nav.item';
 import classes from './side.nav.module.css';
 
@@ -67,9 +69,19 @@ const GROUPS: NavGroup[] = [
 export interface SideNavProps {
     /** Called after a link is followed, so the mobile drawer can shut itself. */
     onNavigate?: () => void;
+    /**
+     * What needs somebody, straight from `GET /station/attention`.
+     *
+     * Handed in rather than polled here, for the reason the shell already gives about layout: this
+     * component is rendered bare in its own test, and a query inside it would make every test of the
+     * nav a test of the network too. The shell is where the polling lives.
+     */
+    attention?: readonly AttentionItem[];
 }
 
-export function SideNav({ onNavigate }: SideNavProps) {
+export function SideNav({ onNavigate, attention = [] }: SideNavProps) {
+    const counts = countByRoute(attention);
+
     return (
         <Stack gap="md" py="xs">
             {GROUPS.map(group => (
@@ -78,10 +90,41 @@ export function SideNav({ onNavigate }: SideNavProps) {
                         <Eyebrow>{group.title}</Eyebrow>
                     </Box>
                     {group.items.map(item => (
-                        <NavItem key={item.label} to={item.to} label={item.label} onNavigate={onNavigate} />
+                        <NavItem
+                            key={item.label}
+                            to={item.to}
+                            label={item.label}
+                            onNavigate={onNavigate}
+                            attention={typeof item.to === 'string' ? counts.get(item.to) : undefined}
+                        />
                     ))}
                 </Box>
             ))}
         </Stack>
     );
+}
+
+/**
+ * Which page each thing belongs to, and how bad the worst of them is.
+ *
+ * The route is matched on its FIRST segment, so a row pointing at one plugin's own page counts
+ * against Plugins in the nav. A row whose destination is not a page in this list is simply not
+ * counted anywhere — it is still on the home page, which is the surface that has to be complete.
+ */
+function countByRoute(items: readonly AttentionItem[]): Map<string, { count: number; severity: Severity }> {
+    const worst: Record<Severity, number> = { failure: 0, warning: 1, notice: 2 };
+    const counts = new Map<string, { count: number; severity: Severity }>();
+
+    for (const item of items) {
+        const page = `/${item.route.split('/')[1] ?? ''}`;
+        const existing = counts.get(page);
+        const severity = item.severity as Severity;
+
+        counts.set(page, {
+            count: (existing?.count ?? 0) + 1,
+            severity: existing && worst[existing.severity] <= worst[severity] ? existing.severity : severity,
+        });
+    }
+
+    return counts;
 }

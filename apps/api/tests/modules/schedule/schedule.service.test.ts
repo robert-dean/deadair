@@ -1,9 +1,11 @@
-// `current` is four lines and the whole of it is the distinction between two facts that look like
-// one: what the clock says should be on, and what the station is actually airing. They differ for
-// exactly as long as an operator's own choice is holding, and a console that collapsed them would be
-// confidently wrong for precisely that stretch.
+// `current` carries two distinctions that look like one fact each. The first is what the clock says
+// should be on against what the station is actually airing: they differ for exactly as long as an
+// operator's own choice is holding, and a console that collapsed them would be confidently wrong for
+// precisely that stretch. The second is the block on now against the blocks after it — the same
+// projection the timetable draws, answered here so a page can lead with what is on rather than
+// deriving station-local dates in a browser that does not know the station's timezone.
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
@@ -43,15 +45,29 @@ function build(options: { slots?: ScheduleSlot[]; airing?: string } = {}) {
 }
 
 describe('ScheduleService.current', () => {
-    it('answers nothing at all for a station with no schedule', async () => {
-        expect(await build().current()).toEqual({});
+    // Wednesday 19 August 2026, 13:00 in Europe/London (BST, so an hour ahead of the instant). Fixed
+    // because every assertion below is about which blocks are still to come, which is a question
+    // about a particular afternoon.
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-08-19T12:00:00Z'));
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('answers with the clock and nothing else for a station with no schedule', async () => {
+        // `now` is unconditional: it is what makes "an hour left" a subtraction rather than a guess,
+        // and a station with no schedule still has a clock.
+        expect(await build().current()).toEqual({ now: '2026-08-19 13:00:00', upcoming: [] });
     });
 
     it('reports the same slot twice when the station is airing what is due', async () => {
         // Midnight and midday both exist, so whichever the clock is in, the station is on it.
         const service = build({ slots: [slot('all-day', 0, 0)], airing: 'all-day' });
 
-        expect(await service.current()).toEqual({ slotId: 'all-day', airingSlotId: 'all-day' });
+        expect(await service.current()).toMatchObject({ slotId: 'all-day', airingSlotId: 'all-day' });
     });
 
     it('reports both when an operator has taken the station over', async () => {
@@ -60,7 +76,7 @@ describe('ScheduleService.current', () => {
         // back or the console cannot draw the difference.
         const service = build({ slots: [slot('daytime', 0, 0)], airing: 'evening' });
 
-        expect(await service.current()).toEqual({ slotId: 'daytime', airingSlotId: 'evening' });
+        expect(await service.current()).toMatchObject({ slotId: 'daytime', airingSlotId: 'evening' });
     });
 
     it('leaves the airing slot out for a station that belongs to no slot', async () => {
@@ -69,7 +85,52 @@ describe('ScheduleService.current', () => {
         // field rather than a match, so the console still knows the two disagree.
         const service = build({ slots: [slot('daytime', 0, 0)] });
 
-        expect(await service.current()).toEqual({ slotId: 'daytime' });
+        expect(await service.current()).not.toHaveProperty('airingSlotId');
+    });
+
+    it('leads with the block it is part-way through, and cuts an overnight one at midnight', async () => {
+        // A block is over when it ENDS, so the one on now is the first thing coming rather than
+        // something already past — which is the whole point of the strip this feeds. The block behind
+        // it runs to six in the morning and arrives as two, exactly as the timetable draws it.
+        const service = build({ slots: [slot('daytime', 6 * 60, 18 * 60), slot('evening', 18 * 60, 6 * 60)] });
+
+        const { upcoming } = await service.current();
+
+        expect(upcoming.slice(0, 3)).toEqual([
+            { slotId: 'daytime', label: 'daytime', start: '2026-08-19 06:00:00', end: '2026-08-19 18:00:00' },
+            { slotId: 'evening', label: 'evening', start: '2026-08-19 18:00:00', end: '2026-08-20 00:00:00' },
+            { slotId: 'evening', label: 'evening', start: '2026-08-20 00:00:00', end: '2026-08-20 06:00:00' },
+        ]);
+    });
+
+    it('leaves a gap absent rather than filling it', async () => {
+        // Nothing is on at one in the afternoon and the next block starts at six. The answer is the
+        // six o'clock block with no slot in force — what plays in between is the sustaining source,
+        // which is a different question and not this one's to answer.
+        const service = build({ slots: [slot('evening', 18 * 60, 20 * 60)] });
+
+        const answer = await service.current();
+
+        expect(answer.slotId).toBeUndefined();
+        expect(answer.upcoming[0]).toMatchObject({ slotId: 'evening', start: '2026-08-19 18:00:00' });
+    });
+
+    it('looks far enough ahead to find a block that runs one day a week', async () => {
+        // The reason the look-ahead is a week and not a day or two: a station whose only block is on
+        // Sundays would otherwise be told nothing is scheduled, which is the opposite of true.
+        const service = build({ slots: [slot('sundays', 10 * 60, 12 * 60, [0])] });
+
+        const { upcoming } = await service.current();
+
+        expect(upcoming).toEqual([{ slotId: 'sundays', label: 'sundays', start: '2026-08-23 10:00:00', end: '2026-08-23 12:00:00' }]);
+    });
+
+    it('answers three blocks and no more', async () => {
+        // Enough for "on now, up next, after that". A fourth is a timetable, and the page asking this
+        // is already drawing one.
+        const service = build({ slots: [slot('all-day', 0, 0)] });
+
+        expect((await service.current()).upcoming).toHaveLength(3);
     });
 });
 

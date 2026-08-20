@@ -85,6 +85,11 @@ function useListWrite<TArgs>(mutationFn: (args: TArgs) => Promise<ScheduleSlotLi
             // being written into the cache: the answer depends on a range this callback knows
             // nothing about, and one slot moving changes how its neighbours read in all of them.
             void queryClient.invalidateQueries({ queryKey: ['schedule', 'timetable'] });
+            // And what is on NOW is derived from them too. Without this the strip above the grid
+            // keeps its last answer for up to a poll — so an operator who has just written the block
+            // they are standing in watches the page say nothing is scheduled, which is the one thing
+            // it must never say while being wrong about it.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.schedule.current() });
         },
     });
 }

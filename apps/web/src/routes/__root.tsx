@@ -14,6 +14,7 @@ import { apiErrorMessage } from '../api/sdk.error';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
 import { useStationAir } from '../api/director.queries';
 import { usePlayoutStatus } from '../api/playout.queries';
+import { useStationAttention } from '../api/station.queries';
 import { ErrorAlert } from '../components/shared/error.alert';
 import { hasTransportToShow, TRANSPORT_HEIGHT, TRANSPORT_HEIGHT_EXPANDED, TransportBar } from '../components/playout/transport.bar';
 import { SideNav } from '../components/shell/side.nav';
@@ -46,6 +47,9 @@ export function RootLayout() {
     // What the station is airing against. Read here rather than in the bar because the
     // shell is where the polling lives, and it is already reading the transport beside it.
     const air = useStationAir(signedIn);
+    // The nav's badges, from the same answer the home page draws as a list — one query, one cache,
+    // so a badge saying two and a list showing three is not a state this console can reach.
+    const attention = useStationAttention(signedIn);
     // Here rather than in the bar for the same reason as the polling: the footer's
     // height is reserved by the shell, so the shell is what has to know how much.
     // Remembered, because an operator who wants the running order in front of them
@@ -118,7 +122,7 @@ export function RootLayout() {
                         context and throws without it, and the nav is rendered bare in its own
                         test. Layout that depends on the shell belongs to the shell. */}
                     <AppShell.Section grow component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0 }}>
-                        <SideNav onNavigate={navDrawer.close} />
+                        <SideNav onNavigate={navDrawer.close} attention={attention.data?.items} />
                     </AppShell.Section>
                 </AppShell.Navbar>
             ) : undefined}

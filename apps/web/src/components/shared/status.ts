@@ -47,12 +47,18 @@ export const toneColor: Record<StatusTone, string> = {
  *
  * So: `failure` is the load that did not happen, the render that threw, the line an operator has to
  * do something about. `warning` is the thing that failed while everything around it kept working.
- * Both live here rather than at their call sites for the reason at the top of this file — the
+ * `notice` is the third and is not a failure at all — a thing nobody has set up yet, like a catalog
+ * with no records in it on the first hour of an install. It is here rather than left to the two
+ * because a list that draws "you have not done this yet" in the same colour as "this broke" is one
+ * an operator learns to skim, which is the same argument `StatusTone` makes for `standby`.
+ *
+ * All three live here rather than at their call sites for the reason at the top of this file — the
  * failure being closed off is a surface deciding for itself that its problem is a bit red.
  */
-export type Severity = 'failure' | 'warning';
+export type Severity = 'failure' | 'warning' | 'notice';
 
 export const severityColor: Record<Severity, string> = {
     failure: 'red',
     warning: 'yellow',
+    notice: 'blue',
 };

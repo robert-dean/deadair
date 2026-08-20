@@ -99,7 +99,8 @@ export function PronunciationsPage() {
                             <Eyebrow>Proposed</Eyebrow>
                             <Text size="sm" c="dimmed" maw={720}>
                                 Pronunciation keys the station found printed in the articles it already holds. None of these is said until it is
-                                accepted, because an article's key is often about one word of a name and sometimes about a different name entirely.
+                                accepted, because an article&rsquo;s key is often about one word of a name and sometimes about a different name
+                                entirely.
                             </Text>
                         </Stack>
 

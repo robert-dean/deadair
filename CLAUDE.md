@@ -449,6 +449,36 @@ on, which is a switch for an evening of prompt tuning rather than a default.
 
 **The station's voice is a plugin.** `speech` capability, `plugins/kokoro` first, Chatterbox expected. A voice is an opaque station-level id (`host`, `newsreader`) that the PLUGIN maps in its own config; the host never interprets it, and engine-specific knobs stay with the engine. `render.speechPluginId` picks the speaker when several can talk, and declines to guess when none is chosen. **A segment carries a state per STAGE** — `planned → writing → written → rendering → ready`, with `failed` off the side — because making a break is two jobs with different failure modes: `WriteBreakJob` decides the words and `RenderSegmentJob` produces the audio, each claiming the row with a conditional update so a duplicate send is free. `claimForRender` starts at `written`, which is what makes a retry after a failed render re-speak the words already on the row instead of paying a writer to invent different ones. Throughout, **a segment that is not `ready` is skipped, never waited for**, which is what keeps a broken renderer from ever costing the station silence.
 
+**How the station SAYS a word is a row, and most of them were written by somebody else.** The
+lexicon left `render.pronunciations` for `deadair.pronunciations` on the format clock's argument: an
+entry that arrives from somewhere carries the article it came from and the sentence that says so, it
+can be REJECTED in a way that has to outlive the next pass, and none of the three fit on a line with
+an arrow in the middle of it. `applyPronunciations` is untouched and still the whole matcher — one
+alternation over the script, longest written form first — and the parser went with the setting,
+since a row cannot be malformed. Where the entries come from is `pronunciation.gloss.ts` over the
+articles the fact store already holds: English Wikipedia prints a pronunciation key in the lead of
+exactly the articles that want one, and reading it costs no request to anybody. Only the RESPELLING
+forms, and that is measured rather than cautious — of 539 stored articles 34 carry a bare respelling
+and 9 the quoted form, both of which an engine reads as they stand, while two carry IPA, which it
+cannot, and a hunt for slash-delimited IPA matches 86 documents of `CD/DVD/Blu-ray` and `June
+16/17/18`. **The difficulty is that a gloss is not automatically about the name beside it**:
+`Madonna ( chih-KOH-nee)` is about Ciccone, `Stevie Wonder ( STEEV-lənd)` about Steveland, and
+roughly half gloss one word of two — not reliably the surname, since `Aretha Franklin ( ə-REE-thə)`
+glosses the first name. So the written side is chosen by RESEMBLANCE over a consonant skeleton (a
+respelling and a spelling disagree about vowels by design and agree about consonants), and
+`CONFIDENCE_BAR` decides whether the station says it unasked or proposes it: 0.5 puts one wrong entry
+on air, 0.7 makes seven right ones wait, so it sits in the middle of the plateau at 0.6 and
+`pronunciation.gloss.test.ts` is the record of that sweep. Three smaller things are load-bearing. The
+schwa is spelled out, because no engine knows what `lə-VEEN` is, and the untouched original is what
+becomes the evidence. `rejected` is a STATE rather than a deletion, because the pass re-reads an
+article whenever a plugin hands over a new copy of it and a deleted proposal would come back forever.
+And the entry is written BEFORE the document is marked read, which is the opposite of how a claim and
+its mark land together — they share one transaction and these two repositories cannot, so the only
+question is which way a crash falls, and marked-first loses a proposal for good where written-first
+re-reads and `holds` recognises it. The same pattern is why `fact.lead.ts` strips a keyword-less
+parenthetical now: thirteen claims in this station's store read `Lynyrd Skynyrd ( LEH-nerd SKIN-nerd)
+is an American rock band` and were being spoken that way.
+
 **A break is written when its slot comes near, not when it is planted.** Planting stays eager and runs to the end of the order, because the position is what keeps the spacing stable; `BreakPlanner.ripen` asks for the WORDS only within `WRITE_AHEAD` items of the cursor. That is the difference between an hour of forward planning and an hour of model and speech work an operator edit can throw away. Sending is free because the job claims the row first, so the director re-offers whatever is still `planned` on every boundary and a lost job heals itself — and an off-air station writes nothing at all. Note the ordering trap it was built around: the running order is written through a THROTTLE, so a job can pick up a break the persisted row does not hold yet; the neighbours are therefore read before the claim, and absent-from-the-order means early rather than has-no-neighbours. **That rule has exactly one exception, and reading it as absolute cost every welcome the station ever tried to give.** An `interrupt` or `next` REQUEST is rendered before it is injected, so `BreakPlanner.prepareRequested` gives its segment no position on purpose and `DirectorService.injectReady` finds it one once the audio exists — for which absent-from-the-order means neither early nor has-no-neighbours but not placed yet. `WriteBreakJob` therefore asks whether a request is behind the segment before it defers, and `injectReady` carries the re-offer that `ripen` cannot, since `ripen` walks the order and this break is deliberately outside it.
 
 **In plugin code, `undefined` means "not set". Never `null`.**

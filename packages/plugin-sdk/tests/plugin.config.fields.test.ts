@@ -91,10 +91,21 @@ describe('configFieldSchema', () => {
         const columns = (column: unknown) => configFieldSchema.safeParse({ key: 'feeds', label: 'Feeds', type: 'list', columns: [column] }).success;
 
         expect(columns({ key: 'secret', label: 'Token', type: 'secret' })).toBe(false);
-        // A dotted key reads as a path into a nested object wherever a row is edited, so the cell
-        // would draw empty and submit nothing. Refused here rather than found on air.
-        expect(columns({ key: 'feed.url', label: 'Address', type: 'url' })).toBe(false);
         expect(columns({ key: 'category', label: 'Category', type: 'string', optionsFrom: 'station.whatever' })).toBe(false);
+    });
+
+    it('takes a column key shaped however the plugin likes, dots included', () => {
+        // A row editor addresses a cell by path, where a dot means a step into a nested object —
+        // which is the form's problem to solve and not something a plugin author should have to
+        // know about. It solves it positionally, as it already does for a dot-keyed setting.
+        const parsed = configFieldSchema.safeParse({
+            key: 'feeds',
+            label: 'Feeds',
+            type: 'list',
+            columns: [{ key: 'feed.url', label: 'Address', type: 'url' }],
+        });
+
+        expect(parsed.success).toBe(true);
     });
 
     it('accepts a multiselect, which is new', () => {

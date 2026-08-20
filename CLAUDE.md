@@ -421,10 +421,12 @@ stored as a JSON array of row objects in a string exactly as a `multiselect` sto
 back with `parseRows`, and drawn by the console's one settings form as a table with an Add button.
 It exists because `id|Name|address` lines are what a list becomes the moment its entries have parts,
 and a mistyped line is a feed the station silently does not have — the same argument that moved the
-format clock out of a settings box. Three things are load-bearing. A column key may not contain a
-DOT, unlike a field key (`stream.title` is ordinary), because a cell is addressed by path in the
-editor and a dotted key reads as a path into a nested object: the cell draws empty and submits
-nothing, in silence. The HOST's allowlist reads a `fromConfig` list through the columns declared
+format clock out of a settings box. Three things are load-bearing. A cell is named POSITIONALLY
+inside the form (`f3.0.c1`, `cellNameOf`) and the column's own key is put back on the way out, which
+is `nameOf`'s rule one level down: a cell is addressed by path, a dot in a path is a step into a
+nested object, and translating dots to dashes would quietly merge a plugin's `a.b` and `a-b` into
+one cell. So a column key is shaped however the plugin likes, dots included, and nothing about this
+reaches a plugin author. The HOST's allowlist reads a `fromConfig` list through the columns declared
 `url` and no others (`addressCells` in `plugin.host.factory.ts`), because `hostnameFromSetting`
 accepts a bare hostname and would otherwise put a category called `sport` on the allowlist. And a
 column may declare `optionsFrom`, a closed host vocabulary (`station.newsCategories` today) resolved

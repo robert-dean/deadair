@@ -79,10 +79,11 @@ export interface ConfigFieldColumn {
     /**
      * Key this cell is stored under inside the row object.
      *
-     * Letters, digits, dashes and underscores only, and a DOT is the one thing it may not carry —
-     * unlike {@link ConfigField.key}, where a dot is ordinary (`stream.title`). A row editor
-     * addresses a cell by a path built out of this, so a dotted column key would read as a path
-     * into a nested object and the cell would render empty and submit nothing, silently.
+     * Whatever suits the plugin, dots included, exactly like {@link ConfigField.key}. A row editor
+     * addresses a cell by a path and a dot in a path means a step into a nested object, but that is
+     * the FORM's problem and it solves it the way it already solves the same problem for a
+     * dot-keyed station setting: it names its inputs positionally and puts the real keys back on
+     * the way out. Nothing a plugin author has to know about.
      */
     key: string;
 
@@ -229,11 +230,7 @@ export const configFieldUnitSchema = z.enum(['bytes']);
 export const configFieldOptionSourceSchema = z.enum(['station.newsCategories']);
 
 export const configFieldColumnSchema = z.object({
-    // No dots. See ConfigFieldColumn.key: a cell is addressed by a path built from this.
-    key: z
-        .string()
-        .min(1)
-        .regex(/^[A-Za-z0-9_-]+$/),
+    key: z.string().min(1),
     label: z.string().min(1),
     type: z.enum(['string', 'url', 'select']),
     required: z.boolean().optional(),

@@ -203,7 +203,9 @@ describe('PluginConfigForm', () => {
                 expect(submittedConfig()).toEqual({
                     feeds: JSON.stringify([
                         { name: 'World', url: 'https://one.example.com/rss', category: 'world' },
-                        { name: '', url: 'https://two.example.net/rss', category: '' },
+                        // A cell nobody filled in is absent rather than empty: not set is not the
+                        // same claim as set to nothing.
+                        { url: 'https://two.example.net/rss' },
                     ]),
                 });
             });
@@ -243,6 +245,34 @@ describe('PluginConfigForm', () => {
             // different sort of break entirely.
             expect(await screen.findByText('Sport')).toBeInTheDocument();
             expect(screen.queryByText('Home')).not.toBeInTheDocument();
+        });
+
+        it('takes a column key with a dot in it, which the form never lets reach an input name', async () => {
+            // A dot in a path means a step into a nested object, so a cell named after this key
+            // would draw empty and submit nothing. The form names its inputs positionally and puts
+            // the real key back on the way out, so a plugin can key its columns however it likes.
+            const dotted: ConfigFieldDescriptor = {
+                key: 'feeds',
+                label: 'Feeds',
+                type: 'list',
+                columns: [{ key: 'feed.url', label: 'Address', type: 'url' }],
+            };
+            const plugin = pluginDetail({
+                configFields: [dotted],
+                config: { feeds: JSON.stringify([{ 'feed.url': 'https://one.example.com/rss' }]) },
+            });
+            updatePluginConfiguration.mockResolvedValue(plugin);
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            expect(screen.getByDisplayValue('https://one.example.com/rss')).toBeInTheDocument();
+
+            await userEvent.setup().type(screen.getByLabelText('Address'), '/two');
+            await save();
+
+            await waitFor(() => {
+                expect(submittedConfig()).toEqual({ feeds: JSON.stringify([{ 'feed.url': 'https://one.example.com/rss/two' }]) });
+            });
         });
 
         it('will not save a required list nobody has filled in', async () => {

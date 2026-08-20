@@ -36,14 +36,34 @@ type FieldValue = string | number | boolean | FieldRow[];
 type FormValues = Record<string, FieldValue>;
 
 /**
- * A `list`'s rows, out of the JSON array it is stored as.
+ * The name a CELL goes under inside the form, which is not its column key.
+ *
+ * {@link nameOf}'s rule, one level down and for exactly the same reason: a cell is addressed by a
+ * path (`f3.0.c2`), so a column key carrying a dot would read as a path into a nested object and the
+ * cell would draw empty and submit nothing, in silence. Positional rather than an escaped form of
+ * the key, because every escaping scheme can be collided with by a key that already contains the
+ * escape character — translating `.` to `-` would quietly merge a plugin's `a.b` and `a-b` into one
+ * cell — and this cannot.
+ *
+ * The consequence worth stating: a plugin picks whatever column keys suit it, including dotted ones,
+ * and the STORED row still holds those keys. Only this form's internal names are positional, and
+ * {@link rowsForSubmission} puts the real ones back.
+ */
+const cellNameOf = (column: number): string => `c${column}`;
+
+/**
+ * A `list`'s rows, out of the JSON array it is stored as, under the form's own cell names.
  *
  * Duplicated from the plugin SDK's `parseRows` for {@link parseChosen}'s reason, and tolerant in the
  * same way: a hand-edited value should cost the field rather than the page. Unlike the SDK's reader
  * this keeps a row whose cells are all empty, because the form has to be able to hold the blank row
  * an operator has just added and not yet typed into. `buildSubmission` is what drops those.
+ *
+ * A stored cell whose column the manifest no longer declares is dropped rather than carried through
+ * invisibly, which is the treatment `PluginConfigService.saveConfig` already gives a stored key with
+ * no descriptor behind it.
  */
-function parseStoredRows(value: unknown): FieldRow[] {
+function parseStoredRows(value: unknown, columns: readonly ConfigFieldColumn[]): FieldRow[] {
     if (typeof value !== 'string' || value.trim().length === 0) return [];
 
     try {
@@ -53,10 +73,12 @@ function parseStoredRows(value: unknown): FieldRow[] {
         return parsed.flatMap(entry => {
             if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return [];
 
+            const stored = entry as Record<string, unknown>;
             const row: FieldRow = {};
-            for (const [key, cell] of Object.entries(entry as Record<string, unknown>)) {
-                if (typeof cell === 'string') row[key] = cell;
-            }
+            columns.forEach((column, at) => {
+                const cell = stored[column.key];
+                row[cellNameOf(at)] = typeof cell === 'string' ? cell : '';
+            });
             return [row];
         });
     } catch {
@@ -70,12 +92,31 @@ const rowsOf = (value: FieldValue | undefined): FieldRow[] => (Array.isArray(val
 /** A row nobody filled in. The form leaves one behind whenever somebody adds a row and thinks better of it. */
 const isBlankRow = (row: FieldRow): boolean => Object.values(row).every(cell => cell.trim().length === 0);
 
-/** The rows as they are stored: blank ones dropped, every cell trimmed. */
-const rowsForSubmission = (rows: readonly FieldRow[]): FieldRow[] =>
-    rows.map(row => Object.fromEntries(Object.entries(row).map(([key, cell]) => [key, cell.trim()])) as FieldRow).filter(row => !isBlankRow(row));
+/**
+ * The rows as they are stored: the columns' own keys back, blank rows dropped, every cell trimmed.
+ *
+ * A cell nobody filled in is left OUT of its row rather than stored as an empty string, which is
+ * the same rule the rest of the submission follows and the one the plugin SDK reads rows under:
+ * absent means not set.
+ */
+const rowsForSubmission = (rows: readonly FieldRow[], columns: readonly ConfigFieldColumn[]): FieldRow[] =>
+    rows
+        .map(
+            row =>
+                Object.fromEntries(
+                    columns.flatMap((column, at) => {
+                        const cell = (row[cellNameOf(at)] ?? '').trim();
+                        return cell.length === 0 ? [] : [[column.key, cell]];
+                    }),
+                ) as FieldRow,
+        )
+        .filter(row => !isBlankRow(row));
 
 /** An empty row of the declared columns, so a new row draws every cell rather than growing them as it is typed into. */
-const emptyRow = (field: ConfigFieldDescriptor): FieldRow => Object.fromEntries((field.columns ?? []).map(column => [column.key, '']));
+const emptyRow = (columns: readonly ConfigFieldColumn[]): FieldRow => Object.fromEntries(columns.map((_, at) => [cellNameOf(at), '']));
+
+/** The columns a `list` declared. A field of another type has none, and a `list` with none draws nothing to fill in. */
+const columnsOf = (field: ConfigFieldDescriptor): readonly ConfigFieldColumn[] => field.columns ?? [];
 
 /**
  * A `multiselect`'s chosen values, out of the JSON array it is stored and submitted as.
@@ -162,7 +203,7 @@ function initialValues(fields: readonly ConfigFieldDescriptor[], stored: Record<
             // A real array in the form's own state, which is what lets the row editor use Mantine's
             // list handlers and address a cell by path. It is turned back into the JSON string it is
             // stored as on the way out, in `buildSubmission`.
-            values[name] = parseStoredRows(current);
+            values[name] = parseStoredRows(current, columnsOf(field));
         } else if (field.type === 'boolean') {
             values[name] = current === true;
         } else if (field.type === 'number') {
@@ -222,7 +263,7 @@ function buildSubmission(
         }
 
         if (field.type === 'list') {
-            submission[field.key] = JSON.stringify(rowsForSubmission(Array.isArray(value) ? value : []));
+            submission[field.key] = JSON.stringify(rowsForSubmission(Array.isArray(value) ? value : [], columnsOf(field)));
             return;
         }
 
@@ -486,7 +527,7 @@ export function ConfigFieldsForm({
                         cellKey={path => form.key(path)}
                         optionsFor={column => columnOptionsFor(field, column)}
                         onAdd={() => {
-                            form.insertListItem(name, emptyRow(field));
+                            form.insertListItem(name, emptyRow(columnsOf(field)));
                         }}
                         onRemove={index => {
                             form.removeListItem(name, index);
@@ -593,12 +634,12 @@ interface RowsFieldProps {
  * line format is a thing that can be mistyped into silence: the station reads the operator's list,
  * drops the line it could not parse, and says so in a log nobody is reading at the time.
  *
- * Every cell is addressed by path (`f3.0.url`) so the form's own list handlers do the inserting and
- * removing. Nothing here holds state of its own, which is what keeps a row that was removed from
- * leaving its typed-in values behind on the row that took its place.
+ * Every cell is addressed by path (`f3.0.c1`, see {@link cellNameOf}) so the form's own list handlers
+ * do the inserting and removing. Nothing here holds state of its own, which is what keeps a row that
+ * was removed from leaving its typed-in values behind on the row that took its place.
  */
 function RowsField({ field, name, rows, error, disabled, cellProps, cellKey, optionsFor, onAdd, onRemove }: RowsFieldProps) {
-    const columns = field.columns ?? [];
+    const columns = columnsOf(field);
 
     return (
         <Input.Wrapper label={field.label} description={field.help} withAsterisk={field.required} error={error}>
@@ -622,8 +663,8 @@ function RowsField({ field, name, rows, error, disabled, cellProps, cellKey, opt
                         <Table.Tbody>
                             {rows.map((row, index) => (
                                 <Table.Tr key={cellKey(`${name}.${index}`)}>
-                                    {columns.map(column => {
-                                        const path = `${name}.${index}.${column.key}`;
+                                    {columns.map((column, at) => {
+                                        const path = `${name}.${index}.${cellNameOf(at)}`;
                                         const choices = optionsFor(column);
                                         return (
                                             <Table.Td key={column.key}>

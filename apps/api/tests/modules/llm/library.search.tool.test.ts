@@ -111,7 +111,53 @@ describe('LibrarySearchTool', () => {
         // no tool calls at all as a model failure, and this is deliberately not that.
         const { tool } = build([]);
 
-        expect(await (await only(tool)).run({ query: 'nothing' })).toEqual({ tracks: [] });
+        const result = (await (await only(tool)).run({ query: 'nothing' })) as { tracks: unknown[] };
+
+        expect(result.tracks).toEqual([]);
+    });
+
+    it('sends an empty answer somewhere to look next, because the empty result alone is what cost a refill', async () => {
+        // `{"tracks":[]}` is true and useless: it says the station does not own the record and
+        // nothing about the tool that can reach it.
+        const { tool } = build([]);
+
+        const result = (await (await only(tool)).run({ query: 'Miami Nights 1984' })) as { note?: string };
+
+        expect(result.note).toMatch(/search_catalog/);
+        // The reason the model is allowed to reach past a tool it was told to prefer.
+        expect(result.note).toMatch(/safe to name/i);
+        expect(result.note).toContain('Miami Nights 1984');
+    });
+
+    it('withdraws the library once it has come back empty twice in a row', async () => {
+        // The measured failure: a model working through a similarity list one artist at a time,
+        // asking the library for each, and running out of tool steps before it answered. A stronger
+        // PREFERENCE would change nothing there, since preferring the library is what it was doing.
+        const { tool } = build([]);
+        const search = (await only(tool)).run;
+
+        const first = (await search({ query: 'Lazerhawk' })) as { note?: string };
+        const second = (await search({ query: 'Lost Years' })) as { note?: string };
+
+        expect(first.note).not.toMatch(/2 times in a row/);
+        expect(second.note).toMatch(/2 times in a row/);
+        expect(second.note).toMatch(/does not hold this kind of music/);
+    });
+
+    it('starts the run again after a search that found something', async () => {
+        // A library that answered once is not one to give up on. What is being counted is a run of
+        // misses rather than a tally of them.
+        const rows: Row[] = [];
+        const { tool } = build(rows);
+        const search = (await only(tool)).run;
+
+        await search({ query: 'Lazerhawk' });
+        rows.push({ title: 'Enter Sandman', artistName: 'Metallica' });
+        await search({ query: 'metallica' });
+        rows.length = 0;
+        const afterHit = (await search({ query: 'Betamaxx' })) as { note?: string };
+
+        expect(afterHit.note).not.toMatch(/in a row/);
     });
 
     it('narrows to clean copies when the station may play nothing else', async () => {

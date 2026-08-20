@@ -133,6 +133,7 @@ export function ClockPanel() {
                                     <Table.Td>
                                         <Text size="sm" c={band.enabled ? undefined : 'dimmed'}>
                                             {band.kind}
+                                            {band.topicLabel === undefined ? '' : ` · ${band.topicLabel}`}
                                         </Text>
                                     </Table.Td>
                                     <Table.Td w={90}>
@@ -208,6 +209,9 @@ const bodyOf = (band: ClockBand): ClockBandInput => ({
     ...(band.hour === undefined ? {} : { hour: band.hour }),
     ...(band.minute === undefined ? {} : { minute: band.minute }),
     ...(band.everyMs === undefined ? {} : { everyMs: band.everyMs }),
+    // What it is about goes back too: `PUT` replaces the row, so a reorder that sent only the
+    // position would quietly turn a technology bulletin into a general one.
+    ...(band.topicId === undefined ? {} : { topicId: band.topicId }),
     position: band.position,
     enabled: band.enabled,
 });

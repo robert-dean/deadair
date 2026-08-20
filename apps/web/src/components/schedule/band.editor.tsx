@@ -3,6 +3,7 @@ import { Autocomplete, Button, Divider, Group, Modal, NumberInput, Select, Stack
 import { useForm } from '@mantine/form';
 import type { ClockBand, ClockBandInput } from '@deadair/sdk';
 
+import { useTopics } from '../../api/topics.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { clockToMinutes, minutesToClock } from './schedule.day';
 
@@ -23,6 +24,12 @@ import { clockToMinutes, minutesToClock } from './schedule.day';
  * the station already knows how to produce and takes anything else typed over them. A closed picker
  * here would be the console quietly removing a capability the API has.
  *
+ * ## The subject picker is only drawn when the kind HAS subjects
+ *
+ * A news band can be about a category and a talk break cannot be about anything, so the row appears
+ * when the sort of break typed above has subjects named for it and disappears when it does not. An
+ * empty picker on every band would be a control that means nothing four times out of five.
+ *
  * ## Nothing here reaches what is already planned
  *
  * A band claims boundaries on the director's next pass, so an edit applies from the next one onward
@@ -32,6 +39,7 @@ import { clockToMinutes, minutesToClock } from './schedule.day';
 export function BandEditor({ target, onClose, onSubmit, onDelete, saving, deleting, error }: Props) {
     const opened = target !== undefined;
     const band = target?.kind === 'edit' ? target.band : undefined;
+    const topics = useTopics();
 
     const form = useForm<FormValues>({
         // Read once per mount, so the page keys this component on what it is open on: a form that
@@ -44,11 +52,23 @@ export function BandEditor({ target, onClose, onSubmit, onDelete, saving, deleti
         },
     });
 
+    // The subjects named for whatever sort of break is typed above, which is why this reads the live
+    // field rather than the band: switching the kind switches what it can be about.
+    const subjects = (topics.data?.topics ?? []).filter(topic => topic.kind === form.values.kind.trim());
+
     const submit = form.onSubmit(values => {
         const shape = shapeOf(values);
         if (shape === undefined) return;
 
-        onSubmit({ kind: values.kind.trim(), ...shape, position: values.position, enabled: values.enabled });
+        onSubmit({
+            kind: values.kind.trim(),
+            ...shape,
+            // Dropped rather than sent as an empty string: absent means the break covers whatever it
+            // finds, which is a different thing from a subject nothing can resolve.
+            ...(values.topicId.length === 0 ? {} : { topicId: values.topicId }),
+            position: values.position,
+            enabled: values.enabled,
+        });
     });
 
     return (
@@ -103,6 +123,16 @@ export function BandEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                             </Group>
                         ) : undefined}
                     </Group>
+
+                    {subjects.length > 0 ? (
+                        <Select
+                            label="About"
+                            description={`Only what belongs to this subject. Leave it empty and the break covers whatever it finds.`}
+                            data={subjects.map(topic => ({ value: topic.id, label: topic.label }))}
+                            clearable
+                            {...form.getInputProps('topicId')}
+                        />
+                    ) : undefined}
 
                     <Text size="xs" c="dimmed">
                         Times are on the station&apos;s own clock. A band takes the first boundary at or after its time, so a bulletin at half past is
@@ -182,6 +212,8 @@ interface Props {
 
 interface FormValues {
     kind: string;
+    /** The subject's id, or empty for a band that covers whatever it finds. */
+    topicId: string;
     /** Which sentence this is. The API's two shapes, with the common `clock` case split in two. */
     when: 'hourly' | 'daily' | 'interval';
     minute: number;
@@ -208,6 +240,7 @@ function valuesOf(target?: BandTarget): FormValues {
 
     return {
         kind: band?.kind ?? '',
+        topicId: band?.topicId ?? '',
         when,
         // Half past for a new hourly band, which is where a bulletin usually goes and is well clear
         // of the top of the hour a station tends to name itself at.

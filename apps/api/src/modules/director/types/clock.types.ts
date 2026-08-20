@@ -31,6 +31,15 @@ export const ClockBand = z.strictObject({
         .min(0)
         .describe("Where this sits in the operator's own order, which is what settles a boundary two rules both want"),
     enabled: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('A rule turned off without being lost'),
+    topicId: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            'What this band is about, as a subject of its own kind: a news category, later a weather location. Absent means it covers whatever it finds',
+        ),
+    topicLabel: z.string().min(1).max(200).optional().describe("That subject's name, so a list can be drawn without a second call"),
 });
 export type ClockBand = z.infer<typeof ClockBand>;
 
@@ -60,11 +69,19 @@ export const ClockBandInput = z.strictObject({
         .min(0)
         .describe("Where this sits in the operator's own order, which is what settles a boundary two rules both want"),
     enabled: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('A rule turned off without being lost'),
+    topicId: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            'What this band is about, as a subject of its own kind: a news category, later a weather location. Absent means it covers whatever it finds',
+        ),
 });
 export type ClockBandInput = z.infer<typeof ClockBandInput>;
 
 /**
- * generated from [ClockBandList](file://./../../../../data/contracts/director/clock.types.ck#L19)
+ * generated from [ClockBandList](file://./../../../../data/contracts/director/clock.types.ck#L21)
  */
 export const ClockBandList = z.strictObject({
     bands: z.array(ClockBand),

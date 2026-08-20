@@ -236,6 +236,7 @@ export interface DeadairClockBands {
   minute: number | null;
   position: Generated<number>;
   stationKey: Generated<string>;
+  topicId: string | null;
   updatedAt: Generated<DateTime>;
 }
 

@@ -3,6 +3,7 @@ import { ActionIcon, Button, Card, Group, Stack, Table, Text } from '@mantine/co
 import { IconTrash } from '@tabler/icons-react';
 import type { Topic, TopicInput, TopicKindDescriptor } from '@deadair/sdk';
 
+import { useClockBands } from '../../api/clock.queries';
 import { useCreateTopic, useDeleteTopic, useTopicKinds, useTopics, useUpdateTopic } from '../../api/topics.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -23,16 +24,20 @@ import { TopicEditor, type TopicTarget } from './topic.editor';
  * A station that has deleted every category has a `news` kind and no rows, which is a state worth
  * being able to see and add to. Building the page from the rows alone would leave no way back.
  *
- * ## Deleting is confirmed rather than undoable
+ * ## Deleting is confirmed, and says what goes with it
  *
- * There is no restore here, unlike the personas page: a category is a few words an operator wrote
- * and the seeds are only a starting vocabulary, so the thing worth spending a control on is the
- * confirmation rather than a way back. Once a band can ask for a subject, that confirmation is also
- * where it says which bands go with it.
+ * A band on the format clock that asked for this subject goes too, because a band that quietly lost
+ * its subject would read a general break under this name — the failure the whole feature exists to
+ * prevent. There is no restore, unlike the personas page: a category is a few words an operator
+ * wrote and the seeds are only a starting vocabulary, so the control worth having is the
+ * confirmation rather than a way back.
  */
 export function TopicsPage() {
     const kinds = useTopicKinds();
     const topics = useTopics();
+    // Only to say what else a delete takes. The schedule page already draws this list, so it is a
+    // cached read rather than a call this page pays for.
+    const clock = useClockBands();
     const create = useCreateTopic();
     const update = useUpdateTopic();
     const remove = useDeleteTopic();
@@ -53,6 +58,7 @@ export function TopicsPage() {
     };
 
     const all = topics.data?.topics ?? [];
+    const bands = clock.data?.bands ?? [];
 
     return (
         <Stack gap="lg">
@@ -138,7 +144,14 @@ export function TopicsPage() {
                                                             aria-label={`Delete ${topic.label}`}
                                                             loading={remove.isPending}
                                                             onClick={() => {
-                                                                if (window.confirm(`Delete ${topic.label}?`)) remove.mutate(topic.id);
+                                                                // A band that asked for this goes
+                                                                // with it: one that quietly lost its
+                                                                // subject would read a general break
+                                                                // under this name, which is the
+                                                                // failure the whole feature exists
+                                                                // to prevent.
+                                                                const asking = bands.filter(band => band.topicId === topic.id).length;
+                                                                if (window.confirm(warningFor(topic.label, asking))) remove.mutate(topic.id);
                                                             }}
                                                         >
                                                             <IconTrash size={14} />
@@ -170,6 +183,13 @@ export function TopicsPage() {
             ) : undefined}
         </Stack>
     );
+}
+
+/** What deleting this takes with it, said before it happens. */
+function warningFor(label: string, bands: number): string {
+    if (bands === 0) return `Delete ${label}?`;
+
+    return `Delete ${label}? ${bands} band${bands === 1 ? '' : 's'} on the format clock ${bands === 1 ? 'asks' : 'ask'} for it and will go too.`;
 }
 
 /**

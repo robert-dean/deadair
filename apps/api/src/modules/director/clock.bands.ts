@@ -41,6 +41,8 @@ export interface AnchoredBand {
     /** The hour it happens at, or absent for every hour. */
     hour?: number;
     kind: string;
+    /** What this one is ABOUT. See {@link ClockBandSubject}. */
+    topic?: ClockBandSubject;
 }
 
 /** A break on its own interval, for a kind the station's own spacing does not cover. */
@@ -48,6 +50,26 @@ export interface SpacingBand {
     at: 'interval';
     everyMs: number;
     kind: string;
+    /** What this one is ABOUT. See {@link ClockBandSubject}. */
+    topic?: ClockBandSubject;
+}
+
+/**
+ * What a band is about, when it is about something.
+ *
+ * A `deadair.topics` row for this band's kind — a news CATEGORY today, a weather LOCATION when that
+ * kind exists. Absent is the ordinary case and means the break covers whatever it finds, which is
+ * what every band did before subjects existed.
+ *
+ * The KEY travels with the id because the two answer different questions and both are asked: the id
+ * is what the row points at, and the key is what a writer reads and what a log line names. Carrying
+ * only the id would make every reader that wants to say which category this is do a second query,
+ * on the path to writing a break.
+ */
+export interface ClockBandSubject {
+    id: string;
+    key: string;
+    label: string;
 }
 
 export type ClockBand = AnchoredBand | SpacingBand;

@@ -18,6 +18,10 @@ export interface ClockBand {
     position: number;
     /** A rule turned off without being lost */
     enabled: boolean;
+    /** What this band is about, as a subject of its own kind: a news category, later a weather location. Absent means it covers whatever it finds */
+    topicId?: string;
+    /** That subject's name, so a list can be drawn without a second call */
+    topicLabel?: string;
 }
 
 export interface ClockBandInput {
@@ -35,10 +39,12 @@ export interface ClockBandInput {
     position: number;
     /** A rule turned off without being lost */
     enabled: boolean;
+    /** What this band is about, as a subject of its own kind: a news category, later a weather location. Absent means it covers whatever it finds */
+    topicId?: string;
 }
 
 /**
- * generated from [ClockBandList](file://./../../../../../apps/api/data/contracts/director/clock.types.ck#L19)
+ * generated from [ClockBandList](file://./../../../../../apps/api/data/contracts/director/clock.types.ck#L21)
  */
 export interface ClockBandList {
     bands: ClockBand[];

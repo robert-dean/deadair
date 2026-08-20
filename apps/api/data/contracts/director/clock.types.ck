@@ -14,6 +14,8 @@ contract ClockBand: {
     everyMs?: int(min=60000) # For an `interval` band: how far apart, in milliseconds
     position: int(min=0) # Where this sits in the operator's own order, which is what settles a boundary two rules both want
     enabled: boolean # A rule turned off without being lost
+    topicId?: string(min=1, max=100) # What this band is about, as a subject of its own kind: a news category, later a weather location. Absent means it covers whatever it finds
+    topicLabel?: readonly string(min=1, max=200) # That subject's name, so a list can be drawn without a second call
 }
 
 contract ClockBandList: {

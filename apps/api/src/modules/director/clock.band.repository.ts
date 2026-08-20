@@ -44,13 +44,10 @@ export class ClockBandRepository extends DataRepository {
      * timestamp, and precedence that reshuffles between passes is a clock nobody can reason about.
      */
     async active(): Promise<ClockBand[]> {
-        const rows = await this.db
-            .selectFrom('deadair.clockBands')
-            .selectAll()
-            .where('stationKey', '=', this.station.stationKey)
+        const rows = await this.withSubject()
             .where('enabled', '=', true)
             .orderBy('position', 'asc')
-            .orderBy('id', 'asc')
+            .orderBy('deadair.clockBands.id', 'asc')
             .execute();
 
         return rows.map(toBand);
@@ -58,25 +55,47 @@ export class ClockBandRepository extends DataRepository {
 
     /** Every band this station has, switched off ones included. For the console. */
     async list(): Promise<ClockBandRecord[]> {
-        const rows = await this.db
-            .selectFrom('deadair.clockBands')
-            .selectAll()
-            .where('stationKey', '=', this.station.stationKey)
-            .orderBy('position', 'asc')
-            .orderBy('id', 'asc')
-            .execute();
+        const rows = await this.withSubject().orderBy('position', 'asc').orderBy('deadair.clockBands.id', 'asc').execute();
 
         return rows.map(toRecord);
     }
 
-    async create(draft: ClockBandDraft): Promise<ClockBandRecord> {
+    /**
+     * The band, with whatever subject it names.
+     *
+     * A LEFT join rather than a second read, because a band with no subject is the ordinary case and
+     * a second query per pass would pay for the exception. The key and the label ride along for the
+     * reason `ClockBandSubject` gives: what a writer reads is the key, and going back to the table
+     * for it would be a query on the path to writing a break.
+     */
+    private withSubject() {
+        return this.db
+            .selectFrom('deadair.clockBands')
+            .leftJoin('deadair.topics', 'deadair.topics.id', 'deadair.clockBands.topicId')
+            .select([
+                'deadair.clockBands.id as id',
+                'deadair.clockBands.kind as kind',
+                'deadair.clockBands.at as at',
+                'deadair.clockBands.hour as hour',
+                'deadair.clockBands.minute as minute',
+                'deadair.clockBands.everyMinutes as everyMinutes',
+                'deadair.clockBands.position as position',
+                'deadair.clockBands.enabled as enabled',
+                'deadair.clockBands.topicId as topicId',
+                'deadair.topics.key as topicKey',
+                'deadair.topics.label as topicLabel',
+            ])
+            .where('deadair.clockBands.stationKey', '=', this.station.stationKey);
+    }
+
+    async create(draft: ClockBandDraft): Promise<ClockBandRecord | undefined> {
         const row = await this.db
             .insertInto('deadair.clockBands')
             .values({ stationKey: this.station.stationKey, ...columnsOf(draft) })
-            .returningAll()
+            .returning('id')
             .executeTakeFirstOrThrow();
 
-        return toRecord(row);
+        return await this.find(row.id);
     }
 
     /** Answers `undefined` for a band this station does not have, which is a 404 and not a throw. */
@@ -86,8 +105,15 @@ export class ClockBandRepository extends DataRepository {
             .set(columnsOf(draft))
             .where('id', '=', id)
             .where('stationKey', '=', this.station.stationKey)
-            .returningAll()
+            .returning('id')
             .executeTakeFirst();
+
+        return row === undefined ? undefined : await this.find(row.id);
+    }
+
+    /** One band with its subject, which is what a write answers with. */
+    private async find(id: string): Promise<ClockBandRecord | undefined> {
+        const row = await this.withSubject().where('deadair.clockBands.id', '=', id).executeTakeFirst();
 
         return row === undefined ? undefined : toRecord(row);
     }
@@ -114,6 +140,9 @@ function columnsOf(draft: ClockBandDraft) {
         everyMinutes: draft.at === 'interval' ? Math.max(1, Math.round(draft.everyMs / 60_000)) : null,
         position: draft.position ?? 0,
         enabled: draft.enabled ?? true,
+        // The id alone: the key and the label are the topic row's own and are read back through the
+        // join. Storing a copy here would be a second writer of the same fact.
+        topicId: draft.topic?.id ?? null,
     };
 }
 
@@ -126,6 +155,9 @@ interface BandRow {
     everyMinutes: number | null;
     position: number;
     enabled: boolean;
+    topicId: string | null;
+    topicKey: string | null;
+    topicLabel: string | null;
 }
 
 /**
@@ -138,9 +170,15 @@ interface BandRow {
  * rather than loud.
  */
 function toBand(row: BandRow): ClockBand {
-    if (row.at === 'interval') return { at: 'interval', everyMs: Math.max(1, row.everyMinutes ?? 1) * 60_000, kind: row.kind };
+    // A row whose topic went is a row the database would have deleted, so a present id with no key
+    // beside it can only be a join that found nothing — read as no subject rather than as a subject
+    // nothing can name.
+    const subject =
+        row.topicId == null || row.topicKey == null ? {} : { topic: { id: row.topicId, key: row.topicKey, label: row.topicLabel ?? row.topicKey } };
 
-    return { at: 'clock', minute: row.minute ?? 0, ...(row.hour == null ? {} : { hour: row.hour }), kind: row.kind };
+    if (row.at === 'interval') return { at: 'interval', everyMs: Math.max(1, row.everyMinutes ?? 1) * 60_000, kind: row.kind, ...subject };
+
+    return { at: 'clock', minute: row.minute ?? 0, ...(row.hour == null ? {} : { hour: row.hour }), kind: row.kind, ...subject };
 }
 
 /** Read back as `undefined` rather than `null`, per the note in CLAUDE.md, so `== null` is the test. */

@@ -61,6 +61,23 @@ select deadair.add_updated_at_trigger('deadair.topics');
 -- The console's read and the writers': this station's vocabulary for one kind, in order.
 create index topics_kind_idx on deadair.topics (station_key, kind, position, id);
 
+-- What this band is ABOUT, or null for one that covers whatever it finds.
+--
+-- Here rather than in `0017_schedule.sql` beside the rest of the band because the table it points
+-- at is in this file, which is the same ordering `station_lineup.persona_id` had to respect in 0013.
+--
+-- **`cascade` rather than `set null`**, deliberately and against the habit of every other reference
+-- in this schema. A band that quietly lost its subject would go on claiming its boundary and read a
+-- GENERAL bulletin under a category's name, which is the one failure this whole feature exists to
+-- prevent: silence is a state an operator can see and a wrong bulletin is not. Losing the band costs
+-- the slot, which is the same answer a category that matches nothing already gives.
+alter table deadair.clock_bands add column topic_id uuid references deadair.topics (id) on delete cascade;
+
+-- Which bands ask for a subject, for the console's "and these go too" before a delete.
+create index clock_bands_topic_idx on deadair.clock_bands (topic_id) where topic_id is not null;
+
 -- migrate:down
+
+alter table deadair.clock_bands drop column topic_id;
 
 drop table if exists deadair.topics;

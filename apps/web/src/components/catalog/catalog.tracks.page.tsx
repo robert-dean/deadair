@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CATALOG_PAGE_SIZE, catalogTracksOptions, useRateTrack } from '../../api/catalog.queries';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
+import { AlbumLink, ArtistLink, TrackLink } from '../shared/catalog.links';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
@@ -127,39 +128,20 @@ export function CatalogTracksPage({ page, search, state, onPageChange, onSearchC
                                             />
                                         </Table.Td>
                                         <Table.Td>
-                                            {/* `renderRoot` rather than `component={Link}`: the
-                                                polymorphic form erases the router's own typing. */}
                                             {/* Drawn like the artist and album links beside it rather
                                                 than as plain text: the title is now the way into
                                                 everything a record has accumulated, and a link
                                                 nobody can see is a page nobody finds. */}
-                                            <Anchor renderRoot={props => <Link to="/catalog/tracks/$trackId" params={{ trackId: track.id }} {...props} />}>
-                                                {track.title}
-                                            </Anchor>
+                                            <TrackLink id={track.id}>{track.title}</TrackLink>
                                         </Table.Td>
                                         <Table.Td>
-                                            <Anchor
-                                                renderRoot={props => (
-                                                    <Link to="/catalog/artists/$artistId" params={{ artistId: track.artistId }} {...props} />
-                                                )}
-                                            >
-                                                {track.artistName}
-                                            </Anchor>
+                                            <ArtistLink id={track.artistId}>{track.artistName}</ArtistLink>
                                         </Table.Td>
                                         {/* A track ingested outside any release has no album, which is a
-                                        blank cell rather than a broken link. */}
+                                        blank cell rather than a broken link — which is what an absent
+                                        id already means to `AlbumLink`. */}
                                         <Table.Td>
-                                            {track.albumId === undefined ? (
-                                                ''
-                                            ) : (
-                                                <Anchor
-                                                    renderRoot={props => (
-                                                        <Link to="/catalog/albums/$albumId" params={{ albumId: track.albumId }} {...props} />
-                                                    )}
-                                                >
-                                                    {track.albumName}
-                                                </Anchor>
-                                            )}
+                                            <AlbumLink id={track.albumId}>{track.albumName ?? ''}</AlbumLink>
                                         </Table.Td>
                                         <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
                                         {/* Three facts, as three marks rather than three columns: what

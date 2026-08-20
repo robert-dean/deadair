@@ -11,6 +11,7 @@ import {
     useRateArtist,
 } from '../../api/catalog.queries';
 import { Artwork } from '../shared/artwork';
+import { AlbumLink } from '../shared/catalog.links';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
@@ -124,11 +125,7 @@ export function ArtistDetailPage({ artistId, page, onPageChange }: ArtistDetailP
                                         <Artwork src={album.imageUrl} alt={album.name} size={40} />
                                     </Table.Td>
                                     <Table.Td>
-                                        <Anchor
-                                            renderRoot={props => <Link to="/catalog/albums/$albumId" params={{ albumId: album.id }} {...props} />}
-                                        >
-                                            {album.name}
-                                        </Anchor>
+                                        <AlbumLink id={album.id}>{album.name}</AlbumLink>
                                     </Table.Td>
                                     <Table.Td className="da-num">{album.year ?? ''}</Table.Td>
                                     <Table.Td className="da-num">{album.trackCount}</Table.Td>

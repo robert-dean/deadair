@@ -13,6 +13,7 @@ import {
 } from '../../api/catalog.queries';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
+import { ArtistLink, TrackLink } from '../shared/catalog.links';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
@@ -45,12 +46,9 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
                     {album.data ? (
-                        <Anchor
-                            renderRoot={props => <Link to="/catalog/artists/$artistId" params={{ artistId: album.data.artistId }} {...props} />}
-                            size="sm"
-                        >
+                        <ArtistLink id={album.data.artistId} size="sm">
                             {`Back to ${album.data.artistName}`}
-                        </Anchor>
+                        </ArtistLink>
                     ) : (
                         <Anchor renderRoot={props => <Link to="/catalog" {...props} />} size="sm">
                             Back to catalog
@@ -136,7 +134,12 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                                                 }}
                                             />
                                         </Table.Td>
-                                        <Table.Td>{track.title}</Table.Td>
+                                        {/* Linked like the same record is in the flat tracks table:
+                                            an operator reading a release is exactly as likely to
+                                            want one track's own page from here. */}
+                                        <Table.Td>
+                                            <TrackLink id={track.id}>{track.title}</TrackLink>
+                                        </Table.Td>
                                         {/* The credit as written on the release, which is not the same
                                             as the canonical artist this album hangs off. */}
                                         <Table.Td>{track.artists}</Table.Td>

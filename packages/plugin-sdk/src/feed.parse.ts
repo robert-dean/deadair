@@ -137,7 +137,7 @@ export function parseFeed(xml: string): ParsedFeed {
 
     const feed: ParsedFeed = { items: entries.flatMap(entry => (isRecord(entry) ? (readItem(entry) ?? []) : [])) };
 
-    const title = text(channel.title);
+    const title = speakable(channel.title);
     if (title !== undefined) feed.title = title;
 
     const homeUrl = readLink(channel.link);
@@ -187,7 +187,7 @@ export async function fetchFeed(host: PluginHost, url: string, init?: HostFetchI
  * link, because plenty of feeds carry announcements that point nowhere.
  */
 function readItem(entry: Record<string, unknown>): FeedItem | undefined {
-    const title = text(entry.title);
+    const title = speakable(entry.title);
     if (title === undefined) return undefined;
 
     const url = readLink(entry.link);
@@ -345,3 +345,20 @@ function text(value: unknown): string | undefined {
 
     return undefined;
 }
+
+/**
+ * A TITLE, which is text a voice will say rather than a field something matches on.
+ *
+ * The same treatment {@link FeedItem.summary} already gets, and it has to be: the XML parser
+ * decodes the document's own escaping ONCE, which is right for a title written as `AT&amp;T` and
+ * not enough for one written as `it&amp;#8217;s` — an apostrophe a publisher escaped twice, which
+ * is entirely ordinary in a feed whose titles came out of a CMS. What arrives here is then
+ * `it&#8217;s`, and a bulletin read that out on air with the entity still in it.
+ *
+ * Tags come out for the same reason: `type="html"` on a title is ordinary, and a `<em>` reaching a
+ * speaking voice is the failure `NewsItem.summary` documents.
+ */
+const speakable = (value: unknown): string | undefined => {
+    const raw = text(value);
+    return raw === undefined ? undefined : asPlainText(raw);
+};

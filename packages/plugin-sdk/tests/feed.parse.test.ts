@@ -89,6 +89,25 @@ describe('parseFeed', () => {
         expect(first?.summary).toBe('The crossing reopened this morning & traffic is moving.');
     });
 
+    it('decodes a title a publisher escaped twice, because a voice would read the entity out', () => {
+        // Measured on a real feed: `it&amp;#8217;s` in the document is `it&#8217;s` once the XML
+        // parser has done its one pass, and a bulletin read that out on air. Titles get the same
+        // treatment summaries already got, which is what fixes it.
+        const doubled = RSS.replace('Bridge reopens after four years', 'Framework says it&amp;#8217;s fixing a BIOS update');
+        const [first] = parseFeed(doubled).items;
+
+        expect(first?.title).toBe('Framework says it’s fixing a BIOS update');
+    });
+
+    it('takes the markup out of a title as well, since `type="html"` on one is ordinary', () => {
+        // Escaped in the document, which is how a title carries markup at all: the XML parser
+        // hands back the tag and this is what keeps a `<em>` out of a speaking voice.
+        const marked = RSS.replace('Bridge reopens after four years', 'Bridge reopens &lt;em&gt;at last&lt;/em&gt;');
+        const [first] = parseFeed(marked).items;
+
+        expect(first?.title).toBe('Bridge reopens at last');
+    });
+
     it('falls back to the full article when there is no teaser', () => {
         const [, second] = parseFeed(RSS).items;
 

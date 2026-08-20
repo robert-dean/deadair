@@ -830,6 +830,92 @@ describe('readAnswer, against the records it was shown', () => {
     });
 });
 
+// Measured on air on 19 August, segment `e26a93f0`, labelled `Talk break: Madhouse into Run to the
+// Hills`: the script back-announced the record that had not played yet. It passed every check there
+// was — in character, inside the ceiling, and naming a record it had genuinely been shown — because
+// nothing asked which SIDE of the break that record was on.
+describe('readAnswer, against the side of the break a record is on', () => {
+    const madhouse = { title: 'Madhouse', artist: 'Anthrax' };
+    const hills = { title: 'Run to the Hills', artist: 'Iron Maiden' };
+    const between = { previous: madhouse, next: hills };
+
+    it('declines a break that back-announces the record still to come', () => {
+        const script = 'That was Iron Maiden’s “Run to the Hills,” the kind of title that sounds like a bargain bin headline.';
+
+        expect(readAnswer(script, { cues: between })).toBeUndefined();
+    });
+
+    it('declines a break that cues the record already played as if it were coming', () => {
+        expect(readAnswer('Coming up, Madhouse, and it never did settle down.', { cues: between })).toBeUndefined();
+    });
+
+    it('takes a back-announce of the record that actually finished', () => {
+        const script = 'That was Madhouse, and it still sounds like a fight in a stairwell.';
+
+        expect(readAnswer(script, { cues: between })).toBe(script);
+    });
+
+    it('takes a forward cue of the record actually coming up', () => {
+        const script = 'Coming up, Run to the Hills, which has outlived everyone who sneered at it.';
+
+        expect(readAnswer(script, { cues: between })).toBe(script);
+    });
+
+    it('leaves a correct double cue alone, since naming both is not naming one wrongly', () => {
+        const script = 'That was Madhouse into Run to the Hills, and the join is half the fun.';
+
+        expect(readAnswer(script, { cues: between })).toBe(script);
+    });
+
+    it('says nothing about a record mentioned with no cue attached to it', () => {
+        // The check is on the FRAME, not on the noun. A break may perfectly well mention the record
+        // coming up without claiming it played, which is most of what a link is for.
+        const script = 'Madhouse still lands, and Iron Maiden are on the way to prove a point about stamina.';
+
+        expect(readAnswer(script, { cues: between })).toBe(script);
+    });
+
+    it("does not refuse the station's own phrasing, which cues both records by design", () => {
+        // The floor's real output from 19 August, verbatim. A check that refused what the
+        // deterministic writer produces would be refusing the thing it falls through TO, and the
+        // model would be held to a standard the station cannot meet itself.
+        const cues = { previous: { title: 'Cemetery Gates', artist: 'Pantera' }, next: { title: 'Symphony Of Destruction', artist: 'Megadeth' } };
+        const script = 'That was Cemetery Gates, from Pantera. Ambitious. Next, Megadeth with Symphony Of Destruction.';
+
+        expect(readAnswer(script, { cues })).toBe(script);
+    });
+
+    it('does not refuse over an identifier the two records share', () => {
+        // Two records by one artist cannot be told apart by the artist's name, so a match on it is
+        // not evidence of anything and must not cost the station a break.
+        const cues = { previous: { title: 'Peace Sells', artist: 'Megadeth' }, next: { title: 'Hangar 18', artist: 'Megadeth' } };
+
+        expect(readAnswer('That was Megadeth, and they have not finished with you yet.', { cues })).toBeDefined();
+    });
+
+    it('asks nothing when only one side of the break is known', () => {
+        // With one record there is no wrong side to confuse it with, and the prompt already tells a
+        // one-record break not to say what is coming up.
+        expect(readAnswer('That was Run to the Hills.', { cues: { previous: madhouse } })).toBeDefined();
+        expect(readAnswer('That was Madhouse.', { cues: { next: hills } })).toBeDefined();
+        expect(readAnswer('That was Run to the Hills.', {})).toBeDefined();
+    });
+
+    it('says which fault it was, and says it in terms of the listener', () => {
+        const script = 'That was Iron Maiden’s “Run to the Hills,” and what a way to go out.';
+        const declined = writeDecline(script, { cues: between });
+
+        expect(declined?.fault).toBe('cued-wrong');
+        expect(declined?.reason).toMatch(/wrong side of the break/i);
+    });
+
+    it('reports naming nothing ahead of cueing wrongly, because it is the more basic fault', () => {
+        const declined = writeDecline('Tonight the groove lands, friend.', { names: [madhouse, hills], cues: between });
+
+        expect(declined?.fault).toBe('named-nothing');
+    });
+});
+
 describe('readAnswer, against a persona', () => {
     const pirate = { dictionMarkers: ['ye', 'aye', 'matey', "in'", 'hearty'] };
 

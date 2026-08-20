@@ -15,6 +15,11 @@
  * separately, because inventing a credit and mis-cueing a real record are independent failures and
  * one instruction covering both gets neither.
  *
+ * That ban was an instruction and nothing read it back, which is the half {@link misCuedIn} now
+ * closes: a break may cue a record it was genuinely shown and still put it on the wrong side of
+ * itself, and a mis-cue is baked into audio that cannot be re-cut. It is the same enforcement
+ * `segments.claims_item_id` is for a forward promise, pointed at the words instead of the order.
+ *
  * ## The notes, and the second failure they bring
  *
  * A record now arrives with up to two short true sentences about it, chosen by the caller (see
@@ -884,18 +889,118 @@ const hasFacts = (previous: BreakTrack | undefined, next: BreakTrack | undefined
 export function namedRecordIn(script: string, records: readonly (BreakTrack | undefined)[]): BreakTrack | undefined {
     const spoken = ` ${bareWords(script)} `;
 
-    return records.find(record => {
-        if (record === undefined) return false;
+    return records.find(record => record !== undefined && identifiersOf(record).some(candidate => spoken.includes(` ${candidate} `)));
+}
 
-        // The parenthetical stripped as an ALTERNATIVE rather than instead: "Pink Moon" has none and
-        // is unaffected, and a title that is entirely parenthetical falls back to the whole thing.
-        const withoutAside = record.title.replace(/\([^)]*\)/g, ' ');
+/**
+ * The words that identify one record in a script: its title, its title with any aside taken off,
+ * and its artist.
+ *
+ * The parenthetical is stripped as an ALTERNATIVE rather than instead: "Pink Moon" has none and is
+ * unaffected, and a title that is entirely parenthetical falls back to the whole thing. Compared as
+ * bare words for {@link echoedSample}'s reason: a curly apostrophe, a capital and a comma are not
+ * the difference between naming a record and not.
+ */
+const identifiersOf = (record: BreakTrack): string[] =>
+    [record.title, record.title.replace(/\([^)]*\)/g, ' '), record.artist].map(bareWords).filter(candidate => candidate.length > 0);
 
-        return [record.title, withoutAside, record.artist]
-            .map(bareWords)
-            .filter(candidate => candidate.length > 0)
-            .some(candidate => spoken.includes(` ${candidate} `));
-    });
+/**
+ * How many words after a cue phrase still count as part of the cue.
+ *
+ * Eight, which covers "that was Iron Maiden's Run to the Hills" with room to spare and stops well
+ * short of the next sentence. A window is what keeps this a check on the CUE rather than on the
+ * whole break: a script may perfectly well back-announce one record and then mention the other
+ * later, and only the words attached to the frame say which one it is claiming played.
+ */
+const CUE_WINDOW_WORDS = 8;
+
+/**
+ * The ways a script says a record has just played, as bare words.
+ *
+ * Deliberately the plain ones. A frame nobody writes catches nothing, and a frame that is ordinary
+ * English somewhere else ("that's the thing about b-sides") costs a refusal only if the WRONG
+ * record's name is sitting right behind it, which is the whole of what makes this safe.
+ */
+const BACK_ANNOUNCE_FRAMES = ['that was', "that's", 'that is', 'those were', 'you just heard', 'we just heard', 'you were listening to'];
+
+/** The ways a script says a record is still to come. Same doctrine as {@link BACK_ANNOUNCE_FRAMES}. */
+const FORWARD_FRAMES = ['coming up', 'next up', 'up next', 'next is', "here's", 'here comes', 'coming your way', 'stay tuned for'];
+
+/** The two records a break sits between, so a cue can be judged against the right one. */
+export interface BreakCues {
+    previous?: BreakTrack;
+    next?: BreakTrack;
+}
+
+/**
+ * Whether a script cued a record on the WRONG SIDE of the break.
+ *
+ * ## The failure
+ *
+ * Measured on air on 19 August, segment `e26a93f0`, labelled `Talk break: Madhouse into Run to the
+ * Hills`: the script opened "That was Iron Maiden's "Run to the Hills," …" about the record that had
+ * not played yet. Every existing check passed it — it is unmistakably the persona speaking, it is
+ * inside the ceiling, and {@link namedRecordIn} is satisfied because it named a record it was shown.
+ * Nothing asked WHICH side of the boundary that record was on.
+ *
+ * The prompt was never the problem: the two records are labelled "The record that has just finished"
+ * and "The record coming up next" in as many words. This is the same shape as the persona
+ * prohibitions — a rule the station was already sending and nothing was reading back — and the same
+ * shape as the failure this whole file is built around, which the header states as framing real
+ * facts as a CUE. The framing was banned there and is now checkable here.
+ *
+ * ## Why it refuses so narrowly
+ *
+ * Only where BOTH records are known, because with one record there is no wrong side to confuse it
+ * with, and the prompt already tells a one-record break not to say what is coming up. Only where the
+ * name is attached to a frame, within {@link CUE_WINDOW_WORDS}. Only where the name is UNAMBIGUOUS —
+ * an identifier the two records share (two songs by one artist, a self-titled record) is dropped
+ * from both, so "that was Megadeth" going into more Megadeth is not a fault. And never where the
+ * RIGHT record is named in the same window too, since "that was Madhouse, and now Run to the Hills"
+ * is a correct double cue and reads as one only if both are counted.
+ *
+ * Every one of those is the same bargain the rest of the guards here are on: a refusal costs the
+ * station the model's sentence and drops it to the floor, so this refuses only what it is sure of.
+ */
+export function misCuedIn(script: string, cues: BreakCues): boolean {
+    const { previous, next } = cues;
+    if (previous === undefined || next === undefined) return false;
+
+    const words = bareWords(script).split(' ').filter(Boolean);
+
+    // Shared identifiers dropped from BOTH sides: they cannot tell the two records apart, so a match
+    // on one is not evidence of anything. See the note above about two songs by one artist.
+    const shared = new Set(identifiersOf(previous).filter(one => identifiersOf(next).includes(one)));
+    const namesIn = (from: number, record: BreakTrack): boolean => {
+        const window = ` ${words.slice(from, from + CUE_WINDOW_WORDS).join(' ')} `;
+
+        return (
+            identifiersOf(record)
+                .filter(one => !shared.has(one))
+                // The possessive counted as the name, because "Iron Maiden's Run to the Hills" is how a
+                // presenter says it and a check that missed it would catch only half the failure.
+                .some(one => window.includes(` ${one} `) || window.includes(` ${one}'s `))
+        );
+    };
+
+    const cued = [
+        { frames: BACK_ANNOUNCE_FRAMES, wrong: next, right: previous },
+        { frames: FORWARD_FRAMES, wrong: previous, right: next },
+    ];
+
+    return cued.some(({ frames, wrong, right }) =>
+        frames.some(frame => {
+            const size = frame.split(' ').length;
+
+            return words.some(
+                (_, at) =>
+                    at + size <= words.length &&
+                    words.slice(at, at + size).join(' ') === frame &&
+                    namesIn(at + size, wrong) &&
+                    !namesIn(at + size, right),
+            );
+        }),
+    );
 }
 
 /** A text as bare lower-case words, so a title and a script can be compared as speech, not as text. */
@@ -949,6 +1054,15 @@ export interface AnswerGuard {
      * was never given, which is the same bargain the markers and the spent signatures are on.
      */
     names?: readonly (BreakTrack | undefined)[];
+    /**
+     * The two records this break sits BETWEEN, so a cue can be judged against the right one.
+     *
+     * Separate from {@link AnswerGuard.names}, which is a flat list because the question it asks —
+     * did this break name anything at all — does not care which side a record is on. This one is
+     * only about the sides, so it needs them kept apart. Absent means the question is not asked, and
+     * {@link misCuedIn} asks nothing unless both are present.
+     */
+    cues?: BreakCues;
 }
 
 /**
@@ -975,6 +1089,12 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // nothing is wrong however well it is written, and reporting it as out-of-character would send
     // an operator to the persona page for a fault the prompt caused. See `namesNothing`.
     if (namesNothing(script, guard)) return undefined;
+
+    // A break that named a record it was shown and then put it on the wrong side of itself: "that
+    // was" about the record still to come. Checked here, in the same position `writeDecline` checks
+    // it, because these two orders have to stay the same story — the note on `tidyAnswer` says why.
+    // See `misCuedIn` for how narrowly it refuses.
+    if (cuesWrongly(script, guard)) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -1037,6 +1157,9 @@ const namesNothing = (script: string, guard: AnswerGuard): boolean => {
     return offered.length > 0 && namedRecordIn(script, offered) === undefined;
 };
 
+/** Whether a script cued one of its records on the wrong side. See {@link misCuedIn}. */
+const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues !== undefined && misCuedIn(script, guard.cues);
+
 /**
  * Why a cleaned script is not the persona speaking, or `undefined` when it is.
  *
@@ -1066,6 +1189,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     'nothing-said': 'the model answered with nothing the station could say',
     'ran-long': 'the model wrote past the word ceiling, and a script cut mid-sentence is worse than the phrasing underneath it',
     'named-nothing': 'the model wrote a break about neither of the records it was shown, so a listener could not tell what was playing',
+    'cued-wrong': 'the model announced a record on the wrong side of the break, telling a listener something had played when it had not',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
@@ -1080,7 +1204,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
  * an operator looking at a persona sheet for a ceiling that was in the way of a bulletin the prompt
  * had asked for.
  */
-export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing';
+export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing' | 'cued-wrong';
 
 /**
  * Why a raw answer was refused, for a writer that wants to say so, or `undefined` when it was not.
@@ -1102,6 +1226,10 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     if (speakable === undefined) return reasoned('nothing-said');
     if (runsLong(speakable, guard)) return reasoned('ran-long');
     if (namesNothing(speakable, guard)) return reasoned('named-nothing');
+    // After naming and before character, which is where it belongs in the narrative this order is:
+    // a break that named nothing has not got as far as cueing anything wrongly, and a break that
+    // told the listener the wrong record played is not worth asking whether it did so in voice.
+    if (cuesWrongly(speakable, guard)) return reasoned('cued-wrong');
 
     const fault = faultIn(speakable, guard);
 

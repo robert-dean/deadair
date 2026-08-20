@@ -7,6 +7,7 @@ import { CatalogRouter } from './catalog.router.js';
 import { ChartsRouter } from './charts.router.js';
 import { NewsRouter } from './news.router.js';
 import { HealthRouter } from './health.router.js';
+import { ClockRouter } from './clock.router.js';
 import { DirectorRouter } from './director.router.js';
 import { PlaylistsRouter } from './playlists.router.js';
 import { NowplayingRouter } from './nowplaying.router.js';
@@ -35,6 +36,7 @@ export const routers = [
     PlayoutRouter,
     NowplayingRouter,
     DirectorRouter,
+    ClockRouter,
     RenderRouter,
     PersonasRouter,
     ScheduleRouter,

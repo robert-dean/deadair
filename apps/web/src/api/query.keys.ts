@@ -123,6 +123,8 @@ export const queryKeys = {
         air: () => ['director', 'air'] as const,
         /** The live running order, item by item. One key, because there is one of them per station. */
         order: () => ['director', 'order'] as const,
+        /** The format clock. One key: order is preference, so every write answers with the whole of it. */
+        clock: () => ['director', 'clock'] as const,
     },
     /**
      * The station's own catalog, as opposed to `playlists`, which is whatever the enabled plugins

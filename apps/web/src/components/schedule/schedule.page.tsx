@@ -9,6 +9,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
 import { colorOf, weekdayOf } from './schedule.day';
 import { blockEdit, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
@@ -55,9 +56,11 @@ import { SlotEditor, type EditorTarget } from './slot.editor';
  *
  * ## A bulletin is not a slot
  *
- * The other half of the station's clock is `rotation.clockBands` in Settings, which anchors what the
- * station MAKES inside an hour — a bulletin at half past, an ident at the top. This is what it plays
- * between them.
+ * The other half of the station's clock is the format clock at the foot of this page, which anchors
+ * what the station SAYS inside an hour — a bulletin at half past, an ident at the top. The grid is
+ * what it plays between them. They share a page because they are one question with two answers, and
+ * the format clock was a settings box for as long as a band was three tokens somebody could hold in
+ * their head.
  */
 export function SchedulePage() {
     const schedule = useSchedule();
@@ -200,8 +203,8 @@ export function SchedulePage() {
             {schedule.data && slots.length === 0 ? (
                 <EmptyState>
                     This station has no schedule, which is an ordinary state rather than a fault: it keeps playing whatever you put on until you put
-                    something else on. Click any hour below to add a block there. A bulletin or an ident inside the hour is the station clock in
-                    Settings, not a block here.
+                    something else on. Click any hour below to add a block there. A bulletin or an ident inside the hour is the format clock at the
+                    foot of this page, not a block here.
                 </EmptyState>
             ) : undefined}
 
@@ -235,6 +238,10 @@ export function SchedulePage() {
                     </Text>
                 </Stack>
             )}
+
+            {/* The other half of "what happens when", under the grid rather than beside it: a band
+                is a rule about every hour and has no place on a week. */}
+            <ClockPanel />
 
             <SlotEditor
                 // Keyed, so opening a different slot — or the same hour on a different day — builds

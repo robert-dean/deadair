@@ -16,6 +16,7 @@ import { WelcomeAnnouncer } from './welcome.announcer.js';
 import { WelcomeWriter } from './welcome.writer.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { ClockBandRepository } from './clock.band.repository.js';
+import { ClockService } from './clock.service.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
@@ -183,6 +184,9 @@ export const DirectorModule: ServerKitModule = {
         // Its request-facing half is scoped like any other service, and only holds a
         // reference to the singleton above.
         registry.register(DirectorConsoleService).useClass(DirectorConsoleService).asScoped();
+        // The operator's half of the format clock. Scoped like every other request-facing service,
+        // and it tells the director nothing: a band is read off the table on the next commit pass.
+        registry.register(ClockService).useClass(ClockService).asScoped();
 
         // The first producer on the station bus: somebody tuned in, so ask for a greeting. A
         // singleton because it holds a subscription, and its own class rather than a branch in the

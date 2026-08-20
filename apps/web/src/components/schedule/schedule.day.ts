@@ -22,8 +22,8 @@ export function minutesToClock(minutes: number): string {
  * `06:00` to `360`, or `undefined` for anything that is not a time.
  *
  * Refused rather than coerced. A slot at a time nobody chose is a station changing over at an hour
- * an operator cannot account for, which is the same argument the clock-band parser makes for
- * dropping a line it cannot read instead of guessing at it.
+ * an operator cannot account for, and the form that could not be read is the one thing the console
+ * can catch before the station acts on it.
  */
 export function clockToMinutes(value: string): number | undefined {
     const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());

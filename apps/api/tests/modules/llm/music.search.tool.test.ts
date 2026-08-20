@@ -180,6 +180,40 @@ describe('MusicSearchTool', () => {
         expect(shared.tracks.filter(row => row.owned === false)).toHaveLength(10);
     });
 
+    it('keeps that room in proportion when the model asks for fewer records', async () => {
+        // The reserve was a fixed fifteen and so was inert for every small request: asked for five
+        // records from a library that matched ten, the answer was five owned rows and the provider
+        // half was never seen. The argument for the reserve does not get weaker because the caller
+        // asked for fewer rows. Caught by watching a live refill call this with a small limit.
+        const library = Array.from({ length: 10 }, (_, index) => ({ title: `Track ${index}`, artistName: 'Metallica' }));
+        const { tool } = build({
+            library,
+            reached: Array.from({ length: 19 }, (_, index) => found(`Reached ${index}`, 'Mitch Murder')),
+            settings: { [MUSIC_SEARCH_KEYS.alwaysReach]: 'true' },
+        });
+
+        const result = await run(tool, { query: 'anything', limit: 5 });
+
+        expect(result.tracks).toHaveLength(5);
+        expect(result.tracks.filter(row => row.owned === false).length).toBeGreaterThan(0);
+    });
+
+    it('gives the library the slack when the providers found less than the room left over', async () => {
+        const library = Array.from({ length: 25 }, (_, index) => ({ title: `Track ${index}`, artistName: 'Metallica' }));
+        const { tool } = build({
+            library,
+            reached: [found('Prime Operator', 'Mitch Murder')],
+            settings: { [MUSIC_SEARCH_KEYS.alwaysReach]: 'true' },
+        });
+
+        const result = await run(tool, { query: 'anything' });
+
+        // Not fifteen: one provider row is competing, so the other twenty-four slots are the
+        // library's rather than being held empty against a reserve nothing is claiming.
+        expect(result.tracks).toHaveLength(25);
+        expect(result.tracks.filter(row => row.owned === true)).toHaveLength(24);
+    });
+
     it('does not search the library for a period alone, which it cannot match', async () => {
         const { tool, searchPlayable, search } = build({ reached: [found('Africa', 'TOTO')] });
 

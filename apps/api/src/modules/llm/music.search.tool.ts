@@ -181,11 +181,7 @@ export class MusicSearchTool implements ToolSource {
         const reached = reaching ? (await this.providers.search(query, filters, MAX_RESULTS)).tracks : [];
 
         const fromProviders = await this.fromProviders(reached, owned);
-        // The reserve applies only where something is competing for the room. With nothing reached,
-        // holding the library to its share would answer with fifteen records to a caller that asked
-        // for twenty-five and could have had them.
-        const allowance = fromProviders.length === 0 ? limit : Math.max(OWNED_SHARE, limit - fromProviders.length);
-        const rows = [...owned.map(toOwnedRow).slice(0, allowance), ...fromProviders].slice(0, limit);
+        const rows = [...owned.map(toOwnedRow).slice(0, ownedAllowance(limit, fromProviders.length)), ...fromProviders].slice(0, limit);
         this.logger.debug('llm: searched for music', { query, ...filters, owned: owned.length, reached: reached.length, answered: rows.length });
 
         return { tracks: rows };
@@ -250,6 +246,26 @@ const toOwnedRow = (row: {
     ...(row.year == null ? {} : { year: row.year }),
     ...(row.genre == null ? {} : { genre: row.genre }),
 });
+
+/**
+ * How many owned records may take the answer, leaving room for the ones the station could get.
+ *
+ * The reserve is a SHARE of what was asked for rather than a fixed count, and that is a correction
+ * rather than a nicety. Written as `Math.max(OWNED_SHARE, …)` it was inert for every small request:
+ * a model asking for five records from a library that matched ten got five owned rows and never saw
+ * the provider half at all, because the allowance was fifteen and the slice took the first five. The
+ * reserve exists so a brief the library HALF matches still shows what the station could reach, and
+ * that argument does not get weaker because the caller asked for fewer rows.
+ *
+ * Two bounds around it. With nothing reached the library takes the lot, since holding it to a share
+ * would answer with fifteen records to a caller that asked for twenty-five and could have had them.
+ * And where the providers found less than the room left over, the library takes the slack instead of
+ * leaving the answer short.
+ */
+const ownedAllowance = (limit: number, reached: number): number => {
+    if (reached === 0) return limit;
+    return Math.max(limit - reached, Math.round((limit * OWNED_SHARE) / MAX_RESULTS));
+};
 
 /** The identity two halves of the answer are compared on, which is the resolver's own key. */
 const keyOf = (title: string, artist: string): string => catalogKey(normalizeKey(title), normalizeKey(artist));

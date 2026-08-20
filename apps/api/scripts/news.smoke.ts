@@ -33,7 +33,7 @@ import { rssManifest } from '../../../plugins/rss/src/rss.manifest.js';
 
 import type { DB } from '../src/modules/data/db.js';
 import { settingsConfigSource } from '../src/server/settings.config.source.js';
-import { BulletinSource } from '../src/modules/director/bulletin.source.js';
+import { BulletinSource, ReadLog } from '../src/modules/director/bulletin.source.js';
 import { breakPrompt } from '../src/modules/director/break.prompt.js';
 import { NEWS_KIND, NewsBreakWriter } from '../src/modules/director/news.break.writer.js';
 import { NEWS_MAX_WORDS, NEWS_SHAPE } from '../src/modules/director/model.news.break.writer.js';
@@ -151,7 +151,10 @@ const news = {
         }),
 } as unknown as NewsService;
 
-const stories = (await new BulletinSource(news, config, loud).storiesFor(NEWS_KIND)) ?? [];
+// A fresh `ReadLog`, which is what makes this a smoke test of the FEED rather than of the station's
+// memory: in the app it is a singleton holding what the last bulletins said, and one run of a script
+// has nothing to have said before.
+const stories = (await new BulletinSource(news, new ReadLog(), config, loud).storiesFor(NEWS_KIND)) ?? [];
 
 console.log(
     `\n${manifest.id}: ${allowed.size} feed host(s), ${NETWORK_OPEN}=${granted?.decision ?? 'undecided'}, stories=${settings.fetchArticles !== false}`,

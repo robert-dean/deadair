@@ -295,6 +295,60 @@ describe('bounding the loop', () => {
     });
 });
 
+describe('a model that stopped without answering', () => {
+    const searchCall: LlmToolCall = { id: 'call_1', name: 'search', arguments: {} };
+
+    it('asks once more rather than taking an empty reply as an answer', async () => {
+        // The loop ends when a generation has no tool calls, because that is what an answer looks
+        // like. Measured: a briefed refill made four good searches and then replied with nothing at
+        // all, two steps unspent, and the hour went to the floor.
+        const { record, asked } = scriptedPlugin([{ text: 'let me check', toolCalls: [searchCall] }, { text: '' }, { text: 'that was Roygbiv' }]);
+        const { service } = serviceFor(record, [tool('search', async () => 'found')]);
+
+        const result = await service.converse(ask());
+
+        expect(result.text).toBe('that was Roygbiv');
+        const nudged = asked[2]?.messages ?? [];
+        expect(String(nudged[nudged.length - 1]?.content)).toMatch(/That was not an answer/);
+        // It must NOT say the tools are gone, unlike the last-step turn: searching is still one of
+        // the two ways out, and this failure is a model that fell between them.
+        expect(String(nudged[nudged.length - 1]?.content)).not.toMatch(/no tools left/);
+    });
+
+    it('lets the caller say what an answer is, since only it knows the format', async () => {
+        // Prose is a break writer's answer and a set generator's failure. Measured on the second:
+        // `Need more. Let's fetch Lost Years.` as a final message, read as an answer by the loop.
+        const { record } = scriptedPlugin([{ text: "Need more. Let's fetch Lost Years." }, { text: '[{"title":"Ocean Drive"}]' }]);
+        const { service } = serviceFor(record, [tool('search', async () => 'found')]);
+
+        const result = await service.converse(ask(), { answersWith: text => text.trim().startsWith('[') });
+
+        expect(result.text).toBe('[{"title":"Ocean Drive"}]');
+    });
+
+    it('asks once and then takes what it gets', async () => {
+        // A model asked plainly and still unable to answer is not going to, and every further
+        // attempt spends a step the caller's floor could have had.
+        const { record, asked } = scriptedPlugin([{ text: '' }]);
+        const { service } = serviceFor(record, [tool('search', async () => 'found')]);
+
+        const result = await service.converse(ask(), { maxToolSteps: 4 });
+
+        expect(result.text).toBe('');
+        // Two generations, not four: the first, and the one the single nudge bought.
+        expect(asked).toHaveLength(2);
+    });
+
+    it('leaves an answer the caller accepts alone', async () => {
+        const { record, asked } = scriptedPlugin([{ text: 'that was Roygbiv' }]);
+        const { service } = serviceFor(record, [tool('search', async () => 'found')]);
+
+        await service.converse(ask());
+
+        expect(asked).toHaveLength(1);
+    });
+});
+
 describe('a tool call the model wrote as text', () => {
     /** A tool with real properties, since that is what a stray call is matched against. */
     const searchTool = (run: StationTool['run']): StationTool => ({

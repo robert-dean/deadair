@@ -293,7 +293,22 @@ export class ModelSetGenerator extends SetGenerator {
             // holds the model. Losing a refill mid-answer costs nothing that lasts — the chain asks
             // the next pass for whatever is still missing, and `CatalogSetGenerator` is underneath
             // it either way.
-            { budgetMs: BUDGET_MS, maxWaitMs: MAX_WAIT_MS, maxToolSteps: MAX_TOOL_STEPS, priority: 'background' },
+            {
+                budgetMs: BUDGET_MS,
+                maxWaitMs: MAX_WAIT_MS,
+                maxToolSteps: MAX_TOOL_STEPS,
+                priority: 'background',
+                // What an answer IS, here, which the loop cannot know: a JSON array of records. Two
+                // measured runs ended with several good searches and then a final message the loop
+                // read as an answer and this could not read at all — one empty, one a plan in prose
+                // (`Need more. Let's fetch Lost Years.`). Both cost the whole refill with the records
+                // already found. Saying so buys one more step, once, with the searches kept.
+                //
+                // Deliberately the same reader the answer is parsed with rather than a looser test,
+                // or the loop would accept something this then drops, which is the failure one rung
+                // down wearing a different hat.
+                answersWith: (text: string) => readPicks(text, inputs.count).length > 0,
+            },
         );
 
         const named = readPicks(result.text, inputs.count);

@@ -85,6 +85,31 @@ const STRAY_LOG_CHARS = 200;
 const FINAL_TURN =
     'That is all the searching you get: there are no tools left to call. Answer now, in the format you were asked for, using what you already have. A reply that asks for anything else ends this with nothing, and everything you found is thrown away.';
 
+/**
+ * What a model is told when it stopped without answering and still had steps left.
+ *
+ * The sibling of {@link FINAL_TURN} for the other end of the loop, and it must NOT say the tools are
+ * gone, because they are not: the whole point is that the model may still search if searching is
+ * what it meant to do. Measured shapes it answers, all from briefed refills that had already found
+ * what they needed: an empty reply with two steps unspent, and `Need more. Let's fetch Lost Years.`
+ * as the final message with three.
+ *
+ * It names both ways out, since the failure is a model that has fallen between them, and it names
+ * the consequence, which is the half that makes a rule land rather than be noted.
+ */
+const NOT_AN_ANSWER =
+    'That was not an answer. Either call a tool, or give your answer now in the format you were asked for, using what you already have. A reply that is neither ends this and everything you found is thrown away.';
+
+/**
+ * How many times one conversation is told that.
+ *
+ * ONE. A model that has been asked plainly and still cannot answer is not going to, and every further
+ * attempt spends a step the caller's floor could have had instead — the same argument that bounds
+ * everything else here. It is also what keeps a caller's `answersWith` from turning the loop into a
+ * validation retry, which is the thing it must not become.
+ */
+const NUDGE_LIMIT = 1;
+
 /** How one caller wants its generation treated. Every field falls back to this module's own bounds. */
 export interface LlmCallOptions {
     /** Override {@link GENERATION_BUDGET_MS} for one call. */
@@ -128,6 +153,27 @@ export interface LlmConverseOptions extends LlmCallOptions {
 
     /** Override {@link MAX_TOOL_STEPS} for one conversation. */
     maxToolSteps?: number;
+
+    /**
+     * Whether the model's words are an ANSWER, asked of the caller because only it can tell.
+     *
+     * The loop ends when a generation comes back with no tool calls, because that is what an answer
+     * looks like. Measured on this station's model, it frequently is not: three briefed refills
+     * ended with four good searches and then, in turn, a tool call written as text, an empty reply,
+     * and a plan written as prose (`Need more. Let's fetch Lost Years.`). Every one was read as an
+     * answer and every one cost the hour.
+     *
+     * The host can only judge the empty case, which is what the default does — blank is not an
+     * answer under any caller's format. Everything else needs the caller: a set generator's answer is
+     * a JSON array of records and a break writer's is a sentence, and prose that means nothing to the
+     * first is exactly what the second is for. So a caller that can check hands the check over.
+     *
+     * Consulted only while steps REMAIN, and it buys one more step, once ({@link NUDGE_LIMIT}). It is
+     * not a validator and must not be used as one: saying no does not reject the answer, it spends a
+     * step asking again, and whatever comes back after that is what the caller gets. A model that
+     * cannot answer twice is a model that is not going to.
+     */
+    answersWith?: (text: string) => boolean;
 }
 
 /**
@@ -382,7 +428,11 @@ export class LlmService {
         const maxSteps = options.maxToolSteps ?? MAX_TOOL_STEPS;
         const tools = await this.toolsFor(plugin, request, options);
 
-        return await this.gate.hold(async signal => await this.runConversation(plugin, request, tools, maxSteps, signal), {
+        // Blank is not an answer under any caller's format, which is the whole of what the host can
+        // judge on its own. Anything narrower is the caller's to say. See `answersWith`.
+        const answers = options.answersWith ?? ((text: string) => text.trim().length > 0);
+
+        return await this.gate.hold(async signal => await this.runConversation(plugin, request, tools, maxSteps, answers, signal), {
             budgetMs: options.budgetMs ?? GENERATION_BUDGET_MS,
             ...(options.maxWaitMs === undefined ? {} : { maxWaitMs: options.maxWaitMs }),
             ...(options.priority === undefined ? {} : { priority: options.priority }),
@@ -417,12 +467,14 @@ export class LlmService {
         request: LlmRequest,
         tools: Map<string, StationTool>,
         maxSteps: number,
+        answers: (text: string) => boolean,
         signal: AbortSignal,
     ): Promise<LlmConversation> {
         const declarations = [...tools.values()].map(tool => tool.declaration);
         const messages = [...request.messages];
         const usage: LlmUsage = {};
         let toolCallsMade = 0;
+        let nudges = 0;
 
         for (let step = 0; ; step++) {
             // The last step is asked WITHOUT tools, so the model has to produce words rather than
@@ -465,6 +517,23 @@ export class LlmService {
 
             const asked = stray === undefined ? result.toolCalls : [stray];
             if (asked.length === 0) {
+                // It asked for nothing and said nothing the caller can use, with steps still in
+                // hand. The loop's whole assumption is that no tool calls means an answer, and for
+                // this station's model that is often just where it stopped — so it is asked once
+                // more rather than taken at its word. The searches it already made are kept, which
+                // is why this is a step and not a fresh conversation.
+                if (nudges < NUDGE_LIMIT && !answers(result.text)) {
+                    nudges += 1;
+                    this.logger.info('llm: the model stopped without answering and had steps left; asking once more', {
+                        plugin: plugin.record.id,
+                        step,
+                        searches: toolCallsMade,
+                        said: result.text.trim().slice(0, STRAY_LOG_CHARS),
+                    });
+                    messages.push({ role: 'user', content: NOT_AN_ANSWER });
+                    continue;
+                }
+
                 return { ...result, usage, toolCallsMade, transcript: messages, preempted: false };
             }
 

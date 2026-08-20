@@ -3,7 +3,9 @@
 **Written:** 2026-08-11, after asking whether a BluOS plugin could put artwork and split track fields
 on a Bluesound player's display.
 **Probed:** 2026-08-19, against a live NAD M10 V2 on BluOS 4.16.6 playing the station, and against
-the BluOS Custom Integration API v1.7 (04/09/2025).
+the BluOS Custom Integration API v1.7 (04/09/2025). That firmware post-dates BluOS's change of
+Internet radio backend, so none of this is a measurement of the service it replaced; see the note
+under the table.
 **State of the tree:** the mount is labelled with one line of text and nothing else. Nothing in this
 file exists, and after the probe nothing in it should.
 
@@ -64,6 +66,27 @@ Measured on the M10 V2, added as a custom station and therefore filed under Tune
 It does **not** split on the dash, which was the worry worth having: the station's own labels carry
 more than one `" - "` (`2Pac, Roger, Dr. Dre - California Love - Original Version`), and a player
 that split on it would have produced a confidently wrong artist. It does not try.
+
+### That `service=TuneIn` is not stale, and the firmware date is why
+
+BluOS replaced the Internet radio backend behind its directory in **4.14.9 (2026-02-24)**, three
+months before the **4.16.6 (2026-05-19)** this was probed on. So the reading above is already a
+post-change measurement, and the fact it records is that **a station added as a custom stream URL is
+still filed under `service=TuneIn` after the change**. That is consistent rather than surprising: the
+new backend is what the controller app BROWSES, and a URL typed in by hand is not browsed. The slot
+naming is a client-side label on a stream this station serves directly, which is why nothing in the
+table depends on who supplies the directory.
+
+What a directory change COULD reach is a station listed in that directory and added from its entry,
+which is a different thing entirely and one deadair does not have: the station is in no directory. If
+it is ever submitted to one, the entry's own artwork and name are the directory's fields rather than
+the stream's, and that is the only path by which anything in this file reopens. **It is also the
+only reason to re-probe** — a firmware bump alone is not, since three of these findings
+(`/Play`'s undocumented parameters, the reconnect, the sticky slots) are reverse-engineered surface
+and the spec-level ones are not.
+
+Written down because the timeline was re-derived once from the release date alone and came out
+backwards: 4.16.6 reads older than 4.14.9 if the version is compared as a decimal.
 
 ## The unknown the design hung on, and its answer
 

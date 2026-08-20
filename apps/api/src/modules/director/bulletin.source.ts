@@ -130,8 +130,27 @@ const MAX_BODY_CHARS = 700;
  * spent its stories. That inaccuracy is bought deliberately, exactly as `chooseFacts` buys it for a
  * break's facts: the alternative is a read-log that has to be told what happened to a segment much
  * later, which is a second writer of the same fact and a way for the two to disagree.
+ *
+ * ## A SINGLETON, injected into a scoped {@link BulletinSource}
+ *
+ * This is the whole of why the log exists at all, and it was a field on `BulletinSource` for as long
+ * as it had been written — which meant it never remembered anything. `BulletinSource` is `asScoped()`
+ * because `NewsService` is, and the job runner opens a scope per execution, so every `WriteBreakJob`
+ * built a fresh source with a fresh empty log, marked three headlines and dropped them. Measured on
+ * air on 19 August: ten consecutive bulletins across thirty-three minutes read the same three
+ * stories — the exact failure described above, with the fix for it in the tree and inert.
+ *
+ * So the STATE is lifted out and registered on its own, exactly as `AdvisoryWatch` is among the
+ * scoped generators and for exactly that reason: a fact of the form "the station already said this"
+ * has to outlive the scope that discovered it. Making `BulletinSource` itself a singleton is the
+ * wrong half of the same idea, because it would capture a scoped `NewsService` at the root.
+ *
+ * The unit test could not see any of this: it held one `BulletinSource` and called `storiesFor`
+ * twice, which is a lifetime the container never produces. A test for a thing that must outlive a
+ * scope has to build a new source per bulletin, which is what the ones below now do.
  */
-class ReadLog {
+@Injectable()
+export class ReadLog {
     private readonly readAt = new Map<string, number>();
 
     /** Whether this headline has already gone out inside the window. */
@@ -173,11 +192,10 @@ const key = (headline: string): string =>
 
 @Injectable()
 export class BulletinSource {
-    /** See {@link ReadLog}. Per station process, and deliberately not persisted. */
-    private readonly read = new ReadLog();
-
     constructor(
         private readonly news: NewsService,
+        /** See {@link ReadLog}. A singleton beside this scoped class, and deliberately not persisted. */
+        private readonly read: ReadLog,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -217,7 +235,8 @@ export class BulletinSource {
             this.read.forget(now - windowMs);
 
             const offered = items.flatMap(item => toStory(item) ?? []);
-            const stories = offered.filter(story => !this.read.has(story.headline)).slice(0, wanted);
+            const unread = offered.filter(story => !this.read.has(story.headline));
+            const stories = unread.slice(0, wanted);
 
             // Nothing the station has not already said. DECLINED rather than repeated, on the same
             // argument the freshness window is on: a feed that has not moved and a station reading
@@ -241,10 +260,16 @@ export class BulletinSource {
 
             // At debug, because this runs on every bulletin and the interesting version of it is
             // the one where a bulletin turned out to be short.
+            //
+            // `repeats` counts what the log actually turned away. It was `offered - using`, which is
+            // everything past the `wanted` cut as well — so on a full page it read `repeats=9` on
+            // every bulletin whether or not one story had been heard before, and stayed pinned at 9
+            // through the ten repeated bulletins above. A number that cannot move is a number that
+            // cannot report the fault it is there to report.
             this.logger.debug('director: read the news for a bulletin', {
                 offered: offered.length,
                 using: stories.length,
-                repeats: offered.length - stories.length,
+                repeats: offered.length - unread.length,
                 feed: feed || 'all',
             });
             return stories;

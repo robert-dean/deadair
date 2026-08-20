@@ -9,7 +9,7 @@ import { BreakWriterRegistry } from './break.writer.registry.js';
 import { ModelNewsBreakWriter } from './model.news.break.writer.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { NewsBreakWriter } from './news.break.writer.js';
-import { BulletinSource } from './bulletin.source.js';
+import { BulletinSource, ReadLog } from './bulletin.source.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
@@ -124,8 +124,16 @@ export const DirectorModule: ServerKitModule = {
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
         registry.register(ModelNewsBreakWriter).useClass(ModelNewsBreakWriter).asScoped();
         registry.register(NewsBreakWriter).useClass(NewsBreakWriter).asScoped();
-        // Scoped with the `NewsService` it reads. What a bulletin is written FROM, fetched once for
-        // whichever writer takes it, so the model and the floor read the same headlines.
+        // What the station has already read out. A SINGLETON beside the scoped source below, for the
+        // same reason `AdvisoryWatch` is one among the scoped generators: "the station already said
+        // this" has to outlive the scope that discovered it. It was a field on `BulletinSource` and
+        // therefore per-job, which made it inert — ten consecutive bulletins read the same three
+        // stories on 19 August. See `ReadLog`.
+        registry.register(ReadLog).useClass(ReadLog).asSingleton();
+        // Scoped with the `NewsService` it reads — which is why the log above is registered apart
+        // from it rather than made a singleton itself, since that would capture a scoped
+        // `NewsService` at the root. What a bulletin is written FROM, fetched once for whichever
+        // writer takes it, so the model and the floor read the same headlines.
         registry.register(BulletinSource).useClass(BulletinSource).asScoped();
         registry
             .register(BreakWriterRegistry)

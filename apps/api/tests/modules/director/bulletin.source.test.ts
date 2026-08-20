@@ -7,7 +7,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { NewsItem } from '@deadair/plugin-sdk';
 
-import { BULLETIN_KEYS, BulletinSource, DEFAULT_STORY_COUNT } from '../../../src/modules/director/bulletin.source.js';
+import { BULLETIN_KEYS, BulletinSource, DEFAULT_STORY_COUNT, ReadLog } from '../../../src/modules/director/bulletin.source.js';
 import { NEWS_KIND } from '../../../src/modules/director/news.break.writer.js';
 import type { NewsService } from '../../../src/modules/news/news.service.js';
 
@@ -31,6 +31,14 @@ interface Options {
     hasNews?: boolean;
     items?: NewsItem[];
     throws?: boolean;
+    /**
+     * The log to read against, when a test needs one to outlive the source.
+     *
+     * Defaults to a fresh one, which is a source that has never read anything. Pass a shared one to
+     * model what the container actually builds: `BulletinSource` is `asScoped()` and `ReadLog` is a
+     * singleton, so every bulletin gets a NEW source and the SAME log.
+     */
+    read?: ReadLog;
 }
 
 function build(options: Options = {}, values: Record<string, unknown> = {}) {
@@ -40,7 +48,7 @@ function build(options: Options = {}, values: Record<string, unknown> = {}) {
     });
     const news = { hasNews: () => options.hasNews ?? true, fetchItems } as unknown as NewsService;
 
-    return { source: new BulletinSource(news, config(values), logger), fetchItems };
+    return { source: new BulletinSource(news, options.read ?? new ReadLog(), config(values), logger), fetchItems };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -205,6 +213,49 @@ describe('what the station has already read', () => {
 
         const second = await source.storiesFor(NEWS_KIND, NOW);
         expect(second?.map(story => story.headline)).toEqual(['Library extends its hours.']);
+    });
+
+    // The lifetime the container actually builds, and the one the tests above cannot see: the source
+    // is `asScoped()` and the job runner opens a scope per execution, so a bulletin is written by a
+    // source that has never written one before. The log has to be what carries across, which is why
+    // it is registered on its own as a singleton.
+    //
+    // Held as a field on the source, this read the same three stories for ten consecutive bulletins
+    // on air while every test above passed.
+    it('reaches past what an EARLIER SOURCE read, because each bulletin gets a new one', async () => {
+        const read = new ReadLog();
+        const items = [...three, item('Library extends its hours')];
+
+        const first = build({ items, read }, { [BULLETIN_KEYS.stories]: 3 });
+        expect((await first.source.storiesFor(NEWS_KIND, NOW))?.map(story => story.headline)).toEqual([
+            'Bridge reopens after four years.',
+            'Council votes on the harbour.',
+            'Ferry service resumes.',
+        ]);
+
+        const second = build({ items, read }, { [BULLETIN_KEYS.stories]: 3 });
+        expect((await second.source.storiesFor(NEWS_KIND, NOW))?.map(story => story.headline)).toEqual(['Library extends its hours.']);
+
+        const third = build({ items, read }, { [BULLETIN_KEYS.stories]: 3 });
+        expect(await third.source.storiesFor(NEWS_KIND, NOW)).toEqual([]);
+    });
+
+    // `repeats` was `offered - using`, which is everything past the cut as well as everything already
+    // heard — so it read the same number on a page of fresh stories as on a page of stale ones, and
+    // sat at 9 through the ten repeated bulletins that should have been what gave the fault away.
+    it('reports how many stories the log turned away, not how many went unused', async () => {
+        const read = new ReadLog();
+        const items = [...three, item('Library extends its hours')];
+
+        await build({ items, read }, { [BULLETIN_KEYS.stories]: 3 }).source.storiesFor(NEWS_KIND, NOW);
+        vi.clearAllMocks();
+
+        await build({ items, read }, { [BULLETIN_KEYS.stories]: 3 }).source.storiesFor(NEWS_KIND, NOW);
+
+        expect(logger.debug).toHaveBeenCalledWith(
+            'director: read the news for a bulletin',
+            expect.objectContaining({ offered: 4, using: 1, repeats: 3 }),
+        );
     });
 
     it('declines the slot when everything in the window has been read', async () => {

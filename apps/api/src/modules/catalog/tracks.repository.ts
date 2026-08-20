@@ -3,6 +3,7 @@ import { sql, type ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import type { DB } from '../data/db.js';
 import { CatalogListQuery, likeContains } from './catalog.query.js';
+import { catalogKey, normalizeKey } from './catalog.keys.js';
 import { artUrl } from './catalog.art.js';
 import { ratingFromColumn } from './rating.js';
 import type { Rating, TrackState } from './types/catalog.types.js';
@@ -370,6 +371,88 @@ export class TracksRepository extends DataRepository {
             .orderBy('deadair.tracks.id', 'asc')
             .limit(limit)
             .execute();
+    }
+
+    /**
+     * Which of these records the station already HAS, and which of them it may not play.
+     *
+     * The batch answer to the question `CandidatesRepository.findByName` asks one record at a time,
+     * and it matches on **exactly the same keys** — `tracks.title_key` and `artists.artist_key`, via
+     * {@link normalizeKey}. That is not a coincidence to be tidied up later: what a caller does with
+     * `owned` is tell a model whether choosing this row costs a lookup and a download, and the thing
+     * that decides that is `PickResolver.identify`, which keys it the same way. Match on anything
+     * else and the flag becomes a different claim from the one the station will act on.
+     *
+     * `banned` is the same read's other half, because the rows are already joined: a record whose
+     * track or album the operator has disliked. The ARTIST level is not here — see
+     * {@link dislikedArtistKeys}, which answers for records the station does not own at all and so
+     * cannot reach through this join.
+     *
+     * One query and no `limit`: the caller has at most a search page of pairs, and a partial answer
+     * here would mark a record the station owns as one it has to fetch.
+     */
+    async ownership(pairs: readonly { title: string; artist: string }[]): Promise<{ owned: Set<string>; banned: Set<string> }> {
+        const owned = new Set<string>();
+        const banned = new Set<string>();
+
+        const keyed = pairs
+            .map(pair => ({ titleKey: normalizeKey(pair.title), artistKey: normalizeKey(pair.artist) }))
+            .filter(pair => pair.titleKey.length > 0 && pair.artistKey.length > 0);
+        if (keyed.length === 0) return { owned, banned };
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .select([
+                'deadair.tracks.titleKey',
+                'deadair.artists.artistKey',
+                'deadair.tracks.rating as trackRating',
+                'deadair.albums.rating as albumRating',
+            ])
+            .where('deadair.tracks.mergedIntoId', 'is', null)
+            // A tuple `in`, so one round trip answers for the whole page. Written through `or` rather
+            // than raw SQL because the pairs are model-supplied text and this keeps them parameters.
+            .where(eb =>
+                eb.or(
+                    keyed.map(pair =>
+                        eb.and([eb('deadair.tracks.titleKey', '=', pair.titleKey), eb('deadair.artists.artistKey', '=', pair.artistKey)]),
+                    ),
+                ),
+            )
+            .execute();
+
+        for (const row of rows) {
+            const key = catalogKey(row.titleKey, row.artistKey);
+            owned.add(key);
+            if (row.trackRating === -1 || row.albumRating === -1) banned.add(key);
+        }
+
+        return { owned, banned };
+    }
+
+    /**
+     * Which of these artists the operator has disliked.
+     *
+     * Separate from {@link ownership} because it answers for a record the station has never
+     * catalogued: a provider row by a banned artist joins to no track, so the read above cannot see
+     * it, and offering it would be offering something `PickResolver` is going to drop.
+     *
+     * An artist the catalog has never heard of is simply absent, which is the right answer — the
+     * operator cannot have disliked somebody they have never been shown.
+     */
+    async dislikedArtistKeys(names: readonly string[]): Promise<Set<string>> {
+        const keys = [...new Set(names.map(normalizeKey).filter(key => key.length > 0))];
+        if (keys.length === 0) return new Set();
+
+        const rows = await this.db
+            .selectFrom('deadair.artists')
+            .select('deadair.artists.artistKey')
+            .where('deadair.artists.artistKey', 'in', keys)
+            .where('deadair.artists.rating', '=', -1)
+            .execute();
+
+        return new Set(rows.map(row => row.artistKey));
     }
 
     /**

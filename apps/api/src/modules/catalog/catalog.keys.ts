@@ -135,3 +135,15 @@ export const normalizeKey = (value: string): string => {
 
     return key.replace(NON_KEY_CHARACTERS, ' ').replace(WHITESPACE_RUN, ' ').trim();
 };
+
+/**
+ * One record's identity as a single string, for a caller holding a set of them.
+ *
+ * The two halves are already {@link normalizeKey} output, so this only joins them — but it joins
+ * them in ONE place, because the alternative is the same template typed out at each end of a
+ * comparison and a separator that silently differs. `\u0000` written as an escape rather than as the
+ * literal byte, which is invisible in a diff and is the trap this exists to close: both halves are
+ * free text that can contain anything else a separator might be, and a NUL cannot appear in either,
+ * so `"a b" + "c"` cannot collide with `"a" + "b c"`.
+ */
+export const catalogKey = (titleKey: string, artistKey: string): string => `${titleKey}\u0000${artistKey}`;

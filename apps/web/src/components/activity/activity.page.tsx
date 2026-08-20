@@ -4,6 +4,7 @@ import type { ActivityEntry, ActivityModule, ActivitySeverity } from '@deadair/s
 
 import { useActivity } from '../../api/activity.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { ScriptLink, TrackLink } from '../shared/catalog.links';
 import { DatedFeed, FeedMoment } from '../shared/dated.feed';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
@@ -126,6 +127,13 @@ export function ActivityPage() {
     );
 }
 
+/**
+ * One line, and the way into whatever it is about.
+ *
+ * The sentence is left exactly as the API composed it and is never parsed for a title: the link is
+ * a separate trailing affordance built from the ids the row already carries. A line about neither
+ * carries neither, which is most of the feed — a gate opening is about the station itself.
+ */
 function ActivityLine({ entry }: { entry: ActivityEntry }) {
     return (
         <Group gap="sm" wrap="nowrap" align="flex-start" px="md" py="xs">
@@ -138,6 +146,19 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
             <Text size="sm" c={SEVERITY_COLOR[entry.severity]} style={{ minWidth: 0 }}>
                 {entry.detail}
             </Text>
+
+            {/* The record first: an entry carrying both is about a break that named one, and what
+                an operator reading the feed wants from that line is the words. */}
+            {entry.segmentId === undefined ? undefined : (
+                <ScriptLink id={entry.segmentId} size="xs" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    what was said
+                </ScriptLink>
+            )}
+            {entry.trackId === undefined ? undefined : (
+                <TrackLink id={entry.trackId} size="xs" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    the record
+                </TrackLink>
+            )}
         </Group>
     );
 }

@@ -42,11 +42,26 @@ vi.mock('../../../src/api/client', () => ({
 // The href is composed from `to` and `params` rather than stubbed as `#`, so the deep-link cases
 // below can assert where a row actually goes rather than only that it is clickable.
 vi.mock('@tanstack/react-router', () => ({
-    Link: ({ to, params, children, ...rest }: { to: string; params?: Record<string, string>; children?: ReactNode }) => (
-        <a href={Object.entries(params ?? {}).reduce((path, [key, value]) => path.replace(`$${key}`, value), to)} {...rest}>
-            {children}
-        </a>
-    ),
+    Link: ({
+        to,
+        params,
+        search,
+        children,
+        ...rest
+    }: {
+        to: string;
+        params?: Record<string, string>;
+        search?: Record<string, string>;
+        children?: ReactNode;
+    }) => {
+        const path = Object.entries(params ?? {}).reduce((built, [key, value]) => built.replace(`$${key}`, value), to);
+        const query = new URLSearchParams(search ?? {}).toString();
+        return (
+            <a href={query === '' ? path : `${path}?${query}`} {...rest}>
+                {children}
+            </a>
+        );
+    },
 }));
 
 const orderItem = (overrides: Partial<StationOrderItem> = {}): StationOrderItem => ({
@@ -212,6 +227,26 @@ describe('OnAirPage', () => {
         expect(screen.getByText('Uningested')).toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Uningested' })).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'Nobody' })).not.toBeInTheDocument();
+    });
+
+    // A break's title goes somewhere else entirely: what an operator wants from a row that is the
+    // station talking is what it said, and every attempt at saying it.
+    it('takes a break to the words it was written from', async () => {
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'item-1', kind: 'segment', state: 'planned', title: 'Talk break', artists: [], segmentId: 'seg_1' }),
+                    orderItem({ id: 'item-2', kind: 'segment', state: 'planned', title: 'A segment the library no longer holds', artists: [] }),
+                ],
+            }),
+        );
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByRole('link', { name: 'Talk break' })).toHaveAttribute('href', '/scripts?segment=seg_1');
+        expect(screen.queryByRole('link', { name: 'A segment the library no longer holds' })).not.toBeInTheDocument();
     });
 
     it('offers no way to drop anything but what is still planned', async () => {

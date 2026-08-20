@@ -4,7 +4,7 @@ import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
 import { RatingControl } from '../catalog/rating.control';
 import { Artwork } from '../shared/artwork';
-import { AlbumLink, ArtistLink, TrackLink } from '../shared/catalog.links';
+import { AlbumLink, ArtistLink, ScriptLink, TrackLink } from '../shared/catalog.links';
 import { formatDuration } from '../shared/format.duration';
 
 export interface StationOrderTableProps {
@@ -88,6 +88,27 @@ const STATE_LABEL: Record<StationItemState, { label: string; colour: string; hin
 };
 
 /**
+ * What a row is called, pointing at whichever page can say more about it.
+ *
+ * The shaping is stated once here rather than at both arms, because the two spellings of a title
+ * have to line up in a column: a break and a record sit in the same cell, truncate the same way and
+ * take the same weight on air.
+ */
+function Title({ item, id }: { item: StationOrderItem; id?: string }) {
+    const props = { size: 'sm', truncate: true, fw: item.state === 'airing' ? 600 : undefined, style: { minWidth: 0 } } as const;
+
+    return item.kind === 'segment' ? (
+        <ScriptLink id={id} {...props}>
+            {item.title}
+        </ScriptLink>
+    ) : (
+        <TrackLink id={id} {...props}>
+            {item.title}
+        </TrackLink>
+    );
+}
+
+/**
  * The live running order, item by item, each saying where it has got to.
  *
  * Presentational: it owns no queries and decides nothing about what an edit means. The state is the
@@ -151,20 +172,14 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                         thing that gives. */}
                                     <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
                                         <Artwork src={item.artworkUrl} alt={item.title} size={28} radius="xs" />
-                                        {/* The way into everything the record has accumulated,
-                                            which is where an operator hearing something odd
-                                            actually wants to go. A record the catalog has never
-                                            seen has no page, and `TrackLink` draws it as the same
-                                            text it always was. */}
-                                        <TrackLink
-                                            id={trackId}
-                                            size="sm"
-                                            truncate
-                                            fw={item.state === 'airing' ? 600 : undefined}
-                                            style={{ minWidth: 0 }}
-                                        >
-                                            {item.title}
-                                        </TrackLink>
+                                        {/* The way into whatever this row IS, which is where an
+                                            operator hearing something odd actually wants to go: a
+                                            record goes to everything it has accumulated and a break
+                                            goes to the words it was written from. Both draw as the
+                                            same plain text they always were when there is nothing
+                                            to reach — an uningested record, a segment the library
+                                            no longer holds. */}
+                                        <Title item={item} id={item.kind === 'segment' ? item.segmentId : trackId} />
                                         {/* A segment is not a record and should not have to be worked
                                             out from an empty artist column. */}
                                         {item.kind === 'segment' ? (

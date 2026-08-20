@@ -3,6 +3,7 @@
 // judgements the console does make — that an `info` line is not painted as a fault, and that a
 // filter that matches nothing says so differently from a station that has done nothing yet.
 
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { userEvent } from '@testing-library/user-event';
 import type { ActivityEntry } from '@deadair/sdk';
@@ -24,6 +25,31 @@ const feed = vi.fn();
 
 vi.mock('../../../src/api/activity.queries', () => ({
     useActivity: (filter: unknown) => feed(filter),
+}));
+
+// A line links to whatever it is about, and a real Link wants a router context this render helper
+// deliberately does not build. The href is composed so the cases below can say where each one goes.
+vi.mock('@tanstack/react-router', () => ({
+    Link: ({
+        to,
+        params,
+        search,
+        children,
+        ...rest
+    }: {
+        to: string;
+        params?: Record<string, string>;
+        search?: Record<string, string>;
+        children?: ReactNode;
+    }) => {
+        const path = Object.entries(params ?? {}).reduce((built, [key, value]) => built.replace(`$${key}`, value), to);
+        const query = new URLSearchParams(search ?? {}).toString();
+        return (
+            <a href={query === '' ? path : `${path}?${query}`} {...rest}>
+                {children}
+            </a>
+        );
+    },
 }));
 
 const answer = (entries: ActivityEntry[], over: Record<string, unknown> = {}) => ({
@@ -60,6 +86,32 @@ describe('ActivityPage', () => {
         // at all and the waiting line carries none.
         expect(fault.getAttribute('style')).toContain('color: var(--mantine-color-red-text)');
         expect(waiting.getAttribute('style') ?? '').not.toContain('color:');
+    });
+
+    // The feed already carried both ids and drew neither, so reading it meant retyping a title into
+    // the catalog. The sentence is untouched: the link is a separate affordance built from the ids.
+    it('reaches the record a line is about, and the words behind a break', () => {
+        feed.mockReturnValue(
+            answer([
+                entry({ id: 'evt-1', module: 'playout', kind: 'track.aired', detail: 'Windowlicker by Aphex Twin aired.', trackId: 'trk_1' }),
+                entry({ id: 'evt-2', module: 'render', kind: 'segment.ready', detail: 'A talk break was spoken and is ready.', segmentId: 'seg_1' }),
+            ]),
+        );
+
+        render(<ActivityPage />);
+
+        expect(screen.getByRole('link', { name: 'the record' })).toHaveAttribute('href', '/catalog/tracks/trk_1');
+        expect(screen.getByRole('link', { name: 'what was said' })).toHaveAttribute('href', '/scripts?segment=seg_1');
+    });
+
+    // Most of the feed is the station talking about itself: a gate opening is about neither a record
+    // nor a break, and a line that offered a link would be offering one into nothing.
+    it('offers nothing to click on a line about the station itself', () => {
+        feed.mockReturnValue(answer([entry()]));
+
+        render(<ActivityPage />);
+
+        expect(screen.queryByRole('link')).not.toBeInTheDocument();
     });
 
     it('tells an empty station apart from an empty filter', async () => {

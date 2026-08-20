@@ -296,6 +296,22 @@ describe('ModelSetGenerator', () => {
         expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('a break took the model back'), expect.anything());
     });
 
+    it('does not tell the operator to raise the ceiling when the station took the model off it', async () => {
+        // The other half of the same correction, left ungated when the branch below was fixed. A
+        // preempted call reports `length`, because from the provider's side being cut off and
+        // running out of allowance are one thing — so this fired "the model ran out of room ...
+        // limit=12000 setting=llm.setMaxTokens" over a refill that was nowhere near the ceiling,
+        // 18ms before the line saying a break had taken the model. Measured on 19 August, where
+        // the run had used about 290 of the 12,000 tokens it was accused of exhausting.
+        vi.mocked(logger.warn).mockClear();
+        const { generator } = build({ enabled: true, preempted: true, toolCallsMade: 0, finishReason: 'length', text: '' });
+
+        await generator.generate(inputs(5));
+
+        expect(logger.warn).not.toHaveBeenCalledWith(expect.stringMatching(/ran out of room/), expect.anything());
+        expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('a break took the model back'), expect.anything());
+    });
+
     it('asks for another go when a break took the model back', async () => {
         // The signal the job reads to plan again. It travels beside the picks rather than in them
         // because every generator in the chain answers the same shape and only this one can be

@@ -322,7 +322,22 @@ export class ModelSetGenerator extends SetGenerator {
         // out of room is the one failure here that looks exactly like a model with nothing to say.
         // It cost a live run eleven jazz records and was diagnosable only by noticing that the two
         // it did name were spelled like fragments of JSON.
-        if (result.finishReason === 'length') {
+        //
+        // NOT for a preempted run, and this is the same correction the zero-pick branch below
+        // already carries: a call the gate took the model away from reports `length`, because from
+        // the provider's side being cut off and running out of allowance are one thing. Ungated,
+        // that put a warning naming `llm.setMaxTokens` in front of an operator whose refill was
+        // nowhere near the ceiling. Measured on 19 August: a briefed refill was preempted at step 0
+        // by a news break after 9.3 seconds, and this fired `limit=12000` beside it, 18ms before
+        // the line that says what actually happened. This host runs at 22 to 31 output tokens a
+        // second, so 12,000 of them is over six minutes and the run had bought about 290.
+        //
+        // A preemption that cost the refill everything is reported on its own below, where it is
+        // not a fault. One that still named some records says so on the line above, which carries
+        // `finish` and `named` either way, and needs nothing further: a partial answer is KEPT
+        // here, the chain asks the next pass for what is missing, and none of that wants a warning.
+        // Only a run that genuinely reached the ceiling can want the ceiling raised.
+        if (result.finishReason === 'length' && !result.preempted) {
             this.logger.warn('director: the model ran out of room before it finished answering; some of its choices were lost', {
                 asked: inputs.count,
                 named: picks.length,

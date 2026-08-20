@@ -13,6 +13,7 @@ import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { ChartsModule } from './charts/charts.module.js';
 import { NewsModule } from './news/news.module.js';
+import { TopicsModule } from './topics/topics.module.js';
 import { SimilarityModule } from './similarity/similarity.module.js';
 import { ScrobbleModule } from './scrobble/scrobble.module.js';
 import { LlmModule } from './llm/llm.module.js';
@@ -91,6 +92,12 @@ const ordered: ServerKitModule[] = [
     // does with a fact is say it — which is why nothing below it schedules from
     // this one.
     NewsModule,
+    // After every module that OWNS a sort of break's subjects — NewsModule today, weather
+    // tomorrow — and before DirectorModule, which reads one back when a break is written.
+    // The vocabulary is the operator's ("technology", "Atlanta") and the registry that says
+    // which kinds have subjects at all is an explicit list, exactly as the LLM's tool sources
+    // are, which is why the edge points this way.
+    TopicsModule,
     // After PluginsModule, and before DirectorModule, which resolves it on the aired
     // edge. Unlike its two neighbours above this one SENDS, so its queue is durable —
     // but it still starts nothing: the queue fills on a track boundary and drains on

@@ -41,3 +41,5 @@ export * from './station/station.client.js';
 export * from './station/types/index.js';
 export * from './storage/storage.client.js';
 export * from './storage/types/index.js';
+export * from './topics/topics.client.js';
+export * from './topics/types/index.js';

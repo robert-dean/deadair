@@ -19,6 +19,7 @@ import { ScheduleClient } from './schedule/schedule.client.js';
 import { SettingsClient } from './settings/settings.client.js';
 import { StationClient } from './station/station.client.js';
 import { StorageClient } from './storage/storage.client.js';
+import { TopicsClient } from './topics/topics.client.js';
 
 export class DeadairSdk {
     readonly activity: ActivityClient;
@@ -40,6 +41,7 @@ export class DeadairSdk {
     readonly settings: SettingsClient;
     readonly station: StationClient;
     readonly storage: StorageClient;
+    readonly topics: TopicsClient;
 
     constructor(options: SdkOptions) {
         const sdkFetch = options.fetch ?? createSdkFetch(options);
@@ -62,5 +64,6 @@ export class DeadairSdk {
         this.settings = new SettingsClient(sdkFetch);
         this.station = new StationClient(sdkFetch);
         this.storage = new StorageClient(sdkFetch);
+        this.topics = new TopicsClient(sdkFetch);
     }
 }

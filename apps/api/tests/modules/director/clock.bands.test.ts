@@ -1,13 +1,11 @@
-// A schedule an operator types is a place where a typo becomes a bulletin at the wrong hour, so the
-// parser's interesting cases are the ones it must REFUSE rather than the ones it accepts. And
 // `nextOccurrence` is arithmetic on a wall clock, which is where daylight saving hides: the tests
 // below pin both directions of a clock change, because getting either wrong shows up twice a year
-// and nowhere else.
+// and nowhere else. A band itself is a row now, so there is nothing here to parse — what the table
+// refuses and what order it answers in is `scripts/clock.smoke.ts`.
 
 import { describe, expect, it } from 'vitest';
 
-import { CLOCK_BAND_KEYS, nextOccurrence, parseBands, stationBands, type AnchoredBand } from '../../../src/modules/director/clock.bands.js';
-import { settingsConfig } from '../../utils/settings.config.js';
+import { nextOccurrence, type AnchoredBand } from '../../../src/modules/director/clock.bands.js';
 
 const anchored = (minute: number, kind: string, hour?: number): AnchoredBand => ({
     at: 'clock',
@@ -17,67 +15,6 @@ const anchored = (minute: number, kind: string, hour?: number): AnchoredBand => 
 });
 
 const LONDON = 'Europe/London';
-
-describe('parseBands', () => {
-    it('reads an hourly band, a daily one and an interval', () => {
-        const { bands, rejected } = parseBands(':00 talkbreak\n09:30 news\nevery 60m news');
-
-        expect(rejected).toEqual([]);
-        expect(bands).toEqual([
-            { at: 'clock', minute: 0, kind: 'talkbreak' },
-            { at: 'clock', minute: 30, hour: 9, kind: 'news' },
-            { at: 'interval', everyMs: 3_600_000, kind: 'news' },
-        ]);
-    });
-
-    it('keeps the operator’s order, because order is what settles a contested boundary', () => {
-        const { bands } = parseBands(':30 news\n:00 talkbreak');
-
-        expect(bands.map(band => band.kind)).toEqual(['news', 'talkbreak']);
-    });
-
-    it('ignores blank lines and lets a # turn a rule off without losing it', () => {
-        const { bands, rejected } = parseBands('\n# :00 talkbreak\n\n:30 news\n');
-
-        expect(rejected).toEqual([]);
-        expect(bands).toEqual([{ at: 'clock', minute: 30, kind: 'news' }]);
-    });
-
-    it('accepts the ways somebody might write an interval', () => {
-        const { bands } = parseBands('every 20m news\nevery 45 min news\nEVERY 90 minutes news');
-
-        expect(bands.map(band => (band.at === 'interval' ? band.everyMs : 0))).toEqual([1_200_000, 2_700_000, 5_400_000]);
-    });
-
-    it('reports a line it cannot read rather than guessing at it', () => {
-        // Every one of these is a plausible typo, and every one of them would put a break on air at
-        // a time nobody chose if it were read as anything at all.
-        const { bands, rejected } = parseBands('9:0 news\n:60 news\n25:00 news\nevery 0m news\nnews\n:30');
-
-        expect(bands).toEqual([]);
-        expect(rejected).toEqual(['9:0 news', ':60 news', '25:00 news', 'every 0m news', 'news', ':30']);
-    });
-
-    it('answers nothing at all for a box nobody has written in', () => {
-        // Deliberately NOT the templates rule, where empty restores the station's own five. An
-        // empty schedule is a coherent schedule: ordinary spacing and nothing else.
-        expect(parseBands(undefined).bands).toEqual([]);
-        expect(parseBands('').bands).toEqual([]);
-        expect(parseBands('  \n\n # nothing here\n').bands).toEqual([]);
-    });
-});
-
-describe('stationBands', () => {
-    it('reads the operator’s schedule out of the settings', () => {
-        const { config } = settingsConfig({ [CLOCK_BAND_KEYS.bands]: ':00 talkbreak' });
-
-        expect(stationBands(config).bands).toEqual([{ at: 'clock', minute: 0, kind: 'talkbreak' }]);
-    });
-
-    it('answers nothing when the station has no schedule', () => {
-        expect(stationBands(settingsConfig().config).bands).toEqual([]);
-    });
-});
 
 describe('nextOccurrence', () => {
     it('finds the next top of the hour', () => {

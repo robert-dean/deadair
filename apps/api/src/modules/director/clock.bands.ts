@@ -1,44 +1,37 @@
 /**
- * The station's format clock, as something an operator writes.
+ * The station's format clock: what it SAYS, and when.
  *
  * `rotation.breakEveryMinutes` says how often the station should name itself and is the one knob
  * most stations ever want. This is everything else: a bulletin at half past, an ident at the top of
- * the hour, a second sort of break on its own interval. One rule per line, in the shape a radio
- * clock is actually drawn in.
+ * the hour, a second sort of break on its own interval.
  *
- *     # when, then what kind of break
- *     :00 talkbreak
- *     :30 news
- *     every 60m news
+ * Two shapes. An {@link AnchoredBand} is a time of day — every hour at half past, or once a day at
+ * nine — and a {@link SpacingBand} is a rule for a kind the station's own interval does not cover.
  *
- * Three shapes, one parser. `:MM` is every hour, `HH:MM` is once a day, and `every Nm` is a spacing
- * rule for a kind the station's own interval does not cover.
+ * ## Rows, and this file is only the vocabulary and the arithmetic
  *
- * ## Empty means no extra rules, and that is the opposite of the templates box
+ * A band is a row in `deadair.clock_bands` (see `ClockBandRepository`). It was `rotation.clockBands`,
+ * one rule per line, parsed here with a regular expression that dropped whatever it could not read —
+ * which was right while a band was three tokens somebody could hold in their head, and stopped being
+ * right when a band grew a reference to another table. A mistyped line is silence at a time nobody
+ * chose, reported only in a log; a row cannot be malformed.
  *
- * {@link parseTemplates} answers with the station's own five when the box is empty, because an
- * empty set of phrasings would be a DJ with nothing to say and the way to stop the station talking
- * is `rotation.breaks`. Here an empty schedule is a coherent schedule: it means the station keeps
- * its ordinary spacing and nothing else, which is exactly what every station did before this
- * existed. So the default is empty and installing this changes nothing about what anybody hears
- * until somebody writes a line.
+ * What is left here is the part that was always the hard part and is a pure function of a band and
+ * an instant: {@link nextOccurrence}, and the daylight-saving care underneath it.
+ *
+ * ## No bands is a coherent schedule
+ *
+ * A station with no rows keeps its ordinary spacing and nothing else, which is exactly what every
+ * station did before any of this existed. There is nothing to default and nothing to seed.
  *
  * ## Order is preference
  *
- * The list is read top to bottom and the planner takes it in that order, which is how
+ * Bands are read in `position` order and the planner takes them in that order, which is how
  * `BreakWriterRegistry` and `SetGeneratorChain` already settle precedence. There is no priority
  * field and no ranking between kinds: an operator who wants one rule to win a contested boundary
- * moves its line up. See `break.planner.ts` for the one thing that is NOT operator-ordered —
- * anchored rules are taken before spacing ones, because an anchored rule is the one that cannot
- * slide.
+ * moves it up. See `break.planner.ts` for the one thing that is NOT operator-ordered — anchored
+ * rules are taken before spacing ones, because an anchored rule is the one that cannot slide.
  */
-
-import type { AppConfig } from '@maroonedsoftware/appconfig';
-
-/** The `deadair.settings` key. In `rotation`, beside how often the station talks. */
-export const CLOCK_BAND_KEYS = {
-    bands: 'rotation.clockBands',
-} as const;
 
 /** A break tied to a time of day. */
 export interface AnchoredBand {
@@ -79,64 +72,6 @@ export type ClockBandRecord = ClockBand & {
 
 /** A band as somebody wrote it, before the database gives it an id. */
 export type ClockBandDraft = ClockBand & { position?: number; enabled?: boolean };
-
-/** `:30 news`, `09:00 news`, `every 60m news`. Case-insensitive on the keyword only. */
-const ANCHOR = /^(?:(\d{1,2}):)?:?(\d{2})\s+(\S+)$/;
-const INTERVAL = /^every\s+(\d+)\s*m(?:in(?:utes?)?)?\s+(\S+)$/i;
-
-/** A line that is a comment, which is how a rule is turned off without being lost. */
-const isComment = (line: string): boolean => line.trimStart().startsWith('#');
-
-/**
- * The rules an operator has written, in the order they wrote them.
- *
- * A line that does not parse is DROPPED rather than guessed at, and the caller logs it once,
- * quoted — the same treatment a template with an unknown placeholder gets. Guessing would be worse
- * than useless here: a mistyped `9:0 news` read as anything at all puts a bulletin on air at a time
- * nobody chose, and the operator has no way to tell that from the rule they meant.
- */
-export function parseBands(raw: string | undefined): { bands: ClockBand[]; rejected: string[] } {
-    const bands: ClockBand[] = [];
-    const rejected: string[] = [];
-
-    for (const line of (raw ?? '').split('\n').map(text => text.trim())) {
-        if (line.length === 0 || isComment(line)) continue;
-
-        const band = parseLine(line);
-        if (band === undefined) rejected.push(line);
-        else bands.push(band);
-    }
-
-    return { bands, rejected };
-}
-
-/** Everything the operator's schedule holds, or nothing when they have not written one. */
-export function stationBands(config: AppConfig): { bands: ClockBand[]; rejected: string[] } {
-    return parseBands(config.get(CLOCK_BAND_KEYS.bands, ''));
-}
-
-function parseLine(line: string): ClockBand | undefined {
-    const interval = INTERVAL.exec(line);
-    if (interval) {
-        const minutes = Number(interval[1]);
-        // Zero is not a rule, it is a rule that fires at every boundary forever. Rejected rather
-        // than clamped, so it is reported back to whoever wrote it.
-        if (minutes <= 0) return undefined;
-        return { at: 'interval', everyMs: minutes * 60_000, kind: interval[2]! };
-    }
-
-    const anchor = ANCHOR.exec(line);
-    if (!anchor) return undefined;
-
-    const minute = Number(anchor[2]);
-    if (minute > 59) return undefined;
-
-    if (anchor[1] === undefined) return { at: 'clock', minute, kind: anchor[3]! };
-
-    const hour = Number(anchor[1]);
-    if (hour > 23) return undefined;
-    return { at: 'clock', minute, hour, kind: anchor[3]! };
-}
 
 /**
  * The next time this band comes round, strictly after an instant.

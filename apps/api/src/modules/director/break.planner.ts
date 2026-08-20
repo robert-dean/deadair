@@ -5,7 +5,8 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
 import { brokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
-import { isAnchored, nextOccurrence, stationBands } from './clock.bands.js';
+import { isAnchored, nextOccurrence, type ClockBand } from './clock.bands.js';
+import { ClockBandRepository } from './clock.band.repository.js';
 import { isProductionKind } from '#modules/productions/production.scheduler.js';
 import { stationZone } from './clock.words.js';
 import { SegmentRepository, type Segment, type StrandedRelease } from '#modules/render/segment.repository.js';
@@ -244,6 +245,7 @@ export class BreakPlanner {
         private readonly segments: SegmentRepository,
         private readonly writers: BreakWriterRegistry,
         private readonly speech: SpeechService,
+        private readonly bands: ClockBandRepository,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -270,7 +272,11 @@ export class BreakPlanner {
     async plant(lineup: StationLineup, rules: ResolvedRules, clock: AirClock): Promise<number> {
         if (!rules.breaks) return 0;
 
-        const wanted = this.slotsFor(lineup, rules, clock);
+        // Read once per pass and handed down, which is what keeps `slotsFor` a pure walk over the
+        // order: the rules are a document this reads, exactly as the schedule is, and a walk that
+        // went to the database in the middle of claiming boundaries would be a walk nothing could
+        // test without a stack.
+        const wanted = this.slotsFor(lineup, rules, clock, await this.bands.active());
         if (wanted.length === 0) return 0;
 
         // Both halves of being able to say something of the station's own: words to say, and a voice
@@ -534,18 +540,9 @@ export class BreakPlanner {
      * job is stopping two rules claiming one boundary in a single pass — across passes that is the
      * order's own business, because by then the break is really in it.
      */
-    private slotsFor(lineup: StationLineup, rules: ResolvedRules, clock: AirClock): Slot[] {
+    private slotsFor(lineup: StationLineup, rules: ResolvedRules, clock: AirClock, bands: readonly ClockBand[]): Slot[] {
         const items = lineup.all();
         const cursor = lineup.committedThrough();
-        const { bands, rejected } = stationBands(this.config);
-
-        for (const line of rejected) {
-            // Quoted, and at info rather than warn: a half-typed schedule is somebody editing, not
-            // a fault. It is said every pass because the alternative is a rule that silently does
-            // nothing and an operator with nowhere to look.
-            this.logger.info('director: a line of the station clock could not be read and was ignored', { line });
-        }
-
         const zone = stationZone(this.config);
         const projected = projectAirTimes(items, clock.anchorAt, clock.from);
         // A band naming a PRODUCTION kind is not asking for a break at a boundary, and this walk is

@@ -2,7 +2,8 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
-import { isAnchored, nextOccurrence, stationBands } from '#modules/director/clock.bands.js';
+import { isAnchored, nextOccurrence } from '#modules/director/clock.bands.js';
+import { ClockBandRepository } from '#modules/director/clock.band.repository.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { firstPass } from './production.passes.js';
@@ -79,6 +80,7 @@ export const isProductionKind = (kind: string, config: AppConfig): boolean => pr
 export class ProductionScheduler {
     constructor(
         private readonly productions: ProductionRepository,
+        private readonly bands: ClockBandRepository,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -93,9 +95,8 @@ export class ProductionScheduler {
      */
     async ripen(now = Date.now()): Promise<number> {
         try {
-            const { bands } = stationBands(this.config);
             const kinds = productionKinds(this.config);
-            const anchored = bands.filter(isAnchored).filter(band => kinds.has(band.kind.trim().toLowerCase()));
+            const anchored = (await this.bands.active()).filter(isAnchored).filter(band => kinds.has(band.kind.trim().toLowerCase()));
             if (anchored.length === 0) return 0;
 
             const zone = stationZone(this.config);

@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { BreakPlanner, INTERRUPT_OVER_AT_MS, PLANT_AHEAD, WRITE_AHEAD, type AirClock } from '../../../src/modules/director/break.planner.js';
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
+import type { ClockBand } from '../../../src/modules/director/clock.bands.js';
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 import { WELCOME_KIND } from '../../../src/modules/director/welcome.writer.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -53,7 +54,9 @@ const ident = (id: string): Segment => recorded(id, 'ident');
  * A planner with the two halves of talking switched off by default, so the cases below are about
  * WHERE a break goes rather than what it says. `canWrite` turns the written path on.
  */
-const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: boolean; settings?: Record<string, string> } = {}) => {
+const build = (
+    options: { idents?: Segment[]; canWrite?: boolean; speaker?: boolean; settings?: Record<string, string>; bands?: ClockBand[] } = {},
+) => {
     // Answers for the KIND it was asked about, the way the repository does. A blanket answer would
     // have a band for `news` quietly filled with an ident and every case below pass for the wrong
     // reason.
@@ -117,6 +120,9 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
         }),
     );
 
+    // The format clock, as the rows the planner is handed. Only `active` is reached from here: a
+    // band that is switched off never leaves the repository.
+    const clockBands = { active: vi.fn(async () => options.bands ?? []) };
     const writers = { canWrite: vi.fn(() => options.canWrite ?? false) };
     const speech = { speaker: vi.fn(() => ((options.speaker ?? options.canWrite) ? { record: { id: 'deadair.kokoro' } } : undefined)) };
     const send = vi.fn(async () => {});
@@ -126,6 +132,7 @@ const build = (options: { idents?: Segment[]; canWrite?: boolean; speaker?: bool
             { listReady, plan, markFailed, findByIds, reopenSegments, releaseStranded, failedWithScript } as unknown as SegmentRepository,
             writers as never,
             speech as never,
+            clockBands as never,
             { send } as never,
             settingsConfig(options.settings ?? {}).config,
             logger,
@@ -488,10 +495,12 @@ describe('BreakPlanner against the clock', () => {
         from: 0,
     });
 
-    const bands = (lines: string): Record<string, string> => ({ 'rotation.clockBands': lines, 'station.timezone': 'UTC' });
+    /** The station's own clock, in UTC so a boundary in a test is the boundary it reads as. */
+    const utc = (): Record<string, string> => ({ 'station.timezone': 'UTC' });
+    const at = (minute: number, kind: string, hour?: number): ClockBand => ({ at: 'clock', minute, kind, ...(hour === undefined ? {} : { hour }) });
 
     it('plants a band at the first boundary at or after its time, never before it', async () => {
-        const { planner, plan } = build({ settings: bands(':30 news'), canWrite: true });
+        const { planner, plan } = build({ settings: utc(), bands: [at(30, 'news')], canWrite: true });
         const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
@@ -505,7 +514,7 @@ describe('BreakPlanner against the clock', () => {
     });
 
     it('leaves a band alone once its boundary already holds a break', async () => {
-        const { planner } = build({ settings: bands(':30 news') });
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')] });
         const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
@@ -516,7 +525,7 @@ describe('BreakPlanner against the clock', () => {
     });
 
     it('drops an occurrence whose boundary is inside the window the player already holds', async () => {
-        const { planner } = build({ settings: bands(':30 news') });
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')] });
         // Eight records handed over, so everything before index 12 is out of reach. Half past falls
         // at index 6, well inside it.
         const lineup = await lineupOf(20, 8);
@@ -529,7 +538,7 @@ describe('BreakPlanner against the clock', () => {
     });
 
     it('plants nothing when the order does not reach the band yet', async () => {
-        const { planner } = build({ settings: bands('03:00 news') });
+        const { planner } = build({ settings: utc(), bands: [at(0, 'news', 3)] });
         const lineup = await lineupOf(20);
 
         // Eighteen hours out against an order holding a hundred minutes. A later pass asks again.
@@ -537,7 +546,7 @@ describe('BreakPlanner against the clock', () => {
     });
 
     it('takes an anchored rule before a spacing one when both want the same boundary', async () => {
-        const { planner } = build({ settings: bands(':30 news'), idents: [ident('seg-1'), recorded('news-1', 'news')] });
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')], idents: [ident('seg-1'), recorded('news-1', 'news')] });
         const lineup = await lineupOf(20);
 
         // The station's own spacing is thirty minutes, so it wants index 6 too. The anchored rule
@@ -550,7 +559,7 @@ describe('BreakPlanner against the clock', () => {
     });
 
     it('does not let a bulletin it just planted stand in for the station naming itself', async () => {
-        const { planner } = build({ settings: bands(':30 news'), idents: [ident('seg-1'), recorded('news-1', 'news')] });
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')], idents: [ident('seg-1'), recorded('news-1', 'news')] });
         const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 30 }), eightPastNine());
@@ -562,7 +571,7 @@ describe('BreakPlanner against the clock', () => {
     });
 
     it('says so once and plants nothing when the clock names a break nothing can produce', async () => {
-        const { planner, plan } = build({ settings: bands(':30 weather'), idents: [ident('seg-1')] });
+        const { planner, plan } = build({ settings: utc(), bands: [at(30, 'weather')], idents: [ident('seg-1')] });
         const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
@@ -574,7 +583,7 @@ describe('BreakPlanner against the clock', () => {
     });
 
     it('fills a band from the shelf when the library holds a recording of that kind', async () => {
-        const { planner } = build({ settings: bands(':30 sponsor'), idents: [recorded('spot-1', 'sponsor')] });
+        const { planner } = build({ settings: utc(), bands: [at(30, 'sponsor')], idents: [recorded('spot-1', 'sponsor')] });
         const lineup = await lineupOf(20);
 
         // `segments.kind` is free text on purpose: a station that wants sponsor spots drops the
@@ -585,8 +594,10 @@ describe('BreakPlanner against the clock', () => {
         expect(kinds).toEqual(['sponsor']);
     });
 
-    it('ignores a line it cannot read, and keeps the rest of the schedule', async () => {
-        const { planner } = build({ settings: bands('9:0 news\n:30 sponsor'), idents: [recorded('spot-1', 'sponsor')] });
+    it('leaves a band whose time is not in reach and still fills the rest of the clock', async () => {
+        // Nine o'clock has gone by, so that band's next occurrence is tomorrow and the order does
+        // not reach it. A rule that cannot be placed must cost the rules beside it nothing.
+        const { planner } = build({ settings: utc(), bands: [at(0, 'news', 9), at(30, 'sponsor')], idents: [recorded('spot-1', 'sponsor')] });
         const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
@@ -601,7 +612,7 @@ describe('BreakPlanner against the clock', () => {
     // instead, so the one break that was supposed to say the hour never said anything of the sort.
     // Every other case here named `news` or `sponsor` and sailed straight past it.
     it('gives a band naming talkbreak its time, instead of handing it to the alternation', async () => {
-        const { planner, plan } = build({ settings: bands(':30 talkbreak'), canWrite: true, idents: [ident('seg-1')] });
+        const { planner, plan } = build({ settings: utc(), bands: [at(30, 'talkbreak')], canWrite: true, idents: [ident('seg-1')] });
         const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
@@ -612,7 +623,7 @@ describe('BreakPlanner against the clock', () => {
     it('fills a band with the kind named, never with whatever the alternation was due', async () => {
         // Idents available and a talk break just planted would ordinarily make the next one an
         // ident. A band is not the station taking its turn, so it gets what it asked for.
-        const { planner } = build({ settings: bands(':30 ident'), canWrite: true, idents: [ident('seg-1')] });
+        const { planner } = build({ settings: utc(), bands: [at(30, 'ident')], canWrite: true, idents: [ident('seg-1')] });
         const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
@@ -628,7 +639,7 @@ describe('BreakPlanner against the clock', () => {
         // :32, deliberately not a time any boundary falls on. Records are five minutes from 09:00,
         // so the first gap at or after it is 09:35 — three minutes late, and that is what the break
         // has to describe.
-        const { planner, plan } = build({ settings: bands(':32 talkbreak'), canWrite: true });
+        const { planner, plan } = build({ settings: utc(), bands: [at(32, 'talkbreak')], canWrite: true });
         const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
@@ -637,7 +648,7 @@ describe('BreakPlanner against the clock', () => {
     });
 
     it('plants nothing from a clock when the operator has turned breaks off', async () => {
-        const { planner } = build({ settings: bands(':30 news') });
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')] });
         const lineup = await lineupOf(20);
 
         expect(await planner.plant(lineup, rules({ breaks: false }), eightPastNine())).toBe(0);

@@ -181,9 +181,10 @@ function build(options: Options = {}) {
         // break they are asking for. Everything else here plants recorded idents.
         { canWrite: () => options.canTalk ?? false } as never,
         { speaker: () => (options.canTalk ? { record: { id: 'deadair.kokoro' } } : undefined) } as never,
+        // No format clock: what this file tests is the reactor planting at all, and a band would
+        // put breaks at times these cases say nothing about.
+        { active: vi.fn(async () => []) } as never,
         { send: vi.fn(async () => {}) } as never,
-        // The same config the director gets, so a clock band set in a test reaches the planner the
-        // way it reaches it in the app: one settings layer, read by both.
         station.config,
         logger,
     );

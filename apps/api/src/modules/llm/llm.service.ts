@@ -59,6 +59,32 @@ export const MAX_TOOL_STEPS = 4;
 /** How much of a stray tool call is quoted when one is re-issued. Enough to see the shape. */
 const STRAY_LOG_CHARS = 200;
 
+/**
+ * What a model is told when the loop has run out of steps.
+ *
+ * The tools are withdrawn on the last step so the model has to answer in words, and for as long as
+ * that was ALL that happened it did not work: withdrawing a declaration is a silence, and this
+ * station's model reads a silence as nothing at all. Measured on a briefed refill — five productive
+ * searches, roughly two dozen usable records gathered, and then a final generation made with no
+ * declarations that came back with no text and a `tool-calls` finish reason. It asked for a tool that
+ * was not there and said nothing, spending the one step that existed for answering. The floor filled
+ * the hour.
+ *
+ * So the step is spent on an instruction instead of a hint. Three things about the wording are
+ * deliberate:
+ *
+ * - it names the CONSEQUENCE, because every rule in this codebase's prompts that works does. "There
+ *   are no tools left" is a fact a model can note and ignore; "a reply that is not an answer ends
+ *   this with nothing" is a reason;
+ * - it says "the format you were asked for" rather than naming one, because this is the host and the
+ *   format belongs to the caller. A set generator's system turn asks for a JSON array and a break
+ *   writer's asks for a sentence, and a final turn that named either would be lying to the other;
+ * - it says to use what it already has, since the failure is a model that HAS enough and reaches for
+ *   more anyway.
+ */
+const FINAL_TURN =
+    'That is all the searching you get: there are no tools left to call. Answer now, in the format you were asked for, using what you already have. A reply that asks for anything else ends this with nothing, and everything you found is thrown away.';
+
 /** How one caller wants its generation treated. Every field falls back to this module's own bounds. */
 export interface LlmCallOptions {
     /** Override {@link GENERATION_BUDGET_MS} for one call. */
@@ -334,10 +360,12 @@ export class LlmService {
      *
      * ## Tools are offered only to a model that says it can take them
      *
-     * And when the loop runs out of steps, the last generation is made with no tools at all, so the
-     * model has to answer in words. Without that a caller can be handed a result whose only content
-     * is a request for a tool call nobody is going to make, which reads downstream as the model
-     * having said nothing.
+     * And when the loop runs out of steps, the last generation is made with no tools at all AND is
+     * told so ({@link FINAL_TURN}), so the model has to answer in words. Without the withdrawal a
+     * caller can be handed a result whose only content is a request for a tool call nobody is going
+     * to make, which reads downstream as the model having said nothing. Without the SENTENCE, the
+     * same thing happens anyway: a withdrawn declaration is a silence, and a model that has been
+     * searching does not read one.
      *
      * ## A tool call written as text is still a tool call
      *
@@ -401,6 +429,13 @@ export class LlmService {
             // ask for something nobody will run.
             const lastStep = step >= maxSteps;
             const offered = lastStep || declarations.length === 0 ? undefined : declarations;
+
+            // And it is TOLD, because withdrawing the declarations does not say anything. See
+            // {@link FINAL_TURN}: silently removing the tools is a signal this station's model does
+            // not read, and it answers a step it could have used by asking for a tool that is not
+            // there. Only for a model that has actually been using them — a conversation that never
+            // called one is not being cut off and has nothing to be told.
+            if (lastStep && toolCallsMade > 0) messages.push({ role: 'user', content: FINAL_TURN });
 
             const result = await this.generateOnce(plugin, { ...request, messages, ...(offered === undefined ? {} : { tools: offered }) });
             addUsage(usage, result.usage);

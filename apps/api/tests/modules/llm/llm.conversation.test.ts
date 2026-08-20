@@ -255,6 +255,34 @@ describe('bounding the loop', () => {
         expect(result).toBeDefined();
     });
 
+    it('TELLS the model the searching is over, because withdrawing the tools says nothing', async () => {
+        // Measured: a briefed refill made five productive searches, gathered two dozen usable
+        // records, and then the final generation — made with no declarations at all — came back with
+        // no text and a `tool-calls` finish reason. It asked for a tool that was not there and spent
+        // the one step that existed for answering.
+        const { record, asked } = scriptedPlugin([{ toolCalls: [looping] }, { text: 'that was Roygbiv' }]);
+        const { service } = serviceFor(record, [tool('search', async () => 'found')]);
+
+        await service.converse(ask(), { maxToolSteps: 1 });
+
+        const last = asked[1]?.messages ?? [];
+        expect(last[last.length - 1]).toMatchObject({ role: 'user' });
+        expect(String(last[last.length - 1]?.content)).toMatch(/no tools left to call/);
+        // The consequence, which is the half that makes a rule land rather than be noted.
+        expect(String(last[last.length - 1]?.content)).toMatch(/ends this with nothing/);
+    });
+
+    it('tells a conversation that never used a tool nothing at all', async () => {
+        // It is not being cut off. A model that answered without searching has nothing to be told,
+        // and a sentence about tools it never called is context spent on a situation it is not in.
+        const { record, asked } = scriptedPlugin([{ text: 'that was Roygbiv' }]);
+        const { service } = serviceFor(record, [tool('search', async () => 'found')]);
+
+        await service.converse(ask(), { maxToolSteps: 0 });
+
+        expect(asked[0]?.messages.some(message => String(message.content).includes('no tools left'))).toBe(false);
+    });
+
     it('does not run a tool for the final toolless step', async () => {
         const run = vi.fn(async () => 'found');
         const { record } = scriptedPlugin([{ toolCalls: [looping] }]);

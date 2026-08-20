@@ -18,9 +18,15 @@ import { z } from 'zod';
  * - `select`      one of `options`
  * - `multiselect` any number of `options`, stored as a JSON array of the chosen
  *                 values. Read it back with {@link parseMultiSelect}
+ * - `list`        any number of ROWS with the same `columns`, stored as a JSON
+ *                 array of objects. Read it back with {@link parseRows}. For a
+ *                 list whose entries have parts — a feed with a name and a
+ *                 category — where the alternative is a `text` field with a
+ *                 separator in it and a line an operator can mistype into
+ *                 silence
  * - `note`        not an input at all: static help text rendered in the form
  */
-export type ConfigFieldType = 'string' | 'text' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'note';
+export type ConfigFieldType = 'string' | 'text' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'list' | 'note';
 
 /**
  * What a `number` field's value is measured in, so the form can offer a control a person can use.
@@ -44,6 +50,62 @@ export interface ConfigFieldOption {
 }
 
 /**
+ * Where a column's choices come from when neither the plugin nor the operator's own server is the
+ * one that knows them.
+ *
+ * A closed HOST vocabulary, and the third of three ways a choice can be offered: `options` is what
+ * the PLUGIN decided when its manifest was written, `suggestConfigOptions()` is what the operator's
+ * own server currently says, and this is what the STATION says. It exists because a plugin cannot
+ * ask — a news plugin has no way to learn which categories this station holds, and the alternative
+ * is a free-text cell where `sports` and `sport` are a silent miss nobody sees until bulletins start
+ * declining.
+ *
+ * One member today, and it is an enum rather than a boolean for {@link ConfigFieldUnit}'s reason:
+ * the next one (voices, personas) is obvious, and a closed set is what the contract mirroring this
+ * can express. Whatever it names is resolved by the CONSOLE, which is the only side that can read
+ * the station's own tables; nothing here reaches a plugin.
+ */
+export type ConfigFieldOptionSource = 'station.newsCategories';
+
+/**
+ * One column of a `list` field.
+ *
+ * Deliberately a smaller vocabulary than {@link ConfigFieldType}: no `secret`, because a row is
+ * stored as plain JSON and nothing encrypts one cell of it, and no nested `list`, because a table
+ * inside a table is a form nobody can fill in. Every cell is stored as a STRING, so a column is
+ * about the control the operator gets rather than about the shape of what is kept.
+ */
+export interface ConfigFieldColumn {
+    /**
+     * Key this cell is stored under inside the row object.
+     *
+     * Letters, digits, dashes and underscores only, and a DOT is the one thing it may not carry —
+     * unlike {@link ConfigField.key}, where a dot is ordinary (`stream.title`). A row editor
+     * addresses a cell by a path built out of this, so a dotted column key would read as a path
+     * into a nested object and the cell would render empty and submit nothing, silently.
+     */
+    key: string;
+
+    /** Column heading. */
+    label: string;
+
+    /** `string` free text, `url` free text meant to be an address, `select` one of `options`. */
+    type: 'string' | 'url' | 'select';
+
+    /** Whether a row is only counted once this cell is filled in. */
+    required?: boolean;
+
+    /** Ghost text inside the cell. */
+    placeholder?: string;
+
+    /** Choices, fixed when the manifest is written. See {@link ConfigField.options}. */
+    options?: ConfigFieldOption[];
+
+    /** Choices only the station can enumerate. See {@link ConfigFieldOptionSource}. */
+    optionsFrom?: ConfigFieldOptionSource;
+}
+
+/**
  * The chosen values of a `multiselect`, out of the string it is stored as.
  *
  * Stored as a JSON array because plugin config is a string map, and read back
@@ -59,6 +121,40 @@ export function parseMultiSelect(raw: unknown): string[] {
         const parsed: unknown = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
         return parsed.filter((value): value is string => typeof value === 'string' && value.trim().length > 0).map(value => value.trim());
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * The rows of a `list` field, out of the string it is stored as.
+ *
+ * A JSON array of objects in a string, for {@link parseMultiSelect}'s reason and encoded the same
+ * way, so a `list` needs nothing of the storage path that a `string` did not already have. Tolerant
+ * in the same way and for the same stakes: anything unreadable is no rows rather than a plugin that
+ * will not load, and a cell that is not a string is dropped rather than stringified, since a number
+ * where a URL was expected is a mistake worth seeing as an empty cell.
+ *
+ * A row with nothing in it is dropped, because the form leaves one behind whenever an operator adds
+ * a row and thinks better of it.
+ */
+export function parseRows(raw: unknown): Record<string, string>[] {
+    if (typeof raw !== 'string' || raw.trim().length === 0) return [];
+
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+
+        return parsed.flatMap(entry => {
+            if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return [];
+
+            const row: Record<string, string> = {};
+            for (const [key, value] of Object.entries(entry as Record<string, unknown>)) {
+                if (typeof value === 'string' && value.trim().length > 0) row[key] = value.trim();
+            }
+
+            return Object.keys(row).length === 0 ? [] : [row];
+        });
     } catch {
         return [];
     }
@@ -108,6 +204,13 @@ export interface ConfigField {
     options?: ConfigFieldOption[];
 
     /**
+     * The columns of a `list`, in the order they are drawn. Ignored on every other type.
+     *
+     * A `list` with none is a field with nothing to fill in, so declare at least one.
+     */
+    columns?: ConfigFieldColumn[];
+
+    /**
      * Key of another field in the same form. This field is only shown when
      * that field has a truthy value.
      */
@@ -119,9 +222,25 @@ export const configFieldOptionSchema = z.object({
     label: z.string(),
 });
 
-export const configFieldTypeSchema = z.enum(['string', 'text', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'note']);
+export const configFieldTypeSchema = z.enum(['string', 'text', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'list', 'note']);
 
 export const configFieldUnitSchema = z.enum(['bytes']);
+
+export const configFieldOptionSourceSchema = z.enum(['station.newsCategories']);
+
+export const configFieldColumnSchema = z.object({
+    // No dots. See ConfigFieldColumn.key: a cell is addressed by a path built from this.
+    key: z
+        .string()
+        .min(1)
+        .regex(/^[A-Za-z0-9_-]+$/),
+    label: z.string().min(1),
+    type: z.enum(['string', 'url', 'select']),
+    required: z.boolean().optional(),
+    placeholder: z.string().optional(),
+    options: z.array(configFieldOptionSchema).optional(),
+    optionsFrom: configFieldOptionSourceSchema.optional(),
+});
 
 export const configFieldSchema = z.object({
     key: z.string().min(1),
@@ -133,5 +252,6 @@ export const configFieldSchema = z.object({
     placeholder: z.string().optional(),
     help: z.string().optional(),
     options: z.array(configFieldOptionSchema).optional(),
+    columns: z.array(configFieldColumnSchema).optional(),
     dependsOn: z.string().optional(),
 });

@@ -550,6 +550,7 @@ const configFieldFixture: ConfigField = {
     placeholder: 'Pick a region',
     help: 'Where the provider should route requests from.',
     options: [{ value: 'us', label: 'US' }],
+    columns: [{ key: 'url', label: 'Address', type: 'url', required: true, placeholder: 'https://', optionsFrom: 'station.newsCategories' }],
     dependsOn: 'enabled',
 };
 

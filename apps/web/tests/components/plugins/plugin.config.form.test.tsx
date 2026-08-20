@@ -8,17 +8,22 @@ import { pluginDetail } from '../../utils/plugin.fixture';
 import { render, screen, waitFor } from '../../utils/render';
 
 const updatePluginConfiguration = vi.fn();
+const listTopics = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         plugins: {
             updatePluginConfiguration: (...args: unknown[]) => updatePluginConfiguration(...args),
         },
+        topics: {
+            listTopics: (...args: unknown[]) => listTopics(...args),
+        },
     },
 }));
 
 afterEach(() => {
     updatePluginConfiguration.mockReset();
+    listTopics.mockReset();
 });
 
 /** The config the form actually submitted, from the single PUT it made. */
@@ -165,6 +170,93 @@ describe('PluginConfigForm', () => {
 
         expect(await screen.findByText('This is required')).toBeInTheDocument();
         expect(updatePluginConfiguration).not.toHaveBeenCalled();
+    });
+
+    describe('a list of rows', () => {
+        const FEEDS: ConfigFieldDescriptor = {
+            key: 'feeds',
+            label: 'Feeds',
+            type: 'list',
+            columns: [
+                { key: 'name', label: 'Name', type: 'string' },
+                { key: 'url', label: 'Address', type: 'url' },
+                { key: 'category', label: 'Category', type: 'string', optionsFrom: 'station.newsCategories' },
+            ],
+        };
+
+        const withRows = (...rows: Record<string, string>[]) => pluginDetail({ configFields: [FEEDS], config: { feeds: JSON.stringify(rows) } });
+
+        it('draws a row per stored entry and submits what was typed into a new one', async () => {
+            const plugin = withRows({ name: 'World', url: 'https://one.example.com/rss', category: 'world' });
+            updatePluginConfiguration.mockResolvedValue(plugin);
+            const user = userEvent.setup();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            expect(screen.getByDisplayValue('https://one.example.com/rss')).toBeInTheDocument();
+
+            await user.click(screen.getByRole('button', { name: 'Add' }));
+            await user.type(screen.getAllByLabelText('Address')[1] as HTMLElement, 'https://two.example.net/rss');
+            await save();
+
+            await waitFor(() => {
+                expect(submittedConfig()).toEqual({
+                    feeds: JSON.stringify([
+                        { name: 'World', url: 'https://one.example.com/rss', category: 'world' },
+                        { name: '', url: 'https://two.example.net/rss', category: '' },
+                    ]),
+                });
+            });
+        });
+
+        it('drops a row the operator removed, and one they added and left blank', async () => {
+            const plugin = withRows({ name: 'World', url: 'https://one.example.com/rss' }, { name: 'Sport', url: 'https://two.example.net/rss' });
+            updatePluginConfiguration.mockResolvedValue(plugin);
+            const user = userEvent.setup();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            await user.click(screen.getByRole('button', { name: 'Remove row 1' }));
+            await user.click(screen.getByRole('button', { name: 'Add' }));
+            await save();
+
+            await waitFor(() => {
+                expect(submittedConfig()).toEqual({ feeds: JSON.stringify([{ name: 'Sport', url: 'https://two.example.net/rss' }]) });
+            });
+        });
+
+        it("offers the station's own categories in a column that asked for them", async () => {
+            listTopics.mockResolvedValue({
+                topics: [
+                    { id: '1', kind: 'news', key: 'sport', label: 'Sport', config: {}, position: 0 },
+                    { id: '2', kind: 'weather', key: 'home', label: 'Home', config: {}, position: 1 },
+                ],
+            });
+            const plugin = withRows({ name: 'World', url: 'https://one.example.com/rss' });
+            const user = userEvent.setup();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            await user.click(screen.getByLabelText('Category'));
+
+            // The station's news categories, and only those: a weather location is a subject for a
+            // different sort of break entirely.
+            expect(await screen.findByText('Sport')).toBeInTheDocument();
+            expect(screen.queryByText('Home')).not.toBeInTheDocument();
+        });
+
+        it('will not save a required list nobody has filled in', async () => {
+            const plugin = pluginDetail({ configFields: [{ ...FEEDS, required: true }] });
+
+            render(<PluginConfigForm plugin={plugin} />);
+            await userEvent.setup().click(screen.getByRole('button', { name: 'Add' }));
+            await save();
+
+            // A blank row is not an answer, which is the whole difference between this and a text
+            // box holding a newline.
+            expect(await screen.findByText('This is required')).toBeInTheDocument();
+            expect(updatePluginConfiguration).not.toHaveBeenCalled();
+        });
     });
 
     it('treats a stored secret as answering its own required check', async () => {

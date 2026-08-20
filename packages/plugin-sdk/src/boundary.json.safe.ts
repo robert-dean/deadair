@@ -63,7 +63,7 @@ import type {
 } from './capabilities/music.provider.js';
 import type { LlmMessage, LlmModelInfo, LlmRequest, LlmResult, LlmToolCall, LlmToolDeclaration, LlmUsage } from './capabilities/llm.js';
 import type { SpeechRequest, SpeechVoice } from './capabilities/speech.js';
-import type { ConfigField, ConfigFieldOption } from './plugin.config.fields.js';
+import type { ConfigField, ConfigFieldColumn, ConfigFieldOption } from './plugin.config.fields.js';
 import type { TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
 import type { PluginManifest } from './plugin.manifest.js';
@@ -142,6 +142,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     PluginGrantRequest: IsJsonSafe<PluginGrantRequest>;
     ConfigField: IsJsonSafe<ConfigField>;
     ConfigFieldOption: IsJsonSafe<ConfigFieldOption>;
+    ConfigFieldColumn: IsJsonSafe<ConfigFieldColumn>;
     PluginManifestWithoutConfigSchema: IsJsonSafe<Omit<PluginManifest, 'configSchema'>>;
     ProviderTrack: IsJsonSafe<ProviderTrack>;
     ProviderPlaylist: IsJsonSafe<ProviderPlaylist>;
@@ -201,6 +202,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'PluginGrantRequest',
     'ConfigField',
     'ConfigFieldOption',
+    'ConfigFieldColumn',
     'PluginManifest',
     'ProviderTrack',
     'ProviderPlaylist',

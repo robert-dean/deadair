@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import {
+    ActionIcon,
     Anchor,
     Autocomplete,
     Button,
     Group,
+    Input,
     Loader,
     MultiSelect,
     NumberInput,
@@ -11,6 +13,7 @@ import {
     Select,
     Stack,
     Switch,
+    Table,
     Text,
     Textarea,
     TextInput,
@@ -19,13 +22,60 @@ import {
     type OptionsFilter,
 } from '@mantine/core';
 import { useForm, type GetInputPropsReturnType } from '@mantine/form';
-import type { ConfigFieldDescriptor, ConfigFieldOption } from '@deadair/sdk';
+import { IconPlus, IconTrash } from '@tabler/icons-react';
+import type { ConfigFieldColumn, ConfigFieldDescriptor, ConfigFieldOption } from '@deadair/sdk';
 
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
+import { columnSuggestionKey, useDeclaredOptions } from './declared.options';
 
-type FieldValue = string | number | boolean;
+/** One row of a `list` field. Every cell is a string; the column decides the control, not the value. */
+type FieldRow = Record<string, string>;
+
+type FieldValue = string | number | boolean | FieldRow[];
 type FormValues = Record<string, FieldValue>;
+
+/**
+ * A `list`'s rows, out of the JSON array it is stored as.
+ *
+ * Duplicated from the plugin SDK's `parseRows` for {@link parseChosen}'s reason, and tolerant in the
+ * same way: a hand-edited value should cost the field rather than the page. Unlike the SDK's reader
+ * this keeps a row whose cells are all empty, because the form has to be able to hold the blank row
+ * an operator has just added and not yet typed into. `buildSubmission` is what drops those.
+ */
+function parseStoredRows(value: unknown): FieldRow[] {
+    if (typeof value !== 'string' || value.trim().length === 0) return [];
+
+    try {
+        const parsed: unknown = JSON.parse(value);
+        if (!Array.isArray(parsed)) return [];
+
+        return parsed.flatMap(entry => {
+            if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return [];
+
+            const row: FieldRow = {};
+            for (const [key, cell] of Object.entries(entry as Record<string, unknown>)) {
+                if (typeof cell === 'string') row[key] = cell;
+            }
+            return [row];
+        });
+    } catch {
+        return [];
+    }
+}
+
+/** A field's value as rows, for the one type that holds an array rather than a scalar. */
+const rowsOf = (value: FieldValue | undefined): FieldRow[] => (Array.isArray(value) ? value : []);
+
+/** A row nobody filled in. The form leaves one behind whenever somebody adds a row and thinks better of it. */
+const isBlankRow = (row: FieldRow): boolean => Object.values(row).every(cell => cell.trim().length === 0);
+
+/** The rows as they are stored: blank ones dropped, every cell trimmed. */
+const rowsForSubmission = (rows: readonly FieldRow[]): FieldRow[] =>
+    rows.map(row => Object.fromEntries(Object.entries(row).map(([key, cell]) => [key, cell.trim()])) as FieldRow).filter(row => !isBlankRow(row));
+
+/** An empty row of the declared columns, so a new row draws every cell rather than growing them as it is typed into. */
+const emptyRow = (field: ConfigFieldDescriptor): FieldRow => Object.fromEntries((field.columns ?? []).map(column => [column.key, '']));
 
 /**
  * A `multiselect`'s chosen values, out of the JSON array it is stored and submitted as.
@@ -86,7 +136,11 @@ const isInput = (field: ConfigFieldDescriptor): boolean => field.type !== 'note'
 const nameOf = (index: number): string => `f${index}`;
 
 /** Whether a value counts as answered, for `required` and for `dependsOn`. */
-const isAnswered = (value: FieldValue | undefined): boolean => value !== undefined && value !== '' && value !== false;
+const isAnswered = (value: FieldValue | undefined): boolean => {
+    // A list of blank rows is a list nobody has filled in, which is what `required` is asking about.
+    if (Array.isArray(value)) return value.some(row => !isBlankRow(row));
+    return value !== undefined && value !== '' && value !== false;
+};
 
 /**
  * The form as the server will see it.
@@ -104,7 +158,12 @@ function initialValues(fields: readonly ConfigFieldDescriptor[], stored: Record<
             return;
         }
         const current = stored[field.key] ?? field.default;
-        if (field.type === 'boolean') {
+        if (field.type === 'list') {
+            // A real array in the form's own state, which is what lets the row editor use Mantine's
+            // list handlers and address a cell by path. It is turned back into the JSON string it is
+            // stored as on the way out, in `buildSubmission`.
+            values[name] = parseStoredRows(current);
+        } else if (field.type === 'boolean') {
             values[name] = current === true;
         } else if (field.type === 'number') {
             values[name] = typeof current === 'number' ? current : '';
@@ -159,6 +218,11 @@ function buildSubmission(
             } else if (typeof value === 'string' && value.length > 0) {
                 submission[field.key] = value;
             }
+            return;
+        }
+
+        if (field.type === 'list') {
+            submission[field.key] = JSON.stringify(rowsForSubmission(Array.isArray(value) ? value : []));
             return;
         }
 
@@ -254,15 +318,32 @@ export function ConfigFieldsForm({
 }: ConfigFieldsFormProps) {
     const [cleared, setCleared] = useState<ReadonlySet<string>>(new Set());
 
+    // The one thing this form reads for itself, and it still knows nothing about what it is
+    // configuring: a column declaring `optionsFrom` names a STATION vocabulary, which neither the
+    // plugin nor the settings page is in a position to answer. Resolved here rather than at the two
+    // call sites so neither grows its own copy, and nothing is fetched for a form that asks for none.
+    const declared = useDeclaredOptions(fields);
+    const offered = (key: string): readonly ConfigFieldOption[] => {
+        const suggested = suggestions?.[key];
+        return suggested !== undefined && suggested.length > 0 ? suggested : (declared[key] ?? []);
+    };
+
     /** What to offer for one field: whatever was suggested for it, else whatever it declared. */
     const optionsFor = (field: ConfigFieldDescriptor): { value: string; label: string }[] => {
-        const suggested = suggestions?.[field.key];
-        const source = suggested !== undefined && suggested.length > 0 ? suggested : (field.options ?? []);
+        const suggested = offered(field.key);
+        const source = suggested.length > 0 ? suggested : (field.options ?? []);
+        return source.map(option => ({ value: option.value, label: option.label }));
+    };
+
+    /** The same, for one cell of a `list`: what was suggested or resolved for it, else the column's own. */
+    const columnOptionsFor = (field: ConfigFieldDescriptor, column: ConfigFieldColumn): { value: string; label: string }[] => {
+        const suggested = offered(columnSuggestionKey(field.key, column.key));
+        const source = suggested.length > 0 ? suggested : (column.options ?? []);
         return source.map(option => ({ value: option.value, label: option.label }));
     };
 
     /** Whether a free-text field has anything to suggest, which is what makes it an autocomplete. */
-    const hasSuggestions = (field: ConfigFieldDescriptor): boolean => (suggestions?.[field.key]?.length ?? 0) > 0;
+    const hasSuggestions = (field: ConfigFieldDescriptor): boolean => offered(field.key).length > 0;
 
     // Controlled: `dependsOn` decides visibility from the current values, so the form has to
     // re-render as they change. The app's other forms are uncontrolled because nothing in them
@@ -391,6 +472,28 @@ export function ConfigFieldsForm({
                     />
                 );
             }
+            case 'list': {
+                const { error: fieldError } = form.getInputProps(name);
+                return (
+                    <RowsField
+                        key={field.key}
+                        field={field}
+                        name={name}
+                        rows={rowsOf(form.getValues()[name])}
+                        error={typeof fieldError === 'string' ? fieldError : undefined}
+                        disabled={pending}
+                        cellProps={path => form.getInputProps(path)}
+                        cellKey={path => form.key(path)}
+                        optionsFor={column => columnOptionsFor(field, column)}
+                        onAdd={() => {
+                            form.insertListItem(name, emptyRow(field));
+                        }}
+                        onRemove={index => {
+                            form.removeListItem(name, index);
+                        }}
+                    />
+                );
+            }
             case 'url':
                 return suggestionInput(field, name, { inputMode: 'url', placeholder: field.placeholder ?? 'https://' });
             default:
@@ -465,6 +568,113 @@ export function ConfigFieldsForm({
                 </Group>
             </Stack>
         </form>
+    );
+}
+
+interface RowsFieldProps {
+    field: ConfigFieldDescriptor;
+    /** The field's name inside the form, which every cell path is built from. */
+    name: string;
+    rows: readonly FieldRow[];
+    error?: string;
+    disabled: boolean;
+    cellProps: (path: string) => GetInputPropsReturnType;
+    cellKey: (path: string) => string;
+    optionsFor: (column: ConfigFieldColumn) => { value: string; label: string }[];
+    onAdd: () => void;
+    onRemove: (index: number) => void;
+}
+
+/**
+ * A list of rows, drawn as a table an operator adds to.
+ *
+ * The control a `text` field with a separator in it was always a stand-in for. A list whose entries
+ * have PARTS — a feed with a name and a category — is a line format the moment it is one box, and a
+ * line format is a thing that can be mistyped into silence: the station reads the operator's list,
+ * drops the line it could not parse, and says so in a log nobody is reading at the time.
+ *
+ * Every cell is addressed by path (`f3.0.url`) so the form's own list handlers do the inserting and
+ * removing. Nothing here holds state of its own, which is what keeps a row that was removed from
+ * leaving its typed-in values behind on the row that took its place.
+ */
+function RowsField({ field, name, rows, error, disabled, cellProps, cellKey, optionsFor, onAdd, onRemove }: RowsFieldProps) {
+    const columns = field.columns ?? [];
+
+    return (
+        <Input.Wrapper label={field.label} description={field.help} withAsterisk={field.required} error={error}>
+            <Stack gap="xs" mt={field.help === undefined ? 'xxs' : 'xs'}>
+                {rows.length === 0 ? (
+                    <Text size="sm" c="dimmed">
+                        {field.placeholder ?? 'Nothing here yet.'}
+                    </Text>
+                ) : (
+                    <Table verticalSpacing="xs" horizontalSpacing="xs" withRowBorders={false}>
+                        <Table.Thead>
+                            <Table.Tr>
+                                {columns.map(column => (
+                                    <Table.Th key={column.key}>{column.label}</Table.Th>
+                                ))}
+                                {/* The remove control's column. Headed by nothing, because a heading
+                                    over a row of buttons reads as a third piece of data. */}
+                                <Table.Th w={40} />
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                            {rows.map((row, index) => (
+                                <Table.Tr key={cellKey(`${name}.${index}`)}>
+                                    {columns.map(column => {
+                                        const path = `${name}.${index}.${column.key}`;
+                                        const choices = optionsFor(column);
+                                        return (
+                                            <Table.Td key={column.key}>
+                                                {choices.length > 0 ? (
+                                                    <Autocomplete
+                                                        aria-label={column.label}
+                                                        placeholder={column.placeholder}
+                                                        disabled={disabled}
+                                                        data={choices}
+                                                        filter={showAllWhenSettled}
+                                                        limit={Infinity}
+                                                        {...cellProps(path)}
+                                                    />
+                                                ) : (
+                                                    <TextInput
+                                                        aria-label={column.label}
+                                                        placeholder={column.placeholder}
+                                                        disabled={disabled}
+                                                        {...(column.type === 'url' ? { inputMode: 'url' as const } : {})}
+                                                        {...cellProps(path)}
+                                                    />
+                                                )}
+                                            </Table.Td>
+                                        );
+                                    })}
+                                    <Table.Td>
+                                        <ActionIcon
+                                            variant="subtle"
+                                            color="red"
+                                            aria-label={`Remove row ${index + 1}`}
+                                            disabled={disabled}
+                                            onClick={() => {
+                                                onRemove(index);
+                                            }}
+                                        >
+                                            <IconTrash size={16} />
+                                        </ActionIcon>
+                                    </Table.Td>
+                                </Table.Tr>
+                            ))}
+                        </Table.Tbody>
+                    </Table>
+                )}
+
+                <Group justify="flex-start">
+                    <Button variant="light" size="compact-sm" leftSection={<IconPlus size={14} />} disabled={disabled} onClick={onAdd}>
+                        Add
+                    </Button>
+                </Group>
+            </Stack>
+        </Input.Wrapper>
     );
 }
 

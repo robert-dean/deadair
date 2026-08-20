@@ -6,7 +6,7 @@ options {
 
 contract PluginStatus: enum(discovered, disabled, misconfigured, active, failed) # Lifecycle state of a plugin the host knows about
 
-contract ConfigFieldType: enum(string, text, url, secret, number, boolean, select, multiselect, note)
+contract ConfigFieldType: enum(string, text, url, secret, number, boolean, select, multiselect, list, note)
 
 # What a `number` field's value is measured in. The stored value is always in this unit; only the
 # control the operator touches changes, so a byte count stays a byte count everywhere it is read
@@ -16,6 +16,20 @@ contract ConfigFieldUnit: enum(bytes)
 contract ConfigFieldOption: {
     value: string(min=1, max=200)
     label: string(min=1, max=200)
+}
+
+# Where a column's choices come from when only the station can enumerate them, resolved by the console
+contract ConfigFieldOptionSource: enum(station.newsCategories)
+
+# One column of a `list` field. Every cell is stored as a string, so this describes the control rather than the value
+contract ConfigFieldColumn: {
+    key: string(min=1, max=200)
+    label: string(min=1, max=200)
+    type: enum(string, url, select)
+    required?: boolean
+    placeholder?: string(max=400)
+    options?: array(ConfigFieldOption)
+    optionsFrom?: ConfigFieldOptionSource
 }
 
 # Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
@@ -29,6 +43,7 @@ contract ConfigFieldDescriptor: {
     placeholder?: string(max=400)
     help?: string(max=2000)
     options?: array(ConfigFieldOption)
+    columns?: array(ConfigFieldColumn) # `list` only, and ignored elsewhere
     dependsOn?: string(min=1, max=200) # Key of the field this one is only relevant to
 }
 

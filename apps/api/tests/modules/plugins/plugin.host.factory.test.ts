@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { httpError, IsServerkitError } from '@maroonedsoftware/errors';
 import { ErrorCodes } from '@deadair/error-codes';
-import { isPluginError, toPluginError, type PluginError, type PluginErrorCode, type PluginManifest } from '@deadair/plugin-sdk';
+import { isPluginError, toPluginError, type ConfigField, type PluginError, type PluginErrorCode, type PluginManifest } from '@deadair/plugin-sdk';
 
 import { pluginHttpError } from '../../../src/modules/plugins/plugin.error.http.js';
 
@@ -1076,6 +1076,56 @@ describe('PluginHostFactory config-derived allowlist', () => {
 
         await expect(host.fetch('https://one.example.com/x')).resolves.toMatchObject({ status: 200 });
         await expect(host.fetch('https://two.example.net/x')).resolves.toMatchObject({ status: 200 });
+    });
+
+    /**
+     * A `list` field is the one shape whose addresses cannot be found by looking at the value:
+     * a row holds cells, and only the field descriptor says which of them is an address.
+     */
+    const fromRows = (...columns: NonNullable<ConfigField['columns']>) =>
+        manifest({
+            permissions: { network: [{ fromConfig: 'feeds' }], storage: false, oauth: false },
+            configFields: [{ key: 'feeds', label: 'Feeds', type: 'list', columns }],
+        });
+
+    const rows = (...entries: Record<string, string>[]) => ({ feeds: JSON.stringify(entries) });
+
+    it('reads the addresses out of the rows a list stores', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockImplementation(async () => new Response('ok', { status: 200 })),
+        );
+        const { service } = configured(
+            rows({ name: 'World', url: 'https://one.example.com/feed.xml', category: 'world' }, { name: 'Sport', url: 'two.example.net' }),
+        );
+        const host = factory(undefined, service).createHost(
+            fromRows({ key: 'name', label: 'Name', type: 'string' }, { key: 'url', label: 'Address', type: 'url' }),
+        );
+
+        await expect(host.fetch('https://one.example.com/feed.xml')).resolves.toMatchObject({ status: 200 });
+        await expect(host.fetch('https://two.example.net/rss')).resolves.toMatchObject({ status: 200 });
+        await expectPluginError(host.fetch('https://three.example.org/rss'), 'forbidden', /not allowed to reach/);
+    });
+
+    it('takes an address only from a column that declared itself one', async () => {
+        vi.stubGlobal('fetch', vi.fn());
+        // `hostnameFromSetting` would happily read `sport` as a hostname, which is exactly the
+        // quiet widening the column check exists to refuse.
+        const { service } = configured(rows({ url: 'https://feed.example.com/rss', category: 'sport' }));
+        const host = factory(undefined, service).createHost(
+            fromRows({ key: 'url', label: 'Address', type: 'url' }, { key: 'category', label: 'Category', type: 'string' }),
+        );
+
+        await expectPluginError(host.fetch('https://sport/x'), 'forbidden', /not allowed to reach/);
+    });
+
+    it('lets one bad row cost its own upstream and no other', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        const { service } = configured(rows({ url: '' }, { url: 'https://*.example.org' }, { url: 'https://good.example.com/feed.xml' }));
+        const host = factory(undefined, service).createHost(fromRows({ key: 'url', label: 'Address', type: 'url' }));
+
+        await expect(host.fetch('https://good.example.com/feed.xml')).resolves.toMatchObject({ status: 200 });
+        await expectPluginError(host.fetch('https://anything.example.org/x'), 'forbidden', /not allowed to reach/);
     });
 
     it('lets one bad line cost its own upstream and no other', async () => {

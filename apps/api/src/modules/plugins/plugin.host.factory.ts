@@ -1,7 +1,8 @@
 import { Container, Injectable } from 'injectkit';
 import { RateLimiterMemory, RateLimiterQueue, RateLimiterQueueError } from 'rate-limiter-flexible';
-import { PluginError, isPluginError } from '@deadair/plugin-sdk';
+import { PluginError, isPluginError, parseRows } from '@deadair/plugin-sdk';
 import type {
+    ConfigField,
     HostFetchInit,
     HostFetchMethod,
     PluginConfigAccess,
@@ -181,7 +182,10 @@ const hostnameFromSetting = (value: unknown): string | undefined => {
  * that way: a reader of feeds is pointed at a LIST the operator pasted, and
  * there is no honest number of `url` fields to give it. So a value holding
  * several addresses contributes several entries, whether it arrived as the
- * lines of a `text` field or as the JSON array a `multiselect` stores.
+ * lines of a `text` field, as the JSON array a `multiselect` stores, or as the
+ * ROWS of a `list` — which is the only one of the three whose addresses cannot
+ * be found by looking at the value alone, and is why the field descriptor is
+ * passed in. See {@link addressCells}.
  *
  * Nothing about a single-address setting changes, deliberately: one line in,
  * one entry out, and every refusal {@link hostnameFromSetting} makes is made
@@ -194,10 +198,37 @@ const hostnameFromSetting = (value: unknown): string | undefined => {
  * and a repeated pattern would otherwise install a second limiter that quietly
  * doubles the rate the entry asked to be paced at.
  */
-const hostnamesFromSetting = (value: unknown): string[] => {
-    const raw = Array.isArray(value) ? value : typeof value === 'string' ? readAddressLines(value) : [value];
+const hostnamesFromSetting = (value: unknown, field?: ConfigField): string[] => {
+    const raw =
+        field?.type === 'list'
+            ? addressCells(value, field)
+            : Array.isArray(value)
+              ? value
+              : typeof value === 'string'
+                ? readAddressLines(value)
+                : [value];
 
     return [...new Set(raw.flatMap(one => hostnameFromSetting(one) ?? []))];
+};
+
+/**
+ * The addresses in a `list` field: the cells of the columns that declared themselves `url`.
+ *
+ * By the COLUMN rather than by looking at every cell, which is the one thing that cannot be
+ * loosened here: {@link hostnameFromSetting} accepts a bare hostname, so a cell holding a category
+ * called `sport` would install `sport` on the allowlist — harmless in itself, and exactly the kind
+ * of quiet widening this whole path exists to refuse. A field that declared no `url` column names
+ * no addresses, which is a plugin asking for an allowlist it cannot fill rather than a permissive
+ * default.
+ *
+ * `parseRows` is the SDK's own reader, so the host and the plugin read one encoding: a list the
+ * plugin serves and the allowlist refuses is a plugin that looks broken rather than a row somebody
+ * got wrong.
+ */
+const addressCells = (value: unknown, field: ConfigField): unknown[] => {
+    const columns = (field.columns ?? []).filter(column => column.type === 'url').map(column => column.key);
+
+    return parseRows(value).flatMap(row => columns.map(key => row[key]));
 };
 
 /**
@@ -231,7 +262,7 @@ const readAddressLines = (value: string): string[] =>
  * can change under a running plugin, because a config write reinitializes it
  * and builds a whole new host.
  */
-const normalizeNetwork = (network: PluginPermissions['network'], config: Record<string, unknown>): NetworkEntry[] => {
+const normalizeNetwork = (network: PluginPermissions['network'], config: Record<string, unknown>, fields: ConfigField[] = []): NetworkEntry[] => {
     const entries: NetworkEntry[] = [];
 
     for (const entry of network) {
@@ -251,7 +282,10 @@ const normalizeNetwork = (network: PluginPermissions['network'], config: Record<
         // out of it shares that one limiter — which is what an operator's list
         // of feeds actually wants, since the rate being paced is this station's
         // own and not any one publisher's.
-        for (const hostname of hostnamesFromSetting(config[entry.fromConfig])) {
+        for (const hostname of hostnamesFromSetting(
+            config[entry.fromConfig],
+            fields.find(field => field.key === entry.fromConfig),
+        )) {
             entries.push({ pattern: hostname, bucket: entry.bucket ?? hostname, ratePerSecond: entry.ratePerSecond });
         }
     }
@@ -692,7 +726,7 @@ export class PluginHostFactory {
         let resolved: Promise<NetworkEntry[]> | undefined;
         return () => {
             resolved ??= inScope(this.container, scope => scope.get(PluginConfigService).getConfig(manifest.id)).then(config => {
-                const entries = normalizeNetwork(declared, config);
+                const entries = normalizeNetwork(declared, config, manifest.configFields);
                 // An entry that resolved to nothing is a setting the operator
                 // has not filled in (or filled in wrongly), and the symptom is
                 // a `forbidden` per request naming a host they thought they had

@@ -1,17 +1,22 @@
-import type { NewsFeedDescriptor } from '@deadair/plugin-sdk';
+import { parseRows, type NewsFeedDescriptor } from '@deadair/plugin-sdk';
 
 /**
  * The operator's list of feeds, read.
  *
- * One feed per line, and the address is the last `|`-separated field, because
- * that is the shape the HOST reads the same setting in when it builds this
- * plugin's allowlist (`NetworkPermissionFromConfig`). Those two readings have
- * to agree exactly: a line this file accepts and the allowlist does not is a
- * feed that appears on the menu and is refused on every fetch, which reads to
- * an operator as a broken plugin rather than as a line they typed wrong.
+ * One feed per ROW — a name, an address and a category — read with the SDK's own
+ * `parseRows`, because that is the reader the HOST uses on the same setting when
+ * it builds this plugin's allowlist (`NetworkPermissionFromConfig`, which takes
+ * the cells of the columns the manifest declared `url`). Those two readings have
+ * to agree exactly: a feed this file accepts and the allowlist does not is a feed
+ * that appears on the menu and is refused on every fetch, which reads to an
+ * operator as a broken plugin rather than as a row they got wrong.
  *
- *     https://example.com/feed.xml
- *     world|World news|https://example.com/world.xml
+ * It was one box of `id|Name|address` lines, which is the shape a list grows the
+ * moment its entries have parts, and the shape that turns a mistyped character
+ * into a feed the station silently does not have. The id went with it: nobody
+ * types one now, it is derived from the name, and the one thing that buys back
+ * is that a feed cannot be named one thing here and referred to as another
+ * somewhere else.
  *
  * Pure, and separate from the plugin for that reason: the agreement above is
  * the only thing here that can go quietly wrong, and it is worth table-testing
@@ -25,32 +30,31 @@ export interface ConfiguredFeed {
 }
 
 /**
- * Whether a line names an id and a label, and what is left after them.
+ * The rows an operator filled in, as feeds.
  *
- * The whole line is the address when there is no `|`, which is the shape
- * somebody who has just pasted a URL will have. Two fields mean a name and an
- * address; three mean an id as well. Nothing here rejects a line for having
- * more, because the address is read from the end.
+ * A row with no usable address is dropped and costs only itself, exactly as a
+ * bad line did and as the allowlist does per address. The name is optional and
+ * falls back to the publisher's hostname, because a pasted address with nothing
+ * beside it is a perfectly ordinary way to add a feed.
+ *
+ * The CATEGORY is the operator's own word and is passed on untouched: what it
+ * means is the station's business (it is matched against the categories the
+ * station holds), and normalising it here would be this plugin having an
+ * opinion about a vocabulary it cannot see.
  */
-export function parseFeedLines(raw: string | undefined): ConfiguredFeed[] {
+export function parseFeedRows(raw: unknown): ConfiguredFeed[] {
     const feeds: ConfiguredFeed[] = [];
     const taken = new Set<string>();
 
-    for (const line of (raw ?? '').split('\n').map(text => text.trim())) {
-        if (line.length === 0 || line.startsWith('#')) continue;
-
-        const fields = line.split('|').map(field => field.trim());
-        const url = fields.pop() ?? '';
+    for (const row of parseRows(raw)) {
+        const url = row.url ?? '';
         if (!isHttpUrl(url)) continue;
 
-        // `url`, `Name|url`, or `id|Name|url`. The label is whatever field sits
-        // directly in front of the address, and an id in front of that.
-        const label = fields.at(-1) ?? '';
+        const label = row.name ?? '';
         const name = label.length > 0 ? label : hostOf(url);
-        const declaredId = fields.length > 1 ? (fields.at(-2) ?? '') : '';
-        const id = uniqueId(slug(declaredId.length > 0 ? declaredId : name), taken);
+        const category = row.category ?? '';
 
-        feeds.push({ descriptor: { id, name }, url });
+        feeds.push({ descriptor: { id: uniqueId(slug(name), taken), name, ...(category.length === 0 ? {} : { category }) }, url });
     }
 
     return feeds;

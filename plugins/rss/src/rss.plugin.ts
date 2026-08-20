@@ -10,7 +10,7 @@ import {
     type PluginConnectionResult,
 } from '@deadair/plugin-sdk';
 
-import { parseFeedLines, type ConfiguredFeed } from './rss.feeds.js';
+import { parseFeedRows, type ConfiguredFeed } from './rss.feeds.js';
 import { ARTICLE_TIMEOUT_MS, DEFAULT_CACHE_SECONDS, DEFAULT_FETCH_ARTICLES, DEFAULT_MAX_ITEMS, REQUEST_TIMEOUT_MS } from './rss.manifest.js';
 
 export { rssManifest } from './rss.manifest.js';
@@ -131,7 +131,7 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
 
-        this.feeds = parseFeedLines(typeof config.feeds === 'string' ? config.feeds : undefined);
+        this.feeds = parseFeedRows(config.feeds);
         this.maxItems = positive(config.maxItems) ?? DEFAULT_MAX_ITEMS;
         this.cacheSeconds = notNegative(config.cacheSeconds) ?? DEFAULT_CACHE_SECONDS;
         this.fetchArticles = config.fetchArticles !== false;
@@ -285,7 +285,7 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
      */
     async testConnection(): Promise<PluginConnectionResult> {
         const configured = this.feeds;
-        if (configured.length === 0) return { ok: false, message: 'No feeds yet. Paste one address per line above.' };
+        if (configured.length === 0) return { ok: false, message: 'No feeds yet. Add a row above with the address of one.' };
 
         const failed: string[] = [];
         let sampleUrl: string | undefined;

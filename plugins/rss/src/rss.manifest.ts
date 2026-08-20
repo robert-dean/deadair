@@ -62,13 +62,52 @@ export const DEFAULT_CACHE_SECONDS = 60;
 export const DEFAULT_FETCH_ARTICLES = true;
 
 export const configSchema = z.object({
-    feeds: z.string().default(''),
+    /**
+     * The rows, as the JSON array a `list` field is stored as.
+     *
+     * Refused here rather than read leniently, unlike everywhere else this value is touched: a save
+     * is the one moment there is somebody to tell. `parseFeedRows` and the host's allowlist both
+     * drop what they cannot read, which is right on the way in to a running station and wrong as
+     * the only answer an operator ever gets — a feeds box that saved cleanly and served nothing is
+     * exactly the failure the rows replaced lines to end.
+     */
+    feeds: z
+        .string()
+        .default('[]')
+        .refine(value => value.trim().length === 0 || readsAsFeedRows(value), 'Each feed needs a web address starting with http:// or https://'),
     maxItems: z.coerce.number().int().min(1).max(100).default(DEFAULT_MAX_ITEMS),
     cacheSeconds: z.coerce.number().int().min(0).max(3_600).default(DEFAULT_CACHE_SECONDS),
     fetchArticles: z.coerce.boolean().default(DEFAULT_FETCH_ARTICLES),
 });
 
 export type RssConfig = z.infer<typeof configSchema>;
+
+/** Whether every row a saved value holds carries an address something could actually fetch. */
+function readsAsFeedRows(value: string): boolean {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(value);
+    } catch {
+        return false;
+    }
+
+    if (!Array.isArray(parsed)) return false;
+
+    return parsed.every(row => {
+        if (typeof row !== 'object' || row === null || Array.isArray(row)) return false;
+        const url = (row as Record<string, unknown>).url;
+        return typeof url === 'string' && isFetchable(url);
+    });
+}
+
+const isFetchable = (url: string): boolean => {
+    try {
+        const { protocol } = new URL(url.trim());
+        return protocol === 'http:' || protocol === 'https:';
+    } catch {
+        return false;
+    }
+};
 
 export const rssManifest: PluginManifest = {
     id: PLUGIN_ID,
@@ -80,10 +119,10 @@ export const rssManifest: PluginManifest = {
     permissions: {
         // Every upstream here is one the operator named, so there is no hostname
         // to write down at authoring time and this single entry is the whole
-        // allowlist. The host reads one hostname per line out of the same
-        // setting `parseFeedLines` reads, which is why both must read a line the
-        // same way: a feed the menu offers and the allowlist refuses looks like
-        // a broken plugin rather than a mistyped line.
+        // allowlist. The host reads a hostname per ROW out of the same setting
+        // `parseFeedRows` reads, off the column declared `url` below, which is
+        // why the two must agree: a feed the menu offers and the allowlist
+        // refuses looks like a broken plugin rather than a row typed wrong.
         network: [{ fromConfig: 'feeds', ratePerSecond: FEED_RATE_PER_SECOND, bucket: FEED_BUCKET }],
         // The one thing this plugin needs that no manifest can name in advance.
         // A feed's entries are on the publisher's feed host and the stories they
@@ -110,10 +149,18 @@ export const rssManifest: PluginManifest = {
         {
             key: 'feeds',
             label: 'Feeds',
-            type: 'text',
+            type: 'list',
             required: true,
-            placeholder: 'https://example.com/rss.xml\nworld|World news|https://example.com/world.xml',
-            help: 'One feed per line. Paste the address on its own, or put a name in front of it, or a short id and a name: id|Name|address. The id is what the DJ asks for by name, so keep it short. A line starting with # is ignored.',
+            placeholder: 'No feeds yet.',
+            help:
+                'One row per feed. The address is the only part that is needed: leave the name empty and the publisher is used, and leave the ' +
+                'category empty and the stories are sorted by what they say rather than by where they came from. A category here is the surest ' +
+                'way to say what a feed is, since a publisher who has already sorted their own newsroom has done the work.',
+            columns: [
+                { key: 'name', label: 'Name', type: 'string', placeholder: 'World news' },
+                { key: 'url', label: 'Address', type: 'url', required: true, placeholder: 'https://example.com/rss.xml' },
+                { key: 'category', label: 'Category', type: 'string', placeholder: 'Any', optionsFrom: 'station.newsCategories' },
+            ],
         },
         {
             key: 'maxItems',

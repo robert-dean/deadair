@@ -165,6 +165,24 @@ describe('the station’s own categories', () => {
         expect(answer.stories.map(one => one.title)).toEqual(['Semiconductor plant reopens']);
     });
 
+    it('cuts on what the FEED says it is, not only on what a story says', async () => {
+        // The strongest signal, and it lives on the menu rather than on the entry: a feed the
+        // operator filed under technology is technology, whatever any one headline says.
+        const { tool } = build({
+            topics: [technology],
+            feeds: [{ id: 'deadair.rss:tech', pluginId: 'deadair.rss', name: 'Tech', category: 'technology' }],
+            stories: [
+                story({ id: 'a', feedId: 'deadair.rss:tech', title: 'Council votes on the harbour' }),
+                story({ id: 'b', feedId: 'deadair.rss:home', title: 'A quiet morning' }),
+            ],
+        });
+        const [declared] = await tool.tools();
+
+        const answer = (await declared!.run({ topic: 'technology' })) as { stories: { title: string }[] };
+
+        expect(answer.stories.map(one => one.title)).toEqual(['Council votes on the harbour']);
+    });
+
     it('says an empty category is about the station rather than about the world', async () => {
         // A model that asked for technology and got nothing cannot otherwise tell "nothing has
         // happened" from "this station follows no technology feeds", and those want different next

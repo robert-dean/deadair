@@ -17,6 +17,14 @@ import type { Topic } from '#modules/topics/topic.js';
  * weakest by a distance — "chip" is a semiconductor in one story and a shop in the next — so it
  * exists to catch what the first two miss and never to define a category.
  *
+ * ## The first signal is stated on the FEED, not on the category
+ *
+ * A category used to name the feeds that were always it, as a list of `pluginId:feedId` typed in by
+ * hand on the subjects page — an id derived from a name the operator wrote in a different form, for
+ * a feed they were not looking at. The feed says it itself now (a row on the plugin that offers it,
+ * carrying the category), and this matches that word against the category's own key or label. One
+ * relationship, stated on the side that is looking at the thing, and an id nobody has to know.
+ *
  * The rank is kept on the match rather than collapsed to a boolean because the bulletin uses it:
  * asked for technology, it reads the definite matches before the guesses.
  *
@@ -44,8 +52,15 @@ const RANKS: Record<MatchRank, number> = { feed: 3, label: 2, word: 1 };
 export interface NewsTopicRules {
     key: string;
     label: string;
-    /** Qualified feed ids (`pluginId:feedId`) that ARE this category. */
-    feeds: string[];
+    /**
+     * What a feed may call this category to BE it, normalized: its key and its label.
+     *
+     * Both, because a category is written once and named twice — an operator picking `Sport` off a
+     * list is choosing the key, and one typing into a plugin that could not offer the list writes
+     * whatever they would call it. Matching only one of the two would make a feed's category work
+     * or not work depending on which form the operator happened to have in front of them.
+     */
+    names: string[];
     /** The publishers' own labels for it, normalized. Matched whole. */
     labels: string[];
     /** Words that mean it, normalized. Matched as whole words against the headline and teaser. */
@@ -54,7 +69,14 @@ export interface NewsTopicRules {
 
 /** As much of a story as the classifier looks at. */
 export interface ClassifiableStory {
-    feedId?: string;
+    /**
+     * The category the FEED this story came from declares itself to be, in the operator's own word.
+     *
+     * Not the story's own claim about itself: the feed's, which is why it outranks everything else
+     * here. Absent for a feed nobody has categorised, which is the ordinary state and simply leaves
+     * the story to be judged on what it says.
+     */
+    feedCategory?: string;
     title?: string;
     summary?: string;
     /** The publisher's own labels, unmapped and in their own spelling. */
@@ -73,7 +95,10 @@ export function newsTopicRules(topic: Topic): NewsTopicRules {
     return {
         key: topic.key,
         label: topic.label,
-        feeds: entriesIn(topic.config.feeds).map(entry => entry.toLowerCase()),
+        // Off the ROW rather than out of `config`, because this is what the category IS rather than
+        // something written into it: a category the operator has not finished still answers to its
+        // own name.
+        names: [...new Set([normalize(topic.key), normalize(topic.label)])].filter(entry => entry.length > 0),
         labels: entriesIn(topic.config.labels)
             .map(normalize)
             .filter(entry => entry.length > 0),
@@ -91,7 +116,9 @@ export function newsTopicRules(topic: Topic): NewsTopicRules {
  * one with a feed named in it.
  */
 export function rankOf(story: ClassifiableStory, rules: NewsTopicRules): MatchRank | undefined {
-    if (story.feedId !== undefined && rules.feeds.includes(story.feedId.toLowerCase())) return 'feed';
+    // Normalized on both sides, so `US news` typed on a feed and the `us` category the station
+    // holds are the same answer. See `normalize`.
+    if (story.feedCategory !== undefined && rules.names.includes(normalize(story.feedCategory))) return 'feed';
 
     const labels = (story.categories ?? []).map(normalize);
     if (labels.some(label => rules.labels.includes(label))) return 'label';

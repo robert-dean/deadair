@@ -118,6 +118,24 @@ export class NewsService {
     }
 
     /**
+     * What each feed says it IS, keyed by the qualified id its stories carry.
+     *
+     * The strongest of the three classification signals, and the only one that does not travel with
+     * a story: a `NewsItem` is what a publisher published, and the category is what the OPERATOR
+     * said about the feed it came out of. So a caller that classifies asks for both and joins them
+     * on the feed id, rather than this stamping a station's opinion onto somebody else's entry.
+     *
+     * A feed nobody has categorised is simply absent, which is the ordinary state.
+     */
+    async feedCategories(): Promise<Map<string, string>> {
+        const categories = new Map<string, string>();
+        for (const feed of await this.listFeeds()) {
+            if (feed.category !== undefined && feed.category.trim().length > 0) categories.set(feed.id, feed.category.trim());
+        }
+        return categories;
+    }
+
+    /**
      * Published entries, newest first.
      *
      * With a `feedId` this asks the one plugin that minted it. Without one it

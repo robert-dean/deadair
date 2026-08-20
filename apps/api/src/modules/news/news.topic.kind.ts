@@ -8,14 +8,16 @@ import { NEWS_KIND } from '#modules/director/news.break.writer.js';
  * fields a category is written with. What they MEAN is `news.classify.ts`; this file is only the
  * form.
  *
- * ## Three fields, because a story carries three kinds of evidence
+ * ## Two fields here, and the strongest evidence is not one of them
  *
- * A feed is a decision somebody already made — the publisher's technology feed is technology — and
- * it is the only one of the three that cannot be wrong, which is why it ranks first in the
- * classifier. A publisher's own labels are nearly as good and are what most feeds actually carry.
- * Words are the weakest and are last, because a word in a headline is a coincidence often enough to
- * matter and because a category matched on a word alone is how a bulletin about a chip shop ends up
- * in the technology slot.
+ * A story carries three kinds of evidence and the classifier ranks them (`news.classify.ts`). The
+ * strongest — the FEED it came from — is stated on the FEED, as a row on the plugin that offers it,
+ * so it is deliberately not a box here: a category naming feed ids by hand meant typing an id
+ * derived from a name written in a different form, for a feed the operator was not looking at. What
+ * is left are the two that are genuinely about the words. A publisher's own labels are what most
+ * feeds actually carry. Words are the weakest and are last, because a word in a headline is a
+ * coincidence often enough to matter and because a category matched on a word alone is how a
+ * bulletin about a chip shop ends up in the technology slot.
  *
  * ## Every field is optional, and one of the seeds ships with none
  *
@@ -28,17 +30,9 @@ export const NEWS_TOPIC_KIND: TopicKind = {
     noun: { one: 'category', many: 'categories' },
     description:
         'What a news bulletin can be about. Put a category on a band in the format clock and that bulletin reads only the stories that belong to it — ' +
-        'or leave the band without one and the station spreads its headlines across whatever the categories say it has.',
+        'or leave the band without one and the station spreads its headlines across whatever the categories say it has. A feed can be a whole ' +
+        'category on its own: say so on the feed itself, where the plugin that reads it is configured.',
     fields: [
-        {
-            key: 'feeds',
-            label: 'Feeds that are always this',
-            type: 'text',
-            placeholder: 'deadair.rss:world\ndeadair.rss:tech',
-            help:
-                'One feed id per line, exactly as it is listed on the feeds a plugin offers. Everything from these feeds counts as this category, ' +
-                'which is the surest way to say what a category is: a publisher who has already sorted their own newsroom has done the work.',
-        },
         {
             key: 'labels',
             label: "The publisher's own words for it",

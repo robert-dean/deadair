@@ -8,28 +8,40 @@ import { describe, expect, it } from 'vitest';
 import { categoriesOf, newsTopicRules, rankOf, type ClassifiableStory } from '../../../src/modules/news/news.classify.js';
 import type { Topic } from '../../../src/modules/topics/topic.js';
 
-const topic = (key: string, config: Record<string, unknown>): Topic => ({
+const topic = (key: string, config: Record<string, unknown>, label?: string): Topic => ({
     id: `topic-${key}`,
     kind: 'news',
     key,
-    label: key,
+    label: label ?? key,
     config,
     position: 0,
 });
 
-const tech = newsTopicRules(
-    topic('technology', { feeds: ['deadair.rss:tech'], labels: ['Technology', 'Tech'], words: ['semiconductor', 'app store'] }),
-);
+const tech = newsTopicRules(topic('technology', { labels: ['Technology', 'Tech'], words: ['semiconductor', 'app store'] }));
 
 const story = (over: Partial<ClassifiableStory> = {}): ClassifiableStory => ({
-    feedId: 'deadair.rss:home',
     title: 'A perfectly ordinary morning',
     ...over,
 });
 
 describe('rankOf', () => {
-    it('takes a feed the operator named as definite, whatever the story says', () => {
-        expect(rankOf(story({ feedId: 'deadair.rss:tech', title: 'Council votes on the bypass' }), tech)).toBe('feed');
+    it('takes the category the FEED declares as definite, whatever the story says', () => {
+        expect(rankOf(story({ feedCategory: 'technology', title: 'Council votes on the bypass' }), tech)).toBe('feed');
+    });
+
+    it('answers to the category by its label as well as by its key', () => {
+        // A category is written once and named twice: picked off a list it is the key, typed into a
+        // plugin that could not offer the list it is whatever the operator would call it.
+        const us = newsTopicRules(topic('us', {}, 'US news'));
+
+        expect(rankOf(story({ feedCategory: 'us' }), us)).toBe('feed');
+        expect(rankOf(story({ feedCategory: 'U.S. News' }), us)).toBe('feed');
+        expect(rankOf(story({ feedCategory: 'world' }), us)).toBeUndefined();
+    });
+
+    it('leaves a feed that named no category to be judged on what its stories say', () => {
+        expect(rankOf(story({ title: 'Shortage of semiconductor parts' }), tech)).toBe('word');
+        expect(rankOf(story({ feedCategory: '  ', title: 'A quiet day' }), tech)).toBeUndefined();
     });
 
     it("reads the publisher's own label next", () => {
@@ -51,6 +63,8 @@ describe('rankOf', () => {
         const both = story({ categories: ['Tech'], title: 'Semiconductor and app store news' });
 
         expect(rankOf(both, tech)).toBe('label');
+        // And the feed outranks the label for the same reason one step up.
+        expect(rankOf({ ...both, feedCategory: 'technology' }, tech)).toBe('feed');
     });
 
     // The failure this exists for is silent: a technology category naming `ai` matches "said",
@@ -82,14 +96,16 @@ describe('rankOf', () => {
 
     it('matches nothing for a category nobody has filled in, rather than everything', () => {
         // `local` ships exactly like this, because only the operator knows their town. The bulletin
-        // declining is the honest answer; a category that matched everything would not be.
+        // declining is the honest answer; a category that matched everything would not be. It still
+        // answers to its own name, which is the one thing a category has without being finished.
         const empty = newsTopicRules(topic('local', {}));
 
         expect(rankOf(story({ categories: ['Anything'], title: 'Anything at all' }), empty)).toBeUndefined();
+        expect(rankOf(story({ feedCategory: 'local' }), empty)).toBe('feed');
     });
 
     it('reads a config somebody has broken as an empty category rather than throwing', () => {
-        const nonsense = newsTopicRules(topic('technology', { words: 42, labels: { a: 1 }, feeds: null }));
+        const nonsense = newsTopicRules(topic('technology', { words: 42, labels: { a: 1 } }));
 
         expect(rankOf(story({ title: 'Anything' }), nonsense)).toBeUndefined();
     });

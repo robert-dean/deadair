@@ -300,6 +300,11 @@ export class BulletinSource {
 
         try {
             const windowMs = maxAgeHours * 3_600_000;
+            // Asked for beside the stories rather than folded into them: what a feed IS is the
+            // operator's word about the feed, and a `NewsItem` is the publisher's own entry. A
+            // plugin that could not answer contributes nothing, which is a bulletin classified on
+            // what its stories say — the state every station was in before feeds carried a category.
+            const declared = await this.feedCategories();
             const items = await this.news.fetchItems({
                 ...(feed.length === 0 ? {} : { feedId: feed }),
                 // Asked for more than will be read, because the cut below drops anything without a
@@ -314,7 +319,7 @@ export class BulletinSource {
             // station whose every recent bulletin declined. See `ReadLog.forget`.
             this.read.forget(now - windowMs);
 
-            const offered = items.flatMap(item => toStory(item, rules) ?? []);
+            const offered = items.flatMap(item => toStory(item, rules, declared.get(item.feedId)) ?? []);
             const unread = offered.filter(story => !this.read.has(story.headline));
 
             // Cut to what this bulletin is about, or spread across whatever the categories say the
@@ -387,6 +392,17 @@ export class BulletinSource {
      * than after a restart. A station that has named none answers `[]`, which classifies nothing and
      * is exactly what every station did before categories existed.
      */
+    private async feedCategories(): Promise<Map<string, string>> {
+        try {
+            return await this.news.feedCategories();
+        } catch (error) {
+            // The categories() rule, one signal down: a menu that could not be read is a bulletin
+            // judged on the words alone, never a slot lost.
+            this.logger.info(`director: the feeds could not be asked what they are (${errorText(error)})`);
+            return new Map();
+        }
+    }
+
     private async categories(): Promise<NewsTopicRules[]> {
         try {
             return (await this.topics.list(NEWS_KIND)).map(newsTopicRules);
@@ -455,6 +471,8 @@ function spread(stories: readonly BreakStory[]): readonly BreakStory[] {
 function toStory(
     item: { title: string; summary?: string; content?: string; feedName?: string; feedId?: string; publishedAt?: string; categories?: string[] },
     rules: readonly NewsTopicRules[],
+    /** What the feed this came from says it is, which outranks anything the story says about itself. */
+    feedCategory: string | undefined,
 ): BreakStory | undefined {
     const headline = speakable(item.title);
     if (headline === undefined) return undefined;
@@ -471,7 +489,7 @@ function toStory(
         // The station's OWN categories, strongest match first — not the publisher's labels, which
         // are one of the three things those are judged on. Classified here so both writers and the
         // cut below read one answer.
-        categories: categoriesOf(item, rules).map(match => match.key),
+        categories: categoriesOf({ ...item, ...(feedCategory === undefined ? {} : { feedCategory }) }, rules).map(match => match.key),
     };
 }
 

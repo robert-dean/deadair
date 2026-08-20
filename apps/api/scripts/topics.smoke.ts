@@ -51,7 +51,7 @@ try {
     console.log('topics');
 
     // ── what goes in comes back, config included ──────────────────────────────
-    const settings = { feeds: ['deadair.rss:tech'], words: ['ai', 'chip'], depth: 3, on: true };
+    const settings = { labels: ['Technology', 'Tech'], words: ['ai', 'chip'], depth: 3, on: true };
     const tech = await topics.create({ kind: KIND, key: 'technology', label: 'Technology', config: settings, position: 0 });
     const local = await topics.create({ kind: KIND, key: 'local', label: 'Round here', config: {}, position: 1 });
 
@@ -59,7 +59,7 @@ try {
     // text it arrived as, so it is free to hand the keys back in another order. What is promised
     // here is the VALUES, which is all a kind reads.
     check(
-        JSON.stringify(tech.config.feeds) === JSON.stringify(settings.feeds) &&
+        JSON.stringify(tech.config.labels) === JSON.stringify(settings.labels) &&
             JSON.stringify(tech.config.words) === JSON.stringify(settings.words) &&
             tech.config.depth === settings.depth &&
             tech.config.on === settings.on,

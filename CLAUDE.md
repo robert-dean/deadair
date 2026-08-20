@@ -393,8 +393,8 @@ asked for several passes after the band claimed the slot — resolved once by `B
 
 **A story's category is decided by three signals, ranked, and a category that matches nothing declines
 the slot.** `news.classify.ts` is pure and runs on the floor as well as under the model, so it may not
-fetch and may not fail. A FEED an operator named cannot be wrong; a publisher's own LABEL is nearly as
-good and is what most feeds carry; a WORD in a headline is the weakest by a distance ("chip" is a
+fetch and may not fail. A FEED that names its own category cannot be wrong; a publisher's own LABEL is
+nearly as good and is what most feeds carry; a WORD in a headline is the weakest by a distance ("chip" is a
 semiconductor in one story and a shop in the next), so it catches what the first two miss and never
 defines a category. The strongest signal wins rather than the sum, or a long word list would outrank a
 publisher who has already sorted their own newsroom — and a word is matched as a WHOLE word, because
@@ -407,7 +407,30 @@ bulletin the station never announced as one; only the ORDER changes, and a story
 takes its turn — on most stations the categories cover a fraction of what the feeds carry. Eleven
 categories are seeded on `persona.defaults.ts`'s rule, none naming a feed (only this operator has
 one) and `local` naming nothing at all, because only the operator knows their town and a guess would
-look as though it worked.
+look as though it worked. **The strongest signal is stated on the FEED**, as a row on the plugin that
+reads it, and a category holds only the two fields that are about the WORDS. It was a box on the
+category naming `pluginId:feedId` by hand: an id derived from a name written in another form, for a
+feed the operator was not looking at. `NewsService.feedCategories()` is how the two meet — the menu
+is asked what each feed says it is and the stories are joined to it on the feed id, rather than a
+station's opinion being stamped onto somebody else's entry — and the word is matched against the
+category's own key OR its label, since a category is written once and named twice.
+
+**A list an operator adds to is a `list` config field, not a box with a separator in it.**
+`ConfigFieldType` covers `list` with declared `columns` (`packages/plugin-sdk/src/plugin.config.fields.ts`),
+stored as a JSON array of row objects in a string exactly as a `multiselect` stores its values, read
+back with `parseRows`, and drawn by the console's one settings form as a table with an Add button.
+It exists because `id|Name|address` lines are what a list becomes the moment its entries have parts,
+and a mistyped line is a feed the station silently does not have — the same argument that moved the
+format clock out of a settings box. Three things are load-bearing. A column key may not contain a
+DOT, unlike a field key (`stream.title` is ordinary), because a cell is addressed by path in the
+editor and a dotted key reads as a path into a nested object: the cell draws empty and submits
+nothing, in silence. The HOST's allowlist reads a `fromConfig` list through the columns declared
+`url` and no others (`addressCells` in `plugin.host.factory.ts`), because `hostnameFromSetting`
+accepts a bare hostname and would otherwise put a category called `sport` on the allowlist. And a
+column may declare `optionsFrom`, a closed host vocabulary (`station.newsCategories` today) resolved
+by the CONSOLE against the station's own tables — the third way a form learns what to offer, and the
+only one a plugin cannot answer for itself, since a news plugin has no way to learn which categories
+this station holds.
 
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the

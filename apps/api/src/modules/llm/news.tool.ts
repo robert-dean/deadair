@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { categoriesOf, newsTopicRules, type NewsTopicRules } from '#modules/news/news.classify.js';
+import { categoriesOf, newsTopicRules, type ClassifiableStory, type NewsTopicRules } from '#modules/news/news.classify.js';
+import type { NewsItem } from '@deadair/plugin-sdk';
 import { NewsService } from '#modules/news/news.service.js';
 import { TopicRepository } from '#modules/topics/topic.repository.js';
 import { NEWS_KIND } from '#modules/director/news.break.writer.js';
@@ -163,13 +164,21 @@ export class NewsTool implements ToolSource {
             ...(since === undefined ? {} : { since }),
         });
 
-        const stories = asked === undefined ? page : page.filter(story => categoriesOf(story, [asked]).length > 0).slice(0, clampLimit(args.limit));
-
-        const feeds = (await this.news.listFeeds()).map(feed => ({
+        // Read before the filter rather than after it, because the menu is also the evidence: what
+        // a feed says it IS is the strongest thing a story can be classified on, and it lives on
+        // the feed rather than on the entry.
+        const offered = await this.news.listFeeds();
+        const feeds = offered.map(feed => ({
             id: feed.id,
             name: feed.name,
             ...(feed.category === undefined ? {} : { category: feed.category }),
         }));
+
+        const declared = new Map(offered.flatMap(feed => (feed.category === undefined ? [] : [[feed.id, feed.category] as const])));
+        const stories =
+            asked === undefined
+                ? page
+                : page.filter(story => categoriesOf(withFeedCategory(story, declared), [asked]).length > 0).slice(0, clampLimit(args.limit));
 
         // The line every tool here carries: "how many stories did the model
         // actually have to work with" has to be answerable from the log alone
@@ -220,6 +229,12 @@ export class NewsTool implements ToolSource {
 }
 
 /** An argument the model actually set. Blank is the interesting case: a model filling every field. */
+/** A story with what its feed says it is attached, which is the one classification signal it does not carry. */
+const withFeedCategory = (story: NewsItem, declared: ReadonlyMap<string, string>): ClassifiableStory => {
+    const category = declared.get(story.feedId);
+    return { ...story, ...(category === undefined ? {} : { feedCategory: category }) };
+};
+
 const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
 
 /** Whatever the model asked for, held between one and {@link MAX_RESULTS}. */

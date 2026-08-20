@@ -99,7 +99,7 @@ export class TopicsService {
 /**
  * A subject as the form sent it, with its key made referable.
  *
- * Slugged for `parseFeedLines`' reason: a key is what something else has to name exactly, and
+ * Slugged for `parseFeedRows`' reason: a key is what something else has to name exactly, and
  * `Pop culture` written back as `Pop Culture` is a subject nothing can reach. The label keeps the
  * operator's own spelling, because that is the half that gets read out.
  */

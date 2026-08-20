@@ -27,7 +27,7 @@ import { AppConfigBuilder, AppConfigResolverEnv, AppConfigSourceDotenv } from '@
 import { ConsoleLogger, type Logger } from '@maroonedsoftware/logger';
 import { Kysely, PostgresDialect } from 'kysely';
 import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
-import type { NewsItem, PluginHost, PluginManifest } from '@deadair/plugin-sdk';
+import { parseRows, type NewsItem, type PluginHost, type PluginManifest } from '@deadair/plugin-sdk';
 import { RssPlugin } from '../../../plugins/rss/src/rss.plugin.js';
 import { rssManifest } from '../../../plugins/rss/src/rss.manifest.js';
 
@@ -104,11 +104,8 @@ const allowsOpenWeb = granted?.decision === 'allowed';
  * because whether a story is reachable is the question.
  */
 const allowed = new Set(
-    String(settings.feeds ?? '')
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0 && !line.startsWith('#'))
-        .map(line => line.slice(line.lastIndexOf('|') + 1).trim())
+    parseRows(settings.feeds)
+        .map(row => row.url ?? '')
         .flatMap(address => {
             try {
                 return [new URL(address.includes('://') ? address : `https://${address}`).hostname.toLowerCase()];
@@ -147,6 +144,12 @@ console.log(`reading ${allowed.size} feed(s)…`);
  */
 const news = {
     hasNews: () => true,
+    // What each feed says it IS, keyed the way a story's `feedId` arrives: the strongest signal the
+    // classifier has, and the one that is stated on the feed rather than carried by the story.
+    feedCategories: async (): Promise<Map<string, string>> =>
+        new Map(
+            (await plugin.listFeeds()).flatMap(feed => (feed.category === undefined ? [] : [[`${manifest.id}:${feed.id}`, feed.category] as const])),
+        ),
     fetchItems: async (query: { feedId?: string; limit: number; since?: string }): Promise<NewsItem[]> =>
         plugin.fetchItems({
             ...(query.feedId === undefined ? {} : { feedId: query.feedId.split(':').slice(1).join(':') }),
@@ -200,10 +203,12 @@ for (const [at, story] of stories.entries()) {
 // against publishers who tag nothing — which is the state where a band asking for one is silent, so
 // it is worth seeing before it is heard.
 const page = await news.fetchItems({ limit: 25 });
+const feedCategories = await news.feedCategories();
 
 console.log(`─ categories (${rules.length} on this station, ${page.length} stories read) ───────────────`);
 for (const item of page) {
-    const found = categoriesOf({ ...item, feedId: `${manifest.id}:${item.feedId}` }, rules);
+    const declared = feedCategories.get(`${manifest.id}:${item.feedId}`);
+    const found = categoriesOf({ ...item, ...(declared === undefined ? {} : { feedCategory: declared }) }, rules);
     const said = found.length === 0 ? 'nothing' : found.map(match => `${match.key} (${match.rank})`).join(', ');
     console.log(`  ${said.padEnd(34)} ${item.title.slice(0, 70)}`);
 }

@@ -12,12 +12,13 @@ import { NEWS_KIND } from '#modules/director/news.break.writer.js';
  * deletes Sport has deleted it. The guard is that the station holds NO news categories rather than
  * that each key is missing, which is what makes deleting a seeded one expressible.
  *
- * ## Every one of them ships without a FEED, and one ships with nothing at all
+ * ## None of them names a FEED, and one ships with nothing at all
  *
- * A feed id is `pluginId:feedId` for a feed this operator has actually configured, which nothing
- * here can know — the same reason no seeded persona names a voice. So these are seeded with the
- * publishers' own labels and a short word list, and the operator points a category at a feed once
- * they have one worth pointing at, which is the strongest signal there is.
+ * Not because a feed would be the wrong thing to say — it is the strongest signal there is — but
+ * because it is not said here at all: a feed states its own category, on the plugin that reads it,
+ * against feeds only this operator has. The same reason no seeded persona names a voice. So these
+ * are seeded with the publishers' own labels and a short word list, and a category becomes certain
+ * the moment the operator has a feed worth pointing at it.
  *
  * `local` deliberately carries nothing. Only the operator knows their town, and a category with no
  * matchers is unfinished rather than broken: the bulletin declines the slot and says which category

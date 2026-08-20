@@ -51,6 +51,13 @@ interface Options {
     topics?: Topic[];
     /** The edge tracker. Shared where a test needs a second bulletin to see what the first reported. */
     watch?: CategoryWatch;
+    /**
+     * What each feed says it IS, keyed by qualified feed id.
+     *
+     * Defaults to none, which is a station whose feeds are all uncategorised: every story is judged
+     * on what it says, which is what most of these tests are about.
+     */
+    feedCategories?: Record<string, string>;
 }
 
 /** One of the operator's categories, as the classifier will read it. */
@@ -70,7 +77,8 @@ function build(options: Options = {}, values: Record<string, unknown> = {}) {
         if (options.throws) throw new Error('the news module is gone');
         return options.items ?? [item('Bridge reopens after four years')];
     });
-    const news = { hasNews: () => options.hasNews ?? true, fetchItems } as unknown as NewsService;
+    const feedCategories = vi.fn(async () => new Map(Object.entries(options.feedCategories ?? {})));
+    const news = { hasNews: () => options.hasNews ?? true, fetchItems, feedCategories } as unknown as NewsService;
 
     const topics = { list: vi.fn(async () => options.topics ?? []) } as unknown as TopicRepository;
     const watch = options.watch ?? new CategoryWatch(activity, logger);
@@ -360,6 +368,20 @@ describe('what the bulletin is about', () => {
 
         expect(bulletin?.stories.map(story => story.headline)).toEqual(['Semiconductor plant reopens.']);
         expect(bulletin?.subject).toEqual({ key: 'technology', label: 'Technology' });
+    });
+
+    it('reads a story because of the FEED it came from, whatever the story itself says', async () => {
+        // The strongest of the three signals, and the only one that does not travel with a story:
+        // the operator said this feed IS sport, on the feed, and nothing in the headline says so.
+        const { source } = build({
+            items: [item('Late drama at the death', { feedId: 'deadair.rss:back-pages' })],
+            topics: [technology, sport],
+            feedCategories: { 'deadair.rss:back-pages': 'sport' },
+        });
+
+        const bulletin = await source.storiesFor(NEWS_KIND, { topic: 'sport' }, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['Late drama at the death.']);
     });
 
     it('DECLINES a category with nothing in it rather than reading general news under its name', async () => {

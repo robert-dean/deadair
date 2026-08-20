@@ -174,7 +174,13 @@ export class SpeechService {
 
                 try {
                     const checksum = await this.store.writeStream(handle.audio, ext);
-                    this.logger.info('render: spoke a segment', { plugin: pluginId, voice: request.voice, ext, checksum });
+                    // A voice the station did not name is the ORDINARY case, not a lost value: a
+                    // voice id is opaque and only the installed engine knows which ones exist, so
+                    // none of the seeded personas names one and the plugin speaks in whichever
+                    // voice its own config chose. Logged as `undefined` this read as a fault — the
+                    // one thing it must not do is send an operator looking for a bug in the stamp.
+                    // Same shape as `feed || 'all'` on the bulletin line, and for the same reason.
+                    this.logger.info('render: spoke a segment', { plugin: pluginId, voice: request.voice ?? "the engine's own", ext, checksum });
                     return { checksum, ext, pluginId, spokenText };
                 } finally {
                     // Always, including the ordinary path, where the stream is drained already and this

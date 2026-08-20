@@ -150,8 +150,13 @@ Read against **BluOS Custom Integration API v1.7**, which is the whole documente
 A static station logo. There are two ways to get it and they land in the same place:
 
 - **A preset.** Spec v1.7 added an `image` attribute to presets (§6.1), so adding the station as a
-  preset rather than a custom URL puts a logo on the display. Presets are list-and-load only over
-  the API (§6.1, §6.2, no create), so this is done by the operator in the BluOS app.
+  preset rather than a custom URL puts a logo on the display. The spec is explicit that "presets
+  must be added and deleted using the BluOS Controller app", so this is the operator's job and not
+  something to automate. It wants a name and an absolute image URL; the station's is
+  `https://radio.robertdean.dev/logo.png`, which is `apps/web/public/logo.png` reaching the edge
+  through nginx's SPA root, 512×512 and publicly fetchable. Worth knowing if that ever 404s: the
+  console's built assets are what nginx serves, so the file has to be in `dist`, and a probe from
+  outside a browser may be answered 403 by the edge while a real client gets 200.
 - **One `/Play?url=…&image=…&title1=…`.** As measured above, both slots stick. It costs one
   reconnect and reaches the same result programmatically.
 

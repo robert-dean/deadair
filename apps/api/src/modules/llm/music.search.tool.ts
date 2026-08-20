@@ -4,6 +4,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import { catalogKey, normalizeKey } from '#modules/catalog/catalog.keys.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { advisoryPolicy, demandsClean } from '#modules/director/advisory.policy.js';
+import { songKey } from '#modules/director/rotation.keys.js';
+import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { ProviderSearch, type FoundTrack } from './provider.search.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
@@ -115,6 +117,19 @@ interface MusicTrack {
      * it is chosen, which is a download and an untrimmed first play, and is perfectly fine.
      */
     owned: boolean;
+    /**
+     * Whether this record is ALREADY in the running order being extended.
+     *
+     * Absent on the ordinary row rather than sent as `false`, because most rows are not queued and
+     * twenty-five `"queued":false` are context spent saying nothing. Present, it is a fact the model
+     * could not otherwise get: the prompt's avoid list is capped and the rest of it travels as a
+     * COUNT, so the record in front of it may be one of the ones it was told about and cannot see.
+     * Naming it costs a pick, since `PickResolver` discards a duplicate.
+     *
+     * Marked and not filtered out, deliberately. Dropping them would hide from the model that its own
+     * previous picks landed, and would read as the library shrinking between two identical searches.
+     */
+    queued?: boolean;
     /** Everyone else on the record, shown and never copied. Provider rows only. */
     featuring?: string[];
     album?: string;
@@ -129,6 +144,7 @@ export class MusicSearchTool implements ToolSource {
     constructor(
         private readonly tracks: TracksRepository,
         private readonly providers: ProviderSearch,
+        private readonly queued: QueuedRecords,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -142,7 +158,7 @@ export class MusicSearchTool implements ToolSource {
                     // rather than which store was read, because there is no longer a choice to
                     // steer — what is left to explain is the one field that carries the old split.
                     description:
-                        'Search for records the station can play: its own library and everything its music providers offer, in one answer. Every result is safe to name. Each row says whether the station already owns it — an owned record is ready to play, and one it does not own yet is fetched when you choose it. It matches NAMES and styles in the library, but only NAMES at the providers: to fill a brief, work out for yourself which artists fit it and search for them one at a time.',
+                        'Search for records the station can play: its own library and everything its music providers offer, in one answer. Every result is safe to name. Each row says whether the station already owns it — an owned record is ready to play, and one it does not own yet is fetched when you choose it. A row marked queued is already in the running order: choosing it does nothing, so pick something else. It matches NAMES and styles in the library, but only NAMES at the providers: to fill a brief, work out for yourself which artists fit it and search for them one at a time.',
                     parameters: {
                         type: 'object',
                         properties: {
@@ -200,7 +216,8 @@ export class MusicSearchTool implements ToolSource {
         const reached = reaching ? (await this.providers.search(query, filters, MAX_RESULTS)).tracks : [];
 
         const fromProviders = await this.fromProviders(reached, owned);
-        const rows = [...owned.map(toOwnedRow).slice(0, ownedAllowance(limit, fromProviders.length)), ...fromProviders].slice(0, limit);
+        const fromLibrary = owned.map(row => this.mark(toOwnedRow(row))).slice(0, ownedAllowance(limit, fromProviders.length));
+        const rows = [...fromLibrary, ...fromProviders].slice(0, limit);
         this.logger.debug('llm: searched for music', { query, ...filters, owned: owned.length, reached: reached.length, answered: rows.length });
 
         return { tracks: rows };
@@ -234,19 +251,36 @@ export class MusicSearchTool implements ToolSource {
             if (ownership.banned.has(key)) continue;
             if (bannedArtists.has(normalizeKey(track.artist))) continue;
 
-            rows.push({
-                title: track.title,
-                artist: track.artist,
-                owned: ownership.owned.has(key),
-                ...(track.featuring === undefined ? {} : { featuring: track.featuring }),
-                ...(track.album === undefined ? {} : { album: track.album }),
-                ...(track.popularity === undefined ? {} : { popularity: track.popularity }),
-            });
+            rows.push(
+                this.mark({
+                    title: track.title,
+                    artist: track.artist,
+                    owned: ownership.owned.has(key),
+                    ...(track.featuring === undefined ? {} : { featuring: track.featuring }),
+                    ...(track.album === undefined ? {} : { album: track.album }),
+                    ...(track.popularity === undefined ? {} : { popularity: track.popularity }),
+                }),
+            );
         }
 
         // Owned first here too, so a record the library search missed but the station holds does not
         // sit below one it would have to fetch.
         return [...rows.filter(row => row.owned), ...rows.filter(row => !row.owned)];
+    }
+
+    /**
+     * Say so when the running order already holds this record.
+     *
+     * Applied to BOTH halves through one method, because a record can be queued whichever store it
+     * came back from and a mark that only reached the provider rows would be worse than none: the
+     * model would learn to read an unmarked row as free.
+     *
+     * The key is `songKey`, which is what the avoid set was built with and what `play_history` and
+     * the repeat window are written with. Anything else here would be a third spelling of "the same
+     * record" that nobody could see disagreeing with the other two.
+     */
+    private mark(row: MusicTrack): MusicTrack {
+        return this.queued.has(songKey(row.title, [row.artist])) ? { ...row, queued: true } : row;
     }
 }
 

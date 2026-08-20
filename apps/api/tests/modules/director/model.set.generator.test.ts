@@ -19,6 +19,7 @@ import {
     maxOutputTokens,
 } from '../../../src/modules/director/model.set.generator.js';
 import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
+import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 
@@ -114,7 +115,15 @@ function build(options: Options = {}) {
     const tracks = { styleVocabulary } as unknown as TracksRepository;
     const preemption = new RefillPreemption();
 
-    return { generator: new ModelSetGenerator(llm, taste, tracks, preemption, config, logger), converse, taste, styleVocabulary, preemption };
+    const queued = new QueuedRecords();
+    return {
+        generator: new ModelSetGenerator(llm, taste, tracks, preemption, queued, config, logger),
+        converse,
+        taste,
+        styleVocabulary,
+        preemption,
+        queued,
+    };
 }
 
 const inputs = (count: number, overrides: Partial<SetInputs> = {}): SetInputs => ({ count, rules: DEFAULT_RULES, ...overrides });

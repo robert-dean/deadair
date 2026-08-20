@@ -1,6 +1,7 @@
 import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { MusicSearchTool } from './music.search.tool.js';
 import { ProviderSearch } from './provider.search.js';
 import { ChartsTool } from './charts.tool.js';
@@ -53,6 +54,11 @@ export const LlmModule: ServerKitModule = {
         // consumer here. The fan-out is its own thing rather than the tool's body, because reaching
         // the providers and telling a model how to ask are two jobs and only the second is a tool.
         registry.register(ProviderSearch).useClass(ProviderSearch).asScoped();
+        // What the running order already holds, written by whoever is extending it and read by the
+        // search below. Registered HERE rather than with the director that fills it, because this
+        // module is set up first and the reader is the one that cannot do without it — a refill that
+        // never wrote to it leaves an empty set, which is exactly what a break writer should see.
+        registry.register(QueuedRecords).useClass(QueuedRecords).asScoped();
         // One search over the catalog and the providers together, marking on the row which is which.
         // It was two tools and a rule telling the model to prefer one, which is a decision the host
         // can simply make. Scoped with both the repository and the fan-out it reads.

@@ -5,6 +5,7 @@ import type { LlmUsage } from '@deadair/plugin-sdk';
 import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repository.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
+import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { writeCapture } from '#modules/llm/llm.capture.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -232,6 +233,10 @@ export class ModelSetGenerator extends SetGenerator {
         // in the chain answers the same shape and only this one can be preempted. See
         // `RefillPreemption`.
         private readonly preemption: RefillPreemption,
+        // Where the running order's own records are put so the SEARCH can mark them, rather than
+        // being left to the avoid list alone — which is capped, and whose remainder the model is
+        // told only the size of. See `QueuedRecords`.
+        private readonly queued: QueuedRecords,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {
@@ -248,6 +253,12 @@ export class ModelSetGenerator extends SetGenerator {
             this.logger.debug(`director: no model to programme with (${this.llm.explainGenerator()})`);
             return [];
         }
+
+        // Before the prompt is built, because the SEARCH reads this and the model's first call can
+        // come back before anything else here has run. The avoid list in the user turn says the same
+        // thing and cannot say all of it: it is capped, and the remainder reaches the model as a
+        // count of records it will never see the names of.
+        this.queued.remember(inputs.avoidSongKeys ?? []);
 
         const model = this.config.get(MODEL_GENERATOR_KEYS.model, '').trim();
         // Read per refill like the two above it, so an operator raising the ceiling after a run of

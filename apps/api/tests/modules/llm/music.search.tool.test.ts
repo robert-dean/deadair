@@ -11,6 +11,8 @@ import { catalogKey, normalizeKey } from '../../../src/modules/catalog/catalog.k
 import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { MUSIC_SEARCH_KEYS, MusicSearchTool } from '../../../src/modules/llm/music.search.tool.js';
 import type { ProviderSearch, FoundTrack } from '../../../src/modules/llm/provider.search.js';
+import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
+import { songKey } from '../../../src/modules/director/rotation.keys.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -32,10 +34,12 @@ interface Build {
     ownedKeys?: string[];
     bannedKeys?: string[];
     bannedArtists?: string[];
+    /** Records the running order already holds, as `[title, artist]`. */
+    alreadyQueued?: [string, string][];
     settings?: Record<string, unknown>;
 }
 
-function build({ library = [], reached = [], ownedKeys = [], bannedKeys = [], bannedArtists = [], settings = {} }: Build = {}) {
+function build({ library = [], reached = [], ownedKeys = [], bannedKeys = [], bannedArtists = [], alreadyQueued = [], settings = {} }: Build = {}) {
     const searchPlayable = vi.fn(async () => library);
     const ownership = vi.fn(async () => ({ owned: new Set(ownedKeys), banned: new Set(bannedKeys) }));
     const dislikedArtistKeys = vi.fn(async () => new Set(bannedArtists.map(normalizeKey)));
@@ -48,7 +52,10 @@ function build({ library = [], reached = [], ownedKeys = [], bannedKeys = [], ba
     // hands back a boolean passes whichever way the code under test reads it.
     const config = { get: (name: string, fallback?: unknown) => (name in settings ? settings[name] : fallback) } as unknown as AppConfig;
 
-    return { tool: new MusicSearchTool(tracks, providers, config, logger), searchPlayable, search, ownership, dislikedArtistKeys };
+    const queued = new QueuedRecords();
+    queued.remember(alreadyQueued.map(([title, artist]) => songKey(title, [artist])));
+
+    return { tool: new MusicSearchTool(tracks, providers, queued, config, logger), searchPlayable, search, ownership, dislikedArtistKeys };
 }
 
 const only = async (tool: MusicSearchTool) => (await tool.tools())[0]!;
@@ -232,6 +239,63 @@ describe('MusicSearchTool', () => {
         // library's rather than being held empty against a reserve nothing is claiming.
         expect(result.tracks).toHaveLength(25);
         expect(result.tracks.filter(row => row.owned === true)).toHaveLength(24);
+    });
+
+    it('marks a record the running order already holds, whichever half it came back from', async () => {
+        // The fact the model could not otherwise get: the prompt's avoid list is capped at twelve
+        // and the rest of it reaches the model as a COUNT, so a record in front of it may be one it
+        // was told about and cannot see. Naming one costs a pick, since the resolver discards a
+        // duplicate. Measured: two of the three Miami Nights 1984 rows handed to one refill were
+        // already in the order.
+        const { tool } = build({
+            library: [{ title: 'Ocean Drive', artistName: 'Miami Nights 1984' }],
+            reached: [found('Hurricane', 'Mitch Murder'), found('Prime Operator', 'Mitch Murder')],
+            alreadyQueued: [
+                ['Ocean Drive', 'Miami Nights 1984'],
+                ['Hurricane', 'Mitch Murder'],
+            ],
+        });
+
+        const result = await run(tool, { query: 'anything' });
+
+        expect(result.tracks).toEqual([
+            { title: 'Ocean Drive', artist: 'Miami Nights 1984', owned: true, queued: true },
+            { title: 'Hurricane', artist: 'Mitch Murder', owned: false, queued: true },
+            { title: 'Prime Operator', artist: 'Mitch Murder', owned: false },
+        ]);
+    });
+
+    it('leaves the field off a record that is not queued rather than sending false', async () => {
+        // Twenty-five `"queued":false` are context spent saying nothing.
+        const { tool } = build({ library: [{ title: 'Ocean Drive', artistName: 'Miami Nights 1984' }] });
+
+        const result = await run(tool, { query: 'anything' });
+
+        expect(result.tracks[0]).not.toHaveProperty('queued');
+    });
+
+    it('marks rather than filters, so the model can see its own picks landed', async () => {
+        // Dropping them would read as the library shrinking between two identical searches.
+        const { tool } = build({
+            library: [{ title: 'Ocean Drive', artistName: 'Miami Nights 1984' }],
+            alreadyQueued: [['Ocean Drive', 'Miami Nights 1984']],
+        });
+
+        expect((await run(tool, { query: 'anything' })).tracks).toHaveLength(1);
+    });
+
+    it('marks nothing for a caller that is extending no running order', async () => {
+        // A break writer shares this tool and is filling nothing. An empty holder is the ordinary
+        // state rather than a gap.
+        const { tool } = build({ library: [{ title: 'Ocean Drive', artistName: 'Miami Nights 1984' }] });
+
+        expect((await run(tool, { query: 'anything' })).tracks[0]).not.toHaveProperty('queued');
+    });
+
+    it('says what queued means in the declaration, since the row alone is a bare flag', async () => {
+        const { tool } = build();
+
+        expect((await only(tool)).declaration.description).toMatch(/already in the running order/i);
     });
 
     it('does not search the library for a period alone, which it cannot match', async () => {

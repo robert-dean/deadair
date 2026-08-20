@@ -15,6 +15,7 @@ import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
 import { WelcomeWriter } from './welcome.writer.js';
 import { CandidatesRepository } from './candidates.repository.js';
+import { ClockBandRepository } from './clock.band.repository.js';
 import { AdvisoryWatch } from './advisory.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
@@ -53,6 +54,9 @@ export const DirectorModule: ServerKitModule = {
         // like the rest: the director opens a scope per unit of work and the render job gets one per
         // execution, and both write these rows.
         registry.register(BreakRequestRepository).useClass(BreakRequestRepository).asScoped();
+        // The station's format clock. Scoped for the same reason, and read by two things that are
+        // not each other's callers: the break planner's pass and the production scheduler's.
+        registry.register(ClockBandRepository).useClass(ClockBandRepository).asScoped();
 
         // The selection seam, and its ranking. Shaped exactly like the writer seam below and for
         // the same reason: several bindings may choose what the station plays, THIS ORDER is the

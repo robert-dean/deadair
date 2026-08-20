@@ -61,6 +61,25 @@ export type ClockBand = AnchoredBand | SpacingBand;
 
 export const isAnchored = (band: ClockBand): band is AnchoredBand => band.at === 'clock';
 
+/**
+ * A band as it is STORED, which is the rule plus what an operator needs to manage it.
+ *
+ * The rule itself is all the planner reads, which is why {@link ClockBand} stays the narrower type
+ * and travels on its own: a walk over the running order has no business knowing which row a slot
+ * came from or whether the operator has it switched on, because a band that is off was never handed
+ * to it.
+ */
+export type ClockBandRecord = ClockBand & {
+    id: string;
+    /** Where in the operator's own order this sits. See the note on precedence above. */
+    position: number;
+    /** What commenting a line out used to do: a rule turned off without being lost. */
+    enabled: boolean;
+};
+
+/** A band as somebody wrote it, before the database gives it an id. */
+export type ClockBandDraft = ClockBand & { position?: number; enabled?: boolean };
+
 /** `:30 news`, `09:00 news`, `every 60m news`. Case-insensitive on the keyword only. */
 const ANCHOR = /^(?:(\d{1,2}):)?:?(\d{2})\s+(\S+)$/;
 const INTERVAL = /^every\s+(\d+)\s*m(?:in(?:utes?)?)?\s+(\S+)$/i;

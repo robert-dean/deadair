@@ -225,6 +225,20 @@ export interface DeadairBreakRequests {
   urgency: "interrupt" | "next" | "soon" | "whenever";
 }
 
+export interface DeadairClockBands {
+  at: "clock" | "interval";
+  createdAt: Generated<DateTime>;
+  enabled: Generated<boolean>;
+  everyMinutes: number | null;
+  hour: number | null;
+  id: Generated<string>;
+  kind: string;
+  minute: number | null;
+  position: Generated<number>;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairFactExtractions {
   albumId: string | null;
   artistId: string | null;
@@ -647,6 +661,7 @@ export interface DB {
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
   "deadair.breakRequests": DeadairBreakRequests;
+  "deadair.clockBands": DeadairClockBands;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
   "deadair.loginEvents": DeadairLoginEvents;

@@ -111,7 +111,68 @@ select deadair.add_updated_at_trigger('deadair.schedule_slots');
 -- show carries on and the next boundary decides.
 alter table deadair.station_lineup add column slot_id uuid references deadair.schedule_slots (id) on delete set null;
 
+-- The station's FORMAT CLOCK: a bulletin at half past, an ident at the top of the hour, a second
+-- sort of break on its own interval.
+--
+-- Beside `schedule_slots` because they are two halves of one question. A slot says what this stretch
+-- of the day PLAYS and who hosts it; a band says what the station SAYS while it does. Neither owns
+-- the running order: both are read by the planner on its pass, and the director is still the only
+-- writer of what airs.
+--
+-- **This was a settings text box** (`rotation.clockBands`), one rule per line, parsed with a regular
+-- expression that dropped anything it could not read. That was right while a band was three tokens
+-- an operator could hold in their head, and it stops being right the moment a band REFERENCES
+-- something: a mistyped line is silence at a time nobody chose, and the only report of it is a log
+-- line. A row cannot be malformed, and a row can carry a foreign key.
+create table deadair.clock_bands (
+    id uuid not null default gen_random_uuid() primary key,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now() check (updated_at >= created_at),
+    station_key text not null default 'main',
+    -- Which sort of break this slot wants. Free text, exactly as `segments.kind` is and for the same
+    -- reason: a station that wants sponsor spots writes `sponsor`, drops the recordings in the
+    -- inbox, and needs no migration and no code. The planner asks the writer registry and the
+    -- segment library what can produce one, and says so once when neither can.
+    kind text not null,
+    -- Which of the two shapes this is. `clock` is a time of day and `interval` is a spacing rule.
+    at text not null constraint clock_bands_at_check check (at in ('clock', 'interval')),
+    -- `clock`: minutes past the hour, and the hour it happens at. A null hour is EVERY hour, which
+    -- is the common case (`:30 news`) rather than a missing value.
+    hour integer check (hour is null or (hour >= 0 and hour < 24)),
+    minute integer check (minute is null or (minute >= 0 and minute < 60)),
+    -- `interval`: how far apart, in whole minutes.
+    --
+    -- **Plain minutes rather than an `interval` column**, which is the same call `starts_at_minutes`
+    -- above makes against `time`, and for a related reason. Every occurrence here is computed in JS
+    -- against `Intl` (see `nextOccurrence`, which walks the clock forward precisely so a change in
+    -- either direction cannot land a band an hour out); nothing does interval arithmetic in SQL, the
+    -- value crosses the wire to a console that edits it as JSON, and `interval '1 mon'` would be
+    -- expressible and is not a fixed number of milliseconds that a spacing rule could use.
+    every_minutes integer check (every_minutes is null or every_minutes > 0),
+    -- ORDER IS PREFERENCE, which is what line order was in the box: the planner reads bands top to
+    -- bottom and an operator who wants one rule to win a contested boundary moves it up. The same
+    -- shape `BreakWriterRegistry` and `SetGeneratorChain` settle precedence with.
+    position integer not null default 0,
+    -- What commenting a line out used to do. A rule turned off without being lost.
+    enabled boolean not null default true,
+
+    -- The two shapes are exclusive, and each needs its own half filled in. Said here rather than in
+    -- a service because it is a property of the row and not of any request that writes one.
+    constraint clock_bands_shape_check check (
+        (at = 'clock' and minute is not null and every_minutes is null)
+        or (at = 'interval' and every_minutes is not null and hour is null and minute is null)
+    )
+);
+
+select deadair.add_updated_at_trigger('deadair.clock_bands');
+
+-- The planner's read, on every pass that has somewhere to put something: this station's bands, in
+-- the order the operator put them in.
+create index clock_bands_station_idx on deadair.clock_bands (station_key, position, id);
+
 -- migrate:down
+
+drop table if exists deadair.clock_bands;
 
 alter table deadair.station_lineup drop column slot_id;
 

@@ -192,10 +192,30 @@ describe('MusicSearchTool', () => {
             settings: { [MUSIC_SEARCH_KEYS.alwaysReach]: 'true' },
         });
 
-        const result = await run(tool, { query: 'anything', limit: 5 });
+        const result = await run(tool, { query: 'anything', limit: 10 });
 
-        expect(result.tracks).toHaveLength(5);
+        expect(result.tracks).toHaveLength(10);
         expect(result.tracks.filter(row => row.owned === false).length).toBeGreaterThan(0);
+    });
+
+    it('answers with a usable number of records however few the model asked for', async () => {
+        // The floor the ceiling never had. Measured: a briefed refill asked for `limit: 1` on three
+        // consecutive searches, got exactly that, and answered with three records for a batch of
+        // twenty-four. Nothing was wrong except that one row cannot fill an oversampled batch, which
+        // is the whole reason the ceiling is 25 rather than 10.
+        const { tool, searchPlayable } = build({ library: Array.from({ length: 20 }, (_, index) => ({ title: `T${index}`, artistName: 'A' })) });
+
+        const result = await run(tool, { query: 'Miami Nights 1984', limit: 1 });
+
+        expect(searchPlayable).toHaveBeenCalledWith('Miami Nights 1984', 10, false);
+        expect(result.tracks).toHaveLength(10);
+    });
+
+    it('says so in the declaration, because a bound the model cannot see is one it walks into', async () => {
+        const { tool } = build();
+        const parameters = (await only(tool)).declaration.parameters as { properties: { limit: { description: string } } };
+
+        expect(parameters.properties.limit.description).toMatch(/fewer than 10 still returns 10/i);
     });
 
     it('gives the library the slack when the providers found less than the room left over', async () => {

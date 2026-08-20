@@ -61,6 +61,22 @@ import type { StationTool, ToolSource } from './llm.tools.js';
 const MAX_RESULTS = 25;
 
 /**
+ * How few records a search may answer with, whatever was asked for.
+ *
+ * The floor {@link MAX_RESULTS} never had, and it is the same argument read from the other end. A
+ * ceiling stops a model filling its context with a library listing; nothing stopped it starving
+ * itself, and it does. Measured on a briefed refill: the model asked for `limit: 1` on three
+ * consecutive searches, was handed exactly what it asked for, and answered with three records for a
+ * batch of twenty-four. It was not wrong about anything — one row is what it requested — but a
+ * search that returns one row cannot fill an oversampled batch, which is the whole reason the
+ * ceiling is 25 rather than 10.
+ *
+ * So `limit` stays a CEILING and stops being a way to ask for too little. The description says so,
+ * because a bound the model cannot see is one it will keep walking into.
+ */
+const MIN_RESULTS = 10;
+
+/**
  * At most this many owned records, so a provider always has room in the answer.
  *
  * Without a reserve the merge is first-come: a brief the library HALF matches fills all
@@ -137,7 +153,10 @@ export class MusicSearchTool implements ToolSource {
                             },
                             yearFrom: { type: 'number', description: 'Narrow to records released in or after this year.' },
                             yearTo: { type: 'number', description: 'Narrow to records released in or before this year.' },
-                            limit: { type: 'number', description: `How many records, at most ${MAX_RESULTS}.` },
+                            limit: {
+                                type: 'number',
+                                description: `How many records, at most ${MAX_RESULTS}. Asking for fewer than ${MIN_RESULTS} still returns ${MIN_RESULTS}: you are choosing from what comes back, so a short list only narrows what you have to choose between.`,
+                            },
                         },
                         // Nothing is required, because a period is a complete search on its own. What
                         // a call actually needs is one of the three, which `search` enforces and
@@ -277,8 +296,8 @@ const readText = (value: unknown): string | undefined => (typeof value === 'stri
 const readYear = (value: unknown): number | undefined =>
     typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.trunc(value) : undefined;
 
-/** Whatever the model asked for, held between one and {@link MAX_RESULTS}. */
+/** Whatever the model asked for, held between {@link MIN_RESULTS} and {@link MAX_RESULTS}. */
 function clampLimit(value: unknown): number {
     if (typeof value !== 'number' || !Number.isFinite(value)) return MAX_RESULTS;
-    return Math.min(Math.max(Math.floor(value), 1), MAX_RESULTS);
+    return Math.min(Math.max(Math.floor(value), MIN_RESULTS), MAX_RESULTS);
 }

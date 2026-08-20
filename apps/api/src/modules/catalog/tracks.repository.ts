@@ -602,6 +602,10 @@ export class TracksRepository extends DataRepository {
                 .select([
                     'deadair.trackSources.externalId',
                     'deadair.tracks.id as trackId',
+                    // The two a console links from, beside the three it draws with. Same row, so
+                    // they cost nothing here and save the caller a second read.
+                    'deadair.tracks.artistId',
+                    'deadair.tracks.albumId',
                     'deadair.tracks.year',
                     'deadair.albums.name as albumName',
                 ])

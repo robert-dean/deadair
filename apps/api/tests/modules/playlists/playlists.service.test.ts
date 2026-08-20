@@ -113,18 +113,44 @@ interface Harness {
     service: PlaylistsService;
     registry: PluginRegistry;
     listVisibleIdsSpy: ReturnType<typeof vi.fn>;
+    findByBindings: ReturnType<typeof vi.fn>;
     logger: Logger;
 }
+
+/**
+ * The catalog's answer about the copies a playlist holds.
+ *
+ * A row per external id the caller names, so the default harness reports every copy as one the
+ * station already holds. The cases that care about the other two states — a copy nothing has
+ * ingested, and a catalog that will not answer at all — override it.
+ */
+const catalogRows = (externalIds: readonly string[]) =>
+    externalIds.map(externalId => ({
+        externalId,
+        trackId: `trk_${externalId}`,
+        artistId: `art_${externalId}`,
+        albumId: `alb_${externalId}`,
+        year: 1999,
+        albumName: 'A Record',
+        albumImageUrl: null,
+    }));
 
 function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePermissionsFixture()): Harness {
     const registry = new PluginRegistry();
     const accessControl = new AccessControlService(new AuthorizationContext(actor), fixture.asPermissionsService());
     const listVisibleIdsSpy = vi.spyOn(accessControl, 'listVisibleIds');
     const logger = stubLogger();
+    const findByBindings = vi.fn(async (_pluginId: string, externalIds: readonly string[]) => catalogRows(externalIds));
 
-    const service = new PlaylistsService(registry, new PluginInvoker(registry, stubPluginLog().log), accessControl, logger);
+    const service = new PlaylistsService(
+        registry,
+        new PluginInvoker(registry, stubPluginLog().log),
+        accessControl,
+        { findByBindings } as never,
+        logger,
+    );
 
-    return { service, registry, listVisibleIdsSpy, logger };
+    return { service, registry, listVisibleIdsSpy, findByBindings, logger };
 }
 
 /** The service's own page size. A test that disagreed with it would prove nothing. */
@@ -336,7 +362,7 @@ describe('PlaylistsService.getPlaylistTracks', () => {
 
         const result = await service.getPlaylistTracks(SPOTIFY_ID, 'p1');
 
-        expect(result).toEqual({
+        expect(result).toMatchObject({
             pluginId: SPOTIFY_ID,
             playlistId: 'p1',
             tracks: [
@@ -344,6 +370,48 @@ describe('PlaylistsService.getPlaylistTracks', () => {
                 { id: 't2', title: 'Track t2', artists: ['Artist'] },
             ],
         });
+    });
+
+    // The PROVIDER's row, plus what the station already holds of the same copy. `id` stays the
+    // provider's, because that is what an import names it by; `trackId` is the catalog's.
+    it('names the catalog rows behind the copies it has ingested', async () => {
+        const { service, registry, findByBindings } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID));
+
+        const result = await service.getPlaylistTracks(SPOTIFY_ID, 'p1');
+
+        // One query for the whole playlist, not one per row.
+        expect(findByBindings).toHaveBeenCalledExactlyOnceWith(SPOTIFY_ID, ['t1', 't2']);
+        expect(result.tracks[0]).toMatchObject({ id: 't1', trackId: 'trk_t1', artistId: 'art_t1', albumId: 'alb_t1' });
+    });
+
+    // A playlist lists what a PROVIDER holds, so a copy no sync has walked is the ordinary case
+    // rather than an edge, and it must carry no ids at all rather than half of a link.
+    it('says nothing about a copy the catalog has never seen', async () => {
+        const { service, registry, findByBindings } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID));
+        findByBindings.mockResolvedValue([]);
+
+        const [first] = (await service.getPlaylistTracks(SPOTIFY_ID, 'p1')).tracks;
+
+        expect(first).toMatchObject({ id: 't1', title: 'Track t1' });
+        expect(first?.trackId).toBeUndefined();
+        expect(first?.artistId).toBeUndefined();
+        expect(first?.albumId).toBeUndefined();
+    });
+
+    // The ids are decoration and the listing is the job: a playlist that lists is worth more than a
+    // playlist that links, so a database fault may not take the route down with it.
+    it('still lists the playlist when the catalog cannot be read', async () => {
+        const { service, registry, findByBindings, logger } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID));
+        findByBindings.mockRejectedValue(new Error('the pool is gone'));
+
+        const result = await service.getPlaylistTracks(SPOTIFY_ID, 'p1');
+
+        expect(result.tracks.map(track => track.id)).toEqual(['t1', 't2']);
+        expect(result.tracks[0]?.trackId).toBeUndefined();
+        expect(logger.warn).toHaveBeenCalled();
     });
 
     it('passes the playlist id through to the plugin instance', async () => {

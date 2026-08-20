@@ -19,15 +19,23 @@ contract CatalogPlaylist: {
     permissions?: array(PlaylistPermission) # What the SOURCE permits on this playlist's items, not what this actor may do. Empty means the source permits nothing; absent means it did not say
 }
 
-# Mirrors the plugin SDK's `ProviderTrack`
+# One record as its PROVIDER describes it, plus what the catalog can say about the same copy.
+#
+# The first half mirrors the plugin SDK's `ProviderTrack` and stays the provider's answer: this is a
+# listing of what a playlist holds, not of what the station has ingested. The three ids below are the
+# station's own and are absent for anything it has never seen, which on most playlists is plenty of
+# rows — a playlist is a provider's list and the library is what a sync has walked
 contract CatalogTrack: {
-    id: string(min=1, max=400)
+    id: string(min=1, max=400) # The PROVIDER's id for this copy, which is what an import names it by. Never a `deadair.tracks` id
     title: string(min=1, max=400)
     artists: array(string(min=1, max=200)) # Ordered, primary artist first. Empty array if the provider genuinely has none
     album?: string(max=400)
     durationMs?: int(min=0)
     isrc?: string(max=100)
     artworkUrl?: string(max=2000)
+    trackId?: string(max=100) # The canonical `deadair.tracks` row this copy is bound to, when the catalog holds one
+    artistId?: string(max=100) # The canonical artist behind that row
+    albumId?: string(max=100) # The release that row was ingested inside. Absent for a single ingested outside any
 }
 
 # One catalog-capable plugin that could not be listed

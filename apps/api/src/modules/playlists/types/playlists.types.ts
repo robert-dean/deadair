@@ -8,23 +8,31 @@ export const PlaylistPermission = z.enum(['read', 'edit']);
 export type PlaylistPermission = z.infer<typeof PlaylistPermission>;
 
 /**
- * Mirrors the plugin SDK's `ProviderTrack`
- * generated from [CatalogTrack](file://./../../../../data/contracts/playlists/playlists.types.ck#L23)
+ * One record as its PROVIDER describes it, plus what the catalog can say about the same copy.
+ *
+ * The first half mirrors the plugin SDK's `ProviderTrack` and stays the provider's answer: this is a
+ * listing of what a playlist holds, not of what the station has ingested. The three ids below are the
+ * station's own and are absent for anything it has never seen, which on most playlists is plenty of
+ * rows — a playlist is a provider's list and the library is what a sync has walked
+ * generated from [CatalogTrack](file://./../../../../data/contracts/playlists/playlists.types.ck#L28)
  */
 export const CatalogTrack = z.strictObject({
-    id: z.string().min(1).max(400),
+    id: z.string().min(1).max(400).describe("The PROVIDER's id for this copy, which is what an import names it by. Never a `deadair.tracks` id"),
     title: z.string().min(1).max(400),
     artists: z.array(z.string().min(1).max(200)).describe('Ordered, primary artist first. Empty array if the provider genuinely has none'),
     album: z.string().max(400).optional(),
     durationMs: z.coerce.number().int().min(0).optional(),
     isrc: z.string().max(100).optional(),
     artworkUrl: z.string().max(2000).optional(),
+    trackId: z.string().max(100).optional().describe('The canonical `deadair.tracks` row this copy is bound to, when the catalog holds one'),
+    artistId: z.string().max(100).optional().describe('The canonical artist behind that row'),
+    albumId: z.string().max(100).optional().describe('The release that row was ingested inside. Absent for a single ingested outside any'),
 });
 export type CatalogTrack = z.infer<typeof CatalogTrack>;
 
 /**
  * One catalog-capable plugin that could not be listed
- * generated from [CatalogSourceError](file://./../../../../data/contracts/playlists/playlists.types.ck#L34)
+ * generated from [CatalogSourceError](file://./../../../../data/contracts/playlists/playlists.types.ck#L42)
  */
 export const CatalogSourceError = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -55,7 +63,7 @@ export const CatalogPlaylist = z.strictObject({
 export type CatalogPlaylist = z.infer<typeof CatalogPlaylist>;
 
 /**
- * generated from [CatalogPlaylistTracks](file://./../../../../data/contracts/playlists/playlists.types.ck#L45)
+ * generated from [CatalogPlaylistTracks](file://./../../../../data/contracts/playlists/playlists.types.ck#L53)
  */
 export const CatalogPlaylistTracks = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -65,7 +73,7 @@ export const CatalogPlaylistTracks = z.strictObject({
 export type CatalogPlaylistTracks = z.infer<typeof CatalogPlaylistTracks>;
 
 /**
- * generated from [CatalogPlaylistPage](file://./../../../../data/contracts/playlists/playlists.types.ck#L40)
+ * generated from [CatalogPlaylistPage](file://./../../../../data/contracts/playlists/playlists.types.ck#L48)
  */
 export const CatalogPlaylistPage = z.strictObject({
     playlists: z.array(CatalogPlaylist),

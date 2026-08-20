@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_CATALOG, type MusicProviderPluginInstance, type PluginManifest } from '@deadair/plugin-sdk';
+import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
 import { asCatalogPlugin, implementsCatalog } from '#modules/plugins/plugin.capabilities.js';
 import { pluginHttpError } from '#modules/plugins/plugin.error.http.js';
@@ -39,13 +40,15 @@ const unavailableReason = (record: PluginRecord): string | undefined => {
 };
 
 /**
- * The read-only, no-database POC surface for "what could I import from a
- * plugin": every catalog-capable plugin's playlists, aggregated, and one
- * plugin's playlist tracks on demand.
+ * The read-only surface for "what could I import from a plugin": every
+ * catalog-capable plugin's playlists, aggregated, and one plugin's playlist
+ * tracks on demand.
  *
- * Nothing here is persisted; every answer is a live call through
- * {@link PluginInvoker}, which is what keeps a slow or crashing plugin from
- * becoming a slow or crashing request.
+ * Nothing here is persisted, and every answer about what a playlist HOLDS is a
+ * live call through {@link PluginInvoker}, which is what keeps a slow or
+ * crashing plugin from becoming a slow or crashing request. The one database
+ * read is {@link catalogIds}, which says nothing about the playlist and only
+ * names what the station already has of the same copies.
  */
 @Injectable()
 export class PlaylistsService {
@@ -53,6 +56,9 @@ export class PlaylistsService {
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
         private readonly accessControl: AccessControlService,
+        // Read-only, and only ever to answer "does the station already hold this copy". A playlist
+        // is the provider's list and nothing here writes to the catalog.
+        private readonly tracks: TracksRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -147,19 +153,59 @@ export class PlaylistsService {
             throw pluginHttpError(pluginId, error);
         }
 
+        // What the catalog holds for these same copies, so a console can reach a record it has
+        // ingested rather than reading a provider's name with nowhere to go. Never fails the
+        // listing: this is a live read of somebody else's playlist and the ids are decoration.
+        const known = await this.catalogIds(pluginId, tracks);
+
         return {
             pluginId,
             playlistId,
-            tracks: tracks.map((track): CatalogTrack => ({
-                id: track.id,
-                title: track.title,
-                artists: track.artists,
-                album: track.album,
-                durationMs: track.durationMs,
-                isrc: track.isrc,
-                artworkUrl: track.artworkUrl,
-            })),
+            tracks: tracks.map((track): CatalogTrack => {
+                const row = known.get(track.id);
+                return {
+                    id: track.id,
+                    title: track.title,
+                    artists: track.artists,
+                    album: track.album,
+                    durationMs: track.durationMs,
+                    isrc: track.isrc,
+                    artworkUrl: track.artworkUrl,
+                    // Absent for a copy no sync has walked, which on most playlists is plenty of
+                    // rows: this endpoint lists what a PROVIDER holds, not what the station has.
+                    ...(row === undefined ? {} : { trackId: row.trackId, artistId: row.artistId }),
+                    ...(row?.albumId == null ? {} : { albumId: row.albumId }),
+                };
+            }),
         };
+    }
+
+    /**
+     * The canonical ids behind one plugin's copies, by that plugin's own id.
+     *
+     * Batched: one query for a whole playlist rather than one per row behind a request an operator
+     * is waiting on. Empty when the catalog cannot answer, exactly as the director's own use of the
+     * same read is — a playlist that lists is worth more than a playlist that links, so a database
+     * fault costs the links and nothing else.
+     *
+     * The director resolves these bindings again on its way to air, and that is not this call going
+     * spare: it wants the catalog's year and cover to draw a running order with, and it prefers the
+     * provider's answer where the two disagree. Two reads on one operator action, for two purposes.
+     */
+    private async catalogIds(pluginId: string, tracks: readonly { id: string }[]) {
+        try {
+            const rows = await this.tracks.findByBindings(
+                pluginId,
+                tracks.map(track => track.id),
+            );
+            return new Map(rows.map(row => [row.externalId, row]));
+        } catch (error) {
+            this.logger.warn('playlists: could not read catalog ids for a playlist; listing it as the provider gave it', {
+                plugin: pluginId,
+                error: serverkitErrorText(error),
+            });
+            return new Map();
+        }
     }
 
     /**

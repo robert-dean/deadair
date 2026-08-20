@@ -6,6 +6,7 @@ import type { CatalogPlaylist, CatalogTrack } from '@deadair/sdk';
 import { playlistTracksOptions } from '../../api/playlists.queries';
 import { queryKeys } from '../../api/query.keys';
 import { PlayPlaylistButton } from '../playout/play.playlist.button';
+import { AlbumLink, ArtistLink, TrackLink } from '../shared/catalog.links';
 import { formatDuration } from '../shared/format.duration';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -84,11 +85,21 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
+                        {/* A playlist is the PROVIDER's list, so most of these rows are plain text
+                            on a library that has not been synced: the ids arrive only for a copy
+                            the station has actually ingested, and the three links draw as the words
+                            they always were without one. */}
                         {tracks.data.tracks.map((track: CatalogTrack) => (
                             <Table.Tr key={track.id}>
-                                <Table.Td>{track.title}</Table.Td>
-                                <Table.Td>{formatArtists(track.artists)}</Table.Td>
-                                <Table.Td>{track.album ?? ''}</Table.Td>
+                                <Table.Td>
+                                    <TrackLink id={track.trackId}>{track.title}</TrackLink>
+                                </Table.Td>
+                                <Table.Td>
+                                    <ArtistLink id={track.artistId}>{formatArtists(track.artists)}</ArtistLink>
+                                </Table.Td>
+                                <Table.Td>
+                                    <AlbumLink id={track.albumId}>{track.album ?? ''}</AlbumLink>
+                                </Table.Td>
                                 <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
                             </Table.Tr>
                         ))}

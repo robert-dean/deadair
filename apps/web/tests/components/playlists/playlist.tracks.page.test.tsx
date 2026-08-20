@@ -14,8 +14,8 @@ vi.mock('../../../src/api/client', () => ({
 }));
 
 vi.mock('@tanstack/react-router', () => ({
-    Link: ({ children, className }: { children?: ReactNode; className?: string }) => (
-        <a href="#" className={className}>
+    Link: ({ to, params, children, ...rest }: { to: string; params?: Record<string, string>; children?: ReactNode }) => (
+        <a href={Object.entries(params ?? {}).reduce((path, [key, value]) => path.replace(`$${key}`, value), to)} {...rest}>
             {children}
         </a>
     ),
@@ -67,6 +67,30 @@ describe('PlaylistTracksPage', () => {
         render(<PlaylistTracksPage pluginId="deadair.spotify" playlistId="playlist-9" />);
 
         expect(await screen.findByRole('heading', { name: 'playlist-9' })).toBeInTheDocument();
+    });
+
+    // A playlist is the provider's list, so both halves are ordinary here and the default fixture is
+    // the unowned one: a copy the station has ingested reaches its catalog pages, and one it has not
+    // is the same words with nowhere to go.
+    it('reaches the catalog for a copy the station holds, and not for one it does not', async () => {
+        getPlaylistTracks.mockResolvedValue({
+            pluginId: 'deadair.spotify',
+            playlistId: 'playlist-1',
+            tracks: [
+                catalogTrack({ trackId: 'trk_1', artistId: 'art_1', albumId: 'alb_1' }),
+                catalogTrack({ id: 'track-2', title: 'Le Freak', artists: ['Nile Rodgers'], album: undefined }),
+            ],
+        });
+
+        render(<PlaylistTracksPage pluginId="deadair.spotify" playlistId="playlist-1" />);
+
+        expect(await screen.findByRole('link', { name: 'Good Times' })).toHaveAttribute('href', '/catalog/tracks/trk_1');
+        expect(screen.getByRole('link', { name: 'Chic' })).toHaveAttribute('href', '/catalog/artists/art_1');
+        expect(screen.getByRole('link', { name: "C'est Chic" })).toHaveAttribute('href', '/catalog/albums/alb_1');
+
+        expect(screen.getByText('Le Freak')).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Le Freak' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Nile Rodgers' })).not.toBeInTheDocument();
     });
 
     it('says so when the playlist has no tracks', async () => {

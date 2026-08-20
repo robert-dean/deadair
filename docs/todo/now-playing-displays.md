@@ -112,6 +112,14 @@ correction to the first reading of this probe, and still does not rescue the fea
 that buys is a STATIC image and a STATIC first line. A station logo, not cover art. Making art
 follow the record puts a `/Play` on every boundary and the reconnect comes straight back.
 
+**And the slots can only be written by a `/Play` that establishes a NEW connection.** Issued against
+the URL already playing, `/Play` is inert in both directions — `secs` kept climbing (33 → 38, no
+reconnect) and `title1` and `image` did not move, still unchanged 269 seconds later. So there is not
+even a cheap way to refresh the caption without the reconnect, which closes the last hole: the
+reconnect is not the price of a NICER update path, it is the only path. (Note for anyone repeating
+this: the reconnect a URL change causes can take minutes to land, so a probe that samples five
+seconds afterwards will read the OLD connection and conclude the opposite.)
+
 It is worse than merely insufficient, too: a sticky `title1` goes stale by design. Four minutes
 after the push the amp was captioning a Dwight Yoakam record with `Ghost Town DJs`, which is the
 station confidently saying something false — the same failure `docs/decisions`-wide reasoning about

@@ -82,6 +82,16 @@ export const queryKeys = {
     productions: {
         list: () => ['productions', 'list'] as const,
     },
+    /**
+     * What the station's breaks can be about: news categories today, weather locations next. One
+     * key for the rows, because every write answers with the whole list — and a separate one for the
+     * KINDS, which say what the station can have subjects for at all and change with a deploy rather
+     * than with an edit.
+     */
+    topics: {
+        list: () => ['topics', 'list'] as const,
+        kinds: () => ['topics', 'kinds'] as const,
+    },
     station: {
         /** What needs somebody. One key: it is a reading of the whole station, and there is only one. */
         attention: () => ['station', 'attention'] as const,

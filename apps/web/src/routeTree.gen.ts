@@ -20,6 +20,7 @@ import { Route as ProductionsRouteImport } from './routes/productions'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as ScriptsRouteImport } from './routes/scripts'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as TopicsRouteImport } from './routes/topics'
 import { Route as VoicesRouteImport } from './routes/voices'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
@@ -85,6 +86,11 @@ const ScriptsRoute = ScriptsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TopicsRoute = TopicsRouteImport.update({
+  id: '/topics',
+  path: '/topics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VoicesRoute = VoicesRouteImport.update({
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/schedule': typeof ScheduleRoute
   '/scripts': typeof ScriptsRoute
   '/settings': typeof SettingsRoute
+  '/topics': typeof TopicsRoute
   '/voices': typeof VoicesRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/schedule': typeof ScheduleRoute
   '/scripts': typeof ScriptsRoute
   '/settings': typeof SettingsRoute
+  '/topics': typeof TopicsRoute
   '/voices': typeof VoicesRoute
   '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
@@ -205,6 +213,7 @@ export interface FileRoutesById {
   '/schedule': typeof ScheduleRoute
   '/scripts': typeof ScriptsRoute
   '/settings': typeof SettingsRoute
+  '/topics': typeof TopicsRoute
   '/voices': typeof VoicesRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/scripts'
     | '/settings'
+    | '/topics'
     | '/voices'
     | '/catalog/'
     | '/playlists/'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/scripts'
     | '/settings'
+    | '/topics'
     | '/voices'
     | '/catalog'
     | '/playlists'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/scripts'
     | '/settings'
+    | '/topics'
     | '/voices'
     | '/catalog/'
     | '/playlists/'
@@ -304,6 +316,7 @@ export interface RootRouteChildren {
   ScheduleRoute: typeof ScheduleRoute
   ScriptsRoute: typeof ScriptsRoute
   SettingsRoute: typeof SettingsRoute
+  TopicsRoute: typeof TopicsRoute
   VoicesRoute: typeof VoicesRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
@@ -394,6 +407,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/topics': {
+      id: '/topics'
+      path: '/topics'
+      fullPath: '/topics'
+      preLoaderRoute: typeof TopicsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/voices': {
@@ -488,6 +508,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScheduleRoute: ScheduleRoute,
   ScriptsRoute: ScriptsRoute,
   SettingsRoute: SettingsRoute,
+  TopicsRoute: TopicsRoute,
   VoicesRoute: VoicesRoute,
   CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,

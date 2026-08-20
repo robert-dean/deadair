@@ -49,6 +49,10 @@ const GROUPS: NavGroup[] = [
         title: 'Station',
         items: [
             { to: '/personas', label: 'Personas' },
+            // Beside Personas rather than under Air with the schedule: a subject is part of what the
+            // station HAS to say — the categories a bulletin can cover, the places a weather break
+            // can be about — where the format clock on the schedule page is when it says it.
+            { to: '/topics', label: 'Subjects' },
             // Beside Personas and Scripts, which are the other two halves of what the station says:
             // one is who it is, one is what it said, and this is what it makes at length.
             { to: '/productions', label: 'Productions' },

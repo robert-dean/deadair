@@ -56,6 +56,23 @@ export function ArtistLink({ id, children, ...props }: CatalogLinkProps) {
     );
 }
 
+/**
+ * What the station said, linked to every attempt at saying it.
+ *
+ * A break rather than a record, so it lands on `/scripts` narrowed to one segment. Same absent-id
+ * rule and one more reason for it: an order can hold a segment the library no longer has, and there
+ * is nothing to read for one that was never written.
+ */
+export function ScriptLink({ id, children, ...props }: CatalogLinkProps) {
+    if (id === undefined) return <Plain {...props}>{children}</Plain>;
+
+    return (
+        <Anchor renderRoot={anchor => <Link to="/scripts" search={{ segment: id }} {...anchor} />} {...props}>
+            {children}
+        </Anchor>
+    );
+}
+
 /** A release, linked to its tracks. */
 export function AlbumLink({ id, children, ...props }: CatalogLinkProps) {
     if (id === undefined) return <Plain {...props}>{children}</Plain>;

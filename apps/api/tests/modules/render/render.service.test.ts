@@ -45,6 +45,8 @@ interface ServiceOptions {
     voices?: { id: string; label: string }[];
     sample?: Buffer;
     speakAs?: () => Promise<string>;
+    /** What the history answers with. Absent leaves `page()` a stub that throws when it is called. */
+    attempts?: unknown[];
 }
 
 const service = (options: ServiceOptions = {}) => {
@@ -67,7 +69,8 @@ const service = (options: ServiceOptions = {}) => {
     const explainSpeaker = vi.fn().mockReturnValue('no active plugin can speak; install and enable a TTS plugin');
 
     const page = vi.fn(async () => {
-        throw new Error('this suite does not read script history');
+        if (options.attempts === undefined) throw new Error('this suite does not read script history');
+        return options.attempts;
     });
 
     const samples = {
@@ -86,8 +89,9 @@ const service = (options: ServiceOptions = {}) => {
             { send } as never,
             { speaker, speakers, voices, speakAs, explainSpeaker } as never,
             samples as never,
-            // Script history is a read this suite never makes, so it is a stub rather than a fake:
-            // a page() nobody calls that throws is a better failure than one that answers plausibly.
+            // Script history is a read most of this suite never makes, so it stays a stub rather
+            // than a fake unless a case hands over `attempts`: a page() nobody calls that throws is
+            // a better failure than one that answers plausibly.
             { page } as never,
             logger as never,
         ),
@@ -99,6 +103,7 @@ const service = (options: ServiceOptions = {}) => {
         speakAs,
         sampleRead,
         voices,
+        page,
     };
 };
 
@@ -308,5 +313,26 @@ describe('RenderService.getVoiceSample', () => {
 
         // Not a 404: the voice asked for is fine, the station is not.
         expect(await status(render.getVoiceSample('host'))).toBe(502);
+    });
+});
+
+describe('RenderService.readScriptHistory', () => {
+    // Every filter is a passthrough and this is the one that arrives from a link rather than from a
+    // control an operator can see, so a query that quietly dropped it would answer with the whole
+    // history under a heading saying it was one break.
+    it('narrows the history to one break when the caller names a segment', async () => {
+        const { service: render, page } = service({ attempts: [] });
+
+        await render.readScriptHistory({ segmentId: 'seg_1', limit: 10 });
+
+        expect(page).toHaveBeenCalledWith(expect.objectContaining({ segmentId: 'seg_1', limit: 10 }));
+    });
+
+    it('asks for the whole history when it names none', async () => {
+        const { service: render, page } = service({ attempts: [] });
+
+        await render.readScriptHistory({});
+
+        expect(page).toHaveBeenCalledWith(expect.not.objectContaining({ segmentId: expect.anything() }));
     });
 });

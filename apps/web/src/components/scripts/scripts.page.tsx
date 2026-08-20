@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Badge, Box, Button, Card, Code, Collapse, Group, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core';
+import { Anchor, Badge, Box, Button, Card, Code, Collapse, Group, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core';
+import { Link } from '@tanstack/react-router';
 import type { ScriptAttempt, ScriptOutcome } from '@deadair/sdk';
 
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -46,6 +47,16 @@ const OUTCOME_TONE: Record<ScriptOutcome, StatusTone> = {
     failed: 'fault',
 };
 
+export interface ScriptsPageProps {
+    /**
+     * One break's attempts rather than the whole history, as a link off the running order asks for.
+     *
+     * The id is not resolved to anything here: what is drawn is the attempts themselves, and a
+     * segment the library no longer holds still has every word it was ever given.
+     */
+    segmentId?: string;
+}
+
 /**
  * Everything the station has written, including what it decided not to say.
  *
@@ -57,12 +68,23 @@ const OUTCOME_TONE: Record<ScriptOutcome, StatusTone> = {
  * The prompt and the raw answer appear only for rows written while `llm.captureWrites` was on,
  * which is a switch for an evening of prompt tuning rather than a default. A row without them is
  * the ordinary case and says so.
+ *
+ * Narrowed to one break when a `segmentId` arrives, which is what a link off the running order
+ * lands on. The filter is a QUERY rather than a client-side sieve, so the pagination underneath it
+ * still means what it says.
  */
-export function ScriptsPage() {
+export function ScriptsPage({ segmentId }: ScriptsPageProps = {}) {
     const [outcome, setOutcome] = useState<ScriptOutcome | 'all'>('all');
     const [writer, setWriter] = useState<string>('all');
 
-    const history = useScriptHistory({ ...(outcome === 'all' ? {} : { outcome }), ...(writer === 'all' ? {} : { writer }) }, true);
+    const history = useScriptHistory(
+        {
+            ...(outcome === 'all' ? {} : { outcome }),
+            ...(writer === 'all' ? {} : { writer }),
+            ...(segmentId === undefined ? {} : { segmentId }),
+        },
+        true,
+    );
 
     const attempts = history.data?.pages.flatMap(page => page.attempts) ?? [];
     const failure = history.isError ? apiErrorMessage(history.error, 'The script history could not be read.') : undefined;
@@ -70,14 +92,26 @@ export function ScriptsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Scripts"
+                title={segmentId === undefined ? 'Scripts' : 'One break'}
                 description={
                     <Text size="sm" c="dimmed">
-                        Everything the station has written, newest first, one entry per attempt. A model that declined and the line that went out
-                        instead are both here.
+                        {segmentId === undefined
+                            ? 'Everything the station has written, newest first, one entry per attempt. A model that declined and the line that went out instead are both here.'
+                            : 'Every attempt at writing this one break, newest first — including the ones that came to nothing.'}
                     </Text>
                 }
             />
+
+            {/* The way back out, and it says what it is narrowed to rather than only offering to
+                clear it: an operator who followed a link off the running order and then paged
+                through has to be able to tell this from the whole history. */}
+            {segmentId === undefined ? undefined : (
+                <Group gap="xs">
+                    <Anchor renderRoot={props => <Link to="/scripts" search={{ segment: '' }} {...props} />} size="sm">
+                        Read everything the station has written
+                    </Anchor>
+                </Group>
+            )}
 
             <Group gap="md" wrap="wrap">
                 <SegmentedControl
@@ -98,9 +132,15 @@ export function ScriptsPage() {
             {!history.isPending && attempts.length === 0 && failure === undefined ? (
                 <Card padding="lg">
                     <Text size="sm" c="dimmed">
-                        {outcome === 'all' && writer === 'all'
-                            ? 'Nothing yet. The station writes here every time it makes a break, whether or not the words made it to air.'
-                            : 'Nothing matches that filter.'}
+                        {/* A break with no attempts is its own answer, and a different one: the
+                            break was planted and nothing has been asked to write it yet. Reading
+                            that as "nothing matches that filter" would send an operator looking for
+                            a filter to clear. */}
+                        {segmentId !== undefined && outcome === 'all' && writer === 'all'
+                            ? 'Nothing has been written for this break yet. The station asks for the words as the slot comes near, not when the break is planted.'
+                            : outcome === 'all' && writer === 'all'
+                              ? 'Nothing yet. The station writes here every time it makes a break, whether or not the words made it to air.'
+                              : 'Nothing matches that filter.'}
                     </Text>
                 </Card>
             ) : undefined}
@@ -254,7 +294,10 @@ function Neighbour({ label, track }: { label: string; track: NonNullable<ScriptA
         <Stack gap="xxxs" style={{ maxWidth: 420 }}>
             <Eyebrow>{label}</Eyebrow>
             <Text size="sm">
-                {track.title} <Text span c="dimmed">{track.artist}</Text>
+                {track.title}{' '}
+                <Text span c="dimmed">
+                    {track.artist}
+                </Text>
             </Text>
             {track.facts?.map((fact, index) => (
                 <Text key={index} size="xs" c="dimmed">

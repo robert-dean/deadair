@@ -120,8 +120,8 @@ export const queryKeys = {
      * would leave a half-filtered list on screen while the new first page loaded.
      */
     scripts: {
-        history: (filter: { kind?: string; writer?: string; outcome?: string }) =>
-            ['scripts', 'history', filter.kind ?? 'all', filter.writer ?? 'all', filter.outcome ?? 'all'] as const,
+        history: (filter: { kind?: string; writer?: string; outcome?: string; segmentId?: string }) =>
+            ['scripts', 'history', filter.kind ?? 'all', filter.writer ?? 'all', filter.outcome ?? 'all', filter.segmentId ?? 'all'] as const,
     },
     /**
      * The station's programming, as opposed to `playout`, which is what the player was actually

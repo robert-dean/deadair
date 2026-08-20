@@ -86,6 +86,8 @@ export interface ScriptHistoryPageQuery {
     kind?: string;
     writer?: string;
     outcome?: ScriptOutcome;
+    /** Every attempt made for one break, in place of the whole history. */
+    segmentId?: string;
 }
 
 /** The cursor for the row after this one. */
@@ -305,20 +307,12 @@ export class ScriptHistoryRepository extends DataRepository {
         if (query.kind !== undefined) statement = statement.where('kind', '=', query.kind);
         if (query.writer !== undefined) statement = statement.where('writer', '=', query.writer);
         if (query.outcome !== undefined) statement = statement.where('outcome', '=', query.outcome);
+        // Newest first like every other read here, rather than the oldest-first walk a single
+        // break's attempts would suggest: this is the same page in the same order, narrowed. The
+        // handful of rows one segment produces fits on it either way.
+        if (query.segmentId !== undefined) statement = statement.where('segmentId', '=', query.segmentId);
 
         const rows = await statement.execute();
-        return rows.map(row => toEntry(row as ScriptHistoryRow));
-    }
-
-    /** Every attempt made for one segment, oldest first. */
-    async forSegment(segmentId: string): Promise<ScriptHistoryEntry[]> {
-        const rows = await this.db
-            .selectFrom('deadair.scriptHistory')
-            .select(HISTORY_COLUMNS)
-            .where('segmentId', '=', segmentId)
-            .orderBy('createdAt', 'asc')
-            .execute();
-
         return rows.map(row => toEntry(row as ScriptHistoryRow));
     }
 

@@ -94,7 +94,7 @@ export interface ScriptPromptMessage {
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L97)
+ * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L98)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -136,6 +136,8 @@ export interface ScriptHistoryQuery {
     kind?: string;
     writer?: string;
     outcome?: ScriptOutcome;
+    /** Every attempt made for ONE break, which is how a console reaches the words behind an item of the running order. Absent is the whole history */
+    segmentId?: string;
 }
 
 /**
@@ -173,7 +175,7 @@ export interface ScriptAttempt {
 }
 
 /**
- * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L92)
+ * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L93)
  */
 export interface ScriptHistoryPage {
     attempts: ScriptAttempt[];

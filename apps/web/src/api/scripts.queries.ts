@@ -20,6 +20,8 @@ export interface ScriptFilter {
     kind?: string;
     writer?: string;
     outcome?: ScriptOutcome;
+    /** Every attempt made for one break, which is where a link off the running order lands. */
+    segmentId?: string;
 }
 
 /**
@@ -42,6 +44,7 @@ export function scriptHistoryOptions(filter: ScriptFilter) {
                 ...(filter.kind === undefined ? {} : { kind: filter.kind }),
                 ...(filter.writer === undefined ? {} : { writer: filter.writer }),
                 ...(filter.outcome === undefined ? {} : { outcome: filter.outcome }),
+                ...(filter.segmentId === undefined ? {} : { segmentId: filter.segmentId }),
             }),
         initialPageParam: undefined as string | undefined,
         // `undefined` is how the API says the history has been read to its end, and it is also what

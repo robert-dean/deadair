@@ -87,6 +87,7 @@ contract ScriptHistoryQuery: { # One page of what the station has written, newes
     kind?: string(min=1, max=50)
     writer?: string(min=1, max=100)
     outcome?: ScriptOutcome
+    segmentId?: string(min=1, max=100) # Every attempt made for ONE break, which is how a console reaches the words behind an item of the running order. Absent is the whole history
 }
 
 contract ScriptHistoryPage: {

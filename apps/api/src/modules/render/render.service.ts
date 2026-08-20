@@ -94,6 +94,7 @@ export class RenderService {
             ...(query.kind === undefined ? {} : { kind: query.kind }),
             ...(query.writer === undefined ? {} : { writer: query.writer }),
             ...(query.outcome === undefined ? {} : { outcome: query.outcome }),
+            ...(query.segmentId === undefined ? {} : { segmentId: query.segmentId }),
         });
 
         const page = rows.slice(0, limit);

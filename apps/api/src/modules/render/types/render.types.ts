@@ -111,7 +111,7 @@ export type ScriptPromptMessage = z.infer<typeof ScriptPromptMessage>;
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L97)
+ * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L98)
  */
 export const SegmentScanResult = z.strictObject({
     scanned: z.coerce.number().int().min(0).describe('Audio files seen, whether or not they were already known'),
@@ -157,6 +157,14 @@ export const ScriptHistoryQuery = z.strictObject({
     kind: z.string().min(1).max(50).optional(),
     writer: z.string().min(1).max(100).optional(),
     outcome: ScriptOutcome.optional(),
+    segmentId: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            'Every attempt made for ONE break, which is how a console reaches the words behind an item of the running order. Absent is the whole history',
+        ),
 });
 export type ScriptHistoryQuery = z.infer<typeof ScriptHistoryQuery>;
 
@@ -186,7 +194,7 @@ export const ScriptAttempt = z.strictObject({
 export type ScriptAttempt = z.infer<typeof ScriptAttempt>;
 
 /**
- * generated from [ScriptHistoryPage](file://./../../../../data/contracts/render/render.types.ck#L92)
+ * generated from [ScriptHistoryPage](file://./../../../../data/contracts/render/render.types.ck#L93)
  */
 export const ScriptHistoryPage = z.strictObject({
     attempts: z.array(ScriptAttempt),

@@ -4,6 +4,10 @@ import { isPluginError } from '@deadair/plugin-sdk';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import type {
+    PronunciationList,
+    PronunciationQuery,
+    PronunciationStateWrite,
+    PronunciationWrite,
     ScriptAttempt,
     ScriptHistoryPage,
     ScriptHistoryQuery,
@@ -14,6 +18,7 @@ import type {
     Segment as SegmentView,
     VoiceList,
 } from './types/render.types.js';
+import { PronunciationRepository } from './pronunciation.repository.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
@@ -75,6 +80,7 @@ export class RenderService {
         private readonly speech: SpeechService,
         private readonly samples: VoiceSampleStore,
         private readonly history: ScriptHistoryRepository,
+        private readonly pronunciations: PronunciationRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -105,6 +111,54 @@ export class RenderService {
             attempts: page.map(toAttempt),
             ...(more && last !== undefined ? { nextBefore: encodeScriptCursor(last) } : {}),
         };
+    }
+
+    /**
+     * The station's lexicon, or one state of it.
+     *
+     * Every write below answers with the whole list for the reason the personas routes do: accepting
+     * a proposal moves one row between two sections of the same page, and a caller handed back only
+     * the row it named holds a list it has to refetch anyway.
+     */
+    async listPronunciations(query: PronunciationQuery): Promise<PronunciationList> {
+        return { pronunciations: await this.pronunciations.list(query.state) };
+    }
+
+    /** Adds one an operator typed. Said from the next render on, since nothing caches the lexicon. */
+    async createPronunciation(write: PronunciationWrite): Promise<PronunciationList> {
+        if (await this.pronunciations.holds(write.written))
+            throw httpError(409).withDetails({ message: `the station already has an entry for "${write.written}"` });
+
+        await this.pronunciations.add({ ...write, state: 'active', origin: 'operator' });
+        return { pronunciations: await this.pronunciations.list() };
+    }
+
+    /** Rewrites one entry's words, whoever proposed it. */
+    async updatePronunciation(id: string, write: PronunciationWrite): Promise<PronunciationList> {
+        if (!(await this.pronunciations.update(id, write))) throw httpError(404).withDetails({ message: `pronunciation "${id}" does not exist` });
+
+        return { pronunciations: await this.pronunciations.list() };
+    }
+
+    /**
+     * Accepts a proposal, turns one down, or takes an entry out of use.
+     *
+     * `rejected` rather than a deletion is the whole point of the state existing: the mining pass
+     * re-reads an article whenever a plugin hands over a new copy of it, so a proposal that was
+     * deleted comes back, and comes back again.
+     */
+    async setPronunciationState(id: string, write: PronunciationStateWrite): Promise<PronunciationList> {
+        if (!(await this.pronunciations.setState(id, write.state)))
+            throw httpError(404).withDetails({ message: `pronunciation "${id}" does not exist` });
+
+        return { pronunciations: await this.pronunciations.list() };
+    }
+
+    /** Removes an entry outright, which is the operator's own to do. */
+    async deletePronunciation(id: string): Promise<PronunciationList> {
+        if (!(await this.pronunciations.remove(id))) throw httpError(404).withDetails({ message: `pronunciation "${id}" does not exist` });
+
+        return { pronunciations: await this.pronunciations.list() };
     }
 
     /** Everything the station can play that is not a record. */

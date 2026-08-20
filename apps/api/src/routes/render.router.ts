@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { RenderService } from '#src/modules/render/render.service.js';
 import {
+    PronunciationList,
+    PronunciationQuery,
+    PronunciationStateWrite,
+    PronunciationWrite,
     ScriptHistoryPage,
     ScriptHistoryQuery,
     Segment,
@@ -137,4 +141,98 @@ RenderRouter.get('/segments/:id/audio', async ctx => {
     if (result.headers['etag'] !== undefined) ctx.set('etag', String(result.headers['etag']));
     ctx.type = result.contentType;
     ctx.body = result.body;
+});
+
+/**
+ * The station's lexicon: what it says, what has been proposed to it, and what it has turned down
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L185)
+ */
+RenderRouter.get('/pronunciations', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const query = await parseAndValidate(ctx.query, PronunciationQuery.strict());
+
+    const service = ctx.container.get(RenderService);
+    const result: PronunciationList = await service.listPronunciations(query);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Adds one the operator typed. It is said from the next render on
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L195)
+ */
+RenderRouter.post('/pronunciations', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, PronunciationWrite);
+
+    const service = ctx.container.get(RenderService);
+    const result: PronunciationList = await service.createPronunciation(body);
+
+    ctx.status = 201;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Rewrites one entry's words, whoever proposed it
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L216)
+ */
+RenderRouter.put('/pronunciations/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, PronunciationWrite);
+
+    const service = ctx.container.get(RenderService);
+    const result: PronunciationList = await service.updatePronunciation(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Removes an entry outright. Turning a PROPOSAL down is a state rather than a deletion, because a deleted one comes back on the next pass
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L231)
+ */
+RenderRouter.delete('/pronunciations/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(RenderService);
+    const result: PronunciationList = await service.deletePronunciation(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Accepts a proposal, turns one down, or takes an entry out of use without losing what it said
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L249)
+ */
+RenderRouter.put('/pronunciations/:id/state', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, PronunciationStateWrite);
+
+    const service = ctx.container.get(RenderService);
+    const result: PronunciationList = await service.setPronunciationState(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
 });

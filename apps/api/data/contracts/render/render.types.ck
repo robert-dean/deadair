@@ -100,3 +100,33 @@ contract SegmentScanResult: { # What one pass over the inbox did
     imported: int(min=0) # Segments the station did not have before this pass
     skipped: int(min=0) # Files passed over: not audio it can serve, or unreadable
 }
+
+contract Pronunciation: { # One name the station says differently from how it is written
+    id: string(min=1, max=100)
+    written: string(min=1, max=200) # What appears in a script. Matched case-insensitively, and whole words only
+    spoken: string(max=400) # What the engine is handed instead, untouched. EMPTY is meaningful: it drops the words, which is the honest reading for a marker that got into a title and is not a word
+    state: enum(active, suggested, rejected) # `active` is said. `suggested` is proposed and says nothing yet. `rejected` outlives the pass that proposed it, or the same article proposes it again forever
+    origin: enum(operator, gloss) # Who says so. `gloss` is a pronunciation key an encyclopaedia article printed for itself
+    sourceUrl?: string(max=2000) # The article. Present on anything an operator did not type
+    sourceQuote?: string(max=2000) # The sentence that says so, as it stands in the article, which is what the decision is actually made on
+    subjectKind?: enum(track, album, artist) # What the article was about
+    subjectId?: string(max=100)
+    createdAt: string(min=1, max=40)
+}
+
+contract PronunciationList: { # The station's lexicon, oldest first
+    pronunciations: array(Pronunciation)
+}
+
+contract PronunciationWrite: { # A name and how to say it
+    written: string(min=1, max=200)
+    spoken: string(max=400) # Empty drops the words rather than saying them
+}
+
+contract PronunciationStateWrite: { # Accepting a proposal, turning one down, or taking an entry out of use without losing it
+    state: enum(active, suggested, rejected)
+}
+
+contract PronunciationQuery: { # Which part of the lexicon to read
+    state?: enum(active, suggested, rejected) # Absent is all of it
+}

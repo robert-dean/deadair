@@ -64,6 +64,13 @@ export const queryKeys = {
         list: () => ['voices', 'list'] as const,
     },
     /**
+     * How the station says a word. One key, like the voices above: every write answers with the
+     * whole lexicon, since accepting a proposal moves one row between two sections of one page.
+     */
+    pronunciations: {
+        list: () => ['pronunciations', 'list'] as const,
+    },
+    /**
      * Who the station can be. One key, and no per-persona form: every write answers with the whole
      * list, because putting one on air takes another off, so there is never a slice of this worth
      * invalidating on its own. Same shape as `settings` above and for the same reason.

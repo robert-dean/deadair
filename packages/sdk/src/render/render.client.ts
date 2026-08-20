@@ -1,6 +1,10 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString, readContentType } from '../sdk-options.js';
 import type {
+    PronunciationList,
+    PronunciationQuery,
+    PronunciationStateWrite,
+    PronunciationWrite,
     ScriptHistoryPage,
     ScriptHistoryQuery,
     Segment,
@@ -127,5 +131,65 @@ export class RenderClient {
                     headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
                 };
         }
+    }
+
+    /**
+     * @name List pronunciations
+     * @description The station's lexicon: what it says, what has been proposed to it, and what it has turned down
+     */
+    async listPronunciations(query?: PronunciationQuery): Promise<PronunciationList> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/pronunciations${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<PronunciationList>(result);
+    }
+
+    /**
+     * @name Create pronunciation
+     * @description Adds one the operator typed. It is said from the next render on
+     */
+    async createPronunciation(body: PronunciationWrite): Promise<PronunciationList> {
+        const result = await this.fetch(`/pronunciations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PronunciationList>(result);
+    }
+
+    /**
+     * @name Update pronunciation
+     * @description Rewrites one entry's words, whoever proposed it
+     */
+    async updatePronunciation(id: string, body: PronunciationWrite): Promise<PronunciationList> {
+        const result = await this.fetch(`/pronunciations/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PronunciationList>(result);
+    }
+
+    /**
+     * @name Delete pronunciation
+     * @description Removes an entry outright. Turning a PROPOSAL down is a state rather than a deletion, because a deleted one comes back on the next pass
+     */
+    async deletePronunciation(id: string): Promise<PronunciationList> {
+        const result = await this.fetch(`/pronunciations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return await parseJson<PronunciationList>(result);
+    }
+
+    /**
+     * @name Set pronunciation state
+     * @description Accepts a proposal, turns one down, or takes an entry out of use without losing what it said
+     */
+    async setPronunciationState(id: string, body: PronunciationStateWrite): Promise<PronunciationList> {
+        const result = await this.fetch(`/pronunciations/${encodeURIComponent(id)}/state`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PronunciationList>(result);
     }
 }

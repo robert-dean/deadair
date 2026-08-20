@@ -12,12 +12,14 @@ import { SpeechService } from '../../../src/modules/render/speech.service.js';
 import type { SpeechPlugin } from '../../../src/modules/plugins/plugin.capabilities.js';
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
+import type { Pronunciation } from '../../../src/modules/render/pronunciation.lexicon.js';
+import type { PronunciationRepository } from '../../../src/modules/render/pronunciation.repository.js';
 import type { SegmentStore } from '../../../src/modules/render/segment.store.js';
 import type { SpeechGate } from '../../../src/modules/render/speech.gate.js';
 import type { VoiceSampleStore } from '../../../src/modules/render/voice.sample.store.js';
 
 /** An engine that answers with a byte of audio and remembers what it was asked to say. */
-function harness(pronunciations = '') {
+function harness(entries: readonly Pronunciation[] = []) {
     const asked: SpeechRequest[] = [];
 
     const speak = vi.fn(async (request: SpeechRequest) => {
@@ -31,19 +33,18 @@ function harness(pronunciations = '') {
     const invoker = { invoke: vi.fn(async (_id: string, _name: string, run: () => Promise<unknown>) => await run()) } as unknown as PluginInvoker;
     const store = { writeStream: vi.fn(async () => 'checksum-1') } as unknown as SegmentStore;
     const gate = { hold: vi.fn(async (run: () => Promise<unknown>) => await run()) } as unknown as SpeechGate;
-    const config = {
-        get: vi.fn((_key: string, fallback: string) => (pronunciations.length > 0 ? pronunciations : fallback)),
-    } as unknown as AppConfig;
+    const config = { get: vi.fn((_key: string, fallback: string) => fallback) } as unknown as AppConfig;
+    const lexicon = { active: vi.fn(async () => entries) } as unknown as PronunciationRepository;
     const logger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() };
 
-    const service = new SpeechService(registry, invoker, config, store, gate, logger as never);
+    const service = new SpeechService(registry, invoker, config, store, gate, lexicon, logger as never);
 
-    return { service, plugin, asked, logger };
+    return { service, plugin, asked, lexicon, logger };
 }
 
 describe('SpeechService.speakWith', () => {
     it('hands the engine the transposed script and answers with what it said', async () => {
-        const { service, plugin, asked } = harness('# nothing of my own\n');
+        const { service, plugin, asked } = harness();
 
         const audio = await service.speakWith(plugin, { text: 'That was Simon & Garfunkel, from 1968.' });
 
@@ -57,7 +58,7 @@ describe('SpeechService.speakWith', () => {
     });
 
     it('says a name the way the operator’s list says to', async () => {
-        const { service, plugin, asked } = harness('Sade => Shar-day');
+        const { service, plugin, asked } = harness([{ written: 'Sade', spoken: 'Shar-day' }]);
 
         await service.speakWith(plugin, { text: 'Here is Sade.' });
 
@@ -72,12 +73,13 @@ describe('SpeechService.speakWith', () => {
         expect(asked[0]).toMatchObject({ voice: 'newsreader', text: "The news at nine o'clock." });
     });
 
-    it('says once, quoted, which entries an operator got wrong', async () => {
-        const { service, plugin, logger } = harness('Sade => Shar-day\nthis line forgot the arrow');
+    it('reads the lexicon on every render, so an edit is heard on the next break', async () => {
+        const { service, plugin, lexicon } = harness([{ written: 'Sade', spoken: 'Shar-day' }]);
 
         await service.speakWith(plugin, { text: 'Here is Sade.' });
+        await service.speakWith(plugin, { text: 'Here is Sade again.' });
 
-        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('pronunciation entries'), { lines: ['this line forgot the arrow'] });
+        expect(lexicon.active).toHaveBeenCalledTimes(2);
     });
 });
 

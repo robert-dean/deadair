@@ -121,6 +121,65 @@ export const SegmentScanResult = z.strictObject({
 export type SegmentScanResult = z.infer<typeof SegmentScanResult>;
 
 /**
+ * One name the station says differently from how it is written
+ * generated from [Pronunciation](file://./../../../../data/contracts/render/render.types.ck#L104)
+ */
+export const Pronunciation = z.strictObject({
+    id: z.string().min(1).max(100),
+    written: z.string().min(1).max(200).describe('What appears in a script. Matched case-insensitively, and whole words only'),
+    spoken: z
+        .string()
+        .max(400)
+        .describe(
+            'What the engine is handed instead, untouched. EMPTY is meaningful: it drops the words, which is the honest reading for a marker that got into a title and is not a word',
+        ),
+    state: z
+        .enum(['active', 'suggested', 'rejected'])
+        .describe(
+            '`active` is said. `suggested` is proposed and says nothing yet. `rejected` outlives the pass that proposed it, or the same article proposes it again forever',
+        ),
+    origin: z.enum(['operator', 'gloss']).describe('Who says so. `gloss` is a pronunciation key an encyclopaedia article printed for itself'),
+    sourceUrl: z.string().max(2000).optional().describe('The article. Present on anything an operator did not type'),
+    sourceQuote: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe('The sentence that says so, as it stands in the article, which is what the decision is actually made on'),
+    subjectKind: z.enum(['track', 'album', 'artist']).optional().describe('What the article was about'),
+    subjectId: z.string().max(100).optional(),
+    createdAt: z.string().min(1).max(40),
+});
+export type Pronunciation = z.infer<typeof Pronunciation>;
+
+/**
+ * A name and how to say it
+ * generated from [PronunciationWrite](file://./../../../../data/contracts/render/render.types.ck#L121)
+ */
+export const PronunciationWrite = z.strictObject({
+    written: z.string().min(1).max(200),
+    spoken: z.string().max(400).describe('Empty drops the words rather than saying them'),
+});
+export type PronunciationWrite = z.infer<typeof PronunciationWrite>;
+
+/**
+ * Accepting a proposal, turning one down, or taking an entry out of use without losing it
+ * generated from [PronunciationStateWrite](file://./../../../../data/contracts/render/render.types.ck#L126)
+ */
+export const PronunciationStateWrite = z.strictObject({
+    state: z.enum(['active', 'suggested', 'rejected']),
+});
+export type PronunciationStateWrite = z.infer<typeof PronunciationStateWrite>;
+
+/**
+ * Which part of the lexicon to read
+ * generated from [PronunciationQuery](file://./../../../../data/contracts/render/render.types.ck#L130)
+ */
+export const PronunciationQuery = z.strictObject({
+    state: z.enum(['active', 'suggested', 'rejected']).optional().describe('Absent is all of it'),
+});
+export type PronunciationQuery = z.infer<typeof PronunciationQuery>;
+
+/**
  * Everything the station can play that is not a record
  * generated from [SegmentList](file://./../../../../data/contracts/render/render.types.ck#L29)
  */
@@ -192,6 +251,15 @@ export const ScriptAttempt = z.strictObject({
     prompt: z.array(ScriptPromptMessage).optional().describe('What the writer sent. Only while `llm.captureWrites` is on'),
 });
 export type ScriptAttempt = z.infer<typeof ScriptAttempt>;
+
+/**
+ * The station's lexicon, oldest first
+ * generated from [PronunciationList](file://./../../../../data/contracts/render/render.types.ck#L117)
+ */
+export const PronunciationList = z.strictObject({
+    pronunciations: z.array(Pronunciation),
+});
+export type PronunciationList = z.infer<typeof PronunciationList>;
 
 /**
  * generated from [ScriptHistoryPage](file://./../../../../data/contracts/render/render.types.ck#L93)

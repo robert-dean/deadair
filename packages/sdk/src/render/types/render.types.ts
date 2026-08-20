@@ -106,6 +106,57 @@ export interface SegmentScanResult {
 }
 
 /**
+ * One name the station says differently from how it is written
+ * generated from [Pronunciation](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L104)
+ */
+export interface Pronunciation {
+    id: string;
+    /** What appears in a script. Matched case-insensitively, and whole words only */
+    written: string;
+    /** What the engine is handed instead, untouched. EMPTY is meaningful: it drops the words, which is the honest reading for a marker that got into a title and is not a word */
+    spoken: string;
+    /** `active` is said. `suggested` is proposed and says nothing yet. `rejected` outlives the pass that proposed it, or the same article proposes it again forever */
+    state: 'active' | 'suggested' | 'rejected';
+    /** Who says so. `gloss` is a pronunciation key an encyclopaedia article printed for itself */
+    origin: 'operator' | 'gloss';
+    /** The article. Present on anything an operator did not type */
+    sourceUrl?: string;
+    /** The sentence that says so, as it stands in the article, which is what the decision is actually made on */
+    sourceQuote?: string;
+    /** What the article was about */
+    subjectKind?: 'track' | 'album' | 'artist';
+    subjectId?: string;
+    createdAt: string;
+}
+
+/**
+ * A name and how to say it
+ * generated from [PronunciationWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L121)
+ */
+export interface PronunciationWrite {
+    written: string;
+    /** Empty drops the words rather than saying them */
+    spoken: string;
+}
+
+/**
+ * Accepting a proposal, turning one down, or taking an entry out of use without losing it
+ * generated from [PronunciationStateWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L126)
+ */
+export interface PronunciationStateWrite {
+    state: 'active' | 'suggested' | 'rejected';
+}
+
+/**
+ * Which part of the lexicon to read
+ * generated from [PronunciationQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L130)
+ */
+export interface PronunciationQuery {
+    /** Absent is all of it */
+    state?: 'active' | 'suggested' | 'rejected';
+}
+
+/**
  * Everything the station can play that is not a record
  * generated from [SegmentList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L29)
  */
@@ -172,6 +223,14 @@ export interface ScriptAttempt {
     raw?: string;
     /** What the writer sent. Only while `llm.captureWrites` is on */
     prompt?: ScriptPromptMessage[];
+}
+
+/**
+ * The station's lexicon, oldest first
+ * generated from [PronunciationList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L117)
+ */
+export interface PronunciationList {
+    pronunciations: Pronunciation[];
 }
 
 /**

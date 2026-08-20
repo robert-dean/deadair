@@ -93,6 +93,9 @@ const service = (options: ServiceOptions = {}) => {
             // than a fake unless a case hands over `attempts`: a page() nobody calls that throws is
             // a better failure than one that answers plausibly.
             { page } as never,
+            // The lexicon is only reached through SpeechService, which this suite fakes whole, so
+            // the repository itself is never called on any path here.
+            {} as never,
             logger as never,
         ),
         findById,

@@ -1,31 +1,28 @@
 /**
- * How the station says a word, as something an operator owns.
+ * How the station says a word: the matching half.
  *
  * The half of speech that no rule can ever get right. `transposeForSpeech` can work out that `1984`
  * is a year and that `feat.` is "featuring", because those are patterns; nothing in a pattern knows
  * that one stylized name is said as the letters, another as a word, and a third as neither. A
- * station whose library has forty such names needs forty facts, and facts belong to the operator.
+ * station whose library has forty such names needs forty facts, and a fact needs a source.
  *
- * ## The syntax is one thing
+ * Which is why the entries themselves are rows in `deadair.pronunciations` rather than lines in a
+ * setting: an entry the station mined out of an article carries the article and the sentence, and
+ * can be turned down in a way that outlives the next pass. See the migration, and
+ * {@link PronunciationRepository}. What stays here is the matcher, which never cared where an entry
+ * came from.
  *
- * `written => spoken`, one per line. `#` turns a line off without losing it, blank lines are
- * ignored, and an empty right-hand side means "do not say this at all" — which is the honest reading
- * for a marker that got into a title and is not a word.
- *
- * **The right-hand side is handed to the engine untouched.** The host does not interpret it, exactly
- * as it does not interpret a voice id: an operator whose engine accepts inline phoneme markup can
- * put that there, and one whose engine does not spells the name out. Neither is this file's business.
+ * **`spoken` is handed to the engine untouched.** The host does not interpret it, exactly as it does
+ * not interpret a voice id: an operator whose engine accepts inline phoneme markup can put that
+ * there, and one whose engine does not spells the name out. Neither is this file's business.
  *
  * ## Why the defaults are seeds rather than a dictionary
  *
- * {@link DEFAULT_PRONUNCIATIONS} is eight entries and will never be eighty. It exists to show the
- * syntax with cases an operator will recognise, and to make clearing the box restore something
- * rather than nothing — the same bargain `rotation.breakTemplates` makes. A real station's list is
- * its own library's names, which nobody here can guess.
+ * {@link DEFAULT_PRONUNCIATIONS} is eight entries and will never be eighty. It exists so a station
+ * starts with cases an operator will recognise rather than with an empty table — the same bargain
+ * `rotation.breakTemplates` makes. A real station's list is its own library's names, which nobody
+ * here can guess, and increasingly the articles answer for themselves.
  */
-
-/** The `deadair.settings` key. Dot-keyed, like every other setting. */
-export const PRONUNCIATION_KEY = 'render.pronunciations';
 
 /** One thing the station says differently from how it is written. */
 export interface Pronunciation {
@@ -53,44 +50,6 @@ export const DEFAULT_PRONUNCIATIONS: readonly Pronunciation[] = [
     { written: 'Röyksopp', spoken: 'royk-sop' },
 ] as const;
 
-/** What separates the two halves of an entry. */
-const ARROW = '=>';
-
-/** A line that is a comment, which is how one is turned off without being lost. */
-const isComment = (line: string): boolean => line.trimStart().startsWith('#');
-
-/**
- * The entries an operator has set, or the station's own.
- *
- * Empty means the defaults, exactly as every other setting resolves. A malformed line is SKIPPED
- * rather than failing the parse, for the reason `break.templates.ts` gives a template with an
- * unknown placeholder: one bad line must not take the other thirty with it, and the station saying
- * a name plainly is recoverable where the station not speaking is not. {@link malformedEntries}
- * is how a caller says which lines those were.
- *
- * `fallback` exists so a caller can ask for exactly what the operator wrote, defaults and all,
- * without this deciding for it. Nothing passes it today; the seam matches `parseTemplates`.
- */
-export function parsePronunciations(raw: string | undefined, fallback: readonly Pronunciation[] = DEFAULT_PRONUNCIATIONS): readonly Pronunciation[] {
-    const entries = linesOf(raw).flatMap(line => {
-        const entry = entryOf(line);
-        return entry === undefined ? [] : [entry];
-    });
-
-    return entries.length > 0 ? entries : fallback;
-}
-
-/**
- * Every line that is not an entry, for an operator's benefit.
- *
- * A line with no arrow looks from the console exactly like an entry the station has decided not to
- * use, which is the same trap an unknown placeholder is: it wants saying once, quoted, rather than
- * silently ignored.
- */
-export function malformedEntries(raw: string | undefined): string[] {
-    return linesOf(raw).filter(line => entryOf(line) === undefined);
-}
-
 /**
  * Say all of these, in one pass.
  *
@@ -114,25 +73,6 @@ export function applyPronunciations(text: string, entries: readonly Pronunciatio
     const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${byLongest.map(entry => escapeForRegExp(entry.written)).join('|')})(?![\\p{L}\\p{N}])`, 'giu');
 
     return text.replace(pattern, match => spokenFor.get(match.toLowerCase()) ?? match);
-}
-
-/** One line as an entry, or `undefined` when it is not one. */
-function entryOf(line: string): Pronunciation | undefined {
-    const at = line.indexOf(ARROW);
-    if (at < 0) return undefined;
-
-    const written = line.slice(0, at).trim();
-    if (written.length === 0) return undefined;
-
-    return { written, spoken: line.slice(at + ARROW.length).trim() };
-}
-
-/** One blob of entries as lines: trimmed, comments dropped, blanks dropped. */
-function linesOf(raw: string | undefined): string[] {
-    return (raw ?? '')
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0 && !isComment(line));
 }
 
 /**

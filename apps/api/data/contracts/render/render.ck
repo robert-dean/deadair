@@ -170,3 +170,95 @@ operation /segments/{id}/audio: {
         }
     }
 }
+
+# How the station says a word.
+#
+# This was `render.pronunciations`, a `written => spoken` text setting, and it left the settings form
+# for the reason the format clock did: an entry that arrives from somewhere carries the article it
+# came from and the sentence that says so, it can be turned down in a way that has to outlive the
+# next mining pass, and none of the three fit on a line with an arrow in the middle of it.
+#
+# Every mutation answers the WHOLE list rather than the row it touched, as the personas file does:
+# accepting a proposal is one row moving between two sections of the same page, and a caller handed
+# back only what it named is holding a list it has to refetch anyway.
+operation /pronunciations: {
+    get: { # The station's lexicon: what it says, what has been proposed to it, and what it has turned down
+        name: List pronunciations
+        service: RenderService.listPronunciations
+        query: PronunciationQuery
+        response: {
+            200: {
+                application/json: PronunciationList
+            }
+        }
+    }
+    post: { # Adds one the operator typed. It is said from the next render on
+        name: Create pronunciation
+        service: RenderService.createPronunciation
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: PronunciationWrite
+        }
+        response: {
+            201: {
+                application/json: PronunciationList
+            }
+        }
+    }
+}
+
+operation /pronunciations/{id}: {
+    params: {
+        id: uuid
+    }
+    put: { # Rewrites one entry's words, whoever proposed it
+        name: Update pronunciation
+        service: RenderService.updatePronunciation
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: PronunciationWrite
+        }
+        response: {
+            200: {
+                application/json: PronunciationList
+            }
+        }
+    }
+    delete: { # Removes an entry outright. Turning a PROPOSAL down is a state rather than a deletion, because a deleted one comes back on the next pass
+        name: Delete pronunciation
+        service: RenderService.deletePronunciation
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: PronunciationList
+            }
+        }
+    }
+}
+
+operation /pronunciations/{id}/state: {
+    params: {
+        id: uuid
+    }
+    put: { # Accepts a proposal, turns one down, or takes an entry out of use without losing what it said
+        name: Set pronunciation state
+        service: RenderService.setPronunciationState
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: PronunciationStateWrite
+        }
+        response: {
+            200: {
+                application/json: PronunciationList
+            }
+        }
+    }
+}

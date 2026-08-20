@@ -3,6 +3,8 @@ import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { DEFAULT_PRONUNCIATIONS } from './pronunciation.lexicon.js';
+import { PronunciationRepository } from './pronunciation.repository.js';
 import { RenderService } from './render.service.js';
 import { SegmentLibrary } from './segment.library.js';
 import { ScriptHistoryRepository } from './script.history.repository.js';
@@ -99,6 +101,10 @@ export const RenderModule: ServerKitModule = {
             .useFactory(() => new VoiceSampleStore(config.get('VOICE_SAMPLE_DIR', DEFAULT_SAMPLE_DIR)))
             .asSingleton();
 
+        // Scoped with the repositories beside it. The render path reads it once per segment, which
+        // is what keeps an operator's edit to the lexicon audible on the next break.
+        registry.register(PronunciationRepository).useClass(PronunciationRepository).asScoped();
+
         // Singleton, for the reason `LlmGate` is one: there is one speech engine, and a per-scope
         // gate would hand every caller its own idea of whether it was busy.
         registry.register(SpeechGate).useClass(SpeechGate).asSingleton();
@@ -110,6 +116,26 @@ export const RenderModule: ServerKitModule = {
     ready: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
         const logger = container.get(Logger);
+
+        // The station's own lexicon, written once into an EMPTY table — `persona.defaults.ts`'s
+        // rule, and for its reason: guarding on the station holding nothing rather than on each
+        // written form being absent is what makes deleting a seed expressible. An operator who
+        // does not want the station saying "Kesha" gets to say so permanently.
+        try {
+            await inScope(container, async scope => {
+                const lexicon = scope.get(PronunciationRepository);
+                if ((await lexicon.count()) > 0) return;
+
+                const seeded = await lexicon.addAll(
+                    DEFAULT_PRONUNCIATIONS.map(entry => ({ ...entry, state: 'active' as const, origin: 'operator' as const })),
+                );
+                logger.info(`render: seeded the station's own pronunciations`, { entries: seeded });
+            });
+        } catch (error) {
+            // A station that says a name plainly is a station that talks. Not a reason to refuse to
+            // boot, and the next boot tries again.
+            logger.warn(`render: could not seed the pronunciation lexicon (${errorText(error)})`);
+        }
 
         // In `ready` rather than `setup`: nothing the first request does depends on the inbox
         // having been read, and a directory of audio is a filesystem walk plus a row per file. An

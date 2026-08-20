@@ -9,7 +9,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { explainNoSpeaker, selectSpeechPlugin, SPEECH_PLUGIN_KEY } from './speech.settings.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentExtension } from './segment.store.js';
 import { SpeechGate, type SpeechGateOptions } from './speech.gate.js';
-import { malformedEntries, parsePronunciations, PRONUNCIATION_KEY } from './pronunciation.lexicon.js';
+import { PronunciationRepository } from './pronunciation.repository.js';
 import { transposeForSpeech } from './speech.transpose.js';
 import type { VoiceSampleStore } from './voice.sample.store.js';
 
@@ -93,6 +93,7 @@ export class SpeechService {
         private readonly config: AppConfig,
         private readonly store: SegmentStore,
         private readonly gate: SpeechGate,
+        private readonly pronunciations: PronunciationRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -162,7 +163,7 @@ export class SpeechService {
      */
     async speakWith(plugin: SpeechPlugin, request: SpeechRequest, options: SpeechGateOptions = {}): Promise<SpokenAudio> {
         const pluginId = plugin.record.id;
-        const spokenText = this.sayable(request.text);
+        const spokenText = await this.sayable(request.text);
 
         // The gate wraps the drain as well as the request, because the engine is producing audio
         // for the whole of it. Acquired HERE rather than in `speak`, which delegates to this: two
@@ -207,11 +208,15 @@ export class SpeechService {
         request: SpeechRequest,
         options: SpeechGateOptions = {},
     ): Promise<SegmentExtension> {
+        // Read before the gate is taken, as `speakWith` does: the lexicon is a query, and a query
+        // made while holding the one speech slot is a query every other caller waits behind.
+        const spokenText = await this.sayable(request.text);
+
         return await this.gate.hold(
             async () => {
                 // Transposed like anything else, so a preview is what the station would actually say
                 // rather than a reading of the sample line nothing else would ever produce.
-                const handle = await this.startSpeaking(plugin, { ...request, text: this.sayable(request.text) });
+                const handle = await this.startSpeaking(plugin, { ...request, text: spokenText });
                 const ext = this.extensionOf(plugin.record.id, handle);
 
                 try {
@@ -239,22 +244,16 @@ export class SpeechService {
     /**
      * A script as the engine should be handed it.
      *
-     * The lexicon comes off the config rather than a repository, exactly as {@link configuredSpeaker}
-     * does and for the same reason: `deadair.settings` is a layer of the app's config, so this needs
-     * no scope and an operator's edit is live on the next render. Parsed per call, which is a few
-     * dozen lines once per segment and not worth a cache that could go stale against a live setting.
+     * One read of the lexicon per segment, uncached deliberately: an operator's edit is heard on the
+     * next break rather than after a restart, which is the property the setting this replaced had
+     * and the only one worth keeping from it. A few dozen rows once every few minutes does not want
+     * a cache that can go stale against a live table.
      *
-     * A malformed line is said once, quoted, and skipped. That is the treatment an unknown template
-     * placeholder gets, on the same argument: from the console it looks exactly like an entry the
-     * station has decided not to use, so the only way an operator finds out is if something says so.
+     * A row cannot be malformed, which is most of what moving the lexicon out of a text box bought:
+     * there is nothing here to warn about any more, because an entry either exists or it does not.
      */
-    private sayable(text: string): string {
-        const raw = this.config.get(PRONUNCIATION_KEY, '');
-        const broken = malformedEntries(raw);
-        if (broken.length > 0)
-            this.logger.warn('render: these pronunciation entries are not "written => spoken" and were skipped', { lines: broken });
-
-        const spoken = transposeForSpeech(text, parsePronunciations(raw));
+    private async sayable(text: string): Promise<string> {
+        const spoken = transposeForSpeech(text, await this.pronunciations.active());
         if (spoken !== text.trim()) this.logger.debug('render: transposed a script for the engine', { written: text, spoken });
 
         return spoken;

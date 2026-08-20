@@ -420,6 +420,21 @@ export interface DeadairProductions {
   writingMode: Generated<"quick" | "outlined" | "polished">;
 }
 
+export interface DeadairPronunciations {
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  origin: "operator" | "gloss";
+  sourceQuote: string | null;
+  sourceUrl: string | null;
+  spoken: string;
+  state: "active" | "suggested" | "rejected";
+  stationKey: Generated<string>;
+  subjectId: string | null;
+  subjectKind: "track" | "album" | "artist" | null;
+  updatedAt: Generated<DateTime>;
+  written: string;
+}
+
 export interface DeadairScheduleSlots {
   brief: Generated<string>;
   createdAt: Generated<DateTime>;
@@ -689,6 +704,7 @@ export interface DB {
   "deadair.pluginGrants": DeadairPluginGrants;
   "deadair.pluginStorage": DeadairPluginStorage;
   "deadair.productions": DeadairProductions;
+  "deadair.pronunciations": DeadairPronunciations;
   "deadair.scheduleSlots": DeadairScheduleSlots;
   "deadair.scriptHistory": DeadairScriptHistory;
   "deadair.scrobbleQueue": DeadairScrobbleQueue;

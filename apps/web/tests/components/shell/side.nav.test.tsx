@@ -37,6 +37,7 @@ describe('SideNav', () => {
             'Subjects',
             'Productions',
             'Voices',
+            'Pronunciations',
             'Scripts',
             'Plugins',
             'Settings',

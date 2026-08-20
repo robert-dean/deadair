@@ -1,6 +1,7 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { NEWS_TOPIC_KIND } from '#modules/news/news.topic.kind.js';
 import type { TopicKind } from './topic.js';
 import { TopicKindRegistry } from './topic.kind.registry.js';
 import { TopicRepository } from './topic.repository.js';
@@ -28,8 +29,8 @@ export const TopicsModule: ServerKitModule = {
         // sources are: nothing scans, nothing self-registers, and what the station can name is
         // readable in one place.
         //
-        // Empty until a kind declares itself, which is an ordinary state — the console page says
-        // there is nothing to name yet, which is true.
+        // A station whose kinds all have nothing to name is an ordinary state, and so is an empty
+        // list here — the console page says there is nothing to name yet, which is true.
         registry
             .register(TopicKindRegistry)
             .useFactory(() => new TopicKindRegistry(KINDS))
@@ -40,4 +41,4 @@ export const TopicsModule: ServerKitModule = {
 };
 
 /** The kinds that take subjects, in the order a console should draw them. */
-const KINDS: readonly TopicKind[] = [];
+const KINDS: readonly TopicKind[] = [NEWS_TOPIC_KIND];

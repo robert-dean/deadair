@@ -77,6 +77,23 @@ export class TopicsService {
         await this.topics.remove(id);
         return await this.list({});
     }
+
+    /**
+     * Write a kind's own starting vocabulary, on a station that has none of it.
+     *
+     * The guard is that the station holds NO subjects of this kind rather than that each key is
+     * missing, which is `PersonasService.seed`'s rule and is what makes deleting a seeded one
+     * expressible: an operator who threw away Sport gets to keep it thrown away.
+     *
+     * Called from the module that OWNS the kind, so the vocabulary and the code that reads it stay
+     * in one place. Answers how many it wrote, for the caller's log.
+     */
+    async seed(kind: string, drafts: readonly Omit<StoredTopic, 'id'>[]): Promise<number> {
+        if ((await this.topics.countFor(kind)) > 0) return 0;
+
+        for (const draft of drafts) await this.topics.create(draft);
+        return drafts.length;
+    }
 }
 
 /**

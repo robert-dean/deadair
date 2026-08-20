@@ -39,6 +39,9 @@ import { NEWS_KIND, NewsBreakWriter } from '../src/modules/director/news.break.w
 import { NEWS_MAX_WORDS, NEWS_SHAPE } from '../src/modules/director/model.news.break.writer.js';
 import { isPrivateAddress, NETWORK_OPEN } from '../src/modules/plugins/plugin.grants.js';
 import type { NewsService } from '../src/modules/news/news.service.js';
+import { categoriesOf, newsTopicRules } from '../src/modules/news/news.classify.js';
+import { TopicRepository } from '../src/modules/topics/topic.repository.js';
+import { StationIdentity } from '../src/modules/shared/station.identity.js';
 
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
 const loud = new ConsoleLogger();
@@ -167,6 +170,24 @@ for (const [at, story] of stories.entries()) {
     console.log(`     story:   ${story.body === undefined ? '— (headline only: no article was read)' : `${story.body.slice(0, 200)}…`}`);
     console.log('');
 }
+
+// ── the categories, against real headlines ──────────────────────────────────────
+//
+// The classifier is pure and is unit-tested, so what is checked here is the thing a table test
+// cannot see: whether the operator's OWN feeds carry the labels the seeded categories are written
+// against. A run where every story comes back uncategorised means the categories are word lists
+// against publishers who tag nothing — which is the state where a band asking for one is silent, so
+// it is worth seeing before it is heard.
+const rules = (await new TopicRepository(db, new StationIdentity()).list(NEWS_KIND)).map(newsTopicRules);
+const page = await news.fetchItems({ limit: 25 });
+
+console.log(`─ categories (${rules.length} on this station, ${page.length} stories read) ───────────────`);
+for (const item of page) {
+    const found = categoriesOf({ ...item, feedId: `${manifest.id}:${item.feedId}` }, rules);
+    const said = found.length === 0 ? 'nothing' : found.map(match => `${match.key} (${match.rank})`).join(', ');
+    console.log(`  ${said.padEnd(34)} ${item.title.slice(0, 70)}`);
+}
+console.log('');
 
 const floor = await new NewsBreakWriter(config, loud).write({ kind: NEWS_KIND, stories, station: config.get('STREAM_TITLE', 'Deadair') });
 

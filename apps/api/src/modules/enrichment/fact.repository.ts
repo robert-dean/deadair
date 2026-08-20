@@ -27,6 +27,17 @@ export type FactSubjectType = (typeof FACT_SUBJECTS)[number];
 export type FactSource = 'lead' | 'model';
 
 /**
+ * Which pass has been over a document, which is a WIDER question than which one wrote a claim.
+ *
+ * `gloss` produces no fact at all — it fills `deadair.pronunciations` out of the pronunciation key
+ * an article printed for its own name — and is marked here anyway, because what a mark answers is
+ * "has this pass read this document" and a second table asking that would be this table under
+ * another name. The two vocabularies are deliberately not one type: a value that can be written to
+ * `facts.source` is a claim's author, and `gloss` is never that.
+ */
+export type DocumentPass = FactSource | 'gloss';
+
+/**
  * What sort of fact a claim is.
  *
  * The same list as the `facts_category_check` constraint, and the reason it is
@@ -147,7 +158,7 @@ export class FactRepository extends DataRepository {
      * Raw SQL because the interesting part is `jsonb_array_elements` over a
      * payload column, which the query builder does not express at all.
      */
-    async listPendingDocuments(source: FactSource, limit: number): Promise<PendingDocument[]> {
+    async listPendingDocuments(source: DocumentPass, limit: number): Promise<PendingDocument[]> {
         const rows = await sql<{
             subjectType: FactSubjectType;
             subjectId: string;
@@ -233,7 +244,7 @@ export class FactRepository extends DataRepository {
      * already said. That is expected rather than exceptional, so it is ignored
      * rather than caught: the row that is already there is the same claim.
      */
-    async recordExtraction(document: PendingDocument, source: FactSource, claims: FactWrite[]): Promise<number> {
+    async recordExtraction(document: PendingDocument, source: DocumentPass, claims: FactWrite[]): Promise<number> {
         return await this.db.transaction().execute(async trx => {
             let written = 0;
 
@@ -268,6 +279,26 @@ export class FactRepository extends DataRepository {
 
             return written;
         });
+    }
+
+    /**
+     * A document read by a pass that writes something other than a claim.
+     *
+     * The mark alone, and `yielded` keeps the column meaning what it says: how much this document
+     * was worth to this pass, where zero is the interesting value and the reason the table exists.
+     *
+     * Separate from {@link recordExtraction} rather than a parameter of it, because that one's whole
+     * job is landing the claims and the mark in ONE transaction and there are no claims here. A
+     * caller that writes elsewhere first and marks second is choosing to re-read a document after a
+     * crash rather than to lose what it found, which is the right way round when the writer it
+     * marks for can tell a duplicate from a new entry.
+     */
+    async markRead(document: PendingDocument, source: DocumentPass, yielded: number): Promise<void> {
+        await this.db
+            .insertInto('deadair.factExtractions')
+            .values({ ...subjectColumns(document.subject), source, documentUrl: document.url, claims: yielded })
+            .onConflict(conflict => conflict.doNothing())
+            .execute();
     }
 
     /**

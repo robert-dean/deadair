@@ -6,6 +6,7 @@ import { EnrichmentRepository } from './enrichment.repository.js';
 import { EnrichmentService } from './enrichment.service.js';
 import { LineupPriorityReader } from './lineup.priority.js';
 import { FactExtractionService } from './fact.extraction.service.js';
+import { PronunciationMiningService } from './pronunciation.mining.service.js';
 import { FactRepository } from './fact.repository.js';
 
 export const EnrichmentModule: ServerKitModule = {
@@ -35,5 +36,11 @@ export const EnrichmentModule: ServerKitModule = {
         // reached from the break writer's own.
         registry.register(FactRepository).useClass(FactRepository).asScoped();
         registry.register(FactExtractionService).useClass(FactExtractionService).asScoped();
+
+        // The second thing worth having out of the same articles: how to say the name they are
+        // about. Registered here rather than in `render` beside the lexicon it fills, because what
+        // it needs to be near is the document walk — the entries it writes go out through a
+        // repository the render module already owns.
+        registry.register(PronunciationMiningService).useClass(PronunciationMiningService).asScoped();
     },
 };

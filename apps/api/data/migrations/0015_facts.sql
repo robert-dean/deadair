@@ -121,9 +121,14 @@ create table deadair.fact_extractions (
     album_id uuid references deadair.albums (id) on delete cascade,
     artist_id uuid references deadair.artists (id) on delete cascade,
     constraint fact_extractions_subject_check check (num_nonnulls(track_id, album_id, artist_id) = 1),
-    -- Which extractor read it. The two are tracked apart so that turning a model on later re-reads
-    -- every article the floor has already been over, rather than skipping them as done.
-    source text not null constraint fact_extractions_source_check check (source in ('lead', 'model')),
+    -- Which pass read it. They are tracked apart so that turning a model on later re-reads every
+    -- article the floor has already been over, rather than skipping them as done.
+    --
+    -- `gloss` writes no fact at all: it fills `deadair.pronunciations` from the pronunciation key an
+    -- article printed for itself. It is marked here anyway, because what this column names is a
+    -- READER rather than a kind of fact — the question is "has this pass been over this document" —
+    -- and a second table asking that would be this table with another name.
+    source text not null constraint fact_extractions_source_check check (source in ('lead', 'model', 'gloss')),
     -- Which document, by the address it was cited under. A plugin that later hands over a different
     -- article about the same record is a new row and gets read.
     document_url text not null,

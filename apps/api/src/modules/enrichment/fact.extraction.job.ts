@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { withRunBudget } from '#modules/jobs/run.budget.js';
 import { FactExtractionService } from './fact.extraction.service.js';
+import { PronunciationMiningService } from './pronunciation.mining.service.js';
 
 /**
  * Documents read per run — a ceiling, not a target.
@@ -55,6 +56,7 @@ export interface FactExtractionPayload {
 export class FactExtractionJob extends PlainJob<FactExtractionPayload> {
     constructor(
         private readonly extraction: FactExtractionService,
+        private readonly pronunciations: PronunciationMiningService,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -71,18 +73,31 @@ export class FactExtractionJob extends PlainJob<FactExtractionPayload> {
             // what makes a station with no model plugin still fill its store.
             const lead = await this.extraction.extractLead(limit, stop);
 
+            // The same documents read for a second thing entirely: the pronunciation key the
+            // article printed for its own name. Batched with the floor rather than with the model,
+            // because it is the same sort of work — local rows and arithmetic — and it is here
+            // rather than in a job of its own because the documents, the budget and the marks are
+            // all already walked exactly once by this one.
+            const glosses = await this.pronunciations.mine(limit, stop);
+
             // Then whatever a model can add on top. Off by default, and every
-            // way it declines leaves the pass above already banked.
+            // way it declines leaves the passes above already banked.
             const model = await this.extraction.extractModel(MODEL_BATCH_SIZE, stop);
 
-            return { lead, model };
+            return { lead, glosses, model };
         });
 
         // Quiet when there was nothing to do. On a settled station this is every
         // run: the documents stop arriving once the enrichment walk has been
         // over the catalog, and it stays quiet until a record is added.
-        if (result.lead.read + result.model.read > 0) {
-            this.logger.info('fact extraction pass', { job: this.context.id, lead: result.lead, model: result.model, outOfTime });
+        if (result.lead.read + result.glosses.read + result.model.read > 0) {
+            this.logger.info('fact extraction pass', {
+                job: this.context.id,
+                lead: result.lead,
+                glosses: result.glosses,
+                model: result.model,
+                outOfTime,
+            });
         }
     }
 }

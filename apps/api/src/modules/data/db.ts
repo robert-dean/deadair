@@ -247,7 +247,7 @@ export interface DeadairFactExtractions {
   createdAt: Generated<DateTime>;
   documentUrl: string;
   id: Generated<string>;
-  source: "lead" | "model";
+  source: "lead" | "model" | "gloss";
   stationKey: Generated<string>;
   trackId: string | null;
 }

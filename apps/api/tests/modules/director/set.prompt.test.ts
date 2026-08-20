@@ -25,19 +25,23 @@ describe('setPrompt', () => {
         // way the lookup will look it up, so it wins wherever the two disagree.
         const system = systemOf(setPrompt({ count: 5, avoid: [] }));
 
-        expect(system).toMatch(/Use the search_library and search_catalog tools to find records/);
+        expect(system).toMatch(/Use the search_music tool to find records/);
         expect(system).toMatch(/You may also name a record you know of that no search returned/);
         expect(system).toMatch(/Never correct a search result from memory/);
         expect(system).not.toMatch(/Never name a record from your own knowledge/);
     });
 
-    it('puts the library first and the provider second', () => {
-        // Both air, so this is about cost rather than permission: a library record is owned,
-        // measured and on hand, while a provider record costs a lookup and a download.
+    it('states what owned MEANS rather than an order to search things in', () => {
+        // Both air, so the preference is about cost rather than permission — and the host now reads
+        // both stores in one answer, so the preference is a field on the row and not a decision.
+        // The rule this replaced ("search the library FIRST") is the one that cost briefed hours: a
+        // model told to reach past the library only when it could not fill the ask kept asking the
+        // library for artists it had already been told the station does not hold.
         const system = systemOf(setPrompt({ count: 5, avoid: [] }));
 
-        expect(system).toMatch(/Search the library FIRST/);
-        expect(system).toMatch(/when the library cannot fill/);
+        expect(system).toMatch(/Each record says whether the station already owns it/);
+        expect(system).toMatch(/both are safe to name/);
+        expect(system).not.toMatch(/Search the library FIRST/);
     });
 
     it('says a brief is a style to expand rather than a query to run', () => {
@@ -170,9 +174,9 @@ describe('setPrompt', () => {
 
         expect(system).toMatch(/browse_charts also takes a style directly/);
         expect(system).toMatch(/reads the world's chart for that style/);
-        // Framed as a fallback for the library search, not a replacement for it: the world's chart
-        // is what to reach for once the station's own vocabulary comes up short.
-        expect(system).toMatch(/Use this for a brief the library search comes up short on/);
+        // Framed as a fallback for the search, not a replacement for it: the world's chart is what
+        // to reach for once the station's own vocabulary comes up short.
+        expect(system).toMatch(/Use this for a brief the search comes up short on/);
     });
 
     it('offers the tools as a method rather than as an inventory', () => {

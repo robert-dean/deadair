@@ -96,7 +96,7 @@ export interface SetPromptSettings {
      * The styles the library actually answers to, commonest first, as `style (n records)`.
      *
      * The words, not the records. A style search was a blind guess at a string for as long as one
-     * was possible: the model reached for the operator's own phrasing, `search_library` matched it
+     * was possible: the model reached for the operator's own phrasing, the library search matched it
      * as one substring, and an empty answer read as an empty library. It reached for "heavy metal
      * hits" over a library holding 240 metal records.
      *
@@ -132,9 +132,9 @@ export interface SetPromptSettings {
      *
      * Advice, exactly like {@link taste}'s dislikes, and for the same reason: the policy is enforced
      * in `PickResolver` whatever the model does, so a model that ignores this cannot air a forbidden
-     * record — it can only waste the picks it spent on one. `search_library` already excludes them,
-     * but `search_catalog` reaches every provider and does not, so without this line a briefed
-     * refill can spend half its answer on records that will be dropped.
+     * record — it can only waste the picks it spent on one. `search_music` narrows its own library
+     * half to clean copies, but a provider does not mark most of what it carries, so without this
+     * line a briefed refill can spend half its answer on records that will be dropped.
      *
      * Only under `clean-only`. A preference has nothing to say here: it is settled when the COPY is
      * chosen, long after the model named the work, and the work is playable either way.
@@ -199,13 +199,18 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // what a provider carries, spelled the way the lookup will look it up; a memory is a
         // starting point. So knowledge may name, and may never overrule: where the two disagree,
         // the provider is right, because it is the one that has to find the record afterwards.
-        '- Use the search_library and search_catalog tools to find records. What a search returns is what the station can definitely play.',
+        '- Use the search_music tool to find records. What a search returns is what the station can definitely play.',
         '- You may also name a record you know of that no search returned. The station will try to find it, and will quietly drop it if it cannot, so prefer what the searches gave you.',
         '- Never correct a search result from memory. If a search returned a record, its spelling of the title and the artist is the right one.',
-        // The preference, stated as an order rather than as a prohibition. Library records are
-        // already owned, already measured and cost nothing to play; a provider record costs a
-        // lookup and a download. Both air, so this is about cost and not about permission.
-        '- Search the library FIRST. Use search_catalog when the library cannot fill what you were asked for.',
+        // What used to be an ORDER between two tools, now that there is one. The preference survives
+        // and the decision does not: the host reads the library and the providers together and says
+        // which is which on the row, so all that is left to state is what the field means.
+        //
+        // This is the rule the merge exists to delete. Told to search the library first and reach
+        // past it when it could not fill the ask, a model briefed for a style the library does not
+        // hold searched the library for one artist after another that it had ALREADY been told the
+        // station does not have, and ran out of steps before it answered. It was following the rule.
+        '- Each record says whether the station already owns it. An owned record is ready to play and one it does not own is fetched when you choose it, so both are safe to name — lean toward owned where the brief is served either way.',
         // The rule that decides whether a brief is served at all, and the one thing here the model's
         // own knowledge is FOR. A search is text against titles and artist names, so the operator's
         // words go in and records with those words in the title come out: "jazz club hits" returned
@@ -232,11 +237,11 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
                   // Stated as two facts rather than as encouragement, because "you may still search"
                   // reads as permission to a model that has already concluded there is no point.
                   '- That list is the commonest few, NOT all of them. A style missing from it is not a style the station lacks: search the word anyway, because the library holds hundreds of styles too small to list.',
-                  '- And search_catalog reaches records the station does not own at all, so a brief the library genuinely cannot fill is still one you can programme. There is no brief for which the answer is nothing.',
+                  '- And a search reaches records the station does not own at all, so a brief its own library genuinely cannot fill is still one you can programme. There is no brief for which the answer is nothing.',
               ]
             : []),
         '- Work out for yourself which artists fit the brief, then search for THEM by name, one at a time. That is what the searches are good at.',
-        // The station has four tools and used to be told about two, so a briefed refill had exactly
+        // The station had four tools and used to be told about two, so a briefed refill had exactly
         // one way to get from a style to a set of artists: whatever the model happened to remember.
         // Measured on the run that prompted this, a `heavy metal hits` refill named Lamb of God,
         // Megadeth and Metallica — which are the first three entries of the operator's OWN likes
@@ -257,13 +262,13 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         // library knows" rule above: that rule is about what the STATION owns and this is about
         // what the WORLD is playing, and a brief the library cannot fill is exactly the case where
         // the second is the only honest answer.
-        '- browse_charts also takes a style directly ({"style": "jazz"}), which reads the world\'s chart for that style rather than one it has to be named for. Use this for a brief the library search comes up short on.',
+        '- browse_charts also takes a style directly ({"style": "jazz"}), which reads the world\'s chart for that style rather than one it has to be named for. Use this for a brief the search comes up short on.',
         // The filter that used to be advertised here is gone. It was sent to the provider and did
         // not narrow anything: beside an artist's name it returned nothing at all, and on its own
-        // it returned the same obscure records whatever else came with it. See `CatalogSearchTool`,
+        // it returned the same obscure records whatever else came with it. See `MusicSearchTool`,
         // which no longer offers it — this line went with it rather than being left to recommend a
         // parameter that is not there.
-        '- search_catalog also takes yearFrom and yearTo. Use those for a period, never words like "80s" in the query text.',
+        '- search_music also takes yearFrom and yearTo. Use those for a period, never words like "80s" in the query text.',
         // Two live runs pulled this rule in opposite directions and it now states the condition
         // rather than a number of searches, which is what satisfies both.
         //

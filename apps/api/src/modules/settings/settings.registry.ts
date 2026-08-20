@@ -25,6 +25,7 @@ import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.
 import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
 import { MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
+import { ALWAYS_REACH_DEFAULT, MUSIC_SEARCH_KEYS } from '#modules/llm/music.search.tool.js';
 import { MODEL_FACTS_DEFAULT, MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
@@ -567,6 +568,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: MODEL_GENERATOR_DEFAULT,
         help: 'With this off the station picks by rule: a weighted draw shaped by the repeat window, the artist cooldown and your ratings. With it on the model chooses first and that draw finishes whatever it did not — a model that names six good records has done most of the job, so a partial answer is kept rather than thrown away. It can only choose records already in your library.',
+    },
+    {
+        group: 'llm',
+        key: MUSIC_SEARCH_KEYS.alwaysReach,
+        label: 'Always search your providers',
+        type: 'boolean',
+        default: ALWAYS_REACH_DEFAULT,
+        dependsOn: MODEL_GENERATOR_KEYS.enabled,
+        help: 'Off, the station searches your own library and only reaches your providers when it comes up short — which is nearly always the right thing, and is not the only way a record gets found: anything the model names is fetched whether a provider was searched or not. On, every search asks your providers too, which finds more and costs a request each time. Worth turning on if your library is small and you want the model choosing from everything; worth leaving off if a provider rate-limits you, or if talk breaks start feeling slow, since they share this search.',
     },
     {
         group: 'llm',

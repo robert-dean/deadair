@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { CatalogSearchTool } from './catalog.search.tool.js';
+import { MusicSearchTool } from './music.search.tool.js';
 import { ProviderSearch } from './provider.search.js';
 import { ChartsTool } from './charts.tool.js';
 import { LibrarySearchTool } from './library.search.tool.js';
@@ -58,6 +59,11 @@ export const LlmModule: ServerKitModule = {
         // Scoped with the catalog repository it reads. Not a plugin consumer at all, which is the
         // difference between the two search tools: this one asks what the station HAS.
         registry.register(LibrarySearchTool).useClass(LibrarySearchTool).asScoped();
+        // What the model is actually offered: both of the above in one answer, with `owned` on the
+        // row. The two they were built from are still registered and no longer reach a model — they
+        // go in the commit that deletes them, so this one can be reverted on its own if a live
+        // refill says the merge was wrong.
+        registry.register(MusicSearchTool).useClass(MusicSearchTool).asScoped();
         // Also a catalog read rather than a plugin one, and offered to every caller rather than to
         // selection alone: "the station loves this band" is a thing a break writer says on air.
         registry.register(StationTasteTool).useClass(StationTasteTool).asScoped();
@@ -93,10 +99,9 @@ export const LlmModule: ServerKitModule = {
                 (container: Container) =>
                     new ToolRegistry(
                         [
-                            container.get(LibrarySearchTool),
-                            container.get(CatalogSearchTool),
+                            container.get(MusicSearchTool),
                             container.get(StationTasteTool),
-                            // Ahead of the plugin-backed three, behind the two that answer with
+                            // Ahead of the plugin-backed three, behind the one that answers with
                             // records: a writer reaching for context about the show it is in the
                             // middle of should find this before anything that goes off the station.
                             container.get(ShowSoFarTool),

@@ -146,7 +146,9 @@ reads as a station that never had a model.
 guitar" runs short rather than finishing the hour with whatever else the library holds. Three bounds
 make that safe to have at all — it applies only where there IS a brief, since an unbriefed station's
 floor is not a mismatch but the station itself; the similarity binding is deliberately NOT marked,
-because its seeds are records that actually aired and so it draws from the brief's own results; and a
+because its seeds are records that actually aired and so it draws from the brief's own results
+(**that argument does NOT stretch to a PERIOD**, and both middle bindings filter on one themselves —
+see the era gotcha); and a
 refill it actually cost records says so on the activity feed, because a station that ran dry with a
 full library is otherwise two facts with nothing connecting them.
 
@@ -610,7 +612,16 @@ field. A period is the exception and the station had already conceded it: `set.p
 model never to write "80s" in a query and to pass `yearFrom`/`yearTo` instead, because the words do
 not work and the numbers do. What being a column buys is `CandidatesRepository.sample` narrowing on
 it, so a station asked for a decade keeps playing one with `llm.setGenerator` off entirely — which
-prose can never do, since prose reaches a model and nothing else. There is nothing to approximate: a
+prose can never do, since prose reaches a model and nothing else. **Every binding in the chain
+narrows on it, and the two in the middle do so for a reason that is not efficiency**: `PickResolver`
+drops an out-of-period pick whatever named it, so a generator that names one turns its whole share of
+the batch into NOTHING, where declining lets `SetGeneratorChain` top up from a floor that can
+actually fill the slot — a short answer beats a doomed full one. `SimilarSetGenerator` is the one
+that matters, since it takes 40% of every batch by default and the argument excusing it from
+`ignoresBrief` (its seeds are records that aired) is much weaker for a period than for a style: a
+neighbour of a 1975 record is stylistically close and easily from 1998. `ChartSetGenerator` filters
+too and will come back near-empty against a CURRENT chart under any old period, which is the setting
+working rather than a fault — a station wanting both wants a chart from that period. There is nothing to approximate: a
 year range is not a guess. Four things are load-bearing. **An unknown year is ELIGIBLE**, the
 opposite call to `clean-only` and deliberately — an advisory is a content policy where silence must
 not read as consent, and this is programming, where dropping a record the station owns for want of a

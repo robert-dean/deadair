@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ChartsService } from '#modules/charts/charts.service.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from './pick.resolver.js';
+import { bindsAnything, withinPeriod } from './candidates.repository.js';
 import { songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -149,9 +150,21 @@ export class ChartSetGenerator extends SetGenerator {
 
         const picks: TrackPick[] = [];
         const taken = new Set<string>();
+        const era = bindsAnything(inputs.era) ? inputs.era : undefined;
 
         for (const entry of entries) {
             if (picks.length >= want) break;
+
+            // The PERIOD, for `SimilarSetGenerator`'s reason: `PickResolver` drops an out-of-period
+            // pick whatever named it, so naming one turns this binding's share of the batch into
+            // nothing, where declining lets the chain top up from a floor that can actually fill it.
+            //
+            // It bites harder here than anywhere else, and that is worth knowing rather than
+            // discovering: a chart is a snapshot of what is popular NOW, so a station asked for a
+            // decade and taking a share from a current chart will find almost none of it eligible.
+            // That is the setting doing what it says rather than a fault — an operator who wants
+            // both wants a chart FROM that period, which is `rotation.chart` rather than this.
+            if (era !== undefined && !withinPeriod(entry.year, era)) continue;
 
             const key = songKey(entry.title, [entry.artist]);
             // The chain checks this too, and doing it here as well is what makes the oversample
@@ -166,7 +179,7 @@ export class ChartSetGenerator extends SetGenerator {
             picks.push({ title: entry.title, artist: entry.artist });
         }
 
-        this.logger.debug('director: took records from a chart', { chartId, want, offered: entries.length, named: picks.length });
+        this.logger.debug('director: took records from a chart', { chartId, want, offered: entries.length, named: picks.length, ...(era === undefined ? {} : { era }) });
         return picks;
     }
 

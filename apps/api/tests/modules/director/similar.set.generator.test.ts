@@ -181,4 +181,48 @@ describe('seeding', () => {
 
         expect(await generator.generate(inputs({ count: 10 }))).toHaveLength(1);
     });
+
+    // The PERIOD. This binding is excused `ignoresBrief` on the argument that its seeds are records
+    // that actually aired, so under a brief it draws from the brief's own results. That stretches
+    // much less far for a period than for a style: a neighbour of a 1975 record is stylistically
+    // close and easily from 1998.
+    describe('under a period', () => {
+        const neighbours = [
+            { title: 'In Period', artist: 'Tricky', year: 1975 },
+            { title: 'Out Of Period', artist: 'Tricky', year: 1998 },
+            { title: 'Undated', artist: 'Tricky' },
+        ];
+
+        it('names only what falls inside it', async () => {
+            const { generator } = build({ tracks: [neighbours[1]!, neighbours[0]!] });
+
+            const picks = await generator.generate(inputs({ count: 10, era: { from: 1970, to: 1979 } }));
+
+            expect(picks.map(pick => pick.title)).toEqual(['In Period']);
+        });
+
+        it('keeps a neighbour the source gave no year for', async () => {
+            // The same rule the draw and the resolver apply. All three have to agree, or a record is
+            // eligible in one place and dropped in another.
+            const { generator } = build({ tracks: [neighbours[2]!] });
+
+            expect(await generator.generate(inputs({ count: 10, era: { from: 1970, to: 1979 } }))).toHaveLength(1);
+        });
+
+        it('comes back SHORT rather than naming a record the resolver will drop', async () => {
+            // The whole argument for filtering here rather than leaving it to `PickResolver`. An
+            // out-of-period pick is dropped whatever named it, so handing one over turns this
+            // binding's share of the batch into nothing — where declining lets `SetGeneratorChain`
+            // top up from the floor, which narrows on the same period in SQL and can fill the slot.
+            const { generator } = build({ tracks: [neighbours[1]!] });
+
+            expect(await generator.generate(inputs({ count: 10, era: { from: 1970, to: 1979 } }))).toEqual([]);
+        });
+
+        it('is unchanged by a window with no ends set', async () => {
+            const { generator } = build({ tracks: [neighbours[1]!] });
+
+            expect(await generator.generate(inputs({ count: 10, era: {} }))).toHaveLength(1);
+        });
+    });
 });

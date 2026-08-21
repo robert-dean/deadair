@@ -5,6 +5,7 @@ import { SimilarityService } from '#modules/similarity/similarity.service.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from './pick.resolver.js';
+import { bindsAnything, withinPeriod } from './candidates.repository.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -151,6 +152,9 @@ export class SimilarSetGenerator extends SetGenerator {
         const picks: TrackPick[] = [];
         const takenSongs = new Set(inputs.avoidSongKeys ?? []);
         const takenArtists = new Set<string>();
+        // Absent unless the broadcast named one, and `bindsAnything` is what tells a window with no
+        // ends set apart from a real bound.
+        const era = bindsAnything(inputs.era) ? inputs.era : undefined;
 
         try {
             // Seed at a time rather than gathering every neighbour first, so a batch that fills
@@ -179,6 +183,26 @@ export class SimilarSetGenerator extends SetGenerator {
                         const song = songKey(track.title, [track.artist]);
                         if (takenSongs.has(song)) continue;
 
+                        // The PERIOD, applied here rather than left to the resolver, and the
+                        // difference is not efficiency. `PickResolver` drops an out-of-period pick
+                        // whatever named it, so handing one over converts this binding's share of
+                        // the batch into NOTHING — where declining to name it lets
+                        // `SetGeneratorChain` top up from `CatalogSetGenerator`, which narrows on
+                        // the same period in SQL and can actually fill the slot. **A short answer
+                        // from here is strictly better than a doomed full one.**
+                        //
+                        // It is needed at all because the argument that excuses this binding from
+                        // `ignoresBrief` does not stretch this far. That argument is that its seeds
+                        // are records which actually aired, so under a brief it draws from the
+                        // brief's own results — true, and much weaker for a period than for a
+                        // style: a neighbour of a 1975 record is stylistically close and easily
+                        // from 1998. It skews in-period without landing in it.
+                        //
+                        // An unknown year passes, exactly as it does in the draw and at the
+                        // resolver. All three have to agree or a record is eligible in one place
+                        // and not another.
+                        if (era !== undefined && !withinPeriod(track.year, era)) continue;
+
                         takenSongs.add(song);
                         // No `trackId`: this has not read the catalog. The resolver matches by name,
                         // which is the one place that decision belongs.
@@ -193,7 +217,7 @@ export class SimilarSetGenerator extends SetGenerator {
             this.logger.warn(`director: the similarity walk stopped early (${errorText(error)})`);
         }
 
-        this.logger.debug('director: took records from neighbours of what has aired', { seeds: seeds.length, want, named: picks.length });
+        this.logger.debug('director: took records from neighbours of what has aired', { seeds: seeds.length, want, named: picks.length, ...(era === undefined ? {} : { era }) });
         return picks;
     }
 

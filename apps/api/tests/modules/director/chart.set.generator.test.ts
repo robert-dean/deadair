@@ -250,4 +250,29 @@ describe('discovery', () => {
 
         expect(await generator.generate(inputs({ count: 2 }))).toHaveLength(2);
     });
+
+    describe('under a period', () => {
+        it('names only the entries that fall inside it, and keeps an undated one', async () => {
+            const { generator } = build({
+                entries: [
+                    { title: 'Now', artist: 'A', year: 2026 },
+                    { title: 'Then', artist: 'B', year: 1975 },
+                    { title: 'Undated', artist: 'C' },
+                ],
+            });
+
+            const picks = await generator.generate(inputs({ count: 4, era: { from: 1970, to: 1979 } }));
+
+            expect(picks.map(pick => pick.title)).toEqual(['Then', 'Undated']);
+        });
+
+        it('comes back empty against a current chart, which is the setting working', async () => {
+            // Worth pinning rather than discovering on air: a chart is a snapshot of what is popular
+            // NOW, so a station asked for a decade finds almost none of one eligible. An operator who
+            // wants both wants a chart FROM that period, which is `rotation.chart`.
+            const { generator } = build({ entries: [{ title: 'Now', artist: 'A', year: 2026 }] });
+
+            expect(await generator.generate(inputs({ count: 4, era: { from: 1970, to: 1979 } }))).toEqual([]);
+        });
+    });
 });

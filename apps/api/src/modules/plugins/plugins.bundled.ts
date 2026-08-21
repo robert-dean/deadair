@@ -39,6 +39,7 @@ export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/lastfm'),
     resolveBundledPluginDir('plugins/wikipedia'),
     resolveBundledPluginDir('plugins/kokoro'),
+    resolveBundledPluginDir('plugins/chatterbox'),
     resolveBundledPluginDir('plugins/llm'),
     resolveBundledPluginDir('plugins/analyzer'),
     resolveBundledPluginDir('plugins/rss'),

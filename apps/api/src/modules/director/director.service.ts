@@ -1433,7 +1433,20 @@ export class DirectorService {
             // sized in candidates is not the same as a window sized in items.
             const candidates = lineup.nextPlanned(COMMIT_LEAD + SEGMENT_SLACK).filter(item => !this.rundown.isPrepared(item.id));
             const taken = takeForLead(await this.withLocalAudio(candidates), wanted);
-            this.noteAudioWait(candidates.length > 0 && taken.length === 0);
+            // Judged on RECORDS at both ends, which is narrower than it was and is the difference
+            // between the wait meaning something and meaning almost nothing. A segment rides the
+            // window for free (`SEGMENT_SLACK`) and can be committed while every record behind it is
+            // still cold — so a pass that handed over a break and nothing else used to read as a
+            // pass that committed, clearing a wait that was entirely still true. What that costs is
+            // everything hanging off the wait: the warm ticker stops asking, and the station reports
+            // itself as committing normally while it commits no music at all.
+            //
+            // The other half is the same correction read forwards: an order whose remaining
+            // candidates are all segments has nothing to wait FOR, and starting a wait over it would
+            // be a station reporting that it cannot get audio it never wanted.
+            const wantedRecord = candidates.some(isTrackItem);
+            const tookRecord = taken.some(isTrackItem);
+            this.noteAudioWait(wantedRecord && !tookRecord);
             const prepared = taken.length === 0 ? undefined : await this.toPlayerItems(taken);
 
             // ── apply ───────────────────────────────────────────────────────────────
@@ -1445,10 +1458,18 @@ export class DirectorService {
             if (!this.epoch.isCurrent(token)) return;
 
             if (prepared) {
-                // Committing anything at all ends the wait, so a station that recovers stops saying
-                // it is stuck and the next stall is reported afresh.
-                this.waitingOnAudioSince = undefined;
-                this.waitingOnAudioReported = false;
+                // Committing a RECORD ends the wait, so a station that recovers stops saying it is
+                // stuck and the next stall is reported afresh. A segment does not, and that is the
+                // same narrowing `noteAudioWait` takes above rather than a second rule: a break
+                // rides the window for free, so "committed something" was true of a pass that
+                // handed over one break and no music — and, because `toPlayerItems` SKIPS a segment
+                // that is not ready, it was true even of a pass that committed nothing whatsoever.
+                // Either way the wait was cleared while every word of it was still the case, which
+                // stopped the warm ticker and had the station report itself as keeping up.
+                if (tookRecord) {
+                    this.waitingOnAudioSince = undefined;
+                    this.waitingOnAudioReported = false;
+                }
                 this.rundown.prepare(prepared.items);
                 for (const itemId of prepared.skipped) lineup.markSkipped(itemId);
                 for (const itemId of prepared.unavailable) lineup.markUnavailable(itemId);

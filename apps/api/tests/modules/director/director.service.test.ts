@@ -2412,6 +2412,40 @@ describe('DirectorService waking itself while it waits on bytes', () => {
         }
     });
 
+    // A segment rides the commit window for free, so a pass can hand one over while every record
+    // behind it is still cold. Counting that as "the pass committed" cleared a wait that was
+    // entirely still true, and everything hanging off the wait went with it: the ticker stopped
+    // asking, and the station reported itself as committing normally while committing no music.
+    it('keeps waiting when the only thing it could commit was a segment', async () => {
+        const { director, lineup, seedCatalogued } = build({
+            items: ['a', 'b'],
+            localAudio: [],
+            segments: [{ id: 'seg-ready', kind: 'ident', state: 'ready', label: 'Ident', audioChecksum: 'x', audioExt: 'mp3' }],
+        });
+        await seedCatalogued();
+        lineup.insertSegments([{ segmentId: 'seg-ready', atIndex: 0 }]);
+
+        await director.start();
+
+        expect(director.audioWaitSince()).toBeDefined();
+    });
+
+    // The same correction read forwards: an order with no records left ahead of it has nothing to
+    // wait FOR, and starting a wait over it would have the station report that it cannot get audio
+    // it never wanted.
+    it('starts no wait for an order whose remaining items are all segments', async () => {
+        const { director, lineup } = build({
+            items: [],
+            localAudio: [],
+            segments: [{ id: 'seg-ready', kind: 'ident', state: 'ready', label: 'Ident', audioChecksum: 'x', audioExt: 'mp3' }],
+        });
+        lineup.insertSegments([{ segmentId: 'seg-ready', atIndex: 0 }]);
+
+        await director.start();
+
+        expect(director.audioWaitSince()).toBeUndefined();
+    });
+
     // The gate, which is the whole design: a healthy station must not be paying for a pass every
     // few seconds. `noteAudioWait` clears the wait on any pass that commits something, so the loop
     // stops asking without anything having to turn it off.

@@ -5,8 +5,10 @@
 // downstream accepts.
 
 import { describe, expect, it } from 'vitest';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import { parseSetting, serializeSetting } from '../../../src/modules/settings/setting.values.js';
+import { settingIsOn } from '../../../src/modules/shared/setting.flags.js';
 import type { SettingDescriptor } from '../../../src/modules/settings/settings.registry.js';
 
 const descriptor = (overrides: Partial<SettingDescriptor>): SettingDescriptor =>
@@ -23,15 +25,43 @@ describe('parseSetting', () => {
         expect(parseSetting(descriptor({ default: 'Deadair' }), '')).toBe('');
     });
 
-    it('reads only the exact string `false` as false', () => {
+    it('reads a stored switch with the words somebody hand-editing a row would type', () => {
         const field = descriptor({ type: 'boolean', default: true });
 
         expect(parseSetting(field, 'false')).toBe(false);
         expect(parseSetting(field, 'true')).toBe(true);
-        // A hand-edited row holding something else must not turn a feature off by accident, which
-        // is the direction that costs a station its listener hooks.
-        expect(parseSetting(field, 'no')).toBe(true);
-        expect(parseSetting(field, '')).toBe(true);
+        // Not only the exact word. This read `stored !== 'false'` for as long as it existed, so
+        // every one of these showed as ON in the console while the feature behind it was off.
+        expect(parseSetting(field, 'no')).toBe(false);
+        expect(parseSetting(field, 'off')).toBe(false);
+        expect(parseSetting(field, '0')).toBe(false);
+        expect(parseSetting(field, ' FALSE ')).toBe(false);
+        expect(parseSetting(field, 'yes')).toBe(true);
+    });
+
+    it('takes the declared default for a stored value that means neither', () => {
+        // An empty string is what clearing the box leaves behind, and it is not a "no". This is the
+        // half that made the old reading wrong in BOTH directions: a cleared row on a switch that
+        // ships off used to render as on.
+        expect(parseSetting(descriptor({ type: 'boolean', default: true }), '')).toBe(true);
+        expect(parseSetting(descriptor({ type: 'boolean', default: false }), '')).toBe(false);
+        expect(parseSetting(descriptor({ type: 'boolean', default: false }), 'banana')).toBe(false);
+    });
+
+    it('answers exactly what `settingIsOn` answers, for every value either can be handed', () => {
+        // The one failure a settings form has. The console renders `parseSetting` and the station
+        // runs on `settingIsOn`, so a row they disagree about is a console reporting the opposite
+        // of what is running, honestly, off the same row. Asserted end to end rather than by
+        // reading the delegation, because the delegation is what a later edit removes.
+        const stored = ['true', 'false', '1', '0', 'yes', 'no', 'on', 'off', '', '   ', ' FALSE ', 'TRUE', 'banana'];
+
+        for (const declared of [true, false]) {
+            for (const value of stored) {
+                const config = { get: (_key: string, fallback: unknown) => value, has: () => true } as unknown as AppConfig;
+
+                expect(parseSetting(descriptor({ type: 'boolean', default: declared }), value)).toBe(settingIsOn(config, 'test.key', declared));
+            }
+        }
     });
 
     it('falls back rather than answering NaN for a number that will not parse', () => {

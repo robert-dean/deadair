@@ -1,3 +1,4 @@
+import { flagIsOn } from '#modules/shared/setting.flags.js';
 import type { SettingDescriptor } from './settings.registry.js';
 
 /**
@@ -28,10 +29,12 @@ export function parseSetting(descriptor: SettingDescriptor, stored: string | und
 
     switch (descriptor.type) {
         case 'boolean':
-            // Only the exact string `false` is false. Anything else stored in a boolean's row —
-            // including the empty string — reads as true, which keeps a hand-edited row from
-            // silently turning a feature off.
-            return stored !== 'false';
+            // The SAME vocabulary the modules read a switch with, which is the whole point: this
+            // renders the form and `settingIsOn` decides what the station does, so a row the two
+            // disagree about is a console that confidently reports the opposite of what is running.
+            // It read `stored !== 'false'` for as long as it existed, so `0`, `no`, `off` and a
+            // cleared row all showed as ON while every feature behind them was off.
+            return flagIsOn(stored, descriptor.default === true);
         case 'number': {
             const parsed = Number(stored);
             // A number column holding something that is not one falls back rather than answering

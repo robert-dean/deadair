@@ -42,8 +42,26 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
  * @param fallback - The registry's declared default for that key, so the two cannot disagree.
  */
 export function settingIsOn(config: AppConfig, key: string, fallback: boolean): boolean {
-    const raw = config.get(key, fallback);
+    return flagIsOn(config.get(key, fallback), fallback);
+}
 
+/**
+ * The same question asked of a value already in hand.
+ *
+ * {@link settingIsOn} is how a module reads a switch and this is the vocabulary underneath it,
+ * separated out because the CONSOLE has to answer the identical question from a different place:
+ * `parseSetting` renders a stored row into the settings form without going through `AppConfig` at
+ * all. While that was its own coercion the two disagreed, which is the one failure mode a settings
+ * form has — the console said a feature was on, the module read it as off, and both were reporting
+ * the same row honestly. Anything else that has to turn a stored string into a switch belongs here
+ * too rather than writing a fifth `!== 'false'`.
+ *
+ * @param raw - Whatever the value arrived as: a string from a column or a file, or a real boolean
+ *   from a default or a test.
+ * @param fallback - The registry's declared default, which is the answer for a value that means
+ *   neither yes nor no.
+ */
+export function flagIsOn(raw: unknown, fallback: boolean): boolean {
     // A layer that genuinely held a boolean, which is every default on this path and every test
     // that hands one over. Checked first so the string handling below is only ever reached by a
     // value that came out of a database or a file.

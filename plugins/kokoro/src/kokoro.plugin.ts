@@ -129,11 +129,12 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
             id,
             label: id,
             description: `${engineVoice} on this server`,
+            spec: engineVoice,
         }));
 
         // Always offer the fallback, under its own name, so a station with no
         // mappings at all still has something to preview and choose.
-        return [{ id: '', label: 'Default', description: `${this.defaultVoice} on this server` }, ...mapped];
+        return [{ id: '', label: 'Default', description: `${this.defaultVoice} on this server`, spec: this.defaultVoice }, ...mapped];
     }
 
     async speak(request: SpeechRequest): Promise<SpeechHandle> {

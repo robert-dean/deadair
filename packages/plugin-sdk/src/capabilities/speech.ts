@@ -94,6 +94,27 @@ export interface SpeechVoice {
 
     /** Anything worth knowing when choosing between them: an accent, a register. */
     description?: string;
+
+    /**
+     * An opaque token that changes when what this voice SOUNDS LIKE changes.
+     *
+     * The host does not interpret it, parse it, store it or show it. It uses it
+     * for one thing: keying the cached preview at `GET /voices/{id}/sample`, so
+     * that remapping `host` from one engine voice to another — or nudging its
+     * speed, or swapping its reference clip — mints a new key and the next
+     * preview renders instead of playing the old voice back.
+     *
+     * That was already the claim `VoiceSampleStore` made in its own doc comment
+     * and it was not true: the key held the STATION voice id, which is exactly
+     * the part that does not change when an operator edits the mapping under it.
+     * The fence is intact because this stays opaque — whatever string identifies
+     * a rendering to you is the right value, and `engineVoice@speed` is a fine
+     * one.
+     *
+     * Absent is normal. A plugin that omits it keys previews as it always did,
+     * which is correct for one whose voices cannot be reconfigured.
+     */
+    spec?: string;
 }
 
 /** A plugin that can speak. */

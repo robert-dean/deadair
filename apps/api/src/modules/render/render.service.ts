@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { isPluginError } from '@deadair/plugin-sdk';
+import type { SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import type {
@@ -223,27 +224,46 @@ export class RenderService {
     /**
      * The voices the station can be asked to speak in.
      *
-     * Answers rather than throwing when nothing can speak, with `reason` saying which of the three
-     * ways that happens it is (nothing installed, several installed and none chosen, or a chosen one
-     * that is not running). A console drawing an empty list wants to explain it; a 503 would leave
-     * it guessing.
+     * Answers rather than throwing when nothing can speak, with `reason` saying which of the two
+     * ways that happens it is (nothing installed, or a chosen one that is not running). A console
+     * drawing an empty list wants to explain it; a 503 would leave it guessing.
      */
     async listVoices(): Promise<VoiceList> {
         const plugin = this.speech.speaker();
         if (plugin === undefined) return { voices: [], reason: this.speech.explainSpeaker() };
 
         const voices = await this.speech.voices(plugin);
-        return { voices, pluginId: plugin.record.id };
+
+        // Mapped rather than passed through, to leave `SpeechVoice.spec` behind. It is a cache-key
+        // ingredient the host does not interpret and nobody outside this module has any use for, and
+        // the `Voice` contract deliberately does not declare it — a plain assignment would compile
+        // and put it on the wire anyway, since an excess property check does not reach a variable.
+        return {
+            voices: voices.map(voice => ({
+                id: voice.id,
+                label: voice.label,
+                ...(voice.description === undefined ? {} : { description: voice.description }),
+            })),
+            pluginId: plugin.record.id,
+        };
     }
 
     /**
      * A short line spoken in one voice, rendered on the first ask and cached after.
      *
-     * The cache is the filesystem: the key is derived from the plugin, the voice and the fixed
-     * sample line, so a hit is the file being there and a remapped voice mints a different key
-     * rather than serving the old audio back. Nothing records the mapping, because the name is the
-     * mapping.
+     * The cache is the filesystem: the key is derived from the plugin, the voice, what the plugin
+     * says that voice currently IS, and the fixed sample line — so a hit is the file being there
+     * and a remapped voice mints a different key rather than serving the old audio back. Nothing
+     * records the mapping, because the name is the mapping.
      *
+     * That last part needs the plugin's own `SpeechVoice.spec`, which means asking for the voice
+     * LIST before rendering one of them. It is one in-process call to a plugin that has the answer
+     * in a field, and it buys the property the store's doc comment always claimed: without it the
+     * key holds the station voice id, which is exactly the part that does not change when an
+     * operator edits the mapping under it. A voice the plugin does not list — or lists without a
+     * `spec` — keys as it did before, which is the honest answer for an engine that cannot say.
+     *
+
      * `ext` is not part of the key, so a store that already holds this sample in one format is
      * probed for each: an operator who changes the plugin's output format gets a re-render on the
      * next click rather than a stale file under a name that no longer matches.
@@ -255,7 +275,7 @@ export class RenderService {
         const plugin = this.speech.speaker();
         if (plugin === undefined) throw httpError(503).withDetails({ message: this.speech.explainSpeaker() });
 
-        const key = this.samples.keyFor(plugin.record.id, voiceId);
+        const key = this.samples.keyFor(plugin.record.id, voiceId, await this.voiceSpec(plugin, voiceId));
 
         for (const ext of this.samples.extensions) {
             const cached = await this.samples.read(key, ext);
@@ -298,6 +318,27 @@ export class RenderService {
 
         this.logger.info('render: rendered a voice sample', { plugin: plugin.record.id, voice: voiceId, ext });
         return sampleResponse(bytes, key, ext);
+    }
+
+    /**
+     * What this plugin currently says a voice IS, for the sample key.
+     *
+     * Never throws. A plugin that cannot answer, does not implement `listVoices`, or does not know
+     * this voice leaves the key as it was — so the worst case is the caching behaviour that shipped
+     * before `spec` existed, and never a preview that 502s over its own cache name.
+     */
+    private async voiceSpec(plugin: SpeechPlugin, voiceId: string): Promise<string | undefined> {
+        try {
+            const voices = await this.speech.voices(plugin);
+            return voices.find(voice => voice.id === voiceId)?.spec;
+        } catch (error) {
+            this.logger.debug('render: could not read a voice spec for the sample key', {
+                plugin: plugin.record.id,
+                voice: voiceId,
+                error: errorText(error),
+            });
+            return undefined;
+        }
     }
 
     /** Take whatever is in the inbox into the library. */

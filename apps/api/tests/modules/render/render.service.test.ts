@@ -1,5 +1,6 @@
 import { IsHttpError } from '@maroonedsoftware/errors';
 import { describe, expect, it, vi } from 'vitest';
+import type { SpeechVoice } from '@deadair/plugin-sdk';
 
 import { RenderService } from '../../../src/modules/render/render.service.js';
 import { SAMPLE_TEXT } from '../../../src/modules/render/voice.sample.store.js';
@@ -42,7 +43,7 @@ interface ServiceOptions {
     planned?: Segment;
     /** `null` means nothing can speak. */
     speaker?: null;
-    voices?: { id: string; label: string }[];
+    voices?: SpeechVoice[];
     sample?: Buffer;
     speakAs?: () => Promise<string>;
     /** What the history answers with. Absent leaves `page()` a stub that throws when it is called. */
@@ -74,7 +75,7 @@ const service = (options: ServiceOptions = {}) => {
     });
 
     const samples = {
-        keyFor: (pluginId: string, voiceId: string) => `key:${pluginId}:${voiceId}`,
+        keyFor: (pluginId: string, voiceId: string, spec?: string) => `key:${pluginId}:${voiceId}${spec === undefined ? '' : `:${spec}`}`,
         extensions: ['mp3', 'wav'],
         read: sampleRead,
     };
@@ -236,6 +237,15 @@ describe('RenderService.listVoices', () => {
         expect(await render.listVoices()).toEqual({ voices: [{ id: 'host', label: 'Station host' }], pluginId: 'deadair.kokoro' });
     });
 
+    it('leaves the spec behind, because it is a cache key and not a field of the contract', async () => {
+        // The host does not interpret it and nobody outside the render module has a use for it. A
+        // plain pass-through would compile and put it on the wire, since an excess property check
+        // does not reach a variable.
+        const { service: render } = service({ voices: [{ id: 'host', label: 'Station host', spec: 'af_heart@1' }] });
+
+        expect(await render.listVoices()).toEqual({ voices: [{ id: 'host', label: 'Station host' }], pluginId: 'deadair.kokoro' });
+    });
+
     it('answers an empty list with a reason rather than failing', async () => {
         // A console drawing an empty list wants to explain it; a 503 would leave it guessing.
         const { service: render } = service({ speaker: null });
@@ -281,6 +291,36 @@ describe('RenderService.getVoiceSample', () => {
 
     it('validates on the cache key, so a remapped voice is a different ETag', async () => {
         const { service: render } = service({ sample: Buffer.from('already rendered') });
+
+        expect((await render.getVoiceSample('host')).headers.etag).toBe('"key:deadair.kokoro:host"');
+    });
+
+    it('keys the sample on what the plugin says the voice currently IS', async () => {
+        // The whole reason the sample path asks for the voice LIST before rendering one of them.
+        // Without it the key holds `host`, which is exactly the part that does not change when an
+        // operator edits the mapping under it — so a remap served the old voice back forever.
+        const { service: render } = service({
+            sample: Buffer.from('already rendered'),
+            voices: [{ id: 'host', label: 'Station host', spec: 'bm_george@0.95' }],
+        });
+
+        expect((await render.getVoiceSample('host')).headers.etag).toBe('"key:deadair.kokoro:host:bm_george@0.95"');
+    });
+
+    it('keys as it always did when the plugin lists the voice without a spec', async () => {
+        const { service: render } = service({
+            sample: Buffer.from('already rendered'),
+            voices: [{ id: 'host', label: 'Station host' }],
+        });
+
+        expect((await render.getVoiceSample('host')).headers.etag).toBe('"key:deadair.kokoro:host"');
+    });
+
+    it('still renders when the voice list cannot be read at all', async () => {
+        // A preview must never 502 over its own cache name. The worst case is the caching behaviour
+        // that shipped before `spec` existed.
+        const { service: render, voices } = service({ sample: Buffer.from('already rendered') });
+        voices.mockRejectedValue(new Error('the engine is down'));
 
         expect((await render.getVoiceSample('host')).headers.etag).toBe('"key:deadair.kokoro:host"');
     });

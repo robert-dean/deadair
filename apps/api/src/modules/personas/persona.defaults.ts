@@ -58,6 +58,40 @@
  * A manner is still a voice. Contractions, the second person and a plain word where a formal one
  * would go are the whole of what separates these six lines from the station's own five, and that
  * turns out to be enough to hear.
+ *
+ * ## None of them says what to PLAY any more, and their old lines are kept here as briefs
+ *
+ * Every one of these carried a `music` line, and the field is gone: a persona is who the station is
+ * when it opens its mouth, and what it plays is the brief's job — `station_lineup.brief` for this
+ * broadcast, `schedule_slots.brief` for this stretch of the day, `schedule.sustainingBrief` for the
+ * standing default. See `persona.ts` for what having a fourth channel cost.
+ *
+ * The sentences themselves were the good half and are kept, because they are exactly what an
+ * operator wants in the brief box when they put one of these on air:
+ *
+ * - **classic** — Familiar and easy to like. Records with a chorus somebody can find their way into,
+ *   and nothing that needs explaining.
+ * - **latenight** — Slow, spacious and unhurried. Records that suit a room with the lights off, and
+ *   nothing that demands attention.
+ * - **cratedigger** — Deep cuts, B-sides and the records that got passed over. Album tracks before
+ *   singles, and nothing that needs introducing.
+ * - **pirate** — Loud, rowdy and built for a crew: sea-worthy rock, folk with a stomp to it, and
+ *   anything with a chorus worth shouting.
+ * - **howler** — Loud, hot and old. Rock and roll, soul with the horns up, blues that shouts.
+ *   Nothing polite and nothing sleepy.
+ * - **quietstorm** — Slow soul, quiet R&B and ballads with room in them. Nothing above a simmer.
+ * - **countdown** — Hits, and the records that were nearly hits. Songs people have a memory attached
+ *   to.
+ * - **wisecrack** — Whatever has a story attached. Overreaching concept records, one-hit wonders,
+ *   and things that were enormous and probably should not have been.
+ * - **shockjock** — Big, loud and familiar. Records with a chorus, nothing that needs explaining,
+ *   nothing sleepy.
+ * - **conspiracy** — Long, strange and a little too deliberate. Deep cuts, odd session credits, and
+ *   anything with a story nobody can quite verify.
+ *
+ * They are a comment rather than a field precisely because pairing one with a character is the
+ * operator's call: the pirate captain over a metal hour is a station somebody might want, and a
+ * seed that quietly programmed for them would be the thing this removed.
  */
 
 import type { PersonaDraft } from './persona.js';
@@ -87,7 +121,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             "That's the sort of thing this station is for. Stay right where you are.",
             "Here's one worth turning up, and we'll be right here when it's finished.",
         ],
-        music: 'Familiar and easy to like. Records with a chorus somebody can find their way into, and nothing that needs explaining.',
         // The default host had none, which made it the one persona a fresh install lands on with no
         // voice of its own the moment the model declines — it fell back to `rotation.breakTemplates`,
         // which is the station speaking rather than this character. Warm, contracted and second
@@ -131,7 +164,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             "It's quiet out there, and you're still awake. So am I.",
             "It's late, and there's no hurry on anything tonight.",
         ],
-        music: 'Slow, spacious and unhurried. Records that suit a room with the lights off, and nothing that demands attention.',
         templates: [
             'That was {{previous.title}}, {{previous.artist}}.[[ Next tonight, {{next.artist}}, {{next.title}}.]]',
             "{{previous.artist}} there, with {{previous.title}}.[[ There's {{next.title}} coming after it.]]",
@@ -167,7 +199,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             "I'll let that one speak for itself. Here's another cut worth your time.",
             'The sleeve credits one session and the label credits another. I know which I believe.',
         ],
-        music: 'Deep cuts, B-sides and the records that got passed over. Album tracks before singles, and nothing that needs introducing.',
         templates: [
             'That was {{previous.title}}, from {{previous.artist}}. Worth the dig.[[ Next off the shelf, {{next.artist}}, {{next.title}}.]]',
             "{{previous.artist}} there, with {{previous.title}}.[[ Here's {{next.title}} after it.]]",
@@ -223,7 +254,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'That one came up from the deep, and there be richer plunder in the hold yet.',
             "Aye, that be a fine haul, matey — 'tis one o' the finest in yer hold.",
         ],
-        music: 'Loud, rowdy and built for a crew: sea-worthy rock, folk with a stomp to it, and anything with a chorus worth shouting.',
         templates: [
             "That there haul was {{previous.title}}, from {{previous.artist}}.[[ Next out o' the hold, {{next.artist}} with {{next.title}}.]]",
             "Ye just heard {{previous.artist}}, with {{previous.title}}.[[ Comin' up, {{next.title}}.]]",
@@ -259,7 +289,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             "Turn it up out there. This next one's been howlin' at the door all night.",
             "Oh, lord — turn that one loose, honey, it's runnin' wild out there.",
         ],
-        music: 'Loud, hot and old. Rock and roll, soul with the horns up, blues that shouts. Nothing polite and nothing sleepy.',
         templates: [
             'Alright! That was {{previous.title}}, from {{previous.artist}}, have mercy.[[ Now here comes {{next.artist}} with {{next.title}}!]]',
             "{{previous.artist}}, baby, with {{previous.title}}.[[ Hold on now — {{next.title}} is comin' at you.]]",
@@ -296,7 +325,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             "Slow it down with me. There's more of this coming, and nowhere either of us has to be.",
             'Keep it low and close tonight, love. Nothing sweet ever needed to be loud.',
         ],
-        music: 'Slow soul, quiet R&B and ballads with room in them. Nothing above a simmer.',
         templates: [
             'That was {{previous.title}}, {{previous.artist}}. Nice and easy.[[ {{next.artist}} is next, with {{next.title}}.]]',
             '{{previous.artist}} there, with {{previous.title}}.[[ Stay right there — {{next.title}} is coming.]]',
@@ -333,7 +361,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             "Here's what's coming up, and I think you're going to want to stay for it.",
             "That's the story of your week, right now, and we're here together for the rest of it.",
         ],
-        music: 'Hits, and the records that were nearly hits. Songs people have a memory attached to.',
         templates: [
             'That was {{previous.title}}, from {{previous.artist}}.[[ And now, {{next.artist}}, with {{next.title}}.]]',
             '{{previous.artist}} there, with {{previous.title}} — and the story goes on.[[ Coming up, {{next.title}}.]]',
@@ -386,7 +413,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'That was recorded in a converted barn, which explains a surprising amount. Anyway.',
             'Apparently this was a bold artistic statement. Admittedly, it has grown on me.',
         ],
-        music: 'Whatever has a story attached. Overreaching concept records, one-hit wonders, and things that were enormous and probably should not have been.',
         templates: [
             'That was {{previous.title}}, from {{previous.artist}}. Ambitious.[[ Next, {{next.artist}} with {{next.title}}.]]',
             '{{previous.artist}} there, apparently.[[ Somehow followed by {{next.title}}.]]',
@@ -439,7 +465,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'Wow. Four minutes of my life and yours, gone. Anyway, this next one is genuinely great.',
             'Alright, look — that chorus is gonna be stuck in my head all morning. Seriously. Yikes.',
         ],
-        music: 'Big, loud and familiar. Records with a chorus, nothing that needs explaining, nothing sleepy.',
         templates: [
             "Okay, that was {{previous.title}} from {{previous.artist}}, and I'm not sorry.[[ Comin' up, {{next.artist}}, {{next.title}}.]]",
             '{{previous.artist}} there with {{previous.title}}. Wow.[[ Alright, here comes {{next.title}}.]]',
@@ -506,7 +531,6 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'Same pressing plant as the last one. Same month. You can call that a coincidence, friend. I am not going to.',
             'Listen. Same catalogue number, two labels, one strange little pattern. Ask yourself why nobody mentions it.',
         ],
-        music: 'Long, strange and a little too deliberate. Deep cuts, odd session credits, and anything with a story nobody can quite verify.',
         templates: [
             'That was {{previous.title}}, from {{previous.artist}}. Now think about that.[[ Next, {{next.artist}} with {{next.title}}. No coincidence.]]',
             '{{previous.artist}} there, with {{previous.title}}. Listen, friend.[[ {{next.title}} is next, and that is not an accident.]]',

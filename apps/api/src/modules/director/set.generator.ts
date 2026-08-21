@@ -1,4 +1,3 @@
-import type { Persona } from '#modules/personas/persona.js';
 import type { ResolvedRules } from './rotation.rules.js';
 
 /**
@@ -28,7 +27,15 @@ export interface TrackPick {
     trackId?: string;
 }
 
-/** What a generator is told before it chooses. */
+/**
+ * What a generator is told before it chooses.
+ *
+ * **It is not told who is presenting**, and that is deliberate rather than an omission. A `persona`
+ * was here, carried whole so that `ModelSetGenerator` could read its `music` line, and the field it
+ * existed for is gone: a persona is who the station IS when it opens its mouth, and what the station
+ * PLAYS is the brief's job. Nothing about a character's diction ever belonged in front of a record
+ * chooser, and once the one line that did was removed there was nothing left to hand over.
+ */
 export interface SetInputs {
     /** How many tracks to name. A generator may return fewer; it must not return more. */
     count: number;
@@ -43,18 +50,6 @@ export interface SetInputs {
      * satisfy gets an ordinary hour rather than a short one.
      */
     brief?: string;
-    /**
-     * Who the station is right now.
-     *
-     * Read by the caller and handed over whole, exactly as `BreakWriteRequest.persona` is and for
-     * the same reason: a generator stays a pure function of what it was told. Only the `music` line
-     * is used here — what a persona SOUNDS like has nothing to do with what it plays, and handing a
-     * record chooser a page of diction would spend context on a question it is not being asked.
-     *
-     * The floor ignores it, like the brief and for the same reason: approximating an instruction
-     * would make the thing that cannot fail depend on how well a guess landed.
-     */
-    persona?: Persona;
     /** Songs not to choose, beyond whatever history says: what the lineup already holds. */
     avoidSongKeys?: ReadonlySet<string>;
     /** Artists not to choose, for the same reason. */

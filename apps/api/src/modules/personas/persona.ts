@@ -3,8 +3,7 @@
  *
  * The sheet ({@link PersonaSheet}) is the half that reaches a prompt. This is the whole thing: the
  * sheet plus everything about a persona that is not said to a model — the name it goes by on air,
- * the voice that speaks it, the phrasings the station falls back to in its words, and what it
- * programmes towards.
+ * the voice that speaks it, and the phrasings the station falls back to in its own words.
  *
  * ## Why the record is wider than the sheet
  *
@@ -12,6 +11,20 @@
  * is the ordinary case by design. {@link Persona.templates} is the answer to that: the station's
  * deterministic floor, written in this character, so a station with no model at all still sounds
  * like the one that was chosen.
+ *
+ * ## A persona is a VOICE, and says nothing about what the station plays
+ *
+ * There was a `music` line here, handed to `ModelSetGenerator` so that choosing a character chose
+ * the programming too. It is gone, and what it cost is worth recording so it is not reinvented.
+ *
+ * It was a FOURTH way to say what the station should play, beside the three that are keyed to the
+ * clock — `station_lineup.brief` for this broadcast, `schedule_slots.brief` for this stretch of the
+ * day, and `schedule.sustainingBrief` for the standing default. Two prose descriptions of the music
+ * reaching one local model produced the obvious result: handed "long, strange and deliberate deep
+ * cuts" AND "80s synthpop" it split the difference, so the `music` line had to be WITHHELD from any
+ * refill that carried a brief. That rule was load-bearing, it was a page of explanation, and
+ * deleting the field deletes it: there is now one place an operator says what to play, and a
+ * persona is purely who says it.
  */
 
 import type { PersonaSheet } from './persona.sheet.js';
@@ -52,14 +65,6 @@ export interface PersonaDraft extends PersonaSheet {
      * for a persona whose voice is a manner rather than a dialect.
      */
     templates?: string;
-    /**
-     * What this persona plays, in the operator's words, for the model that chooses records.
-     *
-     * A description rather than an instruction, which is why a running order's own `brief` beats it
-     * where the two disagree: the persona is who the station is and the brief is somebody deciding
-     * tonight.
-     */
-    music?: string;
 }
 
 /** A persona as it is stored. */

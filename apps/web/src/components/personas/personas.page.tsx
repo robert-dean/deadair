@@ -225,7 +225,6 @@ function summarise(persona: Persona): string {
     parts.push(markers > 0 ? `checked against ${markers} words` : 'not checked for character');
 
     parts.push(persona.voice ? `spoken as ${persona.voice}` : 'the default voice');
-    if (persona.music) parts.push('picks its own records');
 
     return parts.join(' · ');
 }

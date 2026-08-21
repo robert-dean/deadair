@@ -8,7 +8,6 @@
  * are the records", and nothing either side of that.
  */
 
-import type { Persona } from '#modules/personas/persona.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
@@ -37,8 +36,6 @@ export interface PlanRequest {
     rules: ResolvedRules;
     /** What the operator asked for, read off the running order rather than carried in a payload. */
     brief?: string;
-    /** Who is presenting, resolved by the caller. Absent is ordinary and means nobody chose. */
-    persona?: Persona;
     /** Songs not to choose again: what the order already holds, or what it is about to stop holding. */
     avoidSongKeys: ReadonlySet<string>;
 }
@@ -105,7 +102,6 @@ export const planRecords = async (
             count: Math.ceil(request.count * OVERSAMPLE),
             rules: request.rules,
             ...(request.brief ? { brief: request.brief } : {}),
-            ...(request.persona === undefined ? {} : { persona: request.persona }),
             avoidSongKeys: request.avoidSongKeys,
         });
 

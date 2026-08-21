@@ -73,17 +73,6 @@ export interface SetPromptSettings {
     /** What the station calls itself, from `stream.title`. */
     station?: string;
     /**
-     * What the station plays, in the operator's own words, from the presenting persona's `music`.
-     *
-     * The MUSIC half of a persona and deliberately not the rest of it: what a character sounds like
-     * has nothing to do with what it programmes, and handing a record chooser a page of diction
-     * would spend context on a question nobody asked it.
-     *
-     * **Not sent at all when the refill was briefed.** See {@link setPrompt}: a persona is what the
-     * station plays when nobody said, and a brief is somebody saying.
-     */
-    music?: string;
-    /**
      * What the operator has liked and disliked, for steering.
      *
      * In the SYSTEM turn, unlike the brief: this is a standing fact about the station rather than
@@ -179,21 +168,23 @@ export interface SetPromptRequest {
  * is the standing job and its rules, the user turn is this particular refill.
  */
 export function setPrompt(request: SetPromptRequest, settings: SetPromptSettings = {}): LlmMessage[] {
-    // The system turn is told whether this refill was BRIEFED, which is the one thing about a
-    // particular refill that changes the standing job: a briefed broadcast has already been told
-    // what it is for, so the station's own description of its music is not a second opinion to
-    // weigh, it is noise.
-    const briefed = (request.brief?.trim().length ?? 0) > 0;
-
+    // The system turn does not change shape with the refill any more, and that is the point of what
+    // was removed. It used to be told whether this one was BRIEFED, so that a persona's own
+    // description of the station's music could be withheld when the operator had said something
+    // else — a local model handed "long, strange and deliberate deep cuts" AND "80s synthpop" splits
+    // the difference, and the cheapest fix was not to hand it both.
+    //
+    // A persona no longer describes what the station plays at all. It is who the station IS when it
+    // opens its mouth, and what it plays is the brief's job, at whichever of the three layers set
+    // one. So there is nothing left to weigh against the brief and nothing left to withhold.
     return [
-        { role: 'system', content: systemPrompt(settings, briefed) },
+        { role: 'system', content: systemPrompt(settings) },
         { role: 'user', content: userPrompt(request) },
     ];
 }
 
-function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
+function systemPrompt(settings: SetPromptSettings): string {
     const station = settings.station?.trim();
-    const music = settings.music?.trim();
 
     const lines = [
         `You are programming the music for a radio station${station ? ` called ${station}` : ''}.`,
@@ -356,13 +347,6 @@ function systemPrompt(settings: SetPromptSettings, briefed: boolean): string {
         'Copy each title and artist exactly as the search gave them to you. For a record you named from memory, use the plainest spelling of its title and its main artist.',
     ];
 
-    // Dropped entirely when the operator briefed this broadcast, rather than sent with an
-    // instruction to prefer the brief. That instruction was here and it was the wrong shape: a local
-    // model handed "long, strange and deliberate deep cuts" AND "80s synthpop" splits the
-    // difference, and the cheapest way to stop it is not to hand it both. So the precedence is
-    // structural now — brief the station and the persona is purely the presenter, do not brief it
-    // and the persona programmes. One rule, and no switch.
-    if (music && !briefed) lines.push('', 'The station describes its music this way, and you should choose to match it:', music);
     lines.push(...styleLines(settings.styles));
     lines.push(...tasteLines(settings.taste));
 

@@ -33,8 +33,6 @@ export interface Persona {
     samples?: string[];
     /** This character's own break phrasings, one per line. Empty means the station's global ones */
     templates?: string;
-    /** What this persona plays, for the model that chooses records */
-    music?: string;
     /** Whether this is the one on air. At most one per station */
     active: boolean;
 }
@@ -69,13 +67,11 @@ export interface PersonaInput {
     samples?: string[];
     /** This character's own break phrasings, one per line. Empty means the station's global ones */
     templates?: string;
-    /** What this persona plays, for the model that chooses records */
-    music?: string;
 }
 
 /**
  * A description of a character, in the operator's own words
- * generated from [PersonaRequest](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L34)
+ * generated from [PersonaRequest](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L33)
  */
 export interface PersonaRequest {
     description: string;
@@ -85,7 +81,7 @@ export interface PersonaRequest {
  * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
  * saved. The console opens this in the editor and the operator saves it through POST /personas, which
  * is what keeps generating a way of filling in the form rather than a second writer of the table
- * generated from [PersonaDraftView](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L41)
+ * generated from [PersonaDraftView](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L40)
  */
 export interface PersonaDraftView {
     key: string;
@@ -103,14 +99,13 @@ export interface PersonaDraftView {
     latitude?: 'loose' | 'unleashed';
     samples?: string[];
     templates?: string;
-    music?: string;
 }
 
 /**
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L70)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L68)
  */
 export interface PersonaRehearsalAttempt {
     /** Which binding was asked, as `segments.writer` would record it */
@@ -126,7 +121,7 @@ export interface PersonaRehearsalAttempt {
 }
 
 /**
- * generated from [PersonaList](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L29)
+ * generated from [PersonaList](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L28)
  */
 export interface PersonaList {
     personas: Persona[];
@@ -138,7 +133,7 @@ export interface PersonaListInput {
 
 /**
  * What a model wrote, and what had to be dropped to make it usable
- * generated from [GeneratedPersona](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L61)
+ * generated from [GeneratedPersona](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L59)
  */
 export interface GeneratedPersona {
     persona: PersonaDraftView;
@@ -150,7 +145,7 @@ export interface GeneratedPersona {
 
 /**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L79)
+ * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L77)
  */
 export interface PersonaRehearsal {
     personaId: string;

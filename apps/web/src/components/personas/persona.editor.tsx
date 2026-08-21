@@ -234,13 +234,6 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         {...form.getInputProps('templates')}
                     />
 
-                    <Textarea
-                        label="What they play"
-                        description="In your own words, for the model that chooses records. It is used only when a broadcast was not briefed: brief the station and this is ignored entirely, so the persona is purely the presenter."
-                        rows={3}
-                        {...form.getInputProps('music')}
-                    />
-
                     <Group justify="space-between">
                         <Text c="dimmed" size="xs">
                             Nothing here can loosen the rules the station always sends: never name a record it was not given, and be certain or say
@@ -346,7 +339,6 @@ interface FormValues {
     brevity: string;
     latitude: string;
     templates: string;
-    music: string;
     diction: string;
     dictionMarkers: string;
     quirks: string;
@@ -375,7 +367,6 @@ function valuesOf(persona: PersonaDraftView | undefined): FormValues {
         brevity: persona?.brevity ?? '',
         latitude: persona?.latitude ?? '',
         templates: persona?.templates ?? '',
-        music: persona?.music ?? '',
         diction: linesOf(persona?.diction),
         dictionMarkers: linesOf(persona?.dictionMarkers),
         quirks: linesOf(persona?.quirks),
@@ -422,7 +413,6 @@ function draftOf(values: FormValues): PersonaInput {
             // Not trimmed per line: the phrasings are parsed by the API the same way the station's
             // own setting is, and a blank line between two of them is somebody spacing their list.
             templates: text(values.templates),
-            music: text(values.music),
             diction: list(values.diction),
             dictionMarkers: list(values.dictionMarkers),
             quirks: list(values.quirks),

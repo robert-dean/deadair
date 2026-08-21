@@ -24,7 +24,6 @@ const answer = (over: Record<string, unknown> = {}): string =>
         avoid: ['vibe'],
         background: 'You have run the same all-nighter since 1974.',
         samples: ["Right then, love, that one's a proper stomper and we're not stoppin'."],
-        music: 'Northern soul, stompers, and the odd bit of Motown.',
         templates: "That was {{previous.title}}, love.[[ Comin' up, {{next.artist}}.]]",
         ...over,
     });
@@ -123,7 +122,7 @@ describe('reading a persona out of an answer', () => {
         expect(generated.draft.key).toBe('chipshop');
         expect(generated.draft.djName).toBe('Sal');
         expect(generated.draft.samples).toHaveLength(1);
-        expect(generated.draft.music).toContain('Northern soul');
+        expect(generated.draft.templates).toBeDefined();
     });
 
     it('reads JSON a model wrapped in prose, and past its thinking', () => {

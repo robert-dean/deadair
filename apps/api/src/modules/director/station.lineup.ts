@@ -692,10 +692,11 @@ export class StationLineup implements LiveOrder {
      * it that a broadcast can legitimately change its mind about mid-show. Everything else there
      * says which programme this IS, and a different answer to that is a different programme.
      *
-     * **An empty brief clears it, and clearing means something.** A briefed station is programmed
-     * against the words and is deliberately not shown the presenting persona's `music` line at all;
-     * an unbriefed one is programmed by that line. So this is the switch between "play heavy metal
-     * hits" and "play whatever the host would play", and both are things to ask for.
+     * **An empty brief clears it, and clearing means something.** It is the switch between "play
+     * heavy metal hits" and "play whatever ordinary rotation gives you", and both are things to ask
+     * for. It used to be a switch between the brief and the presenting persona's own description of
+     * the station's music, which is why clearing it once meant handing the hour back to the host;
+     * a persona is a voice now and the brief is the only thing that steers.
      */
     rebrief(brief?: string): void {
         const { brief: _current, ...rest } = this.binding;

@@ -207,10 +207,11 @@ const ANSWER_LOG_CHARS = 400;
 /**
  * The `deadair.settings` keys this binding reads.
  *
- * There is no persona key here any more. What the station plays was one free-text setting and is
- * now the `music` line of the persona on air, read by the caller and handed over on the inputs —
- * so choosing a character changes what it programmes as well as how it talks, which is what makes
- * putting one on air a single decision rather than three.
+ * There is no key here for what the station plays, and there is no persona either. It was a free
+ * text setting, then a persona's `music` line handed over on the inputs, and it is now the BRIEF —
+ * which an operator writes on the running order, on a schedule slot, or as the station's standing
+ * sustaining service. A persona is who the station is when it opens its mouth and says nothing at
+ * all about what it programmes, so this binding never learns which character is on air.
  */
 export const MODEL_GENERATOR_KEYS = {
     enabled: 'llm.setGenerator',
@@ -268,7 +269,6 @@ export class ModelSetGenerator extends SetGenerator {
             { count: inputs.count, avoid: describeAvoided(inputs), ...(inputs.brief === undefined ? {} : { brief: inputs.brief }) },
             {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-                ...(inputs.persona?.music === undefined ? {} : { music: inputs.persona.music }),
                 taste: await this.describeTaste(),
                 styles: await this.describeStyles(inputs.brief),
                 // The two rules the model is told about, and both for one reason: `PickResolver`

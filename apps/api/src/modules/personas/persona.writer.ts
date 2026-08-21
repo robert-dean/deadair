@@ -167,7 +167,6 @@ export function personaPrompt(description: string): LlmMessage[] {
                 '  "background": "a couple of grounded facts they may mention about themselves",',
                 '  "brevity": "omit this unless the character is notably terse; \\"short\\" for one who says less than most, \\"one-line\\" for one who barely speaks",',
                 '  "latitude": "omit this unless the character is one that has to be allowed to run: \\"loose\\" for one who follows a thought wherever it goes, \\"unleashed\\" for one who does that and says it however they like",',
-                '  "music": "what this character plays, in a sentence",',
                 `  "templates": ["five phrasings in this character's voice, one string each. Values you may use: ${TEMPLATE_VALUES.join(' ')}"]`,
                 '}',
                 '',
@@ -311,7 +310,6 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
                 background: text(raw.background),
                 brevity,
                 latitude,
-                music: text(raw.music),
                 // Empty means the station's own phrasings, which is a legitimate persona and the
                 // right answer for one whose every generated line was malformed.
                 templates: templates.length === 0 ? undefined : templates.join('\n'),

@@ -5,7 +5,6 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
-import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
 import { DEFAULT_COUNT, planRecords, songKeysOf } from './plan.records.js';
@@ -47,7 +46,6 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         private readonly order: StationLineupRepository,
         private readonly generator: SetGenerator,
         private readonly resolver: PickResolver,
-        private readonly personas: PersonaRepository,
         // Read after planning, not before: it says whether a break took the model off this refill,
         // which is the one failure worth asking again about. See `RefillPreemption`.
         private readonly preemption: RefillPreemption,
@@ -85,7 +83,6 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
             return;
         }
 
-        const persona = await this.personas.presenting(lineup.personaId);
         const count = Math.max(1, payload?.count ?? DEFAULT_COUNT);
         const planned = await planRecords(
             this.generator,
@@ -96,7 +93,6 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 // Read off the order, exactly as a refill does: a replan may have just changed it, and
                 // whatever it says now is what this hour is programmed against.
                 ...(lineup.brief ? { brief: lineup.brief } : {}),
-                ...(persona === undefined ? {} : { persona }),
                 // **The whole difference between this and a shuffle.** The keys cover the tail that is
                 // about to be discarded, so the generator cannot hand most of it straight back:
                 // `play_history` only knows what actually aired, and none of these records has.

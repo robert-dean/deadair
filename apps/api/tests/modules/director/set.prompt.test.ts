@@ -220,12 +220,6 @@ describe('setPrompt', () => {
         expect(systemOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/called/);
     });
 
-    it('carries the persona’s own description of the music', () => {
-        const system = systemOf(setPrompt({ count: 5, avoid: [] }, { music: 'Krautrock and dub, nothing after 1985.' }));
-
-        expect(system).toMatch(/Krautrock and dub/);
-    });
-
     it('carries what the operator likes and dislikes, as steering', () => {
         const system = systemOf(
             setPrompt(
@@ -281,27 +275,20 @@ describe('setPrompt', () => {
         expect(systemOf(messages)).not.toMatch(/heavy metal hits/);
     });
 
-    it('does not send the station description at all once the operator has briefed it', () => {
-        // Structural rather than an instruction, and that is the point. A local model handed
-        // "ambient and nothing else" AND "heavy metal hits" splits the difference, so the cheapest
-        // way to make the brief win is not to hand it both. Brief the station and the persona is
-        // purely the presenter; leave it unbriefed and the persona programmes.
-        const briefed = setPrompt({ count: 5, avoid: [], brief: 'heavy metal hits' }, { music: 'Ambient and nothing else.' });
+    it('sends one system turn whatever the refill is, briefed or not', () => {
+        // What this replaces is the rule it used to pin: the system turn carried a persona's own
+        // description of the station's music and had to WITHHOLD it whenever the operator had
+        // briefed the broadcast, because a local model handed "ambient and nothing else" AND "heavy
+        // metal hits" splits the difference. A persona no longer says what the station plays, so
+        // there is nothing to weigh against a brief and nothing to withhold, and the standing job
+        // stops changing shape with the particular refill.
+        const settings = { station: 'Dead Air' };
+        const briefed = setPrompt({ count: 5, avoid: [], brief: 'heavy metal hits' }, settings);
+        const bare = setPrompt({ count: 5, avoid: [] }, settings);
 
-        expect(systemOf(briefed)).not.toMatch(/Ambient and nothing else/);
+        expect(systemOf(briefed)).toBe(systemOf(bare));
         expect(userOf(briefed)).toMatch(/heavy metal hits/);
-    });
-
-    it('still sends it when nobody briefed the broadcast', () => {
-        const bare = setPrompt({ count: 5, avoid: [] }, { music: 'Ambient and nothing else.' });
-
-        expect(systemOf(bare)).toMatch(/Ambient and nothing else/);
-    });
-
-    it('treats a blank brief as no brief, so the persona still programmes', () => {
-        const blank = setPrompt({ count: 5, avoid: [], brief: '   ' }, { music: 'Ambient and nothing else.' });
-
-        expect(systemOf(blank)).toMatch(/Ambient and nothing else/);
+        expect(systemOf(briefed)).not.toMatch(/heavy metal hits/);
     });
 
     it('says nothing about a brief that is absent or blank', () => {

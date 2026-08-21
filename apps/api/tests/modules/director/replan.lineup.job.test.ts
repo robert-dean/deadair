@@ -17,7 +17,6 @@ import type { StationLineupRepository } from '../../../src/modules/director/stat
 import type { DirectorCommand } from '../../../src/modules/director/director.mailbox.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
-import type { Persona } from '../../../src/modules/personas/persona.js';
 import type { SetGenerator, SetInputs, TrackPick } from '../../../src/modules/director/set.generator.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 
@@ -53,7 +52,6 @@ interface Options {
     picks?: TrackPick[];
     resolvable?: (picks: readonly TrackPick[]) => RundownTrack[];
     missing?: boolean;
-    persona?: Persona;
 }
 
 function build(options: Options = {}) {
@@ -91,7 +89,6 @@ function build(options: Options = {}) {
         }),
     } as unknown as DirectorService;
 
-    const personas = { presenting: vi.fn(async () => options.persona) } as never;
 
     // A refill nothing interrupted, which is every case here but the one that says otherwise:
     // `took` answers false and the plan runs exactly once.
@@ -99,7 +96,7 @@ function build(options: Options = {}) {
     if (options.preemptedTimes) for (let i = 0; i < options.preemptedTimes; i++) preemption.mark();
 
     return {
-        job: new ReplanLineupJob(lineups, generator, resolver, personas, preemption, director, station.config, context, container, logger),
+        job: new ReplanLineupJob(lineups, generator, resolver, preemption, director, station.config, context, container, logger),
         director,
         posted: () => posted,
         preemption,
@@ -139,20 +136,14 @@ describe('ReplanLineupJob', () => {
         expect(generate.mock.calls[0]![0]!.brief).toBe('heavy metal hits');
     });
 
-    it('programmes for whoever is presenting', async () => {
-        const persona = {
-            id: 'p-1',
-            key: 'pirate',
-            label: 'Pirate captain',
-            style: 'a pirate captain',
-            music: 'Loud and rowdy',
-            active: true,
-        } as Persona;
-        const { job, generate } = build({ persona });
+    it('tells the generator nothing about who is presenting', async () => {
+        // As `ExtendLineupJob`: a persona is a voice and says nothing about what the station plays,
+        // so a replan is steered by the brief on the running order alone.
+        const { job, generate } = build();
 
         await job.run();
 
-        expect(generate.mock.calls[0]?.[0]).toMatchObject({ persona });
+        expect(generate.mock.calls[0]?.[0]).not.toHaveProperty('persona');
     });
 
     it('asks for more names than it needs, because most of a batch is discarded', async () => {

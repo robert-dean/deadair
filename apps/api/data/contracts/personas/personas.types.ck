@@ -22,7 +22,6 @@ contract Persona: {
     latitude?: enum(loose, unleashed) # How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal
     samples?: array(string(min=1, max=500)) # Lines in their own voice, used as examples and as a console preview
     templates?: string(max=20000) # This character's own break phrasings, one per line. Empty means the station's global ones
-    music?: string(max=2000) # What this persona plays, for the model that chooses records
     active: readonly boolean # Whether this is the one on air. At most one per station
 }
 
@@ -54,7 +53,6 @@ contract PersonaDraftView: {
     latitude?: enum(loose, unleashed)
     samples?: array(string(min=1, max=500))
     templates?: string(max=20000)
-    music?: string(max=2000)
 }
 
 # What a model wrote, and what had to be dropped to make it usable

@@ -11,8 +11,15 @@
 -- **A persona is wider than a prompt, and that is the whole point.** `templates` is the station's
 -- deterministic floor written in this character, so a model that declined — the ordinary case, by
 -- design — costs a better sentence rather than the character. `voice` is which of the speech
--- plugin's voices says it. `music` is what it programmes towards. A persona that only reached the
--- model would vanish at exactly the moments the station needs it most.
+-- plugin's voices says it. A persona that only reached the model would vanish at exactly the moments
+-- the station needs it most.
+--
+-- **It is a VOICE, and says nothing about what the station plays.** There was a `music` column here,
+-- read by the model that chooses records. It was a fourth way to say what to play beside the three
+-- keyed to the clock — this broadcast's brief, this daypart's, and the standing sustaining one —
+-- and two prose descriptions reaching one local model made it split the difference, so the column
+-- had to be withheld from any refill that carried a brief. Dropping it deletes that rule. See
+-- `persona.ts`.
 create table deadair.personas (
     id uuid not null default gen_random_uuid() primary key,
     created_at timestamptz not null default now(),
@@ -51,10 +58,6 @@ create table deadair.personas (
     -- This character's own break phrasings, one per line, in the syntax of
     -- `rotation.breakTemplates`. Empty means the station's global ones.
     templates text,
-    -- What this persona plays, for the model that chooses records. A description, which is why a
-    -- running order's own `brief` beats it: the persona is who the station is and the brief is
-    -- somebody deciding tonight.
-    music text,
     -- How much this character says: null for the station's ordinary length, `short` or `one-line`
     -- below it. Only rungs BELOW, and that is the design rather than an unfinished list — measured
     -- on this station, 2 of 137 answers reached the word ceiling and the median came in at 28 words,

@@ -31,6 +31,11 @@ export interface RipenResult {
      * The DIRECTOR acts on these, because nothing else may write the running order. They are ITEM
      * ids rather than bindings for the same reason: what the director does with one is take that
      * line out, and the same record may legitimately sit at two positions.
+     *
+     * Only ever records the CATALOG holds. An item with no `trackId` is never named here, however
+     * little is known about it — see the guard in {@link TrackCachePlanner.ripen}. "Nothing will
+     * serve this" and "nobody has catalogued this yet" are opposite facts, and the second is the
+     * ordinary state of a fresh station.
      */
     unfetchable: string[];
 }
@@ -168,12 +173,30 @@ export class TrackCachePlanner {
         for (const item of records) {
             const state = byBinding.get(`${item.track.pluginId} ${item.track.externalId}`);
             const slotAt = Date.now() + airtimeAhead;
+            // Accumulated BEFORE the guard below, because an item this pass has no opinion about
+            // still occupies its slot: skipping the addition would shorten the projected airtime for
+            // everything behind it and judge their backoffs against a moment that never arrives.
             airtimeAhead += item.track.durationMs ?? 0;
 
-            // Absent from the answer means the catalog has written every copy off — `findForBindings`
-            // excludes `missing_at` — so nothing will serve this record. Known HERE rather than at the
-            // commit window, which is the whole point: there is still an hour of running order in front
-            // of it for a refill to fill the gap.
+            // Only a record the CATALOG holds can be judged here, which is the same rule
+            // `DirectorService.toPlayerItems` applies one window later and for the same reason: a
+            // pick straight from a provider playlist has no `trackId`, so it has no binding row to
+            // be missing and nothing here can say anything true about it. It is not a fetch
+            // candidate — there is no `track_sources.id` to fetch — and it is emphatically not
+            // unfetchable. It answers for itself at hand-over.
+            //
+            // Without this the two states below collapse into one, and the collapse is not
+            // theoretical: on a fresh install, or for any imported playlist ahead of the first
+            // catalog sync, EVERY item is uncatalogued. Read as "every copy is benched" that marked
+            // 125 records of a 519-item order permanently unavailable in eight minutes, none of
+            // which was unobtainable — see `docs/decisions/bytes-before-air.md`.
+            if (item.track.trackId === undefined) continue;
+
+            // Absent from the answer for a record the catalog DOES hold means every copy has been
+            // written off — `findForBindings` joins from `track_sources` and excludes `missing_at` —
+            // so nothing will serve it. Known HERE rather than at the commit window, which is the
+            // whole point: there is still an hour of running order in front of it for a refill to
+            // fill the gap.
             if (state === undefined) {
                 unfetchable.push(item.id);
                 continue;

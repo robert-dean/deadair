@@ -17,13 +17,45 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } 
 // The logger is shared across cases, so the "says nothing" assertion needs a clean slate.
 beforeEach(() => vi.clearAllMocks());
 
-/** A record in the running order. `n` is both its position and its identity. */
+/**
+ * A record in the running order. `n` is both its position and its identity.
+ *
+ * It carries a `trackId`, because the catalog holding the record is what makes it this pass's
+ * business at all: an item without one is skipped outright. See {@link uncataloguedItem}.
+ */
 const trackItem = (n: number, state: 'planned' | 'played' = 'planned'): StationLineupItem =>
     ({
         id: `item-${n}`,
         kind: 'track',
         state,
-        track: { pluginId: 'deadair.spotify', externalId: `spotify-${n}`, title: `Track ${n}`, artists: ['An Artist'] },
+        track: {
+            pluginId: 'deadair.spotify',
+            externalId: `spotify-${n}`,
+            trackId: `track-${n}`,
+            title: `Track ${n}`,
+            artists: ['An Artist'],
+        },
+    }) as StationLineupItem;
+
+/**
+ * A record straight off a provider playlist, which the catalog has never seen.
+ *
+ * No `trackId`, which is the ordinary state of every item on a fresh station and of an imported
+ * playlist ahead of the first sync. There is no `track_sources` row behind it, so there is nothing
+ * to fetch and nothing that could be benched.
+ */
+const uncataloguedItem = (n: number, durationMs?: number): StationLineupItem =>
+    ({
+        id: `item-${n}`,
+        kind: 'track',
+        state: 'planned',
+        track: {
+            pluginId: 'deadair.spotify',
+            externalId: `spotify-${n}`,
+            title: `Track ${n}`,
+            artists: ['An Artist'],
+            ...(durationMs === undefined ? {} : { durationMs }),
+        },
     }) as StationLineupItem;
 
 const segmentItem = (n: number): StationLineupItem =>
@@ -192,6 +224,40 @@ describe('TrackCachePlanner.ripen', () => {
         const { planner } = build([state(1, { nextAttemptAt: DateTime.now().plus({ hours: 4 }) })]);
 
         expect((await planner.ripen(lineupOf([trackItem(1)]))).unfetchable).toEqual(['item-1']);
+    });
+
+    // The whole of a fresh station, and of an imported playlist ahead of the first sync. An item the
+    // catalog has never seen is absent from `findForBindings` for exactly the same reason a benched
+    // one is — the query joins from `track_sources` — and reading the two as one fact marked 125
+    // records of a 519-item order permanently unavailable in eight minutes, none of them actually
+    // unobtainable.
+    it('leaves a record the catalog has never seen alone rather than calling it unfetchable', async () => {
+        const { planner, send } = build([]);
+
+        expect(await planner.ripen(lineupOf([uncataloguedItem(1), uncataloguedItem(2)]))).toEqual({ asked: 0, unfetchable: [] });
+        expect(send).not.toHaveBeenCalled();
+    });
+
+    // The narrowing has to be a narrowing. A catalogued record whose every copy is benched is still
+    // taken out of the order, which is the whole reason `unfetchable` exists.
+    it('still reports a catalogued record beside an uncatalogued one', async () => {
+        const { planner } = build([]);
+
+        const result = await planner.ripen(lineupOf([uncataloguedItem(1), trackItem(2)]));
+
+        expect(result.unfetchable).toEqual(['item-2']);
+    });
+
+    // An item this pass has no opinion about still occupies its slot. Skipping its duration would
+    // shorten the projected airtime for everything behind it and judge their backoffs against a
+    // moment that never arrives: the record below sits an hour back, so its half-hour backoff is a
+    // comfortable wait — and would read as a miss against the bare four-minute committed lead.
+    it('counts an uncatalogued record towards the slot of the records behind it', async () => {
+        const { planner } = build([state(2, { nextAttemptAt: DateTime.now().plus({ minutes: 30 }) })]);
+
+        const result = await planner.ripen(lineupOf([uncataloguedItem(1, 60 * 60_000), trackItem(2)]));
+
+        expect(result.unfetchable).toEqual([]);
     });
 
     it('reads nothing for a window holding no records', async () => {

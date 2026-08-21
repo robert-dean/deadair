@@ -406,11 +406,14 @@ describe('DirectorService thinning the order before the slot arrives', () => {
 });
 
 describe('DirectorService committing only what it has the audio for', () => {
+    // Every case here seeds CATALOGUED records, and that is the point rather than a detail: the gate
+    // only ever holds a record the catalog can name a binding for. See the uncatalogued case at the
+    // end of this block.
     it('commits nothing while the next record is still being fetched', async () => {
         // The precondition the whole shape exists for: Liquidsoap's resolve should be a read from
         // this app, never a provider download inside the request it is waiting on.
-        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'], localAudio: [] });
-        await seed();
+        const { director, rundown, seedCatalogued } = build({ items: ['a', 'b', 'c'], localAudio: [] });
+        await seedCatalogued();
 
         await director.start();
 
@@ -420,8 +423,8 @@ describe('DirectorService committing only what it has the audio for', () => {
     // The load-bearing half. Filtering would commit 'b' and 'c' and leave 'a' behind them, so an
     // operator's sequence would be rearranged by which downloads happened to finish first.
     it('stops at the first record it has not got rather than committing past it', async () => {
-        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'], localAudio: ['b', 'c'] });
-        await seed();
+        const { director, rundown, seedCatalogued } = build({ items: ['a', 'b', 'c'], localAudio: ['b', 'c'] });
+        await seedCatalogued();
 
         await director.start();
 
@@ -429,14 +432,42 @@ describe('DirectorService committing only what it has the audio for', () => {
     });
 
     it('commits the head that is here and holds the slot of the record that is not', async () => {
-        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'], localAudio: ['a'] });
-        await seed();
+        const { director, rundown, seedCatalogued } = build({ items: ['a', 'b', 'c'], localAudio: ['a'] });
+        await seedCatalogued();
 
         await director.start();
         expect(idsOf(rundown.upcoming())).toEqual(['a']);
 
         // 'a' airs and 'b' does not take its place, because its bytes are not here. The slot is
         // HELD rather than skipped, so 'c' — which is here — does not jump the queue.
+        await airNext(rundown);
+
+        expect(idsOf(rundown.upcoming())).toEqual([]);
+    });
+
+    // A record the catalog has never seen has no `track_sources` row, so `readyFor` — which joins
+    // from that table — leaves it out of its answer exactly as it leaves out a benched one. Cutting
+    // at it is not a wait it could ever come out of: there is no binding id to fetch, so the head of
+    // a freshly imported playlist was a permanent wall. It passes through and answers for itself at
+    // hand-over, which is what `toPlayerItems` already does one window later.
+    it('commits a record the catalog has never seen rather than waiting for bytes it cannot fetch', async () => {
+        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'], localAudio: [] });
+        await seed();
+
+        await director.start();
+
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
+    });
+
+    // The narrowing has to be a narrowing: a catalogued record with no bytes still holds its slot,
+    // even when the uncatalogued record in front of it went straight through.
+    it('still holds at a catalogued record behind one it let through', async () => {
+        const { director, rundown, lineup } = build({ items: [], localAudio: [] });
+        lineup.append([track('a'), catalogued('b')]);
+
+        await director.start();
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
+
         await airNext(rundown);
 
         expect(idsOf(rundown.upcoming())).toEqual([]);

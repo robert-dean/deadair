@@ -1429,7 +1429,14 @@ export class DirectorService {
         });
         if (ready === undefined) return [...candidates];
 
-        const cut = candidates.findIndex(item => isTrackItem(item) && !ready.has(bindingKey(item.track)));
+        // `trackId === undefined` is checked FIRST, and it is what makes the docstring above true
+        // rather than merely intended. `readyFor` builds its set out of `findForBindings`, which
+        // joins from `track_sources`, so a record the catalog has never seen is absent from the
+        // answer exactly as a benched one is — and this cut therefore stopped dead at it. That is
+        // not a wait it could ever come out of: with no binding there is no `track_sources.id` to
+        // fetch, so the head of a freshly imported playlist was a permanent wall rather than a
+        // record a boundary away.
+        const cut = candidates.findIndex(item => isTrackItem(item) && item.track.trackId !== undefined && !ready.has(bindingKey(item.track)));
 
         return cut === -1 ? [...candidates] : candidates.slice(0, cut);
     }

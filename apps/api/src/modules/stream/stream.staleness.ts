@@ -11,12 +11,14 @@ import type { StreamConfigRender } from './stream.config.js';
  * startup. Nothing re-reads them, nothing is signalled when they are re-rendered,
  * and both files carry secrets. So a schema rebuild that regenerates the five
  * `stream.*` secrets leaves two processes holding credentials that no longer
- * match anything, and the symptoms name something else entirely: Icecast refuses
- * every listener with its own "You need to authenticate" page (the
- * `listener_add` hook presents a bridge secret the app has replaced), and
- * Liquidsoap's source connection is refused, so there is no mount at all and
- * Icecast answers 404. Neither of those log lines mentions config. This turns
- * both into one sentence that does.
+ * match anything, and the symptoms name something else entirely: Icecast is on an
+ * `adminPassword` the app has replaced, so `/admin/publicstats.json` and
+ * `/admin/eventfeed` answer 401 and the audience is read only by whatever
+ * anonymous fallback that server has, which on a 2.5 is none — and in `audience`
+ * mode a gate that never sees a listener leaves a station with a full running
+ * order silent. Liquidsoap's source connection is refused on the other side, so
+ * there is no mount at all and Icecast answers 404. Neither of those log lines
+ * mentions config. This turns both into one sentence that does.
  *
  * **Why it reports rather than fixes.** The app runs as a sibling container with
  * no Docker socket and no business having one: that is root on the host, traded
@@ -284,8 +286,9 @@ export class StreamConfigWatch {
             container: 'icecast',
             detail:
                 `icecast started at ${iso(server.startedAt)} and ${this.render?.icecast.path} last changed at ${iso(changedAt)}, ` +
-                'so it is running the passwords that were current before then, and every listener is being refused on the ' +
-                'listener_add hook. It reads its config once, at startup, and it has now been behind for longer than a ' +
+                'so it is running the passwords that were current before then: any stream secret changed since does not ' +
+                'match, including the admin password the audience is read with and the source password liquidsoap ' +
+                'connects on. It reads its config once, at startup, and it has now been behind for longer than a ' +
                 'container watching its own config takes to restart, so that watch is off or it is not working here.',
             restart: restartCommand('icecast'),
         };

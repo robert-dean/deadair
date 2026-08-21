@@ -95,10 +95,10 @@ const PROTECT_BEHIND = 4;
  *
  * ## What it does not do
  *
- * It does not decide whether the bytes are kept. `playout.trackCache` does, inside `ensure`, and this
- * pass runs either way — warming is worth doing for a station keeping nothing, because the hold is what
- * the request a minute later is served from. That split is the whole point of the reshape: this is
- * about WHEN a fetch happens, never about whether a record can be played.
+ * It does not decide whether the bytes are kept, and nothing does any more: every record `ensure`
+ * fetches is written to `TRACKS_DIR` unconditionally (`TrackAudioService`, "A fetched record is always
+ * kept"). That split is the whole point of the reshape: this is about WHEN a fetch happens, never about
+ * whether a record can be played.
  *
  * ## Sending is free, so this does not have to remember
  *

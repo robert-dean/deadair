@@ -29,8 +29,8 @@ export function parseSetting(descriptor: SettingDescriptor, stored: string | und
     switch (descriptor.type) {
         case 'boolean':
             // Only the exact string `false` is false. Anything else stored in a boolean's row —
-            // including the empty string — reads as true, which matches how `listenerHooks` has
-            // always been read and keeps a hand-edited row from silently turning a feature off.
+            // including the empty string — reads as true, which keeps a hand-edited row from
+            // silently turning a feature off.
             return stored !== 'false';
         case 'number': {
             const parsed = Number(stored);

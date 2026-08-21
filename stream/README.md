@@ -301,7 +301,6 @@ against an actor resolved from a session, and a container has neither.
 | Endpoint                        | Called by  | What it says                                                                   |
 | ------------------------------- | ---------- | ------------------------------------------------------------------------------ |
 | `POST /playout/bridge/aired`    | Liquidsoap | which rundown item actually started                                            |
-| `POST /playout/bridge/listener` | Icecast    | a listener arrived or left                                                     |
 | `POST /playout/bridge/starve`   | Liquidsoap | the running order stopped producing while the lease was held, or started again |
 
 `starve` is pushed rather than polled because the app's reconcile runs every two seconds, so a gap
@@ -382,26 +381,20 @@ hands each `source-listener-count` for the mount straight to `AudienceWatch.repo
 lands in milliseconds. It attaches **only** when the poll resolved the admin endpoint, so against a
 2.4 server it never opens a socket, and it reconnects with backoff because a dropped feed is an
 ordinary state. Whole counts, never deltas, which is what makes a lost message cost the edge rather
-than the number. Icecast also _pushes_, through `<authentication type="url">` on the mount:
-`listener_add` and `listener_remove` call `POST /playout/bridge/listener`, gated on the same bridge secret,
-so an arrival opens the gate in milliseconds instead of up to five seconds. Icecast presents that
-secret as HTTP **basic**, because its URL authenticator can send no header of its own; ServerKit's
-authentication middleware deletes `Authorization` from every request before a route runs, so
-`listener.credential.middleware` (registered ahead of it) moves the password onto the
-`x-playout-secret` header the rest of the bridge uses. Both halves have to stay in that order, or
-every listener is refused by an app that meant to admit them. Same division as `/playout/bridge/aired` and `/control/status`: the push beats the poll to the
-edge, and the poll is what makes a dropped push harmless.
+than the number. Same division as `/playout/bridge/aired` and `/control/status`: the push beats the
+poll to the edge, and the poll is what makes a dropped push harmless.
 
-Two things about that push are worth knowing before they surprise you:
-
-- **`listener_add` is a blocking authentication call.** Icecast holds the client's connection until
-  the app answers, and admits them only on an `icecast-auth-user: 1` header. So an API that is down
-  **refuses** new listeners rather than letting them hear a silent mount. That is a small trade in
-  an audience-gated station (an API that is not running is not renewing the lease either) and it is
-  why the poll is not replaced. Set `stream.listenerHooks` to `false` and re-render to drop the
-  block entirely; the only loss is the arrival latency.
-- **URL authentication needs an Icecast built with libcurl.** One that was not refuses to start on
-  a config naming it. That is the other reason for the setting.
+Icecast used to push a second way, and it is worth knowing why it does not any more. Through
+`<authentication type="url">` on the mount, `listener_add` and `listener_remove` called
+`POST /playout/bridge/listener`, gated on the same bridge secret, which beat a five-second poll to an
+arrival. That path is **gone** — with it went `listener.credential.middleware`, which existed only to
+move the HTTP basic password Icecast sends onto the `x-playout-secret` header the rest of the bridge
+uses, and the `stream.listenerHooks` setting that switched the whole thing off. The event feed reaches
+both edges in milliseconds without any of it. Two things it cost, which are the reason it is not
+missed: `listener_add` was a **blocking authentication call**, so Icecast held each arriving listener's
+connection open until this app answered and an API that was down **refused** new listeners outright;
+and URL authentication needs an Icecast built with libcurl, which one built without refuses to start
+without.
 
 Once the last listener goes, the audience **lingers for a minute** before the gate closes: a player
 reconnecting drops to zero for a second or two and comes straight back, and rebuilding a mount for
@@ -571,9 +564,9 @@ setting, and above all a schema rebuild (which reseeds all five stream secrets i
 to leave two live processes holding credentials that match nothing, with symptoms that name
 something else entirely:
 
-- Icecast presents the old `playoutBridgeSecret` on the blocking `listener_add` hook, so **every**
-  listener is refused with Icecast's own "You need to authenticate" page. The app logs a bare
-  `Unauthorized` from `bridge.secret.middleware`.
+- Icecast is still on the old `adminPassword`, so the app cannot read `/admin/publicstats.json` or
+  attach `/admin/eventfeed` and never learns anybody is listening. In `audience` mode that gate never
+  opens: a station with a full running order stays silent, and the only log line is a 401 said once.
 - Liquidsoap presents the old `ICECAST_SOURCE_PASSWORD`, the source connection is refused, no mount
   exists, and Icecast answers 404. `/status-json.xsl` shows `source: null`.
 

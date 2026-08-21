@@ -7,9 +7,10 @@
 # Icecast reads icecast.xml once and Liquidsoap sources radio.env once, in the entrypoint. Nothing
 # re-reads either. So a re-render — an operator changing a stream setting, or a schema rebuild that
 # reseeds all five stream secrets in one query — leaves a live process holding credentials that
-# match nothing, and the symptoms name something else entirely: Icecast refuses EVERY listener on
-# the blocking listener_add hook, and Liquidsoap's source connection is refused so there is no
-# mount at all. The app detects both and says so (stream.staleness.ts), but it cannot fix them: it
+# match nothing, and the symptoms name something else entirely: Icecast holds an admin password the
+# app has replaced, so the audience cannot be read and an audience-gated station goes quiet with a
+# full running order, and Liquidsoap's source connection is refused so there is no mount at all.
+# The app detects both and says so (stream.staleness.ts), but it cannot fix them: it
 # has no Docker socket and should not have one, since that is root on the host in exchange for a
 # process being able to restart the thing broadcasting it.
 #

@@ -174,6 +174,28 @@ function taggedWith(pattern: string) {
     )`;
 }
 
+/** What narrows and what orders a {@link TracksRepository.searchPlayable}, beyond the text itself. */
+export interface PlayableSearchOptions {
+    /**
+     * The period to narrow to, inclusive, as four-digit years. Either end may stand alone.
+     *
+     * The same shape and the same meaning as `SearchTracksOptions` on the plugin side, so the two
+     * halves of one `search_music` answer are narrowed by one pair of numbers rather than by two
+     * dialects of the same idea.
+     */
+    yearFrom?: number;
+    yearTo?: number;
+    /**
+     * What the arbitrary row ordering is drawn from. The broadcast id, in practice.
+     *
+     * The ordering has to be STABLE within one conversation and must not be stable forever; see the
+     * note at the order clause. Absent — a library scan, a break writer's own search, anything
+     * outside a broadcast — seeds with the empty string, which is one code path rather than a second
+     * ordering to reason about.
+     */
+    seed?: string;
+}
+
 /** `titleKey` is a match key for ingest and never read out; the two names are joined in below. */
 const TRACK_COLUMNS = [
     'deadair.tracks.id',
@@ -306,11 +328,27 @@ export class TracksRepository extends DataRepository {
      * not narrow this at all: they are a preference between two copies of one work, and the work is
      * playable either way.
      *
+     * **A PERIOD narrows it too, and an unknown year is eligible.** `tracks.year` is filled by ingest
+     * from what a provider sent and by enrichment from a source that knows a recording from its
+     * reissue, and plenty of rows have neither — so a record with no year is offered for any period.
+     * That is the opposite call to `cleanOnly` beside it and deliberately: an advisory is a content
+     * policy where silence must not read as consent, and a period is programming, where dropping a
+     * record the station owns for want of a tag costs the hour. The album's year is the fallback
+     * because a provider dates a release rather than a recording, so the two columns are the same
+     * fact arriving at whichever level the payload named.
+     *
      * @param cleanOnly - Whether the station demands a positively `clean` copy. Null means the
      *   provider did not say and is excluded here too; see `advisory.policy.ts`.
+     * @param options - The period to narrow to, and the seed the arbitrary ordering is drawn from.
+     *   See {@link PlayableSearchOptions}.
      */
-    async searchPlayable(search: string, limit: number, cleanOnly = false) {
+    async searchPlayable(search: string, limit: number, cleanOnly = false, options: PlayableSearchOptions = {}) {
         const pattern = likeContains(search);
+        // A period alone is a complete search: `search_music` may be called with nothing but a pair
+        // of years, and matching every title against '%%' is what makes that mean "the whole library,
+        // narrowed to these years" rather than nothing at all.
+        const matchesText = search.trim().length > 0;
+        const released = sql<number | null>`coalesce(deadair.tracks.year, deadair.albums.year)`;
 
         return await this.db
             .selectFrom('deadair.tracks')
@@ -343,14 +381,27 @@ export class TracksRepository extends DataRepository {
             // metal` is findable under whichever of those happened to come first and invisible under
             // the other three. Measured when this was written: `heavy metal` reached 58 records
             // through the column and 241 through the tags, on a library of 948.
-            .where(eb =>
-                eb.or([
-                    eb('deadair.tracks.title', 'ilike', pattern),
-                    eb('deadair.artists.name', 'ilike', pattern),
-                    eb('deadair.tracks.genre', 'ilike', pattern),
-                    taggedWith(pattern),
-                ]),
+            .$if(matchesText, qb =>
+                qb.where(eb =>
+                    eb.or([
+                        eb('deadair.tracks.title', 'ilike', pattern),
+                        eb('deadair.artists.name', 'ilike', pattern),
+                        eb('deadair.tracks.genre', 'ilike', pattern),
+                        taggedWith(pattern),
+                    ]),
+                ),
             )
+            // Null passes both bounds. See the note above on why an undated record is offered for
+            // every period rather than for none.
+            //
+            // Parenthesised, and that is not style. A raw fragment is spliced into the WHERE as it
+            // stands, so an unbracketed `a is null or a >= 1990` binds looser than the ANDs around
+            // it and turns the entire clause into a disjunction — every rating check, the live-binding
+            // test and the text match all became optional, and the search answered with records from
+            // the wrong decade AND records nothing can play. Caught by `library.search.smoke.ts`,
+            // which is the only thing that runs this SQL.
+            .$if(options.yearFrom !== undefined, qb => qb.where(sql<boolean>`(${released} is null or ${released} >= ${options.yearFrom!})`))
+            .$if(options.yearTo !== undefined, qb => qb.where(sql<boolean>`(${released} is null or ${released} <= ${options.yearTo!})`))
             .where(eb =>
                 eb.exists(
                     eb
@@ -365,10 +416,28 @@ export class TracksRepository extends DataRepository {
             .where('deadair.tracks.rating', '<>', -1)
             .where('deadair.artists.rating', '<>', -1)
             .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
-            // Stable, so asking twice in one conversation does not shuffle the answer under the
-            // model and make it think the library changed.
-            .orderBy('deadair.tracks.title', 'asc')
-            .orderBy('deadair.tracks.id', 'asc')
+            // Arbitrary, and stable per BROADCAST. Both halves are load-bearing and they used to be
+            // one: this was `title asc`, which is stable forever, and forever is the half that was
+            // wrong.
+            //
+            // Stable is what a conversation needs. A model that searched twice and got two orders
+            // would read the library as having changed under it, so within one refill — indeed within
+            // one programme — the same query has to answer the same way.
+            //
+            // Arbitrary is what the LIBRARY needs, and the reason is that under `ModelSetGenerator`
+            // this search IS the draw. The model chooses from what comes back, so a permanently fixed
+            // order means one frozen slice of `rock` is the only rock it can ever see: every broad
+            // query returned the same twenty-five titles beginning with A, for good. That is a
+            // station repeating itself, which `rotation.keys.ts` opens by warning has no symptom
+            // except itself, and the repeat window does not save it — it converts the repeats into a
+            // shorter refill and a quiet fall to the brief-blind floor.
+            //
+            // Seeding on the broadcast satisfies both at once. The hash cannot use an index, which
+            // costs nothing here: there is no index on `title` either, so the old ordering sorted the
+            // filtered set too, and `taggedWith`'s two correlated jsonb subqueries per candidate row
+            // dwarf a hash — `CandidatesRepository.sample` next door draws with `order by random()`
+            // over the whole candidate set on the same argument about a station's scale.
+            .orderBy(sql`md5(deadair.tracks.id::text || ${options.seed ?? ''})`)
             .limit(limit)
             .execute();
     }

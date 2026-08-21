@@ -7,6 +7,7 @@ import { advisoryPolicy, demandsClean } from '#modules/director/advisory.policy.
 import { songKey } from '#modules/director/rotation.keys.js';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 import { ProviderSearch, type FoundTrack } from './provider.search.js';
 import type { StationTool, ToolSource } from './llm.tools.js';
 
@@ -145,6 +146,7 @@ export class MusicSearchTool implements ToolSource {
         private readonly tracks: TracksRepository,
         private readonly providers: ProviderSearch,
         private readonly queued: QueuedRecords,
+        private readonly identity: StationIdentity,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -167,8 +169,12 @@ export class MusicSearchTool implements ToolSource {
                                 description:
                                     'A title, an artist, or a style. In the station\'s own library a record is found under every style it or its artist is tagged with. At the providers a style like "rap" finds records with that word in the title, not records of that style.',
                             },
-                            yearFrom: { type: 'number', description: 'Narrow to records released in or after this year.' },
-                            yearTo: { type: 'number', description: 'Narrow to records released in or before this year.' },
+                            yearFrom: {
+                                type: 'number',
+                                description:
+                                    'Narrow to records released in or after this year. Narrows the library and the providers alike, and a record whose release year nobody recorded is still offered.',
+                            },
+                            yearTo: { type: 'number', description: 'Narrow to records released in or before this year. As yearFrom.' },
                             limit: {
                                 type: 'number',
                                 description: `How many records, at most ${MAX_RESULTS}. Asking for fewer than ${MIN_RESULTS} still returns ${MIN_RESULTS}: you are choosing from what comes back, so a short list only narrows what you have to choose between.`,
@@ -208,9 +214,17 @@ export class MusicSearchTool implements ToolSource {
         // Read per call, like every other setting: an operator switching the station to clean-only
         // is obeyed by the next thing the model asks rather than after a restart.
         const cleanOnly = demandsClean(advisoryPolicy(this.config));
-        // A year narrows the providers and cannot narrow the library search, which matches text.
-        // Asked for a period alone there is nothing for it to match, so it is not asked at all.
-        const owned = query.length === 0 ? [] : await this.tracks.searchPlayable(query, limit, cleanOnly);
+        // BOTH halves are narrowed by the period, and the library is read even when a period is all
+        // there is. It used to be neither: a year reached the providers alone, and a year-only search
+        // skipped the library entirely on the reasoning that a number cannot narrow a text match.
+        // The consequence was quiet and bad — library rows are the half the answer PREFERS, since
+        // `ownedAllowance` reserves room for them and they sort first, so an in-period provider half
+        // came back mixed with an any-period owned half and the station aired the wrong decade under
+        // the right name.
+        //
+        // The seed is the broadcast, which is what makes the library's arbitrary ordering hold still
+        // for one programme and move between them. See `searchPlayable`'s order clause.
+        const owned = await this.tracks.searchPlayable(query, limit, cleanOnly, { ...filters, ...seedOf(this.identity.current()) });
 
         const reaching = owned.length < THIN || settingIsOn(this.config, MUSIC_SEARCH_KEYS.alwaysReach, ALWAYS_REACH_DEFAULT);
         const reached = reaching ? (await this.providers.search(query, filters, MAX_RESULTS)).tracks : [];
@@ -325,6 +339,14 @@ const keyOf = (title: string, artist: string): string => catalogKey(normalizeKey
 
 /** Text the model actually set, or nothing. A model that fills every parameter sends `query: ""`, which is not a search. */
 const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
+
+/**
+ * The ordering seed, as the options bag takes it.
+ *
+ * Written out rather than inlined because `seed: undefined` and no `seed` at all have to be the same
+ * thing to a repository whose parameter is optional, and the spread is where that is decided.
+ */
+const seedOf = (broadcastId: string | undefined): { seed?: string } => (broadcastId === undefined ? {} : { seed: broadcastId });
 
 /** A year the model set, ignoring anything that is not one. */
 const readYear = (value: unknown): number | undefined =>

@@ -12,6 +12,7 @@ import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { MUSIC_SEARCH_KEYS, MusicSearchTool } from '../../../src/modules/llm/music.search.tool.js';
 import type { ProviderSearch, FoundTrack } from '../../../src/modules/llm/provider.search.js';
 import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
+import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -37,9 +38,20 @@ interface Build {
     /** Records the running order already holds, as `[title, artist]`. */
     alreadyQueued?: [string, string][];
     settings?: Record<string, unknown>;
+    /** The broadcast on air, which is what seeds the library's row ordering. */
+    broadcastId?: string;
 }
 
-function build({ library = [], reached = [], ownedKeys = [], bannedKeys = [], bannedArtists = [], alreadyQueued = [], settings = {} }: Build = {}) {
+function build({
+    library = [],
+    reached = [],
+    ownedKeys = [],
+    bannedKeys = [],
+    bannedArtists = [],
+    alreadyQueued = [],
+    settings = {},
+    broadcastId,
+}: Build = {}) {
     const searchPlayable = vi.fn(async () => library);
     const ownership = vi.fn(async () => ({ owned: new Set(ownedKeys), banned: new Set(bannedKeys) }));
     const dislikedArtistKeys = vi.fn(async () => new Set(bannedArtists.map(normalizeKey)));
@@ -55,7 +67,10 @@ function build({ library = [], reached = [], ownedKeys = [], bannedKeys = [], ba
     const queued = new QueuedRecords();
     queued.remember(alreadyQueued.map(([title, artist]) => songKey(title, [artist])));
 
-    return { tool: new MusicSearchTool(tracks, providers, queued, config, logger), searchPlayable, search, ownership, dislikedArtistKeys };
+    const identity = new StationIdentity();
+    if (broadcastId !== undefined) identity.began(broadcastId);
+
+    return { tool: new MusicSearchTool(tracks, providers, queued, identity, config, logger), searchPlayable, search, ownership, dislikedArtistKeys };
 }
 
 const only = async (tool: MusicSearchTool) => (await tool.tools())[0]!;
@@ -214,7 +229,7 @@ describe('MusicSearchTool', () => {
 
         const result = await run(tool, { query: 'Miami Nights 1984', limit: 1 });
 
-        expect(searchPlayable).toHaveBeenCalledWith('Miami Nights 1984', 10, false);
+        expect(searchPlayable).toHaveBeenCalledWith('Miami Nights 1984', 10, false, {});
         expect(result.tracks).toHaveLength(10);
     });
 
@@ -298,13 +313,48 @@ describe('MusicSearchTool', () => {
         expect((await only(tool)).declaration.description).toMatch(/already in the running order/i);
     });
 
-    it('does not search the library for a period alone, which it cannot match', async () => {
+    it('narrows BOTH halves by a period, rather than only the providers', async () => {
+        // The half this used to miss is the half the answer prefers. `ownedAllowance` reserves room
+        // for library rows and they sort first, so an in-period provider half merged with an
+        // any-period owned half puts the wrong decade at the top of the answer under the right name.
         const { tool, searchPlayable, search } = build({ reached: [found('Africa', 'TOTO')] });
 
-        await run(tool, { yearFrom: 1980, yearTo: 1989 });
+        await run(tool, { query: 'synth', yearFrom: 1980, yearTo: 1989 });
 
-        expect(searchPlayable).not.toHaveBeenCalled();
-        expect(search).toHaveBeenCalledWith('', { yearFrom: 1980, yearTo: 1989 }, 25);
+        expect(searchPlayable).toHaveBeenCalledWith('synth', 25, false, { yearFrom: 1980, yearTo: 1989 });
+        expect(search).toHaveBeenCalledWith('synth', { yearFrom: 1980, yearTo: 1989 }, 25);
+    });
+
+    it('searches the library for a period alone, which is a complete search', async () => {
+        // It used to skip the library entirely here, on the reasoning that a number cannot narrow a
+        // text match -- true of the text and false of the search, since a period is the whole
+        // question. A station asked for "anything from the seventies" got only what a provider had.
+        const { tool, searchPlayable } = build({ reached: [found('Africa', 'TOTO')] });
+
+        await run(tool, { yearFrom: 1970, yearTo: 1979 });
+
+        expect(searchPlayable).toHaveBeenCalledWith('', 25, false, { yearFrom: 1970, yearTo: 1979 });
+    });
+
+    it('seeds the library ordering with the broadcast on air', async () => {
+        // Stable within a programme so a model searching twice does not read the library as having
+        // changed; different between programmes so the same broad query is not answered with one
+        // frozen slice of the library for good. Under `ModelSetGenerator` this search IS the draw.
+        const { tool, searchPlayable } = build({ broadcastId: 'broadcast-7' });
+
+        await run(tool, { query: 'rock' });
+
+        expect(searchPlayable).toHaveBeenCalledWith('rock', 25, false, { seed: 'broadcast-7' });
+    });
+
+    it('sends no seed at all off air, rather than the word undefined', async () => {
+        // A break writer's own search, a library scan, anything outside a broadcast. The repository's
+        // parameter is optional and an absent seed is what it takes.
+        const { tool, searchPlayable } = build();
+
+        await run(tool, { query: 'rock' });
+
+        expect(searchPlayable).toHaveBeenCalledWith('rock', 25, false, {});
     });
 
     it('reports a call with nothing to search on as something the model can correct', async () => {
@@ -318,7 +368,7 @@ describe('MusicSearchTool', () => {
 
         await run(tool, { query: 'a' });
 
-        expect(searchPlayable).toHaveBeenCalledWith('a', 25, true);
+        expect(searchPlayable).toHaveBeenCalledWith('a', 25, true, {});
     });
 
     it('does not narrow for a mere preference, which is settled when the copy is chosen', async () => {
@@ -326,7 +376,7 @@ describe('MusicSearchTool', () => {
 
         await run(tool, { query: 'a' });
 
-        expect(searchPlayable).toHaveBeenCalledWith('a', 25, false);
+        expect(searchPlayable).toHaveBeenCalledWith('a', 25, false, {});
     });
 
     it('asks nothing of the catalog when nothing was reached', async () => {
@@ -344,6 +394,6 @@ describe('MusicSearchTool', () => {
 
         await run(tool, { query: 'a', limit: 400 });
 
-        expect(searchPlayable).toHaveBeenCalledWith('a', 25, false);
+        expect(searchPlayable).toHaveBeenCalledWith('a', 25, false, {});
     });
 });

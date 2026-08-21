@@ -33,7 +33,7 @@ import { EmptyUpdateRewriteDialect, KyselyDefaultPlugins, KyselyPgTypeOverrides,
 import type { Logger } from '@maroonedsoftware/logger';
 
 import type { DB } from '../src/modules/data/db.js';
-import { TracksRepository } from '../src/modules/catalog/tracks.repository.js';
+import { TracksRepository, type PlayableSearchOptions } from '../src/modules/catalog/tracks.repository.js';
 import { normalizeKey } from '../src/modules/catalog/catalog.keys.js';
 import { STYLES_SHOWN } from '../src/modules/director/model.set.generator.js';
 
@@ -99,8 +99,21 @@ try {
         const track = async (
             artistId: string,
             title: string,
-            options: { genre?: string; genres?: unknown; rating?: number; playable?: boolean } = {},
+            options: { genre?: string; genres?: unknown; rating?: number; playable?: boolean; year?: number; albumYear?: number } = {},
         ): Promise<string> => {
+            // Only when the case under test needs one: a track with no album is the ordinary shape
+            // here, and the album exists to prove the year falls back to it.
+            const albumId =
+                options.albumYear === undefined
+                    ? undefined
+                    : (
+                          await trx
+                              .insertInto('deadair.albums')
+                              .values({ artistId, name: `${TAG} ${title} album`, nameKey: normalizeKey(`${TAG} ${title} album`), year: options.albumYear })
+                              .returning('id')
+                              .executeTakeFirstOrThrow()
+                      ).id;
+
             const row = await trx
                 .insertInto('deadair.tracks')
                 .values({
@@ -108,8 +121,10 @@ try {
                     artists: `${TAG} artist`,
                     title: `${TAG} ${title}`,
                     titleKey: normalizeKey(`${TAG} ${title}`),
+                    ...(albumId === undefined ? {} : { albumId }),
                     ...(options.genre === undefined ? {} : { genre: options.genre }),
                     ...(options.rating === undefined ? {} : { rating: options.rating }),
+                    ...(options.year === undefined ? {} : { year: options.year }),
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow();
@@ -132,8 +147,8 @@ try {
         };
 
         /** The fixture's titles that a search found, without the tag prefix, sorted. */
-        const found = async (query: string): Promise<string[]> =>
-            (await tracks.searchPlayable(query, LIMIT))
+        const found = async (query: string, options: PlayableSearchOptions = {}): Promise<string[]> =>
+            (await tracks.searchPlayable(query, LIMIT, false, options))
                 .filter(row => row.title.startsWith(TAG))
                 .map(row => row.title.slice(TAG.length + 1))
                 .sort();
@@ -186,6 +201,58 @@ try {
         check('a title still matches', await found('from-artist-tag'), ['from-artist-tag']);
         check('an artist still matches', (await found(`${TAG} plain`)).includes('from-track-tag'), true);
         check('a style nothing carries finds nothing', await found('zzzznope'), []);
+
+        // ── a period, which narrows this half now and used to narrow only the providers ──
+        say('narrowing to a period');
+
+        const dated = await artist('dated', undefined);
+        await track(dated, 'seventies', { year: 1975 });
+        await track(dated, 'eighties', { year: 1984 });
+        // Its year lives on the album, which is where a provider's release date lands when the
+        // payload named a release rather than a recording.
+        await track(dated, 'from-album', { albumYear: 1979 });
+        // The ordinary case on a library nothing has enriched, and the one this is easiest to get
+        // wrong about.
+        await track(dated, 'undated');
+
+        check('a period keeps what falls inside it', await found(`${TAG} dated`, { yearFrom: 1970, yearTo: 1979 }), [
+            'from-album',
+            'seventies',
+            'undated',
+        ]);
+        check('and drops what falls outside', (await found(`${TAG} dated`, { yearFrom: 1970, yearTo: 1979 })).includes('eighties'), false);
+        check('an open-ended start stands alone', (await found(`${TAG} dated`, { yearFrom: 1980 })).includes('seventies'), false);
+        check('an open-ended end stands alone', (await found(`${TAG} dated`, { yearTo: 1979 })).includes('eighties'), false);
+        check("the album's year is what a track with none is judged by", (await found(`${TAG} dated`, { yearFrom: 1980 })).includes('from-album'), false);
+
+        // The decision this whole feature rests on, and the opposite of the `clean-only` posture next
+        // door: an advisory is a content policy where silence must not read as consent, and a period
+        // is programming, where dropping a record the station owns for want of a tag costs the hour.
+        check('a record with no year at all is offered for every period', (await found(`${TAG} dated`, { yearFrom: 1990, yearTo: 1999 })), ['undated']);
+
+        // A period is a complete search: `search_music` may be called with nothing else, and this
+        // half used to answer nothing at all because a year could not narrow a text match. Asked
+        // with its own limit rather than through `found`, since a year-only search is over the WHOLE
+        // library and one fixture row would not survive being cut to a hundred of a thousand.
+        const yearOnly = await tracks.searchPlayable('', 10_000, false, { yearFrom: 1975, yearTo: 1975 });
+        check(
+            'a period alone reads the library rather than nothing',
+            yearOnly.some(row => row.title === `${TAG} seventies`),
+            true,
+        );
+
+        // ── the ordering, which is arbitrary and must hold still for one broadcast ──
+        say('the order rows come back in');
+
+        const ordered = async (seed: string): Promise<string[]> =>
+            (await tracks.searchPlayable(`${TAG} dated`, LIMIT, false, { seed })).map(row => row.title);
+
+        check('the same seed answers the same way twice', JSON.stringify(await ordered('broadcast-a')), JSON.stringify(await ordered('broadcast-a')));
+        // Not a guarantee about any one pair of seeds — four rows can hash into the same order by
+        // chance — so this reports rather than fails, and what it is watching for is an ordering that
+        // ignores the seed entirely and can therefore never differ.
+        const differs = JSON.stringify(await ordered('broadcast-a')) !== JSON.stringify(await ordered('broadcast-b'));
+        say(`  ${differs ? 'ok  ' : 'note'} a different seed ${differs ? 'answers differently' : 'happened to agree, which four rows may'}`);
 
         // ── the vocabulary, which is a promise about the search above ─────────
         say('the words the library answers to');

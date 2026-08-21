@@ -55,8 +55,12 @@ function build(options: Options = {}) {
     const answers = [...(options.answers ?? [FOUND, 'yes'])];
     // The request is typed loosely but NAMED, so a test can read back what the second call was
     // actually shown — which is the point of the verification being a separate conversation.
-    const converse = vi.fn(async (request: { messages: { role: string; content: unknown }[] }) => {
+    // The OPTIONS are named as well as the request, because the tier this pass takes the model at
+    // is not visible in anything it produces: a wrong one reads as a perfectly good extraction and
+    // costs a refill somewhere else entirely. See the priority test below.
+    const converse = vi.fn(async (request: { messages: { role: string; content: unknown }[] }, options?: { priority?: string }) => {
         void request;
+        void options;
         const next = answers.shift();
         if (next instanceof Error) throw next;
         return { text: next ?? '', finishReason: 'stop' };
@@ -104,6 +108,22 @@ describe('the model pass', () => {
         expect(converse).toHaveBeenCalledTimes(2);
         expect(verification).toContain('It was used in Ace Ventura.');
         expect(verification).not.toContain('Badmotorfinger');
+    });
+
+    it('takes the model as background work, on BOTH calls', async () => {
+        // `LlmGate` defaults a caller to `air`, so saying nothing here is claiming a deadline this
+        // pass does not have — and `air` does not merely outrank `background`, it PREEMPTS it. Live:
+        // a briefed refill was handed 24 matching records and taken off the model 171ms later by
+        // this pass, its retry lost the slot after 5ms, and the hour went to the floor.
+        //
+        // Both calls are asserted because the verification is a separate conversation per claim, so
+        // a tier set on the extraction alone would leave the more frequent caller preempting.
+        const { service, converse } = build();
+
+        await service.extractModel(10);
+
+        expect(converse).toHaveBeenCalledTimes(2);
+        for (const [, options] of converse.mock.calls) expect(options?.priority).toBe('background');
     });
 
     it('drops a claim the verifier will not confirm, and records the document as read', async () => {

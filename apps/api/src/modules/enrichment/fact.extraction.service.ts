@@ -32,8 +32,34 @@ export const MODEL_FACTS_DEFAULT = false;
  * station's own phrasings. A background walk must never be the thing that made
  * that happen — so it waits briefly, and a document it could not get to is
  * simply still outstanding.
+ *
+ * **A short wait was never enough to say that, and this pass proved it twice.** See
+ * {@link MODEL_PRIORITY}: the bound above governs how long this waits to get IN, and says nothing
+ * whatsoever about what it may take the slot away from once it is holding one.
  */
 export const MODEL_WAIT_MS = 5_000;
+
+/**
+ * The tier this pass takes the model at, and the reason it has to name one.
+ *
+ * `LlmGate` defaults a caller to `air` (`gate.priority.ts` reasons that the station's own on-air
+ * work should not have to remember to claim priority), so every caller that says nothing is
+ * declaring a deadline. This pass has none — it is a walk over articles a plugin has already
+ * handed over, and a document it misses is outstanding rather than lost — which is precisely
+ * `background`'s own definition: "refills and production passes".
+ *
+ * Saying nothing therefore did not make this polite, it made it a preemptor. Measured on the
+ * station: a `artists like mitch murder` refill searched, was handed 24 matching records, and was
+ * taken off the model 171ms later by this pass; its one retry got the slot and lost it again after
+ * 5ms, at step 0. Ten documents then held the slot for four unbroken minutes, and what they were
+ * reading about were the records the floor had chosen because the refill never answered. An hour of
+ * ordinary rotation, and nothing anywhere saying the brief had been read.
+ *
+ * Note this is the SAME mistake `gate.priority.ts` records against `ModelSetGenerator.BUDGET_MS` —
+ * yielding expressed as a bound rather than as a tier — made by the file that was already arguing
+ * for the yield in the docstring above. A deadline-free caller has to name itself.
+ */
+export const MODEL_PRIORITY = 'background' as const;
 
 /** How long one document's extraction may take once it has the slot. */
 export const MODEL_BUDGET_MS = 120_000;
@@ -201,7 +227,7 @@ export class FactExtractionService {
         const started = Date.now();
         const answer = await this.llm.converse(
             { messages: extractPrompt(subject, document.text), ...(model.length === 0 ? {} : { model }), reasoningEffort: 'low' },
-            { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false },
+            { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
         );
 
         const found = readClaims(answer.text, document.text);
@@ -262,7 +288,7 @@ export class FactExtractionService {
                     maxOutputTokens: VERIFY_OUTPUT_TOKENS,
                     reasoningEffort: 'low',
                 },
-                { budgetMs: VERIFY_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false },
+                { budgetMs: VERIFY_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
             );
 
             // A verifier that said NOTHING is broken, not unconvinced, and the two have to look

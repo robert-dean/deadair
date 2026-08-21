@@ -362,6 +362,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
+        key: SUSTAINING_KEYS.eraFrom,
+        label: 'Between scheduled blocks: earliest year',
+        type: 'number',
+        help:
+            'The period played between blocks, as a four-digit year. Unlike the words above, this reaches the record draw as well as the model, ' +
+            'so it holds even on a station with no model configured. A record whose release year the catalogue does not know is played whatever ' +
+            'the period: leaving it out is not evidence of the wrong decade.',
+    },
+    {
+        group: 'rotation',
+        key: SUSTAINING_KEYS.eraTo,
+        label: 'Between scheduled blocks: latest year',
+        type: 'number',
+        help: 'The other end, on the same terms. Set both for a decade; either stands alone, so a lower bound on its own means "this year onwards".',
+    },
+    {
+        group: 'rotation',
         key: BULLETIN_KEYS.stories,
         label: 'Headlines in a news bulletin',
         type: 'number',

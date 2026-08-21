@@ -479,13 +479,25 @@ describe('StationLineup editing', () => {
         expect(lineup.toSnapshot().broadcastId).toBe(before);
     });
 
-    it('clears the brief when it is emptied, because an unbriefed station is programmed by its host', () => {
+    it('clears the brief when it is emptied, because an unbriefed station plays ordinary rotation', () => {
         const lineup = new StationLineup({ ...binding(), brief: 'ambient only' });
 
         lineup.rebrief('');
 
         expect(lineup.brief).toBe('');
         expect(lineup.toSnapshot()).not.toHaveProperty('brief');
+    });
+
+    it('carries the period as one answer, with either end standing alone', () => {
+        // One accessor rather than two because every reader wants both: the prompt states a range,
+        // the resolver judges against a range, and the draw narrows on one.
+        expect(new StationLineup({ ...binding(), eraFrom: 1970, eraTo: 1979 }).era).toEqual({ from: 1970, to: 1979 });
+        expect(new StationLineup({ ...binding(), eraFrom: 1990 }).era).toEqual({ from: 1990 });
+        expect(new StationLineup({ ...binding(), eraTo: 1989 }).era).toEqual({ to: 1989 });
+    });
+
+    it('has no period at all when neither end was set, so a caller can spread it', () => {
+        expect(new StationLineup(binding()).era).toBeUndefined();
     });
 
     it('takes a fresh tail onto an order that has run out, which is when it is wanted most', () => {

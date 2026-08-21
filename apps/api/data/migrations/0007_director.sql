@@ -62,6 +62,28 @@ create table deadair.station_lineup (
     --
     -- Empty is the ordinary state and means the station programmes itself as it always has.
     brief text not null default '',
+    -- The PERIOD this broadcast plays, inclusive, as four-digit years. Either end may stand alone:
+    -- `era_from` with no `era_to` is "1990 onwards".
+    --
+    -- The brief's exact half, and the one structured constraint that earns its place beside free
+    -- text. `0017_schedule.sql` argues at length that a parallel bag of genre and mood filters would
+    -- be a second, weaker answer than prose, and that is right about genre and mood -- "flamenco
+    -- guitar with a bit of swing" is not a field. A period is the exception, and the station had
+    -- already conceded it: `set.prompt.ts` tells the model never to write "80s" in a query and to
+    -- pass `yearFrom`/`yearTo` instead, because the words do not work and the numbers do. This is
+    -- that same answer, kept somewhere the DETERMINISTIC draw can read it as well -- so a station
+    -- asked for a decade still plays one when no model is configured, which no amount of prose can
+    -- do. There is nothing to approximate: a year range is not a guess.
+    --
+    -- Null at either end is no bound. A record whose year the catalog does not know is ELIGIBLE for
+    -- any period, which is the opposite call to `rotation.advisory`'s `clean-only` and deliberate:
+    -- an advisory is a content policy where silence must not read as consent, and this is
+    -- programming, where dropping a record the station owns for want of a tag costs the hour.
+    era_from integer,
+    era_to integer,
+    constraint station_lineup_era_check check (era_from is null or era_to is null or era_from <= era_to),
+    constraint station_lineup_era_from_range check (era_from is null or (era_from >= 1900 and era_from <= 2100)),
+    constraint station_lineup_era_to_range check (era_to is null or (era_to >= 1900 and era_to <= 2100)),
     -- The ordered list: every item, breaks among them, each carrying its own state.
     --
     --   planned  committed to nothing yet. The only state an operator may edit.

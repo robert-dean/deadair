@@ -25,6 +25,22 @@ export const ScheduleSlot = z.strictObject({
     sourcePlaylistId: z.string().max(500).optional(),
     personaId: z.string().max(100).optional().describe("Who hosts this stretch of the day. Absent means the station's own active persona"),
     brief: z.string().max(2000).optional().describe("What this stretch of the day is asked to play, in the operator's own words"),
+    eraFrom: z.coerce
+        .number()
+        .int()
+        .min(1900)
+        .max(2100)
+        .optional()
+        .describe(
+            'The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period',
+        ),
+    eraTo: z.coerce
+        .number()
+        .int()
+        .min(1900)
+        .max(2100)
+        .optional()
+        .describe('The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -50,6 +66,22 @@ export const ScheduleSlotInput = z.strictObject({
     sourcePlaylistId: z.string().max(500).optional(),
     personaId: z.string().max(100).optional().describe("Who hosts this stretch of the day. Absent means the station's own active persona"),
     brief: z.string().max(2000).optional().describe("What this stretch of the day is asked to play, in the operator's own words"),
+    eraFrom: z.coerce
+        .number()
+        .int()
+        .min(1900)
+        .max(2100)
+        .optional()
+        .describe(
+            'The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period',
+        ),
+    eraTo: z.coerce
+        .number()
+        .int()
+        .min(1900)
+        .max(2100)
+        .optional()
+        .describe('The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -57,7 +89,7 @@ export type ScheduleSlotInput = z.infer<typeof ScheduleSlotInput>;
 
 /**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](file://./../../../../data/contracts/schedule/schedule.types.ck#L27)
+ * generated from [ScheduleTimetableQuery](file://./../../../../data/contracts/schedule/schedule.types.ck#L29)
  */
 export const ScheduleTimetableQuery = z.strictObject({
     from: z
@@ -74,7 +106,7 @@ export type ScheduleTimetableQuery = z.infer<typeof ScheduleTimetableQuery>;
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](file://./../../../../data/contracts/schedule/schedule.types.ck#L40)
+ * generated from [ScheduleOccurrence](file://./../../../../data/contracts/schedule/schedule.types.ck#L42)
  */
 export const ScheduleOccurrence = z.strictObject({
     slotId: z.string().min(1).max(100),
@@ -91,7 +123,7 @@ export const ScheduleOccurrence = z.strictObject({
 export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
 /**
- * generated from [ScheduleSlotList](file://./../../../../data/contracts/schedule/schedule.types.ck#L22)
+ * generated from [ScheduleSlotList](file://./../../../../data/contracts/schedule/schedule.types.ck#L24)
  */
 export const ScheduleSlotList = z.strictObject({
     slots: z.array(ScheduleSlot),
@@ -105,7 +137,7 @@ export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](file://./../../../../data/contracts/schedule/schedule.types.ck#L33)
+ * generated from [ScheduleTimetable](file://./../../../../data/contracts/schedule/schedule.types.ck#L35)
  */
 export const ScheduleTimetable = z.strictObject({
     from: z
@@ -122,7 +154,7 @@ export type ScheduleTimetable = z.infer<typeof ScheduleTimetable>;
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](file://./../../../../data/contracts/schedule/schedule.types.ck#L48)
+ * generated from [ScheduleNow](file://./../../../../data/contracts/schedule/schedule.types.ck#L50)
  */
 export const ScheduleNow = z.strictObject({
     now: z

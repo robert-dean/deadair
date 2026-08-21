@@ -358,6 +358,8 @@ function bodyOf(slot: ScheduleSlot): ScheduleSlotInput {
         ...(slot.sourcePlaylistId === undefined ? {} : { sourcePlaylistId: slot.sourcePlaylistId }),
         ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
         ...(slot.brief === undefined ? {} : { brief: slot.brief }),
+        ...(slot.eraFrom === undefined ? {} : { eraFrom: slot.eraFrom }),
+        ...(slot.eraTo === undefined ? {} : { eraTo: slot.eraTo }),
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

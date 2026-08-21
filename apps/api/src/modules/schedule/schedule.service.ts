@@ -47,6 +47,8 @@ export const SUSTAINING_KEYS = {
     pluginId: 'schedule.sustainingPluginId',
     playlistId: 'schedule.sustainingPlaylistId',
     brief: 'schedule.sustainingBrief',
+    eraFrom: 'schedule.sustainingEraFrom',
+    eraTo: 'schedule.sustainingEraTo',
 } as const;
 
 /** What the station falls back to between blocks, or `undefined` when the operator has named nothing. */
@@ -54,6 +56,37 @@ export interface SustainingSource {
     pluginId?: string;
     playlistId?: string;
     brief?: string;
+    /** The period it plays, on the same terms as a slot's. Either end may stand alone. */
+    era?: { from?: number; to?: number };
+}
+
+/**
+ * The bounds a sustaining year has to fall inside to be believed. As the migrations'.
+ *
+ * A setting is text an operator typed, so this is the same guard `catalog.resolver.repository.ts`
+ * puts on a plugin's year and for the same reason: a value nobody can parse is a period nobody set,
+ * and reading `'nineteen eighty'` as `NaN` would narrow the draw to nothing while the console showed
+ * the words back.
+ */
+const SUSTAINING_YEAR_MIN = 1900;
+const SUSTAINING_YEAR_MAX = 2100;
+
+/** A settings pair as a period, or `undefined` when neither end is a year. */
+function sustainingEra(from: string | undefined, to: string | undefined): { from?: number; to?: number } | undefined {
+    const year = (value: string | undefined): number | undefined => {
+        if (value === undefined) return undefined;
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return undefined;
+
+        const truncated = Math.trunc(parsed);
+        return truncated >= SUSTAINING_YEAR_MIN && truncated <= SUSTAINING_YEAR_MAX ? truncated : undefined;
+    };
+
+    const start = year(from);
+    const end = year(to);
+    if (start === undefined && end === undefined) return undefined;
+
+    return { ...(start === undefined ? {} : { from: start }), ...(end === undefined ? {} : { to: end }) };
 }
 
 const pad = (value: number, width = 2) => String(value).padStart(width, '0');
@@ -129,14 +162,20 @@ export class ScheduleService {
             return value.length === 0 ? undefined : value;
         };
 
+        // A settings layer holds STRINGS, so a year has to be parsed rather than read: `config.get`
+        // would answer `'1975'`, which is not a number and compares as one only by accident. See
+        // `settingIsOn`'s note in CLAUDE.md for the same bug in its boolean form.
+        const era = sustainingEra(read(SUSTAINING_KEYS.eraFrom), read(SUSTAINING_KEYS.eraTo));
+
         const source: SustainingSource = {
             ...(read(SUSTAINING_KEYS.pluginId) === undefined ? {} : { pluginId: read(SUSTAINING_KEYS.pluginId) }),
             ...(read(SUSTAINING_KEYS.playlistId) === undefined ? {} : { playlistId: read(SUSTAINING_KEYS.playlistId) }),
             ...(read(SUSTAINING_KEYS.brief) === undefined ? {} : { brief: read(SUSTAINING_KEYS.brief) }),
+            ...(era === undefined ? {} : { era }),
         };
 
         // A brief on its own is a coherent sustaining service: the station programmes itself and is
-        // told what to aim for. Nothing at all is not.
+        // told what to aim for. A period on its own is one too. Nothing at all is not.
         return Object.keys(source).length === 0 ? undefined : source;
     }
 
@@ -319,6 +358,9 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
             : { source: { pluginId: body.sourcePluginId, playlistId: body.sourcePlaylistId } }),
         ...(body.personaId?.trim() ? { personaId: body.personaId.trim() } : {}),
         ...(body.brief?.trim() ? { brief: body.brief.trim() } : {}),
+        ...(body.eraFrom === undefined && body.eraTo === undefined
+            ? {}
+            : { era: { ...(body.eraFrom === undefined ? {} : { from: body.eraFrom }), ...(body.eraTo === undefined ? {} : { to: body.eraTo }) } }),
         mode: body.mode,
         onEnd: body.onEnd,
     };
@@ -335,6 +377,8 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.source === undefined ? {} : { sourcePluginId: slot.source.pluginId, sourcePlaylistId: slot.source.playlistId }),
         ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
         ...(slot.brief === undefined ? {} : { brief: slot.brief }),
+        ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
+        ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

@@ -135,6 +135,8 @@ export class ScheduleTickJob extends PlainJob {
                     ? {}
                     : { pluginId: source.pluginId, playlistId: source.playlistId }),
                 ...(source.brief === undefined ? {} : { brief: source.brief }),
+                ...(source.era?.from === undefined ? {} : { eraFrom: source.era.from }),
+                ...(source.era?.to === undefined ? {} : { eraTo: source.era.to }),
                 mode: 'rotation',
                 onEnd: 'extend',
             });
@@ -173,6 +175,11 @@ export class ScheduleTickJob extends PlainJob {
                     name: slot.label,
                     ...(slot.source === undefined ? {} : { pluginId: slot.source.pluginId, playlistId: slot.source.playlistId }),
                     ...(slot.brief === undefined ? {} : { brief: slot.brief }),
+                    // Copied onto the running order beside the brief, for the brief's own reason:
+                    // `onEnd: 'extend'` keeps asking for more, and a period held anywhere but the
+                    // order would last one batch.
+                    ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
+                    ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
                     ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
                     mode: slot.mode,
                     onEnd: slot.onEnd,

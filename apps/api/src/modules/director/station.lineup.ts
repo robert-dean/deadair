@@ -236,6 +236,20 @@ export interface StationLineupBinding {
      */
     brief?: string;
     /**
+     * The PERIOD this broadcast plays, inclusive, as four-digit years.
+     *
+     * The brief's exact half. It rides the running order for the same reason {@link brief} does, and
+     * it is a pair of numbers rather than words in the brief because a period is the one programming
+     * constraint the DETERMINISTIC draw can honour: prose reaches a model and nothing else, so a
+     * station asked for a decade in words plays any decade the moment no model is configured.
+     *
+     * Either end may stand alone. A record whose year the catalog does not know is ELIGIBLE for any
+     * period — see `0007_director.sql` for why that is the opposite call to `clean-only` and
+     * deliberately so.
+     */
+    eraFrom?: number;
+    eraTo?: number;
+    /**
      * Who is HOSTING this broadcast, as distinct from who the station is when nobody said.
      *
      * It rides the running order for the same reason {@link brief} does: `onEnd: 'extend'` keeps
@@ -393,6 +407,20 @@ export class StationLineup implements LiveOrder {
 
     get brief(): string {
         return this.binding.brief ?? '';
+    }
+
+    /**
+     * The period this broadcast plays, or `undefined` at either end for no bound.
+     *
+     * One accessor rather than two, because both ends are one question and every reader wants them
+     * together: the prompt states a range, the resolver judges against a range, and the draw
+     * narrows on one. Absent entirely when neither end is set, so a caller can spread it.
+     */
+    get era(): { from?: number; to?: number } | undefined {
+        const { eraFrom, eraTo } = this.binding;
+        if (eraFrom === undefined && eraTo === undefined) return undefined;
+
+        return { ...(eraFrom === undefined ? {} : { from: eraFrom }), ...(eraTo === undefined ? {} : { to: eraTo }) };
     }
 
     // ── reading ────────────────────────────────────────────────────────────────

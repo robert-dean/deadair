@@ -323,7 +323,6 @@ export interface DeadairPersonas {
   key: string;
   label: string;
   latitude: string | null;
-  music: string | null;
   quirks: Generated<Json>;
   samples: Generated<Json>;
   stationKey: Generated<string>;
@@ -440,6 +439,8 @@ export interface DeadairScheduleSlots {
   createdAt: Generated<DateTime>;
   days: Generated<Json>;
   endsAtMinutes: number;
+  eraFrom: number | null;
+  eraTo: number | null;
   id: Generated<string>;
   label: Generated<string>;
   mode: Generated<"rotation" | "setlist" | "feature">;
@@ -560,6 +561,8 @@ export interface DeadairStationLineup {
   brief: Generated<string>;
   broadcastId: Generated<string>;
   createdAt: Generated<DateTime>;
+  eraFrom: number | null;
+  eraTo: number | null;
   items: Generated<Json>;
   mode: Generated<"rotation" | "setlist" | "feature">;
   name: Generated<string>;

@@ -72,6 +72,8 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     name?: string(min=1, max=200) # What to call this broadcast. Absent names it after the plugin, since only the surface that listed the playlist knows its own name for it
     brief?: string(max=500) # What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do
     personaId?: string(min=1, max=100) # Who is hosting this broadcast. It rides the running order for as long as the broadcast does, so the presenter cannot drift back mid-show. Absent uses whichever persona the station has on air
+    eraFrom?: int(min=1900, max=2100) # The earliest release year this broadcast plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period
+    eraTo?: int(min=1900, max=2100) # The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
     mode?: StationMode
     onEnd?: StationOnEnd
 }

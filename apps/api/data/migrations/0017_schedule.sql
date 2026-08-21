@@ -74,12 +74,27 @@ create table deadair.schedule_slots (
     -- running order at a changeover, where it does the job it already does: outlive the batch it
     -- produced, because `on_end = 'extend'` keeps asking for more.
     --
-    -- Free text and deliberately NOT a bag of genre, era and mood constraints. A brief is read by a
+    -- Free text and deliberately NOT a bag of genre and mood constraints. A brief is read by a
     -- model, which is how every other steering instruction here reaches one; a parallel structured
     -- filter would be a second, weaker answer to the same question, and `chart.set.generator.ts`
     -- already argues that approximating an instruction is what the deterministic layer is not
     -- allowed to do.
+    --
+    -- **A PERIOD is the one exception**, and it is the columns below rather than words in here. This
+    -- comment used to say "genre, era and mood" and the era half of it was wrong: a dropdown is
+    -- weaker than prose for a style and STRONGER for a year, the station had already conceded that
+    -- much (`set.prompt.ts` tells the model never to write "80s" in a query and to pass
+    -- `yearFrom`/`yearTo` instead), and there is nothing to approximate in a range. What it buys is
+    -- the deterministic draw honouring a decade too, which prose can never do. See
+    -- `0007_director.sql`, where the same pair rides the running order this slot builds.
     brief text not null default '',
+    -- The period this stretch of the day plays, copied onto the running order at a changeover
+    -- exactly as `brief` is. Same meaning, same bounds, same null-is-eligible rule.
+    era_from integer,
+    era_to integer,
+    constraint schedule_slots_era_check check (era_from is null or era_to is null or era_from <= era_to),
+    constraint schedule_slots_era_from_range check (era_from is null or (era_from >= 1900 and era_from <= 2100)),
+    constraint schedule_slots_era_to_range check (era_to is null or (era_to >= 1900 and era_to <= 2100)),
     -- What a broadcast built from this slot IS, and what happens when it runs out. Same vocabulary
     -- and same defaults as `station_lineup`, because a changeover builds one of those from this.
     mode text not null default 'rotation' constraint schedule_slots_mode_check check (mode in ('rotation', 'setlist', 'feature')),

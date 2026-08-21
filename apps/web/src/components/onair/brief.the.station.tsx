@@ -1,4 +1,4 @@
-import { Button, Card, Group, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import { Button, Card, Group, NumberInput, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import { useState } from 'react';
 
 import { usePutStationOnAir } from '../../api/director.queries';
@@ -52,6 +52,11 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
     const [brief, setBrief] = useState('');
     // `undefined` is "whoever the station has on air", which is the default and the common case.
     const [personaId, setPersonaId] = useState<string | undefined>(undefined);
+    // The brief's exact half, and the one part of it that reaches the record DRAW rather than only
+    // the model — so a period holds even where the words above do nothing. Empty is no bound at
+    // either end, and the two are independent.
+    const [eraFrom, setEraFrom] = useState<number | string>('');
+    const [eraTo, setEraTo] = useState<number | string>('');
     const onAir = usePutStationOnAir();
     const personas = usePersonas();
 
@@ -63,7 +68,13 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
         // The brief doubles as the label for this broadcast. An operator who asked for heavy metal
         // hits should see that on the page rather than "The station", and naming it anything else
         // would be inventing a second thing to read.
-        onAir.mutate({ brief: asked, name: asked, ...(personaId === undefined ? {} : { personaId }) });
+        onAir.mutate({
+            brief: asked,
+            name: asked,
+            ...(personaId === undefined ? {} : { personaId }),
+            ...(typeof eraFrom === 'number' ? { eraFrom } : {}),
+            ...(typeof eraTo === 'number' ? { eraTo } : {}),
+        });
     };
 
     return (
@@ -119,8 +130,38 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                         </Button>
                     </Tooltip>
                 </Group>
+                <Group gap="sm" wrap="nowrap" align="flex-start">
+                    <NumberInput
+                        w={120}
+                        aria-label="Earliest year"
+                        placeholder="From year"
+                        min={1900}
+                        max={2100}
+                        allowDecimal={false}
+                        hideControls
+                        className="da-num"
+                        value={eraFrom}
+                        onChange={setEraFrom}
+                    />
+                    <NumberInput
+                        w={120}
+                        aria-label="Latest year"
+                        placeholder="To year"
+                        min={1900}
+                        max={2100}
+                        allowDecimal={false}
+                        hideControls
+                        className="da-num"
+                        value={eraTo}
+                        onChange={setEraTo}
+                    />
+                    <Text size="xs" c="dimmed" style={{ lineHeight: '36px' }}>
+                        A period, if you want one. Unlike the words, it holds without a model.
+                    </Text>
+                </Group>
                 <Text size="xs" c="dimmed">
-                    The host stays with this broadcast until you go on air again. Leave it empty to use whichever persona the station has on air.
+                    The host stays with this broadcast until you go on air again. Leave it empty to use whichever persona the station has on air. A
+                    record whose release year the catalogue does not know is played whatever the period.
                 </Text>
                 <Text size="xs" c="dimmed">
                     Needs a model to programme with: turn on “Let a model choose what the station plays” in settings. Without one the station falls

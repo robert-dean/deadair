@@ -41,7 +41,7 @@ interface Options {
     /** What going on air does, for the decline case. */
     putOnAir?: () => Promise<unknown>;
     /** What the station plays between blocks. Absent is a station that has named nothing. */
-    sustaining?: { pluginId?: string; playlistId?: string; brief?: string };
+    sustaining?: { pluginId?: string; playlistId?: string; brief?: string; era?: { from?: number; to?: number } };
 }
 
 function build(options: Options = {}) {
@@ -110,6 +110,38 @@ describe('ScheduleTickJob', () => {
         await tick();
 
         expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining', pluginId: 'p', playlistId: 'l' }));
+    });
+
+    it('carries a slot’s period onto the running order beside its brief', async () => {
+        // For the brief's own reason: `onEnd: 'extend'` keeps asking for more, so a period held
+        // anywhere but the order would last one batch and the show would drift out of its decade
+        // within the hour with nothing saying so.
+        const { tick, console } = build({ inForce: slot('sixties', { brief: 'the good stuff', era: { from: 1960, to: 1969 } }) });
+
+        await tick();
+
+        expect(console.putOnAir).toHaveBeenCalledWith(
+            expect.objectContaining({ brief: 'the good stuff', eraFrom: 1960, eraTo: 1969 }),
+            expect.anything(),
+        );
+    });
+
+    it('says nothing about a period a slot does not name', async () => {
+        const { tick, console } = build({ inForce: slot('morning') });
+
+        await tick();
+
+        expect(console.putOnAir.mock.calls[0]?.[0]).not.toHaveProperty('eraFrom');
+        expect(console.putOnAir.mock.calls[0]?.[0]).not.toHaveProperty('eraTo');
+    });
+
+    it('carries the sustaining period through a gap too', async () => {
+        const { tick, console } = build({ inForce: undefined, airing: 'breakfast', sustaining: { era: { from: 1990 } } });
+
+        await tick();
+
+        expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining', eraFrom: 1990 }));
+        expect(console.putOnAir.mock.calls[0]?.[0]).not.toHaveProperty('eraTo');
     });
 
     it('carries on through a gap when no sustaining source is named, and says so once', async () => {

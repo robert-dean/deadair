@@ -26,7 +26,7 @@ const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: 
     onEnd: 'extend',
 });
 
-function build(options: { slots?: ScheduleSlot[]; airing?: string } = {}) {
+function build(options: { slots?: ScheduleSlot[]; airing?: string; settings?: Record<string, string> } = {}) {
     const slots = { list: vi.fn(async () => options.slots ?? []) } as unknown as ScheduleRepository;
     const director = {
         status: vi.fn(() => ({
@@ -37,9 +37,14 @@ function build(options: { slots?: ScheduleSlot[]; airing?: string } = {}) {
         })),
     } as unknown as DirectorService;
 
-    // A real string, not a boolean: every layer of AppConfig holds strings, and a double that hands
-    // back something else proves nothing about what the app will read.
-    const config = { get: vi.fn(() => 'Europe/London'), has: vi.fn(() => true) } as unknown as AppConfig;
+    // Real STRINGS, never numbers or booleans: every layer of AppConfig holds strings, and a double
+    // that hands back something else proves nothing about what the app will read. That matters for
+    // the sustaining period below in particular -- a test handing over `1975` would pass whether or
+    // not the service parses at all.
+    const config = {
+        get: vi.fn((key: string, fallback?: unknown) => options.settings?.[key] ?? (key === 'station.timezone' ? 'Europe/London' : fallback)),
+        has: vi.fn(() => true),
+    } as unknown as AppConfig;
 
     return new ScheduleService(slots, director, config, logger);
 }
@@ -171,5 +176,37 @@ describe('ScheduleService.timetable', () => {
 
         expect(drawn.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         expect(drawn.occurrences.length).toBeGreaterThan(0);
+    });
+});
+
+describe('the sustaining source', () => {
+    // The period is the half that can be wrong in silence. A settings layer holds STRINGS, so a
+    // service that read the value straight through would hand `'1975'` to a SQL predicate and to a
+    // prompt, where it compares as a year only by accident -- and a value nobody can parse would
+    // narrow the draw to nothing while the console showed the operator's own words back at them.
+    const KEYS = { from: 'schedule.sustainingEraFrom', to: 'schedule.sustainingEraTo' };
+
+    it('reads a period as numbers, from the strings a settings layer actually holds', () => {
+        const service = build({ settings: { [KEYS.from]: '1970', [KEYS.to]: '1979' } });
+
+        expect(service.sustaining()?.era).toEqual({ from: 1970, to: 1979 });
+    });
+
+    it('takes either end alone', () => {
+        expect(build({ settings: { [KEYS.from]: '1990' } }).sustaining()?.era).toEqual({ from: 1990 });
+        expect(build({ settings: { [KEYS.to]: '1989' } }).sustaining()?.era).toEqual({ to: 1989 });
+    });
+
+    it('is a coherent sustaining service on its own, with no playlist and no words', () => {
+        // The same argument a brief alone is one: the station programmes itself and is told what to
+        // aim for. Nothing at all is not.
+        expect(build({ settings: { [KEYS.from]: '1970' } }).sustaining()).toBeDefined();
+        expect(build().sustaining()).toBeUndefined();
+    });
+
+    it('reads a year nobody can parse as no period, rather than as NaN', () => {
+        for (const value of ['nineteen eighty', '', '   ', '0', '75', '20260101']) {
+            expect(build({ settings: { [KEYS.from]: value } }).sustaining()?.era, `"${value}" should not be a year`).toBeUndefined();
+        }
     });
 });

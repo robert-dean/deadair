@@ -31,7 +31,7 @@ export type StationItemState = z.infer<typeof StationItemState>;
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L79)
+ * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L81)
  */
 export const AddStationSegmentInput = z.strictObject({
     segmentId: z.string().min(1).max(100),
@@ -55,7 +55,7 @@ export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L85)
+ * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L87)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -64,7 +64,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L89)
+ * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L91)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -73,7 +73,7 @@ export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L93)
+ * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L95)
  */
 export const ReplanStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional().describe('How many records to programme. Absent is roughly an hour'),
@@ -160,6 +160,22 @@ export const PutOnAirInput = z.strictObject({
         .describe(
             'Who is hosting this broadcast. It rides the running order for as long as the broadcast does, so the presenter cannot drift back mid-show. Absent uses whichever persona the station has on air',
         ),
+    eraFrom: z.coerce
+        .number()
+        .int()
+        .min(1900)
+        .max(2100)
+        .optional()
+        .describe(
+            'The earliest release year this broadcast plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period',
+        ),
+    eraTo: z.coerce
+        .number()
+        .int()
+        .min(1900)
+        .max(2100)
+        .optional()
+        .describe('The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'),
     mode: StationMode.optional(),
     onEnd: StationOnEnd.optional(),
 });

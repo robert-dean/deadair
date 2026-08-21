@@ -53,11 +53,19 @@ export interface ScheduleSlotSource {
 /**
  * One entry in the schedule: from this time on this day, the station plays this.
  *
- * Deliberately carries a `brief` and a `personaId` and no structured music filters. The brief is
- * free text read by a model, which is how every other steering instruction in this tree reaches one;
- * a parallel bag of genre and era constraints would be a second, weaker answer to the same question,
- * and `chart.set.generator.ts` already argues that approximating an instruction is exactly what the
- * deterministic layer is not allowed to do.
+ * Deliberately carries a `brief` and a `personaId` and no structured GENRE or MOOD filters. The
+ * brief is free text read by a model, which is how every other steering instruction in this tree
+ * reaches one; a parallel bag of style constraints would be a second, weaker answer to the same
+ * question, and `chart.set.generator.ts` already argues that approximating an instruction is exactly
+ * what the deterministic layer is not allowed to do.
+ *
+ * **{@link ScheduleSlot.era} is the one exception**, and this comment used to name era among the
+ * things that had no business being a field. That was wrong in one direction only: a dropdown is
+ * weaker than prose for a style and STRONGER for a year, the station had already conceded as much
+ * (`set.prompt.ts` tells the model never to write "80s" in a query and to pass `yearFrom`/`yearTo`
+ * instead, because the words do not work and the numbers do), and there is nothing to approximate in
+ * a range. What being a field buys is the DETERMINISTIC draw honouring a decade too — which prose
+ * cannot do at all, since it reaches a model and nothing else.
  */
 export interface ScheduleSlot {
     id: string;
@@ -84,6 +92,14 @@ export interface ScheduleSlot {
     source?: ScheduleSlotSource;
     personaId?: string;
     brief?: string;
+    /**
+     * The period this stretch of the day plays, inclusive, as four-digit years.
+     *
+     * Copied onto the running order at a changeover exactly as {@link brief} is, and the same shape
+     * `StationLineup` holds it in. Either end may stand alone, and a record whose year the catalog
+     * does not know is eligible for any period.
+     */
+    era?: { from?: number; to?: number };
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }

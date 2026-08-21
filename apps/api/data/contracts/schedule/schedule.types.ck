@@ -15,6 +15,8 @@ contract ScheduleSlot: {
     sourcePlaylistId?: string(max=500)
     personaId?: string(max=100) # Who hosts this stretch of the day. Absent means the station's own active persona
     brief?: string(max=2000) # What this stretch of the day is asked to play, in the operator's own words
+    eraFrom?: int(min=1900, max=2100) # The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period
+    eraTo?: int(min=1900, max=2100) # The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
     mode: enum(rotation, setlist, feature)
     onEnd: enum(extend, repeat, stop)
 }

@@ -256,6 +256,10 @@ export class DirectorConsoleService {
             // matched against anything, so there is nothing here to normalize and a station briefed
             // with only spaces asked for nothing.
             ...(input.brief?.trim() ? { brief: input.brief.trim() } : {}),
+            // The brief's exact half. Bounds-checked by the contract, so anything that arrives here
+            // is already a four-digit year, and either end may stand alone.
+            ...(input.eraFrom === undefined ? {} : { eraFrom: input.eraFrom }),
+            ...(input.eraTo === undefined ? {} : { eraTo: input.eraTo }),
             // Not validated against the persona table here, and deliberately: the resolver behind
             // it already falls back to the station's own host for an id that names nothing, which
             // is the same answer a persona deleted mid-broadcast gets. Refusing to go on air over a

@@ -48,6 +48,8 @@ export class StationLineupRepository extends DataRepository {
                 'broadcastId',
                 'name',
                 'brief',
+                'eraFrom',
+                'eraTo',
                 'personaId',
                 'slotId',
                 'mode',
@@ -72,6 +74,10 @@ export class StationLineupRepository extends DataRepository {
                 // Empty reads as absent rather than as an empty instruction, so the column's
                 // default and a station that was never briefed are the same thing everywhere above.
                 ...(row.brief ? { brief: row.brief } : {}),
+                // Null at either end is no bound, and the two are independent: a broadcast may be
+                // "1990 onwards" with nothing said about the other end.
+                ...(row.eraFrom == null ? {} : { eraFrom: row.eraFrom }),
+                ...(row.eraTo == null ? {} : { eraTo: row.eraTo }),
                 // Null means the station's own active persona, so an absent host and a station that
                 // was never told who is presenting are the same thing everywhere above.
                 ...(row.personaId == null ? {} : { personaId: row.personaId }),
@@ -107,6 +113,8 @@ export class StationLineupRepository extends DataRepository {
             broadcastId: snapshot.broadcastId,
             name: snapshot.name,
             brief: snapshot.brief ?? '',
+            eraFrom: snapshot.eraFrom ?? null,
+            eraTo: snapshot.eraTo ?? null,
             personaId: snapshot.personaId ?? null,
             slotId: snapshot.slotId ?? null,
             mode: snapshot.mode,

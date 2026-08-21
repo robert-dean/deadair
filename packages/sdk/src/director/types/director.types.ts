@@ -26,7 +26,7 @@ export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'ski
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L79)
+ * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L81)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -38,7 +38,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L85)
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L87)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -46,7 +46,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L89)
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L91)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -54,7 +54,7 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L93)
+ * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L95)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
@@ -105,6 +105,10 @@ export interface PutOnAirInput {
     brief?: string;
     /** Who is hosting this broadcast. It rides the running order for as long as the broadcast does, so the presenter cannot drift back mid-show. Absent uses whichever persona the station has on air */
     personaId?: string;
+    /** The earliest release year this broadcast plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period */
+    eraFrom?: number;
+    /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
+    eraTo?: number;
     mode?: StationMode;
     onEnd?: StationOnEnd;
 }

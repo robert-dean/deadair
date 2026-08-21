@@ -13,6 +13,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { ANALYSIS_SCHEMA_VERSION, PluginError, type TrackAnalysis } from '@deadair/plugin-sdk';
 
 import { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
+import { resetDefaultPickReports } from '../../../src/modules/plugins/plugin.selection.js';
 import type { AnalysableTrack } from '../../../src/modules/analysis/analysis.repository.js';
 
 const stubLogger = () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() }) as unknown as Logger;
@@ -132,13 +133,31 @@ describe('choosing an analyzer', () => {
         expect(vi.mocked(logger.info).mock.calls[0]?.[1]).toMatchObject({ reason: expect.stringContaining('install and enable') });
     });
 
-    it('refuses to guess between several and says which they are', async () => {
+    it('measures with the first of several and says which it chose', async () => {
+        // It used to refuse here. Measuring with an analyzer nobody picked is the safest of the
+        // three defaults to take — every row records `analyzer_plugin_id` and re-measuring is cheap
+        // and unattended — but it is only safe because it is SAID, and this is the only place it
+        // ever is: nothing about the rows looks wrong from the outside.
+        resetDefaultPickReports();
         const { service, logger } = build({ analyzers: ['deadair.analyzer', 'other.analyzer'] });
 
-        expect((await service.analysePending(50, undefined)).scanned).toBe(0);
-        expect(vi.mocked(logger.info).mock.calls[0]?.[1]).toMatchObject({
-            reason: expect.stringContaining('deadair.analyzer, other.analyzer'),
-        });
+        expect((await service.analysePending(50, undefined)).scanned).toBe(1);
+
+        const said = vi.mocked(logger.info).mock.calls.map(call => String(call[0]));
+        expect(said.some(line => line.includes('"deadair.analyzer"') && line.includes('other.analyzer'))).toBe(true);
+    });
+
+    it('says that only once, however many tracks it walks', async () => {
+        // On the edge, because `analyzer()` is asked per track: a line every time would be the
+        // reporting costing more than the thing it reports.
+        resetDefaultPickReports();
+        const { service, logger } = build({ analyzers: ['deadair.analyzer', 'other.analyzer'] });
+
+        await service.analysePending(50, undefined);
+        await service.analysePending(50, undefined);
+
+        const unset = vi.mocked(logger.info).mock.calls.filter(call => String(call[0]).includes('is unset'));
+        expect(unset).toHaveLength(1);
     });
 
     it('does not fall back when the named analyzer is not running', async () => {

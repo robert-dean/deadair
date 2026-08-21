@@ -12,6 +12,7 @@ import {
     ANALYSIS_PLUGIN_KEY,
     DEFAULT_ANALYSIS_CONCURRENCY,
     MAX_ANALYSIS_CONCURRENCY,
+    explainDefaultAnalyzer,
     explainNoAnalyzer,
     resolveAnalysisConcurrency,
     selectAnalysisPlugin,
@@ -34,8 +35,12 @@ describe('selectAnalysisPlugin', () => {
         expect(selectAnalysisPlugin([bundled, other], 'deadair.someone-elses-analyzer')).toBe(other);
     });
 
-    it('refuses to guess between several when nobody has chosen', () => {
-        expect(selectAnalysisPlugin([bundled, other], undefined)).toBeUndefined();
+    it('takes the first when nobody has chosen between several', () => {
+        // The same rule speech and the model take. It is safest of the three to default: every row
+        // records `analyzer_plugin_id`, so a station that measured with the wrong one can say so and
+        // re-measuring is cheap and unattended. Candidates arrive in `byPluginId` order.
+        expect(selectAnalysisPlugin([bundled, other], undefined)).toBe(bundled);
+        expect(selectAnalysisPlugin([bundled, other], '')).toBe(bundled);
     });
 
     it('does not fall back when the named plugin is not running', () => {
@@ -53,14 +58,22 @@ describe('selectAnalysisPlugin', () => {
 });
 
 describe('explainNoAnalyzer', () => {
-    it('tells the three failures apart, because the operator does something different about each', () => {
+    it('tells the two failures apart, because the operator does something different about each', () => {
+        // Two rather than three: "several and none chosen" is no longer a refusal.
         expect(explainNoAnalyzer([], undefined)).toMatch(/install and enable/);
-        expect(explainNoAnalyzer([bundled, other], undefined)).toMatch(new RegExp(`set ${ANALYSIS_PLUGIN_KEY}`));
         expect(explainNoAnalyzer([bundled], 'deadair.someone-elses-analyzer')).toMatch(/names "deadair\.someone-elses-analyzer"/);
     });
+});
 
-    it('names the candidates when the operator has to choose between them', () => {
-        expect(explainNoAnalyzer([bundled, other], undefined)).toContain('deadair.analyzer, deadair.someone-elses-analyzer');
+describe('explainDefaultAnalyzer', () => {
+    it('names what was picked and what it was picked over', () => {
+        // The only place a default analyzer is ever mentioned: unlike a wrong voice, nothing about
+        // a station measured by an analyzer nobody chose looks wrong from the outside.
+        const said = explainDefaultAnalyzer(bundled, [bundled, other]);
+
+        expect(said).toContain('deadair.analyzer');
+        expect(said).toContain('deadair.someone-elses-analyzer');
+        expect(said).toContain(ANALYSIS_PLUGIN_KEY);
     });
 });
 

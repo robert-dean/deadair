@@ -64,29 +64,52 @@ export const byPluginId = (left: SelectablePlugin, right: SelectablePlugin): num
 /**
  * The plugin to use, out of the ones that currently can.
  *
- * Three rules, and each one is a decision rather than a fallback:
+ * Two rules, and each one is a decision rather than a fallback:
  *
- * 1. **An unset key picks the only candidate when there is exactly one.** That is
- *    what every station with a single plugin installed looks like, and it means
- *    nobody has to choose before the thing will work.
- * 2. **Several candidates and no choice answers `undefined`.** Picking for an
- *    operator who installed two is worse than saying nothing, because whatever
- *    was picked then looks deliberate.
- * 3. **A named plugin that is not a candidate answers `undefined`, without
+ * 1. **An unset key takes the FIRST candidate**, which needs no choosing at all
+ *    when there is one and is a default when there are several. Callers pass
+ *    candidates in {@link byPluginId} order, so "first" is a stable answer rather
+ *    than whatever the disk scan happened to find.
+ * 2. **A named plugin that is not a candidate answers `undefined`, without
  *    falling back.** The setting names what the station is supposed to use;
  *    quietly using a different one because that one is disabled is how a station
- *    ends up wrong with nothing in the log to explain it.
+ *    ends up wrong with nothing in the log to explain it. Rule 1 is a default and
+ *    this is an instruction, which is the whole difference between them.
  *
- * The caller reports the reason, through {@link explainNoPlugin}.
+ * ## Why rule 1 is not "several and no choice answers nothing"
+ *
+ * It was, on the argument that picking for an operator who installed two is worse
+ * than saying nothing because whatever was picked then looks deliberate. That
+ * argument weighs a wrong-looking choice against silence, and for speech silence
+ * is what it actually costs: installing a second TTS plugin took the station off
+ * the air until somebody visited a settings page. Everywhere else the station has
+ * this choice it goes the other way — the writer registry falls through, the set
+ * chain tops up, the floor cannot fail — and the objection is answered by SAYING
+ * SO rather than by refusing: the caller logs which plugin it picked and which it
+ * passed over, so an unchosen default is visible instead of looking deliberate.
+ *
+ * The caller reports the reason it got nothing, through {@link explainNoPlugin}.
  */
-export function selectSolePlugin<TPlugin extends SelectablePlugin>(
-    candidates: readonly TPlugin[],
-    configured: string | undefined,
-): TPlugin | undefined {
+export function selectPlugin<TPlugin extends SelectablePlugin>(candidates: readonly TPlugin[], configured: string | undefined): TPlugin | undefined {
     const wanted = configured?.trim();
     if (wanted !== undefined && wanted.length > 0) return candidates.find(candidate => candidate.record.id === wanted);
 
-    return candidates.length === 1 ? candidates[0] : undefined;
+    return candidates[0];
+}
+
+/**
+ * Whether this answer was a default rather than the operator's choice, so a
+ * caller can say so once.
+ *
+ * Separate from {@link selectPlugin} because it is about REPORTING and the
+ * selection is about choosing: folding it in would make every caller destructure
+ * a pair to ask a question only one of them needs. True only when the station has
+ * more than one candidate and named none of them — a single installed plugin is
+ * not a decision anybody needs telling about.
+ */
+export function pickedByDefault(candidates: readonly SelectablePlugin[], configured: string | undefined): boolean {
+    const wanted = configured?.trim();
+    return (wanted === undefined || wanted.length === 0) && candidates.length > 1;
 }
 
 /** The words that make a refusal specific to one capability. */
@@ -100,30 +123,85 @@ export interface CapabilityWording {
 }
 
 /**
- * Why {@link selectSolePlugin} answered `undefined`, in a sentence an operator
- * can act on.
+ * Why {@link selectPlugin} answered `undefined`, in a sentence an operator can
+ * act on.
  *
- * Separate from the selection because there are three distinct failure modes and
- * only one `undefined`: nothing installed, several installed with none chosen,
- * and a chosen one that is not running. Which of the three it was decides what
- * the operator does next, so it cannot be left as "no plugin".
+ * Separate from the selection because there are two distinct failure modes and
+ * only one `undefined`: nothing installed, and a chosen one that is not running.
+ * Which of the two it was decides what the operator does next, so it cannot be
+ * left as "no plugin".
  *
  * Three capabilities wrote this out identically. Only the wording differs, and
  * only in the three places {@link CapabilityWording} names — the branches, their
  * order, and the id list are the same argument every time.
  *
- * Note the middle sentence is deliberately not a fault in any of them. A station
- * with no model plugin writes its breaks deterministically and a station with no
- * analyzer still plays records, so "nothing installed" is an ordinary state that
- * happens to be worth explaining.
+ * Note neither sentence is a fault in any of them. A station with no model plugin
+ * writes its breaks deterministically and a station with no analyzer still plays
+ * records, so "nothing installed" is an ordinary state that happens to be worth
+ * explaining.
+ *
+ * There used to be a third branch, for several candidates with none chosen. That
+ * is no longer a refusal — {@link selectPlugin} takes the first and the caller
+ * says which — so the sentence for it moved to {@link explainDefaultPick}, where
+ * it reads as a note rather than as something to go and fix.
  */
 export function explainNoPlugin(candidates: readonly SelectablePlugin[], configured: string | undefined, wording: CapabilityWording): string {
     const wanted = configured?.trim();
     if (wanted !== undefined && wanted.length > 0) {
         return `${wording.key} names "${wanted}", which is not an active plugin that can ${wording.can}`;
     }
-    if (candidates.length === 0) return `no active plugin can ${wording.can}; ${wording.remedy}`;
+    return `no active plugin can ${wording.can}; ${wording.remedy}`;
+}
 
-    const ids = candidates.map(candidate => candidate.record.id).join(', ');
-    return `several plugins can ${wording.can} (${ids}); set ${wording.key} to choose one`;
+/**
+ * That the station chose for itself, and what it passed over.
+ *
+ * The other half of the bargain {@link selectPlugin} strikes: taking the first
+ * candidate is only better than refusing if the choice is visible, or it is
+ * exactly the "whatever was picked looks deliberate" failure the refusal was
+ * guarding against. Written for a log line and for the console beside the engine
+ * it is actually using, which is why it names the alternatives — the operator's
+ * next move is to set the key, and they need to know what to set it to.
+ */
+export function explainDefaultPick(chosen: SelectablePlugin, candidates: readonly SelectablePlugin[], wording: CapabilityWording): string {
+    const others = candidates.filter(candidate => candidate.record.id !== chosen.record.id).map(candidate => candidate.record.id);
+    return `${wording.key} is unset, so "${chosen.record.id}" was chosen to ${wording.can}; ${others.join(', ')} could too`;
+}
+
+/**
+ * What each capability has already been told about its own default pick.
+ *
+ * Module state, and deliberately: the three services that ask are all SCOPED, so an instance field
+ * would hold nothing between two calls and every one of them would report again. `speaker()` runs on
+ * every commit pass, which is a line every track boundary for as long as the operator leaves the key
+ * unset.
+ *
+ * In memory rather than anywhere durable, on `ReadLog`'s argument: this holds "have I said this
+ * yet", a question whose whole lifetime is this process, and a restart costs one repeated log line
+ * rather than a migration. Keyed by the SETTING, since that is what identifies the capability, and
+ * valued by the answer — so an install, an uninstall, or the operator finally choosing all report
+ * again, and a steady state says nothing.
+ */
+const reportedDefaults = new Map<string, string>();
+
+/**
+ * Whether this default pick is news, marking it reported if so.
+ *
+ * The edge, so a caller is one `if` rather than its own memory. Returns false for a station whose
+ * key is set or which has only one candidate, because neither is a decision anybody needs telling
+ * about — see {@link pickedByDefault}.
+ */
+export function defaultPickIsNews(chosen: SelectablePlugin, candidates: readonly SelectablePlugin[], settingKey: string): boolean {
+    if (candidates.length <= 1) return false;
+
+    const answer = `${chosen.record.id}\n${candidates.map(candidate => candidate.record.id).join(',')}`;
+    if (reportedDefaults.get(settingKey) === answer) return false;
+
+    reportedDefaults.set(settingKey, answer);
+    return true;
+}
+
+/** Forget what has been reported. For tests, which must not inherit another test's edge. */
+export function resetDefaultPickReports(): void {
+    reportedDefaults.clear();
 }

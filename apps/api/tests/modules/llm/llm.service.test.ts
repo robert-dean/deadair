@@ -89,7 +89,9 @@ describe('choosing a generator', () => {
         // next generation instead of on the next restart.
         const { service, set } = serviceFor([fakeLlmPlugin({ id: 'a' }), fakeLlmPlugin({ id: 'b' })]);
 
-        expect(service.generator()).toBeUndefined();
+        // Unset takes the first in id order rather than refusing, so the station always has a model
+        // to reach for. Setting the key is how an operator overrides that.
+        expect(service.generator()?.record.id).toBe('a');
 
         set(LLM_PLUGIN_KEY, 'b');
         expect(service.generator()?.record.id).toBe('b');

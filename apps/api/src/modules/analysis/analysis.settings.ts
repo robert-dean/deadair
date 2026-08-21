@@ -9,7 +9,7 @@
  */
 
 import type { AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { explainNoPlugin, selectSolePlugin } from '#modules/plugins/plugin.selection.js';
+import { explainDefaultPick, explainNoPlugin, selectPlugin, type CapabilityWording } from '#modules/plugins/plugin.selection.js';
 
 /** The `deadair.settings` key. Dot-keyed, like every other setting. */
 export const ANALYSIS_PLUGIN_KEY = 'analysis.pluginId';
@@ -36,40 +36,50 @@ export const DEFAULT_ANALYSIS_CONCURRENCY = 1;
  */
 export const MAX_ANALYSIS_CONCURRENCY = 32;
 
+/** What this capability is called in the sentences the operator reads. */
+const ANALYSIS_WORDING: CapabilityWording = {
+    key: ANALYSIS_PLUGIN_KEY,
+    can: 'measure audio',
+    remedy: 'install and enable an analyzer plugin',
+};
+
 /**
  * The plugin to measure with, out of the ones that currently can.
  *
- * `selectSolePlugin`'s rule, and what it means here: one analyzer installed
- * needs no choosing, several with none chosen picks nothing rather than
- * measuring with whichever loaded first, and a named plugin that is disabled
- * does not silently become a different analyzer.
+ * `selectPlugin`'s rule, and what it means here: an unset key takes the first
+ * analyzer in id order, and a named plugin that is disabled does not silently
+ * become a different analyzer.
  *
- * That last rule matters more here than for speech, because the failure is
+ * That second rule matters more here than for speech, because the failure is
  * invisible rather than audible. A station that speaks in the wrong voice is
  * obvious in one break; a station whose records were measured by an analyzer
  * nobody chose looks exactly like one measured by the right one, until the
- * transitions are wrong and there is nothing to attribute it to. `analyzer_plugin_id`
- * is stored on every row for the same reason.
+ * transitions are wrong and there is nothing to attribute it to.
+ * `analyzer_plugin_id` is stored on every row for the same reason — and it is
+ * also what makes a DEFAULT pick recoverable here rather than merely reported,
+ * since the rows say who measured them and a re-measure is cheap and unattended.
  */
 export function selectAnalysisPlugin(candidates: readonly AnalysisPlugin[], configured: string | undefined): AnalysisPlugin | undefined {
-    return selectSolePlugin(candidates, configured);
+    return selectPlugin(candidates, configured);
 }
 
 /**
  * Why there is nobody to measure with, in a sentence an operator can act on.
  *
- * Separate from {@link selectAnalysisPlugin} because the selection has three
+ * Separate from {@link selectAnalysisPlugin} because the selection has two
  * distinct failure modes and one `undefined`. Told apart here so the job can log
  * which one, which is the only way an operator finds out at all: unlike speech,
  * nothing about a station with no analyzer looks wrong from the outside.
  */
 export function explainNoAnalyzer(candidates: readonly AnalysisPlugin[], configured: string | undefined): string {
-    return explainNoPlugin(candidates, configured, {
-        key: ANALYSIS_PLUGIN_KEY,
-        can: 'measure audio',
-        remedy: 'install and enable an analyzer plugin',
-    });
+    return explainNoPlugin(candidates, configured, ANALYSIS_WORDING);
 }
+
+/** That the station chose its own analyzer, and which others it could have used. */
+export function explainDefaultAnalyzer(chosen: AnalysisPlugin, candidates: readonly AnalysisPlugin[]): string {
+    return explainDefaultPick(chosen, candidates, ANALYSIS_WORDING);
+}
+
 
 /**
  * How many measurements to keep in flight, from whatever the setting says.

@@ -2,11 +2,11 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { PluginError, type SpeechHandle, type SpeechRequest, type SpeechVoice } from '@deadair/plugin-sdk';
 import { asSpeechPlugin, type SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
+import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { explainNoSpeaker, selectSpeechPlugin, SPEECH_PLUGIN_KEY } from './speech.settings.js';
+import { explainDefaultSpeaker, explainNoSpeaker, selectSpeechPlugin, SPEECH_PLUGIN_KEY } from './speech.settings.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentExtension } from './segment.store.js';
 import { SpeechGate, type SpeechGateOptions } from './speech.gate.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
@@ -124,7 +124,17 @@ export class SpeechService {
         const configured = this.configuredSpeaker;
         const chosen = selectSpeechPlugin(candidates, configured);
 
-        if (chosen === undefined) this.logger.info(`render: nothing to speak with (${explainNoSpeaker(candidates, configured)})`);
+        if (chosen === undefined) {
+            this.logger.info(`render: nothing to speak with (${explainNoSpeaker(candidates, configured)})`);
+            return undefined;
+        }
+
+        // On the edge only. This runs on every commit pass, so reporting it every time would be a
+        // line per track boundary for as long as the key stays unset — and saying it once is the
+        // whole bargain that lets an unset key pick rather than refuse.
+        if (defaultPickIsNews(chosen, candidates, SPEECH_PLUGIN_KEY)) {
+            this.logger.info(`render: ${explainDefaultSpeaker(chosen, candidates)}`);
+        }
         return chosen;
     }
 

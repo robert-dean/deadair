@@ -12,12 +12,12 @@ import {
     type LlmUsage,
 } from '@deadair/plugin-sdk';
 import { asLlmPlugin, type LlmPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
+import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import type { GatePriority } from '#modules/shared/gate.priority.js';
 import { LlmGate } from './llm.gate.js';
-import { explainNoGenerator, LLM_PLUGIN_KEY, selectLlmPlugin } from './llm.settings.js';
+import { explainDefaultGenerator, explainNoGenerator, LLM_PLUGIN_KEY, selectLlmPlugin } from './llm.settings.js';
 import { ToolRegistry, type StationTool } from './llm.tools.js';
 import { strayToolCall } from './stray.tool.call.js';
 
@@ -302,7 +302,17 @@ export class LlmService {
         const configured = this.configuredGenerator;
         const chosen = selectLlmPlugin(candidates, configured);
 
-        if (chosen === undefined) this.logger.info(`llm: nothing to think with (${explainNoGenerator(candidates, configured)})`);
+        if (chosen === undefined) {
+            this.logger.info(`llm: nothing to think with (${explainNoGenerator(candidates, configured)})`);
+            return undefined;
+        }
+
+        // On the edge only, for `SpeechService.speaker`'s reason: an unset key picking rather than
+        // refusing is only honest if the choice is said out loud, and only bearable if it is said
+        // once.
+        if (defaultPickIsNews(chosen, candidates, LLM_PLUGIN_KEY)) {
+            this.logger.info(`llm: ${explainDefaultGenerator(chosen, candidates)}`);
+        }
         return chosen;
     }
 

@@ -3,7 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION, type AnalysisRef, type TrackAnalysis } from '@deadair/plugin-sdk';
 import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { pluginsWith } from '#modules/plugins/plugin.selection.js';
+import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { TrackAudioResolver } from '#modules/playout/providers/track.audio.resolver.js';
@@ -17,6 +17,7 @@ import {
     DEFAULT_ANALYSIS_CONCURRENCY,
     DEFAULT_ANALYSIS_LOCAL_PACE_MS,
     DEFAULT_ANALYSIS_PROVIDER_PACE_MS,
+    explainDefaultAnalyzer,
     explainNoAnalyzer,
     resolveAnalysisConcurrency,
     resolveAnalysisPaceMs,
@@ -91,9 +92,15 @@ export class AnalysisService {
      * A list rather than the choice, because the caller that has to explain
      * itself needs to know how many there were: "none installed" and "several
      * and you have not picked" are different sentences and different fixes.
+     *
+     * Sorted, like `SpeechService.speakers` and `LlmService.generators`, and it
+     * is load-bearing rather than tidy now: an unset key takes the FIRST
+     * candidate, and installation order is whatever the disk scan found, so
+     * without this a station with two analyzers could measure with a different
+     * one after a restart and nothing would say so.
      */
     candidates(): AnalysisPlugin[] {
-        return pluginsWith(this.registry.list(), asAnalysisPlugin);
+        return pluginsWith(this.registry.list(), asAnalysisPlugin).sort(byPluginId);
     }
 
     /**
@@ -111,6 +118,14 @@ export class AnalysisService {
 
         if (chosen === undefined) {
             this.logger.info('analysis: nothing to measure with', { reason: explainNoAnalyzer(candidates, configured) });
+            return undefined;
+        }
+
+        // On the edge only, for `SpeechService.speaker`'s reason. It matters more here than there,
+        // because nothing about a station measured by an analyzer nobody chose looks wrong from the
+        // outside: this line is the only place it is ever said.
+        if (defaultPickIsNews(chosen, candidates, ANALYSIS_PLUGIN_KEY)) {
+            this.logger.info(`analysis: ${explainDefaultAnalyzer(chosen, candidates)}`);
         }
         return chosen;
     }

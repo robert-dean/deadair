@@ -642,7 +642,27 @@ outlasts the item's own projected slot is a miss rather than a wait — and `Dir
 marks them `unavailable`, which splices, reopens any break that promised one, and moves `remaining()`
 so a refill is sent. The planner judges a backoff against a slot it projects from item durations plus
 `COMMITTED_LEAD_MS`, because the head of the warm window is not the record playing now and the planner
-cannot see how much of what is committed is left.
+cannot see how much of what is committed is left. **Both of those judgements apply to a CATALOGUED
+record only**, guarded on `trackId` exactly as `toPlayerItems` guards the same question one window
+later: `findForBindings` joins from `track_sources`, so a record the catalog has never seen is absent
+from it for the same reason a benched one is, and reading the two as one fact marked 125 records of a
+519-item order permanently unavailable within eight minutes of a fresh install. `withLocalAudio`
+carries the same guard, because with no binding there is no id to fetch and cutting at one was a wall
+the order could never get past.
+
+**A cold station wakes itself, and says what it is doing.** A commit pass runs on a rundown CHANGE and
+nothing else, and off air `WARM_LEAD` is 0 so the change never comes — the pass that would ask for the
+bytes is the pass that only runs once they arrive. `WARM_TICK_MS` is the one loop the director has, and
+it posts a wake only while `waitingOnAudioSince` stands, so a healthy station pays two comparisons and
+a recovered one stops asking without anything turning it off. That wait now means "no RECORD was
+committed" at both ends: a segment rides the window for free, so a pass that handed over one break used
+to clear a wait every word of which was still true. `TrackCachePlanner` also answers how many records
+are actually in flight, which is what splits the one wait into `warmingUp` (working, never a fault) and
+`waitingOnAudio` (stuck, escalating). And `warmup` is a segment kind, so a listener who arrives into
+the first download hears the station say so — canned from `media/segments/inbox/warmup/` if the operator
+recorded one, `WarmUpWriter`'s own phrasings otherwise, one at a time, only with the gate open, and only
+while the wait is an ordinary one. It names no record, because the records it covers for are the ones
+`thin` may yet remove.
 
 **The player fetches every record from the app, and the app is the only thing that fetches a provider.**
 `TrackAudioResolver` answers `/playout/audio/{sourceId}` for any binding that is `playable and
@@ -731,7 +751,7 @@ audience, so in `audience` mode a station with nobody actually tuned in stays si
 watch it, which is the gate telling the truth rather than a fault.
 
 **Every gate that can silence the station says so, in ONE ordered answer.** `silence.diagnosis.ts` is
-ten gates over a `StationFacts` snapshot, pure so the precedence can be tested without a stack, and
+eleven gates over a `StationFacts` snapshot, pure so the precedence can be tested without a stack, and
 `PlayoutStatus.silence` carries the verdict on the reading the console already polls — so the badge,
 the strip and the `/onair` panel read one answer instead of the three partial inferences they each
 used to derive. **The ordering is causal**: a stalled reconcile loop ranks above `streamUp` and
@@ -742,7 +762,13 @@ cannot reach its stream are both silent and only one wants fixing — the same a
 badge exists on. `configNotAdopted` is reported and **never the cause**, since a station can air
 perfectly well to somebody who connected before the config was replaced. And `notDriving` is the
 RESIDUE: dropping the lease is what the dead-man switch and the audience gate are FOR, so it is a
-fault only when nothing above accounts for it. Nothing is stored; the one database read is
+fault only when nothing above accounts for it. `warmingUp` is the newest and sits just above
+`waitingOnAudio`, splitting a state that had to describe both a station downloading its first records
+and one whose provider had stopped answering — it never escalates, because it cannot last: when the
+fetches stop the count falls to zero and the check below it takes over with its own clock. It is also
+the one gate that must outrank `airing` on a technicality, since `hasProgramme` is true of a queued
+holding message and the station would otherwise report itself as broadcasting its show while looping
+"give us a moment". Nothing is stored; the one database read is
 `station_air`, because whether an operator stood the station down is the only fact not in memory. A
 cause CHANGE is logged on the edge, keyed like `StreamConfigWatch`'s warnings, and it is written to
 `deadair.station_events` on the same edge, which is what makes "why was the station quiet at 3am"

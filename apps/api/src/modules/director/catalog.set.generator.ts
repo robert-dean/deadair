@@ -3,7 +3,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { advisoryPolicy, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 import { AdvisoryWatch } from './advisory.watch.js';
-import { CandidatesRepository, type CandidateTrack } from './candidates.repository.js';
+import { EraWatch } from './era.watch.js';
+import { CandidatesRepository, bindsAnything, type CandidateTrack, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import { applyRules, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
@@ -24,6 +25,13 @@ import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js
  * flow beyond keeping one artist off its own heels. Everything it does is a rule
  * an operator could state out loud, which is the right amount of judgement for
  * something with no ears.
+ *
+ * **{@link SetInputs.era} is the one thing it does honour**, and the distinction is exactly the one
+ * the paragraph below draws. A brief is an instruction and reading one takes something that can
+ * read; a period is two integers, so narrowing the draw on it approximates nothing and the floor
+ * stays the thing that cannot fail. That is why a period is a column beside the brief rather than
+ * words inside it: prose reaches a model and nothing else, so a station asked for a decade in words
+ * plays any decade the moment no model is configured.
  *
  * **{@link SetInputs.brief} is ignored here, deliberately.** Reading an instruction takes something
  * that can read, and any attempt to approximate one — matching the words against a genre column,
@@ -48,6 +56,7 @@ export class CatalogSetGenerator extends SetGenerator {
         private readonly identity: StationIdentity,
         private readonly config: AppConfig,
         private readonly watch: AdvisoryWatch,
+        private readonly eraWatch: EraWatch,
     ) {
         super();
     }
@@ -72,8 +81,12 @@ export class CatalogSetGenerator extends SetGenerator {
         // Read per refill rather than held, like every other setting the director reads, so an
         // operator changing it is obeyed on the next batch rather than after a restart.
         const policy = advisoryPolicy(this.config);
-        const sampled = await this.candidates.sample(count, policy);
-        await this.watchStarvation(policy, count, sampled.length);
+        // The ONE thing this binding honours about what the operator asked for, and the reason is
+        // that it is not an instruction: a year range is exact, so narrowing on it costs the floor
+        // none of the guarantee that keeps it the floor. The brief beside it stays unread.
+        const era = inputs.era;
+        const sampled = await this.candidates.sample(count, policy, era);
+        await this.watchStarvation(policy, era, count, sampled.length);
         const scored = sampled.map(toRotationCandidate);
 
         // The same rules `PickResolver` applies to every pick from every generator, applied
@@ -101,13 +114,30 @@ export class CatalogSetGenerator extends SetGenerator {
      * change, the other is a library to fill. Without this the operator gets a silent station and
      * a feed saying the chain came up short, which is true of both.
      */
-    private async watchStarvation(policy: AdvisoryPolicy, count: number, drawn: number): Promise<void> {
+    private async watchStarvation(policy: AdvisoryPolicy, era: EraWindow | undefined, count: number, drawn: number): Promise<void> {
         if (drawn > 0) {
             this.watch.clear();
+            this.eraWatch.clear();
             return;
         }
+
+        // The PERIOD is asked about first, because it is the one an operator chose for this
+        // broadcast and can undo in one edit — where the advisory is a standing station policy. A
+        // draw emptied by both would otherwise be reported as the harder of the two to fix.
+        if (bindsAnything(era)) {
+            const withoutEra = await this.candidates.sample(count, policy);
+            if (withoutEra.length > 0) {
+                this.eraWatch.starved(era, withoutEra.length);
+                return;
+            }
+        }
+        this.eraWatch.clear();
+
         if (!demandsClean(policy)) return;
 
+        // Asked WITHOUT the period as well, so a station that is both clean-only and inside a
+        // narrow decade is not told its advisory is the problem when the decade is: this arm is only
+        // reached when the period alone was not enough to explain the empty draw.
         const withoutPolicy = await this.candidates.sample(count, 'prefer-explicit');
         // A library that is empty either way is not this rule's doing, and claiming it would send
         // the operator to change a setting that was never the problem.

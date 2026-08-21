@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import type { AdvisoryWatch } from '../../../src/modules/director/advisory.watch.js';
+import type { EraWatch } from '../../../src/modules/director/era.watch.js';
 import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { CatalogSetGenerator } from '../../../src/modules/director/catalog.set.generator.js';
 import type { CandidatesRepository, CandidateTrack } from '../../../src/modules/director/candidates.repository.js';
@@ -47,8 +48,15 @@ function build(options: Options = {}) {
     } as unknown as AppConfig;
 
     const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as AdvisoryWatch;
+    const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as EraWatch;
 
-    return { generator: new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch), candidates, history, watch };
+    return {
+        generator: new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch, eraWatch),
+        candidates,
+        history,
+        watch,
+        eraWatch,
+    };
 }
 
 const rotation = resolveRules('rotation');
@@ -158,7 +166,55 @@ describe('CatalogSetGenerator', () => {
         const { generator, candidates } = build({ sample: [candidate('A', 'One')], settings: { [ADVISORY_KEY]: 'clean-only' } });
         await generator.generate({ count: 1, rules: rotation });
 
-        expect(candidates.sample).toHaveBeenCalledWith(1, 'clean-only');
+        expect(candidates.sample).toHaveBeenCalledWith(1, 'clean-only', undefined);
+    });
+
+    it('narrows the draw by the PERIOD, which is the one thing the floor honours', async () => {
+        // The distinction the whole binding turns on: a brief is an instruction and reading one
+        // takes something that can read, while a year range is two integers. Approximating nothing
+        // is what lets the thing that cannot fail act on it, and it is why a station asked for a
+        // decade still plays one with no model configured.
+        const { generator, candidates } = build({ sample: [candidate('A', 'One')] });
+
+        await generator.generate({ count: 1, rules: rotation, era: { from: 1970, to: 1979 } });
+
+        expect(candidates.sample).toHaveBeenCalledWith(1, 'prefer-explicit', { from: 1970, to: 1979 });
+    });
+
+    it('still ignores the brief beside it', async () => {
+        const { generator } = build({ sample: [candidate('A', 'One')] });
+
+        expect(await generator.generate({ count: 1, rules: rotation, brief: 'flamenco guitar' })).toHaveLength(1);
+    });
+
+    it('says the period starved it when the draw is empty and the same draw without it is not', async () => {
+        // The period's own version of the second query below, and it is asked FIRST: an operator
+        // chose the period for this broadcast and can undo it in one edit, where the advisory is a
+        // standing station policy. A draw emptied by both would otherwise be reported as the harder
+        // of the two to fix.
+        const { generator, candidates, eraWatch } = build();
+        vi.mocked(candidates.sample)
+            .mockImplementationOnce(async () => [])
+            .mockImplementationOnce(async () => [candidate('A', 'One'), candidate('B', 'Two')]);
+
+        expect(await generator.generate({ count: 4, rules: rotation, era: { from: 1930, to: 1939 } })).toEqual([]);
+        expect(eraWatch.starved).toHaveBeenCalledWith({ from: 1930, to: 1939 }, 2);
+    });
+
+    it('blames the period for nothing when the library is empty without it too', async () => {
+        const { generator, eraWatch } = build();
+
+        await generator.generate({ count: 4, rules: rotation, era: { from: 1930, to: 1939 } });
+
+        expect(eraWatch.starved).not.toHaveBeenCalled();
+    });
+
+    it('clears the period watch on any draw that found something', async () => {
+        const { generator, eraWatch } = build({ sample: [candidate('A', 'One')] });
+
+        await generator.generate({ count: 1, rules: rotation, era: { from: 1970, to: 1979 } });
+
+        expect(eraWatch.clear).toHaveBeenCalled();
     });
 
     it('says the policy starved it when the draw is empty and the same draw without it is not', async () => {

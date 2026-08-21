@@ -291,6 +291,43 @@ describe('setPrompt', () => {
         expect(systemOf(briefed)).not.toMatch(/heavy metal hits/);
     });
 
+    it('states a period as numbers, and names the parameters that carry it', () => {
+        // The whole reason a period is a field rather than words in the brief: the model is told
+        // elsewhere never to write "80s" in a query, so the instruction has to say what to pass
+        // instead or it is a rule with no action attached.
+        const user = userOf(setPrompt({ count: 5, avoid: [], era: { from: 1970, to: 1979 } }));
+
+        expect(user).toMatch(/between 1970 and 1979/);
+        expect(user).toMatch(/yearFrom and yearTo/);
+    });
+
+    it('takes either end of a period alone, rather than leaving a sentence half-written', () => {
+        expect(userOf(setPrompt({ count: 5, avoid: [], era: { from: 1990 } }))).toMatch(/in 1990 or later/);
+        expect(userOf(setPrompt({ count: 5, avoid: [], era: { to: 1989 } }))).toMatch(/in 1989 or earlier/);
+    });
+
+    it('tells the model an undated record is still fine, so it agrees with the search', () => {
+        // The station has decided an unknown year is eligible for any period, and the search behaves
+        // that way. A prompt saying "only records from the seventies" would have the model drop the
+        // undated rows it is handed, or announce that the library has nothing.
+        expect(userOf(setPrompt({ count: 5, avoid: [], era: { from: 1970, to: 1979 } }))).toMatch(/no year at all is fine/);
+    });
+
+    it('sends a period beside a brief rather than instead of it', () => {
+        // Unlike the persona `music` line this replaces, which had to be WITHHELD from a briefed
+        // refill because two prose descriptions made a local model split the difference. A range and
+        // a style are not competing claims: "power ballads, 1980 to 1989" is one instruction.
+        const user = userOf(setPrompt({ count: 5, avoid: [], brief: 'power ballads', era: { from: 1980, to: 1989 } }));
+
+        expect(user).toMatch(/power ballads/);
+        expect(user).toMatch(/between 1980 and 1989/);
+    });
+
+    it('says nothing about a period the broadcast does not have', () => {
+        expect(userOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/yearFrom/);
+        expect(userOf(setPrompt({ count: 5, avoid: [], era: {} }))).not.toMatch(/yearFrom/);
+    });
+
     it('says nothing about a brief that is absent or blank', () => {
         expect(userOf(setPrompt({ count: 5, avoid: [] }))).not.toMatch(/operator has asked/i);
         expect(userOf(setPrompt({ count: 5, avoid: [], brief: '   ' }))).not.toMatch(/operator has asked/i);

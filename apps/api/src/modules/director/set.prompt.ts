@@ -159,6 +159,24 @@ export interface SetPromptRequest {
      * none of the {@link NEVER_ECHO} hazard the avoid list does.
      */
     brief?: string;
+    /**
+     * The PERIOD this broadcast plays, inclusive, as four-digit years.
+     *
+     * In the USER turn beside {@link brief}, because it is the same instruction's exact half and
+     * belongs where the model reads what this refill is for. Both ends are optional and either may
+     * stand alone.
+     *
+     * **Sent whether or not there is also a prose brief**, which is the one thing here that departs
+     * from how a persona's `music` line used to be handled. That was withheld from a briefed refill
+     * because two prose descriptions of the music made a local model split the difference; a range
+     * and a style are not competing claims — "power ballads, 1980 to 1989" is one instruction — and
+     * a number cannot be split the difference on.
+     *
+     * It is ADVICE here, exactly like {@link SetPromptSettings.taste}'s dislikes: `PickResolver`
+     * drops an out-of-period pick whatever the model does, so a model that ignores this cannot air
+     * the wrong decade. It can only waste the picks it spent on one.
+     */
+    era?: { from?: number; to?: number };
 }
 
 /**
@@ -429,6 +447,36 @@ function tasteLines(taste: TastePrompt | undefined): string[] {
     return lines;
 }
 
+/**
+ * The period as one sentence of the user turn, or `undefined` for a broadcast with no bounds.
+ *
+ * Three shapes rather than one with an open end left dangling, because "between 1970 and " is a
+ * sentence a model has to guess the end of, and the two open forms are ordinary requests: a station
+ * that plays nothing before 1990 has said something complete.
+ */
+function periodLine(era: { from?: number; to?: number } | undefined): string | undefined {
+    const from = era?.from;
+    const to = era?.to;
+    if (from === undefined && to === undefined) return undefined;
+
+    const window =
+        from !== undefined && to !== undefined
+            ? `first released between ${from} and ${to}`
+            : from !== undefined
+              ? `first released in ${from} or later`
+              : `first released in ${to} or earlier`;
+
+    // The last clause is the one that stops a model refusing to answer. A search narrowed to a
+    // period returns records the catalogue has no year for as well as the ones inside it, so a model
+    // told "only records from the seventies" and handed an undated row would either drop it or
+    // announce that the library has nothing — and the station has already decided an unknown year is
+    // eligible, so the prompt has to agree with the search rather than contradict it.
+    return (
+        `Every record must be ${window}. Pass yearFrom and yearTo to search_music on every search so it only returns those, ` +
+        'and never put the years in the query text. A record the search returns with no year at all is fine to choose.'
+    );
+}
+
 function userPrompt(request: SetPromptRequest): string {
     const lines = [`Choose ${request.count} records for the station to play next.`];
 
@@ -436,6 +484,13 @@ function userPrompt(request: SetPromptRequest): string {
     if (brief) {
         lines.push('', 'The operator has asked for this, and it is what these records are for:', brief);
     }
+
+    // Beside the brief and stated as NUMBERS, because that is the whole reason it is a field rather
+    // than words in the brief: the model is told elsewhere never to write "80s" in a query and to
+    // pass `yearFrom`/`yearTo` instead, and this is what it passes. The tool call is named so the
+    // instruction is actionable rather than a fact about the station to be borne in mind.
+    const period = periodLine(request.era);
+    if (period !== undefined) lines.push('', period);
 
     if (request.avoid.length > 0) {
         const shown = request.avoid.slice(0, MAX_AVOID_SHOWN);

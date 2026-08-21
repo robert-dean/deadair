@@ -266,7 +266,16 @@ export class ModelSetGenerator extends SetGenerator {
         // `length` finishes gets the new one on the next refill rather than at the next restart.
         const answerCeiling = maxOutputTokens(this.config);
         const messages = setPrompt(
-            { count: inputs.count, avoid: describeAvoided(inputs), ...(inputs.brief === undefined ? {} : { brief: inputs.brief }) },
+            {
+                count: inputs.count,
+                avoid: describeAvoided(inputs),
+                ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
+                // Sent whether or not there is also a prose brief, unlike the persona's `music` line
+                // that used to be here: a range and a style are not competing claims, so there is
+                // nothing for a model to split the difference between. It is advice either way —
+                // `PickResolver` drops an out-of-period pick whatever comes back.
+                ...(inputs.era === undefined ? {} : { era: inputs.era }),
+            },
             {
                 station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                 taste: await this.describeTaste(),

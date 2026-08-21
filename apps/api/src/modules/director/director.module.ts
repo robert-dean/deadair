@@ -19,6 +19,7 @@ import { CandidatesRepository } from './candidates.repository.js';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { ClockService } from './clock.service.js';
 import { AdvisoryWatch } from './advisory.watch.js';
+import { EraWatch } from './era.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
 import { ModelSetGenerator } from './model.set.generator.js';
@@ -73,6 +74,10 @@ export const DirectorModule: ServerKitModule = {
         // producer writes on edges — so the flag saying "already said this" has to outlive the
         // per-refill scope the discovery happens in. See `AdvisoryWatch`.
         registry.register(AdvisoryWatch).useClass(AdvisoryWatch).asSingleton();
+        // Its sibling, singleton for the same reason and holding a little more: the PERIOD it last
+        // reported on, so an operator who narrows a decade after reading the first row is answered
+        // again rather than suppressed. See `EraWatch`.
+        registry.register(EraWatch).useClass(EraWatch).asSingleton();
         registry.register(CatalogSetGenerator).useClass(CatalogSetGenerator).asScoped();
         // How the model binding tells the job that a break took the model off it, which is the one
         // way a refill can come back thin that is worth asking again about. SCOPED, unlike the watch

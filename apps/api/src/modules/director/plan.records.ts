@@ -36,6 +36,8 @@ export interface PlanRequest {
     rules: ResolvedRules;
     /** What the operator asked for, read off the running order rather than carried in a payload. */
     brief?: string;
+    /** The period it plays, read off the running order beside the brief and for the same reason. */
+    era?: { from?: number; to?: number };
     /** Songs not to choose again: what the order already holds, or what it is about to stop holding. */
     avoidSongKeys: ReadonlySet<string>;
 }
@@ -102,6 +104,7 @@ export const planRecords = async (
             count: Math.ceil(request.count * OVERSAMPLE),
             rules: request.rules,
             ...(request.brief ? { brief: request.brief } : {}),
+            ...(request.era === undefined ? {} : { era: request.era }),
             avoidSongKeys: request.avoidSongKeys,
         });
 
@@ -113,7 +116,7 @@ export const planRecords = async (
         preemption?.onRetry?.(attempt);
     }
 
-    const resolved = await resolver.resolve(picks, request.rules);
+    const resolved = await resolver.resolve(picks, request.rules, [], request.era);
 
     return {
         // Back down to what was asked for. The oversample is headroom against what the rules and

@@ -9,7 +9,7 @@ import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import type { MeasuredLoudness } from '#modules/playout/gain.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { advisoryPolicy, demandsClean } from './advisory.policy.js';
-import { CandidatesRepository } from './candidates.repository.js';
+import { CandidatesRepository, bindsAnything, withinPeriod, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { artistKey, songKey } from './rotation.keys.js';
@@ -272,8 +272,16 @@ export class PickResolver {
      *   every pick is judged against here whatever chose it.
      * @param preference - Plugin ids in the operator's order, for a work several
      *   providers can serve.
+     * @param era - The period this broadcast plays, when it was asked for one. Judged HERE for the
+     *   reason everything else is: a pick is a NAME, so a generator that never read the catalog can
+     *   hand over a record from the wrong decade and mean no harm by it.
      */
-    async resolve(picks: readonly TrackPick[], rules: ResolvedRules, preference: readonly string[] = []): Promise<RundownTrack[]> {
+    async resolve(
+        picks: readonly TrackPick[],
+        rules: ResolvedRules,
+        preference: readonly string[] = [],
+        era?: EraWindow,
+    ): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
         const policy = advisoryPolicy(this.config);
@@ -281,7 +289,7 @@ export class PickResolver {
         const identified = await this.identify(picks);
         if (identified.length === 0) return [];
 
-        const eligible = await this.judge(identified, rules);
+        const eligible = await this.judge(identified, rules, era);
         if (eligible.length === 0) return [];
 
         const trackIds = eligible.map(entry => entry.trackId);
@@ -363,11 +371,16 @@ export class PickResolver {
      * exists, so a missing rating is a join that found no album rather than a record nobody has an
      * opinion about, and dropping on it would silently refuse tracks for having no artwork.
      */
-    private async judge(identified: readonly Identified[], rules: ResolvedRules): Promise<Identified[]> {
-        const [ratings, songKeys, artistKeys] = await Promise.all([
-            this.candidates.ratingsFor(identified.map(entry => entry.trackId)),
+    private async judge(identified: readonly Identified[], rules: ResolvedRules, era?: EraWindow): Promise<Identified[]> {
+        const trackIds = identified.map(entry => entry.trackId);
+        const [ratings, songKeys, artistKeys, years] = await Promise.all([
+            this.candidates.ratingsFor(trackIds),
             this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
             this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
+            // Only when there is a period to judge against. An unbriefed broadcast pays no round
+            // trip for a question nobody asked, which is the same shape the two window reads above
+            // take when their rules are switched off.
+            bindsAnything(era) ? this.candidates.yearsFor(trackIds) : Promise.resolve(new Map<string, number>()),
         ]);
 
         const judged = identified.map(entry => {
@@ -375,10 +388,23 @@ export class PickResolver {
             return rating === undefined ? entry : { ...entry, rating };
         });
 
-        const eligible = applyRules(judged, rules, { songKeys, artistKeys });
-        if (eligible.length < identified.length) {
+        // Beside `rejectDisliked` rather than inside `applyRules`, and for `rotation.advisory`'s
+        // reason: `NO_RULES` zeroes that bag, and a SETLIST — whose whole mechanism is starting from
+        // the rules off — would silently begin playing any decade. The period is not a rotation rule,
+        // it is what the broadcast IS.
+        const inPeriod = bindsAnything(era) ? judged.filter(entry => withinPeriod(years.get(entry.trackId), era)) : judged;
+        if (inPeriod.length < judged.length) {
+            this.logger.debug('director: some chosen tracks fall outside the period this broadcast plays', {
+                offered: judged.length,
+                kept: inPeriod.length,
+                era,
+            });
+        }
+
+        const eligible = applyRules(inPeriod, rules, { songKeys, artistKeys });
+        if (eligible.length < inPeriod.length) {
             this.logger.debug('director: the rotation rules dropped some chosen tracks', {
-                offered: identified.length,
+                offered: inPeriod.length,
                 kept: eligible.length,
             });
         }

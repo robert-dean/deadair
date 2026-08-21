@@ -270,8 +270,9 @@ describe('SetGeneratorChain with the real bindings', () => {
         // this helper exists to be the chain's floor, not to exercise the policy.
         const config = { get: (_key: string, fallback?: unknown) => fallback } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[3];
         const watch = { starved: vi.fn(), clear: vi.fn() } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[4];
+        const eraWatch = { starved: vi.fn(), clear: vi.fn() } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[5];
 
-        return new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch);
+        return new CatalogSetGenerator(candidates, history, new StationIdentity(), config, watch, eraWatch);
     }
 
     /** The model binding as an operator who never turned it on has it. */

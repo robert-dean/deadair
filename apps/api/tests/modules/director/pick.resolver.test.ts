@@ -76,6 +76,8 @@ interface Options {
     ingestSkips?: boolean;
     /** The canonical id an ingest answers with. */
     ingestsAs?: string;
+    /** The release year the catalog knows per track id. A track absent from this has none. */
+    years?: Record<string, number>;
 }
 
 const binding = (trackId: string, pluginId = 'deadair.spotify', durationMs?: number): TrackBinding => ({
@@ -105,6 +107,14 @@ function build(options: Options = {}) {
             for (const id of trackIds) {
                 const rating = options.ratings?.[id];
                 if (rating !== undefined) found.set(id, rating);
+            }
+            return found;
+        }),
+        yearsFor: vi.fn(async (trackIds: readonly string[]) => {
+            const found = new Map<string, number>();
+            for (const id of trackIds) {
+                const year = options.years?.[id];
+                if (year !== undefined) found.set(id, year);
             }
             return found;
         }),
@@ -897,5 +907,68 @@ describe('PickResolver loudness', () => {
         expect(resolved).not.toHaveProperty('loudnessLufs');
         expect(resolved).not.toHaveProperty('truePeakDb');
         expect(resolved).not.toHaveProperty('samplePeakDb');
+    });
+});
+
+describe('the period a broadcast plays', () => {
+    // Judged HERE for the reason everything else is: a pick is a NAME, so a generator that never
+    // read the catalog can hand over a record from the wrong decade and mean no harm by it. A model
+    // is told the period in its prompt and this is what makes it true.
+    const period = (years: Record<string, number>) =>
+        build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+            metadata: { 'track-1': { title: 'A', credit: 'One' }, 'track-2': { title: 'B', credit: 'Two' } },
+            years,
+        });
+
+    const picks = [
+        { title: 'A', artist: 'One', trackId: 'track-1' },
+        { title: 'B', artist: 'Two', trackId: 'track-2' },
+    ];
+
+    it('drops a pick from outside it, whatever named the record', async () => {
+        const { resolver } = period({ 'track-1': 1975, 'track-2': 1994 });
+
+        const resolved = await resolver.resolve(picks, OPEN_RULES, [], { from: 1970, to: 1979 });
+
+        expect(resolved.map(track => track.title)).toEqual(['A']);
+    });
+
+    it('keeps a record the catalog has no year for, rather than demanding one', async () => {
+        // The decision the whole feature rests on, and the opposite call to `clean-only`: an
+        // advisory is a content policy where silence must not read as consent, and a period is
+        // programming, where dropping a record the station owns for want of a tag costs the hour.
+        const { resolver } = period({ 'track-2': 1994 });
+
+        const resolved = await resolver.resolve(picks, OPEN_RULES, [], { from: 1970, to: 1979 });
+
+        expect(resolved.map(track => track.title)).toEqual(['A']);
+    });
+
+    it('takes either end of the period alone', async () => {
+        const { resolver: onwards } = period({ 'track-1': 1975, 'track-2': 1994 });
+        expect((await onwards.resolve(picks, OPEN_RULES, [], { from: 1990 })).map(track => track.title)).toEqual(['B']);
+
+        const { resolver: earlier } = period({ 'track-1': 1975, 'track-2': 1994 });
+        expect((await earlier.resolve(picks, OPEN_RULES, [], { to: 1979 })).map(track => track.title)).toEqual(['A']);
+    });
+
+    it('asks the catalog for no years at all when the broadcast named no period', async () => {
+        // An unbriefed broadcast pays no round trip for a question nobody asked, which is the shape
+        // the two history window reads beside it already take when their rules are off.
+        const { resolver, candidates } = period({ 'track-1': 1975 });
+
+        await resolver.resolve(picks, OPEN_RULES);
+
+        expect(candidates.yearsFor).not.toHaveBeenCalled();
+    });
+
+    it('reads an empty window as no period, rather than as bounds nothing can satisfy', async () => {
+        const { resolver, candidates } = period({ 'track-1': 1975, 'track-2': 1994 });
+
+        const resolved = await resolver.resolve(picks, OPEN_RULES, [], {});
+
+        expect(resolved.map(track => track.title)).toEqual(['A', 'B']);
+        expect(candidates.yearsFor).not.toHaveBeenCalled();
     });
 });

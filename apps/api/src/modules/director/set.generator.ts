@@ -50,6 +50,20 @@ export interface SetInputs {
      * satisfy gets an ordinary hour rather than a short one.
      */
     brief?: string;
+    /**
+     * The PERIOD this broadcast plays, inclusive, as four-digit years.
+     *
+     * The brief's exact half, and the one part of an instruction that is not free text — which is
+     * exactly why the deterministic floor reads this where it ignores {@link brief}. That rule is
+     * about approximation: reading words takes something that can read, and a guess would make the
+     * thing that cannot fail depend on how well the guess landed. **A year range is not a guess.**
+     * So `CatalogSetGenerator` narrows its draw on this and stays deaf to the brief, and a station
+     * asked for a decade keeps playing one when no model is configured at all.
+     *
+     * Either end may stand alone. A record whose year the catalog does not know is ELIGIBLE for any
+     * period; see `0007_director.sql` for why that is the opposite call to `clean-only`.
+     */
+    era?: { from?: number; to?: number };
     /** Songs not to choose, beyond whatever history says: what the lineup already holds. */
     avoidSongKeys?: ReadonlySet<string>;
     /** Artists not to choose, for the same reason. */

@@ -27,6 +27,59 @@ export interface CandidateTrack {
     rating: number;
 }
 
+/**
+ * A period a draw may be narrowed to, inclusive, as four-digit years.
+ *
+ * The same shape `StationLineup.era` and `SetInputs.era` carry, so the range an operator typed is
+ * one object all the way from the console form to the SQL rather than a pair of loose numbers that
+ * three signatures each spell differently.
+ */
+export interface EraWindow {
+    from?: number;
+    to?: number;
+}
+
+/**
+ * The period predicate, as one expression both callers share.
+ *
+ * **A null year passes both bounds**, which is the decision the whole feature rests on and the
+ * reason this is a helper rather than two inline comparisons: it is the thing easiest to get wrong,
+ * and getting it wrong in one of the two places would make a record eligible for the draw and
+ * ineligible at the resolver, which reads from the outside as a refill that silently runs short.
+ *
+ * It is the opposite call to `clean-only` in {@link CandidatesRepository.sample} beside it, and
+ * deliberately: an advisory is a content policy where silence must not read as consent, and a period
+ * is programming, where dropping a record the station owns for want of a tag costs the hour. The
+ * album's year is the fallback because a provider dates a release rather than a recording.
+ */
+const withinEra = (era: EraWindow) => {
+    const released = sql<number | null>`coalesce(deadair.tracks.year, deadair.albums.year)`;
+    const bounds = [
+        ...(era.from === undefined ? [] : [sql`${released} >= ${era.from}`]),
+        ...(era.to === undefined ? [] : [sql`${released} <= ${era.to}`]),
+    ];
+
+    return sql<boolean>`(${released} is null or (${sql.join(bounds, sql` and `)}))`;
+};
+
+/** Whether a window actually bounds anything. Neither end set is no period at all. */
+export const bindsAnything = (era: EraWindow | undefined): era is EraWindow => era !== undefined && (era.from !== undefined || era.to !== undefined);
+
+/**
+ * {@link withinEra} in memory, for a pick that has already been resolved to a catalog row.
+ *
+ * The same rule said twice, in two languages, because the two places it is applied genuinely cannot
+ * share an expression: one narrows a draw in SQL and one judges a batch of picks a model named. They
+ * have to AGREE, though — a record eligible for the draw and ineligible at the resolver is a refill
+ * that silently runs short — so they are kept beside each other, and the one thing to check when
+ * either changes is that an undefined year still passes both.
+ */
+export const withinPeriod = (year: number | undefined, era: EraWindow): boolean => {
+    if (year === undefined) return true;
+
+    return (era.from === undefined || year >= era.from) && (era.to === undefined || year <= era.to);
+};
+
 /** A playable copy of a work, in one provider's id space. */
 export interface TrackBinding {
     trackId: string;
@@ -100,11 +153,18 @@ export class CandidatesRepository extends DataRepository {
      * version is missing would shrink the pool for a preference that was going to
      * be met by the other copy anyway.
      *
+     * An ERA narrows it too, and that is the one thing the deterministic floor honours about what
+     * the operator asked for. `CatalogSetGenerator` ignores the brief by design — reading an
+     * instruction takes something that can read, and approximating one would make the thing that
+     * cannot fail depend on how well a guess landed — and a year range is not a guess. So a station
+     * asked for a decade keeps playing one with no model configured at all, which is what makes the
+     * period a column rather than words in the brief. See {@link withinEra} for the null rule.
+     *
      * `order by random()` reads the whole candidate set, which is honest at the
      * scale this runs at — a station's library is thousands of rows, and this runs
      * once per refill in a background job, not per request.
      */
-    async sample(count: number, policy: AdvisoryPolicy = ADVISORY_DEFAULT): Promise<CandidateTrack[]> {
+    async sample(count: number, policy: AdvisoryPolicy = ADVISORY_DEFAULT, era?: EraWindow): Promise<CandidateTrack[]> {
         const limit = Math.min(SAMPLE_CEILING, Math.max(1, count) * SAMPLE_MULTIPLIER);
 
         const rows = await this.db
@@ -129,6 +189,7 @@ export class CandidatesRepository extends DataRepository {
             .where('deadair.tracks.rating', '<>', -1)
             .where('deadair.artists.rating', '<>', -1)
             .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
+            .$if(bindsAnything(era), qb => qb.where(withinEra(era!)))
             .orderBy(sql`random()`)
             .limit(limit)
             .execute();
@@ -170,6 +231,42 @@ export class CandidatesRepository extends DataRepository {
 
         for (const row of rows) ratings.set(row.trackId, Number(row.rating));
         return ratings;
+    }
+
+    /**
+     * When a batch of works was first released, as far as this catalog knows.
+     *
+     * {@link ratingsFor}'s sibling, and it exists for the same reason: a pick can arrive from a
+     * generator that never touched this repository, and the period a broadcast was asked for has to
+     * be true of every pick whatever named it.
+     *
+     * The album's year is the fallback because a provider dates a RELEASE rather than a recording,
+     * so `tracks.year` and `albums.year` are the same fact arriving at whichever level the payload
+     * named. `coalesce` and not `least`: the track's is the more specific claim and enrichment is
+     * what writes it.
+     *
+     * **A track with no year answers with nothing rather than a number**, and that distinction is
+     * the whole point. "The catalog has no year for this" and "this record is from 1900" are
+     * different facts, and only the caller knows that the first one means the pick is eligible for
+     * any period.
+     */
+    async yearsFor(trackIds: readonly string[]): Promise<Map<string, number>> {
+        const years = new Map<string, number>();
+        if (trackIds.length === 0) return years;
+
+        const rows = await this.db
+            .selectFrom('deadair.tracks')
+            .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
+            .select('deadair.tracks.id as trackId')
+            .select(sql<number | null>`coalesce(deadair.tracks.year, deadair.albums.year)`.as('year'))
+            .where('deadair.tracks.id', 'in', [...trackIds])
+            .execute();
+
+        // `== null` deliberately: the runtime driver hands back `undefined` for SQL NULL while the
+        // generated types say `null`, so a `=== null` test here is always false and every undated
+        // record would arrive as `NaN`. See the note in CLAUDE.md.
+        for (const row of rows) if (row.year != null) years.set(row.trackId, Number(row.year));
+        return years;
     }
 
     /**

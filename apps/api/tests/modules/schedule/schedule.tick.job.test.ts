@@ -131,8 +131,8 @@ describe('ScheduleTickJob', () => {
 
         await tick();
 
-        expect(console.putOnAir.mock.calls[0]?.[0]).not.toHaveProperty('eraFrom');
-        expect(console.putOnAir.mock.calls[0]?.[0]).not.toHaveProperty('eraTo');
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('eraFrom');
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('eraTo');
     });
 
     it('carries the sustaining period through a gap too', async () => {
@@ -141,7 +141,7 @@ describe('ScheduleTickJob', () => {
         await tick();
 
         expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining', eraFrom: 1990 }));
-        expect(console.putOnAir.mock.calls[0]?.[0]).not.toHaveProperty('eraTo');
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('eraTo');
     });
 
     it('carries on through a gap when no sustaining source is named, and says so once', async () => {

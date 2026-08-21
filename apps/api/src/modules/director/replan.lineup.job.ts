@@ -93,6 +93,10 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 // Read off the order, exactly as a refill does: a replan may have just changed it, and
                 // whatever it says now is what this hour is programmed against.
                 ...(lineup.brief ? { brief: lineup.brief } : {}),
+                // Beside the brief and read the same way, because it is the brief's exact half: the
+                // period holds for the whole broadcast rather than for one batch, and it is the one
+                // part of the instruction the deterministic floor can honour on its own.
+                ...(lineup.era === undefined ? {} : { era: lineup.era }),
                 // **The whole difference between this and a shuffle.** The keys cover the tail that is
                 // about to be discarded, so the generator cannot hand most of it straight back:
                 // `play_history` only knows what actually aired, and none of these records has.

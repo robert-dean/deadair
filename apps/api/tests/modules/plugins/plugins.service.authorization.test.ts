@@ -65,6 +65,19 @@ const oauthInstance = {
     handleCallback: vi.fn(async () => {}),
 };
 
+/**
+ * A provider that can genuinely fill a library.
+ *
+ * Both catalog methods, because declaring the capability is not enough: `implementsCatalog` requires
+ * the implementation too, so the seeded record above — which is the OAuth pair — is deliberately NOT
+ * one of these.
+ */
+const catalogInstance = {
+    ...oauthInstance,
+    listPlaylists: vi.fn(async () => ({ items: [] })),
+    getPlaylistTracks: vi.fn(async () => ({ items: [] })),
+};
+
 function record(id: string, overrides: Partial<PluginRecord> = {}): PluginRecord {
     return { id, dir: `/plugins/${id}`, status: 'active', manifest: manifest({ id }), instance: oauthInstance as never, ...overrides };
 }
@@ -137,6 +150,8 @@ interface Harness {
     lifecycleManager: PluginLifecycleManager;
     registry: PluginRegistry;
     afterCommit: AfterCommit;
+    /** Only ever asked for a catalog sync after a provider's settings change. */
+    jobs: { send: ReturnType<typeof vi.fn> };
 }
 
 /**
@@ -181,6 +196,8 @@ function makeService(
     // The real one, not a stub: these routes register the reinit with it instead of
     // running it inline, so a test that wants to see the reinit has to run it.
     const afterCommit = new AfterCommit();
+    // Only ever asked for a catalog sync after a provider's settings change.
+    const jobs = { send: vi.fn(async () => 'job-1') };
     const service = new PluginsService(
         registry,
         configService,
@@ -192,12 +209,13 @@ function makeService(
         accessControl,
         stubPluginLog().log,
         afterCommit,
+        jobs as never,
         { actor: { kind: 'system', sessionToken: '', source: 'test' } } as never,
         { record: vi.fn(async () => undefined) } as never,
         { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
     );
 
-    return { service, accessControl, requireSpy, canAccessSpy, listVisibleIdsSpy, configService, lifecycleManager, registry, afterCommit };
+    return { service, accessControl, requireSpy, canAccessSpy, listVisibleIdsSpy, configService, lifecycleManager, registry, afterCommit, jobs };
 }
 
 /** Asserts the rejection is a 403 `HttpError`. */
@@ -513,6 +531,44 @@ describe('PluginsService: reinitializing after a write', () => {
         expect(lifecycleManager.reinitPlugin).not.toHaveBeenCalled();
         await afterCommit.run();
         expect(lifecycleManager.reinitPlugin).toHaveBeenCalledExactlyOnceWith(SPOTIFY_ID);
+    });
+
+    // `catalog.sync` is hourly cron and nothing had ever sent one, so a station given its first
+    // provider had no catalog at all until the top of the next hour — with the operator who has just
+    // finished onboarding being exactly the person about to put something on air.
+    it('asks the provider it just reconfigured to fill the library', async () => {
+        const { service, registry, afterCommit, jobs } = makeService(userActor('u-owner', []), owner());
+        registry.upsert(record(SPOTIFY_ID, { instance: catalogInstance as never }));
+
+        await service.updatePluginConfig(SPOTIFY_ID, { config: {} });
+
+        expect(jobs.send).not.toHaveBeenCalled();
+        await afterCommit.run();
+        // Scoped to this plugin: a settings save must not cost a walk of every provider.
+        expect(jobs.send).toHaveBeenCalledExactlyOnceWith('catalog.sync', { pluginId: SPOTIFY_ID });
+    });
+
+    it('asks nothing of a plugin that cannot fill a library', async () => {
+        // The seeded instance is the OAuth pair and implements neither catalog method, so the
+        // capability is declared and not available — which `asCatalogPlugin` treats as not one.
+        const { service, afterCommit, jobs } = makeService(userActor('u-owner', []), owner());
+
+        await service.updatePluginConfig(SPOTIFY_ID, { config: {} });
+        await afterCommit.run();
+
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
+
+    // A config write that is already durable must not be reported as a failure because a background
+    // nicety could not be queued. `AfterCommit` deliberately does not catch, so this one does.
+    it('still answers when the sync could not be queued', async () => {
+        const { service, registry, afterCommit, jobs } = makeService(userActor('u-owner', []), owner());
+        registry.upsert(record(SPOTIFY_ID, { instance: catalogInstance as never }));
+        jobs.send.mockRejectedValue(new Error('the broker is gone'));
+
+        await service.updatePluginConfig(SPOTIFY_ID, { config: {} });
+
+        await expect(afterCommit.run()).resolves.toBeUndefined();
     });
 
     // The one that failed silently rather than hanging: `initNow` read the stored flag as

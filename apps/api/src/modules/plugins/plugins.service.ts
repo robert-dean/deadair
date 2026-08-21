@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
+import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type ConfigFieldOption, type PluginManifest } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
@@ -9,6 +10,7 @@ import { AuthorizationContext } from '#modules/permissions/authorization.context
 import { safeChannel } from '#src/logging/rotating.log.store.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginConfigService, type PluginConfigReadModel } from './plugin.config.service.js';
+import { asCatalogPlugin } from './plugin.capabilities.js';
 import { pluginHttpError } from './plugin.error.http.js';
 import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
@@ -140,6 +142,9 @@ export class PluginsService {
         private readonly accessControl: AccessControlService,
         private readonly pluginLog: PluginLog,
         private readonly afterCommit: AfterCommit,
+        // Only ever to ask for a catalog sync when a provider's settings change. Nothing here runs
+        // work of its own; see {@link syncCatalogAfterCommit}.
+        private readonly jobs: JobBroker,
         // Who is asking, and the feed to say so on. Every write here is an operator's decision
         // about what the station can reach, which is exactly what `station_events.actor_id` is for.
         private readonly context: AuthorizationContext,
@@ -185,6 +190,41 @@ export class PluginsService {
      */
     private reinitAfterCommit(id: string): void {
         this.afterCommit.add(() => this.pluginLifecycleManager.reinitPlugin(id));
+    }
+
+    /**
+     * Fill the library from a provider whose settings just changed.
+     *
+     * `catalog.sync` is hourly cron and nothing in the app has ever sent one, so until this existed
+     * a station that had just been given its first provider had **no catalog at all** until the top
+     * of the next hour. That is not a cosmetic wait: `PickResolver` matches against the catalog, the
+     * ripener needs a `track_sources` row to have anything to fetch, and an operator who has just
+     * finished onboarding is precisely the person about to put something on air.
+     *
+     * Registered AFTER {@link reinitAfterCommit}, and reading the record only once it runs, because
+     * `asCatalogPlugin` asks whether the plugin can be called RIGHT NOW. Before the reinit the
+     * record still holds the instance built from the old settings — on a first-time setup, no
+     * instance at all — so asking early would skip a sync for exactly the plugin that most needs
+     * one.
+     *
+     * Scoped to the plugin, which is what `CatalogSyncPayload.pluginId` has always been for and what
+     * nothing ever passed. A settings save should not cost a walk of every provider the station has.
+     *
+     * Swallowed, unlike the reinit above it. `AfterCommit` deliberately does not catch, so a throw
+     * here would reach the error handler over a config write that is already durable, and tell the
+     * operator their save failed when it did not. The hourly run is the retry.
+     */
+    private syncCatalogAfterCommit(id: string): void {
+        this.afterCommit.add(async () => {
+            const record = this.pluginRegistry.get(id);
+            if (!record || !asCatalogPlugin(record)) return;
+
+            try {
+                await this.jobs.send('catalog.sync', { pluginId: id });
+            } catch (error) {
+                this.pluginLog.for(id).warn('could not ask for a catalog sync after a settings change', { error: serverkitErrorText(error) });
+            }
+        });
     }
 
     /**
@@ -234,6 +274,9 @@ export class PluginsService {
         await this.validateSubmission(manifest, body.config);
         await this.pluginConfigService.saveConfig(id, manifest.configFields, body.config);
         this.reinitAfterCommit(id);
+        // On the config WRITE and not on `reloadPlugin`, which writes nothing: hanging a library
+        // walk off an operation that changed no settings would sync on every reload.
+        this.syncCatalogAfterCommit(id);
         // Which plugin was reconfigured, never WHAT was set: half of a plugin's config is
         // credentials, and unlike the log store this table has no redaction pass.
         this.note(id, 'plugin.configured', `An operator changed the ${id} plugin's settings.`);

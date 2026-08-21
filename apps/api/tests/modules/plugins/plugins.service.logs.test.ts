@@ -148,6 +148,8 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture, readModel: P
         accessControl,
         pluginLog,
         new AfterCommit(),
+        // Only ever asked for a catalog sync after a provider's settings change.
+        { send: vi.fn(async () => 'job-1') } as never,
         { actor: { kind: 'system', sessionToken: '', source: 'test' } } as never,
         { record: vi.fn(async () => undefined) } as never,
         { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
@@ -243,6 +245,8 @@ describe('PluginsService: downloadPluginLogs Content-Disposition', () => {
             accessControl,
             pluginLog,
             new AfterCommit(),
+            // Only ever asked for a catalog sync after a provider's settings change.
+            { send: vi.fn(async () => 'job-1') } as never,
             { actor: { kind: 'system', sessionToken: '', source: 'test' } } as never,
             { record: vi.fn(async () => undefined) } as never,
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,

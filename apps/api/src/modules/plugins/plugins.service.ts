@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
-import { JobBroker } from '@maroonedsoftware/jobbroker';
+import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type ConfigFieldOption, type PluginManifest } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
@@ -142,9 +142,13 @@ export class PluginsService {
         private readonly accessControl: AccessControlService,
         private readonly pluginLog: PluginLog,
         private readonly afterCommit: AfterCommit,
-        // Only ever to ask for a catalog sync when a provider's settings change. Nothing here runs
-        // work of its own; see {@link syncCatalogAfterCommit}.
-        private readonly jobs: JobBroker,
+        // The SINGLETON broker rather than the scoped `JobBroker`, which is the one distinction that
+        // matters here: the scoped one enlists in the request's transaction, and the only send in
+        // this class runs from `AfterCommit`, which by definition is after that transaction has
+        // committed. Measured against the running station — the send answered
+        // "Transaction is already committed" and the sync silently never happened, which the unit
+        // test could not see because a stubbed broker resolves either way.
+        private readonly jobs: PgBossJobBroker,
         // Who is asking, and the feed to say so on. Every write here is an operator's decision
         // about what the station can reach, which is exactly what `station_events.actor_id` is for.
         private readonly context: AuthorizationContext,

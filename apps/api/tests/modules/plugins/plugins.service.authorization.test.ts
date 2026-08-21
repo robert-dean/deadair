@@ -536,6 +536,13 @@ describe('PluginsService: reinitializing after a write', () => {
     // `catalog.sync` is hourly cron and nothing had ever sent one, so a station given its first
     // provider had no catalog at all until the top of the next hour — with the operator who has just
     // finished onboarding being exactly the person about to put something on air.
+    //
+    // What this CANNOT check is which broker the send goes through, and that turned out to be the
+    // whole of it: a stub resolves whether or not the real one would. The scoped `JobBroker` enlists
+    // in the request's transaction, so sending from `AfterCommit` — which runs after that
+    // transaction commits — answered "Transaction is already committed" against the running station
+    // and the sync silently never happened. The singleton `PgBossJobBroker` is the one for a
+    // non-request caller, and the type on the constructor is what pins it now.
     it('asks the provider it just reconfigured to fill the library', async () => {
         const { service, registry, afterCommit, jobs } = makeService(userActor('u-owner', []), owner());
         registry.upsert(record(SPOTIFY_ID, { instance: catalogInstance as never }));
